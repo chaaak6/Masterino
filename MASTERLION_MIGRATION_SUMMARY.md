@@ -1,13 +1,17 @@
 # MasterLion / 小宗狮 Aihub 改造迁移记录
 
-更新时间：2026-06-18
+更新时间：2026-06-20
+
+当前版本：`0.0.1`
+
+GitHub 私有仓库：`https://github.com/chaaak6/MasterLion`
 
 ## 项目位置
 
 当前改造目录：
 
 ```text
-D:\MasterLion\lobehub-canary
+E:\MasterLion\lobehub-canary
 ```
 
 迁移时建议整体移动该目录，尤其保留：
@@ -192,5 +196,5 @@ enabledModels: 23
 
 - `.env` 中包含真实只读数据库连接信息，迁移可以保留，提交或外发前应排除。
 - `newapi` 字样在代码路径和 provider id 中仍会存在，这是兼容层，不是用户可见品牌。
-- `lobechat/lobehub` 字样在 package name、import、内部类型中仍会存在，这是上游 monorepo 结构，不建议重命名。
+- `lobechat/lobehub` 字样在 package name、import、内部类型和历史兼容配置中仍会存在，这是上游 monorepo 结构，不建议直接重命名。
 - 如需彻底改包名，需要单独规划 monorepo rename、数据库枚举迁移、构建别名和第三方包兼容，不属于本轮 Aihub 接入范围。

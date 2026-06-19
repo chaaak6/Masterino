@@ -215,7 +215,7 @@ export default class AuthCtr extends ControllerModule {
 
     const authUrl = new URL('/oidc/auth', remoteUrl);
     authUrl.search = querystring.stringify({
-      client_id: 'lobe-chat',
+      client_id: 'masterlion-desktop',
       redirect_uri: `${protocolPrefix}://auth/callback`,
       response_type: 'code',
       scope: 'openid profile',

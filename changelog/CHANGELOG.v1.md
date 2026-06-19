@@ -2,6 +2,8 @@
 
 # Changelog
 
+> MasterLion archive note: this file is retained only as historical upstream migration reference for pre-0.0.1 changes. The active MasterLion release log starts at [`../CHANGELOG.md`](../CHANGELOG.md).
+
 ## [Version 1.143.0-next.2](https://github.com/lobehub/lobe-chat/compare/v1.143.0-next.1...v1.143.0-next.2)
 
 <sup>Released on **2025-10-30**</sup>

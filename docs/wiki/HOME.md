@@ -1,11 +1,23 @@
-<div align="center">
+# MasterLion Wiki
 
-<img height="120" src="https://registry.npmmirror.com/@lobehub/assets-logo/1.0.0/files/assets/logo-3d.webp">
-<img height="120" src="https://gw.alipayobjects.com/zos/kitchen/qJ3l3EPsdW/split.svg">
-<img height="120" src="https://registry.npmmirror.com/@lobehub/assets-emoji/1.3.0/files/assets/robot.webp">
+MasterLion is the internal 小宗狮 AI Agent workspace. This wiki should document the MasterLion product, Aihub integration, enterprise governance, local deployment, and release operations.
 
-</div>
+## Start Here
 
-![](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
+- [README](../../README.md)
+- [Security Policy](../../SECURITY.md)
+- [Changelog](../../CHANGELOG.md)
+- [Migration Summary](../../MASTERLION_MIGRATION_SUMMARY.md)
+- [Handoffs](../handoff/)
 
-We've moved the contributing wiki to [this page](https://aihub.bielcrystal.com/zh/docs/development/start).
+## Product Focus
+
+- Aihub-backed model access and account binding.
+- RMB quota and token usage visibility.
+- File upload, file analysis, and local S3/RustFS storage.
+- Enterprise permissions, organization controls, and local deployment stability.
+- Offline-friendly behavior for skills, market data, sandbox entrypoints, and web browsing.
+
+## Branding
+
+Use the 小宗狮 / MasterLion brand assets under `public/brand/masterlion/`. Do not use upstream public marketing graphics for new MasterLion docs.

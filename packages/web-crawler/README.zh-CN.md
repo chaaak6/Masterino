@@ -1,10 +1,10 @@
 # @lobechat/web-crawler
 
-LobeHub 内置的网页抓取模块，用于智能提取网页内容并转换为 Markdown 格式。
+MasterLion 内置的网页抓取模块，用于智能提取网页内容并转换为 Markdown 格式。
 
 ## 📝 简介
 
-`@lobechat/web-crawler` 是 LobeHub 的核心组件，负责网页内容的智能抓取与处理。它能够从各类网页中提取有价值的内容，过滤掉干扰元素，并生成结构化的 Markdown 文本。
+`@lobechat/web-crawler` 是 MasterLion 的核心组件，负责网页内容的智能抓取与处理。它能够从各类网页中提取有价值的内容，过滤掉干扰元素，并生成结构化的 Markdown 文本。
 
 ## 🛠️ 核心功能
 
@@ -18,7 +18,7 @@ LobeHub 内置的网页抓取模块，用于智能提取网页内容并转换为
 
 ### 如何贡献 URL 规则
 
-1. 在 [urlRules.ts](https://github.com/lobehub/lobe-chat/blob/main/packages/web-crawler/src/urlRules.ts) 文件中添加新规则
+1. 在 [urlRules.ts](src/urlRules.ts) 文件中添加新规则
 2. 规则示例：
 
 ```typescript
@@ -48,7 +48,7 @@ const url = [
 
 ### 规则提交流程
 
-1. Fork [LobeHub 仓库](https://github.com/lobehub/lobe-chat)
+1. Fork [MasterLion 仓库](https://github.com/chaaak6/MasterLion)
 2. 添加或修改 URL 规则
 3. 提交 Pull Request 并描述：
 
@@ -58,4 +58,4 @@ const url = [
 
 ## 📌 注意事项
 
-这是 LobeHub 的内部模块（`"private": true`），专为 LobeHub 设计，不作为独立包发布使用。
+这是 MasterLion 的内部模块（`"private": true`），专为 MasterLion 设计，不作为独立包发布使用。

@@ -94,7 +94,7 @@ UPDATE_SERVER_URL=http://localhost:8787 bun run dev
 1. 进入 **设置 > Beta**
 2. 在 **Update Channel** 下拉框中选择不同渠道
 3. 切换后应用会自动检查对应渠道的更新
-4. 查看日志确认 feed URL 切换正确：`tail -f ~/Library/Logs/lobehub-desktop-dev/main.log`
+4. 查看日志确认 feed URL 切换正确：`tail -f ~/Library/Logs/masterlion-desktop-dev/main.log`
 
 #### 7. 测试完成后
 
@@ -175,7 +175,7 @@ xattr -cr /path/to/YourApp.app
 **可验证的部分（通过日志）：**
 
 ```bash
-tail -f ~/Library/Logs/lobehub-desktop-dev/main.log | grep -E 'Switching|Configuring|channel|checking'
+tail -f ~/Library/Logs/masterlion-desktop-dev/main.log | grep -E 'Switching|Configuring|channel|checking'
 ```
 
 - Channel 切换: `Switching update channel: stable -> canary`
@@ -190,7 +190,7 @@ tail -f ~/Library/Logs/lobehub-desktop-dev/main.log | grep -E 'Switching|Configu
 ### 1. Channel 切换后仍请求旧渠道
 
 - 确认启动应用时设置了 `UPDATE_SERVER_URL=http://localhost:8787`
-- 查看日志确认 `configureUpdateProvider` 被调用：`grep 'Configuring generic' ~/Library/Logs/lobehub-desktop-dev/main.log`
+- 查看日志确认 `configureUpdateProvider` 被调用：`grep 'Configuring generic' ~/Library/Logs/masterlion-desktop-dev/main.log`
 
 ### 2. 更新检测不到
 

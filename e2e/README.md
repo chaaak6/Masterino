@@ -1,6 +1,6 @@
-# E2E Tests for LobeHub
+# E2E Tests for MasterLion
 
-This directory contains end-to-end (E2E) tests for LobeHub using Cucumber (BDD) and Playwright.
+This directory contains end-to-end (E2E) tests for MasterLion using Cucumber (BDD) and Playwright.
 
 ## Directory Structure
 

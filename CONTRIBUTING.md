@@ -1,88 +1,64 @@
-# MasterLion - Contributing Guide 🌟
+# MasterLion Contributing Guide
 
-We're thrilled that you want to contribute to MasterLion, the future of communication! 😄
+MasterLion is a private, company-internal AI workspace. Contributions should focus on the 小宗狮 product direction: Aihub integration, enterprise governance, local deployment stability, file analysis, model controls, and internal user experience.
 
-MasterLion is an open-source project, and we welcome your collaboration. Before you jump in, let's make sure you're all set to contribute effectively and have loads of fun along the way!
-
-## Table of Contents
-
-- [Fork the Repository](#fork-the-repository)
-- [Clone Your Fork](#clone-your-fork)
-- [Create a New Branch](#create-a-new-branch)
-- [Code Like a Wizard](#code-like-a-wizard)
-- [Committing Your Work](#committing-your-work)
-- [Sync with Upstream](#sync-with-upstream)
-- [Open a Pull Request](#open-a-pull-request)
-- [Review and Collaboration](#review-and-collaboration)
-- [Celebrate 🎉](#celebrate-)
-
-## Fork the Repository
-
-🍴 Fork this repository to your GitHub account by clicking the "Fork" button at the top right. This creates a personal copy of the project you can work on.
-
-## Clone Your Fork
-
-📦 Clone your forked repository to your local machine using the `git clone` command:
+## Repository
 
 ```bash
-git clone https://github.com/YourUsername/lobehub.git
+git clone https://github.com/chaaak6/MasterLion.git
+cd MasterLion
 ```
 
-## Create a New Branch
+The historical upstream codebase still contains legacy package names such as `@lobehub/*` and `@lobechat/*`. Treat those as implementation identifiers. Do not rename package names, provider ids, database enums, or import paths unless the migration impact is reviewed explicitly.
 
-🌿 Create a new branch for your contribution. This helps keep your work organized and separate from the main codebase.
+## Development Flow
+
+1. Start from the current target branch.
+2. Check the workspace before editing:
+
+   ```bash
+   git status -sb
+   git diff --stat
+   ```
+
+3. Keep changes focused and avoid unrelated refactors.
+4. Do not commit secrets, `.env`, `.env.desktop`, `.codex/`, `.next/`, `node_modules/`, logs, or local runtime caches.
+5. Run targeted tests for the touched area before handoff.
+
+## Local Setup
 
 ```bash
-git checkout -b your-branch-name
+corepack enable
+pnpm install
+pnpm run dev
 ```
 
-Choose a meaningful branch name related to your work. It makes collaboration easier!
+Docker remains the preferred deployment mode. During active development, avoid rebuilding images for every source change; rebuild only when preparing a release.
 
-## Code Like a Wizard
+## Validation
 
-🧙‍♀️ Time to work your magic! Write your code, fix bugs, or add new features. Be sure to follow our project's coding style. You can check if your code adheres to our style using:
+Use focused commands:
 
 ```bash
-pnpm lint
+corepack pnpm run type-check
+node .\node_modules\vitest\vitest.mjs run <test-file>
 ```
 
-This adds a bit of enchantment to your coding experience! ✨
+For release validation, also run the Browser Harness acceptance flow when Aihub chat, balance, model selection, or file upload behavior changes.
 
-## Committing Your Work
+## Security and Boundaries
 
-📝 Ready to save your progress? Commit your changes to your branch.
+- The main MasterLion app must not connect directly to the Aihub database.
+- Use `aihub-db-bridge` for controlled read-only Aihub data access.
+- Never expose managed Aihub token values to browser clients.
+- Aihub model lists must be filtered by user group and token model limits.
+- Browser file uploads should go through `/api/upload/s3-proxy`.
 
-```bash
-git add .
-git commit -m "Your meaningful commit message"
-```
+## Pull Requests
 
-Please keep your commits focused and clear. And remember to be kind to your fellow contributors; keep your commits concise.
+Use concise titles and include:
 
-## Sync with Upstream
-
-⚙️ Periodically, sync your forked repository with the original (upstream) repository to stay up-to-date with the latest changes.
-
-```bash
-git remote add upstream https://github.com/lobehub/lobehub.git
-git fetch upstream
-git merge upstream/main
-```
-
-This ensures you're working on the most current version of MasterLion. Stay fresh! 💨
-
-## Open a Pull Request
-
-🚀 Time to share your contribution! Head over to the original MasterLion repository and open a Pull Request (PR). Our maintainers will review your work.
-
-## Review and Collaboration
-
-👓 Your PR will undergo thorough review and testing. The maintainers will provide feedback, and you can collaborate to make your contribution even better. We value teamwork!
-
-## Celebrate 🎉
-
-🎈 Congratulations! Your contribution is now part of MasterLion. 🥳
-
-Thank you for making MasterLion even more magical. We can't wait to see what you create! 🌠
-
-Happy Coding! 🚀🦄
+- what changed
+- why it changed
+- tests run
+- release or deployment impact

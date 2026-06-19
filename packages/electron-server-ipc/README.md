@@ -1,10 +1,10 @@
 # @lobechat/electron-server-ipc
 
-IPC (Inter-Process Communication) module between LobeHub's Electron application and server, providing reliable cross-process communication capabilities.
+IPC (Inter-Process Communication) module between MasterLion's Electron application and server, providing reliable cross-process communication capabilities.
 
 ## 📝 Introduction
 
-`@lobechat/electron-server-ipc` is a core component of LobeHub's desktop application, responsible for handling communication between the Electron main process and Next.js server. It provides a simple yet robust API for passing data and executing remote method calls across different processes.
+`@lobechat/electron-server-ipc` is a core component of MasterLion's desktop application, responsible for handling communication between the Electron main process and Next.js server. It provides a simple yet robust API for passing data and executing remote method calls across different processes.
 
 ## 🛠️ Core Features
 
@@ -62,7 +62,7 @@ IPC server implementations need to handle various communication scenarios and ed
 
 ### Contribution Process
 
-1. Fork the [LobeHub repository](https://github.com/lobehub/lobe-chat)
+1. Fork the [MasterLion repository](https://github.com/chaaak6/MasterLion)
 2. Implement your improvements to the IPC server package
 3. Submit a Pull Request describing:
 
@@ -73,4 +73,4 @@ IPC server implementations need to handle various communication scenarios and ed
 
 ## 📌 Note
 
-This is an internal module of LobeHub (`"private": true`), designed specifically for LobeHub desktop applications and not published as a standalone package.
+This is an internal module of MasterLion (`"private": true`), designed specifically for MasterLion desktop applications and not published as a standalone package.

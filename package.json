@@ -1,6 +1,6 @@
 {
   "name": "@lobehub/lobehub",
-  "version": "2.2.4",
+  "version": "0.0.1",
   "description": "MasterLion - a company-internal AI chat workspace powered by NewAPI.",
   "keywords": [
     "framework",
@@ -16,11 +16,11 @@
   ],
   "homepage": "https://aihub.bielcrystal.com",
   "bugs": {
-    "url": "https://github.com/lobehub/lobehub/issues/new/choose"
+    "url": "https://github.com/chaaak6/MasterLion/issues/new/choose"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/lobehub/lobehub.git"
+    "url": "https://github.com/chaaak6/MasterLion.git"
   },
   "license": "MIT",
   "author": "MasterLion <support@bielcrystal.com>",

@@ -4,7 +4,7 @@
 
 ### 富文本编辑器 (contenteditable) 输入
 
-LobeHub 使用 `@lobehub/editor` 作为聊天输入框，是一个 contenteditable 的富文本编辑器。
+MasterLion 当前仍使用 legacy `@lobehub/editor` 包作为聊天输入框，是一个 contenteditable 的富文本编辑器。
 
 **关键点**:
 

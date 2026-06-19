@@ -2,11 +2,15 @@
 
 Guidelines for using AI coding agents in this MasterLion repository.
 
+Current product version: `0.0.1`.
+
+MasterLion is a company-internal AI Agent workspace for 小宗狮. It is derived from a historical upstream AI chat codebase, but user-facing documentation, release notes, security policy, and product language should describe MasterLion and its Aihub integration. Legacy package names such as `@lobehub/*`, `@lobechat/*`, provider ids, database enums, and import paths are implementation details and must not be renamed casually.
+
 ## Tech Stack
 
 - Next.js 16 + React 19 + TypeScript
 - SPA inside Next.js with `react-router-dom`
-- `@lobehub/ui`, antd for components; antd-style for CSS-in-JS — **prefer `createStaticStyles` with `cssVar.*`** (zero-runtime); only fall back to `createStyles` + `token` when styles genuinely need runtime computation. See `.cursor/docs/createStaticStyles_migration_guide.md`.
+- `@lobehub/ui`, antd for components; antd-style for CSS-in-JS — **prefer `createStaticStyles` with `cssVar.*`** (zero-runtime); only fall back to `createStyles` + `token` when styles genuinely need runtime computation. The package name remains a legacy dependency name.
 - **Component priority**: `@lobehub/ui/base-ui` (headless primitives) **first**, then `@lobehub/ui` root, then antd as last resort. When the component exists in base-ui, use it — never reach for the root or antd counterpart. Base-ui covers `Select`, `Modal` / `createModal` / `confirmModal`, `DropdownMenu`, `ContextMenu`, `Popover`, `ScrollArea`, `Switch`, `Toast`, `FloatingSheet`. Prefer `@lobehub/ui/base-ui` for new code and migrate root-package call sites opportunistically.
 - react-i18next for i18n; zustand for state management
 - SWR for data fetching; TRPC for type-safe backend
@@ -15,12 +19,13 @@ Guidelines for using AI coding agents in this MasterLion repository.
 ## Project Structure
 
 ```plaintext
-lobehub/
+MasterLion/
 ├── apps/
 │   ├── desktop/            # Electron desktop app
 │   ├── cli/                # MasterLion CLI
+│   ├── aihub-db-bridge/    # Read-only Aihub DB bridge service
 │   └── server/             # Server service
-├── packages/               # Shared packages (@lobechat/*)
+├── packages/               # Shared packages, many retaining legacy @lobechat/* names
 │   ├── database/           # Database schemas, models, repositories
 │   ├── agent-runtime/      # Agent runtime
 │   └── ...
@@ -76,10 +81,10 @@ See the **spa-routes** skill (`.agents/skills/spa-routes/SKILL.md`) for the full
 
 ```bash
 # SPA dev mode (frontend only, proxies API to localhost:3010)
-bun run dev:spa
+pnpm run dev:spa
 
 # Full-stack dev (Next.js + Vite SPA concurrently)
-bun run dev
+pnpm run dev
 ```
 
 After `dev:spa` starts, the terminal prints a **Debug Proxy** URL:
@@ -92,11 +97,21 @@ Open this URL to develop locally against the production backend (aihub.bielcryst
 
 ### Git Workflow
 
-- **Branch strategy**: `canary` is the development branch (cloud production); `main` is the release branch (periodically cherry-picks from canary)
-- New branches should be created from `canary`; PRs should target `canary`
+- **Repository**: `https://github.com/chaaak6/MasterLion`
+- **Default branch**: `main`
+- Create focused feature branches from the current target branch. In this workspace, there may already be user or agent changes in progress; inspect `git status -sb` and `git diff --stat` before editing.
 - Use rebase for `git pull`
-- Commit messages: prefix with gitmoji
-- Branch format: `<type>/<feature-name>`
+- Commit messages should be concise and describe the product change.
+- Never stage unrelated user changes silently.
+
+### Aihub and Deployment Boundaries
+
+- The MasterLion app must not connect directly to the Aihub database. Use the standalone `aihub-db-bridge` service for read-only Aihub user/token/model/quota data.
+- Do not expose Aihub managed token values to the browser.
+- Model choices must be filtered by Aihub user group abilities and token `model_limits`.
+- Aihub quota must be shown as RMB amount plus request/token usage, not as raw quota.
+- Browser uploads should use the same-origin `/api/upload/s3-proxy` path. Do not switch browser uploads back to `rustfs:9000`.
+- During development, avoid rebuilding Docker images for every code change. Rebuild images only when the user confirms a release.
 
 ### Package Management
 

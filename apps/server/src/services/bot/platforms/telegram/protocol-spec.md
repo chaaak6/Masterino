@@ -1194,7 +1194,7 @@ Telegram Bot API 有以下速率限制：
 
 通过 `getMe` 接口验证 Bot Token 有效性：
 
-- **Bot 用户名**：@JianXu_Lobehub_Test_Bot
+- **Bot 用户名**：@MasterLion_Test_Bot
 - **Bot ID**：8654315085
 - **验证结果**：Token 有效，Bot 身份确认。
 

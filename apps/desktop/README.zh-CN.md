@@ -1,6 +1,6 @@
 # 🤯 MasterLion 桌面应用程序
 
-MasterLion Desktop 是 [MasterLion](https://github.com/lobehub/lobehub) 的跨平台桌面应用程序，使用 Electron 构建，提供了更加原生的桌面体验和功能。
+MasterLion Desktop 是 [MasterLion](https://github.com/chaaak6/MasterLion) 的跨平台桌面应用程序，使用 Electron 构建，提供了更加原生的桌面体验和功能。
 
 ## ✨ 功能特点
 
@@ -337,7 +337,7 @@ pnpm type-check # 类型验证
 
 ### 贡献流程
 
-1. Fork [MasterLion 仓库](https://github.com/lobehub/lobehub)
+1. Fork 或从 [MasterLion 仓库](https://github.com/chaaak6/MasterLion) 创建分支
 2. 按照我们的设置指南建立桌面开发环境
 3. 对桌面应用程序进行修改
 4. 提交 Pull Request 并描述：
@@ -362,4 +362,4 @@ pnpm type-check # 类型验证
 - **开发指南**：[`Development.md`](./Development.md) - 全面的开发文档
 - **架构文档**：[`/docs`](../../docs/) - 详细的技术规范
 - **贡献指南**：[`CONTRIBUTING.md`](../../CONTRIBUTING.md) - 贡献指导
-- **问题和支持**：[GitHub Issues](https://github.com/lobehub/lobehub/issues)
+- **问题和支持**：[GitHub Issues](https://github.com/chaaak6/MasterLion/issues)
