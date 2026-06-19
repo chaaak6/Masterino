@@ -1,0 +1,35 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "paths": {
+      "@admin/*": ["./src/*"],
+      "@/database/*": ["../../packages/database/src/*"],
+      "@/const/*": ["../../packages/const/src/*", "../../src/const/*"],
+      "@/utils/*": ["../../packages/utils/src/*", "../../src/utils/*"],
+      "@/types/*": ["../../packages/types/src/*", "../../src/types/*"],
+      "@/envs/*": ["../../packages/env/src/*", "../../src/envs/*"],
+      "@/libs/trpc/*": ["../../packages/trpc/src/*", "../../src/libs/trpc/*"],
+      "@/config/*": ["../../packages/app-config/src/*", "../../src/config/*"],
+      "@/locales/*": ["../../packages/locales/src/*", "../../src/locales/*"],
+      "@/business/server/*": ["../../packages/business-server/src/*", "../../src/business/server/*"],
+      "@/server/*": ["../server/src/*", "../../src/server/*"],
+      "@/*": ["../../src/*"],
+      "@masterlion/server/*": ["../server/src/*"],
+      "@masterlion/database/*": ["../../packages/database/src/*"],
+      "@masterlion/types/*": ["../../packages/types/src/*"]
+    },
+    "types": ["vite/client", "vitest/globals"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts",
+    "../../src/**/*.d.ts",
+    "../../packages/**/*.d.ts",
+    "../../next-env.d.ts"
+  ]
+}

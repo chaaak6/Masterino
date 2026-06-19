@@ -1,0 +1,55 @@
+---
+title: 在 MasterLion 中配置 Cloudflare Zero Trust 身份验证
+description: 学习如何在 MasterLion 中配置 Cloudflare Zero Trust SSO，包括创建 Access 应用。
+tags:
+  - Cloudflare Zero Trust
+  - 身份验证
+  - MasterLion
+  - 单点登录
+  - OIDC
+---
+
+# 配置 Cloudflare Zero Trust 身份验证
+
+[Cloudflare Zero Trust](https://www.cloudflare.com/zero-trust/) 无需 VPN 即可提供应用程序的安全访问。
+
+<Steps>
+  ### 创建 Access 应用
+
+  1. 登录 [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/)
+  2. 前往 **Access** > **Applications**
+  3. 点击 **Add an application**，选择 **SaaS**
+  4. 配置应用：
+     - Application name: `MasterLion`
+     - 选择 OIDC 作为认证协议
+     - 在 redirect URIs 中添加回调 URL
+
+  <Callout type={'info'}>
+    **回调 URL 格式**: `https://your-domain.com/api/auth/callback/cloudflare-zero-trust`
+  </Callout>
+
+  5. 记下 **Client ID**、**Client Secret** 和 **Issuer URL**
+
+  ### 配置环境变量
+
+  在部署 MasterLion 时，你需要配置以下环境变量：
+
+  | 环境变量                                | 类型 | 描述                                                      |
+  | ----------------------------------- | -- | ------------------------------------------------------- |
+  | `AUTH_SECRET`                       | 必选 | 用于加密会话令牌的密钥。使用以下命令生成：`openssl rand -base64 32`          |
+  | `AUTH_SSO_PROVIDERS`                | 必选 | SSO 提供商。填写 `cloudflare-zero-trust`                      |
+  | `AUTH_CLOUDFLARE_ZERO_TRUST_ID`     | 必选 | Cloudflare Access 的 Client ID                           |
+  | `AUTH_CLOUDFLARE_ZERO_TRUST_SECRET` | 必选 | Cloudflare Access 的 Client Secret                       |
+  | `AUTH_CLOUDFLARE_ZERO_TRUST_ISSUER` | 必选 | Issuer URL（例如 `https://your-team.cloudflareaccess.com`） |
+
+  <Callout type={'tip'}>
+    前往 [📘 环境变量](/zh/docs/self-hosting/environment-variables/auth#cloudflare-zero-trust) 可查阅相关变量详情。
+  </Callout>
+</Steps>
+
+<Callout type={'info'}>部署成功后，用户将可以通过 Cloudflare Zero Trust 身份认证并使用 MasterLion。</Callout>
+
+## 相关资源
+
+- [Cloudflare Zero Trust 文档](https://developers.cloudflare.com/cloudflare-one/)
+- [配置 OIDC 应用](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/generic-oidc/)

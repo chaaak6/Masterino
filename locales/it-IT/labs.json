@@ -1,0 +1,19 @@
+{
+  "features.agentDocumentFloatingChatPanel.desc": "Mostra il pannello di chat flottante nell'anteprima del documento dell'agente solo quando questa funzione di laboratorio è abilitata.",
+  "features.agentDocumentFloatingChatPanel.title": "Pannello di Chat Flottante per Documenti Agente",
+  "features.agentSelfIteration.desc": "Consenti all'assistente di riflettere, sviluppare autoconsapevolezza e iterare continuamente attraverso tentativi e interazioni continui.",
+  "features.agentSelfIteration.title": "Auto-iterazione dell'agente",
+  "features.assistantMessageGroup.desc": "Raggruppa i messaggi dell'agente e i risultati delle chiamate agli strumenti per una visualizzazione unificata",
+  "features.assistantMessageGroup.title": "Raggruppamento Messaggi Agente",
+  "features.fleet.desc": "Mostra la voce Fleet nella barra del titolo — un pannello affiancato di tutte le attività in corso tra i tuoi agenti.",
+  "features.fleet.title": "Vista Fleet",
+  "features.groupChat.desc": "Abilita il coordinamento della chat di gruppo con più agenti.",
+  "features.groupChat.title": "Chat di Gruppo (Multi-Agente)",
+  "features.imessage.desc": "Collega gli agenti a iMessage tramite il bridge locale MasterLion Desktop BlueBubbles.",
+  "features.imessage.title": "Canale iMessage",
+  "features.inputMarkdown.desc": "Visualizza in tempo reale il Markdown nell'area di input (testo in grassetto, blocchi di codice, tabelle, ecc.).",
+  "features.inputMarkdown.title": "Rendering Markdown in Input",
+  "features.platformAgent.desc": "Mostra la voce \"Connetti Agente\" nel menu di creazione. Gli agenti connessi (ad esempio OpenClaw, Hermes) funzionano sui tuoi dispositivi e comunicano tramite lh connect.",
+  "features.platformAgent.title": "Connetti Agente",
+  "title": "Laboratori"
+}

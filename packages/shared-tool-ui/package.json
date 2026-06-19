@@ -1,0 +1,29 @@
+{
+  "name": "@lobechat/shared-tool-ui",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./components": "./src/components/index.ts",
+    "./renders": "./src/Render/index.ts",
+    "./inspectors": "./src/Inspector/index.ts",
+    "./inspectors/linear-labels": "./src/Inspector/Linear/labels.ts",
+    "./styles": "./src/styles.ts"
+  },
+  "dependencies": {
+    "@lobechat/tool-runtime": "workspace:*",
+    "@lobechat/utils": "workspace:*",
+    "anser": "^2.3.5"
+  },
+  "devDependencies": {
+    "@lobechat/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@lobehub/ui": "^5",
+    "antd-style": "*",
+    "lucide-react": "*",
+    "path-browserify-esm": "*",
+    "react": "*",
+    "react-i18next": "*"
+  }
+}

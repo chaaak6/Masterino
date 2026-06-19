@@ -1,0 +1,19 @@
+{
+  "action.connect.button": "连接 {{provider}}",
+  "action.connect.error": "连接失败，请重试。",
+  "action.connect.popupBlocked": "连接弹出窗口被阻止。请在浏览器中允许弹出窗口以继续。",
+  "action.connect.short": "授权",
+  "action.connecting": "等待授权…",
+  "action.create.error": "创建任务失败，请稍后再试",
+  "action.create.success": "定时任务已创建，可在 Lobe AI 中查看",
+  "action.createButton": "添加任务",
+  "action.creating": "创建中…",
+  "action.dismiss.error": "操作失败，请稍后再试",
+  "action.dismiss.tooltip": "不感兴趣",
+  "action.refresh.button": "换一批",
+  "card.templateTag": "模板",
+  "schedule.daily": "每天 {{time}}",
+  "schedule.editableAfterCreateTooltip": "创建后可调整执行时间。",
+  "schedule.weekly": "每{{weekday}} {{time}}",
+  "section.title": "试试这些定时任务"
+}

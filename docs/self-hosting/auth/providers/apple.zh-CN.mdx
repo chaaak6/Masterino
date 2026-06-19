@@ -1,0 +1,127 @@
+---
+title: 在 MasterLion 中配置 Apple 身份验证
+description: 学习如何在 MasterLion 中配置 Apple 登录，包括在 Apple Developer Portal 创建凭证和设置环境变量。
+tags:
+  - Apple
+  - 身份验证
+  - MasterLion
+  - 单点登录
+---
+
+# 配置 Apple 身份验证
+
+<Callout type={'warning'}>
+  Apple 登录需要付费的 Apple Developer 账户（$99 / 年），且不支持
+  localhost。开发和生产环境都必须使用 HTTPS 域名。
+</Callout>
+
+<Steps>
+  ### 创建 App ID
+
+  1. 前往 [Apple Developer Portal](https://developer.apple.com/account/resources/identifiers/list)
+  2. 导航到 **Certificates, Identifiers & Profiles** > **Identifiers**
+  3. 点击 **+** 注册新标识符
+  4. 选择 **App IDs** > **App** 类型 > **Continue**
+  5. 填写：
+     - **Description**: 如 `MasterLion`
+     - **Bundle ID**: 如 `com.yourcompany.lobechat`
+  6. 启用 **Sign In with Apple** 功能
+  7. 点击 **Continue** > **Register**
+
+  ### 创建 Services ID
+
+  1. 返回 **Identifiers**，点击 **+**
+  2. 选择 **Services IDs** > **Continue**
+  3. 填写：
+     - **Description**: 如 `MasterLion Web`
+     - **Identifier**: 如 `com.yourcompany.lobechat.web`（这是你的 Client ID）
+  4. 点击 **Continue** > **Register**
+
+  ### 配置 Services ID
+
+  1. 点击已创建的 Services ID
+  2. 启用 **Sign In with Apple**
+  3. 点击 **Configure**
+  4. 选择 Primary App ID
+  5. 添加域名和回调 URL：
+     - **Domains**: `your-domain.com`
+     - **Return URLs**: `https://your-domain.com/api/auth/callback/apple`
+  6. 点击 **Save** > **Continue** > **Save**
+
+  <Callout type={'info'}>
+    回调 URL 格式：
+
+    - 生产环境: `https://your-domain.com/api/auth/callback/apple`
+    - Apple **不支持** localhost 或 HTTP URL
+  </Callout>
+
+  ### 创建登录密钥
+
+  1. 导航到 **Keys**，点击 **+**
+  2. 填写密钥名称
+  3. 启用 **Sign In with Apple**，点击 **Configure**
+  4. 选择 Primary App ID
+  5. 点击 **Save** > **Continue** > **Register**
+  6. **下载密钥文件**（`.p8`）- 只能下载一次
+  7. 记录：
+     - **Key ID**: 密钥页面显示
+     - **Team ID**: 开发者门户右上角显示
+
+  ### 生成 Client Secret
+
+  Apple 要求使用 JWT 作为 client secret。使用 `.p8` 密钥文件生成：
+
+  ```js
+  // Node.js 示例
+  const jwt = require('jsonwebtoken');
+  const fs = require('fs');
+
+  const privateKey = fs.readFileSync('AuthKey_XXXXX.p8');
+  const token = jwt.sign({}, privateKey, {
+    algorithm: 'ES256',
+    expiresIn: '180d', // 最长 6 个月
+    issuer: 'YOUR_TEAM_ID',
+    audience: 'https://appleid.apple.com',
+    subject: 'YOUR_SERVICES_ID', // Client ID
+    keyid: 'YOUR_KEY_ID',
+  });
+  ```
+
+  <Callout type={'warning'}>
+    JWT 最长有效期为 180 天。需要在过期前重新生成并更新。
+  </Callout>
+
+  ### 配置环境变量
+
+  | 环境变量                               | 类型 | 描述                                     |
+  | ---------------------------------- | -- | -------------------------------------- |
+  | `AUTH_SECRET`                      | 必选 | 会话加密密钥，使用 `openssl rand -base64 32` 生成 |
+  | `AUTH_SSO_PROVIDERS`               | 必选 | 填写 `apple`                             |
+  | `AUTH_APPLE_CLIENT_ID`             | 必选 | 你的 Services ID                         |
+  | `AUTH_APPLE_CLIENT_SECRET`         | 必选 | 生成的 JWT                                |
+  | `AUTH_APPLE_APP_BUNDLE_IDENTIFIER` | 可选 | App Bundle ID（用于原生应用集成）                |
+
+  <Callout type={'tip'}>
+    前往 [📘 环境变量](/zh/docs/self-hosting/environment-variables/auth#apple)
+    可查阅相关变量详情。
+  </Callout>
+</Steps>
+
+<Callout type={'info'}>
+  部署成功后，用户将可以通过 Apple 身份认证并使用 MasterLion。
+</Callout>
+
+## 常见问题
+
+### 不支持 localhost
+
+Apple 登录不支持 localhost 或非 HTTPS URL。本地开发请使用 ngrok 等隧道服务或部署到带有 HTTPS 的测试环境。
+
+### 密钥过期
+
+JWT client secret 最长有效期为 180 天。请设置提醒在过期前重新生成。
+
+## 相关资源
+
+- [Apple Developer Portal](https://developer.apple.com/account)
+- [Sign In with Apple 文档](https://developer.apple.com/sign-in-with-apple/)

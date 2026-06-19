@@ -1,0 +1,250 @@
+'use client';
+
+import { Button, Flexbox } from '@lobehub/ui';
+import { confirmModal } from '@lobehub/ui/base-ui';
+import { App, Card, Skeleton } from 'antd';
+import { createStaticStyles } from 'antd-style';
+import { Plus } from 'lucide-react';
+import { memo, useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { agentEvalService } from '@/services/agentEval';
+import { useEvalStore } from '@/store/eval';
+
+import { createDatasetCreateModal } from '../../../../features/DatasetCreateModal';
+import { createDatasetEditModal } from '../../../../features/DatasetEditModal';
+import { createDatasetImportModal } from '../../../../features/DatasetImportModal';
+import { createTestCaseCreateModal } from '../../../../features/TestCaseCreateModal';
+import { createRunCreateModal } from '../RunCreateModal';
+import DatasetCard from './DatasetCard';
+import EmptyState from './EmptyState';
+
+const loadingStyles = createStaticStyles(({ css, cssVar }) => ({
+  card: css`
+    .ant-card-body {
+      padding: 0;
+    }
+  `,
+  header: css`
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 16px;
+  `,
+  icon: css`
+    flex-shrink: 0;
+
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+
+    background: ${cssVar.colorFillQuaternary};
+  `,
+}));
+
+interface DatasetsTabProps {
+  benchmarkId: string;
+  datasets: any[];
+  loading?: boolean;
+  onImport: () => void;
+  onRefresh: () => void;
+}
+
+const DatasetsTab = memo<DatasetsTabProps>(
+  ({ benchmarkId, datasets, loading: datasetsLoading, onImport, onRefresh }) => {
+    const { t } = useTranslation('eval');
+    const { message } = App.useApp();
+    const [expandedDs, setExpandedDs] = useState<string | null>(null);
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 5 });
+    const [search, setSearch] = useState('');
+    const [diffFilter, setDiffFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+
+    const useFetchTestCases = useEvalStore((s) => s.useFetchTestCases);
+    const refreshTestCases = useEvalStore((s) => s.refreshTestCases);
+
+    // Fetch test cases for expanded dataset - use SWR return value directly
+    const { data: testCaseData, isLoading: loading } = useFetchTestCases(
+      expandedDs
+        ? {
+            datasetId: expandedDs,
+            limit: pagination.pageSize,
+            offset: (pagination.current - 1) * pagination.pageSize,
+          }
+        : { datasetId: '', limit: 0, offset: 0 },
+    );
+
+    const testCases = testCaseData?.data || [];
+    const total = testCaseData?.total || 0;
+
+    const handleRefreshTestCases = useCallback(
+      async (datasetId: string) => {
+        await refreshTestCases(datasetId);
+        onRefresh();
+      },
+      [refreshTestCases, onRefresh],
+    );
+
+    const filteredCases = testCases.filter((c: any) => {
+      if (diffFilter !== 'all' && c.metadata?.difficulty !== diffFilter) return false;
+      if (search && !c.content?.input?.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    });
+
+    const handleExpand = useCallback((datasetId: string) => {
+      setExpandedDs((prev) => (prev === datasetId ? null : datasetId));
+      setPagination({ current: 1, pageSize: 5 });
+      setSearch('');
+      setDiffFilter('all');
+    }, []);
+
+    const handleSearchChange = useCallback((value: string) => {
+      setSearch(value);
+      setPagination((prev) => ({ ...prev, current: 1 }));
+    }, []);
+
+    const handleDiffFilterChange = useCallback((filter: 'all' | 'easy' | 'medium' | 'hard') => {
+      setDiffFilter(filter);
+      setPagination((prev) => ({ ...prev, current: 1 }));
+    }, []);
+
+    const handleCreateDataset = useCallback(() => {
+      createDatasetCreateModal({
+        benchmarkId,
+        onSuccess: (dataset) => {
+          onRefresh();
+          confirmModal({
+            cancelText: t('common.later'),
+            content: t('dataset.create.importNow'),
+            okText: t('dataset.actions.import'),
+            onOk: () => {
+              createDatasetImportModal({
+                datasetId: dataset.id,
+                onSuccess: handleRefreshTestCases,
+                presetId: dataset.preset,
+              });
+            },
+            title: t('dataset.create.successTitle'),
+          });
+        },
+      });
+    }, [benchmarkId, handleRefreshTestCases, onRefresh, t]);
+
+    const handleImportDataset = useCallback(
+      (ds: any) => {
+        createDatasetImportModal({
+          datasetId: ds.id,
+          onSuccess: handleRefreshTestCases,
+          presetId: ds.metadata?.preset,
+        });
+      },
+      [handleRefreshTestCases],
+    );
+
+    const handleRunDataset = useCallback(
+      (ds: any) => {
+        createRunCreateModal({
+          benchmarkId,
+          datasetId: ds.id,
+          datasetName: ds.name,
+        });
+      },
+      [benchmarkId],
+    );
+
+    const handleDeleteCase = useCallback(
+      (testCase: any) => {
+        confirmModal({
+          content: t('testCase.delete.confirm'),
+          okButtonProps: { danger: true },
+          okText: t('common.delete'),
+          onOk: async () => {
+            try {
+              await agentEvalService.deleteTestCase(testCase.id);
+              message.success(t('testCase.delete.success'));
+              if (expandedDs) await refreshTestCases(expandedDs);
+              onRefresh();
+            } catch {
+              message.error(t('testCase.delete.error'));
+            }
+          },
+          title: t('common.delete'),
+        });
+      },
+      [expandedDs, message, onRefresh, refreshTestCases, t],
+    );
+
+    return (
+      <>
+        <Flexbox gap={16}>
+          {datasets.length > 0 && (
+            <Flexbox horizontal align="center" justify="space-between">
+              <p style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 14, margin: 0 }}>
+                {t('benchmark.detail.datasetCount', { count: datasets.length })}
+              </p>
+              <Button icon={Plus} size="small" type="primary" onClick={handleCreateDataset}>
+                {t('dataset.actions.addDataset')}
+              </Button>
+            </Flexbox>
+          )}
+
+          {datasetsLoading && datasets.length === 0 ? (
+            <Flexbox gap={12}>
+              {[1, 2, 3].map((i) => (
+                <Card className={loadingStyles.card} key={i}>
+                  <div className={loadingStyles.header}>
+                    <div className={loadingStyles.icon} />
+                    <Flexbox flex={1} gap={6}>
+                      <Skeleton.Input active size="small" style={{ height: 16, width: 120 }} />
+                      <Skeleton.Input active size="small" style={{ height: 12, width: 200 }} />
+                    </Flexbox>
+                    <Skeleton.Input active size="small" style={{ height: 14, width: 50 }} />
+                    <Skeleton.Button active size="small" style={{ height: 28, width: 64 }} />
+                  </div>
+                </Card>
+              ))}
+            </Flexbox>
+          ) : datasets.length === 0 ? (
+            <EmptyState onAddDataset={handleCreateDataset} />
+          ) : (
+            <Flexbox gap={12}>
+              {datasets.map((ds) => {
+                const isExpanded = expandedDs === ds.id;
+                return (
+                  <DatasetCard
+                    benchmarkId={benchmarkId}
+                    dataset={ds}
+                    diffFilter={diffFilter}
+                    filteredCases={isExpanded ? filteredCases : []}
+                    isExpanded={isExpanded}
+                    key={ds.id}
+                    loading={isExpanded ? loading : false}
+                    pagination={pagination}
+                    search={search}
+                    total={isExpanded ? total : 0}
+                    onDeleteCase={handleDeleteCase}
+                    onDiffFilterChange={handleDiffFilterChange}
+                    onExpand={() => handleExpand(ds.id)}
+                    onImport={() => handleImportDataset(ds)}
+                    onPageChange={(page, pageSize) => setPagination({ current: page, pageSize })}
+                    onRefresh={onRefresh}
+                    onRun={() => handleRunDataset(ds)}
+                    onSearchChange={handleSearchChange}
+                    onAddCase={() =>
+                      createTestCaseCreateModal({
+                        datasetId: ds.id,
+                        onSuccess: handleRefreshTestCases,
+                      })
+                    }
+                    onEdit={(dataset) => createDatasetEditModal({ dataset, onSuccess: onRefresh })}
+                  />
+                );
+              })}
+            </Flexbox>
+          )}
+        </Flexbox>
+      </>
+    );
+  },
+);
+
+export default DatasetsTab;

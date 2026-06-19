@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MasterLion 企业管理后台预览</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --panel-2: #f9fafc;
+        --line: #dfe4ec;
+        --line-strong: #c7d0dd;
+        --text: #182233;
+        --muted: #657286;
+        --blue: #2468d8;
+        --green: #16885a;
+        --orange: #b85c00;
+        --red: #c3382f;
+        --purple: #7357c8;
+        --shadow: 0 10px 28px rgba(24, 34, 51, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        letter-spacing: 0;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 248px 1fr;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        background: #ffffff;
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .brand {
+        border-bottom: 1px solid var(--line);
+        padding: 22px 22px 18px;
+      }
+
+      .brand-name {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .brand-sub {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 6px;
+      }
+
+      .nav {
+        display: grid;
+        gap: 4px;
+        padding: 14px;
+      }
+
+      .nav button {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 8px;
+        color: #334155;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        min-height: 40px;
+        padding: 8px 10px;
+        text-align: left;
+      }
+
+      .nav button:hover {
+        background: #f0f4fa;
+      }
+
+      .nav button.active {
+        background: #e8f0ff;
+        color: var(--blue);
+        font-weight: 650;
+      }
+
+      .nav-icon {
+        align-items: center;
+        background: #edf2f8;
+        border-radius: 6px;
+        color: #475569;
+        display: inline-flex;
+        font-size: 12px;
+        height: 22px;
+        justify-content: center;
+        width: 22px;
+      }
+
+      .nav button.active .nav-icon {
+        background: #d8e7ff;
+        color: var(--blue);
+      }
+
+      .main {
+        display: grid;
+        grid-template-rows: 64px 1fr;
+        min-width: 0;
+      }
+
+      .topbar {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.92);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
+        padding: 0 24px;
+      }
+
+      .topbar h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+
+      .topbar-right {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+      }
+
+      .badge {
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        display: inline-flex;
+        font-size: 12px;
+        gap: 6px;
+        min-height: 28px;
+        padding: 5px 10px;
+        white-space: nowrap;
+      }
+
+      .dot {
+        border-radius: 50%;
+        display: inline-block;
+        height: 8px;
+        width: 8px;
+      }
+
+      .dot.green {
+        background: var(--green);
+      }
+
+      .dot.orange {
+        background: var(--orange);
+      }
+
+      .content {
+        overflow: auto;
+        padding: 22px 24px 40px;
+      }
+
+      .section {
+        display: none;
+      }
+
+      .section.active {
+        display: block;
+      }
+
+      .section-head {
+        align-items: end;
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .section-head h2 {
+        font-size: 22px;
+        margin: 0;
+      }
+
+      .section-head p {
+        color: var(--muted);
+        margin: 6px 0 0;
+      }
+
+      .toolbar {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .btn {
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        color: #243044;
+        cursor: pointer;
+        display: inline-flex;
+        gap: 8px;
+        min-height: 34px;
+        padding: 7px 12px;
+      }
+
+      .btn:hover {
+        border-color: var(--blue);
+        color: var(--blue);
+      }
+
+      .btn.primary {
+        background: var(--blue);
+        border-color: var(--blue);
+        color: white;
+      }
+
+      .btn.danger {
+        border-color: #e3aaa4;
+        color: var(--red);
+      }
+
+      .grid-metrics {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 16px;
+      }
+
+      .metric {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .metric-value {
+        font-size: 28px;
+        font-weight: 760;
+        margin-top: 8px;
+      }
+
+      .metric-foot {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 8px;
+      }
+
+      .two-col {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .panel-head {
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        min-height: 48px;
+        padding: 12px 16px;
+      }
+
+      .panel-head h3 {
+        font-size: 15px;
+        margin: 0;
+      }
+
+      .panel-body {
+        padding: 16px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      th {
+        background: #f7f9fc;
+        color: #526174;
+        font-weight: 650;
+      }
+
+      tr:hover td {
+        background: #fbfcff;
+      }
+
+      .pill {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 12px;
+        line-height: 1;
+        padding: 5px 9px;
+      }
+
+      .pill.blue {
+        background: #e8f0ff;
+        color: var(--blue);
+      }
+
+      .pill.green {
+        background: #e7f6ef;
+        color: var(--green);
+      }
+
+      .pill.orange {
+        background: #fff0dc;
+        color: var(--orange);
+      }
+
+      .pill.red {
+        background: #fdebea;
+        color: var(--red);
+      }
+
+      .pill.gray {
+        background: #eef2f6;
+        color: #526174;
+      }
+
+      .kv-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .kv span:first-child {
+        color: var(--muted);
+      }
+
+      .progress-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .progress-row {
+        display: grid;
+        gap: 7px;
+      }
+
+      .progress-title {
+        display: flex;
+        font-size: 13px;
+        justify-content: space-between;
+      }
+
+      .bar {
+        background: #edf1f6;
+        border-radius: 999px;
+        height: 8px;
+        overflow: hidden;
+      }
+
+      .bar > i {
+        display: block;
+        height: 100%;
+      }
+
+      .bar.blue > i {
+        background: var(--blue);
+      }
+
+      .bar.green > i {
+        background: var(--green);
+      }
+
+      .bar.orange > i {
+        background: var(--orange);
+      }
+
+      .form-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      label {
+        color: var(--muted);
+        display: grid;
+        font-size: 12px;
+        gap: 6px;
+      }
+
+      input,
+      select {
+        background: #fff;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        color: var(--text);
+        min-height: 36px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+
+      .drawer-backdrop {
+        background: rgba(15, 23, 42, 0.28);
+        display: none;
+        inset: 0;
+        position: fixed;
+        z-index: 20;
+      }
+
+      .drawer-backdrop.open {
+        display: block;
+      }
+
+      .drawer {
+        background: #fff;
+        border-left: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        height: 100%;
+        max-width: 680px;
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: min(680px, 100vw);
+      }
+
+      .drawer-head {
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        padding: 18px 20px;
+      }
+
+      .drawer-head h3 {
+        margin: 0;
+      }
+
+      .drawer-meta {
+        background: var(--panel-2);
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 8px;
+        padding: 14px 20px;
+      }
+
+      .drawer-body {
+        overflow: auto;
+        padding: 18px 20px 28px;
+      }
+
+      .split {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .notice {
+        background: #f7f9fc;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--muted);
+        padding: 12px 14px;
+      }
+
+      .mobile-menu {
+        display: none;
+      }
+
+      @media (max-width: 980px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          display: none;
+        }
+
+        .mobile-menu {
+          display: block;
+        }
+
+        .grid-metrics,
+        .two-col,
+        .split,
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+          height: auto;
+          padding-block: 12px;
+        }
+
+        .content {
+          padding: 16px;
+        }
+
+        th:nth-child(4),
+        td:nth-child(4),
+        th:nth-child(5),
+        td:nth-child(5) {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-name">MasterLion Admin</div>
+          <div class="brand-sub">企业治理静态预览</div>
+        </div>
+        <nav class="nav" aria-label="管理后台导航">
+          <button class="active" data-section="overview"><span class="nav-icon">总</span>总览</button>
+          <button data-section="users"><span class="nav-icon">用</span>用户与角色</button>
+          <button data-section="knowledge"><span class="nav-icon">知</span>知识库权限</button>
+          <button data-section="sso"><span class="nav-icon">登</span>企业微信 SSO</button>
+          <button data-section="skills"><span class="nav-icon">技</span>Skill 策略</button>
+          <button data-section="mcp"><span class="nav-icon">连</span>MCP 治理</button>
+          <button data-section="audit"><span class="nav-icon">审</span>审计日志</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle">企业管理后台</h1>
+            <select class="mobile-menu" id="mobileMenu" aria-label="切换预览页面">
+              <option value="overview">总览</option>
+              <option value="users">用户与角色</option>
+              <option value="knowledge">知识库权限</option>
+              <option value="sso">企业微信 SSO</option>
+              <option value="skills">Skill 策略</option>
+              <option value="mcp">MCP 治理</option>
+              <option value="audit">审计日志</option>
+            </select>
+          </div>
+          <div class="topbar-right">
+            <span class="badge"><span class="dot green"></span>SSO 已启用</span>
+            <span class="badge">platform_admin</span>
+            <button class="btn">导出审计</button>
+          </div>
+        </header>
+
+        <div class="content">
+          <section class="section active" id="overview">
+            <div class="section-head">
+              <div>
+                <h2>总览</h2>
+                <p>统一查看用户、知识资产、Skill、MCP 与 SSO 的治理状态。</p>
+              </div>
+              <div class="toolbar">
+                <button class="btn">刷新</button>
+                <button class="btn primary">进入配置</button>
+              </div>
+            </div>
+
+            <div class="grid-metrics">
+              <div class="metric">
+                <div class="metric-label">用户</div>
+                <div class="metric-value">1,248</div>
+                <div class="metric-foot">本周新增 42</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">工作区</div>
+                <div class="metric-value">18</div>
+                <div class="metric-foot">3 个启用严格 ACL</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">知识库</div>
+                <div class="metric-value">96</div>
+                <div class="metric-foot">12 个有外部共享</div>
+              </div>
+              <div class="metric">
+                <div class="metric-label">MCP 连接</div>
+                <div class="metric-value">34</div>
+                <div class="metric-foot">5 个需复核</div>
+              </div>
+            </div>
+
+            <div class="two-col">
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>近期治理事件</h3>
+                  <span class="pill gray">最近 24 小时</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>时间</th>
+                      <th>操作者</th>
+                      <th>动作</th>
+                      <th>资源</th>
+                      <th>结果</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>09:42</td>
+                      <td>林岚</td>
+                      <td>授予编辑权限</td>
+                      <td>研发知识库</td>
+                      <td><span class="pill green">成功</span></td>
+                    </tr>
+                    <tr>
+                      <td>09:18</td>
+                      <td>周铭</td>
+                      <td>禁用 STDIO MCP</td>
+                      <td>供应链空间</td>
+                      <td><span class="pill green">成功</span></td>
+                    </tr>
+                    <tr>
+                      <td>08:55</td>
+                      <td>系统</td>
+                      <td>企业微信自动建号</td>
+                      <td>user_9381</td>
+                      <td><span class="pill green">成功</span></td>
+                    </tr>
+                    <tr>
+                      <td>08:31</td>
+                      <td>陈越</td>
+                      <td>调用高风险工具</td>
+                      <td>mcp-db-admin</td>
+                      <td><span class="pill orange">待审批</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>治理健康度</h3>
+                </div>
+                <div class="panel-body progress-list">
+                  <div class="progress-row">
+                    <div class="progress-title"><span>知识库 ACL 覆盖</span><strong>72%</strong></div>
+                    <div class="bar blue"><i style="width: 72%"></i></div>
+                  </div>
+                  <div class="progress-row">
+                    <div class="progress-title"><span>Skill 策略覆盖</span><strong>64%</strong></div>
+                    <div class="bar green"><i style="width: 64%"></i></div>
+                  </div>
+                  <div class="progress-row">
+                    <div class="progress-title"><span>MCP 工具审批覆盖</span><strong>58%</strong></div>
+                    <div class="bar orange"><i style="width: 58%"></i></div>
+                  </div>
+                  <div class="notice">预览数据用于展示布局，真实版本会从 admin tRPC API 加载。</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" id="users">
+            <div class="section-head">
+              <div>
+                <h2>用户与角色</h2>
+                <p>统一管理平台角色、工作区成员和 SSO 绑定状态。</p>
+              </div>
+              <div class="toolbar">
+                <input style="max-width: 280px" value="" placeholder="搜索姓名、邮箱或用户 ID" />
+                <button class="btn primary">分配角色</button>
+              </div>
+            </div>
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>用户</th>
+                    <th>邮箱</th>
+                    <th>平台角色</th>
+                    <th>SSO</th>
+                    <th>状态</th>
+                    <th>最近登录</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>林岚</td>
+                    <td>lin.lan@example.com</td>
+                    <td><span class="pill blue">platform_admin</span></td>
+                    <td>企业微信</td>
+                    <td><span class="pill green">正常</span></td>
+                    <td>今天 09:42</td>
+                  </tr>
+                  <tr>
+                    <td>周铭</td>
+                    <td>zhou.ming@example.com</td>
+                    <td><span class="pill gray">member</span></td>
+                    <td>企业微信</td>
+                    <td><span class="pill green">正常</span></td>
+                    <td>今天 08:18</td>
+                  </tr>
+                  <tr>
+                    <td>王珂</td>
+                    <td>wang.ke@example.com</td>
+                    <td><span class="pill gray">viewer</span></td>
+                    <td>未绑定</td>
+                    <td><span class="pill orange">需处理</span></td>
+                    <td>昨天 16:03</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section" id="knowledge">
+            <div class="section-head">
+              <div>
+                <h2>知识库权限</h2>
+                <p>管理知识库、文件夹、文档、文件的 ACL 与继承关系。</p>
+              </div>
+              <div class="toolbar">
+                <input style="max-width: 280px" placeholder="搜索知识库" />
+                <button class="btn primary">新建知识库</button>
+              </div>
+            </div>
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>知识库</th>
+                    <th>归属空间</th>
+                    <th>可见性</th>
+                    <th>资源数</th>
+                    <th>更新时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>研发知识库</td>
+                    <td>研发空间</td>
+                    <td><span class="pill blue">工作区</span></td>
+                    <td>438</td>
+                    <td>今天 09:11</td>
+                    <td><button class="btn" data-open-drawer="研发知识库">权限</button></td>
+                  </tr>
+                  <tr>
+                    <td>质量体系资料</td>
+                    <td>质量中心</td>
+                    <td><span class="pill green">部门共享</span></td>
+                    <td>1,206</td>
+                    <td>昨天 18:04</td>
+                    <td><button class="btn" data-open-drawer="质量体系资料">权限</button></td>
+                  </tr>
+                  <tr>
+                    <td>供应链 SOP</td>
+                    <td>供应链空间</td>
+                    <td><span class="pill orange">需复核</span></td>
+                    <td>317</td>
+                    <td>昨天 14:22</td>
+                    <td><button class="btn" data-open-drawer="供应链 SOP">权限</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section" id="sso">
+            <div class="section-head">
+              <div>
+                <h2>企业微信 SSO</h2>
+                <p>配置 Web 扫码登录、工作台免登、自动建号与默认工作区。</p>
+              </div>
+              <div class="toolbar">
+                <button class="btn">测试连接</button>
+                <button class="btn primary">保存配置</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-body form-grid">
+                <label>Corp ID<input value="ww-9f3e2d91" /></label>
+                <label>Agent ID<input value="1000002" /></label>
+                <label>Secret 状态<input value="已配置，最后更新 2026-06-19" readonly /></label>
+                <label>登录模式<select><option>Web 扫码 + 工作台免登</option></select></label>
+                <label>自动建号<select><option>启用</option><option>禁用</option></select></label>
+                <label>默认角色<select><option>member</option><option>viewer</option></select></label>
+                <label>默认工作区<input value="workspace-rd" /></label>
+                <label>可信域名<input value="aihub.bielcrystal.com" /></label>
+                <label>回调地址<input value="https://aihub.bielcrystal.com/api/auth/oauth2/callback/wecom" /></label>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" id="skills">
+            <div class="section-head">
+              <div>
+                <h2>Skill 策略</h2>
+                <p>控制 Skill 来源、安装范围、默认启用策略和管理员发布。</p>
+              </div>
+              <button class="btn primary">新增策略</button>
+            </div>
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Skill</th>
+                    <th>来源</th>
+                    <th>范围</th>
+                    <th>策略</th>
+                    <th>风险</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>知识库问答</td>
+                    <td>内置</td>
+                    <td>全局</td>
+                    <td><span class="pill green">允许</span></td>
+                    <td><span class="pill gray">低</span></td>
+                  </tr>
+                  <tr>
+                    <td>网页抓取</td>
+                    <td>市场</td>
+                    <td>研发空间</td>
+                    <td><span class="pill orange">需审批</span></td>
+                    <td><span class="pill orange">中</span></td>
+                  </tr>
+                  <tr>
+                    <td>本地命令执行</td>
+                    <td>自定义</td>
+                    <td>禁止</td>
+                    <td><span class="pill red">禁用</span></td>
+                    <td><span class="pill red">高</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section" id="mcp">
+            <div class="section-head">
+              <div>
+                <h2>MCP 治理</h2>
+                <p>管理连接方式、凭据状态、工具级权限和调用审批。</p>
+              </div>
+              <button class="btn primary">发布托管连接器</button>
+            </div>
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>连接器</th>
+                    <th>类型</th>
+                    <th>工具数</th>
+                    <th>默认策略</th>
+                    <th>凭据</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>mcp-web-search</td>
+                    <td>HTTP</td>
+                    <td>6</td>
+                    <td><span class="pill green">只读自动</span></td>
+                    <td>工作区托管</td>
+                    <td><span class="pill green">可用</span></td>
+                  </tr>
+                  <tr>
+                    <td>mcp-db-admin</td>
+                    <td>HTTP</td>
+                    <td>14</td>
+                    <td><span class="pill orange">写入需审批</span></td>
+                    <td>管理员托管</td>
+                    <td><span class="pill orange">需复核</span></td>
+                  </tr>
+                  <tr>
+                    <td>local-stdio-tools</td>
+                    <td>STDIO</td>
+                    <td>9</td>
+                    <td><span class="pill red">禁用</span></td>
+                    <td>用户自带</td>
+                    <td><span class="pill red">策略阻止</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section" id="audit">
+            <div class="section-head">
+              <div>
+                <h2>审计日志</h2>
+                <p>追踪 SSO、授权、知识库、Skill、MCP 的关键变更。</p>
+              </div>
+              <div class="toolbar">
+                <select><option>全部动作</option><option>授权变更</option><option>SSO</option></select>
+                <button class="btn">导出 CSV</button>
+              </div>
+            </div>
+            <div class="panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>操作者</th>
+                    <th>动作</th>
+                    <th>资源类型</th>
+                    <th>资源 ID</th>
+                    <th>结果</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>2026-06-19 09:42:11</td>
+                    <td>user-admin</td>
+                    <td>grant_resource_permission</td>
+                    <td>knowledge_base</td>
+                    <td>kb-rd</td>
+                    <td><span class="pill green">success</span></td>
+                  </tr>
+                  <tr>
+                    <td>2026-06-19 09:18:30</td>
+                    <td>user-admin</td>
+                    <td>update_mcp_policy</td>
+                    <td>connector</td>
+                    <td>local-stdio-tools</td>
+                    <td><span class="pill green">success</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="drawer-backdrop" id="drawerBackdrop">
+      <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+        <div class="drawer-head">
+          <h3 id="drawerTitle">研发知识库 权限</h3>
+          <button class="btn" id="closeDrawer">关闭</button>
+        </div>
+        <div class="drawer-meta">
+          <div class="kv"><span>资源类型</span><strong>knowledge_base</strong></div>
+          <div class="kv"><span>继承范围</span><strong>文件夹、文档、文件默认继承</strong></div>
+          <div class="kv"><span>当前策略</span><strong>非 owner 需 ACL 授权</strong></div>
+        </div>
+        <div class="drawer-body">
+          <div class="split">
+            <div class="panel">
+              <div class="panel-head"><h3>新增授权</h3></div>
+              <div class="panel-body">
+                <div class="form-grid" style="grid-template-columns: 1fr">
+                  <label>对象类型<select><option>用户</option><option>角色</option><option>工作区</option><option>部门</option></select></label>
+                  <label>对象 ID<input value="user-zhangsan" /></label>
+                  <label>权限<select><option>读取</option><option>编辑</option><option>管理</option></select></label>
+                  <button class="btn primary">保存权限</button>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>权限说明</h3></div>
+              <div class="panel-body kv-list">
+                <div class="kv"><span>读取</span><strong>查看、检索、引用</strong></div>
+                <div class="kv"><span>编辑</span><strong>上传、编辑、移动</strong></div>
+                <div class="kv"><span>管理</span><strong>删除、授权、策略</strong></div>
+                <div class="notice">工作区共享请授予 principalType=workspace，普通成员不会被自动视为 owner。</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top: 16px">
+            <div class="panel-head"><h3>现有授权</h3></div>
+            <table>
+              <thead>
+                <tr>
+                  <th>对象类型</th>
+                  <th>对象 ID</th>
+                  <th>权限</th>
+                  <th>来源</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>工作区</td>
+                  <td>workspace-rd</td>
+                  <td><span class="pill blue">读取</span></td>
+                  <td>知识库</td>
+                </tr>
+                <tr>
+                  <td>角色</td>
+                  <td>role-rd-editor</td>
+                  <td><span class="pill green">编辑</span></td>
+                  <td>知识库</td>
+                </tr>
+                <tr>
+                  <td>用户</td>
+                  <td>user-admin</td>
+                  <td><span class="pill red">管理</span></td>
+                  <td>本资源</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      const titles = {
+        overview: "企业管理后台",
+        users: "用户与角色",
+        knowledge: "知识库权限",
+        sso: "企业微信 SSO",
+        skills: "Skill 策略",
+        mcp: "MCP 治理",
+        audit: "审计日志",
+      };
+
+      const navButtons = Array.from(document.querySelectorAll(".nav button"));
+      const sections = Array.from(document.querySelectorAll(".section"));
+      const mobileMenu = document.getElementById("mobileMenu");
+      const pageTitle = document.getElementById("pageTitle");
+
+      function showSection(id) {
+        navButtons.forEach((button) => {
+          button.classList.toggle("active", button.dataset.section === id);
+        });
+        sections.forEach((section) => {
+          section.classList.toggle("active", section.id === id);
+        });
+        if (mobileMenu) mobileMenu.value = id;
+        pageTitle.textContent = titles[id] || "企业管理后台";
+      }
+
+      navButtons.forEach((button) => {
+        button.addEventListener("click", () => showSection(button.dataset.section));
+      });
+
+      mobileMenu.addEventListener("change", (event) => showSection(event.target.value));
+
+      const drawerBackdrop = document.getElementById("drawerBackdrop");
+      const drawerTitle = document.getElementById("drawerTitle");
+      document.querySelectorAll("[data-open-drawer]").forEach((button) => {
+        button.addEventListener("click", () => {
+          drawerTitle.textContent = `${button.dataset.openDrawer} 权限`;
+          drawerBackdrop.classList.add("open");
+        });
+      });
+      document.getElementById("closeDrawer").addEventListener("click", () => {
+        drawerBackdrop.classList.remove("open");
+      });
+      drawerBackdrop.addEventListener("click", (event) => {
+        if (event.target === drawerBackdrop) drawerBackdrop.classList.remove("open");
+      });
+    </script>
+  </body>
+</html>

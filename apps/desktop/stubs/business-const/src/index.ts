@@ -1,0 +1,10 @@
+export const BRANDING_LOGO_URL = '/brand/masterlion/logo.png';
+export const BRANDING_NAME = 'MasterLion';
+export const DEFAULT_EMBEDDING_PROVIDER = 'newapi';
+export const DEFAULT_MINI_MODEL = 'glm5.1';
+export const DEFAULT_MINI_PROVIDER = 'newapi';
+export const DEFAULT_MODEL = 'glm5.1';
+export const DEFAULT_ONBOARDING_MODEL = 'glm5.1';
+export const DEFAULT_ONBOARDING_PROVIDER = 'newapi';
+export const DEFAULT_PROVIDER = 'newapi';
+export const ORG_NAME = '小宗狮';

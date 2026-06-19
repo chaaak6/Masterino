@@ -1,0 +1,214 @@
+import { type DropdownItem } from '@lobehub/ui';
+import { DropdownMenu, Icon, Tooltip } from '@lobehub/ui';
+import { confirmModal } from '@lobehub/ui/base-ui';
+import { App } from 'antd';
+import {
+  BookMinusIcon,
+  BookPlusIcon,
+  CircleEllipsisIcon,
+  FileBoxIcon,
+  Trash2Icon,
+} from 'lucide-react';
+import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import RepoIcon from '@/components/LibIcon';
+import { useKnowledgeBaseListContext } from '@/features/ResourceManager/components/KnowledgeBaseListProvider';
+import { usePermission } from '@/hooks/usePermission';
+import { useResourceManagerStore } from '@/routes/(main)/resource/features/store';
+import { useKnowledgeBaseStore } from '@/store/library';
+
+import ActionIconWithChevron from './ActionIconWithChevron';
+
+export type MultiSelectActionType =
+  | 'addToKnowledgeBase'
+  | 'moveToOtherKnowledgeBase'
+  | 'batchChunking'
+  | 'delete'
+  | 'deleteLibrary'
+  | 'removeFromKnowledgeBase';
+
+interface BatchActionsDropdownProps {
+  onActionClick: (type: MultiSelectActionType) => Promise<void>;
+  selectCount: number;
+}
+
+const BatchActionsDropdown = memo<BatchActionsDropdownProps>(({ selectCount, onActionClick }) => {
+  const { t } = useTranslation(['components', 'common', 'file', 'knowledgeBase']);
+  const { message } = App.useApp();
+
+  const libraryId = useResourceManagerStore((s) => s.libraryId);
+  const [resolveSelectedResourceIds, selectAllState] = useResourceManagerStore((s) => [
+    s.resolveSelectedResourceIds,
+    s.selectAllState,
+  ]);
+  const addFilesToKnowledgeBase = useKnowledgeBaseStore((s) => s.addFilesToKnowledgeBase);
+  const knowledgeBases = useKnowledgeBaseListContext();
+  const { allowed: canEditResources, reason } = usePermission('edit_own_content');
+
+  const menuItems = useMemo<DropdownItem[]>(() => {
+    const items: DropdownItem[] = [];
+
+    // Show delete library option only when in a knowledge base and no files selected
+    if (!canEditResources) return items;
+
+    if (libraryId && selectCount === 0) {
+      items.push({
+        danger: true,
+        icon: <Icon icon={Trash2Icon} />,
+        key: 'deleteLibrary',
+        label: t('header.actions.deleteLibrary', { ns: 'file' }),
+        onClick: async () => {
+          confirmModal({
+            cancelText: t('cancel', { ns: 'common' }),
+            content: t('library.list.confirmRemoveLibrary', { ns: 'file' }),
+            okButtonProps: {
+              danger: true,
+            },
+            okText: t('delete', { ns: 'common' }),
+            onOk: async () => {
+              await onActionClick('deleteLibrary');
+            },
+            title: t('header.actions.deleteLibrary', { ns: 'file' }),
+          });
+        },
+      });
+      return items;
+    }
+
+    // Filter out current knowledge base and create submenu items
+    const availableKnowledgeBases = knowledgeBases.filter((kb) => kb.id !== libraryId);
+
+    const addToKnowledgeBaseSubmenu: DropdownItem[] = availableKnowledgeBases.map((kb) => ({
+      disabled: selectCount === 0,
+      icon: <RepoIcon />,
+      key: `add-to-kb-${kb.id}`,
+      label: <span style={{ marginLeft: 8 }}>{kb.name}</span>,
+      onClick: async () => {
+        try {
+          const effectiveSelectedIds = await resolveSelectedResourceIds();
+          await addFilesToKnowledgeBase(kb.id, effectiveSelectedIds);
+          message.success(
+            t('addToKnowledgeBase.addSuccess', {
+              count: selectAllState === 'all' ? effectiveSelectedIds.length : selectCount,
+              ns: 'knowledgeBase',
+            }),
+          );
+        } catch (e) {
+          console.error(e);
+          message.error(t('addToKnowledgeBase.error', { ns: 'knowledgeBase' }));
+        }
+      },
+    }));
+
+    if (libraryId) {
+      items.push({
+        disabled: selectCount === 0,
+        icon: <Icon icon={BookMinusIcon} />,
+        key: 'removeFromKnowledgeBase',
+        label: t('FileManager.actions.removeFromLibrary'),
+        onClick: () => {
+          confirmModal({
+            cancelText: t('cancel', { ns: 'common' }),
+            content: t('FileManager.actions.confirmRemoveFromLibrary', {
+              count: selectCount,
+            }),
+            okButtonProps: {
+              danger: true,
+            },
+            okText: t('FileManager.actions.removeFromLibrary'),
+            onOk: async () => {
+              await onActionClick('removeFromKnowledgeBase');
+              message.success(t('FileManager.actions.removeFromLibrarySuccess'));
+            },
+            title: t('FileManager.actions.removeFromLibrary'),
+          });
+        },
+      });
+
+      if (availableKnowledgeBases.length > 0) {
+        items.push({
+          children: addToKnowledgeBaseSubmenu as any,
+          disabled: selectCount === 0,
+          icon: <Icon icon={BookPlusIcon} />,
+          key: 'moveToOtherKnowledgeBase',
+          label: t('FileManager.actions.moveToOtherLibrary'),
+        });
+      }
+    } else if (availableKnowledgeBases.length > 0) {
+      items.push({
+        children: addToKnowledgeBaseSubmenu as any,
+        disabled: selectCount === 0,
+        icon: <Icon icon={BookPlusIcon} />,
+        key: 'addToKnowledgeBase',
+        label: t('FileManager.actions.addToLibrary'),
+      });
+    }
+
+    items.push(
+      {
+        disabled: selectCount === 0,
+        icon: <Icon icon={FileBoxIcon} />,
+        key: 'batchChunking',
+        label: t('FileManager.actions.batchChunking'),
+        onClick: async () => {
+          await onActionClick('batchChunking');
+        },
+      },
+      {
+        type: 'divider',
+      },
+      {
+        danger: true,
+        disabled: selectCount === 0,
+        icon: <Icon icon={Trash2Icon} />,
+        key: 'delete',
+        label: t('delete', { ns: 'common' }),
+        onClick: async () => {
+          confirmModal({
+            cancelText: t('cancel', { ns: 'common' }),
+            content: t('FileManager.actions.confirmDeleteMultiFiles', { count: selectCount }),
+            okButtonProps: {
+              danger: true,
+            },
+            okText: t('delete', { ns: 'common' }),
+            onOk: async () => {
+              await onActionClick('delete');
+              message.success(t('FileManager.actions.deleteSuccess'));
+            },
+            title: t('delete', { ns: 'common' }),
+          });
+        },
+      },
+    );
+
+    return items;
+  }, [
+    libraryId,
+    selectCount,
+    selectAllState,
+    onActionClick,
+    addFilesToKnowledgeBase,
+    resolveSelectedResourceIds,
+    t,
+    message,
+    knowledgeBases,
+    canEditResources,
+  ]);
+
+  return (
+    <DropdownMenu items={menuItems} placement="bottomLeft">
+      <Tooltip title={canEditResources ? undefined : reason}>
+        <ActionIconWithChevron
+          disabled={!canEditResources}
+          icon={CircleEllipsisIcon}
+          title={t('FileManager.actions.batchActions', 'Batch actions')}
+        />
+      </Tooltip>
+    </DropdownMenu>
+  );
+});
+
+BatchActionsDropdown.displayName = 'BatchActionsDropdown';
+
+export default BatchActionsDropdown;

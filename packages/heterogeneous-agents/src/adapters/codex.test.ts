@@ -1,0 +1,1124 @@
+import { readFile } from 'node:fs/promises';
+
+import { describe, expect, it, vi } from 'vitest';
+
+import { CodexAdapter } from './codex';
+
+const loadFixture = async (name: string) => {
+  const raw = await readFile(new URL(`./__fixtures__/codex/${name}`, import.meta.url), 'utf8');
+  return raw
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+};
+
+describe('CodexAdapter', () => {
+  it('captures the session id from thread.started', () => {
+    const adapter = new CodexAdapter();
+
+    const events = adapter.adapt({
+      thread_id: 'thread-123',
+      type: 'thread.started',
+    });
+
+    expect(events).toHaveLength(0);
+    expect(adapter.sessionId).toBe('thread-123');
+  });
+
+  it('emits stream start and text chunks for turn + agent messages', () => {
+    const adapter = new CodexAdapter();
+
+    const start = adapter.adapt({ type: 'turn.started' });
+    const text = adapter.adapt({
+      item: {
+        id: 'item_0',
+        text: 'hello from codex',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+
+    expect(start[0]).toMatchObject({
+      data: { provider: 'codex' },
+      type: 'stream_start',
+    });
+    expect(text[0]).toMatchObject({
+      data: { chunkType: 'text', content: 'hello from codex' },
+      type: 'stream_chunk',
+    });
+  });
+
+  it('emits model metadata when the host configures the Codex session', () => {
+    const adapter = new CodexAdapter();
+
+    const metadata = adapter.adapt({
+      model: 'gpt-5.5',
+      type: 'session_configured',
+    });
+    const start = adapter.adapt({ type: 'turn.started' });
+
+    expect(metadata).toHaveLength(1);
+    expect(metadata[0]).toMatchObject({
+      data: {
+        model: 'gpt-5.5',
+        phase: 'turn_metadata',
+        provider: 'codex',
+      },
+      type: 'step_complete',
+    });
+    expect(start[0]).toMatchObject({
+      data: { model: 'gpt-5.5', provider: 'codex' },
+      type: 'stream_start',
+    });
+  });
+
+  it('deduplicates repeated host session model metadata', () => {
+    const adapter = new CodexAdapter();
+
+    expect(adapter.adapt({ model: 'gpt-5.5', type: 'session_configured' })).toHaveLength(1);
+    expect(adapter.adapt({ model: 'gpt-5.5', type: 'session_configured' })).toEqual([]);
+  });
+
+  it('emits terminal errors from Codex JSONL error events', () => {
+    const adapter = new CodexAdapter();
+    const rawMessage = JSON.stringify({
+      error: {
+        message:
+          "The 'gpt-5.5' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again.",
+        type: 'invalid_request_error',
+      },
+      status: 400,
+      type: 'error',
+    });
+
+    adapter.adapt({ type: 'turn.started' });
+    const events = adapter.adapt({
+      message: rawMessage,
+      type: 'error',
+    });
+
+    expect(events.map((event) => event.type)).toEqual(['stream_end', 'error']);
+    expect(events[1].data).toMatchObject({
+      agentType: 'codex',
+      clearEchoedContent: true,
+      message:
+        "The 'gpt-5.5' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again.",
+      stderr: rawMessage,
+    });
+  });
+
+  it('classifies Codex usage-limit errors with retry metadata', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 13, 3, 9, 27));
+
+    try {
+      const adapter = new CodexAdapter();
+      const message =
+        "You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 3:10 AM.";
+      const expectedResetAt = Math.floor(new Date(2026, 5, 13, 3, 10).getTime() / 1000);
+
+      adapter.adapt({ type: 'turn.started' });
+      const events = adapter.adapt({
+        message,
+        type: 'error',
+      });
+
+      expect(events.map((event) => event.type)).toEqual(['stream_end', 'error']);
+      expect(events[1].data).toMatchObject({
+        agentType: 'codex',
+        clearEchoedContent: true,
+        code: 'rate_limit',
+        docsUrl: 'https://chatgpt.com/codex/settings/usage',
+        message,
+        rateLimitInfo: {
+          resetsAt: expectedResetAt,
+          status: 'rejected',
+        },
+        stderr: message,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('preserves adjacent Codex retry meridiem parsing', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 5, 13, 15, 9, 27));
+
+    try {
+      const adapter = new CodexAdapter();
+      const message =
+        "You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 3:10PM.";
+      const expectedResetAt = Math.floor(new Date(2026, 5, 13, 15, 10).getTime() / 1000);
+
+      adapter.adapt({ type: 'turn.started' });
+      const events = adapter.adapt({
+        message,
+        type: 'error',
+      });
+
+      expect(events[1].data).toMatchObject({
+        code: 'rate_limit',
+        rateLimitInfo: {
+          resetsAt: expectedResetAt,
+          status: 'rejected',
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('parses Codex retry metadata in the timezone stated by the error message', () => {
+    const previousTimezone = process.env.TZ;
+    process.env.TZ = 'Asia/Shanghai';
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-13T03:09:27+08:00'));
+
+    try {
+      const adapter = new CodexAdapter();
+      const message =
+        "You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 3:10 AM (UTC).";
+      const expectedResetAt = Math.floor(new Date('2026-06-13T03:10:00Z').getTime() / 1000);
+
+      adapter.adapt({ type: 'turn.started' });
+      const events = adapter.adapt({
+        message,
+        type: 'error',
+      });
+
+      expect(events[1].data).toMatchObject({
+        code: 'rate_limit',
+        rateLimitInfo: {
+          resetsAt: expectedResetAt,
+          status: 'rejected',
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+      if (previousTimezone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimezone;
+      }
+    }
+  });
+
+  it('omits Codex retry timestamps when the stated timezone cannot be interpreted', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-13T03:09:27Z'));
+
+    try {
+      const adapter = new CodexAdapter();
+      const message =
+        "You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at 3:10 AM (Codex HQ).";
+
+      adapter.adapt({ type: 'turn.started' });
+      const events = adapter.adapt({
+        message,
+        type: 'error',
+      });
+
+      expect(events[1].data).toMatchObject({
+        code: 'rate_limit',
+        rateLimitInfo: {
+          status: 'rejected',
+        },
+      });
+      expect(events[1].data.rateLimitInfo).not.toHaveProperty('resetsAt');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('deduplicates the following turn.failed after a Codex JSONL error event', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+    adapter.adapt({ message: 'first error', type: 'error' });
+
+    expect(
+      adapter.adapt({
+        error: { message: 'first error' },
+        type: 'turn.failed',
+      }),
+    ).toEqual([]);
+  });
+
+  it('emits a new-step boundary when a second turn starts', () => {
+    const adapter = new CodexAdapter();
+
+    const firstTurn = adapter.adapt({ type: 'turn.started' });
+    const secondTurn = adapter.adapt({ type: 'turn.started' });
+
+    expect(firstTurn).toHaveLength(1);
+    expect(firstTurn[0]).toMatchObject({
+      data: { provider: 'codex' },
+      stepIndex: 0,
+      type: 'stream_start',
+    });
+
+    expect(secondTurn).toHaveLength(2);
+    expect(secondTurn[0]).toMatchObject({
+      data: {},
+      stepIndex: 1,
+      type: 'stream_end',
+    });
+    expect(secondTurn[1]).toMatchObject({
+      data: { newStep: true, provider: 'codex' },
+      stepIndex: 1,
+      type: 'stream_start',
+    });
+  });
+
+  it('emits a new-step boundary when a later agent_message item arrives in the same turn', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+    adapter.adapt({
+      item: {
+        id: 'item_0',
+        text: 'Running the first checks.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+    adapter.adapt({
+      item: {
+        command: '/bin/zsh -lc pwd',
+        id: 'item_1',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+    adapter.adapt({
+      item: {
+        aggregated_output: '/repo\\n',
+        command: '/bin/zsh -lc pwd',
+        exit_code: 0,
+        id: 'item_1',
+        status: 'completed',
+        type: 'command_execution',
+      },
+      type: 'item.completed',
+    });
+
+    const secondMessage = adapter.adapt({
+      item: {
+        id: 'item_2',
+        text: 'Now I will inspect the branch.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+
+    expect(secondMessage).toHaveLength(3);
+    expect(secondMessage[0]).toMatchObject({
+      data: {},
+      stepIndex: 1,
+      type: 'stream_end',
+    });
+    expect(secondMessage[1]).toMatchObject({
+      data: { newStep: true, provider: 'codex' },
+      stepIndex: 1,
+      type: 'stream_start',
+    });
+    expect(secondMessage[2]).toMatchObject({
+      data: { chunkType: 'text', content: 'Now I will inspect the branch.' },
+      stepIndex: 1,
+      type: 'stream_chunk',
+    });
+  });
+
+  it('keeps consecutive agent_message items in the same Codex step', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+    adapter.adapt({
+      item: {
+        id: 'item_0',
+        text: 'First status update.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+
+    const secondMessage = adapter.adapt({
+      item: {
+        id: 'item_1',
+        text: 'Second status update.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+
+    expect(secondMessage).toHaveLength(1);
+    expect(secondMessage[0]).toMatchObject({
+      data: { chunkType: 'text', content: '\n\nSecond status update.' },
+      stepIndex: 0,
+      type: 'stream_chunk',
+    });
+  });
+
+  it('does not start a new step for an old pending tool completion', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+    adapter.adapt({
+      item: {
+        id: 'item_0',
+        text: 'Starting a long search.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+    adapter.adapt({
+      item: {
+        command: '/bin/zsh -lc find .',
+        id: 'item_1',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+    adapter.adapt({
+      item: {
+        id: 'item_2',
+        text: 'Continuing with narrower checks.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+    adapter.adapt({
+      item: {
+        aggregated_output: '',
+        command: '/bin/zsh -lc find .',
+        exit_code: 0,
+        id: 'item_1',
+        status: 'completed',
+        type: 'command_execution',
+      },
+      type: 'item.completed',
+    });
+
+    const nextMessage = adapter.adapt({
+      item: {
+        id: 'item_3',
+        text: 'The broad search is done; continuing.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+
+    expect(nextMessage).toHaveLength(1);
+    expect(nextMessage[0]).toMatchObject({
+      data: { chunkType: 'text', content: '\n\nThe broad search is done; continuing.' },
+      stepIndex: 1,
+      type: 'stream_chunk',
+    });
+  });
+
+  it('maps command execution items into tool lifecycle events', () => {
+    const adapter = new CodexAdapter();
+
+    const started = adapter.adapt({
+      item: {
+        command: '/bin/zsh -lc pwd',
+        id: 'item_1',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+    const completed = adapter.adapt({
+      item: {
+        aggregated_output: '/tmp\\n',
+        command: '/bin/zsh -lc pwd',
+        exit_code: 0,
+        id: 'item_1',
+        status: 'completed',
+        type: 'command_execution',
+      },
+      type: 'item.completed',
+    });
+
+    expect(started).toHaveLength(2);
+    expect(started[0]).toMatchObject({
+      data: {
+        chunkType: 'tools_calling',
+        toolsCalling: [
+          {
+            apiName: 'command_execution',
+            id: 'item_1',
+            identifier: 'codex',
+          },
+        ],
+      },
+      type: 'stream_chunk',
+    });
+    expect(started[1]).toMatchObject({
+      data: { toolCallId: 'item_1' },
+      type: 'tool_start',
+    });
+
+    expect(completed).toHaveLength(2);
+    expect(completed[0]).toMatchObject({
+      data: {
+        content: '/tmp\\n',
+        pluginState: {
+          exitCode: 0,
+          isBackground: false,
+          output: '/tmp\\n',
+          stdout: '/tmp\\n',
+          success: true,
+        },
+        toolCallId: 'item_1',
+      },
+      type: 'tool_result',
+    });
+    expect(completed[1]).toMatchObject({
+      data: { isSuccess: true, toolCallId: 'item_1' },
+      type: 'tool_end',
+    });
+  });
+
+  it('maps todo_list items into shared todo plugin state', () => {
+    const adapter = new CodexAdapter();
+
+    const todoItem = {
+      id: 'item_0',
+      items: [
+        { completed: true, text: 'Create the three-item todo list' },
+        { completed: false, text: 'Keep the second item incomplete' },
+        { completed: false, text: 'Keep the third item incomplete' },
+      ],
+      type: 'todo_list',
+    };
+
+    const started = adapter.adapt({
+      item: todoItem,
+      type: 'item.started',
+    });
+    const completed = adapter.adapt({
+      item: todoItem,
+      type: 'item.completed',
+    });
+
+    expect(started[0]).toMatchObject({
+      data: {
+        chunkType: 'tools_calling',
+        toolsCalling: [
+          {
+            apiName: 'todo_list',
+            id: 'item_0',
+            identifier: 'codex',
+          },
+        ],
+      },
+      type: 'stream_chunk',
+    });
+    expect(completed[0]).toMatchObject({
+      data: {
+        content: 'Todo list updated (1/3 completed).',
+        pluginState: {
+          todos: {
+            items: [
+              { status: 'completed', text: 'Create the three-item todo list' },
+              { status: 'processing', text: 'Keep the second item incomplete' },
+              { status: 'todo', text: 'Keep the third item incomplete' },
+            ],
+          },
+        },
+        toolCallId: 'item_0',
+      },
+      type: 'tool_result',
+    });
+    expect(completed[1]).toMatchObject({
+      data: { isSuccess: true, toolCallId: 'item_0' },
+      type: 'tool_end',
+    });
+  });
+
+  it('maps file_change items into readable tool results', () => {
+    const adapter = new CodexAdapter();
+    const diffText =
+      'diff --git a/private/tmp/codex-file-change-sample.txt b/private/tmp/codex-file-change-sample.txt\n--- /dev/null\n+++ b/private/tmp/codex-file-change-sample.txt\n@@ -0,0 +1,3 @@\n+line one\n+line two\n+line three\n';
+
+    const started = adapter.adapt({
+      item: {
+        changes: [{ kind: 'add', path: '/private/tmp/codex-file-change-sample.txt' }],
+        id: 'item_1',
+        status: 'in_progress',
+        type: 'file_change',
+      },
+      type: 'item.started',
+    });
+    const completed = adapter.adapt({
+      item: {
+        changes: [
+          {
+            diffText,
+            kind: 'add',
+            linesAdded: 3,
+            linesDeleted: 0,
+            path: '/private/tmp/codex-file-change-sample.txt',
+          },
+        ],
+        diffText,
+        id: 'item_1',
+        linesAdded: 3,
+        linesDeleted: 0,
+        status: 'completed',
+        type: 'file_change',
+      },
+      type: 'item.completed',
+    });
+
+    expect(started[0]).toMatchObject({
+      data: {
+        chunkType: 'tools_calling',
+        toolsCalling: [
+          {
+            apiName: 'file_change',
+            id: 'item_1',
+            identifier: 'codex',
+          },
+        ],
+      },
+      type: 'stream_chunk',
+    });
+    expect(completed[0]).toMatchObject({
+      data: {
+        content: 'File changes applied (1 added, +3 -0).',
+        isError: false,
+        pluginState: {
+          changes: [
+            {
+              diffText,
+              kind: 'add',
+              linesAdded: 3,
+              linesDeleted: 0,
+              path: '/private/tmp/codex-file-change-sample.txt',
+            },
+          ],
+          diffText,
+          linesAdded: 3,
+          linesDeleted: 0,
+        },
+        toolCallId: 'item_1',
+      },
+      type: 'tool_result',
+    });
+    expect(completed[1]).toMatchObject({
+      data: { isSuccess: true, toolCallId: 'item_1' },
+      type: 'tool_end',
+    });
+  });
+
+  it('maps mcp_tool_call items into compact args and MCP result content', () => {
+    const adapter = new CodexAdapter();
+
+    const started = adapter.adapt({
+      item: {
+        arguments: { code: '1 + 1' },
+        id: 'item_5',
+        server: 'node_repl',
+        status: 'in_progress',
+        tool: 'js',
+        type: 'mcp_tool_call',
+      },
+      type: 'item.started',
+    });
+    const completed = adapter.adapt({
+      item: {
+        arguments: { code: '1 + 1' },
+        error: null,
+        id: 'item_5',
+        result: {
+          content: [{ text: '2', type: 'text' }],
+          isError: false,
+        },
+        server: 'node_repl',
+        status: 'completed',
+        tool: 'js',
+        type: 'mcp_tool_call',
+      },
+      type: 'item.completed',
+    });
+
+    expect(started[0]).toMatchObject({
+      data: {
+        chunkType: 'tools_calling',
+        toolsCalling: [
+          {
+            apiName: 'mcp_tool_call',
+            arguments: JSON.stringify({
+              arguments: { code: '1 + 1' },
+              server: 'node_repl',
+              tool: 'js',
+            }),
+            id: 'item_5',
+            identifier: 'codex',
+          },
+        ],
+      },
+      type: 'stream_chunk',
+    });
+    expect(completed[0]).toMatchObject({
+      data: {
+        content: '2',
+        isError: false,
+        pluginState: {
+          arguments: { code: '1 + 1' },
+          error: null,
+          result: {
+            content: [{ text: '2', type: 'text' }],
+            isError: false,
+          },
+          server: 'node_repl',
+          status: 'completed',
+          tool: 'js',
+        },
+        toolCallId: 'item_5',
+      },
+      type: 'tool_result',
+    });
+    expect(completed[1]).toMatchObject({
+      data: { isSuccess: true, toolCallId: 'item_5' },
+      type: 'tool_end',
+    });
+  });
+
+  it('uses failure copy for unsuccessful non-command tool completions', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({
+      item: {
+        id: 'todo_failed',
+        items: [{ completed: false, text: 'Keep this pending' }],
+        status: 'failed',
+        type: 'todo_list',
+      },
+      type: 'item.started',
+    });
+    const failedTodo = adapter.adapt({
+      item: {
+        id: 'todo_failed',
+        items: [{ completed: false, text: 'Keep this pending' }],
+        status: 'failed',
+        type: 'todo_list',
+      },
+      type: 'item.completed',
+    });
+
+    expect(failedTodo[0]).toMatchObject({
+      data: {
+        content: 'Todo list update failed.',
+        isError: true,
+        toolCallId: 'todo_failed',
+      },
+      type: 'tool_result',
+    });
+    expect(failedTodo[0].data).not.toHaveProperty('pluginState');
+    expect(failedTodo[1]).toMatchObject({
+      data: { isSuccess: false, toolCallId: 'todo_failed' },
+      type: 'tool_end',
+    });
+
+    adapter.adapt({
+      item: {
+        changes: [{ kind: 'add', path: '/private/tmp/cancelled-change.ts' }],
+        id: 'file_cancelled',
+        status: 'cancelled',
+        type: 'file_change',
+      },
+      type: 'item.started',
+    });
+    const cancelledFileChange = adapter.adapt({
+      item: {
+        changes: [{ kind: 'add', path: '/private/tmp/cancelled-change.ts' }],
+        id: 'file_cancelled',
+        status: 'cancelled',
+        type: 'file_change',
+      },
+      type: 'item.completed',
+    });
+
+    expect(cancelledFileChange[0]).toMatchObject({
+      data: {
+        content: 'File changes cancelled.',
+        isError: true,
+        toolCallId: 'file_cancelled',
+      },
+      type: 'tool_result',
+    });
+    expect(cancelledFileChange[0].data).not.toHaveProperty('pluginState');
+    expect(cancelledFileChange[1]).toMatchObject({
+      data: { isSuccess: false, toolCallId: 'file_cancelled' },
+      type: 'tool_end',
+    });
+
+    adapter.adapt({
+      item: {
+        id: 'wait_failed',
+        status: 'error',
+        tool: 'wait',
+        type: 'collab_tool_call',
+      },
+      type: 'item.started',
+    });
+    const failedWait = adapter.adapt({
+      item: {
+        id: 'wait_failed',
+        status: 'error',
+        tool: 'wait',
+        type: 'collab_tool_call',
+      },
+      type: 'item.completed',
+    });
+
+    expect(failedWait[0]).toMatchObject({
+      data: {
+        content: 'wait failed.',
+        isError: true,
+        toolCallId: 'wait_failed',
+      },
+      type: 'tool_result',
+    });
+    expect(failedWait[1]).toMatchObject({
+      data: { isSuccess: false, toolCallId: 'wait_failed' },
+      type: 'tool_end',
+    });
+  });
+
+  it('keeps a real collab_tool_call stream fixture readable and subtracts resumed usage', async () => {
+    const adapter = new CodexAdapter({
+      initialCumulativeUsage: {
+        inputCachedTokens: 42_000,
+        inputCacheMissTokens: 52_000,
+        totalInputTokens: 94_000,
+        totalOutputTokens: 300,
+        totalTokens: 94_300,
+      },
+    });
+    const rawEvents = await loadFixture('collab_tool_call.spawn_wait.jsonl');
+
+    const adapted = rawEvents.flatMap((event) => adapter.adapt(event));
+    const flushed = adapter.flush();
+
+    const toolStarts = adapted
+      .filter((event) => event.type === 'tool_start')
+      .map((event) => event.data.toolCallId);
+    const toolResults = adapted
+      .filter((event) => event.type === 'tool_result')
+      .map((event) => event.data);
+
+    expect(toolStarts).toEqual(['item_1', 'item_3', 'item_4']);
+    expect(toolResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Spawned 1 subagent.',
+          toolCallId: 'item_3',
+        }),
+        expect.objectContaining({
+          content: 'Wait completed: 2 + 2 = 4',
+          pluginState: expect.objectContaining({
+            agents_states: {
+              '019dba1f-171e-7ae0-8d0d-2c659c15a4f0': {
+                message: '2 + 2 = 4',
+                status: 'completed',
+              },
+            },
+            tool: 'wait',
+          }),
+          toolCallId: 'item_4',
+        }),
+      ]),
+    );
+    expect(adapted).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: {
+            isSuccess: false,
+            toolCallId: 'item_1',
+          },
+          type: 'tool_end',
+        }),
+      ]),
+    );
+    expect(
+      adapted.find(
+        (event) => event.type === 'step_complete' && event.data?.phase === 'turn_metadata',
+      ),
+    ).toMatchObject({
+      data: {
+        usage: {
+          inputCachedTokens: 1008,
+          inputCacheMissTokens: 937,
+          totalInputTokens: 1945,
+          totalOutputTokens: 116,
+          totalTokens: 2061,
+        },
+      },
+    });
+    expect(flushed).toEqual([]);
+  });
+
+  it('emits stream_end + agent_runtime_end on successful turn completion', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+    const events = adapter.adapt({
+      type: 'turn.completed',
+      usage: {
+        input_tokens: 10,
+        output_tokens: 3,
+      },
+    });
+
+    expect(events.map((event) => event.type)).toEqual([
+      'step_complete',
+      'stream_end',
+      'agent_runtime_end',
+    ]);
+  });
+
+  it('drains unfinished Codex tools before successful turn completion', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+    adapter.adapt({
+      item: {
+        command: '/bin/zsh -lc sleep',
+        id: 'item_1',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+
+    const events = adapter.adapt({
+      type: 'turn.completed',
+    });
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        data: {
+          isSuccess: false,
+          toolCallId: 'item_1',
+        },
+        type: 'tool_end',
+      }),
+      expect.objectContaining({
+        type: 'stream_end',
+      }),
+      expect.objectContaining({
+        type: 'agent_runtime_end',
+      }),
+    ]);
+    expect(adapter.flush()).toEqual([]);
+  });
+
+  it('emits cumulative tools_calling within the same Codex step', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+
+    const firstTool = adapter.adapt({
+      item: {
+        command: '/bin/zsh -lc pwd',
+        id: 'item_1',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+    const secondTool = adapter.adapt({
+      item: {
+        command: "/bin/zsh -lc 'git status --short'",
+        id: 'item_2',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+
+    expect(firstTool[0]).toMatchObject({
+      data: {
+        chunkType: 'tools_calling',
+        toolsCalling: [{ id: 'item_1' }],
+      },
+      type: 'stream_chunk',
+    });
+    expect(secondTool[0]).toMatchObject({
+      data: {
+        chunkType: 'tools_calling',
+        toolsCalling: [{ id: 'item_1' }, { id: 'item_2' }],
+      },
+      type: 'stream_chunk',
+    });
+    expect(secondTool[1]).toMatchObject({
+      data: { toolCallId: 'item_2' },
+      type: 'tool_start',
+    });
+  });
+
+  it('resets cumulative tools_calling after a same-turn agent_message step boundary', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({ type: 'turn.started' });
+    adapter.adapt({
+      item: {
+        id: 'item_0',
+        text: 'Running the first checks.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+    adapter.adapt({
+      item: {
+        command: '/bin/zsh -lc pwd',
+        id: 'item_1',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+    adapter.adapt({
+      item: {
+        id: 'item_2',
+        text: 'Now I will inspect the branch.',
+        type: 'agent_message',
+      },
+      type: 'item.completed',
+    });
+
+    const nextStepTool = adapter.adapt({
+      item: {
+        command: "/bin/zsh -lc 'git branch --show-current'",
+        id: 'item_3',
+        status: 'in_progress',
+        type: 'command_execution',
+      },
+      type: 'item.started',
+    });
+
+    expect(nextStepTool[0]).toMatchObject({
+      data: {
+        chunkType: 'tools_calling',
+        toolsCalling: [{ id: 'item_3' }],
+      },
+      stepIndex: 1,
+      type: 'stream_chunk',
+    });
+  });
+
+  it('maps turn.completed usage into turn metadata', () => {
+    const adapter = new CodexAdapter();
+
+    const events = adapter.adapt({
+      type: 'turn.completed',
+      usage: {
+        cached_input_tokens: 4,
+        input_tokens: 10,
+        output_tokens: 3,
+      },
+    });
+
+    expect(events[0]).toMatchObject({
+      data: {
+        phase: 'turn_metadata',
+        provider: 'codex',
+        usage: {
+          inputCachedTokens: 4,
+          inputCacheMissTokens: 10,
+          totalInputTokens: 14,
+          totalOutputTokens: 3,
+          totalTokens: 17,
+        },
+      },
+      type: 'step_complete',
+    });
+  });
+
+  it('subtracts the previous cumulative Codex usage for resumed turns', () => {
+    const adapter = new CodexAdapter({
+      initialCumulativeUsage: {
+        inputCachedTokens: 4,
+        inputCacheMissTokens: 10,
+        totalInputTokens: 14,
+        totalOutputTokens: 3,
+        totalTokens: 17,
+      },
+    });
+
+    const events = adapter.adapt({
+      type: 'turn.completed',
+      usage: {
+        cached_input_tokens: 9,
+        input_tokens: 25,
+        output_tokens: 11,
+      },
+    });
+
+    expect(events[0]).toMatchObject({
+      data: {
+        phase: 'turn_metadata',
+        provider: 'codex',
+        usage: {
+          inputCachedTokens: 5,
+          inputCacheMissTokens: 15,
+          totalInputTokens: 20,
+          totalOutputTokens: 8,
+          totalTokens: 28,
+        },
+      },
+      type: 'step_complete',
+    });
+  });
+
+  it('hydrates turn metadata model from session_configured when turn.completed omits it', () => {
+    const adapter = new CodexAdapter();
+
+    adapter.adapt({
+      model: 'gpt-5.3-codex',
+      type: 'session_configured',
+    });
+
+    const events = adapter.adapt({
+      type: 'turn.completed',
+      usage: {
+        input_tokens: 10,
+        output_tokens: 3,
+      },
+    });
+
+    expect(events[0]).toMatchObject({
+      data: {
+        model: 'gpt-5.3-codex',
+        phase: 'turn_metadata',
+        provider: 'codex',
+      },
+      type: 'step_complete',
+    });
+  });
+
+  it('emits turn metadata when turn.completed reports a model without usage', () => {
+    const adapter = new CodexAdapter();
+
+    const events = adapter.adapt({
+      model: 'gpt-5.4',
+      type: 'turn.completed',
+    });
+
+    expect(events[0]).toMatchObject({
+      data: {
+        model: 'gpt-5.4',
+        phase: 'turn_metadata',
+        provider: 'codex',
+      },
+      type: 'step_complete',
+    });
+  });
+});

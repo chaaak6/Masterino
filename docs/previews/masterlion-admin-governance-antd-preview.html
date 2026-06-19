@@ -1,0 +1,1846 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MasterLion 企业治理后台 Ant Design 预览</title>
+    <style>
+      :root {
+        --ant-color-primary: #1677ff;
+        --ant-color-success: #52c41a;
+        --ant-color-warning: #faad14;
+        --ant-color-error: #ff4d4f;
+        --ant-color-bg-layout: #f5f5f5;
+        --ant-color-bg-container: #ffffff;
+        --ant-color-bg-elevated: #ffffff;
+        --ant-color-fill-tertiary: #f5f5f5;
+        --ant-color-fill-quaternary: #fafafa;
+        --ant-color-border: #d9d9d9;
+        --ant-color-border-secondary: #f0f0f0;
+        --ant-color-text: #1f1f1f;
+        --ant-color-text-secondary: #595959;
+        --ant-color-text-tertiary: #8c8c8c;
+        --ant-border-radius: 6px;
+        --ant-border-radius-lg: 8px;
+        --ant-control-height: 32px;
+        --ant-font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+          Arial, "Noto Sans", sans-serif;
+        --sider-width: 244px;
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ant-color-text);
+        font: 14px/1.5715 var(--ant-font-family);
+        background: var(--ant-color-bg-layout);
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      .ant-layout {
+        min-height: 100vh;
+        display: flex;
+        background: var(--ant-color-bg-layout);
+      }
+
+      .ant-layout-sider {
+        width: var(--sider-width);
+        min-width: var(--sider-width);
+        background: #001529;
+        color: rgba(255, 255, 255, 0.88);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .brand {
+        height: 64px;
+        padding: 0 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--ant-border-radius);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: var(--ant-color-primary);
+        font-weight: 700;
+      }
+
+      .brand-title {
+        font-size: 15px;
+        line-height: 22px;
+        font-weight: 600;
+      }
+
+      .brand-subtitle {
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 12px;
+        line-height: 18px;
+      }
+
+      .ant-menu {
+        margin: 12px 0 0;
+        padding: 0 8px;
+        list-style: none;
+      }
+
+      .ant-menu-item {
+        height: 40px;
+        padding: 0 12px;
+        border-radius: var(--ant-border-radius);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(255, 255, 255, 0.72);
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .ant-menu-item:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .ant-menu-item-selected {
+        color: #fff;
+        background: var(--ant-color-primary);
+      }
+
+      .nav-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.8;
+      }
+
+      .sider-footer {
+        margin-top: auto;
+        padding: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.56);
+        font-size: 12px;
+        line-height: 20px;
+      }
+
+      .mobile-menu {
+        display: none;
+      }
+
+      .ant-layout-main {
+        min-width: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .ant-layout-header {
+        min-height: 64px;
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--ant-color-border-secondary);
+        background: var(--ant-color-bg-container);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .header-left {
+        min-width: 0;
+      }
+
+      .page-title {
+        margin: 0;
+        font-size: 18px;
+        line-height: 26px;
+        font-weight: 600;
+      }
+
+      .page-description {
+        margin: 2px 0 0;
+        color: var(--ant-color-text-secondary);
+        font-size: 13px;
+        line-height: 20px;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .ant-layout-content {
+        padding: 20px 24px 28px;
+      }
+
+      .preview-note {
+        margin-bottom: 16px;
+        padding: 9px 12px;
+        border: 1px solid #91caff;
+        border-radius: var(--ant-border-radius-lg);
+        color: #0958d9;
+        background: #e6f4ff;
+        font-size: 13px;
+      }
+
+      .page {
+        display: none;
+      }
+
+      .page.active {
+        display: block;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid-4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .ant-card {
+        border: 1px solid var(--ant-color-border-secondary);
+        border-radius: var(--ant-border-radius-lg);
+        background: var(--ant-color-bg-container);
+      }
+
+      .ant-card-head {
+        min-height: 48px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--ant-color-border-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .ant-card-title {
+        margin: 0;
+        font-size: 15px;
+        line-height: 22px;
+        font-weight: 600;
+      }
+
+      .ant-card-extra {
+        color: var(--ant-color-text-tertiary);
+        font-size: 12px;
+      }
+
+      .ant-card-body {
+        padding: 16px;
+      }
+
+      .stat-label {
+        color: var(--ant-color-text-secondary);
+      }
+
+      .stat-value {
+        margin-top: 4px;
+        font-size: 28px;
+        line-height: 36px;
+        font-weight: 600;
+      }
+
+      .stat-help {
+        margin-top: 8px;
+        color: var(--ant-color-text-tertiary);
+        font-size: 12px;
+      }
+
+      .stat-good {
+        color: #237804;
+      }
+
+      .stat-warn {
+        color: #ad4e00;
+      }
+
+      .toolbar {
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .toolbar-left,
+      .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .ant-btn {
+        height: var(--ant-control-height);
+        padding: 4px 15px;
+        border: 1px solid var(--ant-color-border);
+        border-radius: var(--ant-border-radius);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        color: var(--ant-color-text);
+        background: #fff;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .ant-btn:hover {
+        color: var(--ant-color-primary);
+        border-color: #4096ff;
+      }
+
+      .ant-btn-primary {
+        color: #fff;
+        border-color: var(--ant-color-primary);
+        background: var(--ant-color-primary);
+      }
+
+      .ant-btn-primary:hover {
+        color: #fff;
+        border-color: #4096ff;
+        background: #4096ff;
+      }
+
+      .ant-btn-text {
+        border-color: transparent;
+        background: transparent;
+      }
+
+      .ant-btn-small {
+        height: 24px;
+        padding: 0 7px;
+        font-size: 12px;
+      }
+
+      .ant-input,
+      .ant-select,
+      .ant-textarea {
+        border: 1px solid var(--ant-color-border);
+        border-radius: var(--ant-border-radius);
+        color: var(--ant-color-text);
+        background: #fff;
+        outline: none;
+      }
+
+      .ant-input,
+      .ant-select {
+        min-width: 160px;
+        min-height: var(--ant-control-height);
+        padding: 4px 11px;
+      }
+
+      .ant-input.search {
+        min-width: 240px;
+      }
+
+      .ant-textarea {
+        width: 100%;
+        min-height: 76px;
+        padding: 8px 11px;
+        resize: vertical;
+      }
+
+      .ant-input:focus,
+      .ant-select:focus,
+      .ant-textarea:focus {
+        border-color: #4096ff;
+        box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.1);
+      }
+
+      .ant-table-wrapper {
+        border: 1px solid var(--ant-color-border-secondary);
+        border-radius: var(--ant-border-radius-lg);
+        overflow: hidden;
+      }
+
+      .ant-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+      }
+
+      .ant-table th,
+      .ant-table td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--ant-color-border-secondary);
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      .ant-table th {
+        color: var(--ant-color-text);
+        background: var(--ant-color-fill-quaternary);
+        font-weight: 600;
+      }
+
+      .ant-table tr:hover td {
+        background: #fafafa;
+      }
+
+      .ant-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .cell-actions {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .entity {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        color: #0958d9;
+        background: #e6f4ff;
+        font-weight: 600;
+      }
+
+      .entity-title {
+        font-weight: 600;
+      }
+
+      .entity-sub {
+        color: var(--ant-color-text-tertiary);
+        font-size: 12px;
+      }
+
+      .ant-tag {
+        min-height: 22px;
+        padding: 0 7px;
+        border: 1px solid var(--ant-color-border);
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        color: var(--ant-color-text-secondary);
+        background: #fafafa;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .tag-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .tag-blue {
+        color: #0958d9;
+        border-color: #91caff;
+        background: #e6f4ff;
+      }
+
+      .tag-green {
+        color: #237804;
+        border-color: #b7eb8f;
+        background: #f6ffed;
+      }
+
+      .tag-orange {
+        color: #ad4e00;
+        border-color: #ffd591;
+        background: #fff7e6;
+      }
+
+      .tag-red {
+        color: #a8071a;
+        border-color: #ffa39e;
+        background: #fff1f0;
+      }
+
+      .tag-purple {
+        color: #531dab;
+        border-color: #d3adf7;
+        background: #f9f0ff;
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .step {
+        position: relative;
+        min-height: 128px;
+        padding: 14px;
+        border: 1px solid var(--ant-color-border-secondary);
+        border-radius: var(--ant-border-radius-lg);
+        background: #fff;
+      }
+
+      .step::after {
+        content: "";
+        position: absolute;
+        top: 28px;
+        right: -9px;
+        width: 18px;
+        height: 1px;
+        background: var(--ant-color-border);
+      }
+
+      .step:last-child::after {
+        display: none;
+      }
+
+      .step-index {
+        width: 24px;
+        height: 24px;
+        margin-bottom: 10px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: var(--ant-color-primary);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .step-title {
+        font-weight: 600;
+      }
+
+      .step-desc {
+        margin-top: 6px;
+        color: var(--ant-color-text-secondary);
+        font-size: 12px;
+      }
+
+      .config-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .config-item {
+        min-height: 54px;
+        padding: 0 0 12px;
+        border-bottom: 1px solid var(--ant-color-border-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .config-item:last-child {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+
+      .config-title {
+        font-weight: 600;
+      }
+
+      .config-desc {
+        color: var(--ant-color-text-secondary);
+        font-size: 13px;
+      }
+
+      .ant-switch {
+        width: 44px;
+        height: 22px;
+        padding: 2px;
+        border: 0;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        flex: 0 0 auto;
+        background: rgba(0, 0, 0, 0.25);
+      }
+
+      .ant-switch::before {
+        content: "";
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .ant-switch.checked {
+        justify-content: flex-end;
+        background: var(--ant-color-primary);
+      }
+
+      .org-layout {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .tree {
+        display: grid;
+        gap: 6px;
+      }
+
+      .tree-node {
+        min-height: 32px;
+        padding: 6px 8px;
+        border-radius: var(--ant-border-radius);
+        color: var(--ant-color-text-secondary);
+      }
+
+      .tree-node.active {
+        color: #0958d9;
+        background: #e6f4ff;
+      }
+
+      .indent-1 {
+        padding-left: 24px;
+      }
+
+      .indent-2 {
+        padding-left: 42px;
+      }
+
+      .permission-grid {
+        border: 1px solid var(--ant-color-border-secondary);
+        border-radius: var(--ant-border-radius-lg);
+        overflow: hidden;
+      }
+
+      .permission-row {
+        display: grid;
+        grid-template-columns: 170px repeat(6, minmax(96px, 1fr));
+        min-height: 44px;
+        border-bottom: 1px solid var(--ant-color-border-secondary);
+      }
+
+      .permission-row:last-child {
+        border-bottom: 0;
+      }
+
+      .permission-cell {
+        padding: 10px 12px;
+        border-right: 1px solid var(--ant-color-border-secondary);
+        display: flex;
+        align-items: center;
+      }
+
+      .permission-cell:last-child {
+        border-right: 0;
+      }
+
+      .permission-head {
+        background: var(--ant-color-fill-quaternary);
+        font-weight: 600;
+      }
+
+      .check {
+        width: 16px;
+        height: 16px;
+        border: 1px solid var(--ant-color-border);
+        border-radius: 3px;
+        display: inline-grid;
+        place-items: center;
+        background: #fff;
+      }
+
+      .check.on {
+        border-color: var(--ant-color-primary);
+        background: var(--ant-color-primary);
+      }
+
+      .check.on::after {
+        content: "";
+        width: 8px;
+        height: 5px;
+        border-left: 2px solid #fff;
+        border-bottom: 2px solid #fff;
+        transform: rotate(-45deg) translate(1px, -1px);
+      }
+
+      .ant-tabs {
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--ant-color-border-secondary);
+        display: flex;
+        gap: 24px;
+      }
+
+      .ant-tab {
+        position: relative;
+        padding: 12px 0;
+        color: var(--ant-color-text-secondary);
+        cursor: pointer;
+      }
+
+      .ant-tab.active {
+        color: var(--ant-color-primary);
+        font-weight: 600;
+      }
+
+      .ant-tab.active::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: -1px;
+        left: 0;
+        height: 2px;
+        background: var(--ant-color-primary);
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .ant-form {
+        display: grid;
+        gap: 16px;
+      }
+
+      .form-item {
+        display: grid;
+        gap: 6px;
+      }
+
+      .form-label {
+        font-weight: 600;
+      }
+
+      .form-extra {
+        color: var(--ant-color-text-tertiary);
+        font-size: 12px;
+      }
+
+      .drawer-mask {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        visibility: hidden;
+        opacity: 0;
+        background: rgba(0, 0, 0, 0.45);
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+      }
+
+      .drawer-mask.open {
+        visibility: visible;
+        opacity: 1;
+      }
+
+      .ant-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        z-index: 60;
+        width: min(640px, 100vw);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--ant-color-bg-elevated);
+        box-shadow: -6px 0 16px rgba(0, 0, 0, 0.08);
+        transform: translateX(100%);
+        transition: transform 0.2s ease;
+      }
+
+      .ant-drawer.open {
+        transform: translateX(0);
+      }
+
+      .ant-drawer-header {
+        min-height: 56px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--ant-color-border-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .ant-drawer-title {
+        font-size: 16px;
+        line-height: 24px;
+        font-weight: 600;
+      }
+
+      .ant-drawer-body {
+        padding: 20px;
+        overflow: auto;
+        flex: 1;
+      }
+
+      .ant-drawer-footer {
+        padding: 12px 20px;
+        border-top: 1px solid var(--ant-color-border-secondary);
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      @media (max-width: 1180px) {
+        .grid-4 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .steps {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .step::after {
+          display: none;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .ant-layout {
+          display: block;
+        }
+
+        .ant-layout-sider {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .brand {
+          height: 56px;
+        }
+
+        .ant-menu {
+          display: none;
+        }
+
+        .mobile-menu {
+          display: flex;
+          gap: 8px;
+          padding: 10px 12px 12px;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          overflow-x: auto;
+        }
+
+        .mobile-menu button {
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: var(--ant-border-radius);
+          color: rgba(255, 255, 255, 0.82);
+          background: rgba(255, 255, 255, 0.08);
+          white-space: nowrap;
+        }
+
+        .mobile-menu button.active {
+          color: #fff;
+          border-color: var(--ant-color-primary);
+          background: var(--ant-color-primary);
+        }
+
+        .sider-footer {
+          display: none;
+        }
+
+        .ant-layout-header {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 14px 16px;
+        }
+
+        .ant-layout-content {
+          padding: 16px;
+        }
+
+        .grid-4,
+        .grid-3,
+        .grid-2,
+        .steps,
+        .form-grid,
+        .org-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .ant-table-wrapper,
+        .permission-grid {
+          overflow-x: auto;
+        }
+
+        .ant-table {
+          min-width: 840px;
+        }
+
+        .permission-row {
+          min-width: 860px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ant-layout">
+      <aside class="ant-layout-sider">
+        <div class="brand">
+          <div class="brand-mark">M</div>
+          <div>
+            <div class="brand-title">MasterLion Admin</div>
+            <div class="brand-subtitle">企业身份与权限治理</div>
+          </div>
+        </div>
+        <ul class="ant-menu" aria-label="管理后台导航">
+          <li class="ant-menu-item ant-menu-item-selected" data-nav="overview">
+            <span class="nav-dot"></span><span>总览</span>
+          </li>
+          <li class="ant-menu-item" data-nav="users">
+            <span class="nav-dot"></span><span>用户管理</span>
+          </li>
+          <li class="ant-menu-item" data-nav="orgs">
+            <span class="nav-dot"></span><span>组织管理</span>
+          </li>
+          <li class="ant-menu-item" data-nav="permissions">
+            <span class="nav-dot"></span><span>权限管理</span>
+          </li>
+          <li class="ant-menu-item" data-nav="integrations">
+            <span class="nav-dot"></span><span>接入配置</span>
+          </li>
+          <li class="ant-menu-item" data-nav="audit">
+            <span class="nav-dot"></span><span>审计日志</span>
+          </li>
+        </ul>
+        <div class="mobile-menu" aria-label="移动端导航">
+          <button class="active" data-nav="overview">总览</button>
+          <button data-nav="users">用户</button>
+          <button data-nav="orgs">组织</button>
+          <button data-nav="permissions">权限</button>
+          <button data-nav="integrations">接入</button>
+          <button data-nav="audit">审计</button>
+        </div>
+        <div class="sider-footer">
+          Client governance<br />
+          RBAC / WeCom / OAuth / aihub
+        </div>
+      </aside>
+
+      <main class="ant-layout-main">
+        <header class="ant-layout-header">
+          <div class="header-left">
+            <h1 class="page-title" id="pageTitle">总览</h1>
+            <p class="page-description" id="pageDescription">
+              查看 Web 客户端账号开通、企微同步、aihub 对接、额度初始化和权限风险。
+            </p>
+          </div>
+          <div class="header-actions">
+            <button class="ant-btn">同步企微</button>
+            <button class="ant-btn ant-btn-primary" data-open-drawer="onboarding">首登策略</button>
+          </div>
+        </header>
+
+        <section class="ant-layout-content">
+          <div class="preview-note">
+            预览范围已收敛为 Web 客户端治理后台：知识库、Skill、MCP 只作为 RBAC 权限点与客户端能力开关出现，不再作为一级运营模块。
+          </div>
+
+          <section class="page active" id="page-overview">
+            <div class="grid grid-4">
+              <div class="ant-card">
+                <div class="ant-card-body">
+                  <div class="stat-label">企业用户</div>
+                  <div class="stat-value">248</div>
+                  <div class="stat-help stat-good">231 人已绑定企业微信</div>
+                </div>
+              </div>
+              <div class="ant-card">
+                <div class="ant-card-body">
+                  <div class="stat-label">aihub 账号</div>
+                  <div class="stat-value">246</div>
+                  <div class="stat-help stat-warn">2 人待自动初始化重试</div>
+                </div>
+              </div>
+              <div class="ant-card">
+                <div class="ant-card-body">
+                  <div class="stat-label">本月 AI Token 额度</div>
+                  <div class="stat-value">81%</div>
+                  <div class="stat-help">已分配 12.6M / 总池 15.5M</div>
+                </div>
+              </div>
+              <div class="ant-card">
+                <div class="ant-card-body">
+                  <div class="stat-label">权限风险</div>
+                  <div class="stat-value">6</div>
+                  <div class="stat-help stat-warn">含 3 条离职未禁用提醒</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ant-card" style="margin-top: 16px">
+              <div class="ant-card-head">
+                <h2 class="ant-card-title">新用户首次登录闭环</h2>
+                <span class="ant-card-extra">企微直登后即可使用 Web 客户端</span>
+              </div>
+              <div class="ant-card-body">
+                <div class="steps">
+                  <div class="step">
+                    <div class="step-index">1</div>
+                    <div class="step-title">企业微信登录</div>
+                    <div class="step-desc">Web 客户端展示企微登录入口，完成 OAuth 授权。</div>
+                  </div>
+                  <div class="step">
+                    <div class="step-index">2</div>
+                    <div class="step-title">读取工号身份</div>
+                    <div class="step-desc">获取 userid、unionid、工号、部门和岗位信息。</div>
+                  </div>
+                  <div class="step">
+                    <div class="step-index">3</div>
+                    <div class="step-title">匹配 aihub</div>
+                    <div class="step-desc">以工号查询 aihub，存在则绑定 MasterLion 用户。</div>
+                  </div>
+                  <div class="step">
+                    <div class="step-index">4</div>
+                    <div class="step-title">缺失自动开户</div>
+                    <div class="step-desc">aihub 无账号时初始化账号、组织归属与默认角色。</div>
+                  </div>
+                  <div class="step">
+                    <div class="step-index">5</div>
+                    <div class="step-title">初始化额度</div>
+                    <div class="step-desc">按组织和角色策略发放默认 AI token 额度。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-2" style="margin-top: 16px">
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">治理待办</h2>
+                  <span class="ant-card-extra">按影响范围排序</span>
+                </div>
+                <div class="ant-card-body">
+                  <div class="config-list">
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">aihub 初始化失败</div>
+                        <div class="config-desc">2 名新用户账号创建成功，但 token 额度发放失败。</div>
+                      </div>
+                      <span class="ant-tag tag-red">需重试</span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">企业微信通讯录未全量同步</div>
+                        <div class="config-desc">研发中心有 8 人缺少工号字段，无法进入首登链路。</div>
+                      </div>
+                      <span class="ant-tag tag-orange">待补全</span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">外包岗位权限策略待确认</div>
+                        <div class="config-desc">默认角色只允许基础聊天，不开放知识库、Skill、MCP。</div>
+                      </div>
+                      <span class="ant-tag tag-blue">审批中</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">客户端能力覆盖</h2>
+                  <span class="ant-card-extra">由 RBAC 下发</span>
+                </div>
+                <div class="ant-card-body">
+                  <div class="config-list">
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">基础对话与模型访问</div>
+                        <div class="config-desc">默认成员角色启用，受 token 额度控制。</div>
+                      </div>
+                      <span class="ant-tag tag-green">默认开通</span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">知识库读取与上传</div>
+                        <div class="config-desc">作为资源权限点授予，不做独立运营模块。</div>
+                      </div>
+                      <span class="ant-tag tag-blue">按角色</span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">Skill 与 MCP 调用</div>
+                        <div class="config-desc">作为客户端能力开关，支持按部门、岗位、角色控制。</div>
+                      </div>
+                      <span class="ant-tag tag-purple">受控开放</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="page-users">
+            <div class="ant-card">
+              <div class="ant-card-head">
+                <h2 class="ant-card-title">用户管理</h2>
+                <div class="tag-row">
+                  <span class="ant-tag tag-blue">工号绑定</span>
+                  <span class="ant-tag tag-green">aihub 状态</span>
+                  <span class="ant-tag">额度管理</span>
+                </div>
+              </div>
+              <div class="ant-card-body">
+                <div class="toolbar">
+                  <div class="toolbar-left">
+                    <input class="ant-input search" value="研发中心" aria-label="搜索用户" />
+                    <select class="ant-select" aria-label="账号状态筛选">
+                      <option>全部状态</option>
+                      <option>已开通</option>
+                      <option>待初始化</option>
+                      <option>已禁用</option>
+                    </select>
+                    <select class="ant-select" aria-label="身份源筛选">
+                      <option>全部身份源</option>
+                      <option>企业微信</option>
+                      <option>OAuth</option>
+                      <option>手动创建</option>
+                    </select>
+                  </div>
+                  <div class="toolbar-right">
+                    <button class="ant-btn">批量初始化 aihub</button>
+                    <button class="ant-btn ant-btn-primary" data-open-drawer="user">新增用户</button>
+                  </div>
+                </div>
+                <div class="ant-table-wrapper">
+                  <table class="ant-table">
+                    <thead>
+                      <tr>
+                        <th>用户</th>
+                        <th>工号</th>
+                        <th>组织</th>
+                        <th>身份源</th>
+                        <th>aihub</th>
+                        <th>AI Token 额度</th>
+                        <th>角色</th>
+                        <th class="cell-actions">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>
+                          <div class="entity">
+                            <span class="avatar">L</span>
+                            <div>
+                              <div class="entity-title">李卓</div>
+                              <div class="entity-sub">lizhuo@masterlion.ai</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>ML-10028</td>
+                        <td>研发中心 / 平台组</td>
+                        <td><span class="ant-tag tag-green">企业微信</span></td>
+                        <td><span class="ant-tag tag-green">已绑定</span></td>
+                        <td>240K / 300K</td>
+                        <td><span class="ant-tag tag-blue">系统管理员</span></td>
+                        <td class="cell-actions"><button class="ant-btn ant-btn-small" data-open-drawer="user">详情</button></td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <div class="entity">
+                            <span class="avatar">W</span>
+                            <div>
+                              <div class="entity-title">王敏</div>
+                              <div class="entity-sub">wangmin@masterlion.ai</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>ML-10116</td>
+                        <td>产品中心 / AI 应用</td>
+                        <td><span class="ant-tag tag-green">企业微信</span></td>
+                        <td><span class="ant-tag tag-green">已绑定</span></td>
+                        <td>92K / 200K</td>
+                        <td><span class="ant-tag tag-purple">组织管理员</span></td>
+                        <td class="cell-actions"><button class="ant-btn ant-btn-small" data-open-drawer="user">详情</button></td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <div class="entity">
+                            <span class="avatar">C</span>
+                            <div>
+                              <div class="entity-title">陈雨</div>
+                              <div class="entity-sub">chenyu@masterlion.ai</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>ML-10492</td>
+                        <td>研发中心 / 算法组</td>
+                        <td><span class="ant-tag tag-green">企业微信</span></td>
+                        <td><span class="ant-tag tag-orange">初始化失败</span></td>
+                        <td>0 / 200K</td>
+                        <td><span class="ant-tag">普通成员</span></td>
+                        <td class="cell-actions"><button class="ant-btn ant-btn-small" data-open-drawer="user">重试</button></td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <div class="entity">
+                            <span class="avatar">Z</span>
+                            <div>
+                              <div class="entity-title">赵青</div>
+                              <div class="entity-sub">zhaoqing@partner.cn</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>EXT-032</td>
+                        <td>外部协作 / 顾问</td>
+                        <td><span class="ant-tag">OAuth</span></td>
+                        <td><span class="ant-tag tag-green">已绑定</span></td>
+                        <td>20K / 50K</td>
+                        <td><span class="ant-tag tag-orange">受限成员</span></td>
+                        <td class="cell-actions"><button class="ant-btn ant-btn-small" data-open-drawer="user">详情</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="page-orgs">
+            <div class="org-layout">
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">组织树</h2>
+                  <button class="ant-btn ant-btn-small">同步</button>
+                </div>
+                <div class="ant-card-body">
+                  <div class="tree">
+                    <div class="tree-node active">MasterLion 科技</div>
+                    <div class="tree-node indent-1">研发中心</div>
+                    <div class="tree-node indent-2">平台组</div>
+                    <div class="tree-node indent-2">算法组</div>
+                    <div class="tree-node indent-1">产品中心</div>
+                    <div class="tree-node indent-1">商业化中心</div>
+                    <div class="tree-node indent-1">外部协作</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">部门映射与默认策略</h2>
+                  <button class="ant-btn ant-btn-primary ant-btn-small" data-open-drawer="org">配置映射</button>
+                </div>
+                <div class="ant-card-body">
+                  <div class="ant-table-wrapper">
+                    <table class="ant-table">
+                      <thead>
+                        <tr>
+                          <th>部门</th>
+                          <th>企微部门 ID</th>
+                          <th>默认角色</th>
+                          <th>默认额度</th>
+                          <th>客户端能力</th>
+                          <th>同步状态</th>
+                          <th class="cell-actions">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>研发中心 / 平台组</td>
+                          <td>wx-dept-1007</td>
+                          <td><span class="ant-tag">普通成员</span></td>
+                          <td>200K / 月</td>
+                          <td>聊天、知识库读、MCP 受控</td>
+                          <td><span class="ant-tag tag-green">正常</span></td>
+                          <td class="cell-actions"><button class="ant-btn ant-btn-small" data-open-drawer="org">编辑</button></td>
+                        </tr>
+                        <tr>
+                          <td>产品中心 / AI 应用</td>
+                          <td>wx-dept-1019</td>
+                          <td><span class="ant-tag tag-purple">组织管理员</span></td>
+                          <td>300K / 月</td>
+                          <td>聊天、知识库写、Skill 调用</td>
+                          <td><span class="ant-tag tag-green">正常</span></td>
+                          <td class="cell-actions"><button class="ant-btn ant-btn-small" data-open-drawer="org">编辑</button></td>
+                        </tr>
+                        <tr>
+                          <td>外部协作 / 顾问</td>
+                          <td>wx-dept-2040</td>
+                          <td><span class="ant-tag tag-orange">受限成员</span></td>
+                          <td>50K / 月</td>
+                          <td>仅聊天、禁止上传、禁止 MCP</td>
+                          <td><span class="ant-tag tag-orange">待确认</span></td>
+                          <td class="cell-actions"><button class="ant-btn ant-btn-small" data-open-drawer="org">编辑</button></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="page-permissions">
+            <div class="ant-card">
+              <div class="ant-card-head">
+                <h2 class="ant-card-title">RBAC 权限管理</h2>
+                <button class="ant-btn ant-btn-primary ant-btn-small" data-open-drawer="role">新建角色</button>
+              </div>
+              <div class="ant-card-body">
+                <div class="ant-tabs">
+                  <div class="ant-tab active">角色矩阵</div>
+                  <div class="ant-tab">权限点</div>
+                  <div class="ant-tab">例外授权</div>
+                  <div class="ant-tab">审批策略</div>
+                </div>
+                <div class="permission-grid">
+                  <div class="permission-row permission-head">
+                    <div class="permission-cell">角色</div>
+                    <div class="permission-cell">用户管理</div>
+                    <div class="permission-cell">组织管理</div>
+                    <div class="permission-cell">角色配置</div>
+                    <div class="permission-cell">模型访问</div>
+                    <div class="permission-cell">知识库能力</div>
+                    <div class="permission-cell">Skill/MCP</div>
+                  </div>
+                  <div class="permission-row">
+                    <div class="permission-cell">系统管理员</div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                  </div>
+                  <div class="permission-row">
+                    <div class="permission-cell">组织管理员</div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                  </div>
+                  <div class="permission-row">
+                    <div class="permission-cell">普通成员</div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                  </div>
+                  <div class="permission-row">
+                    <div class="permission-cell">受限成员</div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check on"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                    <div class="permission-cell"><span class="check"></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-2" style="margin-top: 16px">
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">客户端能力权限点</h2>
+                  <span class="ant-card-extra">下发到 Web 客户端</span>
+                </div>
+                <div class="ant-card-body">
+                  <div class="config-list">
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">chat.model.use</div>
+                        <div class="config-desc">控制模型调用与对话能力，叠加 token 额度。</div>
+                      </div>
+                      <span class="ant-tag tag-green">核心</span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">knowledge.read / knowledge.write</div>
+                        <div class="config-desc">知识库仅作为读写权限点，不独立放一级模块。</div>
+                      </div>
+                      <span class="ant-tag tag-blue">资源</span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">skill.invoke / mcp.invoke</div>
+                        <div class="config-desc">控制 Skill、MCP 在客户端是否可见与可调用。</div>
+                      </div>
+                      <span class="ant-tag tag-purple">能力</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">策略继承顺序</h2>
+                  <span class="ant-card-extra">冲突时按优先级覆盖</span>
+                </div>
+                <div class="ant-card-body">
+                  <div class="steps" style="grid-template-columns: repeat(4, minmax(0, 1fr))">
+                    <div class="step">
+                      <div class="step-index">1</div>
+                      <div class="step-title">企业默认</div>
+                      <div class="step-desc">默认登录、默认额度、基础能力。</div>
+                    </div>
+                    <div class="step">
+                      <div class="step-index">2</div>
+                      <div class="step-title">部门策略</div>
+                      <div class="step-desc">由企业微信部门映射继承。</div>
+                    </div>
+                    <div class="step">
+                      <div class="step-index">3</div>
+                      <div class="step-title">角色策略</div>
+                      <div class="step-desc">RBAC 决定后台与客户端能力。</div>
+                    </div>
+                    <div class="step">
+                      <div class="step-index">4</div>
+                      <div class="step-title">例外授权</div>
+                      <div class="step-desc">临时权限、额度调整、禁用覆盖。</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="page-integrations">
+            <div class="grid grid-2">
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">企业微信登录配置</h2>
+                  <span class="ant-tag tag-green">已启用</span>
+                </div>
+                <div class="ant-card-body">
+                  <form class="ant-form">
+                    <div class="form-grid">
+                      <label class="form-item">
+                        <span class="form-label">Corp ID</span>
+                        <input class="ant-input" value="ww7f9c8d2b3a6e1c20" />
+                      </label>
+                      <label class="form-item">
+                        <span class="form-label">Agent ID</span>
+                        <input class="ant-input" value="1000042" />
+                      </label>
+                    </div>
+                    <label class="form-item">
+                      <span class="form-label">回调地址</span>
+                      <input class="ant-input" value="https://admin.masterlion.ai/api/sso/wecom/callback" />
+                      <span class="form-extra">用户首次登录 Web 客户端时，会通过该回调完成身份绑定。</span>
+                    </label>
+                    <label class="form-item">
+                      <span class="form-label">工号字段来源</span>
+                      <select class="ant-select">
+                        <option>企业微信 extattr.jobNumber</option>
+                        <option>企业微信 userid</option>
+                        <option>邮箱前缀</option>
+                      </select>
+                    </label>
+                    <div>
+                      <button class="ant-btn" type="button">测试连接</button>
+                      <button class="ant-btn ant-btn-primary" type="button">保存配置</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <div class="ant-card">
+                <div class="ant-card-head">
+                  <h2 class="ant-card-title">aihub 对接与开户策略</h2>
+                  <button class="ant-btn ant-btn-primary ant-btn-small" data-open-drawer="onboarding">编辑策略</button>
+                </div>
+                <div class="ant-card-body">
+                  <div class="config-list">
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">工号匹配 aihub 账号</div>
+                        <div class="config-desc">首登时使用工号查询 aihub，命中后绑定用户 ID。</div>
+                      </div>
+                      <span class="ant-switch checked"></span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">aihub 不存在则自动开户</div>
+                        <div class="config-desc">写入姓名、工号、部门、手机号掩码和默认角色。</div>
+                      </div>
+                      <span class="ant-switch checked"></span>
+                    </div>
+                    <div class="config-item">
+                      <div>
+                        <div class="config-title">初始化 AI token 额度</div>
+                        <div class="config-desc">按部门策略发放 50K 到 300K 不等的月度额度。</div>
+                      </div>
+                      <span class="ant-switch checked"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ant-card" style="margin-top: 16px">
+              <div class="ant-card-head">
+                <h2 class="ant-card-title">OAuth / OIDC Provider</h2>
+                <button class="ant-btn ant-btn-small">新增 Provider</button>
+              </div>
+              <div class="ant-card-body">
+                <div class="ant-table-wrapper">
+                  <table class="ant-table">
+                    <thead>
+                      <tr>
+                        <th>Provider</th>
+                        <th>登录入口</th>
+                        <th>账号匹配字段</th>
+                        <th>默认角色</th>
+                        <th>状态</th>
+                        <th class="cell-actions">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>企业微信</td>
+                        <td>Web 客户端主入口</td>
+                        <td>工号</td>
+                        <td>按部门映射</td>
+                        <td><span class="ant-tag tag-green">启用</span></td>
+                        <td class="cell-actions"><button class="ant-btn ant-btn-small">配置</button></td>
+                      </tr>
+                      <tr>
+                        <td>通用 OIDC</td>
+                        <td>外部协作入口</td>
+                        <td>邮箱</td>
+                        <td>受限成员</td>
+                        <td><span class="ant-tag">未启用</span></td>
+                        <td class="cell-actions"><button class="ant-btn ant-btn-small">配置</button></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page" id="page-audit">
+            <div class="ant-card">
+              <div class="ant-card-head">
+                <h2 class="ant-card-title">审计日志</h2>
+                <button class="ant-btn ant-btn-small">导出 CSV</button>
+              </div>
+              <div class="ant-card-body">
+                <div class="toolbar">
+                  <div class="toolbar-left">
+                    <input class="ant-input search" value="aihub.account.initialize" />
+                    <select class="ant-select">
+                      <option>近 7 天</option>
+                      <option>近 30 天</option>
+                      <option>自定义</option>
+                    </select>
+                    <select class="ant-select">
+                      <option>全部结果</option>
+                      <option>成功</option>
+                      <option>失败</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="ant-table-wrapper">
+                  <table class="ant-table">
+                    <thead>
+                      <tr>
+                        <th>时间</th>
+                        <th>事件</th>
+                        <th>对象</th>
+                        <th>操作者</th>
+                        <th>结果</th>
+                        <th>详情</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>2026-06-19 13:08</td>
+                        <td>aihub.account.initialize</td>
+                        <td>陈雨 / ML-10492</td>
+                        <td>系统</td>
+                        <td><span class="ant-tag tag-orange">部分成功</span></td>
+                        <td>账号已创建，token 额度发放等待重试。</td>
+                      </tr>
+                      <tr>
+                        <td>2026-06-19 12:42</td>
+                        <td>wecom.directory.sync</td>
+                        <td>研发中心</td>
+                        <td>李卓</td>
+                        <td><span class="ant-tag tag-green">成功</span></td>
+                        <td>同步 84 名成员，新增 3 人。</td>
+                      </tr>
+                      <tr>
+                        <td>2026-06-19 11:36</td>
+                        <td>rbac.role.update</td>
+                        <td>受限成员</td>
+                        <td>王敏</td>
+                        <td><span class="ant-tag tag-green">成功</span></td>
+                        <td>关闭知识库写入与 MCP 调用权限。</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div class="drawer-mask" id="drawerMask"></div>
+    <aside class="ant-drawer" id="drawer" aria-hidden="true">
+      <div class="ant-drawer-header">
+        <div>
+          <div class="ant-drawer-title" id="drawerTitle">首登策略</div>
+          <div class="entity-sub" id="drawerSubtitle">企微登录、aihub 开户、token 额度初始化</div>
+        </div>
+        <button class="ant-btn ant-btn-text" data-close-drawer aria-label="关闭">关闭</button>
+      </div>
+      <div class="ant-drawer-body" id="drawerBody"></div>
+      <div class="ant-drawer-footer">
+        <button class="ant-btn" data-close-drawer>取消</button>
+        <button class="ant-btn ant-btn-primary" data-close-drawer>保存</button>
+      </div>
+    </aside>
+
+    <template id="drawer-onboarding">
+      <form class="ant-form">
+        <div class="form-grid">
+          <label class="form-item">
+            <span class="form-label">首登身份源</span>
+            <select class="ant-select">
+              <option>企业微信优先，OAuth 兜底</option>
+              <option>仅企业微信</option>
+              <option>仅 OAuth/OIDC</option>
+            </select>
+          </label>
+          <label class="form-item">
+            <span class="form-label">账号匹配字段</span>
+            <select class="ant-select">
+              <option>工号</option>
+              <option>邮箱</option>
+              <option>企业微信 userid</option>
+            </select>
+          </label>
+        </div>
+        <label class="form-item">
+          <span class="form-label">aihub 无账号时</span>
+          <select class="ant-select">
+            <option>自动初始化账号并绑定 MasterLion 用户</option>
+            <option>进入待审批队列</option>
+            <option>拒绝登录并提示联系管理员</option>
+          </select>
+        </label>
+        <div class="form-grid">
+          <label class="form-item">
+            <span class="form-label">默认角色</span>
+            <select class="ant-select">
+              <option>按企业微信部门映射</option>
+              <option>普通成员</option>
+              <option>受限成员</option>
+            </select>
+          </label>
+          <label class="form-item">
+            <span class="form-label">默认 AI Token 额度</span>
+            <input class="ant-input" value="按部门策略，最低 50K / 月" />
+          </label>
+        </div>
+        <label class="form-item">
+          <span class="form-label">失败处理</span>
+          <textarea class="ant-textarea">账号创建或额度初始化失败时允许登录，但仅展示受限客户端，并生成审计待办。</textarea>
+        </label>
+      </form>
+    </template>
+
+    <template id="drawer-user">
+      <div class="config-list">
+        <div class="config-item">
+          <div>
+            <div class="config-title">陈雨 / ML-10492</div>
+            <div class="config-desc">企业微信身份已验证，aihub token 额度初始化失败。</div>
+          </div>
+          <span class="ant-tag tag-orange">待重试</span>
+        </div>
+      </div>
+      <form class="ant-form" style="margin-top: 16px">
+        <div class="form-grid">
+          <label class="form-item">
+            <span class="form-label">角色</span>
+            <select class="ant-select">
+              <option>普通成员</option>
+              <option>组织管理员</option>
+              <option>受限成员</option>
+            </select>
+          </label>
+          <label class="form-item">
+            <span class="form-label">月度 AI Token 额度</span>
+            <input class="ant-input" value="200K" />
+          </label>
+        </div>
+        <label class="form-item">
+          <span class="form-label">客户端能力</span>
+          <select class="ant-select">
+            <option>聊天 + 知识库读 + Skill 调用</option>
+            <option>仅聊天</option>
+            <option>聊天 + 知识库读写 + MCP 调用</option>
+          </select>
+        </label>
+      </form>
+    </template>
+
+    <template id="drawer-org">
+      <form class="ant-form">
+        <label class="form-item">
+          <span class="form-label">企业微信部门</span>
+          <input class="ant-input" value="研发中心 / 平台组 · wx-dept-1007" />
+        </label>
+        <div class="form-grid">
+          <label class="form-item">
+            <span class="form-label">默认角色</span>
+            <select class="ant-select">
+              <option>普通成员</option>
+              <option>组织管理员</option>
+              <option>受限成员</option>
+            </select>
+          </label>
+          <label class="form-item">
+            <span class="form-label">默认额度</span>
+            <input class="ant-input" value="200K / 月" />
+          </label>
+        </div>
+        <label class="form-item">
+          <span class="form-label">能力策略</span>
+          <textarea class="ant-textarea">允许聊天、模型访问、知识库读取；MCP 调用需要额外角色或例外授权。</textarea>
+        </label>
+      </form>
+    </template>
+
+    <template id="drawer-role">
+      <form class="ant-form">
+        <label class="form-item">
+          <span class="form-label">角色名称</span>
+          <input class="ant-input" value="普通成员" />
+        </label>
+        <div class="form-grid">
+          <label class="form-item">
+            <span class="form-label">后台权限</span>
+            <select class="ant-select">
+              <option>无后台权限</option>
+              <option>本部门用户管理</option>
+              <option>全部后台权限</option>
+            </select>
+          </label>
+          <label class="form-item">
+            <span class="form-label">客户端权限</span>
+            <select class="ant-select">
+              <option>聊天、模型、知识库读</option>
+              <option>聊天、模型</option>
+              <option>全部客户端能力</option>
+            </select>
+          </label>
+        </div>
+        <label class="form-item">
+          <span class="form-label">说明</span>
+          <textarea class="ant-textarea">角色决定用户登录后看到的 Web 客户端能力，以及是否能进入管理后台。</textarea>
+        </label>
+      </form>
+    </template>
+
+    <script>
+      const pageMeta = {
+        overview: ["总览", "查看 Web 客户端账号开通、企微同步、aihub 对接、额度初始化和权限风险。"],
+        users: ["用户管理", "管理用户身份、工号绑定、aihub 账号状态、角色和 AI token 额度。"],
+        orgs: ["组织管理", "维护企业、部门、岗位与企业微信通讯录映射，并设置默认角色与额度。"],
+        permissions: ["权限管理", "围绕 RBAC 管理后台权限、客户端能力权限点、资源范围与例外授权。"],
+        integrations: ["接入配置", "配置企业微信、OAuth/OIDC、aihub 对接和新用户首次登录策略。"],
+        audit: ["审计日志", "追踪账号初始化、企微同步、角色变更、额度调整和高危操作。"],
+      };
+
+      const navItems = document.querySelectorAll("[data-nav]");
+      const pages = document.querySelectorAll(".page");
+      const pageTitle = document.getElementById("pageTitle");
+      const pageDescription = document.getElementById("pageDescription");
+
+      function setPage(key) {
+        navItems.forEach((item) => {
+          const active = item.dataset.nav === key;
+          item.classList.toggle("ant-menu-item-selected", active);
+          item.classList.toggle("active", active);
+        });
+        pages.forEach((page) => page.classList.toggle("active", page.id === `page-${key}`));
+        pageTitle.textContent = pageMeta[key][0];
+        pageDescription.textContent = pageMeta[key][1];
+      }
+
+      navItems.forEach((item) => item.addEventListener("click", () => setPage(item.dataset.nav)));
+
+      const drawer = document.getElementById("drawer");
+      const drawerMask = document.getElementById("drawerMask");
+      const drawerTitle = document.getElementById("drawerTitle");
+      const drawerSubtitle = document.getElementById("drawerSubtitle");
+      const drawerBody = document.getElementById("drawerBody");
+
+      const drawerMeta = {
+        onboarding: ["首登策略", "企微登录、aihub 开户、token 额度初始化"],
+        user: ["用户详情", "工号绑定、角色、客户端能力与额度"],
+        org: ["组织映射", "企业微信部门到 MasterLion 策略的继承关系"],
+        role: ["角色配置", "RBAC 管理权限与 Web 客户端能力开关"],
+      };
+
+      function openDrawer(type) {
+        const template = document.getElementById(`drawer-${type || "onboarding"}`);
+        const meta = drawerMeta[type || "onboarding"];
+        drawerTitle.textContent = meta[0];
+        drawerSubtitle.textContent = meta[1];
+        drawerBody.innerHTML = "";
+        drawerBody.appendChild(template.content.cloneNode(true));
+        drawer.classList.add("open");
+        drawerMask.classList.add("open");
+        drawer.setAttribute("aria-hidden", "false");
+      }
+
+      function closeDrawer() {
+        drawer.classList.remove("open");
+        drawerMask.classList.remove("open");
+        drawer.setAttribute("aria-hidden", "true");
+      }
+
+      document.querySelectorAll("[data-open-drawer]").forEach((button) => {
+        button.addEventListener("click", () => openDrawer(button.dataset.openDrawer));
+      });
+      document.querySelectorAll("[data-close-drawer]").forEach((button) => button.addEventListener("click", closeDrawer));
+      drawerMask.addEventListener("click", closeDrawer);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeDrawer();
+      });
+    </script>
+  </body>
+</html>

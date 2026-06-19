@@ -1,0 +1,63 @@
+---
+title: 在 MasterLion 中配置 Authentik 身份验证
+description: 学习如何在 MasterLion 中配置 Authentik SSO，包括创建 OAuth2 提供商和应用。
+tags:
+  - Authentik
+  - 身份验证
+  - MasterLion
+  - 单点登录
+  - OIDC
+---
+
+# 配置 Authentik 身份验证
+
+[Authentik](https://goauthentik.io/) 是一个开源身份提供商，专注于灵活性和多功能性。
+
+<Steps>
+  ### 在 Authentik 中创建 OAuth2 提供商
+
+  1. 在 Authentik 管理界面，前往 **Applications** > **Providers**
+  2. 点击 **Create**，选择 **OAuth2/OpenID Provider**
+  3. 配置提供商：
+     - Name: `MasterLion`
+     - Authorization flow: 选择授权流程
+     - Client type: `Confidential`
+     - Redirect URIs: 添加回调 URL
+
+  <Callout type={'info'}>
+    **回调 URL 格式**: `https://your-domain.com/api/auth/callback/authentik`
+  </Callout>
+
+  ### 创建应用
+
+  1. 前往 **Applications** > **Applications**
+  2. 点击 **Create**，关联到刚创建的 OAuth2 提供商
+  3. 记下 **Client ID** 和 **Client Secret**
+
+  ### 获取 Issuer URL
+
+  Issuer URL 通常为：`https://your-authentik-domain/application/o/your-app-slug/`
+
+  ### 配置环境变量
+
+  在部署 MasterLion 时，你需要配置以下环境变量：
+
+  | 环境变量                    | 类型 | 描述                                             |
+  | ----------------------- | -- | ---------------------------------------------- |
+  | `AUTH_SECRET`           | 必选 | 用于加密会话令牌的密钥。使用以下命令生成：`openssl rand -base64 32` |
+  | `AUTH_SSO_PROVIDERS`    | 必选 | SSO 提供商。使用 Authentik 请填写 `authentik`           |
+  | `AUTH_AUTHENTIK_ID`     | 必选 | Authentik 提供商的 Client ID                       |
+  | `AUTH_AUTHENTIK_SECRET` | 必选 | Authentik 提供商的 Client Secret                   |
+  | `AUTH_AUTHENTIK_ISSUER` | 必选 | Authentik Issuer URL                           |
+
+  <Callout type={'tip'}>
+    前往 [📘 环境变量](/zh/docs/self-hosting/environment-variables/auth#authentik) 可查阅相关变量详情。
+  </Callout>
+</Steps>
+
+<Callout type={'info'}>部署成功后，用户将可以通过 Authentik 身份认证并使用 MasterLion。</Callout>
+
+## 相关资源
+
+- [Authentik 文档](https://docs.goauthentik.io/)
+- [Authentik OAuth2 提供商](https://docs.goauthentik.io/docs/providers/oauth2/)

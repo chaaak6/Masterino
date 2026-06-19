@@ -1,0 +1,224 @@
+import { isDesktop } from '@lobechat/const';
+import { type DropdownItem } from '@lobehub/ui';
+import { Icon } from '@lobehub/ui';
+import { App } from 'antd';
+import { cssVar, useResponsive } from 'antd-style';
+import dayjs from 'dayjs';
+import { Clock3Icon, CopyPlus, Download, Link2, Maximize2, Trash2, UserRound } from 'lucide-react';
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { useAuthorInfo } from '@/business/client/hooks/useAuthorInfo';
+import { useDocumentTransferMenuItem } from '@/business/client/hooks/useDocumentTransferMenuItem';
+import { usePermission } from '@/hooks/usePermission';
+import { useDocumentStore } from '@/store/document';
+import { editorSelectors } from '@/store/document/slices/editor';
+import { useFileStore } from '@/store/file';
+import { useGlobalStore } from '@/store/global';
+import { systemStatusSelectors } from '@/store/global/selectors';
+import { pageSelectors, usePageStore } from '@/store/page';
+
+import { usePageEditorStore, useStoreApi } from '../store';
+
+/**
+ * Action menu for the page editor.
+ */
+export const useMenu = (): { menuItems: any[] } => {
+  const { t } = useTranslation(['file', 'common', 'chat']);
+  const { message } = App.useApp();
+  const storeApi = useStoreApi();
+  const { lg = true } = useResponsive();
+
+  const documentId = usePageEditorStore((s) => s.documentId);
+  const { allowed: canCreatePage } = usePermission('create_content');
+  const { allowed: canEditPage } = usePermission('edit_own_content');
+
+  // Get lastUpdatedTime from DocumentStore (live save status within the session)
+  const editorUpdatedTime = useDocumentStore((s) =>
+    documentId ? editorSelectors.lastUpdatedTime(documentId)(s) : null,
+  );
+
+  const pageDocument = usePageStore(pageSelectors.getDocumentById(documentId));
+  const authorName = useAuthorInfo(pageDocument?.userId)?.fullName;
+  const lastUpdatedTime =
+    editorUpdatedTime ??
+    (pageDocument?.updatedAt ? new Date(pageDocument.updatedAt).toISOString() : null);
+
+  const duplicateDocument = useFileStore((s) => s.duplicateDocument);
+  const setRightPanelMode = usePageEditorStore((s) => s.setRightPanelMode);
+  const transferMenuItems = useDocumentTransferMenuItem(documentId) as DropdownItem[] | null;
+
+  const [togglePageAgentPanel, wideScreen, toggleWideScreen] = useGlobalStore((s) => [
+    s.togglePageAgentPanel,
+    systemStatusSelectors.wideScreen(s),
+    s.toggleWideScreen,
+  ]);
+
+  // Wide screen mode only makes sense when screen is large enough
+  const showViewModeSwitch = lg;
+
+  const handleDuplicate = async () => {
+    if (!canCreatePage) return;
+    if (!documentId) return;
+    try {
+      await duplicateDocument(documentId);
+      message.success(t('pageEditor.duplicateSuccess'));
+    } catch (error) {
+      console.error('Failed to duplicate page:', error);
+      message.error(t('pageEditor.duplicateError'));
+    }
+  };
+
+  const handleExportMarkdown = async () => {
+    const state = storeApi.getState();
+    const { editor, title } = state;
+
+    if (!editor) return;
+
+    try {
+      const markdown = (editor.getDocument('markdown') as unknown as string) || '';
+      const fileName = `${title || 'Untitled'}.md`;
+
+      if (isDesktop) {
+        const { desktopExportService } = await import('@/services/electron/desktopExportService');
+        await desktopExportService.exportMarkdown({
+          content: markdown,
+          fileName,
+        });
+      } else {
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.append(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        message.success(t('pageEditor.exportSuccess'));
+      }
+    } catch (error) {
+      console.error('Failed to export markdown:', error);
+      message.error(t('pageEditor.exportError'));
+    }
+  };
+
+  const menuItems = useMemo<DropdownItem[]>(() => {
+    const items: DropdownItem[] = [
+      ...(showViewModeSwitch
+        ? [
+            {
+              checked: wideScreen,
+              icon: <Icon icon={Maximize2} />,
+              key: 'full-width',
+              label: t('viewMode.fullWidth', { ns: 'chat' }),
+              onCheckedChange: toggleWideScreen,
+              type: 'switch' as const,
+            },
+            {
+              type: 'divider' as const,
+            },
+          ]
+        : []),
+      {
+        disabled: !canCreatePage,
+        icon: <Icon icon={CopyPlus} />,
+        key: 'duplicate',
+        label: t('pageList.duplicate'),
+        onClick: handleDuplicate,
+      },
+      {
+        icon: <Icon icon={Link2} />,
+        key: 'copy-link',
+        label: t('pageEditor.menu.copyLink'),
+        onClick: () => {
+          const state = storeApi.getState();
+          state.handleCopyLink(t as any, message);
+        },
+      },
+      {
+        icon: <Icon icon={Clock3Icon} />,
+        key: 'version-history',
+        label: t('pageEditor.history.title'),
+        onClick: () => {
+          setRightPanelMode('history');
+          togglePageAgentPanel(true);
+        },
+      },
+      {
+        danger: true,
+        disabled: !canEditPage,
+        icon: <Icon icon={Trash2} />,
+        key: 'delete',
+        label: t('delete', { ns: 'common' }),
+        onClick: async () => {
+          if (!canEditPage) return;
+          const state = storeApi.getState();
+          await state.handleDelete(t as any, message, state.onDelete);
+        },
+      },
+      {
+        type: 'divider' as const,
+      },
+      ...((transferMenuItems ?? []) as DropdownItem[]),
+      {
+        children: [
+          {
+            key: 'export-markdown',
+            label: t('pageEditor.menu.export.markdown'),
+            onClick: handleExportMarkdown,
+          },
+        ],
+        icon: <Icon icon={Download} />,
+        key: 'export',
+        label: t('pageEditor.menu.export'),
+      },
+    ];
+
+    if (lastUpdatedTime || authorName) {
+      items.push(
+        {
+          type: 'divider' as const,
+        },
+        {
+          disabled: true,
+          icon: authorName ? <Icon icon={UserRound} /> : undefined,
+          key: 'page-info',
+          label: (
+            <span style={{ color: cssVar.colorTextTertiary, fontSize: 12, lineHeight: 1.6 }}>
+              {[
+                authorName,
+                lastUpdatedTime
+                  ? t('pageEditor.editedAt', {
+                      time: dayjs(lastUpdatedTime).format('MMMM D, YYYY [at] h:mm A'),
+                    })
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          ),
+        },
+      );
+    }
+    return items;
+  }, [
+    lastUpdatedTime,
+    authorName,
+    canCreatePage,
+    canEditPage,
+    storeApi,
+    t,
+    message,
+    setRightPanelMode,
+    wideScreen,
+    toggleWideScreen,
+    togglePageAgentPanel,
+    showViewModeSwitch,
+    handleDuplicate,
+    handleExportMarkdown,
+    transferMenuItems,
+  ]);
+
+  return { menuItems };
+};

@@ -1,0 +1,19 @@
+{
+  "features.agentDocumentFloatingChatPanel.desc": "Hiển thị bảng trò chuyện nổi trong chế độ xem trước tài liệu của đại lý chỉ khi tính năng thử nghiệm này được bật.",
+  "features.agentDocumentFloatingChatPanel.title": "Bảng Trò Chuyện Nổi Tài Liệu Đại Lý",
+  "features.agentSelfIteration.desc": "Cho phép trợ lý tự phản tư, xây dựng khả năng tự nhận thức và liên tục cải thiện thông qua các nỗ lực và tương tác đang diễn ra.",
+  "features.agentSelfIteration.title": "Tự lặp của tác nhân",
+  "features.assistantMessageGroup.desc": "Nhóm các tin nhắn của tác nhân và kết quả gọi công cụ lại với nhau để hiển thị",
+  "features.assistantMessageGroup.title": "Nhóm Tin Nhắn Tác Nhân",
+  "features.fleet.desc": "Hiển thị mục Fleet trong thanh tiêu đề — một bảng điều khiển song song của tất cả các tác vụ đang chạy trên các tác nhân của bạn.",
+  "features.fleet.title": "Chế Độ Xem Fleet",
+  "features.groupChat.desc": "Kích hoạt phối hợp trò chuyện nhóm với nhiều tác nhân.",
+  "features.groupChat.title": "Trò Chuyện Nhóm (Đa Tác Nhân)",
+  "features.imessage.desc": "Kết nối các đại lý với iMessage thông qua cầu nối BlueBubbles MasterLion Desktop cục bộ.",
+  "features.imessage.title": "Kênh iMessage",
+  "features.inputMarkdown.desc": "Hiển thị Markdown trong khu vực nhập liệu theo thời gian thực (văn bản in đậm, khối mã, bảng, v.v.).",
+  "features.inputMarkdown.title": "Hiển Thị Markdown Trong Ô Nhập",
+  "features.platformAgent.desc": "Hiển thị mục \"Kết nối Agent\" trong menu tạo. Các agent được kết nối (ví dụ: OpenClaw, Hermes) chạy trên thiết bị của bạn và giao tiếp lại thông qua lh connect.",
+  "features.platformAgent.title": "Kết nối Agent",
+  "title": "Phòng Thí Nghiệm"
+}

@@ -1,0 +1,74 @@
+---
+title: 在 MasterLion 中配置 Keycloak 身份验证
+description: 学习如何在 MasterLion 中配置 Keycloak SSO，包括创建客户端和设置环境变量。
+tags:
+  - Keycloak
+  - 身份验证
+  - MasterLion
+  - 单点登录
+---
+
+# 配置 Keycloak 身份验证
+
+[Keycloak](https://www.keycloak.org/) 是一个开源的身份和访问管理解决方案。
+
+<Steps>
+  ### 在 Keycloak 中创建客户端
+
+  1. 登录 Keycloak 管理控制台
+  2. 选择你的 realm（或创建新的）
+  3. 前往 **Clients** > **Create client**
+  4. 配置客户端：
+     - **Client type**: `OpenID Connect`
+     - **Client ID**: `lobechat`（或任意名称）
+  5. 点击 **Next**
+  6. 启用 **Client authentication**（On）
+  7. 点击 **Next** 然后 **Save**
+
+  ### 配置重定向 URI
+
+  在客户端 **Settings** 标签页中：
+
+  1. 在 **Valid redirect URIs** 下添加重定向 URI
+
+  <Callout type={'info'}>
+    回调 URL 格式：
+
+    - 本地开发: `http://localhost:3210/api/auth/callback/keycloak`
+    - 生产环境: `https://your-domain.com/api/auth/callback/keycloak`
+  </Callout>
+
+  ### 获取客户端密钥
+
+  前往 **Credentials** 标签页复制 **Client secret**。
+
+  ### 获取 Issuer URL
+
+  Issuer URL 格式：`https://your-keycloak-domain/realms/your-realm`
+
+  例如：`https://keycloak.example.com/realms/master`
+
+  ### 配置环境变量
+
+  | 环境变量                   | 类型 | 描述                                               |
+  | ---------------------- | -- | ------------------------------------------------ |
+  | `AUTH_SECRET`          | 必选 | 会话加密密钥，使用 `openssl rand -base64 32` 生成           |
+  | `AUTH_SSO_PROVIDERS`   | 必选 | 填写 `keycloak`                                    |
+  | `AUTH_KEYCLOAK_ID`     | 必选 | Client ID                                        |
+  | `AUTH_KEYCLOAK_SECRET` | 必选 | Client Secret                                    |
+  | `AUTH_KEYCLOAK_ISSUER` | 必选 | `https://your-keycloak-domain/realms/your-realm` |
+
+  <Callout type={'tip'}>
+    前往 [📘 环境变量](/zh/docs/self-hosting/environment-variables/auth#keycloak)
+    可查阅相关变量详情。
+  </Callout>
+</Steps>
+
+<Callout type={'info'}>
+  部署成功后，用户将可以通过 Keycloak 身份认证并使用 MasterLion。
+</Callout>
+
+## 相关资源
+
+- [Keycloak 文档](https://www.keycloak.org/documentation)
+- [Keycloak OpenID Connect 指南](https://www.keycloak.org/docs/latest/securing_apps/#_oidc)

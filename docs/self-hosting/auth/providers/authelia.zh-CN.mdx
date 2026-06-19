@@ -1,0 +1,62 @@
+---
+title: 在 MasterLion 中配置 Authelia 身份验证
+description: 学习如何在 MasterLion 中配置 Authelia SSO，包括设置 OIDC 客户端和环境变量。
+tags:
+  - Authelia
+  - 身份验证
+  - MasterLion
+  - 单点登录
+  - OIDC
+---
+
+# 配置 Authelia 身份验证
+
+[Authelia](https://www.authelia.com/) 是一个开源的身份验证和授权服务器，提供双因素认证和单点登录功能。
+
+<Steps>
+  ### 在 Authelia 中配置 OIDC 客户端
+
+  在 Authelia 配置文件中添加新的 OIDC 客户端：
+
+  ```yaml
+  identity_providers:
+    oidc:
+      clients:
+        - client_id: 'lobechat'
+          client_name: 'MasterLion'
+          client_secret: 'your-client-secret'
+          redirect_uris:
+            - 'https://your-domain.com/api/auth/callback/authelia'
+          scopes:
+            - 'openid'
+            - 'profile'
+            - 'email'
+  ```
+
+  <Callout type={'info'}>
+    **回调 URL 格式**: `https://your-domain.com/api/auth/callback/authelia`
+  </Callout>
+
+  ### 配置环境变量
+
+  在部署 MasterLion 时，你需要配置以下环境变量：
+
+  | 环境变量                   | 类型 | 描述                                                     |
+  | ---------------------- | -- | ------------------------------------------------------ |
+  | `AUTH_SECRET`          | 必选 | 用于加密会话令牌的密钥。使用以下命令生成：`openssl rand -base64 32`         |
+  | `AUTH_SSO_PROVIDERS`   | 必选 | SSO 提供商。使用 Authelia 请填写 `authelia`                     |
+  | `AUTH_AUTHELIA_ID`     | 必选 | Authelia 中配置的 Client ID                                |
+  | `AUTH_AUTHELIA_SECRET` | 必选 | Authelia 中配置的 Client Secret                            |
+  | `AUTH_AUTHELIA_ISSUER` | 必选 | Authelia Issuer URL（例如 `https://auth.your-domain.com`） |
+
+  <Callout type={'tip'}>
+    前往 [📘 环境变量](/zh/docs/self-hosting/environment-variables/auth#authelia) 可查阅相关变量详情。
+  </Callout>
+</Steps>
+
+<Callout type={'info'}>部署成功后，用户将可以通过 Authelia 身份认证并使用 MasterLion。</Callout>
+
+## 相关资源
+
+- [Authelia 文档](https://www.authelia.com/docs/)
+- [Authelia OIDC 配置](https://www.authelia.com/configuration/identity-providers/openid-connect/)

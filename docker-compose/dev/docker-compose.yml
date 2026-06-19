@@ -1,0 +1,135 @@
+name: masterlion
+services:
+  network-service:
+    image: alpine
+    container_name: masterlion-network-service
+    restart: always
+    ports:
+      - '${RUSTFS_PORT}:9000' # RustFS API
+      - '9001:9001' # RustFS Console
+      - '${LOBE_PORT}:3210' # MasterLion
+    command: tail -f /dev/null
+    networks:
+      - masterlion-network
+    env_file:
+      - .env
+
+  postgresql:
+    image: paradedb/paradedb:latest-pg17
+    container_name: masterlion-postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - './data:/var/lib/postgresql/data'
+    environment:
+      - 'POSTGRES_DB=${LOBE_DB_NAME}'
+      - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD}'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - masterlion-network
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7-alpine
+    container_name: masterlion-redis
+    ports:
+      - '6379:6379'
+    command: redis-server --save 60 1000 --appendonly yes
+    volumes:
+      - 'redis_data:/data'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: always
+    networks:
+      - masterlion-network
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: masterlion-rustfs
+    network_mode: 'service:network-service'
+    environment:
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY}
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:9000/health >/dev/null 2>&1 || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    command: ['--access-key','${RUSTFS_ACCESS_KEY}','--secret-key','${RUSTFS_SECRET_KEY}','/data']
+    env_file:
+      - .env
+
+  rustfs-init:
+    image: minio/mc:latest
+    container_name: masterlion-rustfs-init
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -eux
+        echo "S3_ACCESS_KEY=$$RUSTFS_ACCESS_KEY, S3_SECRET_KEY=$$RUSTFS_SECRET_KEY"
+        mc --version
+        mc alias set rustfs "http://network-service:9000" "$$RUSTFS_ACCESS_KEY" "$$RUSTFS_SECRET_KEY"
+        mc ls rustfs || true
+        mc mb "rustfs/lobe" --ignore-existing
+        mc admin info rustfs || true
+        mc anonymous set download "rustfs/lobe"
+        cat > /tmp/rustfs-cors.json <<'EOF'
+        {
+          "CORSRules": [
+            {
+              "AllowedHeaders": ["*"],
+              "AllowedMethods": ["GET", "HEAD", "PUT"],
+              "AllowedOrigins": ["http://localhost:3220", "http://127.0.0.1:3220", "*"],
+              "ExposeHeaders": ["ETag"],
+              "MaxAgeSeconds": 3000
+            }
+          ]
+        }
+        EOF
+        mc cors set "rustfs/lobe" /tmp/rustfs-cors.json || echo "RustFS CORS API is unavailable; browser uploads use the MasterLion same-origin proxy."
+    restart: 'no'
+    networks:
+      - masterlion-network
+    env_file:
+      - .env
+
+  searxng:
+    image: searxng/searxng
+    container_name: masterlion-searxng
+    ports:
+      - '8180:8080'
+    volumes:
+      - './searxng-settings.yml:/etc/searxng/settings.yml'
+    environment:
+      - 'SEARXNG_SETTINGS_FILE=/etc/searxng/settings.yml'
+    restart: always
+    networks:
+      - masterlion-network
+
+volumes:
+  data:
+    driver: local
+  redis_data:
+    driver: local
+  rustfs-data:
+    driver: local
+
+networks:
+  masterlion-network:
+    driver: bridge

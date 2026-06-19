@@ -1,0 +1,229 @@
+---
+title: Best Practices for State Management
+description: >-
+  Explore effective state management practices for MasterLion's complex data flow
+  architecture.
+tags:
+  - State Management
+  - MasterLion
+  - Data Flow
+  - Best Practices
+---
+
+# Best Practices for State Management
+
+MasterLion differs from traditional CRUD web applications in that it involves a large amount of rich interactive capabilities. Therefore, it is crucial to design a data flow architecture that is easy to develop and maintain. This document will introduce the best practices for data flow management in MasterLion.
+
+## Key Concepts
+
+| Concept  | Explanation                                                                                                                                                                                                                                                                                                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| store    | The store contains the application's state and actions. It allows access to and modification of the state during application rendering.                                                                                                                                                                                                                                          |
+| state    | State refers to the data of the application, storing the current state of the application. Any change in the state will **trigger a re-rendering** to reflect the new state.                                                                                                                                                                                                     |
+| action   | An action is an operation function that describes the interactive events occurring in the application. Actions are typically triggered by user interactions, network requests, or timers. Actions can be **synchronous** or **asynchronous**.                                                                                                                                    |
+| reducer  | A reducer is a pure function that takes the current state and action as parameters and returns a new state. It is used to update the application's state based on the action type. A reducer is a pure function with no side effects, therefore it is always a **synchronous** function.                                                                                         |
+| selector | A selector is a function used to retrieve specific data from the application's state. It takes the application's state as a parameter and returns computed or transformed data. Selectors can combine parts of the state or multiple states to generate derived data. Selectors are commonly used to map the application's state to a component's props for the component's use. |
+| slice    | A slice is a concept used to express a part of the data model state. It specifies a state slice and its related state, action, reducer, and selector. Using slices, a large store can be divided into smaller, maintainable subtypes.                                                                                                                                            |
+
+## Hierarchical Structure
+
+The structure of the Store can vary greatly depending on the complexity:
+
+- **Low Complexity**: Generally includes 2 to 5 states and 3 to 4 actions. In this case, the structure usually consists of a `store.ts` and an `initialState.ts`.
+
+```bash
+DataFill/store
+├── index.ts
+└── initialState.ts
+```
+
+- **Moderate Complexity**: Typically involves 5 to 15 states and 5 to 10 actions, with the possibility of selectors for derived states and reducers to simplify data changes. The structure usually includes a `store.ts`, an `initialState.ts`, and a `selectors.ts`/`reducer.ts`.
+
+```bash
+IconPicker/store
+├── index.ts
+├── initialState.ts
+├── selectors.ts
+└── store.ts
+```
+
+```bash
+SortableList/store
+├── index.ts
+├── initialState.ts
+├── listDataReducer.ts
+└── store.ts
+```
+
+- **Medium Complexity**: Involves 15 to 30 states and 10 to 20 actions, often requiring the use of multiple slices to manage different actions. The following code represents the internal data flow of the `SortableTree` component:
+
+```bash
+SortableTree/store
+├── index.ts
+├── initialState.ts
+├── selectors.ts
+├── slices
+│ ├── crudSlice.ts
+│ ├── dndSlice.ts
+│ └── selectionSlice.ts
+├── store.ts
+└── treeDataReducer.ts
+```
+
+- **High Complexity**: Involves over 30 states and 20 actions, requiring modular cohesion using slices. Each slice declares its own initState, actions, reducers, and selectors.
+
+The directory structure of the previous version of SessionStore for MasterLion, with high complexity, implements a large amount of business logic. However, with the modularization of slices and the fractal architecture, it is easy to find the corresponding modules, making it easy to maintain and iterate on new features.
+
+```bash
+MasterLion SessionStore
+├── index.ts
+├── initialState.ts
+├── selectors.ts
+├── slices
+│ ├── agentConfig
+│ │ ├── action.ts
+│ │ ├── index.ts
+│ │ ├── initialState.ts
+│ │ └── selectors.ts
+│ ├── chat
+│ │ ├── actions
+│ │ │ ├── index.ts
+│ │ │ ├── message.ts
+│ │ │ └── topic.ts
+│ │ ├── index.ts
+│ │ ├── initialState.ts
+│ │ ├── reducers
+│ │ │ ├── message.ts
+│ │ │ └── topic.ts
+│ │ ├── selectors
+│ │ │ ├── chat.ts
+│ │ │ ├── index.ts
+│ │ │ ├── token.ts
+│ │ │ ├── topic.ts
+│ │ │ └── utils.ts
+│ │ └── utils.ts
+│ └── session
+│ ├── action.ts
+│ ├── index.ts
+│ ├── initialState.ts
+│ ├── reducers
+│ │ └── session.ts
+│ └── selectors
+│ ├── export.ts
+│ ├── index.ts
+│ └── list.ts
+└── store.ts
+```
+
+Based on the provided directory structure of MasterLion SessionStore, we can update the previous document and convert the examples to the implementation of MasterLion's SessionStore. The following is a portion of the updated document:
+
+### Best Practices for MasterLion SessionStore Directory Structure
+
+In the MasterLion application, session management is a complex functional module, so we use the Slice pattern to organize the data flow. Below is the directory structure of MasterLion SessionStore, where each directory and file has its specific purpose:
+
+{/* eslint-disable no-irregular-whitespace */}
+
+```bash
+src/store/session
+├── helpers.ts                         # Helper functions
+├── hooks                              # Custom React hooks
+│   ├── index.ts                       # Export file for hooks
+│   ├── useEffectAfterHydrated.ts      # Hook for effects after session hydration
+│   ├── useOnFinishHydrationSession.ts # Hook for session hydration completion
+│   ├── useSessionChatInit.ts          # Hook for session chat initialization
+│   └── useSessionHydrated.ts          # Hook for session hydration status
+├── index.ts                           # Aggregated export file for SessionStore
+├── initialState.ts                    # Aggregated initialState for all slices
+├── selectors.ts                       # Selectors exported from various slices
+├── slices                             # Separated functional modules
+│   ├── agent                          # State and operations related to agents
+│   │   ├── action.ts                  # Action definitions related to agents
+│   │   ├── index.ts                   # Entry file for agent slice
+│   │   ├── selectors.test.ts          # Tests for agent-related selectors
+│   │   └── selectors.ts               # Selector definitions related to agents
+│   └── session                        # State and operations related to sessions
+│   ├── action.test.ts                 # Tests for session-related actions
+│   ├── action.ts                      # Action definitions related to sessions
+│   ├── helpers.ts                     # Helper functions related to sessions
+│   ├── initialState.ts                # Initial state for session slice
+│   └── selectors                      # Session-related selectors and their tests
+│   ├── export.ts                      # Aggregated export for session selectors
+│   ├── index.ts                       # Entry file for session selectors
+│   ├── list.test.ts                   # Tests for list selectors
+│   └── list.ts                        # Definitions for list-related selectors
+└── store.ts                           # Creation and usage of SessionStore
+```
+
+## Implementation of SessionStore
+
+In MasterLion, the SessionStore is designed as the core module for managing session state and logic. It consists of multiple Slices, with each Slice managing a relevant portion of state and logic. Below is a simplified example of the SessionStore implementation:
+
+### store.ts
+
+```ts
+import { PersistOptions, devtools, persist, subscribeWithSelector } from 'zustand/middleware';
+import { shallow } from 'zustand/shallow';
+import { devtools } from 'zustand/middleware';
+import { createWithEqualityFn } from 'zustand/traditional';
+
+import { SessionStoreState, initialState } from './initialState';
+import { AgentAction, createAgentSlice } from './slices/agent/action';
+import { SessionAction, createSessionSlice } from './slices/session/action';
+
+//  ===============  Aggregate createStoreFn ============ //
+
+export type SessionStore = SessionAction & AgentAction & SessionStoreState;
+const createStore: StateCreator<SessionStore, [['zustand/devtools', never]]> = (...parameters) => ({
+  ...initialState,
+  ...createAgentSlice(...parameters),
+  ...createSessionSlice(...parameters),
+});
+
+//  ===============  Implement useStore ============ //
+
+export const useSessionStore = createWithEqualityFn<SessionStore>()(
+  persist(
+    subscribeWithSelector(
+      devtools(createStore, {
+        name: 'LobeHub_Session' + (isDev ? '_DEV' : ''),
+      }),
+    ),
+    persistOptions,
+  ),
+  shallow,
+);
+
+```
+
+In this `store.ts` file, we create a `useSessionStore` hook that uses the `zustand` library to create a global state manager. We merge the initialState with the actions from each Slice to create a complete SessionStore.
+
+### slices/session/action.ts
+
+```ts
+import { StateCreator } from 'zustand';
+
+import { SessionStore } from '@/store/session';
+
+export interface SessionActions {
+  /**
+   * A custom hook that uses SWR to fetch sessions data.
+   */
+  useFetchSessions: () => SWRResponse<any>;
+}
+
+export const createSessionSlice: StateCreator<
+  SessionStore,
+  [['zustand/devtools', never]],
+  [],
+  SessionAction
+> = (set, get) => ({
+  useFetchSessions: () => {
+    // ...logic for initializing sessions
+  },
+  // ...implementation of other actions
+});
+```
+
+In the `action.ts` file, we define a `SessionActions` interface to describe session-related actions and implement a `useFetchSessions` function to create these actions. Then, we merge these actions with the initial state to form the session-related Slice.
+
+Through this layered and modular approach, we can ensure that MasterLion's SessionStore is clear, maintainable, and easy to extend and test.

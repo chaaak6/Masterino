@@ -1,0 +1,19 @@
+{
+  "features.agentDocumentFloatingChatPanel.desc": "Toon het zwevende chatpaneel in de documentvoorvertoning van de agent alleen wanneer deze labfunctie is ingeschakeld.",
+  "features.agentDocumentFloatingChatPanel.title": "Zwevend Chatpaneel voor Agentdocumenten",
+  "features.agentSelfIteration.desc": "De assistent kan hierdoor reflecteren, zelfinzicht opbouwen en zich continu blijven verbeteren via aanhoudende pogingen en interacties.",
+  "features.agentSelfIteration.title": "Agent-zelfiteratie",
+  "features.assistantMessageGroup.desc": "Groepeer berichten van de agent en de resultaten van hun tool-aanroepen samen voor weergave",
+  "features.assistantMessageGroup.title": "Agentberichtengroepering",
+  "features.fleet.desc": "Toon de Fleet-invoer in de titelbalk — een zij-aan-zij dashboard van alle lopende taken over uw agents.",
+  "features.fleet.title": "Fleet-weergave",
+  "features.groupChat.desc": "Schakel coördinatie van groepschats met meerdere agenten in.",
+  "features.groupChat.title": "Groepschat (Meerdere Agenten)",
+  "features.imessage.desc": "Verbind agents met iMessage via de lokale MasterLion Desktop BlueBubbles-bridge.",
+  "features.imessage.title": "iMessage-kanaal",
+  "features.inputMarkdown.desc": "Toon Markdown in het invoerveld in realtime (vette tekst, codeblokken, tabellen, enz.).",
+  "features.inputMarkdown.title": "Markdown-weergave bij Invoer",
+  "features.platformAgent.desc": "Toon de optie \"Agent Verbinden\" in het aanmaakmenu. Verbonden agents (bijv. OpenClaw, Hermes) draaien op je eigen apparaten en communiceren terug via lh connect.",
+  "features.platformAgent.title": "Agent Verbinden",
+  "title": "Labs"
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@masterlion/aihub-db-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "mysql2": "3.15.3",
+    "pg": "^8.17.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.14",
+    "@types/pg": "^8.16.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
+  }
+}

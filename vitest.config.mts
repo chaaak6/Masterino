@@ -1,0 +1,159 @@
+import { dirname, join, resolve } from 'node:path';
+
+import tsconfigPaths from 'vite-tsconfig-paths';
+import { coverageConfigDefaults, defineConfig } from 'vitest/config';
+
+if (process.env.NODE_ENV === 'production') {
+  Reflect.set(process.env, 'NODE_ENV', 'test');
+}
+
+const alias = {
+  // Downstream workspaces sometimes pnpm-override @lobechat/business-* packages to
+  // internal implementations whose source files import alias paths that only exist
+  // in the outer workspace, causing vite import-analysis to fail when running tests
+  // from this repo. Pin the package to the local stub so tests here stay hermetic.
+  '@lobechat/business-model-runtime': resolve(
+    __dirname,
+    './packages/business/model-runtime/src/index.ts',
+  ),
+  '@lobechat/business-model-bank/model-config': resolve(
+    __dirname,
+    './packages/business/model-bank/src/model-config.ts',
+  ),
+  '@lobechat/business-model-bank': resolve(
+    __dirname,
+    './packages/business/model-bank/src/index.ts',
+  ),
+  '@emoji-mart/data': resolve(__dirname, './tests/mocks/emojiMartData.ts'),
+  '@emoji-mart/react': resolve(__dirname, './tests/mocks/emojiMartReact.tsx'),
+  '@/utils/client/switchLang': resolve(__dirname, './src/utils/client/switchLang'),
+  '@/const/locale': resolve(__dirname, './src/const/locale'),
+  // TODO: after refactor the errorResponse, we can remove it
+  '@/utils/errorResponse': resolve(__dirname, './src/utils/errorResponse'),
+  '@/utils/unzipFile': resolve(__dirname, './src/utils/unzipFile'),
+  '@/utils/server': resolve(__dirname, './src/utils/server'),
+  '@/utils/identifier': resolve(__dirname, './src/utils/identifier'),
+  '@/utils/electron': resolve(__dirname, './src/utils/electron'),
+  '@/utils/markdownToTxt': resolve(__dirname, './src/utils/markdownToTxt'),
+  '@/utils/sanitizeFileName': resolve(__dirname, './src/utils/sanitizeFileName'),
+  // Workspace store lives in the cloud repo; submodule-only tests get a stub
+  // that reports no active workspace so workspace-aware nav helpers behave
+  // like plain react-router.
+  '@/store/workspace': resolve(__dirname, './tests/mocks/storeWorkspace.ts'),
+  '~test-utils': resolve(__dirname, './tests/utils.tsx'),
+  'lru_map': resolve(__dirname, './tests/mocks/lru_map'),
+};
+
+export default defineConfig({
+  define: {
+    '__CI__': process.env.CI === 'true' ? 'true' : 'false',
+    '__DEV__': process.env.NODE_ENV !== 'production' ? 'true' : 'false',
+    '__ELECTRON__': 'false',
+    '__MOBILE__': 'false',
+    '__TEST__': 'true',
+  },
+  optimizeDeps: {
+    exclude: ['crypto', 'util', 'tty'],
+    include: ['@lobehub/tts'],
+  },
+  plugins: [
+    tsconfigPaths({ projects: ['.'] }),
+    // Let `.md` imports resolve to their raw text content so Rollup/Vitest
+    // doesn't try to parse Markdown as JavaScript.
+    {
+      name: 'raw-md',
+      transform(_, id) {
+        if (id.endsWith('.md'))
+          return { code: 'export default ""', map: null };
+      },
+    },
+    /**
+     * @lobehub/fluent-emoji@4.0.0 ships `es/FluentEmoji/style.js` but its `es/FluentEmoji/index.js`
+     * imports `./style/index.js` which doesn't exist.
+     *
+     * In app bundlers this can be tolerated/rewritten, but Vite/Vitest resolves it strictly and
+     * fails the whole test run. Redirect it to the real file.
+     */
+    {
+      enforce: 'pre',
+      name: 'fix-lobehub-fluent-emoji-style-import',
+      resolveId(id, importer) {
+        if (!importer) return null;
+
+        const isFluentEmojiEntry =
+          importer.endsWith('/@lobehub/fluent-emoji/es/FluentEmoji/index.js') ||
+          importer.includes('/@lobehub/fluent-emoji/es/FluentEmoji/index.js?');
+
+        const isMissingStyleIndex =
+          id === './style/index.js' ||
+          id.endsWith('/@lobehub/fluent-emoji/es/FluentEmoji/style/index.js') ||
+          id.endsWith('/@lobehub/fluent-emoji/es/FluentEmoji/style/index.js?') ||
+          id.endsWith('/FluentEmoji/style/index.js') ||
+          id.endsWith('/FluentEmoji/style/index.js?');
+
+        if (isFluentEmojiEntry && isMissingStyleIndex)
+          return resolve(dirname(importer), 'style.js');
+
+        return null;
+      },
+    },
+  ],
+  resolve: {
+    alias,
+  },
+  test: {
+    alias,
+    coverage: {
+      all: false,
+      exclude: [
+        // https://github.com/lobehub/lobe-chat/pull/7265
+        ...coverageConfigDefaults.exclude,
+        '__mocks__/**',
+        '**/packages/**',
+        // just ignore the migration code
+        // we will use pglite in the future
+        // so the coverage of this file is not important
+        'src/utils/fetch/fetchEventSource/*.ts',
+      ],
+      provider: 'v8',
+      reporter: ['text', 'json', 'lcov', 'text-summary'],
+      reportsDirectory: './coverage/app',
+    },
+    environment: 'happy-dom',
+    exclude: [
+      '**/node_modules/**',
+      '**/.*/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/tmp/**',
+      '**/temp/**',
+      '**/docs/**',
+      '**/locales/**',
+      '**/public/**',
+      '**/apps/desktop/**',
+      '**/apps/mobile/**',
+      '**/apps/cli/**',
+      '**/packages/**',
+      '**/e2e/**',
+    ],
+    globals: true,
+    server: {
+      deps: {
+        inline: [
+          'vitest-canvas-mock',
+          /@emoji-mart/,
+          'emoji-mart',
+          '@lobehub/ui',
+          '@lobehub/fluent-emoji',
+          '@pierre/diffs',
+          '@pierre/diffs/react',
+          'lru_map',
+          'lexical',
+          /@lexical\//,
+          /@lobehub\//,
+        ],
+      },
+    },
+    setupFiles: join(__dirname, './tests/setup.ts'),
+  },
+});
