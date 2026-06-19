@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">小宗狮简化矢量标志</title>
+  <desc id="desc">用于 UI 图标审稿的纯矢量候选，保留圆润狮脸、金色描边、深绿眼睛和领带。</desc>
+  <defs>
+    <linearGradient id="mane" x1="112" y1="70" x2="394" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFDF4" />
+      <stop offset="0.56" stop-color="#FFF7E6" />
+      <stop offset="1" stop-color="#F2DFAF" />
+    </linearGradient>
+    <linearGradient id="face" x1="154" y1="150" x2="354" y2="336" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFDF3" />
+      <stop offset="1" stop-color="#FFF8E8" />
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#20241F" flood-opacity="0.13" />
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#FFFCF4" />
+  <g filter="url(#softShadow)">
+    <path d="M254 72c78 0 151 35 180 93 25 49 18 122-12 168-33 51-96 79-169 79-75 0-138-29-170-80-28-46-34-119-9-168 30-57 101-92 180-92Z" fill="url(#mane)" stroke="#C9971A" stroke-width="8" stroke-linejoin="round" />
+    <path d="M173 125c28-29 68-33 92-7-27 22-46 48-56 79-23-11-38-35-36-72Z" fill="#FFF7E6" stroke="#C9971A" stroke-width="6" stroke-linejoin="round" />
+    <path d="M338 125c-28-29-68-33-92-7 27 22 46 48 56 79 23-11 38-35 36-72Z" fill="#FFF7E6" stroke="#C9971A" stroke-width="6" stroke-linejoin="round" />
+    <path d="M118 256c42-82 93-124 138-124 46 0 96 42 138 124-31 64-78 96-139 96-60 0-107-32-137-96Z" fill="url(#face)" stroke="#C9971A" stroke-width="7" stroke-linejoin="round" />
+    <path d="M193 272c36 33 91 44 130 0" fill="none" stroke="#C9971A" stroke-width="7" stroke-linecap="round" />
+    <rect x="213" y="216" width="20" height="52" rx="10" fill="#007344" />
+    <rect x="279" y="216" width="20" height="52" rx="10" fill="#007344" />
+    <path d="M239 376h34l18 54-34 34-34-34 16-54Z" fill="#007344" stroke="#005C37" stroke-width="5" stroke-linejoin="round" />
+    <path d="M411 314c43 8 71 36 71 73 0 38-34 67-75 57-31-8-45-34-35-62 8-23 25-41 39-68Z" fill="#FFF8E8" stroke="#C9971A" stroke-width="7" stroke-linejoin="round" />
+    <path d="M413 377c25-2 39 13 34 34" fill="none" stroke="#C9971A" stroke-width="6" stroke-linecap="round" />
+    <path d="M89 326c-22 44-17 83 15 107 26 20 67 13 83-22" fill="#FFF8E8" stroke="#C9971A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M383 373c37 21 58 26 75 16" fill="none" stroke="#C9971A" stroke-width="6" stroke-linecap="round" />
+  </g>
+  <path d="M178 98c8-19 16-28 25-35" fill="none" stroke="#C9971A" stroke-width="8" stroke-linecap="round" />
+  <path d="M255 72c1-22 6-36 15-47" fill="none" stroke="#C9971A" stroke-width="8" stroke-linecap="round" />
+  <path d="M335 96c10-17 20-25 32-30" fill="none" stroke="#C9971A" stroke-width="8" stroke-linecap="round" />
+</svg>

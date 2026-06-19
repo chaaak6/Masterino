@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="280" viewBox="0 0 980 280" role="img" aria-labelledby="title desc">
+  <title id="title">小宗狮 MasterLion 横向标识</title>
+  <desc id="desc">纯矢量横向 lockup，包含简化小宗狮图标、小宗狮中文主标和 MasterLion 英文辅标。</desc>
+  <defs>
+    <linearGradient id="lockupMane" x1="48" y1="28" x2="230" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFDF4" />
+      <stop offset="0.58" stop-color="#FFF7E6" />
+      <stop offset="1" stop-color="#F2DFAF" />
+    </linearGradient>
+    <linearGradient id="lockupFace" x1="70" y1="80" x2="212" y2="184" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFDF3" />
+      <stop offset="1" stop-color="#FFF8E8" />
+    </linearGradient>
+    <filter id="lockupShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#20241F" flood-opacity="0.12" />
+    </filter>
+  </defs>
+  <rect width="980" height="280" rx="36" fill="#FFFCF4" />
+  <g transform="translate(34 26) scale(.48)" filter="url(#lockupShadow)">
+    <path d="M254 72c78 0 151 35 180 93 25 49 18 122-12 168-33 51-96 79-169 79-75 0-138-29-170-80-28-46-34-119-9-168 30-57 101-92 180-92Z" fill="url(#lockupMane)" stroke="#C9971A" stroke-width="8" stroke-linejoin="round" />
+    <path d="M173 125c28-29 68-33 92-7-27 22-46 48-56 79-23-11-38-35-36-72Z" fill="#FFF7E6" stroke="#C9971A" stroke-width="6" stroke-linejoin="round" />
+    <path d="M338 125c-28-29-68-33-92-7 27 22 46 48 56 79 23-11 38-35 36-72Z" fill="#FFF7E6" stroke="#C9971A" stroke-width="6" stroke-linejoin="round" />
+    <path d="M118 256c42-82 93-124 138-124 46 0 96 42 138 124-31 64-78 96-139 96-60 0-107-32-137-96Z" fill="url(#lockupFace)" stroke="#C9971A" stroke-width="7" stroke-linejoin="round" />
+    <path d="M193 272c36 33 91 44 130 0" fill="none" stroke="#C9971A" stroke-width="7" stroke-linecap="round" />
+    <rect x="213" y="216" width="20" height="52" rx="10" fill="#007344" />
+    <rect x="279" y="216" width="20" height="52" rx="10" fill="#007344" />
+    <path d="M239 376h34l18 54-34 34-34-34 16-54Z" fill="#007344" stroke="#005C37" stroke-width="5" stroke-linejoin="round" />
+  </g>
+  <g transform="translate(300 67)">
+    <text x="0" y="72" fill="#20241F" font-family="Inter, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif" font-size="72" font-weight="800" letter-spacing="0">小宗狮</text>
+    <text x="2" y="132" fill="#007344" font-family="Inter, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif" font-size="42" font-weight="760" letter-spacing="0">MasterLion</text>
+    <path d="M5 162h356" stroke="#C9971A" stroke-width="7" stroke-linecap="round" />
+    <text x="4" y="205" fill="#6E756B" font-family="Inter, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif" font-size="24" font-weight="600" letter-spacing="0">AI workspace brand system</text>
+  </g>
+</svg>
