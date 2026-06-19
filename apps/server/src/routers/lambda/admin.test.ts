@@ -10,11 +10,13 @@ import { createContextInner } from '@/libs/trpc/lambda/context';
 import { adminRouter } from './admin';
 
 const {
+  mockApplyEnterpriseDirectorySnapshot,
   mockGetWecomSsoConfig,
   mockHasAnyPermission,
   mockProvisionWecomLoginAccount,
   mockUpsertWecomSsoConfig,
 } = vi.hoisted(() => ({
+  mockApplyEnterpriseDirectorySnapshot: vi.fn(),
   mockGetWecomSsoConfig: vi.fn(),
   mockHasAnyPermission: vi.fn(),
   mockProvisionWecomLoginAccount: vi.fn(),
@@ -50,6 +52,17 @@ vi.mock('@/server/services/enterprise/wecomSsoService', async () => {
     ...actual,
     getWecomSsoConfig: mockGetWecomSsoConfig,
     upsertWecomSsoConfig: mockUpsertWecomSsoConfig,
+  };
+});
+
+vi.mock('@/server/services/enterprise/directorySyncService', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/server/services/enterprise/directorySyncService')
+  >('@/server/services/enterprise/directorySyncService');
+
+  return {
+    ...actual,
+    applyEnterpriseDirectorySnapshot: mockApplyEnterpriseDirectorySnapshot,
   };
 });
 
@@ -953,6 +966,12 @@ describe('adminRouter', () => {
     vi.mocked(getServerDB).mockResolvedValue(mockServerDB as never);
     mockHasAnyPermission.mockResolvedValue(false);
     mockProvisionWecomLoginAccount.mockResolvedValue(undefined);
+    mockApplyEnterpriseDirectorySnapshot.mockResolvedValue({
+      inactiveMembers: 0,
+      status: 'completed',
+      syncedDepartments: 0,
+      syncedMembers: 0,
+    });
     mockGetWecomSsoConfig.mockResolvedValue(mockSsoConfig);
     mockUpsertWecomSsoConfig.mockResolvedValue({
       ...mockSsoConfig,
@@ -2380,6 +2399,57 @@ describe('adminRouter', () => {
     );
   });
 
+  it('runs WeCom directory snapshot sync from the enterprise organization API', async () => {
+    const db = createAdminOrgWriteDb();
+    vi.mocked(getServerDB).mockResolvedValue(db as never);
+    mockApplyEnterpriseDirectorySnapshot.mockResolvedValue({
+      inactiveMembers: 1,
+      status: 'completed',
+      syncedDepartments: 2,
+      syncedMembers: 1,
+    });
+    const caller = createCaller(await createAdminContext('platform_admin')) as any;
+    const input = {
+      missingMemberPolicy: 'mark_inactive' as const,
+      provider: 'wecom' as const,
+      snapshot: {
+        departments: [
+          { externalDepartmentId: '1', name: 'Headquarters', order: 1 },
+          {
+            externalDepartmentId: '2',
+            name: 'Research',
+            order: 2,
+            parentExternalDepartmentId: '1',
+          },
+        ],
+        members: [
+          {
+            departments: ['2'],
+            employeeNumber: 'E1001',
+            externalUserId: 'wecom-ada',
+            name: 'Ada',
+            position: 'Principal Engineer',
+            userId: 'user-ada',
+          },
+        ],
+      },
+    };
+
+    await expect(caller.org.sync.run(input)).resolves.toEqual({
+      inactiveMembers: 1,
+      status: 'completed',
+      syncedDepartments: 2,
+      syncedMembers: 1,
+    });
+    expect(mockApplyEnterpriseDirectorySnapshot).toHaveBeenCalledWith({
+      actorUserId: 'user-admin',
+      db,
+      missingMemberPolicy: 'mark_inactive',
+      provider: 'wecom',
+      snapshot: input.snapshot,
+    });
+  });
+
   it('requires platform admin role for enterprise department tree', async () => {
     const ctx = {
       ...(await createContextInner({ userId: 'user-member' })),
@@ -2558,6 +2628,48 @@ describe('adminRouter', () => {
           provider: 'wecom',
         },
       });
+    });
+
+    it('allows RBAC users with only org:manage to run WeCom directory sync', async () => {
+      allowOnlyPermissions('org:manage');
+      const db = createAdminOrgWriteDb();
+      vi.mocked(getServerDB).mockResolvedValue(db as never);
+      mockApplyEnterpriseDirectorySnapshot.mockResolvedValue({
+        inactiveMembers: 0,
+        status: 'completed',
+        syncedDepartments: 1,
+        syncedMembers: 0,
+      });
+      const caller = createCaller(await createAdminContext('user')) as any;
+
+      const result = await settle(
+        caller.org.sync.run({
+          provider: 'wecom',
+          snapshot: {
+            departments: [{ externalDepartmentId: '1', name: 'Headquarters' }],
+            members: [],
+          },
+        }),
+      );
+
+      expectPermissionCheck('org:manage');
+      expect(result).toMatchObject({
+        status: 'fulfilled',
+        value: {
+          inactiveMembers: 0,
+          status: 'completed',
+          syncedDepartments: 1,
+          syncedMembers: 0,
+        },
+      });
+      expect(mockApplyEnterpriseDirectorySnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorUserId: 'user-admin',
+          db,
+          missingMemberPolicy: 'ignore',
+          provider: 'wecom',
+        }),
+      );
     });
 
     it('allows RBAC users with only user:manage to list users', async () => {

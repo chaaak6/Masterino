@@ -225,6 +225,22 @@ const createDirectorySyncDb = (options: DirectorySyncDbOptions = {}) => {
   };
 };
 
+const withTransaction = (db: ReturnType<typeof createDirectorySyncDb>) => {
+  const transactionDb = {
+    ...db.db,
+    insert: vi.fn(db.db.insert),
+    update: vi.fn(db.db.update),
+  };
+  const transactionalDb = {
+    ...db.db,
+    transaction: vi.fn(async (callback: (tx: typeof transactionDb) => Promise<unknown>) =>
+      callback(transactionDb),
+    ),
+  };
+
+  return { transactionDb, transactionalDb };
+};
+
 const findInsert = (operations: DbOperation[], table: unknown) => {
   const operation = operations.find((item) => item.type === 'insert' && item.table === table);
 
@@ -465,6 +481,59 @@ describe('applyEnterpriseDirectorySnapshot', () => {
         }),
       ]),
     );
+  });
+
+  it('does not mark memberships from another directory provider inactive', async () => {
+    const db = createDirectorySyncDb({
+      departments: [
+        {
+          externalDepartmentId: 'oauth-root',
+          id: 'dept-oauth',
+          name: 'OAuth Department',
+          provider: 'oauth',
+        },
+      ],
+      existingMembers: [{ departmentId: 'dept-oauth', userId: 'user-oauth' }],
+    });
+
+    await expect(
+      applyEnterpriseDirectorySnapshot({
+        actorUserId: 'admin-user',
+        db: db.db,
+        missingMemberPolicy: 'mark_inactive',
+        provider: 'wecom',
+        snapshot: { departments: [], members: [] },
+      }),
+    ).resolves.toMatchObject({
+      inactiveMembers: 0,
+      status: 'completed',
+    });
+    expect(db.updatedMemberships).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ status: 'inactive' })]),
+    );
+  });
+
+  it('uses a transaction for identity state writes when the database supports it', async () => {
+    const db = createDirectorySyncDb();
+    const { transactionDb, transactionalDb } = withTransaction(db);
+
+    await expect(
+      applyEnterpriseDirectorySnapshot({
+        actorUserId: 'admin-user',
+        db: transactionalDb,
+        provider: 'wecom',
+        snapshot: {
+          departments: [{ externalDepartmentId: '1', name: 'Headquarters' }],
+          members: [],
+        },
+      }),
+    ).resolves.toMatchObject({
+      status: 'completed',
+      syncedDepartments: 1,
+    });
+    expect(transactionalDb.transaction).toHaveBeenCalledTimes(1);
+    expect(transactionDb.insert).toHaveBeenCalledWith(enterpriseDepartments);
+    expect(transactionalDb.insert).toHaveBeenCalledWith(enterpriseAuditLogs);
   });
 
   it('keeps sync completed when audit writes fail', async () => {

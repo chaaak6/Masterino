@@ -12,6 +12,8 @@ export type DirectoryDepartmentSnapshot = {
   name: string;
   order?: number;
   parentExternalDepartmentId?: string;
+  rawProfile?: Record<string, unknown>;
+  status?: string;
 };
 
 export type DirectoryMemberSnapshot = {
@@ -21,6 +23,7 @@ export type DirectoryMemberSnapshot = {
   name: string;
   position?: string;
   primaryDepartmentExternalId?: string;
+  rawProfile?: Record<string, unknown>;
   userId: string;
 };
 
@@ -77,14 +80,17 @@ const createDepartmentRawProfile = (
   provider: 'wecom',
   department: DirectoryDepartmentSnapshot,
 ) => ({
+  ...(department.rawProfile ?? {}),
   externalDepartmentId: department.externalDepartmentId,
   name: department.name,
   order: department.order ?? 0,
   parentExternalDepartmentId: department.parentExternalDepartmentId ?? null,
   provider,
+  status: department.status ?? 'active',
 });
 
 const createMemberRawProfile = (member: DirectoryMemberSnapshot) => ({
+  ...(member.rawProfile ?? {}),
   departments: member.departments,
   employeeNumber: member.employeeNumber,
   externalUserId: member.externalUserId,
@@ -129,7 +135,7 @@ const upsertDepartments = async (
       parentId: null,
       provider,
       rawProfile,
-      status: 'active',
+      status: department.status ?? 'active',
     };
 
     const [row] = await returningOrEmpty<EnterpriseDepartmentRow>(
@@ -141,7 +147,7 @@ const upsertDepartments = async (
             name: department.name,
             order: department.order ?? 0,
             rawProfile,
-            status: 'active',
+            status: department.status ?? 'active',
           },
           target: [enterpriseDepartments.provider, enterpriseDepartments.externalDepartmentId],
         }),
@@ -286,10 +292,23 @@ const syncMembers = async (
 
 const markInactiveMembers = async (
   db: DbLike,
+  provider: 'wecom',
+  departmentByExternalId: Map<string, EnterpriseDepartmentRow>,
   activeMembershipKeys: Set<string>,
   activeUserIds: Set<string>,
   lastSyncedAt: Date,
 ) => {
+  const providerDepartments =
+    typeof db.query?.enterpriseDepartments?.findMany === 'function'
+      ? await db.query.enterpriseDepartments.findMany({
+          where: eq(enterpriseDepartments.provider, provider),
+        })
+      : [...departmentByExternalId.values()];
+  const providerDepartmentIds = new Set(
+    providerDepartments
+      .filter((department) => department.provider === provider)
+      .map((department) => department.id),
+  );
   const existingMembers =
     typeof db.query?.enterpriseDepartmentMembers?.findMany === 'function'
       ? await db.query.enterpriseDepartmentMembers.findMany({
@@ -302,6 +321,7 @@ const markInactiveMembers = async (
   for (const member of existingMembers) {
     const key = `${member.departmentId}:${member.userId}`;
 
+    if (!providerDepartmentIds.has(member.departmentId)) continue;
     if (member.status === 'inactive' || activeMembershipKeys.has(key)) continue;
 
     await applyWhere(
@@ -388,7 +408,14 @@ export async function applyEnterpriseDirectorySnapshot(
     );
     const inactiveMembers =
       input.missingMemberPolicy === 'mark_inactive'
-        ? await markInactiveMembers(input.db, activeMembershipKeys, activeUserIds, lastSyncedAt)
+        ? await markInactiveMembers(
+            input.db,
+            input.provider,
+            departmentByExternalId,
+            activeMembershipKeys,
+            activeUserIds,
+            lastSyncedAt,
+          )
         : 0;
     const summary: DirectorySyncSummary = {
       inactiveMembers,

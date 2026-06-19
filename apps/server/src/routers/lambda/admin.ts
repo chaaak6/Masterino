@@ -32,6 +32,7 @@ import {
   requireAdminAccess,
   requireAdminRbacPermission,
 } from '@/server/services/enterprise/adminPermissionService';
+import { applyEnterpriseDirectorySnapshot } from '@/server/services/enterprise/directorySyncService';
 import { resolveResourceAclScope } from '@/server/services/enterprise/resourceAclService';
 import {
   getWecomSsoConfig,
@@ -218,6 +219,35 @@ const memberMoveInput = z.object({
   departmentId: z.string(),
   isPrimary: z.boolean().optional(),
   userId: z.string(),
+});
+
+const directoryDepartmentSnapshotInput = z.object({
+  externalDepartmentId: z.string().min(1),
+  name: z.string().min(1),
+  order: z.number().optional(),
+  parentExternalDepartmentId: z.string().min(1).optional(),
+  rawProfile: z.record(z.unknown()).optional(),
+  status: z.string().optional(),
+});
+
+const directoryMemberSnapshotInput = z.object({
+  departments: z.array(z.string().min(1)).default([]),
+  employeeNumber: z.string().min(1),
+  externalUserId: z.string().min(1),
+  name: z.string().min(1),
+  position: z.string().optional(),
+  primaryDepartmentExternalId: z.string().min(1).optional(),
+  rawProfile: z.record(z.unknown()).optional(),
+  userId: z.string().min(1),
+});
+
+const directorySyncRunInput = z.object({
+  missingMemberPolicy: z.enum(['ignore', 'mark_inactive']).default('ignore'),
+  provider: z.literal('wecom'),
+  snapshot: z.object({
+    departments: z.array(directoryDepartmentSnapshotInput).default([]),
+    members: z.array(directoryMemberSnapshotInput).default([]),
+  }),
 });
 
 const userIdInput = z.object({
@@ -1267,6 +1297,22 @@ const moveEnterpriseDepartmentMember = async (
   };
 };
 
+const runEnterpriseDirectorySync = async (
+  ctx: unknown,
+  input: z.infer<typeof directorySyncRunInput>,
+  actorUserId: string,
+) => {
+  const db = getServerDBFromContext(ctx) as any;
+
+  return applyEnterpriseDirectorySnapshot({
+    actorUserId,
+    db,
+    missingMemberPolicy: input.missingMemberPolicy,
+    provider: input.provider,
+    snapshot: input.snapshot,
+  });
+};
+
 const listRolePermissionRows = async (db: any, roleIds: string[]) => {
   if (roleIds.length === 0) return [];
 
@@ -1678,6 +1724,13 @@ export const adminRouter = router({
         const admin = await requireOrgManage(ctx);
 
         return moveEnterpriseDepartmentMember(ctx, input, admin.userId);
+      }),
+    }),
+    sync: router({
+      run: adminProcedure.input(directorySyncRunInput).mutation(async ({ ctx, input }) => {
+        const admin = await requireOrgManage(ctx);
+
+        return runEnterpriseDirectorySync(ctx, input, admin.userId);
       }),
     }),
   }),
