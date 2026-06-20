@@ -51,57 +51,57 @@ exports[`settingsSelectors > currentSettings > should merge DEFAULT_SETTINGS and
 exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AGENT_CONFIG and s.settings.systemAgent correctly 1`] = `
 {
   "agentMeta": {
-    "model": "deepseek-v4-pro",
-    "provider": "deepseek",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "enableAutoReply": true,
   "followUpAction": {
     "enabled": false,
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "generationTopic": {
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "historyCompress": {
-    "model": "deepseek-v4-pro",
-    "provider": "deepseek",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "inputCompletion": {
     "enabled": false,
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "memoryAnalysisAgentConfig": {
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "promptRewrite": {
     "enabled": true,
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "replyMessage": "Custom auto reply",
   "thread": {
-    "model": "deepseek-v4-pro",
-    "provider": "deepseek",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "topic": {
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "translation": {
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
   "userMemoryEmbedding": {
     "model": "text-embedding-3-small",
-    "provider": "openai",
+    "provider": "newapi",
   },
   "userMemoryPersonaWriter": {
-    "model": "gpt-5.4-mini",
-    "provider": "openai",
+    "model": "glm5.1",
+    "provider": "newapi",
   },
 }
 `;
@@ -130,8 +130,8 @@ exports[`settingsSelectors > defaultAgent > should merge DEFAULT_AGENT and s.set
       "historyCount": 20,
       "reasoningBudgetToken": 1024,
       "searchFCModel": {
-        "model": "deepseek-v4-pro",
-        "provider": "deepseek",
+        "model": "glm5.1",
+        "provider": "newapi",
       },
       "searchMode": "auto",
       "selfIteration": {
@@ -147,7 +147,7 @@ exports[`settingsSelectors > defaultAgent > should merge DEFAULT_AGENT and s.set
       "top_p": 1,
     },
     "plugins": [],
-    "provider": "deepseek",
+    "provider": "newapi",
     "systemRole": "user",
     "tts": {
       "showAllLocaleVoice": false,
@@ -177,8 +177,8 @@ exports[`settingsSelectors > defaultAgentConfig > should merge DEFAULT_AGENT_CON
     "historyCount": 20,
     "reasoningBudgetToken": 1024,
     "searchFCModel": {
-      "model": "deepseek-v4-pro",
-      "provider": "deepseek",
+      "model": "glm5.1",
+      "provider": "newapi",
     },
     "searchMode": "auto",
     "selfIteration": {
@@ -194,7 +194,7 @@ exports[`settingsSelectors > defaultAgentConfig > should merge DEFAULT_AGENT_CON
     "top_p": 1,
   },
   "plugins": [],
-  "provider": "deepseek",
+  "provider": "newapi",
   "systemRole": "custom role",
   "tts": {
     "showAllLocaleVoice": false,
