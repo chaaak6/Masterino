@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1681 534" width="1681" height="534" preserveAspectRatio="xMidYMid meet" role="img" aria-label="小宗狮 中文笔顺 Loading 动画" shape-rendering="geometricPrecision">
+  <title>小宗狮 中文笔顺 Loading 动画 - 中性灰</title>
+  <desc>Text-only SVG loading animation. English is written in letter order; Chinese is written by character/stroke order. No logo is included. Visible text uses neutral gray #767676. Transparent background; no logo is included.</desc>
+  <defs>
+    <mask id="handwrite-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="1681" height="534">
+      <g class="ordered-strokes" fill="none" stroke="#fff" stroke-width="130" stroke-linecap="round" stroke-linejoin="round">
+        <!-- 01. 小：竖钩/主笔 -->
+        <path d="M364 69L326 97L315 109L279 326L265 374L251 402L222 435L189 455L154 466L105 473" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.023;0.097;0.840;1"/>
+        </path>
+        <!-- 02. 小：左点/撇点 -->
+        <path d="M212 135L161 164L154 171L87 351L32 384" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.085;0.135;0.840;1"/>
+        </path>
+        <!-- 03. 宗：上点 -->
+        <path d="M859 63L820 99" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.123;0.141;0.840;1"/>
+        </path>
+        <!-- 04. 宗：宝盖左点 -->
+        <path d="M636 116L631 116L625 120L613 136L599 142L592 150L588 165L557 189" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.129;0.154;0.840;1"/>
+        </path>
+        <!-- 05. 宗：宝盖起笔 -->
+        <path d="M636 116L659 95" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.142;0.158;0.840;1"/>
+        </path>
+        <!-- 06. 宗：宝盖横 -->
+        <path d="M636 116L644 124L679 124L701 117L718 115L785 115L808 100L819 100" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.146;0.181;0.840;1"/>
+        </path>
+        <!-- 07. 宗：宝盖横钩 -->
+        <path d="M820 101L833 114L962 113L976 130" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.169;0.201;0.840;1"/>
+        </path>
+        <!-- 08. 宗：右上接笔 -->
+        <path d="M939 164L952 155L976 131" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.189;0.206;0.840;1"/>
+        </path>
+        <!-- 09. 宗：右侧收笔 -->
+        <path d="M966 186L993 160L995 141L987 133L977 131" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.194;0.215;0.840;1"/>
+        </path>
+        <!-- 10. 宗：左竖 -->
+        <path d="M434 154L456 175L460 302L464 322L475 345L493 360L509 364L570 357L592 379" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.203;0.255;0.840;1"/>
+        </path>
+        <!-- 11. 宗：上横 -->
+        <path d="M622 222L647 207L663 204L907 202L928 198L951 184" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.243;0.294;0.840;1"/>
+        </path>
+        <!-- 12. 宗：中横左段 -->
+        <path d="M556 291L576 278L598 272L746 270L766 290" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.282;0.320;0.840;1"/>
+        </path>
+        <!-- 13. 宗：中横右段 -->
+        <path d="M767 290L792 270L945 268L966 263L985 252" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.308;0.347;0.840;1"/>
+        </path>
+        <!-- 14. 宗：竖钩起笔 -->
+        <path d="M766 291L766 299" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.335;0.351;0.840;1"/>
+        </path>
+        <!-- 15. 宗：竖钩/下弯 -->
+        <path d="M766 300L761 339L756 358L746 382L734 400L724 409L713 414L668 427L639 432" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.339;0.375;0.840;1"/>
+        </path>
+        <!-- 16. 宗：左下点 -->
+        <path d="M593 380L586 396L526 420" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.363;0.385;0.840;1"/>
+        </path>
+        <!-- 17. 宗：左下撇 -->
+        <path d="M594 379L612 362L632 338L689 315" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.373;0.398;0.840;1"/>
+        </path>
+        <!-- 18. 宗：右下点 -->
+        <path d="M767 300L801 334L843 324L864 326L875 331L896 351L912 385L969 416" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.386;0.428;0.840;1"/>
+        </path>
+        <!-- 19. 狮：犭首撇 -->
+        <path d="M1074 63L1121 90L1129 107L1140 117" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.416;0.438;0.840;1"/>
+        </path>
+        <!-- 20. 狮：犭上接 -->
+        <path d="M1142 117L1159 104L1182 96L1191 88L1238 72" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.426;0.451;0.840;1"/>
+        </path>
+        <!-- 21. 狮：犭竖弯上段 -->
+        <path d="M1132 191L1136 184L1141 118" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.439;0.460;0.840;1"/>
+        </path>
+        <!-- 22. 狮：犭中撇 -->
+        <path d="M1037 221L1124 190L1131 191" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.448;0.471;0.840;1"/>
+        </path>
+        <!-- 23. 狮：犭竖弯中段 -->
+        <path d="M1112 304L1125 273L1132 192" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.459;0.484;0.840;1"/>
+        </path>
+        <!-- 24. 狮：犭下撇 -->
+        <path d="M1010 340L1108 303L1112 304" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.472;0.497;0.840;1"/>
+        </path>
+        <!-- 25. 狮：犭底部弯钩 -->
+        <path d="M983 434L1023 427L1041 421L1059 412L1080 395L1100 365L1112 304" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.485;0.521;0.840;1"/>
+        </path>
+        <!-- 26. 狮：犭长弯钩 -->
+        <path d="M1339 63L1304 90L1287 193L1275 245L1257 300L1235 346L1193 408L1140 428" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.509;0.573;0.840;1"/>
+        </path>
+        <!-- 27. 狮：犭右撇 -->
+        <path d="M1255 124L1227 148L1217 201L1201 260L1183 311L1169 340" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.561;0.600;0.840;1"/>
+        </path>
+        <!-- 28. 师部：左竖 -->
+        <path d="M1391 162L1384 162L1373 175L1342 363L1300 395" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.588;0.632;0.840;1"/>
+        </path>
+        <!-- 29. 师部：上横 -->
+        <path d="M1349 104L1371 90L1395 83L1464 82L1478 96" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.620;0.648;0.840;1"/>
+        </path>
+        <!-- 30. 师部：上竖接 -->
+        <path d="M1479 96L1498 82L1552 82L1585 79L1606 70L1622 59" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.636;0.666;0.840;1"/>
+        </path>
+        <!-- 31. 师部：中上挑 -->
+        <path d="M1413 141L1391 162" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.654;0.670;0.840;1"/>
+        </path>
+        <!-- 32. 师部：中横左 -->
+        <path d="M1391 162L1398 169L1437 169L1449 165L1464 180" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.658;0.679;0.840;1"/>
+        </path>
+        <!-- 33. 师部：中横右 -->
+        <path d="M1479 149L1491 161L1551 161L1562 172" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.667;0.690;0.840;1"/>
+        </path>
+        <!-- 34. 师部：左框竖 -->
+        <path d="M1464 180L1461 225L1430 400" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.678;0.716;0.840;1"/>
+        </path>
+        <!-- 35. 师部：右上接 -->
+        <path d="M1478 148L1478 97" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.704;0.722;0.840;1"/>
+        </path>
+        <!-- 36. 师部：右上撇 -->
+        <path d="M1606 139L1563 172" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.710;0.728;0.840;1"/>
+        </path>
+        <!-- 37. 师部：右框竖 -->
+        <path d="M1562 173L1559 221L1539 323L1522 357L1495 390" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.716;0.756;0.840;1"/>
+        </path>
+        <!-- 38. 师部：下收 -->
+        <path d="M1430 400L1387 432" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.744;0.762;0.840;1"/>
+        </path>
+        <!-- 39. 师部：下点 -->
+        <path d="M1430 400L1447 417" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.750;0.766;0.840;1"/>
+        </path>
+        <!-- 40. 师部：右上点 -->
+        <path d="M1477 149L1474 152L1469 174L1464 180" pathLength="1" stroke-dasharray="1" stroke-dashoffset="0">
+          <animate attributeName="stroke-dashoffset" dur="2.40s" repeatCount="indefinite" calcMode="linear" values="1;1;0;0;1" keyTimes="0;0.754;0.770;0.840;1"/>
+        </path>
+      </g>
+      <!-- Safety reveal: keeps the completed wordmark perfectly filled after the ordered strokes finish. -->
+      <path class="completed-fill" fill="#fff" fill-rule="evenodd" d="M1463 434.1L1385.42 433L1428 186.77L1410 186.9L1408.68 190L1399.67 240L1378.19 377L1373.14 395L1350 396.69L1299.74 396L1342.65 139L1366 137.27L1416 137.41L1416.86 138L1415 155.16L1423 146.92L1435 138.9L1437.35 135L1439.3 127L1441.91 106L1441 105.07L1349 105.39L1350.59 92L1354.54 79L1360 70L1366 64.83L1373 61.72L1384 60.07L1621 58.38L1622.14 59L1620.35 70L1615.23 87L1608.07 97L1603 100.48L1595 103.31L1587 104.49L1520.68 105L1515.72 133L1516 136.71L1608 136.08L1608.68 137L1598.26 211L1590.35 258L1577.25 323L1569.14 351L1564.26 360L1553 370.36L1536 379.49L1521 385.21L1493 393L1526.48 186L1509 185.88L1508 186.71L1493.68 260ZM1037 435L999 435.38L981 434L1014 418.17L1027 409.25L1041 397.17L1052.22 385L1062.14 371L1069.29 357L1073.37 344L1074 337.83L1052 340.63L1008.68 340L1086.27 254L1090.06 247L1092.35 239L1094 222.5L1034.51 222L1087.17 164L1100.32 148L1100.25 143L1076.71 83L1070 61L1154 60.4L1162 78.36L1169 72.78L1173 71.61L1238 71.47L1238.56 72L1198.72 116L1185.69 133L1153.25 328L1147.4 351L1138.4 371L1122 394.65L1106 410.36L1097 417.19L1082 425.32L1071 429.29L1054 433.21ZM1214 428.64L1138.64 428L1167.18 395L1191.17 361L1213 322L1229.31 284L1241.18 247L1253.22 196L1272.67 81L1277 61.2L1341 60L1341.35 66L1339.39 80L1317.32 206L1308.3 246L1298.44 280L1285.32 315L1268.37 350L1246.37 386ZM612 191.18L555.38 191L562.61 142L569.72 114L573.54 106L579.36 100L587 95.56L594 93.77L661 92.63L661.48 96L659 112.06L672 100.63L680 96.56L690 93.69L712 91.66L742 92.18L762 91.22L766.33 87L771 63.49L859 62.54L860.21 64L856 90.34L882 90.82L972 88.93L1003 89.79L1012 91.61L1022 96.6L1027.53 103L1030.3 110L1031.09 122L1030.29 129L1022.34 177L1020.27 187L1019 187.53L965 187.27L966 169.38L933.75 169L938.31 137L925 136.69L656 139.63L652.68 145L648 170.58L622 172.67L618.63 176ZM169 474L133 475L104 474L107 471.7L134 462.22L153 453.4L178 436.33L190 425.74L205.15 409L214.24 395L221.12 381L228.12 360L233.2 337L276.8 72L281 67.81L292 66.7L366 66.86L366.32 72L359.3 117L318.32 355L314.24 371L305.44 392L292.3 413L280.19 427L267 439.29L250 451.37L233 460.35L215 467.27L192 472.33ZM1169 341.5L1167.86 341L1170.68 321L1194.17 186L1203.55 125L1209 123.31L1257 122.89L1258.09 124L1256.35 143L1250.25 175L1240.37 215L1230.28 247L1215.25 280L1200.34 306L1185 326.59ZM612 421.52L523.41 421L565 363.4L541 371.39L518 376.19L496 378.24L470 378.5L450 376.36L440 373.38L431 368.44L422.76 360L417.79 350L414.81 334L410 132L500 131.12L500.83 132L505.8 317L506.86 328L509.62 339L513.52 346L519 351L527 354.19L537 355L553 353.2L569 348.32L584.52 338L606 314.26L690 314.12L691 314.87L622.26 409ZM69 386L28.55 386L122.2 136L123 135L213 134.48L213.69 135L212.38 139L120.09 385ZM736 226L644 227L619 226.43L617.69 225L619.61 211L625.81 192L632 185.64L642 182.66L908 180.11L954 180.09L954.54 181L952.33 200L948.55 211L942 218.47L933 222.33L909 224.32ZM742 432L638 432L660 422.37L674 413.34L693.38 396L703.45 383L709.34 371L716.26 348L721.28 322L725.08 294L724.37 293L554 294.34L552.84 293L553.58 287L556.66 273L560.76 264L564.64 259L572 253.68L577 251.73L591 249.5L954 246.36L991 247L989.26 263L984.49 276L977 284.34L966 289.12L946 291.24L814 292.36L807.73 329L820 321.68L834 315.86L849 311.7L868 308.83L884 308.42L899 309.71L908 311.66L921 316.74L932 325.39L941.28 340L966.38 404L970.47 416L970 418L878 418.32L859.27 366L849.29 342L842 335.77L836 333.79L827 333.45L815 336.6L808 340.86L805.71 344L802.62 352L797.42 376L794.3 385L785.27 401L778.36 410L770 418.38L761 425L753 429.16Z" opacity="1">
+        <animate attributeName="opacity" dur="2.40s" repeatCount="indefinite" values="0;0;1;1;0" keyTimes="0;0.785;0.825;0.840;1"/>
+      </path>
+    </mask>
+  </defs>
+  <g mask="url(#handwrite-mask)"><path fill="#767676" fill-rule="evenodd" d="M1463 434.1L1385.42 433L1428 186.77L1410 186.9L1408.68 190L1399.67 240L1378.19 377L1373.14 395L1350 396.69L1299.74 396L1342.65 139L1366 137.27L1416 137.41L1416.86 138L1415 155.16L1423 146.92L1435 138.9L1437.35 135L1439.3 127L1441.91 106L1441 105.07L1349 105.39L1350.59 92L1354.54 79L1360 70L1366 64.83L1373 61.72L1384 60.07L1621 58.38L1622.14 59L1620.35 70L1615.23 87L1608.07 97L1603 100.48L1595 103.31L1587 104.49L1520.68 105L1515.72 133L1516 136.71L1608 136.08L1608.68 137L1598.26 211L1590.35 258L1577.25 323L1569.14 351L1564.26 360L1553 370.36L1536 379.49L1521 385.21L1493 393L1526.48 186L1509 185.88L1508 186.71L1493.68 260ZM1037 435L999 435.38L981 434L1014 418.17L1027 409.25L1041 397.17L1052.22 385L1062.14 371L1069.29 357L1073.37 344L1074 337.83L1052 340.63L1008.68 340L1086.27 254L1090.06 247L1092.35 239L1094 222.5L1034.51 222L1087.17 164L1100.32 148L1100.25 143L1076.71 83L1070 61L1154 60.4L1162 78.36L1169 72.78L1173 71.61L1238 71.47L1238.56 72L1198.72 116L1185.69 133L1153.25 328L1147.4 351L1138.4 371L1122 394.65L1106 410.36L1097 417.19L1082 425.32L1071 429.29L1054 433.21ZM1214 428.64L1138.64 428L1167.18 395L1191.17 361L1213 322L1229.31 284L1241.18 247L1253.22 196L1272.67 81L1277 61.2L1341 60L1341.35 66L1339.39 80L1317.32 206L1308.3 246L1298.44 280L1285.32 315L1268.37 350L1246.37 386ZM612 191.18L555.38 191L562.61 142L569.72 114L573.54 106L579.36 100L587 95.56L594 93.77L661 92.63L661.48 96L659 112.06L672 100.63L680 96.56L690 93.69L712 91.66L742 92.18L762 91.22L766.33 87L771 63.49L859 62.54L860.21 64L856 90.34L882 90.82L972 88.93L1003 89.79L1012 91.61L1022 96.6L1027.53 103L1030.3 110L1031.09 122L1030.29 129L1022.34 177L1020.27 187L1019 187.53L965 187.27L966 169.38L933.75 169L938.31 137L925 136.69L656 139.63L652.68 145L648 170.58L622 172.67L618.63 176ZM169 474L133 475L104 474L107 471.7L134 462.22L153 453.4L178 436.33L190 425.74L205.15 409L214.24 395L221.12 381L228.12 360L233.2 337L276.8 72L281 67.81L292 66.7L366 66.86L366.32 72L359.3 117L318.32 355L314.24 371L305.44 392L292.3 413L280.19 427L267 439.29L250 451.37L233 460.35L215 467.27L192 472.33ZM1169 341.5L1167.86 341L1170.68 321L1194.17 186L1203.55 125L1209 123.31L1257 122.89L1258.09 124L1256.35 143L1250.25 175L1240.37 215L1230.28 247L1215.25 280L1200.34 306L1185 326.59ZM612 421.52L523.41 421L565 363.4L541 371.39L518 376.19L496 378.24L470 378.5L450 376.36L440 373.38L431 368.44L422.76 360L417.79 350L414.81 334L410 132L500 131.12L500.83 132L505.8 317L506.86 328L509.62 339L513.52 346L519 351L527 354.19L537 355L553 353.2L569 348.32L584.52 338L606 314.26L690 314.12L691 314.87L622.26 409ZM69 386L28.55 386L122.2 136L123 135L213 134.48L213.69 135L212.38 139L120.09 385ZM736 226L644 227L619 226.43L617.69 225L619.61 211L625.81 192L632 185.64L642 182.66L908 180.11L954 180.09L954.54 181L952.33 200L948.55 211L942 218.47L933 222.33L909 224.32ZM742 432L638 432L660 422.37L674 413.34L693.38 396L703.45 383L709.34 371L716.26 348L721.28 322L725.08 294L724.37 293L554 294.34L552.84 293L553.58 287L556.66 273L560.76 264L564.64 259L572 253.68L577 251.73L591 249.5L954 246.36L991 247L989.26 263L984.49 276L977 284.34L966 289.12L946 291.24L814 292.36L807.73 329L820 321.68L834 315.86L849 311.7L868 308.83L884 308.42L899 309.71L908 311.66L921 316.74L932 325.39L941.28 340L966.38 404L970.47 416L970 418L878 418.32L859.27 366L849.29 342L842 335.77L836 333.79L827 333.45L815 336.6L808 340.86L805.71 344L802.62 352L797.42 376L794.3 385L785.27 401L778.36 410L770 418.38L761 425L753 429.16Z"/></g>
+</svg>

@@ -9,7 +9,12 @@ import { fileEnv } from '@/envs/file';
 import { pythonEnv } from '@/envs/python';
 import { type Locales } from '@/locales/resources';
 import { getServerGlobalConfig } from '@/server/globalConfig';
-import { buildAnalyticsConfig, fetchViteDevTemplate, renderSpaHtml } from '@/server/spaHtml';
+import {
+  buildAnalyticsConfig,
+  fetchViteDevTemplate,
+  getViteDevOrigin,
+  renderSpaHtml,
+} from '@/server/spaHtml';
 import { translation } from '@/server/translation';
 import { type SPAClientEnv, type SPAServerConfig } from '@/types/spaServerConfig';
 import { RouteVariants } from '@/utils/server/routeVariants';
@@ -33,8 +38,8 @@ export function generateStaticParams() {
 
 const isDev = process.env.NODE_ENV === 'development';
 
-async function getTemplate(isMobile: boolean): Promise<string> {
-  if (isDev) return fetchViteDevTemplate();
+async function getTemplate(isMobile: boolean, request: Request): Promise<string> {
+  if (isDev) return fetchViteDevTemplate('/', getViteDevOrigin(request));
 
   const { desktopHtmlTemplate, mobileHtmlTemplate } = await import('./spaHtmlTemplates');
 
@@ -74,7 +79,7 @@ async function buildSeoMeta(locale: string): Promise<string> {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ path?: string[]; variants: string }> },
 ) {
   const { variants } = await params;
@@ -88,7 +93,7 @@ export async function GET(
     isMobile,
   };
 
-  const template = await getTemplate(isMobile);
+  const template = await getTemplate(isMobile, request);
   const seoMeta = await buildSeoMeta(locale);
 
   return renderSpaHtml(template, { seoMeta, serverConfig: spaConfig });

@@ -18,6 +18,10 @@ const createRepo = () => ({
   findUserByIdentity: vi.fn().mockResolvedValue({ id: 7, username: 'ada' }),
   getUsageLogs: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 1 }),
   listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini']),
+  listManagedTokens: vi.fn().mockResolvedValue([
+    { id: 12, name: 'managed' },
+    { id: 11, name: 'managed' },
+  ]),
 });
 
 describe('createBridgeHandler', () => {
@@ -91,6 +95,23 @@ describe('createBridgeHandler', () => {
 
     expect(response.body.data.key).toBe('sk-managed');
     expect(repo.findManagedToken).toHaveBeenCalledWith(7, 'managed');
+  });
+
+  it('returns managed token options', async () => {
+    const repo = createRepo();
+    const handler = createBridgeHandler({
+      bridgeToken: 'secret',
+      managedTokenName: 'managed',
+      repository: repo as any,
+    });
+
+    const response = await readResponse(await handler(makeRequest('/v1/users/7/managed-tokens')));
+
+    expect(response.body.data).toEqual([
+      { id: 12, name: 'managed' },
+      { id: 11, name: 'managed' },
+    ]);
+    expect(repo.listManagedTokens).toHaveBeenCalledWith(7, 'managed');
   });
 
   it('returns models using token and account context', async () => {

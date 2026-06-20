@@ -50,6 +50,7 @@ describe('useNavLayout', () => {
     const memoryItem = result.current.bottomMenuItems.find((item) => item.key === 'memory');
 
     expect(memoryItem?.hidden).not.toBe(true);
+    expect(memoryItem?.disabled).toBe(true);
   });
 
   it('hides Memory in workspace mode', async () => {
@@ -61,5 +62,19 @@ describe('useNavLayout', () => {
     const memoryItem = result.current.bottomMenuItems.find((item) => item.key === 'memory');
 
     expect(memoryItem?.hidden).toBe(true);
+  });
+
+  it('greys complex non-core navigation entries instead of removing them', async () => {
+    const { useNavLayout } = await import('./useNavLayout');
+    const { result } = renderHook(() => useNavLayout());
+
+    const entries = [...result.current.topNavItems, ...result.current.bottomMenuItems];
+
+    expect(entries.find((item) => item.key === 'tasks')).toMatchObject({ disabled: true });
+    expect(entries.find((item) => item.key === 'pages')).toMatchObject({ disabled: true });
+    expect(entries.find((item) => item.key === 'image')).toMatchObject({ disabled: true });
+    expect(entries.find((item) => item.key === 'community')).toMatchObject({ disabled: true });
+    expect(entries.find((item) => item.key === 'resource')).toMatchObject({ disabled: true });
+    expect(entries.find((item) => item.key === 'memory')).toMatchObject({ disabled: true });
   });
 });

@@ -2,10 +2,11 @@
 
 import { ProviderCombine } from '@lobehub/icons';
 import { Button, Flexbox, FormGroup, Tag, Text } from '@lobehub/ui';
+import { Select, type SelectProps } from '@lobehub/ui/base-ui';
 import { App, Divider } from 'antd';
 import { createStyles } from 'antd-style';
 import { RefreshCwIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useAiInfraStore } from '@/store/aiInfra';
 import {
@@ -13,7 +14,6 @@ import {
   useNewApiBindingStatus,
   useNewApiUsageSummary,
 } from '@/store/newApi';
-import { formatTokenNumber } from '@/utils/format';
 import { formatNewApiQuota } from '@/utils/newApiQuota';
 
 import ModelList from '../../features/ModelList';
@@ -31,6 +31,9 @@ const useStyles = createStyles(({ css, token }) => ({
     white-space: nowrap;
     font-weight: 600;
     color: ${token.colorText};
+  `,
+  tokenSelect: css`
+    min-width: 220px;
   `,
 }));
 
@@ -51,10 +54,35 @@ const Field = ({
   </Flexbox>
 );
 
+const ManagedTokenSelect = ({
+  classNames,
+  onChange,
+  options,
+  value,
+}: {
+  classNames: { field: string; tokenSelect: string };
+  onChange: (value: string) => void;
+  options: SelectProps['options'];
+  value?: string;
+}) => (
+  <Flexbox className={classNames.field} gap={4}>
+    <Text type="secondary">托管 Token</Text>
+    <Select
+      className={classNames.tokenSelect}
+      disabled={!options?.length}
+      options={options}
+      placeholder="-"
+      value={value}
+      onChange={(nextValue) => onChange(String(nextValue))}
+    />
+  </Flexbox>
+);
+
 const Page = () => {
   const { styles } = useStyles();
   const { message } = App.useApp();
   const [syncing, setSyncing] = useState(false);
+  const [selectedManagedTokenId, setSelectedManagedTokenId] = useState<string>();
   const { data: binding, mutate: mutateBinding } = useNewApiBindingStatus();
   const isBound = !!binding?.isBound;
   const { data: account, mutate: mutateAccount } = useNewApiAccountSummary(isBound);
@@ -65,6 +93,20 @@ const Page = () => {
 
   useFetchAiProviderList();
   useFetchAiProviderItem('newapi');
+
+  const managedTokenOptions = useMemo<SelectProps['options']>(
+    () =>
+      (binding?.managedTokens || []).map((token) => ({
+        label: token.name || `Token #${token.id}`,
+        value: String(token.id),
+      })),
+    [binding?.managedTokens],
+  );
+
+  useEffect(() => {
+    const firstToken = managedTokenOptions?.find((option) => 'value' in option)?.value;
+    setSelectedManagedTokenId(firstToken === undefined ? undefined : String(firstToken));
+  }, [managedTokenOptions]);
 
   const handleSyncModels = async () => {
     setSyncing(true);
@@ -116,12 +158,16 @@ const Page = () => {
       >
         <Flexbox gap={16}>
           <Flexbox horizontal gap={24} style={{ flexWrap: 'wrap' }}>
-            <Field classNames={styles} label="MasterLion 状态" value={binding?.status || 'missing'} />
-            <Field classNames={styles} label="Aihub 用户 ID" value={binding?.newApiUserId} />
             <Field
               classNames={styles}
-              label="托管 Token ID"
-              value={binding?.managedTokenId ? String(binding.managedTokenId) : undefined}
+              label="MasterLion 状态"
+              value={binding?.status || 'missing'}
+            />
+            <ManagedTokenSelect
+              classNames={styles}
+              options={managedTokenOptions}
+              value={selectedManagedTokenId}
+              onChange={setSelectedManagedTokenId}
             />
             <Field
               classNames={styles}
@@ -151,32 +197,8 @@ const Page = () => {
             <Field classNames={styles} label="请求数" value={account?.requestCount} />
             <Field
               classNames={styles}
-              label="托管 Token 可用额度"
-              value={
-                usage?.tokenUsage.unlimitedQuota
-                  ? '不限'
-                  : formatNewApiQuota(usage?.tokenUsage.totalAvailable, quotaPolicy)
-              }
-            />
-            <Field
-              classNames={styles}
               label="消耗金额"
               value={formatNewApiQuota(usage?.totalQuota, quotaPolicy)}
-            />
-            <Field
-              classNames={styles}
-              label="Total Token"
-              value={formatTokenNumber(usage?.totalTokens || 0)}
-            />
-            <Field
-              classNames={styles}
-              label="Prompt Token"
-              value={formatTokenNumber(usage?.totalPromptTokens || 0)}
-            />
-            <Field
-              classNames={styles}
-              label="Completion Token"
-              value={formatTokenNumber(usage?.totalCompletionTokens || 0)}
             />
           </Flexbox>
         </Flexbox>

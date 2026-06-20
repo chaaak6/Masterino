@@ -52,10 +52,10 @@ const VERIFICATION_LINK_EXPIRES_IN = 3600;
  * Safely extract hostname from APP_URL for passkey rpID.
  * Returns undefined if APP_URL is not set (e.g., in e2e tests).
  */
-const getPasskeyRpID = (): string | undefined => {
-  if (!appEnv.APP_URL) return undefined;
+const getPasskeyRpID = (baseURL = appEnv.APP_URL): string | undefined => {
+  if (!baseURL) return undefined;
   try {
-    return new URL(appEnv.APP_URL).hostname;
+    return new URL(baseURL).hostname;
   } catch {
     return undefined;
   }
@@ -65,10 +65,10 @@ const getPasskeyRpID = (): string | undefined => {
  * Get passkey origins array.
  * Returns undefined if APP_URL is not set (e.g., in e2e tests).
  */
-const getPasskeyOrigins = (): string[] | undefined => {
-  if (!appEnv.APP_URL) return undefined;
+const getPasskeyOrigins = (baseURL = appEnv.APP_URL): string[] | undefined => {
+  if (!baseURL) return undefined;
   try {
-    return [new URL(appEnv.APP_URL).origin];
+    return [new URL(baseURL).origin];
   } catch {
     return undefined;
   }
@@ -82,7 +82,9 @@ const enabledSSOProviders = parseSSOProviders(authEnv.AUTH_SSO_PROVIDERS);
 const { socialProviders, genericOAuthProviders } = initBetterAuthSSOProviders();
 
 interface CustomBetterAuthOptions {
+  baseURL?: string;
   plugins: BetterAuthPlugin[];
+  trustedOrigins?: string[];
 }
 
 const provisionWecomSessionAccount = async (
@@ -109,6 +111,8 @@ const provisionWecomSessionAccount = async (
 };
 
 export function defineConfig(customOptions: CustomBetterAuthOptions) {
+  const baseURL = customOptions.baseURL || appEnv.APP_URL;
+
   const options = {
     account: {
       accountLinking: {
@@ -118,9 +122,9 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
       },
     },
 
-    baseURL: appEnv.APP_URL,
+    baseURL,
     secret: authEnv.AUTH_SECRET,
-    trustedOrigins: getTrustedOrigins(enabledSSOProviders),
+    trustedOrigins: getTrustedOrigins(enabledSSOProviders, customOptions.trustedOrigins),
 
     emailAndPassword: {
       autoSignIn: true,
@@ -330,11 +334,11 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
         rpName: 'MasterLion',
         // Extract rpID from auth URL (e.g., 'aihub.bielcrystal.com' from 'https://aihub.bielcrystal.com')
         // Returns undefined if AUTH_URL is not set (e.g., in e2e tests)
-        rpID: getPasskeyRpID(),
+        rpID: getPasskeyRpID(baseURL),
         // Support multiple origins: web + Android APK key hashes
         // Android origin format: android:apk-key-hash:<base64url-sha256-fingerprint>
         // Returns undefined if AUTH_URL is not set (e.g., in e2e tests)
-        origin: getPasskeyOrigins(),
+        origin: getPasskeyOrigins(baseURL),
       }),
       ...(genericOAuthProviders.length > 0
         ? [

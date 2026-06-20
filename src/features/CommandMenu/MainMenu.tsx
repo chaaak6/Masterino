@@ -14,6 +14,7 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { openFeedbackModal } from '@/components/FeedbackModal';
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { getNavigableRoutes, getRouteById } from '@/config/routes';
 import { FEEDBACK } from '@/const/url';
 import { usePermission } from '@/hooks/usePermission';
@@ -75,24 +76,28 @@ const MainMenu = memo(() => {
           </CommandItem>
         )}
 
-        <CommandItem
-          disabled={!canCreate}
-          icon={<FilePen />}
-          value="create new page"
-          onSelect={handleCreatePage}
-        >
-          {t('cmdk.newPage')}
-        </CommandItem>
+        {isProductFeatureEnabled('pages') && (
+          <CommandItem
+            disabled={!canCreate}
+            icon={<FilePen />}
+            value="create new page"
+            onSelect={handleCreatePage}
+          >
+            {t('cmdk.newPage')}
+          </CommandItem>
+        )}
 
-        <CommandItem
-          disabled={!canCreate}
-          icon={<LibraryBig />}
-          unpinned={menuContext !== 'resource'}
-          value="create new library"
-          onSelect={handleCreateLibrary}
-        >
-          {t('cmdk.newLibrary')}
-        </CommandItem>
+        {isProductFeatureEnabled('resources') && (
+          <CommandItem
+            disabled={!canCreate}
+            icon={<LibraryBig />}
+            unpinned={menuContext !== 'resource'}
+            value="create new library"
+            onSelect={handleCreateLibrary}
+          >
+            {t('cmdk.newLibrary')}
+          </CommandItem>
+        )}
 
         {menuContext !== 'settings' &&
           (() => {

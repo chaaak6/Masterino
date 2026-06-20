@@ -117,6 +117,23 @@ const Body = memo(() => {
     (key: string) => {
       const navItem = navLinkItems.get(key);
       if (!navItem || navItem.hidden) return null;
+      const disabledTitle = navItem.disabledReasonKey
+        ? t(navItem.disabledReasonKey as any)
+        : undefined;
+
+      if (navItem.disabled) {
+        return (
+          <NavItem
+            disabled
+            key={key}
+            contextMenuItems={getContextMenuItems(key)}
+            extra={disabledTitle}
+            icon={navItem.icon}
+            title={navItem.title}
+          />
+        );
+      }
+
       return (
         <WorkspaceLink
           key={key}

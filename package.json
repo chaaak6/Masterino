@@ -79,6 +79,7 @@
     "dev:next": "next dev -p 3010",
     "dev:spa": "vite --port 9876",
     "dev:spa:auth": "cross-env AUTH=true vite --port 3013",
+    "dev:spa:container": "vite --host 0.0.0.0 --port 9876",
     "dev:spa:mobile": "cross-env MOBILE=true vite --port 3012",
     "docs:cdn": "npm run workflow:docs-cdn && npm run lint:mdx",
     "docs:i18n": "lobe-i18n md && npm run lint:mdx",

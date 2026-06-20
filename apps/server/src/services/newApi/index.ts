@@ -461,6 +461,36 @@ export class NewApiService {
     return this.readOnlyDb.findManagedToken(newApiUserId, getManagedTokenName());
   }
 
+  private async getManagedTokenOptionsForBinding(binding: NewApiBindingItem) {
+    if (!isValidNewApiUserId(binding.newApiUserId)) return [];
+
+    const tokens =
+      typeof this.readOnlyDb.listManagedTokens === 'function'
+        ? await this.readOnlyDb
+            .listManagedTokens(binding.newApiUserId, getManagedTokenName())
+            .catch(() => [])
+        : [];
+    if (tokens.length > 0) {
+      return tokens.map((token) => ({
+        id: token.id,
+        name: token.name || `Token #${token.id}`,
+      }));
+    }
+
+    const token = await this.findManagedTokenFromReadOnlyDb(binding.newApiUserId).catch(
+      () => undefined,
+    );
+    const tokenId = token?.id ?? binding.managedTokenId;
+    if (!tokenId) return [];
+
+    return [
+      {
+        id: tokenId,
+        name: token?.name || `Token #${tokenId}`,
+      },
+    ];
+  }
+
   private shouldUseReadOnlyDb() {
     const dataSource = getNewApiDataSource();
     return dataSource !== 'api' && this.readOnlyDb.isEnabled();
@@ -669,10 +699,17 @@ export class NewApiService {
           (await new NewApiBindingModel(this.db, this.userId).find()) || autoBinding;
         this.assertUsableBinding(refreshedBinding);
 
-        return this.toBindingStatus(refreshedBinding);
+        return {
+          ...this.toBindingStatus(refreshedBinding),
+          managedTokens: await this.getManagedTokenOptionsForBinding(refreshedBinding),
+        };
       } catch (error) {
         const persistedBinding = await new NewApiBindingModel(this.db, this.userId).find();
-        if (persistedBinding) return this.toBindingStatus(persistedBinding);
+        if (persistedBinding)
+          return {
+            ...this.toBindingStatus(persistedBinding),
+            managedTokens: await this.getManagedTokenOptionsForBinding(persistedBinding),
+          };
 
         return {
           errorMessage: error instanceof Error ? error.message : String(error),
@@ -682,7 +719,10 @@ export class NewApiService {
       }
     }
 
-    return this.toBindingStatus(binding);
+    return {
+      ...this.toBindingStatus(binding),
+      managedTokens: await this.getManagedTokenOptionsForBinding(binding),
+    };
   }
 
   private async syncModelsForBinding(binding: UsableNewApiBindingItem, key: string) {

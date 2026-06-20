@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect } from 'react';
 
+import FeatureDisabledPage from '@/features/ProductFeatureGate/FeatureDisabledPage';
 import NavHeader from '@/features/NavHeader';
 import SettingContainer from '@/features/Setting/SettingContainer';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
@@ -17,6 +18,19 @@ const REDIRECT_MAP: Record<string, string> = {
   [SettingsTabs.TTS]: SettingsTabs.ServiceModel,
   [SettingsTabs.Image]: SettingsTabs.ServiceModel,
 };
+
+const CONVERGED_SETTINGS_TABS = new Set<string>([
+  SettingsTabs.Profile,
+  SettingsTabs.Stats,
+  SettingsTabs.Appearance,
+  SettingsTabs.Devices,
+  SettingsTabs.Hotkey,
+  SettingsTabs.Provider,
+  SettingsTabs.ServiceModel,
+  SettingsTabs.Proxy,
+  SettingsTabs.Security,
+  SettingsTabs.About,
+]);
 
 interface SettingsContentProps {
   activeTab?: string;
@@ -62,6 +76,8 @@ const SettingsContent = ({ mobile, activeTab }: SettingsContentProps) => {
   };
 
   if (activeTab && REDIRECT_MAP[activeTab]) return null;
+
+  if (activeTab && !CONVERGED_SETTINGS_TABS.has(activeTab)) return <FeatureDisabledPage />;
 
   if (mobile) {
     return activeTab ? renderComponent(activeTab) : renderComponent(SettingsTabs.Profile);

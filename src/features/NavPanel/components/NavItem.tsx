@@ -89,19 +89,21 @@ const NavItem = memo<NavItemProps>(
     loading,
     extra,
     slots,
+    style,
     ...rest
   }) => {
     const iconColor = active ? cssVar.colorText : cssVar.colorTextDescription;
     const textColor = titleColor ?? (active ? cssVar.colorText : cssVar.colorTextSecondary);
     const variant = active ? 'filled' : 'borderless';
+    const disabledStyle = disabled ? { cursor: 'not-allowed', opacity: 0.45 } : undefined;
 
     const { titlePrefix, iconPostfix } = slots || {};
     // Link props for cmd+click support
+    const linkStyle = href ? { color: 'inherit', textDecoration: 'none' } : undefined;
     const linkProps = href
       ? {
           as: 'a' as const,
           href,
-          style: { color: 'inherit', textDecoration: 'none' },
         }
       : {};
 
@@ -127,6 +129,7 @@ const NavItem = memo<NavItemProps>(
         }}
         {...linkProps}
         {...rest}
+        style={{ ...linkStyle, ...style, ...disabledStyle }}
       >
         {icon && (
           <Center flex={'none'} height={28} width={28}>

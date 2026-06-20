@@ -5,8 +5,14 @@ export interface NewApiBindingStatus {
   isBound: boolean;
   lastSyncedAt?: Date | null;
   managedTokenId?: number | null;
+  managedTokens?: NewApiManagedTokenOption[];
   newApiUserId?: number;
   status: NewApiBindingSyncStatus;
+}
+
+export interface NewApiManagedTokenOption {
+  id: number;
+  name: string;
 }
 
 export interface NewApiAccountSummary {

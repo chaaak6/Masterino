@@ -3,12 +3,19 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
+import {
+  getProductFeature,
+  isProductFeatureDisabled,
+  isProductFeatureHidden,
+} from '@/config/productFeatures';
 import { getRouteById } from '@/config/routes';
 import { useGlobalStore } from '@/store/global';
 import { SidebarTabKey } from '@/store/global/initialState';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 
 export interface NavItem {
+  disabled?: boolean;
+  disabledReasonKey?: string;
   hidden?: boolean;
   icon: any;
   isNew?: boolean;
@@ -55,12 +62,16 @@ export const useNavLayout = (): NavLayout => {
           url: '/',
         },
         {
+          disabled: isProductFeatureDisabled('tasks'),
+          disabledReasonKey: getProductFeature('tasks').disabledReasonKey,
           icon: getRouteById('tasks')!.icon,
           key: SidebarTabKey.Tasks,
           title: t('tab.tasks'),
           url: '/tasks',
         },
         {
+          disabled: isProductFeatureDisabled('pages'),
+          disabledReasonKey: getProductFeature('pages').disabledReasonKey,
           icon: getRouteById('page')!.icon,
           key: SidebarTabKey.Pages,
           title: t('tab.pages'),
@@ -74,12 +85,16 @@ export const useNavLayout = (): NavLayout => {
     () =>
       [
         {
+          disabled: isProductFeatureDisabled('generation'),
+          disabledReasonKey: getProductFeature('generation').disabledReasonKey,
           icon: getRouteById('image')!.icon,
           key: SidebarTabKey.Image,
           title: t('tab.generation'),
           url: '/image',
         },
         {
+          disabled: isProductFeatureDisabled('community'),
+          disabledReasonKey: getProductFeature('community').disabledReasonKey,
           hidden: !showMarket,
           icon: getRouteById('community')!.icon,
           key: SidebarTabKey.Community,
@@ -87,12 +102,16 @@ export const useNavLayout = (): NavLayout => {
           url: '/community',
         },
         {
+          disabled: isProductFeatureDisabled('resources'),
+          disabledReasonKey: getProductFeature('resources').disabledReasonKey,
           icon: getRouteById('resource')!.icon,
           key: SidebarTabKey.Resource,
           title: t('tab.resource'),
           url: '/resource',
         },
         {
+          disabled: isProductFeatureDisabled('memory'),
+          disabledReasonKey: getProductFeature('memory').disabledReasonKey,
           hidden: !!activeWorkspaceSlug,
           icon: getRouteById('memory')!.icon,
           key: SidebarTabKey.Memory,
@@ -107,7 +126,7 @@ export const useNavLayout = (): NavLayout => {
     () => ({
       hideGitHub: !!hideGitHub,
       layout: 'compact' as const,
-      showEvalEntry: false,
+      showEvalEntry: !isProductFeatureHidden('eval'),
       showSettingsEntry: true,
     }),
     [hideGitHub],

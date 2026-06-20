@@ -15,8 +15,15 @@ interface DevStartupTestingExports {
       command: string;
       options: SpawnOptions;
     };
+    createNextDevProcessConfig: (params: { host: string; isWindows: boolean; port: number }) => {
+      args: string[];
+      command: string;
+      options: SpawnOptions;
+    };
     createDevProcessHandle: (params: { isWindows: boolean; pid?: number }) => DevProcessHandle;
+    isViteHmrUpgrade: (request: { headers: Record<string, string>; url?: string }) => boolean;
     sendSignalToDevProcess: (handle: DevProcessHandle | undefined, signal: NodeJS.Signals) => void;
+    shouldProxyToVite: (url: string | undefined) => boolean;
   };
 }
 
@@ -28,6 +35,8 @@ const loadTestingExports = async () => {
 describe('devProcessCleanup', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.resetModules();
   });
 
   it('should save the detached process group pid on Unix', async () => {
@@ -54,6 +63,61 @@ describe('devProcessCleanup', () => {
         stdio: 'inherit',
       },
     });
+  });
+
+  it('should allow container dev scripts to run through pnpm', async () => {
+    vi.stubEnv('DEV_PACKAGE_MANAGER', 'pnpm');
+    const { createPackageScriptProcessConfig } = (await loadTestingExports()).__testing;
+
+    expect(
+      createPackageScriptProcessConfig({ isWindows: false, scriptName: 'dev:spa:container' }),
+    ).toMatchObject({
+      args: ['run', 'dev:spa:container'],
+      command: 'pnpm',
+    });
+  });
+
+  it('should bind Next dev to the configured host', async () => {
+    vi.stubEnv('DEV_PACKAGE_MANAGER', 'pnpm');
+    const { createNextDevProcessConfig } = (await loadTestingExports()).__testing;
+
+    expect(
+      createNextDevProcessConfig({ host: '0.0.0.0', isWindows: false, port: 3210 }),
+    ).toMatchObject({
+      args: ['exec', 'next', 'dev', '-H', '0.0.0.0', '-p', '3210'],
+      command: 'pnpm',
+    });
+  });
+
+  it('should pass the internal Next port to the Next child process env', async () => {
+    vi.stubEnv('DEV_PACKAGE_MANAGER', 'pnpm');
+    const { createNextDevProcessConfig } = (await loadTestingExports()).__testing;
+
+    const config = createNextDevProcessConfig({ host: '0.0.0.0', isWindows: false, port: 3211 });
+
+    expect(config.options.env).toMatchObject({ PORT: '3211' });
+  });
+
+  it('should identify Vite dev asset paths for the hot reverse proxy', async () => {
+    const { shouldProxyToVite } = (await loadTestingExports()).__testing;
+
+    expect(shouldProxyToVite('/@vite/client')).toBe(true);
+    expect(shouldProxyToVite('/@react-refresh')).toBe(true);
+    expect(shouldProxyToVite('/src/spa/entry.web.tsx')).toBe(true);
+    expect(shouldProxyToVite('/node_modules/vite/dist/client/env.mjs')).toBe(true);
+    expect(shouldProxyToVite('/packages/const/src/version.ts')).toBe(true);
+    expect(shouldProxyToVite('/package.json?import')).toBe(true);
+    expect(shouldProxyToVite('/trpc/lambda/foo')).toBe(false);
+  });
+
+  it('should identify Vite HMR websocket upgrades for the hot reverse proxy', async () => {
+    const { isViteHmrUpgrade } = (await loadTestingExports()).__testing;
+
+    expect(isViteHmrUpgrade({ headers: { 'sec-websocket-protocol': 'vite-hmr' }, url: '/' })).toBe(
+      true,
+    );
+    expect(isViteHmrUpgrade({ headers: {}, url: '/?token=abc' })).toBe(true);
+    expect(isViteHmrUpgrade({ headers: {}, url: '/_next/webpack-hmr' })).toBe(false);
   });
 
   it('should signal the saved process group without requiring the direct child to be alive', async () => {

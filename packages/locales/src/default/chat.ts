@@ -209,7 +209,7 @@ export default {
   'historySummary': 'Historical Message Summary',
   'inactive': 'Inactive',
   'inbox.desc': 'Collaborate in one Workspace and move ideas into outcomes.',
-  'inbox.title': 'Lobe AI',
+  'inbox.title': 'MasterLion',
   'input.addAi': 'Add an AI message',
   'input.addUser': 'Add a user message',
   'input.agentModeUnsupportedModel':
@@ -865,7 +865,7 @@ export default {
   'taskList.orderBy.updatedAt': 'Updated at',
   'taskList.title': 'Tasks',
   'taskList.unassigned': 'Unassigned',
-  'taskList.unassignedHint': 'Lobe AI will run this task when no assignee is set',
+  'taskList.unassignedHint': 'MasterLion will run this task when no assignee is set',
   'taskList.assigneeSearch.empty': 'No matching agent',
   'taskList.assigneeSearch.placeholder': 'Search agent...',
   'taskList.contextMenu.copyConfirm': 'Copy',

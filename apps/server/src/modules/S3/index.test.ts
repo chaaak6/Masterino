@@ -10,25 +10,29 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { fileEnv } from '@/envs/file';
+
 import { FileS3, S3 } from './index';
 
 // Mock AWS SDK
 vi.mock('@aws-sdk/client-s3');
 vi.mock('@aws-sdk/s3-request-presigner');
 
+const mockFileEnv = vi.hoisted(() => ({
+  S3_ACCESS_KEY_ID: 'test-access-key',
+  S3_BUCKET: 'test-bucket',
+  S3_ENABLE_PATH_STYLE: false,
+  S3_ENDPOINT: 'https://s3.amazonaws.com',
+  S3_PREVIEW_URL_EXPIRE_IN: 7200,
+  S3_PUBLIC_UPLOAD_ENDPOINT: 'http://localhost:9100',
+  S3_REGION: 'us-east-1',
+  S3_SECRET_ACCESS_KEY: 'test-secret-key',
+  S3_SET_ACL: true,
+}));
+
 // Mock environment variables
 vi.mock('@/envs/file', () => ({
-  fileEnv: {
-    S3_ACCESS_KEY_ID: 'test-access-key',
-    S3_BUCKET: 'test-bucket',
-    S3_ENABLE_PATH_STYLE: false,
-    S3_ENDPOINT: 'https://s3.amazonaws.com',
-    S3_PREVIEW_URL_EXPIRE_IN: 7200,
-    S3_PUBLIC_UPLOAD_ENDPOINT: 'http://localhost:9100',
-    S3_REGION: 'us-east-1',
-    S3_SECRET_ACCESS_KEY: 'test-secret-key',
-    S3_SET_ACL: true,
-  },
+  fileEnv: mockFileEnv,
 }));
 
 // Mock utilities
@@ -47,6 +51,17 @@ describe('S3', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(mockFileEnv, {
+      S3_ACCESS_KEY_ID: 'test-access-key',
+      S3_BUCKET: 'test-bucket',
+      S3_ENABLE_PATH_STYLE: false,
+      S3_ENDPOINT: 'https://s3.amazonaws.com',
+      S3_PREVIEW_URL_EXPIRE_IN: 7200,
+      S3_PUBLIC_UPLOAD_ENDPOINT: 'http://localhost:9100',
+      S3_REGION: 'us-east-1',
+      S3_SECRET_ACCESS_KEY: 'test-secret-key',
+      S3_SET_ACL: true,
+    });
 
     // Setup S3Client mock
     mockS3ClientSend = vi.fn();
@@ -136,6 +151,17 @@ describe('FileS3', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(mockFileEnv, {
+      S3_ACCESS_KEY_ID: 'test-access-key',
+      S3_BUCKET: 'test-bucket',
+      S3_ENABLE_PATH_STYLE: false,
+      S3_ENDPOINT: 'https://s3.amazonaws.com',
+      S3_PREVIEW_URL_EXPIRE_IN: 7200,
+      S3_PUBLIC_UPLOAD_ENDPOINT: 'http://localhost:9100',
+      S3_REGION: 'us-east-1',
+      S3_SECRET_ACCESS_KEY: 'test-secret-key',
+      S3_SET_ACL: true,
+    });
 
     // Setup S3Client mock
     mockS3ClientSend = vi.fn();
@@ -406,6 +432,20 @@ describe('FileS3', () => {
       expect(S3Client).toHaveBeenLastCalledWith(
         expect.objectContaining({
           endpoint: 'http://localhost:9100',
+        }),
+      );
+    });
+
+    it('should use the private endpoint when public upload endpoint is unset', async () => {
+      (mockFileEnv as { S3_PUBLIC_UPLOAD_ENDPOINT?: string }).S3_PUBLIC_UPLOAD_ENDPOINT =
+        undefined;
+      const s3 = new FileS3();
+
+      await s3.createPreSignedUpload('upload-file.txt');
+
+      expect(S3Client).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          endpoint: 'https://s3.amazonaws.com',
         }),
       );
     });

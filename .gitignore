@@ -141,6 +141,7 @@ scripts/clerk-to-betterauth/prod/*.json
 ./packages/lobe-ui
 *.ppt*
 *.doc*
+!.dockerignore
 *.xls*
 e2e/reports
 out

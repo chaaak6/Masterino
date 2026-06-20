@@ -47,6 +47,15 @@ export interface CategoryGroup {
   title: string;
 }
 
+const CONVERGED_SETTINGS_TABS = new Set<SettingsTabs>([
+  SettingsTabs.Profile,
+  SettingsTabs.Stats,
+  SettingsTabs.Appearance,
+  SettingsTabs.Provider,
+  SettingsTabs.ServiceModel,
+  SettingsTabs.About,
+]);
+
 export const useCategory = (): CategoryGroup[] => {
   const navigate = useWorkspaceAwareNavigate();
   const { t } = useTranslation(['setting', 'auth', 'subscription']);
@@ -137,6 +146,11 @@ export const useCategory = (): CategoryGroup[] => {
       },
       { items: agent, key: SettingsGroupKey.Agent, title: t('setting:group.aiConfig') },
       { items: system, key: SettingsGroupKey.System, title: t('setting:group.system') },
-    ].filter((group) => group.items.length > 0);
+    ]
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => CONVERGED_SETTINGS_TABS.has(item.key)),
+      }))
+      .filter((group) => group.items.length > 0);
   }, [t, enableBusinessFeatures, hideDocs, showApiKeyManage, showProvider, isDevMode, navigate]);
 };

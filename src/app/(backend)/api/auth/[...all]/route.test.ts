@@ -7,6 +7,7 @@ import { GET, POST } from './route';
 type RouteHandler = (request: Request) => Promise<Response>;
 
 const mocks = vi.hoisted(() => ({
+  createAuth: vi.fn((options?: unknown) => ({ dynamicAuth: true, options })),
   get: vi.fn<RouteHandler>(async () => Response.json({ ok: true })),
   post: vi.fn<RouteHandler>(async () => Response.json({ ok: true })),
 }));
@@ -20,6 +21,7 @@ vi.mock('better-auth/next-js', () => ({
 
 vi.mock('@/auth', () => ({
   auth: {},
+  createAuth: mocks.createAuth,
 }));
 
 const createPostRequest = (body: string, contentType = 'application/json') =>
@@ -32,6 +34,7 @@ const createPostRequest = (body: string, contentType = 'application/json') =>
 describe('/api/auth/[...all] route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     mocks.get.mockResolvedValue(Response.json({ ok: true }));
     mocks.post.mockResolvedValue(Response.json({ ok: true }));
   });
@@ -84,5 +87,24 @@ describe('/api/auth/[...all] route', () => {
 
     expect(response.status).toBe(200);
     expect(mocks.get).toHaveBeenCalledWith(request);
+  });
+
+  it('creates a request-origin auth handler when dynamic origins are enabled', async () => {
+    vi.stubEnv('APP_URL_DYNAMIC', '1');
+    vi.stubEnv('APP_URL_ALLOWED_HOSTS', '*');
+    const request = new Request('http://internal:3210/api/auth/sign-in/email', {
+      headers: {
+        'host': 'internal:3210',
+        'x-forwarded-host': 'chat.example.com',
+        'x-forwarded-proto': 'https',
+      },
+    }) as NextRequest;
+
+    await GET(request);
+
+    expect(mocks.createAuth).toHaveBeenCalledWith({
+      baseURL: 'https://chat.example.com',
+      trustedOrigins: ['https://chat.example.com'],
+    });
   });
 });

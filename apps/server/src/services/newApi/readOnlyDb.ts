@@ -225,6 +225,45 @@ limit 1
     return this.normalizeToken(fallbackRows[0]);
   }
 
+  async listManagedTokens(userId: number, tokenName: string): Promise<NewApiToken[]> {
+    const groupColumn = this.groupColumn();
+    const selectedColumns = `
+select id, user_id, name, status, expired_time, remain_quota, unlimited_quota,
+       model_limits_enabled, model_limits, used_quota, ${groupColumn} as ${groupColumn}
+from tokens
+    `.trim();
+    const safeSelectedColumns =
+      this.dialect === 'postgres' ? selectedColumns.replace('`key`', '"key"') : selectedColumns;
+
+    const namedRows = await this.query<NewApiToken>(
+      `
+${safeSelectedColumns}
+where user_id = ? and name = ? and deleted_at is null
+order by id desc
+      `.trim(),
+      [userId, tokenName],
+    );
+
+    if (namedRows.length > 0)
+      return namedRows.map((token) => this.normalizeToken(token)).filter(Boolean) as NewApiToken[];
+
+    const now = Math.floor(Date.now() / 1000);
+    const fallbackRows = await this.query<NewApiToken>(
+      `
+${safeSelectedColumns}
+where user_id = ?
+  and deleted_at is null
+  and status = ${TOKEN_STATUS_ENABLED}
+  and (unlimited_quota = true or remain_quota > 0)
+  and (expired_time = -1 or expired_time > ?)
+order by accessed_time desc, id desc
+      `.trim(),
+      [userId, now],
+    );
+
+    return fallbackRows.map((token) => this.normalizeToken(token)).filter(Boolean) as NewApiToken[];
+  }
+
   async listAccessibleModels(group?: string, token?: NewApiToken): Promise<string[]> {
     const tokenLimits = token?.model_limits_enabled
       ? token.model_limits

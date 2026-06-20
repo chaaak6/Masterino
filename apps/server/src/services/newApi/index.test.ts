@@ -742,9 +742,13 @@ describe('NewApiService', () => {
             },
           ],
           total: 3,
-        }),
+      }),
       isEnabled: vi.fn(() => true),
       listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini', 'glm5.1', 'deepseek-chat']),
+      listManagedTokens: vi.fn().mockResolvedValue([
+        { id: 13, name: 'masterlion-managed' },
+        { id: 12, name: 'masterlion-managed' },
+      ]),
     };
     const service = new NewApiService({
       client: client as any,
@@ -762,6 +766,10 @@ describe('NewApiService', () => {
     expect(status).toMatchObject({
       isBound: true,
       managedTokenId: 13,
+      managedTokens: [
+        { id: 13, name: 'masterlion-managed' },
+        { id: 12, name: 'masterlion-managed' },
+      ],
       newApiUserId: 6,
       status: 'active',
     });

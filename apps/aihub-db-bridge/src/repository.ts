@@ -218,6 +218,42 @@ limit 1
     return this.normalizeToken(fallbackRows[0]);
   }
 
+  async listManagedTokens(userId: number, tokenName: string) {
+    const groupColumn = this.groupColumn();
+    const selectedColumns = `
+select id, user_id, name, status, expired_time, remain_quota, unlimited_quota,
+       model_limits_enabled, model_limits, used_quota, ${groupColumn} as ${groupColumn}
+from tokens
+    `.trim();
+
+    const namedRows = await this.query<AihubBridgeToken>(
+      `
+${selectedColumns}
+where user_id = ? and name = ? and deleted_at is null
+order by id desc
+      `.trim(),
+      [userId, tokenName],
+    );
+
+    if (namedRows.length > 0) return namedRows.map((token) => this.normalizeToken(token)!);
+
+    const now = Math.floor(Date.now() / 1000);
+    const fallbackRows = await this.query<AihubBridgeToken>(
+      `
+${selectedColumns}
+where user_id = ?
+  and deleted_at is null
+  and status = ${TOKEN_STATUS_ENABLED}
+  and (unlimited_quota = true or remain_quota > 0)
+  and (expired_time = -1 or expired_time > ?)
+order by accessed_time desc, id desc
+      `.trim(),
+      [userId, now],
+    );
+
+    return fallbackRows.map((token) => this.normalizeToken(token)!);
+  }
+
   async listAccessibleModels(group?: string, token?: AihubBridgeToken) {
     const tokenLimits = token?.model_limits_enabled
       ? token.model_limits
@@ -227,6 +263,29 @@ limit 1
       : undefined;
 
     const groupColumn = this.groupColumn();
+    if (token?.user_id) {
+      const rows = await this.query<{ model: string }>(
+        `
+select distinct a.model
+from abilities a
+join users u on u.${groupColumn} = a.${groupColumn}
+where a.enabled = true
+  and u.deleted_at is null
+  and u.id = ?
+order by a.model asc
+        `.trim(),
+        [token.user_id],
+      );
+
+      const userGroupModels = rows.map((row) => row.model).filter(Boolean);
+      if (token.model_limits_enabled) {
+        const allowedByToken = new Set(tokenLimits || []);
+        return userGroupModels.filter((model) => allowedByToken.has(model));
+      }
+
+      return userGroupModels;
+    }
+
     const rows = await this.query<{ model: string }>(
       `
 select distinct model

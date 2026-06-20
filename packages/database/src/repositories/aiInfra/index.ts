@@ -241,19 +241,30 @@ export class AiInfraRepos {
 
     const builtinModels = builtinModelList.flat();
     const builtinModelKeys = new Set(builtinModels.map((item) => `${item.providerId}:${item.id}`));
+    const hasBrandingRemoteModels = allModels.some(
+      (item) => item.providerId === BRANDING_PROVIDER && item.source === AiModelSourceEnum.Remote,
+    );
 
     const enabledProviderIds = new Set(enabledProviders.map((item) => item.id));
     // User database models, check search settings
     // Exclude models already handled in builtinModelList to avoid duplicates
     const appendedUserModels = allModels
       .filter((item) => {
-        if (item.providerId === BRANDING_PROVIDER) return false;
+        if (
+          item.providerId === BRANDING_PROVIDER &&
+          item.source !== AiModelSourceEnum.Remote
+        )
+          return false;
         if (builtinModelKeys.has(`${item.providerId}:${item.id}`)) return false;
         return filterEnabled ? enabledProviderIds.has(item.providerId) && item.enabled : true;
       })
       .map((item) => injectSearchSettings(item.providerId, item));
 
-    return [...builtinModels, ...appendedUserModels].sort(
+    const visibleBuiltinModels = hasBrandingRemoteModels
+      ? builtinModels.filter((item) => item.providerId !== BRANDING_PROVIDER)
+      : builtinModels;
+
+    return [...visibleBuiltinModels, ...appendedUserModels].sort(
       (a, b) => (a?.sort ?? Infinity) - (b?.sort ?? Infinity),
     ) as EnabledAiModel[];
   };
@@ -419,10 +430,22 @@ export class AiInfraRepos {
       if (builtinType) m.type = builtinType;
     }
 
+    const brandingRemoteModels = aiModels.filter(
+      (m) => m.providerId === BRANDING_PROVIDER && m.source === AiModelSourceEnum.Remote,
+    );
+
+    // Branding provider is backed by Aihub remote models when present; do not mix stale builtin
+    // fallback models into the settings list.
+    if (providerId === BRANDING_PROVIDER && brandingRemoteModels.length > 0) {
+      mergedModel = brandingRemoteModels;
+    }
+
     // Filter out DB residual models that are no longer in the builtin list for branding provider
     if (providerId === BRANDING_PROVIDER) {
       const builtinIds = new Set(defaultModels.map((m) => m.id));
-      mergedModel = mergedModel.filter((m) => builtinIds.has(m.id));
+      mergedModel = mergedModel.filter(
+        (m) => m.source === AiModelSourceEnum.Remote || builtinIds.has(m.id),
+      );
     }
 
     mergedModel = mergedModel.filter(isAiModelVisible);

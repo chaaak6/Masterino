@@ -119,6 +119,14 @@ export class NewApiBridgeClient implements NewApiReadSource {
     return this.request<NewApiToken>(`/v1/users/${userId}/managed-token`, { name: tokenName });
   }
 
+  async listManagedTokens(userId: number, tokenName: string) {
+    return (
+      (await this.request<NewApiToken[]>(`/v1/users/${userId}/managed-tokens`, {
+        name: tokenName,
+      })) || []
+    );
+  }
+
   async listAccessibleModels(_group?: string, token?: NewApiToken) {
     if (!token?.user_id) return [];
 

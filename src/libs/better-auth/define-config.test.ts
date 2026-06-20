@@ -17,7 +17,7 @@ vi.mock('@better-auth/expo', () => ({
 }));
 
 vi.mock('@better-auth/passkey', () => ({
-  passkey: vi.fn(() => ({ id: 'passkey' })),
+  passkey: vi.fn((options) => ({ id: 'passkey', options })),
 }));
 
 vi.mock('@lobechat/database', () => ({
@@ -105,7 +105,10 @@ vi.mock('@/libs/better-auth/sso', () => ({
 
 vi.mock('@/libs/better-auth/utils/config', () => ({
   createSecondaryStorage: vi.fn(() => ({ id: 'secondary-storage' })),
-  getTrustedOrigins: vi.fn(() => ['https://example.com']),
+  getTrustedOrigins: vi.fn((_providers, extraOrigins?: string[]) => [
+    'https://example.com',
+    ...(extraOrigins || []),
+  ]),
 }));
 
 vi.mock('@/libs/better-auth/utils/server', () => ({
@@ -138,6 +141,33 @@ describe('defineConfig', () => {
         }),
       }),
     );
+  });
+
+  it('uses request base URL overrides for dynamic auth handlers', async () => {
+    const { defineConfig } = await import('./define-config');
+
+    defineConfig({
+      baseURL: 'https://chat.example.com',
+      plugins: [],
+      trustedOrigins: ['https://chat.example.com'],
+    });
+
+    expect(mocks.betterAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: 'https://chat.example.com',
+        trustedOrigins: ['https://example.com', 'https://chat.example.com'],
+      }),
+    );
+    const options = mocks.betterAuth.mock.calls.at(-1)?.[0] as any;
+    const passkeyPlugin = options.plugins.find(
+      (plugin: { id?: string }) => plugin.id === 'passkey',
+    );
+    expect(passkeyPlugin).toMatchObject({
+      options: expect.objectContaining({
+        origin: ['https://chat.example.com'],
+        rpID: 'chat.example.com',
+      }),
+    });
   });
 
   it('calls WeCom login provisioning after Better Auth creates a WeCom account', async () => {

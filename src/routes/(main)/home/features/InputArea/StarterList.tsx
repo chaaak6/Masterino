@@ -11,6 +11,7 @@ import {
 } from '@/business/client/hooks/useBusinessAgentMode';
 import type { HomeNewModelItem } from '@/business/client/hooks/useHomeNewModels';
 import { useHomeNewModels } from '@/business/client/hooks/useHomeNewModels';
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { usePermission } from '@/hooks/usePermission';
 import { useStableNavigate } from '@/hooks/useStableNavigate';
 import { agentService } from '@/services/agent';
@@ -55,6 +56,9 @@ const StarterList = memo(() => {
   const [switchingKey, setSwitchingKey] = useState<string | null>(null);
   const { isLoading, items } = useHomeNewModels(DEFAULT_HOME_NEW_MODELS);
   const applyBusinessModelModeConfig = useBusinessModelModeConfig();
+  const visibleItems = items.filter(
+    (item) => item.type === 'chat' || isProductFeatureEnabled('generation'),
+  );
 
   const handleClick = useCallback(
     async (item: HomeNewModelItem) => {
@@ -143,7 +147,7 @@ const StarterList = memo(() => {
               }}
             />
           ))
-        : items.map((item) => {
+        : visibleItems.map((item) => {
             const key = getStarterItemKey(item);
             const isSwitching = switchingKey === key;
             const button = (

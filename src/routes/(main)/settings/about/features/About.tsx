@@ -1,6 +1,6 @@
 'use client';
 
-import { SiDiscord, SiGithub, SiRss, SiX, SiYoutube } from '@icons-pack/react-simple-icons';
+import { SiGithub, SiRss } from '@icons-pack/react-simple-icons';
 import { BRANDING_EMAIL, BRANDING_NAME, SOCIAL_URL } from '@lobechat/business-const';
 import { Flexbox, Form } from '@lobehub/ui';
 import { Divider } from 'antd';
@@ -8,7 +8,7 @@ import { createStaticStyles } from 'antd-style';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { BLOG, mailTo,OFFICIAL_SITE, PRIVACY_URL, TERMS_URL } from '@/const/url';
+import { BLOG, mailTo, OFFICIAL_SITE } from '@/const/url';
 
 import AboutList from './AboutList';
 import ItemCard from './ItemCard';
@@ -52,11 +52,6 @@ const About = memo<{ mobile?: boolean }>(({ mobile }) => {
               label: t('mail.support'),
               value: 'support',
             },
-            {
-              href: mailTo(BRANDING_EMAIL.business),
-              label: t('mail.business'),
-              value: 'business',
-            },
           ]}
         />
         <Divider style={{ marginBlock: 0 }} />
@@ -76,42 +71,6 @@ const About = memo<{ mobile?: boolean }>(({ mobile }) => {
               icon: SiGithub,
               label: 'GitHub',
               value: 'feedback',
-            },
-            {
-              href: SOCIAL_URL.discord,
-              icon: SiDiscord,
-              label: 'Discord',
-              value: 'discord',
-            },
-            {
-              href: SOCIAL_URL.x,
-              icon: SiX as any,
-              label: 'X / Twitter',
-              value: 'x',
-            },
-
-            {
-              href: SOCIAL_URL.youtube,
-              icon: SiYoutube,
-              label: 'YouTube',
-              value: 'youtube',
-            },
-          ]}
-        />
-        <Divider style={{ marginBlock: 0 }} />
-        <div className={styles.title}>{t('legal')}</div>
-        <AboutList
-          ItemRender={ItemLink}
-          items={[
-            {
-              href: TERMS_URL,
-              label: t('terms'),
-              value: 'terms',
-            },
-            {
-              href: PRIVACY_URL,
-              label: t('privacy'),
-              value: 'privacy',
             },
           ]}
         />

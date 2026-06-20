@@ -1,0 +1,64 @@
+name: masterlion
+services:
+  masterlion:
+    image: ${MASTERLION_DEV_IMAGE:-masterlion:test-builder}
+    build: !reset null
+    working_dir: /app
+    user: root
+    ports:
+      - '${LOBE_PORT}:3210'
+      - '${VITE_DEV_PORT:-9876}:9876'
+    environment:
+      - 'APP_URL_DYNAMIC=1'
+      - 'APP_URL_ALLOWED_HOSTS=${APP_URL_ALLOWED_HOSTS:-*}'
+      - 'DEV_PACKAGE_MANAGER=pnpm'
+      - 'DEV_SPA_SCRIPT=dev:spa:container'
+      - 'NEXT_HOST=0.0.0.0'
+      - 'PORT=3210'
+      - 'VITE_DEV_PORT=${VITE_DEV_PORT:-9876}'
+      - 'INTERNAL_APP_URL=http://localhost:3210'
+    volumes:
+      - '../../src:/app/src'
+      - '../../packages:/app/packages'
+      - '../../apps:/app/apps'
+      - '../../scripts:/app/scripts'
+      - '../../public:/app/public'
+      - '../../index.html:/app/index.html'
+      - '../../index.auth.html:/app/index.auth.html'
+      - '../../package.json:/app/package.json'
+      - '../../pnpm-workspace.yaml:/app/pnpm-workspace.yaml'
+      - 'masterlion_hot_next:/app/.next'
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        set -e
+        if [ "${RUN_HOT_DB_MIGRATE:-0}" = "1" ]; then
+          pnpm run db:migrate
+        fi
+        pnpm run dev
+
+  aihub-db-bridge:
+    image: ${MASTERLION_DEV_IMAGE:-masterlion:test-builder}
+    build: !reset null
+    working_dir: /app
+    user: root
+    environment:
+      - 'PORT=3218'
+    volumes:
+      - '../../apps/aihub-db-bridge/src:/app/apps/aihub-db-bridge/src'
+      - '../../apps/aihub-db-bridge/package.json:/app/apps/aihub-db-bridge/package.json'
+      - '../../apps/aihub-db-bridge/tsconfig.json:/app/apps/aihub-db-bridge/tsconfig.json'
+      - '../../tsconfig.json:/app/tsconfig.json'
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        set -e
+        pnpm --filter @masterlion/aihub-db-bridge dev
+    healthcheck:
+      start_period: 120s
+
+volumes:
+  masterlion_hot_next:
+    driver: local

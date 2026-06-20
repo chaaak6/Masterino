@@ -32,11 +32,16 @@ const Nav = memo(() => {
       {items
         .filter((item) => HEADER_KEYS.has(item.key) && !item.hidden)
         .map((item) => {
-          const extra = item.isNew ? newBadge : undefined;
+          const extra = item.disabled
+            ? t(item.disabledReasonKey as any)
+            : item.isNew
+              ? newBadge
+              : undefined;
 
           const navItem = (
             <NavItem
               active={tab === item.key}
+              disabled={item.disabled}
               extra={extra}
               hidden={item.hidden}
               icon={item.icon as NavItemProps['icon']}
@@ -45,7 +50,7 @@ const Nav = memo(() => {
             />
           );
 
-          if (!item.url) return <div key={item.key}>{navItem}</div>;
+          if (!item.url || item.disabled) return <div key={item.key}>{navItem}</div>;
 
           return (
             <WorkspaceLink

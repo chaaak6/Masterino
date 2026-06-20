@@ -38,8 +38,20 @@ describe('UserAvatar', () => {
     });
 
     render(<UserAvatar />);
-    // When user has no avatar url, <Avatar /> falls back to initials rendering (not an <img />)
-    expect(screen.getByText('TE')).toBeInTheDocument();
+    expect(screen.getByText('T')).toBeInTheDocument();
+  });
+
+  it('uses the pinyin initial for a Chinese display name when no avatar is set', () => {
+    act(() => {
+      useUserStore.setState({
+        isSignedIn: true,
+        user: { fullName: '陈灿', id: 'ccc', username: 'chen-can' },
+      });
+    });
+
+    render(<UserAvatar />);
+
+    expect(screen.getByText('C')).toBeInTheDocument();
   });
 
   it('should show LobeChat and default avatar when the user is not logged in', () => {

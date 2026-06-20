@@ -4,7 +4,11 @@ export const OFFICIAL_URL = 'https://aihub.bielcrystal.com';
 export const OFFICIAL_SITE = 'https://aihub.bielcrystal.com';
 export const OFFICIAL_DOMAIN = 'aihub.bielcrystal.com';
 
-export const OG_URL = '/og/og.webp?v=1';
+export const OG_URL_EN = '/og/og-en.webp?v=2';
+export const OG_URL_ZH_CN = '/og/og-zh-CN.webp?v=2';
+export const OG_URL = OG_URL_EN;
+export const getOgImageUrl = (locale?: string) =>
+  locale?.toLowerCase().startsWith('zh') ? OG_URL_ZH_CN : OG_URL_EN;
 
 export const GITHUB = 'https://github.com/lobehub/lobe-chat';
 export const GITHUB_ISSUES = urlJoin(GITHUB, 'issues/new/choose');

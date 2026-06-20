@@ -9,6 +9,7 @@ import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MOBILE_TABBAR_HEIGHT } from '@/const/layoutTokens';
+import { getProductFeature, isProductFeatureDisabled } from '@/config/productFeatures';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useActiveTabKey } from '@/hooks/useActiveTabKey';
 import { SidebarTabKey } from '@/store/global/initialState';
@@ -34,6 +35,8 @@ const NavBar = memo(() => {
   const navigate = useWorkspaceAwareNavigate();
 
   const { showMarket } = useServerConfigStore(featureFlagsSelectors);
+  const communityDisabled = isProductFeatureDisabled('community');
+  const communityDisabledReason = getProductFeature('community').disabledReasonKey;
 
   const items: TabBarProps['items'] = useMemo(
     () =>
@@ -50,13 +53,20 @@ const NavBar = memo(() => {
         },
         showMarket && {
           icon: (active: boolean) => (
-            <Icon className={active ? styles.active : undefined} icon={Compass} />
+            <Icon
+              className={active ? styles.active : undefined}
+              icon={Compass}
+              style={communityDisabled ? { opacity: 0.45 } : undefined}
+            />
           ),
           key: SidebarTabKey.Community,
           onClick: () => {
+            if (communityDisabled) return;
             navigate('/community');
           },
-          title: t('tab.community'),
+          title: communityDisabled
+            ? `${t('tab.community')} · ${t(communityDisabledReason as any)}`
+            : t('tab.community'),
         },
         {
           icon: (active: boolean) => (
@@ -69,7 +79,7 @@ const NavBar = memo(() => {
           title: t('tab.me'),
         },
       ].filter(Boolean) as TabBarProps['items'],
-    [t],
+    [communityDisabled, communityDisabledReason, navigate, showMarket, t],
   );
 
   return (

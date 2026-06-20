@@ -35,7 +35,7 @@ export const AUTHOR_LIST = {
 
 export class Ld {
   generate({
-    image = '/og/og.webp',
+    image = '/og/og-en.webp',
     article,
     url,
     title,

@@ -2,6 +2,7 @@ import { Flexbox } from '@lobehub/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import DragUploadZone, { useUploadFiles } from '@/components/DragUploadZone';
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { type ActionKeys } from '@/features/ChatInput';
 import { ChatInputProvider, DesktopChatInput } from '@/features/ChatInput';
 import { useHomeDailyBrief } from '@/hooks/useHomeDailyBrief';
@@ -67,11 +68,17 @@ const InputArea = () => {
     if (!serverConfigInit || !inboxAgentId) return;
 
     const candidates: BannerKind[] = [];
-    if ((isLobehubSkillEnabled || isComposioEnabled) && !isSkillBannerDismissed) {
+    const showAdvancedBanners =
+      isProductFeatureEnabled('resources') || isProductFeatureEnabled('community');
+    if (
+      showAdvancedBanners &&
+      (isLobehubSkillEnabled || isComposioEnabled) &&
+      !isSkillBannerDismissed
+    ) {
       candidates.push('skill');
     }
-    if (!isBotIntegrationBannerDismissed) candidates.push('botIntegration');
-    if (!isMessengerBannerDismissed) candidates.push('messenger');
+    if (showAdvancedBanners && !isBotIntegrationBannerDismissed) candidates.push('botIntegration');
+    if (showAdvancedBanners && !isMessengerBannerDismissed) candidates.push('messenger');
     if (candidates.length === 0) return;
 
     hasPickedRef.current = true;
