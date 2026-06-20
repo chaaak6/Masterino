@@ -8,6 +8,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import {
   getBusinessChatInputSendAreaPrefix,
   useBusinessChatInputCostEstimateAlert,
@@ -319,7 +320,13 @@ const ChatInput = memo<ChatInputProps>(
         const currentIsUploading = fileChatSelectors.isUploadingFiles(fileStore);
         const currentContextList = fileChatSelectors.chatContextSelections(fileStore);
 
-        if (currentIsUploading) return;
+        if (currentIsUploading) {
+          antdMessage.warning({
+            content: t('input.uploadingFiles'),
+            key: 'chat-uploading-files',
+          });
+          return;
+        }
 
         // Onboarding-style surfaces opt out of message queuing — pressing Enter
         // while the agent is streaming should be a no-op rather than enqueue.
@@ -349,7 +356,7 @@ const ChatInput = memo<ChatInputProps>(
         // Fire and forget - send with captured message
         await sendMessage({ editorData, files: currentFileList, message, pageSelections });
       },
-      [sendMessage, disableQueue, disableSend, isInputLoading],
+      [sendMessage, disableQueue, disableSend, isInputLoading, t],
     );
 
     const sendButtonProps: SendButtonProps = {
@@ -357,6 +364,13 @@ const ChatInput = memo<ChatInputProps>(
       generating: showStopButton,
       onStop: stopGenerating,
       ...customSendButtonProps,
+      onDisabledSend: isUploadingFiles
+        ? () =>
+            antdMessage.warning({
+              content: t('input.uploadingFiles'),
+              key: 'chat-uploading-files',
+            })
+        : customSendButtonProps?.onDisabledSend,
       ...(shouldUsePlainSendButton
         ? { shape: customSendButtonProps?.shape ?? 'round' }
         : undefined),
@@ -397,6 +411,11 @@ const ChatInput = memo<ChatInputProps>(
             <TodoProgress topAttached={!disableQueue && hasQueuedMessages} />
             <OpStatusTray topAttached={(!disableQueue && hasQueuedMessages) || hasTodos} />
           </Flexbox>
+          {isUploadingFiles && (
+            <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
+              <Alert showIcon title={t('input.uploadingFiles')} type={'info'} />
+            </Flexbox>
+          )}
           <DesktopChatInput
             actionBarStyle={actionBarStyle}
             borderRadius={12}

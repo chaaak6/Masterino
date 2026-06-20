@@ -33,6 +33,8 @@ services:
       - 'S3_REGION=${S3_REGION:-}'
       - 'LLM_VISION_IMAGE_USE_BASE64=1'
       - 'S3_SET_ACL=${S3_SET_ACL:-0}'
+      - 'DEFAULT_FILES_CONFIG=${DEFAULT_FILES_CONFIG:?Set DEFAULT_FILES_CONFIG to the Aihub embedding model, for example embedding_model=newapi/YOUR_AIHUB_EMBEDDING_MODEL,query_mode=full_text}'
+      - 'CHUNKS_AUTO_EMBEDDING=${CHUNKS_AUTO_EMBEDDING:-1}'
       - 'SEARXNG_URL=http://searxng:8080'
       - 'REDIS_URL=redis://redis:6379'
       - 'REDIS_PREFIX=lobechat'

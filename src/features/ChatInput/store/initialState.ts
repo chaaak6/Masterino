@@ -15,6 +15,7 @@ export type SendButtonHandler = (params: {
 export interface SendButtonProps {
   disabled?: boolean;
   generating: boolean;
+  onDisabledSend?: () => void;
   onStop: (params: { editor: IEditor }) => void;
   shape?: 'round' | 'default';
   size?: number;

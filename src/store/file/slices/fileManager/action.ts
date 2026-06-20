@@ -38,7 +38,25 @@ interface RefreshFileListOptions {
   revalidateResources?: boolean;
 }
 
+interface FileTaskTriggerResult {
+  failed: { errorReason: string; id: string }[];
+  succeededIds: string[];
+}
+
 type Setter = StoreSetter<FileStore>;
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+
+  return String(error);
+};
+
 export const createFileManageSlice = (set: Setter, get: () => FileStore, _api?: unknown) =>
   new FileManageActionImpl(set, get, _api);
 
@@ -218,7 +236,10 @@ export class FileManageActionImpl {
     await this.#get().refreshFileList();
   };
 
-  parseFilesToChunks = async (ids: string[], params?: { skipExist?: boolean }): Promise<void> => {
+  parseFilesToChunks = async (
+    ids: string[],
+    params?: { skipExist?: boolean },
+  ): Promise<FileTaskTriggerResult> => {
     // toggle file ids
     this.#get().toggleParsingIds(ids);
 
@@ -226,14 +247,25 @@ export class FileManageActionImpl {
     const pools = ids.map(async (id) => {
       try {
         await ragService.createParseFileTask(id, params?.skipExist);
+        return { id, ok: true as const };
       } catch (e) {
         console.error(e);
+        return { errorReason: getErrorMessage(e), id, ok: false as const };
       }
     });
 
-    await Promise.all(pools);
+    const results = await Promise.all(pools);
     await this.#get().refreshFileList();
     this.#get().toggleParsingIds(ids, false);
+
+    return {
+      failed: results
+        .filter((result): result is { errorReason: string; id: string; ok: false } => !result.ok)
+        .map(({ errorReason, id }) => ({ errorReason, id })),
+      succeededIds: results
+        .filter((result): result is { id: string; ok: true } => result.ok)
+        .map(({ id }) => id),
+    };
   };
 
   pushDockFileList = async (
@@ -334,7 +366,33 @@ export class FileManageActionImpl {
       .map(({ fileId }) => fileId!);
 
     if (fileIdsToEmbed.length > 0) {
-      await this.#get().parseFilesToChunks(fileIdsToEmbed, { skipExist: false });
+      for (const fileId of fileIdsToEmbed) {
+        dispatchDockFileList({
+          id: fileId,
+          type: 'updateFile',
+          value: { errorReason: undefined, processStage: 'chunking', status: 'processing' },
+        });
+      }
+
+      const result = await this.#get().parseFilesToChunks(fileIdsToEmbed, { skipExist: false });
+      const failedById = new Map(result?.failed.map((item) => [item.id, item.errorReason]));
+
+      for (const fileId of fileIdsToEmbed) {
+        const errorReason = failedById.get(fileId);
+
+        dispatchDockFileList({
+          id: fileId,
+          type: 'updateFile',
+          value: errorReason
+            ? {
+                diagnostic: { fileId, message: errorReason, stage: 'chunk_failed' },
+                errorReason,
+                processStage: 'chunk_failed',
+                status: 'error',
+              }
+            : { errorReason: undefined, processStage: 'ready_for_search', status: 'success' },
+        });
+      }
     }
   };
 
@@ -649,7 +707,33 @@ export class FileManageActionImpl {
         .map(({ fileId }) => fileId!);
 
       if (fileIdsToEmbed.length > 0) {
-        await this.#get().parseFilesToChunks(fileIdsToEmbed, { skipExist: false });
+        for (const fileId of fileIdsToEmbed) {
+          dispatchDockFileList({
+            id: fileId,
+            type: 'updateFile',
+            value: { errorReason: undefined, processStage: 'chunking', status: 'processing' },
+          });
+        }
+
+        const result = await this.#get().parseFilesToChunks(fileIdsToEmbed, { skipExist: false });
+        const failedById = new Map(result?.failed.map((item) => [item.id, item.errorReason]));
+
+        for (const fileId of fileIdsToEmbed) {
+          const errorReason = failedById.get(fileId);
+
+          dispatchDockFileList({
+            id: fileId,
+            type: 'updateFile',
+            value: errorReason
+              ? {
+                  diagnostic: { fileId, message: errorReason, stage: 'chunk_failed' },
+                  errorReason,
+                  processStage: 'chunk_failed',
+                  status: 'error',
+                }
+              : { errorReason: undefined, processStage: 'ready_for_search', status: 'success' },
+          });
+        }
       }
     } catch (error) {
       // Dismiss toast on error

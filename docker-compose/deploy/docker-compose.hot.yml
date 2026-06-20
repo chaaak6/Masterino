@@ -23,6 +23,7 @@ services:
       - '../../apps:/app/apps'
       - '../../scripts:/app/scripts'
       - '../../public:/app/public'
+      - '../../locales:/app/locales'
       - '../../index.html:/app/index.html'
       - '../../index.auth.html:/app/index.auth.html'
       - '../../package.json:/app/package.json'

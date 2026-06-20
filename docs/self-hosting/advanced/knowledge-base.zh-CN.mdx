@@ -38,18 +38,25 @@ S3（或兼容 S3 协议的存储服务）用于存储上传的文件。
 - **选项**：可以使用 AWS S3、RustFS、ceph 或其他兼容 S3 协议的存储服务
 - **注意事项**：配置适当的访问权限和安全策略
 
-### 3. OpenAI Embedding
+如需做对象存储 A/B 诊断，可以在部署 compose 命令中额外加入
+`docker-compose.rustfs.yml`，让新上传文件指向 `S3_ENABLE_PATH_STYLE=1` 的 RustFS。该方式不会
+迁移 COS/OSS 里的历史对象；正式迁移需要把已有对象 key 复制到 RustFS，或实现双后端读取兜底。
 
-OpenAI 的嵌入（Embedding）服务用于将文本转化为向量表示。
+### 3. 嵌入模型（Embedding）
+
+嵌入模型用于将已解析的文本转化为向量表示，供语义检索使用。
 
 <Callout type={'info'}>
-  MasterLion 当前默认使用 OpenAI `text-embedding-3-small` 模型，请确保你的 API Key 可以访问该模型。
+  MasterLion 的历史兜底配置是 OpenAI `text-embedding-3-small`。在接入 Aihub 的部署中，
+  请把 `DEFAULT_FILES_CONFIG` 设置为 Aihub 已授权给托管 token 或用户组的 embedding 模型。
+  否则可能出现文件分块成功，但向量化任务以 `ModelNotFound` 失败。
 </Callout>
 
 - **用途**：生成文本的向量表示，用于语义搜索
 - **注意事项**：
-  - 需要有效的 OpenAI API 密钥
-  - 实施适当的 API 调用限制和错误处理机制
+  - 需要配置的模型提供商里存在可用的 embedding 模型
+  - Aihub 集成请使用 `newapi` provider 前缀，并填写 Aihub 实际授权的模型 ID
+  - RustFS、MinIO、OSS、COS 等对象存储只负责保存文件，不提供解析、分块或向量化
 
 ### 4. Unstructured.io（可选）
 
@@ -64,9 +71,14 @@ Unstructured.io 是一个强大的文档处理工具。
 ### 5. 自定义 Embedding（可选）
 
 - **用途**: 使用不同的嵌入模型（Embedding）生成文本的向量表示，用于语义搜索
-- **选项**: 支持的模型提供商:zhipu/github/openai/bedrock/ollama
+- **选项**: 支持的模型提供商:newapi/zhipu/github/openai/bedrock/ollama
 - **部署建议**: 使用环境变量配置默认嵌入模型
 
 ```
-environment: DEFAULT_FILES_CONFIG=embedding_model=openai/embedding-text-3-small
+environment:
+  DEFAULT_FILES_CONFIG: embedding_model=newapi/YOUR_AIHUB_EMBEDDING_MODEL,query_mode=full_text
+  CHUNKS_AUTO_EMBEDDING: '1'
 ```
+
+如果只需要上传与全文解析，可以保持 `CHUNKS_AUTO_EMBEDDING=0`；已经因模型不存在而失败的历史
+embedding 任务，需要在修正模型配置后重新上传或重试。

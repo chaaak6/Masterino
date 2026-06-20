@@ -46,7 +46,10 @@ export const store: CreateStore = (publicState) => (set, get) => ({
   handleSendButton: () => {
     const editor = get().editor;
     if (!editor) return;
-    if (get().sendButtonProps?.disabled) return;
+    if (get().sendButtonProps?.disabled) {
+      get().sendButtonProps?.onDisabledSend?.();
+      return;
+    }
 
     get().onSend?.({
       clearContent: () => editor?.cleanDocument(),

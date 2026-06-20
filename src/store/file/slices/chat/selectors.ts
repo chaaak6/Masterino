@@ -15,6 +15,8 @@ const isUploadingFiles = (s: FilesStoreState) =>
     (file) =>
       // is file status in uploading
       UPLOAD_STATUS_SET.has(file.status) ||
+      // or file analysis failed and the user must remove/re-upload it before sending
+      file.status === 'error' ||
       // or file has tasks but not finish embedding
       (file.tasks && !file.tasks?.finishEmbedding),
   );

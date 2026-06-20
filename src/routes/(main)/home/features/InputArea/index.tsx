@@ -1,6 +1,8 @@
-import { Flexbox } from '@lobehub/ui';
+import { Alert, Flexbox } from '@lobehub/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import DragUploadZone, { useUploadFiles } from '@/components/DragUploadZone';
 import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { type ActionKeys } from '@/features/ChatInput';
@@ -11,6 +13,7 @@ import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { builtinAgentSelectors } from '@/store/agent/selectors/builtinAgentSelectors';
 import { useChatStore } from '@/store/chat';
+import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
@@ -28,7 +31,9 @@ const rightActions: ActionKeys[] = ['modelLabel'];
 type BannerKind = 'skill' | 'botIntegration' | 'messenger';
 
 const InputArea = () => {
+  const { t } = useTranslation('chat');
   const { loading, send, agentId } = useSend();
+  const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
   // Subscribe to the SWR key so `internal_refreshAgentConfig`'s `mutate(...)`
   // has a listener after toggleFile / toggleKnowledgeBase — otherwise the
   // Library submenu doesn't reflect server-side toggles. Pass `agentId`
@@ -153,8 +158,15 @@ const InputArea = () => {
               useChatStore.setState({ mainInputEditor: instance });
             }}
             sendButtonProps={{
-              disabled: loading || isAgentConfigLoading,
+              disabled: loading || isAgentConfigLoading || isUploadingFiles,
               generating: loading,
+              onDisabledSend: isUploadingFiles
+                ? () =>
+                    antdMessage.warning({
+                      content: t('input.uploadingFiles'),
+                      key: 'home-uploading-files',
+                    })
+                : undefined,
               onStop: () => {},
               shape: 'round',
             }}
@@ -170,6 +182,11 @@ const InputArea = () => {
               placeholder={dailyHint}
               showControlBar={false}
             />
+            {isUploadingFiles && (
+              <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
+                <Alert showIcon title={t('input.uploadingFiles')} type={'info'} />
+              </Flexbox>
+            )}
           </ChatInputProvider>
         </DragUploadZone>
       </Flexbox>

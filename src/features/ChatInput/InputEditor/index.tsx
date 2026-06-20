@@ -69,6 +69,8 @@ const InputEditor = memo<{
     editor,
     slashMenuRef,
     send,
+    sendDisabled,
+    handleDisabledSend,
     updateMarkdownContent,
     expand,
     slashPlacement,
@@ -79,6 +81,8 @@ const InputEditor = memo<{
     s.editor,
     s.slashMenuRef,
     s.handleSendButton,
+    s.sendButtonProps?.disabled,
+    s.sendButtonProps?.onDisabledSend,
     s.updateMarkdownContent,
     s.expand,
     s.slashPlacement ?? 'top',
@@ -532,12 +536,20 @@ const InputEditor = memo<{
         // In fullscreen mode, Enter inserts newline; only Cmd/Ctrl+Enter sends
         if (expand) {
           if (isCommandPressed(e)) {
+            if (sendDisabled) {
+              handleDisabledSend?.();
+              return true;
+            }
             send();
             return true;
           }
           return;
         }
         if (shouldSendOnEnter(e)) {
+          if (sendDisabled) {
+            handleDisabledSend?.();
+            return true;
+          }
           send();
           return true;
         }

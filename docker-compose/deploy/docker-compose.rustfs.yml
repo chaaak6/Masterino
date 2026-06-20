@@ -1,0 +1,72 @@
+name: masterlion
+services:
+  masterlion:
+    depends_on:
+      rustfs:
+        condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully
+    environment:
+      - 'S3_ENDPOINT=http://rustfs:9000'
+      - 'S3_BUCKET=${RUSTFS_BUCKET:-masterlion-diagnostic}'
+      - 'S3_ENABLE_PATH_STYLE=1'
+      - 'S3_ACCESS_KEY=${RUSTFS_ACCESS_KEY_ID:-masterlion-diagnostic}'
+      - 'S3_ACCESS_KEY_ID=${RUSTFS_ACCESS_KEY_ID:-masterlion-diagnostic}'
+      - 'S3_SECRET_ACCESS_KEY=${RUSTFS_SECRET_ACCESS_KEY:-masterlion-diagnostic-secret}'
+      - 'S3_REGION=${RUSTFS_REGION:-us-east-1}'
+      - 'S3_SET_ACL=0'
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: masterlion-rustfs-diagnostic
+    environment:
+      - 'RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY_ID:-masterlion-diagnostic}'
+      - 'RUSTFS_SECRET_KEY=${RUSTFS_SECRET_ACCESS_KEY:-masterlion-diagnostic-secret}'
+      - 'RUSTFS_CONSOLE_ENABLE=true'
+    command:
+      [
+        '--access-key',
+        '${RUSTFS_ACCESS_KEY_ID:-masterlion-diagnostic}',
+        '--secret-key',
+        '${RUSTFS_SECRET_ACCESS_KEY:-masterlion-diagnostic-secret}',
+        '/data',
+      ]
+    volumes:
+      - 'rustfs_diagnostic_data:/data'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:9000/health >/dev/null 2>&1 || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: always
+    networks:
+      - masterlion-network
+
+  rustfs-init:
+    image: minio/mc:latest
+    container_name: masterlion-rustfs-diagnostic-init
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -eu
+        mc alias set rustfs "http://rustfs:9000" "$$RUSTFS_ACCESS_KEY" "$$RUSTFS_SECRET_KEY"
+        mc mb "rustfs/$$RUSTFS_BUCKET" --ignore-existing
+        mc anonymous set download "rustfs/$$RUSTFS_BUCKET" || true
+        mc cors set "rustfs/$$RUSTFS_BUCKET" /tmp/rustfs-cors.json || echo "RustFS CORS API is unavailable; browser uploads use the MasterLion same-origin proxy."
+    environment:
+      - 'RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY_ID:-masterlion-diagnostic}'
+      - 'RUSTFS_SECRET_KEY=${RUSTFS_SECRET_ACCESS_KEY:-masterlion-diagnostic-secret}'
+      - 'RUSTFS_BUCKET=${RUSTFS_BUCKET:-masterlion-diagnostic}'
+    volumes:
+      - './rustfs-cors.json:/tmp/rustfs-cors.json:ro'
+    restart: 'no'
+    networks:
+      - masterlion-network
+
+volumes:
+  rustfs_diagnostic_data:
+    driver: local

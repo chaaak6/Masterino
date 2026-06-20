@@ -104,8 +104,10 @@ describe('devProcessCleanup', () => {
     expect(shouldProxyToVite('/@vite/client')).toBe(true);
     expect(shouldProxyToVite('/@react-refresh')).toBe(true);
     expect(shouldProxyToVite('/src/spa/entry.web.tsx')).toBe(true);
+    expect(shouldProxyToVite('/apps/server/src/utils/truncateToolResult.ts')).toBe(true);
     expect(shouldProxyToVite('/node_modules/vite/dist/client/env.mjs')).toBe(true);
     expect(shouldProxyToVite('/packages/const/src/version.ts')).toBe(true);
+    expect(shouldProxyToVite('/locales/zh-CN/auth.json?import')).toBe(true);
     expect(shouldProxyToVite('/package.json?import')).toBe(true);
     expect(shouldProxyToVite('/trpc/lambda/foo')).toBe(false);
   });

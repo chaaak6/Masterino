@@ -12,7 +12,16 @@ export const UPLOAD_NETWORK_ERROR = 'NetWorkError';
 
 const createUploadHttpError = (xhr: XMLHttpRequest, url: string) => {
   const details = xhr.responseText?.trim() || xhr.statusText || 'Unknown upload error';
-  return new Error(`Upload failed with HTTP ${xhr.status} for ${url}: ${details}`);
+  const error = new Error(`Upload failed with HTTP ${xhr.status} for ${url}: ${details}`);
+
+  Object.assign(error, {
+    details,
+    stage: 'storage_upload_failed',
+    status: xhr.status,
+    url,
+  });
+
+  return error;
 };
 
 /**

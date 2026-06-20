@@ -37,6 +37,14 @@ describe('defineConfig', () => {
           destination: 'http://localhost:9876/packages/:path*',
           source: '/packages/:path*',
         },
+        {
+          destination: 'http://localhost:9876/apps/:path*',
+          source: '/apps/:path*',
+        },
+        {
+          destination: 'http://localhost:9876/locales/:path*',
+          source: '/locales/:path*',
+        },
       ]),
     );
   });

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import FileIcon from '@/components/FileIcon';
 import { useFileStore } from '@/store/file';
-import { type UploadFileItem } from '@/types/files/upload';
+import { type FileUploadProcessStage, type UploadFileItem } from '@/types/files/upload';
 import { formatSize, formatSpeed, formatTime } from '@/utils/format';
 
 const styles = createStaticStyles(({ css, cssVar }) => {
@@ -45,111 +45,156 @@ const styles = createStaticStyles(({ css, cssVar }) => {
 
 type UploadItemProps = UploadFileItem;
 
-const UploadItem = memo<UploadItemProps>(({ id, file, status, uploadState }) => {
-  const { t } = useTranslation('file');
-  const { type, name, size } = file;
-  const cancelUpload = useFileStore((s) => s.cancelUpload);
-
-  const desc: ReactNode = useMemo(() => {
-    switch (status) {
-      case 'uploading': {
-        const textArray = [
-          uploadState?.speed ? formatSpeed(uploadState.speed) : '',
-          uploadState?.restTime
-            ? t('uploadDock.body.item.restTime', {
-                time: formatTime(uploadState?.restTime),
-              })
-            : '',
-        ].filter(Boolean);
-
-        return (
-          <Text style={{ fontSize: 12 }} type={'secondary'}>
-            {uploadState?.progress ? formatSize(size * (uploadState.progress / 100)) : '-'}/
-            {formatSize(size)}
-            {textArray.length === 0 ? '' : ' · ' + textArray.join(' · ')}
-          </Text>
-        );
-      }
-      case 'pending': {
-        return (
-          <Text style={{ fontSize: 12 }} type={'secondary'}>
-            {formatSize(size)} · {t('uploadDock.body.item.pending')}
-          </Text>
-        );
-      }
-
-      case 'processing': {
-        return (
-          <Text style={{ fontSize: 12 }} type={'secondary'}>
-            {formatSize(size)} · {t('uploadDock.body.item.processing')}
-          </Text>
-        );
-      }
-
-      case 'success': {
-        return (
-          <Text style={{ fontSize: 12 }} type={'secondary'}>
-            {formatSize(size)} · {t('uploadDock.body.item.done')}
-          </Text>
-        );
-      }
-      case 'error': {
-        return (
-          <Text style={{ fontSize: 12 }} type={'danger'}>
-            {formatSize(size)} · {t('uploadDock.body.item.error')}
-          </Text>
-        );
-      }
-      case 'cancelled': {
-        return (
-          <Text style={{ fontSize: 12 }} type={'warning'}>
-            {formatSize(size)} · {t('uploadDock.body.item.cancelled')}
-          </Text>
-        );
-      }
-      default: {
-        return '';
-      }
+const getProcessingLabelKey = (processStage?: FileUploadProcessStage) => {
+  switch (processStage) {
+    case 'file_record_creating': {
+      return 'uploadDock.body.item.saving';
     }
-  }, [status, uploadState, size, t]);
+    case 'chunking': {
+      return 'uploadDock.body.item.chunking';
+    }
+    case 'embedding': {
+      return 'uploadDock.body.item.embedding';
+    }
+    default: {
+      return 'uploadDock.body.item.processing';
+    }
+  }
+};
 
-  return (
-    <Flexbox
-      horizontal
-      align={'center'}
-      className={styles.container}
-      gap={12}
-      key={name}
-      paddingBlock={8}
-      paddingInline={12}
-      style={{ position: 'relative' }}
-    >
-      <FileIcon fileName={name} fileType={type} size={36} />
-      <Flexbox flex={1} style={{ overflow: 'hidden' }}>
-        <div className={styles.title}>{name}</div>
-        {desc}
+const getErrorLabelKey = (processStage?: FileUploadProcessStage) => {
+  switch (processStage) {
+    case 'storage_upload_failed': {
+      return 'uploadDock.body.item.error.storage';
+    }
+    case 'file_record_failed': {
+      return 'uploadDock.body.item.error.record';
+    }
+    case 'content_parse_failed': {
+      return 'uploadDock.body.item.error.parse';
+    }
+    case 'chunk_failed': {
+      return 'uploadDock.body.item.error.chunk';
+    }
+    case 'embedding_failed': {
+      return 'uploadDock.body.item.error.embedding';
+    }
+    default: {
+      return 'uploadDock.body.item.error';
+    }
+  }
+};
+
+const UploadItem = memo<UploadItemProps>(
+  ({ id, file, status, uploadState, processStage, errorReason }) => {
+    const { t } = useTranslation('file');
+    const { type, name, size } = file;
+    const cancelUpload = useFileStore((s) => s.cancelUpload);
+
+    const desc: ReactNode = useMemo(() => {
+      switch (status) {
+        case 'uploading': {
+          const textArray = [
+            uploadState?.speed ? formatSpeed(uploadState.speed) : '',
+            uploadState?.restTime
+              ? t('uploadDock.body.item.restTime', {
+                  time: formatTime(uploadState?.restTime),
+                })
+              : '',
+          ].filter(Boolean);
+
+          return (
+            <Text style={{ fontSize: 12 }} type={'secondary'}>
+              {uploadState?.progress ? formatSize(size * (uploadState.progress / 100)) : '-'}/
+              {formatSize(size)}
+              {textArray.length === 0 ? '' : ' · ' + textArray.join(' · ')}
+            </Text>
+          );
+        }
+        case 'pending': {
+          return (
+            <Text style={{ fontSize: 12 }} type={'secondary'}>
+              {formatSize(size)} · {t('uploadDock.body.item.pending')}
+            </Text>
+          );
+        }
+
+        case 'processing': {
+          return (
+            <Text style={{ fontSize: 12 }} type={'secondary'}>
+              {formatSize(size)} · {t(getProcessingLabelKey(processStage))}
+            </Text>
+          );
+        }
+
+        case 'success': {
+          return (
+            <Text style={{ fontSize: 12 }} type={'secondary'}>
+              {formatSize(size)} · {t('uploadDock.body.item.done')}
+            </Text>
+          );
+        }
+        case 'error': {
+          const label = t(getErrorLabelKey(processStage));
+
+          return (
+            <Text style={{ fontSize: 12 }} title={errorReason} type={'danger'}>
+              {formatSize(size)} · {label}
+              {errorReason ? `: ${errorReason}` : ''}
+            </Text>
+          );
+        }
+        case 'cancelled': {
+          return (
+            <Text style={{ fontSize: 12 }} type={'warning'}>
+              {formatSize(size)} · {t('uploadDock.body.item.cancelled')}
+            </Text>
+          );
+        }
+        default: {
+          return '';
+        }
+      }
+    }, [status, uploadState, size, t, processStage, errorReason]);
+
+    return (
+      <Flexbox
+        horizontal
+        align={'center'}
+        className={styles.container}
+        gap={12}
+        key={name}
+        paddingBlock={8}
+        paddingInline={12}
+        style={{ position: 'relative' }}
+      >
+        <FileIcon fileName={name} fileType={type} size={36} />
+        <Flexbox flex={1} style={{ overflow: 'hidden' }}>
+          <div className={styles.title}>{name}</div>
+          {desc}
+        </Flexbox>
+
+        {(status === 'uploading' || status === 'pending') && (
+          <ActionIcon
+            className={`${styles.cancelButton} cancel-button`}
+            icon={XIcon}
+            size="small"
+            title={t('uploadDock.body.item.cancel')}
+            onClick={() => {
+              cancelUpload(id);
+            }}
+          />
+        )}
+
+        {status === 'uploading' && !!uploadState && (
+          <div
+            className={styles.progress}
+            style={{ insetInlineEnd: `${100 - uploadState.progress}%` }}
+          />
+        )}
       </Flexbox>
-
-      {(status === 'uploading' || status === 'pending') && (
-        <ActionIcon
-          className={`${styles.cancelButton} cancel-button`}
-          icon={XIcon}
-          size="small"
-          title={t('uploadDock.body.item.cancel')}
-          onClick={() => {
-            cancelUpload(id);
-          }}
-        />
-      )}
-
-      {status === 'uploading' && !!uploadState && (
-        <div
-          className={styles.progress}
-          style={{ insetInlineEnd: `${100 - uploadState.progress}%` }}
-        />
-      )}
-    </Flexbox>
-  );
-});
+    );
+  },
+);
 
 export default UploadItem;

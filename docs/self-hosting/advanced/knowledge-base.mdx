@@ -40,19 +40,27 @@ S3 (or S3-compatible storage services) is used for storing uploaded files.
 - **Options**: AWS S3, RustFS, ceph, or other S3-compatible services
 - **Note**: Configure appropriate access permissions and security policies
 
-### 3. OpenAI Embedding
+For storage A/B diagnostics, you can add `docker-compose.rustfs.yml` to the deploy compose command
+to point new uploads at RustFS with `S3_ENABLE_PATH_STYLE=1`. This does not migrate historical
+objects from COS/OSS; full migration requires copying existing object keys to RustFS or adding a
+dual-read fallback.
 
-OpenAI's Embedding service is used to convert text into vector representations.
+### 3. Embedding Model
+
+An embedding model converts parsed text into vector representations for semantic search.
 
 <Callout type={'info'}>
-  MasterLion currently uses OpenAI's `text-embedding-3-small` model by default. Ensure your API Key
-  has access to this model.
+  MasterLion's historical fallback is OpenAI `text-embedding-3-small`. In an Aihub-backed
+  deployment, set `DEFAULT_FILES_CONFIG` to an embedding model that Aihub exposes to the managed
+  token or user group. Otherwise chunking can succeed while embedding tasks fail with
+  `ModelNotFound`.
 </Callout>
 
 - **Purpose**: Generate vector representations for semantic search
 - **Notes**:
-  - Requires valid OpenAI API key
-  - Implement proper API call limits and error handling
+  - Requires an embedding-capable model in the configured provider
+  - For Aihub integration, use the `newapi` provider prefix and the exact model id granted by Aihub
+  - Object storage such as RustFS, MinIO, OSS, or COS stores files only; it does not parse, chunk, or vectorize content
 
 ### 4. Unstructured.io (Optional)
 
@@ -67,9 +75,14 @@ By correctly configuring and integrating these core components, you can build a 
 ### 5. Custom Embedding
 
 - **Purpose**: Use different Embedding generate vector representations for semantic search
-- **Options**: support model provider list: zhipu/github/openai/bedrock/ollama
+- **Options**: support model provider list: newapi/zhipu/github/openai/bedrock/ollama
 - **Deployment Tip**: Used to configure the default Embedding model
 
 ```
-environment: DEFAULT_FILES_CONFIG=embedding_model=openai/embedding-text-3-small
+environment:
+  DEFAULT_FILES_CONFIG: embedding_model=newapi/YOUR_AIHUB_EMBEDDING_MODEL,query_mode=full_text
+  CHUNKS_AUTO_EMBEDDING: '1'
 ```
+
+If you only need uploads and full-text parsing, keep `CHUNKS_AUTO_EMBEDDING=0`; existing files with
+failed embedding tasks need to be re-uploaded or retried after the model config is fixed.

@@ -76,6 +76,8 @@ const shouldProxyToVite = (url: string | undefined) => {
     pathname.startsWith('/@fs/') ||
     pathname.startsWith('/node_modules/') ||
     pathname.startsWith('/packages/') ||
+    pathname.startsWith('/apps/') ||
+    pathname.startsWith('/locales/') ||
     pathname.startsWith('/src/')
   );
 };

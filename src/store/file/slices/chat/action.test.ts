@@ -1,5 +1,5 @@
 import { toast } from '@lobehub/ui/base-ui';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { notification } from '@/components/AntdStaticMethods';
@@ -34,6 +34,7 @@ vi.mock('@lobehub/ui/base-ui', () => ({
 vi.mock('@/components/AntdStaticMethods', () => ({
   notification: {
     error: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -52,6 +53,12 @@ vi.mock('i18next', () => ({
     if (key === 'upload.uploadFailed') return 'File upload failed.';
 
     if (key === 'upload.unknownError') return `Error reason: ${options?.reason}`;
+
+    if (key === 'upload.parseFailed') return 'File analysis failed';
+
+    if (key === 'upload.parseFailedDesc') {
+      return 'The file was uploaded, but text analysis failed. This is not an object storage upload failure.';
+    }
 
     return key;
   },
@@ -215,11 +222,76 @@ describe('useFileStore:chat', () => {
     expect(uploadWithProgress).toHaveBeenCalledTimes(1);
     expect(ragService.parseFileContent).toHaveBeenCalledWith('file-3');
     expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('File was uploaded'),
+      expect.stringContaining('content parsing failed'),
       expect.any(Error),
     );
     expect(notification.error).not.toHaveBeenCalled();
+    expect(notification.warning).toHaveBeenCalledWith({
+      description:
+        'The file was uploaded, but text analysis failed. This is not an object storage upload failure.',
+      message: 'File analysis failed',
+    });
     expect(result.current.chatUploadFileList).toHaveLength(1);
-    expect(result.current.chatUploadFileList[0]).toMatchObject({ id: 'note.txt' });
+    expect(result.current.chatUploadFileList[0]).toMatchObject({
+      errorReason: 'embedding model missing',
+      id: 'file-3',
+      processStage: 'content_parse_failed',
+      status: 'error',
+    });
+  });
+
+  it('keeps non-media chat files processing until content parsing finishes', async () => {
+    mockAgentMode({ enableAgentMode: false, heterogeneous: false });
+
+    const { result } = renderHook(() => useStore());
+    const file = new File(['MasterLion marker: amber-29'], 'note.txt', { type: 'text/plain' });
+    const uploadWithProgress = vi.fn().mockImplementation(async ({ onStatusUpdate }) => {
+      onStatusUpdate?.({
+        id: 'note.txt',
+        type: 'updateFile',
+        value: {
+          fileUrl: 'http://x/4',
+          id: 'file-4',
+          status: 'success',
+          uploadState: { progress: 100, restTime: 0, speed: 0 },
+        },
+      });
+
+      return { id: 'file-4', url: 'http://x/4' };
+    });
+    let resolveParse: (value: unknown) => void;
+    const parsePromise = new Promise((resolve) => {
+      resolveParse = resolve;
+    });
+    vi.mocked(ragService.parseFileContent).mockReturnValue(parsePromise as never);
+
+    act(() => {
+      useStore.setState({
+        chatUploadFileList: [],
+        uploadWithProgress: uploadWithProgress as any,
+      });
+    });
+
+    const uploadPromise = result.current.uploadChatFiles([file], AGENT_ID);
+
+    await waitFor(() => {
+      expect(result.current.chatUploadFileList[0]).toMatchObject({
+        id: 'file-4',
+        processStage: 'content_parsing',
+        status: 'processing',
+      });
+    });
+
+    resolveParse!({ content: 'parsed body' });
+    await act(async () => {
+      await uploadPromise;
+    });
+
+    expect(ragService.parseFileContent).toHaveBeenCalledWith('file-4');
+    expect(result.current.chatUploadFileList[0]).toMatchObject({
+      id: 'file-4',
+      processStage: 'ready_for_chat',
+      status: 'success',
+    });
   });
 });

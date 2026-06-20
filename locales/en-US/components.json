@@ -67,7 +67,7 @@
   "FileManager.view.masonry": "Grid View",
   "FileParsingStatus.chunks.embeddingStatus.empty": "Text chunks have not been fully embedded, which will render the semantic search feature unavailable. To improve search quality, please embedding the text chunks.",
   "FileParsingStatus.chunks.embeddingStatus.error": "Embedding failed",
-  "FileParsingStatus.chunks.embeddingStatus.errorResult": "Vectorization failed, please check and try again. Error detail:",
+  "FileParsingStatus.chunks.embeddingStatus.errorResult": "Vectorization failed after the file was uploaded and chunked. This is not an object storage upload failure. Error detail:",
   "FileParsingStatus.chunks.embeddingStatus.processing": "Text chunks are being embedded, please be patient.",
   "FileParsingStatus.chunks.embeddingStatus.success": "All current text chunks have been embedded",
   "FileParsingStatus.chunks.embeddings": "Embedding",

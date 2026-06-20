@@ -6,6 +6,7 @@ import { mutate } from '@/libs/swr';
 import { lambdaClient } from '@/libs/trpc/client';
 import { fileService } from '@/services/file';
 import { ragService } from '@/services/rag';
+import { fileManagerSelectors } from '@/store/file';
 import { type FileListItem } from '@/types/files';
 import { type UploadFileItem } from '@/types/files/upload';
 import { unzipFile } from '@/utils/unzipFile';
@@ -13,6 +14,8 @@ import { withSWR } from '~test-utils';
 
 import { useFileStore as useStore } from '../../store';
 import * as resourceHooks from '../resource/hooks';
+
+const parseTaskCreated = { failed: [], succeededIds: [] };
 
 vi.mock('zustand/traditional');
 
@@ -89,6 +92,25 @@ afterEach(() => {
 });
 
 describe('FileManagerActions', () => {
+  describe('fileManagerSelectors', () => {
+    it('should report an error overview when any dock item failed after upload', () => {
+      useStore.setState({
+        dockUploadFileList: [
+          {
+            file: new File([], 'doc.txt'),
+            id: 'file-1',
+            processStage: 'chunk_failed',
+            status: 'error',
+          },
+          { file: new File([], 'image.png'), id: 'file-2', status: 'success' },
+        ] as UploadFileItem[],
+      });
+
+      expect(useStore.getState().dockUploadFileList).toHaveLength(2);
+      expect(fileManagerSelectors.overviewUploadingStatus(useStore.getState())).toBe('error');
+    });
+  });
+
   describe('cancelUploads', () => {
     it('should abort matched uploads and update their status in a batch', () => {
       const { result } = renderHook(() => useStore());
@@ -337,7 +359,9 @@ describe('FileManagerActions', () => {
         .spyOn(result.current, 'uploadWithProgress')
         .mockResolvedValue({ id: 'file-1', url: 'http://example.com/file-1' });
       const dispatchSpy = vi.spyOn(result.current, 'dispatchDockFileList');
-      const parseSpy = vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      const parseSpy = vi
+        .spyOn(result.current, 'parseFilesToChunks')
+        .mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([validFile, blacklistedFile]);
@@ -372,7 +396,7 @@ describe('FileManagerActions', () => {
       const uploadSpy = vi
         .spyOn(result.current, 'uploadWithProgress')
         .mockResolvedValue({ id: 'file-1', url: 'http://example.com/file-1' });
-      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([file], 'kb-123');
@@ -403,7 +427,7 @@ describe('FileManagerActions', () => {
           });
           return { id: 'file-1', url: 'http://example.com/file-1' };
         });
-      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue(parseTaskCreated);
       const dispatchSpy = vi.spyOn(result.current, 'dispatchDockFileList');
 
       await act(async () => {
@@ -437,7 +461,9 @@ describe('FileManagerActions', () => {
       vi.spyOn(result.current, 'uploadWithProgress')
         .mockResolvedValueOnce({ id: 'file-1', url: 'http://example.com/file-1' })
         .mockResolvedValueOnce({ id: 'file-2', url: 'http://example.com/file-2' });
-      const parseSpy = vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      const parseSpy = vi
+        .spyOn(result.current, 'parseFilesToChunks')
+        .mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([textFile, pdfFile]);
@@ -458,7 +484,9 @@ describe('FileManagerActions', () => {
         .mockResolvedValueOnce({ id: 'file-1', url: 'http://example.com/file-1' })
         .mockResolvedValueOnce({ id: 'file-2', url: 'http://example.com/file-2' })
         .mockResolvedValueOnce({ id: 'file-3', url: 'http://example.com/file-3' });
-      const parseSpy = vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      const parseSpy = vi
+        .spyOn(result.current, 'parseFilesToChunks')
+        .mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([imageFile, videoFile, audioFile]);
@@ -479,7 +507,9 @@ describe('FileManagerActions', () => {
         .mockResolvedValueOnce({ id: 'file-1', url: 'http://example.com/file-1' })
         .mockResolvedValueOnce({ id: 'file-2', url: 'http://example.com/file-2' })
         .mockResolvedValueOnce({ id: 'file-3', url: 'http://example.com/file-3' });
-      const parseSpy = vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      const parseSpy = vi
+        .spyOn(result.current, 'parseFilesToChunks')
+        .mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([textFile, imageFile, pdfFile]);
@@ -495,7 +525,9 @@ describe('FileManagerActions', () => {
       const textFile = new File(['text content'], 'doc.txt', { type: 'text/plain' });
 
       vi.spyOn(result.current, 'uploadWithProgress').mockResolvedValue(undefined);
-      const parseSpy = vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      const parseSpy = vi
+        .spyOn(result.current, 'parseFilesToChunks')
+        .mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([textFile]);
@@ -503,6 +535,44 @@ describe('FileManagerActions', () => {
 
       // Should not auto-parse when upload returns undefined
       expect(parseSpy).not.toHaveBeenCalled();
+    });
+
+    it('should mark uploaded files as chunk failed when the parse task cannot be created', async () => {
+      const { result } = renderHook(() => useStore());
+
+      const textFile = new File(['text content'], 'doc.txt', { type: 'text/plain' });
+      const parseError = new Error('chunk task trigger failed');
+
+      vi.spyOn(result.current, 'uploadWithProgress').mockImplementation(
+        async ({ onStatusUpdate, uploadId }) => {
+          onStatusUpdate?.({
+            id: uploadId!,
+            type: 'updateFile',
+            value: {
+              fileUrl: 'http://example.com/file-1',
+              id: 'file-1',
+              processStage: 'file_record_created',
+              status: 'success',
+            },
+          });
+
+          return { id: 'file-1', url: 'http://example.com/file-1' };
+        },
+      );
+      vi.spyOn(ragService, 'createParseFileTask').mockRejectedValue(parseError);
+      vi.spyOn(result.current, 'refreshFileList').mockResolvedValue();
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await act(async () => {
+        await result.current.pushDockFileList([textFile]);
+      });
+
+      expect(result.current.dockUploadFileList[0]).toMatchObject({
+        errorReason: 'chunk task trigger failed',
+        id: 'file-1',
+        processStage: 'chunk_failed',
+        status: 'error',
+      });
     });
 
     it('should enforce file count limit and queue excess files', async () => {
@@ -519,7 +589,7 @@ describe('FileManagerActions', () => {
         id: 'file-1',
         url: 'http://example.com/file-1',
       });
-      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue(parseTaskCreated);
       const dispatchSpy = vi.spyOn(result.current, 'dispatchDockFileList');
 
       await act(async () => {
@@ -557,7 +627,7 @@ describe('FileManagerActions', () => {
         id: 'file-1',
         url: 'http://example.com/file-1',
       });
-      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue(parseTaskCreated);
       const dispatchSpy = vi.spyOn(result.current, 'dispatchDockFileList');
 
       await act(async () => {
@@ -588,7 +658,7 @@ describe('FileManagerActions', () => {
         id: 'file-1',
         url: 'http://example.com/file-1',
       });
-      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue(parseTaskCreated);
       const dispatchSpy = vi.spyOn(result.current, 'dispatchDockFileList');
 
       await act(async () => {
@@ -616,7 +686,7 @@ describe('FileManagerActions', () => {
         id: 'file-1',
         url: 'http://example.com/file-1',
       });
-      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([file]);
@@ -639,7 +709,7 @@ describe('FileManagerActions', () => {
 
       const file = new File(['content'], 'test.txt', { type: 'text/plain' });
       vi.spyOn(result.current, 'uploadWithProgress').mockResolvedValue(undefined);
-      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue();
+      vi.spyOn(result.current, 'parseFilesToChunks').mockResolvedValue(parseTaskCreated);
 
       await act(async () => {
         await result.current.pushDockFileList([file]);
