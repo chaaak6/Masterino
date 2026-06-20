@@ -2,6 +2,7 @@ import { AiModelSourceEnum } from 'model-bank';
 
 import { type AIProviderStoreState } from '@/store/aiInfra/initialState';
 import { ModelSearchImplement } from '@/types/search';
+import { isSameAihubModelId } from '@/utils/aihubModelId';
 
 const aiProviderChatModelListIds = (s: AIProviderStoreState) =>
   s.aiProviderModelList.filter((item) => item.type === 'chat').map((item) => item.id);
@@ -42,7 +43,11 @@ const getAiModelById = (id: string) => (s: AIProviderStoreState) =>
   s.aiProviderModelList.find((i) => i.id === id);
 
 const getEnabledModelById = (id: string, provider: string) => (s: AIProviderStoreState) =>
-  s.enabledAiModels?.find((i) => i.id === id && (provider ? provider === i.providerId : true));
+  s.enabledAiModels?.find(
+    (i) =>
+      (i.id === id || (provider === 'newapi' && isSameAihubModelId(i.id, id))) &&
+      (provider ? provider === i.providerId : true),
+  );
 
 const isModelSupportToolUse = (id: string, provider: string) => (s: AIProviderStoreState) => {
   const model = getEnabledModelById(id, provider)(s);

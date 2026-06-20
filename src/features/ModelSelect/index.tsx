@@ -7,6 +7,7 @@ import { memo, useMemo } from 'react';
 import { ModelItemRender, ProviderItemRender, TAG_CLASSNAME } from '@/components/ModelSelect';
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { type EnabledProviderWithModels } from '@/types/aiProvider';
+import { canonicalizeAihubModelIdForProvider } from '@/utils/aihubModelId';
 
 const prefixCls = 'ant';
 
@@ -77,7 +78,7 @@ const ModelSelect = memo<ModelSelectProps>(
           ...model,
           label: <ModelItemRender {...model} {...model.abilities} showInfoTag={false} />,
           provider: provider.id,
-          value: `${provider.id}/${model.id}`,
+          value: `${provider.id}/${canonicalizeAihubModelIdForProvider(provider.id, model.id)}`,
         }));
       };
 
@@ -107,18 +108,25 @@ const ModelSelect = memo<ModelSelectProps>(
         .filter(Boolean) as SelectProps['options'];
     }, [enabledList, requiredAbilities, showAbility]);
 
+    const selectedProvider = value?.provider;
+    const selectedModel =
+      value?.model && selectedProvider
+        ? canonicalizeAihubModelIdForProvider(selectedProvider, value.model)
+        : value?.model;
+    const selectedValue = `${selectedProvider}/${selectedModel}`;
+
     return (
       <TooltipGroup>
         <Select
           className={styles.select}
-          defaultValue={`${value?.provider}/${value?.model}`}
+          defaultValue={selectedValue}
           disabled={disabled}
           loading={loading}
           options={options}
           popupClassName={styles.popup}
           popupMatchSelectWidth={popupWidth === undefined ? false : popupWidth}
           size={size}
-          value={`${value?.provider}/${value?.model}`}
+          value={selectedValue}
           variant={variant}
           optionRender={(option) => (
             <ModelItemRender
@@ -134,7 +142,8 @@ const ModelSelect = memo<ModelSelectProps>(
           }}
           onChange={(value, option) => {
             const model = value.split('/').slice(1).join('/');
-            onChange?.({ model, provider: (option as unknown as ModelOption).provider });
+            const provider = (option as unknown as ModelOption).provider;
+            onChange?.({ model: canonicalizeAihubModelIdForProvider(provider, model), provider });
           }}
         />
       </TooltipGroup>

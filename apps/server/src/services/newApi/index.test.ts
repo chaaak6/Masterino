@@ -614,7 +614,7 @@ describe('NewApiService', () => {
     );
   });
 
-  it('uses compact GLM aliases as the Aihub default model when the canonical id is not present', async () => {
+  it('canonicalizes compact GLM aliases as the Aihub default model when the canonical id is not present', async () => {
     mocks.bindingStore.set('current-user', {
       encryptedAccessToken: null,
       errorMessage: null,
@@ -649,7 +649,64 @@ describe('NewApiService', () => {
 
     const synced = await service.syncModels();
 
-    expect(synced.defaultModel).toBe('glm5.1');
+    expect(synced.defaultModel).toBe('glm-5.1');
+  });
+
+  it('canonicalizes separated compact GLM aliases as enabled agent-capable Aihub chat models', async () => {
+    mocks.bindingStore.set('current-user', {
+      encryptedAccessToken: null,
+      errorMessage: null,
+      lastSyncedAt: null,
+      managedTokenId: 44,
+      newApiUserId: 17,
+      status: 'active',
+      userId: 'current-user',
+    });
+    const readOnlyDb = {
+      findManagedToken: vi.fn().mockResolvedValue({
+        id: 44,
+        key: 'sk-db-token',
+        model_limits: '',
+        model_limits_enabled: false,
+        name: 'manual-token',
+      }),
+      findUserById: vi.fn().mockResolvedValue({
+        group: 'default',
+        id: 17,
+      }),
+      isEnabled: vi.fn(() => true),
+      listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini', 'glm5-5.1', 'deepseek-chat']),
+    };
+    const service = new NewApiService({
+      client: {} as any,
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      readOnlyDb: readOnlyDb as any,
+      userId: 'current-user',
+    });
+
+    const synced = await service.syncModels();
+
+    expect(synced.defaultModel).toBe('glm-5.1');
+    expect(synced.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          abilities: expect.objectContaining({ functionCall: true, reasoning: true, search: true }),
+          displayName: 'GLM-5.1',
+          enabled: true,
+          id: 'glm-5.1',
+          type: 'chat',
+        }),
+      ]),
+    );
+    expect(mocks.updateConfig).toHaveBeenCalledWith(
+      'newapi',
+      expect.objectContaining({
+        checkModel: 'glm-5.1',
+      }),
+      expect.any(Function),
+      expect.any(Function),
+    );
   });
 
   it('does not auto-bind enterprise WeCom users without a provisioning-created binding', async () => {
@@ -906,7 +963,7 @@ describe('NewApiService', () => {
     });
     expect(synced.models.map((model: any) => model.id)).toEqual([
       'gpt-4o-mini',
-      'glm5.1',
+      'glm-5.1',
       'deepseek-chat',
     ]);
     expect(summary).toMatchObject({
@@ -962,7 +1019,7 @@ describe('NewApiService', () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith(
       'newapi',
       expect.objectContaining({
-        checkModel: 'glm5.1',
+        checkModel: 'glm-5.1',
         keyVaults: {
           apiKey: 'sk-bridge-token',
           baseURL: 'https://aihub.internal',

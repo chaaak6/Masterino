@@ -233,18 +233,23 @@ const toFallbackAiModel = (model: NewApiModelCard): AiProviderModelListItem =>
     type: 'chat',
   });
 
+const normalizeDefaultModelId = (modelId: string) =>
+  modelId
+    .toLowerCase()
+    .replaceAll(/(^|\/)glm(\d+)-\2(?=\.|$)/g, '$1glm-$2')
+    .replaceAll(/(^|\/)glm(?=\d)/g, '$1glm-');
+
 const enrichNewApiModels = async (models: NewApiModelCard[]): Promise<AiProviderModelListItem[]> => {
   const processedModels = await processMultiProviderModelList(models, ModelProvider.NewAPI);
-  const processedModelMap = new Map(processedModels.map((model) => [model.id, model]));
+  const processedModelMap = new Map(
+    processedModels.map((model) => [normalizeDefaultModelId(model.id), model]),
+  );
 
   return models.map((model) => {
-    const processedModel = processedModelMap.get(model.id);
+    const processedModel = processedModelMap.get(normalizeDefaultModelId(model.id));
     return processedModel ? toAiModel(processedModel) : toFallbackAiModel(model);
   });
 };
-
-const normalizeDefaultModelId = (modelId: string) =>
-  modelId.toLowerCase().replaceAll(/(^|\/)glm(?=\d)/g, '$1glm-');
 
 const getDefaultModel = (models: AiProviderModelListItem[]) => {
   const chatModels = models.filter((model) => model.type === 'chat');

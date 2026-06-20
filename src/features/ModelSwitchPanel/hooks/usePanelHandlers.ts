@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { usePermission } from '@/hooks/usePermission';
 import { useAgentStore } from '@/store/agent';
+import { canonicalizeAihubModelIdForProvider } from '@/utils/aihubModelId';
 
 interface UsePanelHandlersProps {
   onModelChange?: (params: { model: string; provider: string }) => Promise<void>;
@@ -22,7 +23,10 @@ export const usePanelHandlers = ({
       setTimeout(() => {
         if (!canCreateContent) return;
 
-        const params = { model: modelId, provider: providerId };
+        const params = {
+          model: canonicalizeAihubModelIdForProvider(providerId, modelId),
+          provider: providerId,
+        };
         if (onModelChangeProp) {
           onModelChangeProp(params);
         } else {

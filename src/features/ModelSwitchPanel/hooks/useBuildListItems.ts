@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { type EnabledProviderWithModels } from '@/types/aiProvider';
+import { includesAihubModelSearchText } from '@/utils/aihubModelId';
 
 import { type GroupMode, type ListItem, type ModelWithProviders } from '../types';
 
@@ -17,7 +18,7 @@ export const useBuildListItems = (
     const matchesSearch = (text: string): boolean => {
       if (!searchKeyword.trim()) return true;
       const keyword = searchKeyword.toLowerCase().trim();
-      return text.toLowerCase().includes(keyword);
+      return text.toLowerCase().includes(keyword) || includesAihubModelSearchText(text, keyword);
     };
 
     // lobehub first, then others
@@ -36,7 +37,11 @@ export const useBuildListItems = (
         for (const modelItem of providerItem.children) {
           const displayName = modelItem.displayName || modelItem.id;
 
-          if (!matchesSearch(displayName) && !matchesSearch(providerItem.name)) {
+          if (
+            !matchesSearch(displayName) &&
+            !matchesSearch(modelItem.id) &&
+            !matchesSearch(providerItem.name)
+          ) {
             continue;
           }
 
@@ -84,6 +89,7 @@ export const useBuildListItems = (
         const filteredModels = providerItem.children.filter(
           (modelItem) =>
             matchesSearch(modelItem.displayName || modelItem.id) ||
+            matchesSearch(modelItem.id) ||
             matchesSearch(providerItem.name),
         );
 
