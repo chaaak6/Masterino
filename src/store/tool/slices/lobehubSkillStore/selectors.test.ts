@@ -477,7 +477,7 @@ describe('lobehubSkillStoreSelectors', () => {
       expect(result[0].identifier).toBe('linear');
       expect(result[0].meta.title).toBe('Linear');
       expect(result[0].meta.avatar).toBe('linear-icon');
-      expect(result[0].meta.description).toBe('LobeHub Skill: Linear');
+      expect(result[0].meta.description).toBe('MasterLion Skill: Linear');
     });
 
     it('should return empty array when no connected servers', () => {
