@@ -1,53 +1,32 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`ExcelLoader > should aggregate content correctly (joining sheets) > aggregated_content 1`] = `
-"<sheet name="表1" index="0">
-| __EMPTY | 类别 A | 类别 B | __EMPTY_1 | __EMPTY_2 |
+"<sheet name="Sheet 1" index="0">
+|  | Category A | Category B | _1 | _2 |
 | --- | --- | --- | --- | --- |
-| 项目 1 | 5 | 7 |  |  |
-| 项目 2 | 10 | 8 |  |  |
-| 项目 3 | 9 | 15 |  |  |
-| 项目 4 | 7 | 12 |  |  |
-| 项目 5 | 16 | 21 |  |  |
+| Item 1 | 5 | 7 |  |  |
+| Item 2 | 10 | 8 |  |  |
+| Item 3 | 9 | 15 |  |  |
 </sheet>
 
-<sheet name="表2 - 表格 2" index="1">
-| __EMPTY | 类别 A | 类别 B | __EMPTY_1 | __EMPTY_2 |
+<sheet name="Sheet 2" index="1">
+|  | Category A | Category B | _1 | _2 |
 | --- | --- | --- | --- | --- |
-| 项目 1 | 5 | 7 |  |  |
-| 项目 2 | 10 | 8 |  |  |
-| 项目 3 | 9 | 15 |  |  |
-| 项目 4 | 7 | 12 |  |  |
-| 项目 5 | 16 | 21 |  |  |
+| Item 1 | 5 | 7 |  |  |
+| Item 2 | 10 | 8 |  |  |
+| Item 3 | 9 | 15 |  |  |
 </sheet>"
 `;
 
 exports[`ExcelLoader > should handle Excel file with only headers > only_header_pages 1`] = `
 [
   {
-    "charCount": 124,
-    "lineCount": 3,
+    "charCount": 37,
+    "lineCount": 1,
     "metadata": {
-      "sheetName": "表1",
+      "sheetName": "Headers",
     },
-    "pageContent": "| 表格 1 | __EMPTY | __EMPTY_1 | __EMPTY_2 | __EMPTY_3 |
-| --- | --- | --- | --- | --- |
-| header1 | header2 | header3 |  |  |",
-  },
-  {
-    "charCount": 231,
-    "lineCount": 8,
-    "metadata": {
-      "sheetName": "表2 - 表格 2",
-    },
-    "pageContent": "| 表格 2 | __EMPTY | __EMPTY_1 | __EMPTY_2 | __EMPTY_3 |
-| --- | --- | --- | --- | --- |
-|  | 类别 A | 类别 B |  |  |
-| 项目 1 | 5 | 7 |  |  |
-| 项目 2 | 10 | 8 |  |  |
-| 项目 3 | 9 | 15 |  |  |
-| 项目 4 | 7 | 12 |  |  |
-| 项目 5 | 16 | 21 |  |  |",
+    "pageContent": "*Sheet is empty or contains no data.*",
   },
 ]
 `;
@@ -55,32 +34,28 @@ exports[`ExcelLoader > should handle Excel file with only headers > only_header_
 exports[`ExcelLoader > should load pages correctly from an Excel file (one page per sheet) 1`] = `
 [
   {
-    "charCount": 201,
-    "lineCount": 7,
+    "charCount": 149,
+    "lineCount": 5,
     "metadata": {
-      "sheetName": "表1",
+      "sheetName": "Sheet 1",
     },
-    "pageContent": "| __EMPTY | 类别 A | 类别 B | __EMPTY_1 | __EMPTY_2 |
+    "pageContent": "|  | Category A | Category B | _1 | _2 |
 | --- | --- | --- | --- | --- |
-| 项目 1 | 5 | 7 |  |  |
-| 项目 2 | 10 | 8 |  |  |
-| 项目 3 | 9 | 15 |  |  |
-| 项目 4 | 7 | 12 |  |  |
-| 项目 5 | 16 | 21 |  |  |",
+| Item 1 | 5 | 7 |  |  |
+| Item 2 | 10 | 8 |  |  |
+| Item 3 | 9 | 15 |  |  |",
   },
   {
-    "charCount": 201,
-    "lineCount": 7,
+    "charCount": 149,
+    "lineCount": 5,
     "metadata": {
-      "sheetName": "表2 - 表格 2",
+      "sheetName": "Sheet 2",
     },
-    "pageContent": "| __EMPTY | 类别 A | 类别 B | __EMPTY_1 | __EMPTY_2 |
+    "pageContent": "|  | Category A | Category B | _1 | _2 |
 | --- | --- | --- | --- | --- |
-| 项目 1 | 5 | 7 |  |  |
-| 项目 2 | 10 | 8 |  |  |
-| 项目 3 | 9 | 15 |  |  |
-| 项目 4 | 7 | 12 |  |  |
-| 项目 5 | 16 | 21 |  |  |",
+| Item 1 | 5 | 7 |  |  |
+| Item 2 | 10 | 8 |  |  |
+| Item 3 | 9 | 15 |  |  |",
   },
 ]
 `;
