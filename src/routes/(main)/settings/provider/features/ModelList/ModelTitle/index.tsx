@@ -18,11 +18,12 @@ import Search from './Search';
 interface ModelFetcherProps {
   provider: string;
   showAddNewModel?: boolean;
+  showClearModels?: boolean;
   showModelFetcher?: boolean;
 }
 
 const ModelTitle = memo<ModelFetcherProps>(
-  ({ provider, showAddNewModel = true, showModelFetcher = true }) => {
+  ({ provider, showAddNewModel = true, showClearModels = false, showModelFetcher = true }) => {
     const { t } = useTranslation('modelProvider');
     const { message } = App.useApp();
     const { allowed: canManageProvider, reason } = usePermission('manage_provider_key');
@@ -83,7 +84,7 @@ const ModelTitle = memo<ModelFetcherProps>(
               <Text style={{ fontSize: 12 }} type={'secondary'}>
                 <div style={{ display: 'flex', lineHeight: '24px' }}>
                   {t('providerModels.list.total', { count: totalModels })}
-                  {hasRemoteModels && (
+                  {showClearModels && hasRemoteModels && (
                     <ActionIcon
                       disabled={!canManageProvider}
                       icon={CircleX}
@@ -169,28 +170,30 @@ const ModelTitle = memo<ModelFetcherProps>(
                     />
                   </Tooltip>
                 )}
-                <DropdownMenu
-                  items={[
-                    {
-                      disabled: !canManageProvider,
-                      key: 'reset',
-                      label: t('providerModels.list.resetAll.title'),
-                      onClick: async () => {
-                        if (!canManageProvider) return;
-                        confirmModal({
-                          content: t('providerModels.list.resetAll.conform'),
-                          onOk: async () => {
-                            await clearModelsByProvider(provider);
-                            message.success(t('providerModels.list.resetAll.success'));
-                          },
-                          title: t('providerModels.list.resetAll.title'),
-                        });
+                {showClearModels && (
+                  <DropdownMenu
+                    items={[
+                      {
+                        disabled: !canManageProvider,
+                        key: 'reset',
+                        label: t('providerModels.list.resetAll.title'),
+                        onClick: async () => {
+                          if (!canManageProvider) return;
+                          confirmModal({
+                            content: t('providerModels.list.resetAll.conform'),
+                            onOk: async () => {
+                              await clearModelsByProvider(provider);
+                              message.success(t('providerModels.list.resetAll.success'));
+                            },
+                            title: t('providerModels.list.resetAll.title'),
+                          });
+                        },
                       },
-                    },
-                  ]}
-                >
-                  <Button icon={EllipsisVertical} size={'small'} />
-                </DropdownMenu>
+                    ]}
+                  >
+                    <Button icon={EllipsisVertical} size={'small'} />
+                  </DropdownMenu>
+                )}
               </Space.Compact>
             </Flexbox>
           )}

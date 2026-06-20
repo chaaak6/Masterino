@@ -152,12 +152,27 @@ interface ModelListProps extends ProviderSettingsContextValue {
 }
 
 const ModelList = memo<ModelListProps>(
-  ({ id, showModelFetcher, sdkType, showAddNewModel, showDeployName, modelEditable = true }) => {
+  ({
+    id,
+    showModelFetcher,
+    sdkType,
+    showAddNewModel,
+    showClearModels,
+    showDeployName,
+    modelEditable = true,
+  }) => {
     const mobile = useIsMobile();
 
     return (
       <ProviderSettingsContext
-        value={{ modelEditable, sdkType, showAddNewModel, showDeployName, showModelFetcher }}
+        value={{
+          modelEditable,
+          sdkType,
+          showAddNewModel,
+          showClearModels,
+          showDeployName,
+          showModelFetcher,
+        }}
       >
         <Flexbox
           gap={16}
@@ -171,6 +186,7 @@ const ModelList = memo<ModelListProps>(
           <ModelTitle
             provider={id}
             showAddNewModel={showAddNewModel}
+            showClearModels={showClearModels}
             showModelFetcher={showModelFetcher}
           />
           <Suspense fallback={<SkeletonList />}>

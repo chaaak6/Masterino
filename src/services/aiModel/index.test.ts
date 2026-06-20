@@ -64,10 +64,10 @@ describe('AiModelService', () => {
   });
 });
 
-describe('Default model configuration', () => {
+  describe('Default model configuration', () => {
   it('uses an Aihub model that is available to the default vip group', () => {
-    expect(DEFAULT_MODEL).toBe('glm5.1');
-    expect(DEFAULT_MINI_MODEL).toBe('glm5.1');
+    expect(DEFAULT_MODEL).toBe('glm-5.1');
+    expect(DEFAULT_MINI_MODEL).toBe('glm-5.1');
   });
 
   it('DEFAULT_PROVIDER should be enabled in DEFAULT_MODEL_PROVIDER_LIST', () => {

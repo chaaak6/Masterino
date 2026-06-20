@@ -178,13 +178,17 @@ vi.mock('@/services/newApi', () => ({
 }));
 
 vi.mock('../../features/ModelList', () => ({
-  default: ({ id }: { id: string }) => <div data-testid="model-list">{id}: gpt-4o-mini</div>,
+  default: ({ id, showClearModels }: { id: string; showClearModels?: boolean }) => (
+    <div data-show-clear-models={String(showClearModels)} data-testid="model-list">
+      {id}: GLM-5.1
+    </div>
+  ),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.syncModels.mockResolvedValue({
-    models: [{ id: 'gpt-4o-mini' }, { id: 'glm5.1' }],
+    models: [{ id: 'glm-5.1' }, { id: 'deepseek-v4-flash' }],
   });
 });
 
@@ -196,8 +200,10 @@ describe('Aihub provider detail page', () => {
   it('renders binding, visible RMB rows, model list, and refreshes models', async () => {
     render(<Page />);
 
-    expect(screen.getByText('Aihub 绑定')).toBeInTheDocument();
+    expect(screen.getByText('Aihub绑定情况')).toBeInTheDocument();
     expect(screen.getByText('已绑定')).toHaveAttribute('data-color', 'success');
+    expect(screen.getByText('MasterLion状态')).toBeInTheDocument();
+    expect(screen.getByText('正常')).toBeInTheDocument();
     expect(screen.getByLabelText('托管 Token')).toHaveValue('13');
     expect(screen.getByRole('option', { name: 'masterlion-managed' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'backup-token' })).toBeInTheDocument();
@@ -213,7 +219,9 @@ describe('Aihub provider detail page', () => {
     expect(screen.queryByText('Completion Token')).not.toBeInTheDocument();
     expect(screen.queryByText('原始余额 quota')).not.toBeInTheDocument();
     expect(screen.queryByText(/[宸鏈鐢浣楼]/)).not.toBeInTheDocument();
-    expect(screen.getByTestId('model-list')).toHaveTextContent('newapi: gpt-4o-mini');
+    expect(screen.getByTestId('model-list')).toHaveTextContent('newapi: GLM-5.1');
+    expect(screen.getByTestId('model-list')).toHaveAttribute('data-show-clear-models', 'false');
+    expect(screen.queryByLabelText('清除已获取的模型')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '刷新模型' }));
 

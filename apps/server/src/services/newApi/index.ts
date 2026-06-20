@@ -1,4 +1,5 @@
 import type {
+  ChatModelCard,
   NewApiAccountSummary,
   NewApiBindingImportResult,
   NewApiBindingImportRow,
@@ -8,6 +9,7 @@ import type {
   NewApiUsageLogItem,
   NewApiUsageSummary,
 } from '@lobechat/types';
+import { processMultiProviderModelList } from '@lobechat/model-runtime';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 import { ModelProvider } from 'model-bank';
@@ -35,6 +37,7 @@ import {
 import { createNewApiReadSource, getNewApiDataSource, type NewApiReadSource } from './readSource';
 
 const DEFAULT_MANAGED_TOKEN_NAME = 'masterlion-managed';
+const DEFAULT_AIHUB_CHAT_MODEL = process.env.AIHUB_DEFAULT_MODEL || 'glm-5.1';
 const DEFAULT_USAGE_PAGE_SIZE = 100;
 const DEFAULT_QUOTA_DISPLAY_TYPE: NewApiQuotaPolicy['quotaDisplayType'] = 'CNY';
 const DEFAULT_QUOTA_PER_UNIT = 500_000;
@@ -201,16 +204,59 @@ const supportsChat = (model: NewApiModelCard) => {
   });
 };
 
-const toAiModel = (model: NewApiModelCard): AiProviderModelListItem => ({
-  displayName: model.id,
+const toAiModel = (model: ChatModelCard): AiProviderModelListItem => ({
+  abilities: {
+    files: Boolean(model.files),
+    functionCall: Boolean(model.functionCall),
+    imageOutput: Boolean(model.imageOutput),
+    reasoning: Boolean(model.reasoning),
+    search: Boolean(model.search),
+    video: Boolean(model.video),
+    vision: Boolean(model.vision),
+  },
+  ...(model.contextWindowTokens ? { contextWindowTokens: model.contextWindowTokens } : {}),
+  displayName: model.displayName ?? model.id,
   enabled: true,
   id: model.id,
+  ...(model.parameters ? { parameters: model.parameters } : {}),
+  ...(model.pricing ? { pricing: model.pricing } : {}),
+  ...(model.releasedAt ? { releasedAt: model.releasedAt } : {}),
+  ...(model.settings ? { settings: model.settings } : {}),
   source: AiModelSourceEnum.Remote,
-  type: 'chat',
+  type: model.type ?? 'chat',
 });
 
+const toFallbackAiModel = (model: NewApiModelCard): AiProviderModelListItem =>
+  toAiModel({
+    displayName: model.id,
+    id: model.id,
+    type: 'chat',
+  });
+
+const enrichNewApiModels = async (models: NewApiModelCard[]): Promise<AiProviderModelListItem[]> => {
+  const processedModels = await processMultiProviderModelList(models, ModelProvider.NewAPI);
+  const processedModelMap = new Map(processedModels.map((model) => [model.id, model]));
+
+  return models.map((model) => {
+    const processedModel = processedModelMap.get(model.id);
+    return processedModel ? toAiModel(processedModel) : toFallbackAiModel(model);
+  });
+};
+
+const normalizeDefaultModelId = (modelId: string) =>
+  modelId.toLowerCase().replaceAll(/(^|\/)glm(?=\d)/g, '$1glm-');
+
 const getDefaultModel = (models: AiProviderModelListItem[]) => {
-  return models.find((model) => model.type === 'chat')?.id;
+  const chatModels = models.filter((model) => model.type === 'chat');
+  if (chatModels.length === 0) return undefined;
+
+  const defaultModel = chatModels.find(
+    (model) => normalizeDefaultModelId(model.id) === normalizeDefaultModelId(DEFAULT_AIHUB_CHAT_MODEL),
+  );
+
+  if (defaultModel) return defaultModel.id;
+
+  return chatModels[Math.floor(Math.random() * chatModels.length)]?.id;
 };
 
 export class NewApiService {
@@ -735,7 +781,7 @@ export class NewApiService {
       ]);
       const modelIds = await this.readOnlyDb.listAccessibleModels(account?.group, token);
       if (modelIds.length > 0) {
-        models = modelIds.map((id) => toAiModel({ id }));
+        models = await enrichNewApiModels(modelIds.map((id) => ({ id })));
       } else if (this.isReadOnlyDbRequired()) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -746,7 +792,7 @@ export class NewApiService {
 
     if (!models) {
       const remoteModels = await this.client.listModels(key);
-      models = remoteModels.filter(supportsChat).map(toAiModel);
+      models = await enrichNewApiModels(remoteModels.filter(supportsChat));
     }
     const defaultModel = getDefaultModel(models);
 

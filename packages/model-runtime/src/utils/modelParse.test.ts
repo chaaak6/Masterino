@@ -125,6 +125,14 @@ vi.mock('model-bank', () => ({
       abilities: { search: true, functionCall: true, reasoning: true, vision: true },
     },
   ],
+  zhipu: [
+    {
+      id: 'glm-5.1',
+      displayName: 'GLM-5.1',
+      abilities: { search: true, functionCall: true, reasoning: true },
+      settings: { extendParams: ['enableReasoning'], searchImpl: 'params' },
+    },
+  ],
 }));
 
 vi.mock('@lobechat/business-model-bank/model-config', () => ({
@@ -995,6 +1003,20 @@ describe('modelParse', () => {
         } finally {
           mockModule.LOBE_DEFAULT_MODEL_LIST.splice(initialLength);
         }
+      });
+
+      it('should infer GLM tool capabilities for Aihub/NewAPI model aliases without hyphens', async () => {
+        const out = await processMultiProviderModelList([{ id: 'glm5.1' }], 'newapi');
+
+        expect(out).toHaveLength(1);
+        expect(out[0]).toMatchObject({
+          displayName: 'GLM-5.1',
+          functionCall: true,
+          id: 'glm5.1',
+          reasoning: true,
+          search: true,
+          settings: { extendParams: ['enableReasoning'], searchImpl: 'params' },
+        });
       });
 
       it('should correctly handle models with excluded keywords in different providers', async () => {

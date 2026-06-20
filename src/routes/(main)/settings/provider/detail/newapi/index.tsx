@@ -78,6 +78,13 @@ const ManagedTokenSelect = ({
   </Flexbox>
 );
 
+const BINDING_STATUS_TEXT: Record<string, string> = {
+  active: '正常',
+  error: '异常',
+  missing: '未绑定',
+  pending: '待同步',
+};
+
 const Page = () => {
   const { styles } = useStyles();
   const { message } = App.useApp();
@@ -148,7 +155,7 @@ const Page = () => {
         title={
           <Flexbox horizontal align="center" gap={8}>
             <ProviderCombine provider="newapi" size={24} />
-            <span>Aihub 绑定</span>
+            <span>Aihub绑定情况</span>
             <Tag color={binding?.status === 'active' ? 'success' : 'warning'}>
               {binding?.status === 'active' ? '已绑定' : '未绑定'}
             </Tag>
@@ -160,8 +167,8 @@ const Page = () => {
           <Flexbox horizontal gap={24} style={{ flexWrap: 'wrap' }}>
             <Field
               classNames={styles}
-              label="MasterLion 状态"
-              value={binding?.status || 'missing'}
+              label="MasterLion状态"
+              value={BINDING_STATUS_TEXT[binding?.status || 'missing'] || binding?.status || '未绑定'}
             />
             <ManagedTokenSelect
               classNames={styles}
@@ -209,6 +216,7 @@ const Page = () => {
         modelEditable={false}
         sdkType="router"
         showAddNewModel={false}
+        showClearModels={false}
         showModelFetcher={false}
       />
     </Flexbox>

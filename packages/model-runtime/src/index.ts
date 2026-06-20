@@ -79,6 +79,7 @@ export { consumeStreamUntilDone } from './utils/consumeStream';
 export { AgentRuntimeError } from './utils/createError';
 export { getModelPropertyWithFallback } from './utils/getFallbackModelProperty';
 export { getModelPricing } from './utils/getModelPricing';
+export { processMultiProviderModelList } from './utils/modelParse';
 export {
   applyModelExtendParams,
   type ApplyModelExtendParamsContext,
