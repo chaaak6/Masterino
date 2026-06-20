@@ -20,6 +20,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import { isProductFeatureDisabled } from '@/config/productFeatures';
 import { lambdaQuery } from '@/libs/trpc/client';
 import { deviceService } from '@/services/device';
 import { useAgentStore } from '@/store/agent';
@@ -105,10 +106,11 @@ interface CreatePlatformAgentModalProps {
 
 const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
   ({ open, onClose, groupId }) => {
-    const { t } = useTranslation('chat');
+    const { t } = useTranslation(['chat', 'common']);
     const navigate = useNavigate();
     const storeCreateAgent = useAgentStore((s) => s.createAgent);
     const refreshAgentList = useHomeStore((s) => s.refreshAgentList);
+    const desktopAppDisabled = isProductFeatureDisabled('desktopApp');
 
     const [step, setStep] = useState(0);
     const [platform, setPlatform] = useState<RemoteHeterogeneousAgentType>('openclaw');
@@ -395,19 +397,17 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
                   <Flexbox gap={12}>
                     <Flexbox gap={6}>
                       <span>{t('platformAgent.create.noDevicesDesktopHint')}</span>
-                      <a
-                        href="https://aihub.bielcrystal.com/downloads"
-                        rel="noreferrer"
-                        target="_blank"
+                      <Button
+                        disabled={desktopAppDisabled}
+                        icon={<Icon icon={Download} size={13} />}
+                        size="small"
+                        title={t('productFeatures.disabled', { ns: 'common' })}
+                        type="primary"
                       >
-                        <Button
-                          icon={<Icon icon={Download} size={13} />}
-                          size="small"
-                          type="primary"
-                        >
-                          {t('platformAgent.create.downloadDesktop')}
-                        </Button>
-                      </a>
+                        {desktopAppDisabled
+                          ? t('productFeatures.disabled', { ns: 'common' })
+                          : t('platformAgent.create.downloadDesktop')}
+                      </Button>
                     </Flexbox>
                     <Flexbox gap={4}>
                       <span>{t('platformAgent.create.noDevicesCliHint')}</span>

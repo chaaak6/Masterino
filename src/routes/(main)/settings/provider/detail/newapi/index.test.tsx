@@ -21,6 +21,10 @@ const mocks = vi.hoisted(() => ({
     isBound: true,
     lastSyncedAt: '2026-06-19T00:00:00.000Z',
     managedTokenId: 13,
+    managedTokens: [
+      { id: 13, name: 'masterlion-managed' },
+      { id: 21, name: 'backup-token' },
+    ],
     newApiUserId: 6,
     status: 'active',
   },
@@ -95,6 +99,33 @@ vi.mock('@lobehub/ui', () => ({
   ),
 }));
 
+vi.mock('@lobehub/ui/base-ui', () => ({
+  Select: ({
+    disabled,
+    onChange,
+    options = [],
+    value,
+  }: {
+    disabled?: boolean;
+    onChange?: (value: string) => void;
+    options?: { label: string; value: string }[];
+    value?: string;
+  }) => (
+    <select
+      aria-label="托管 Token"
+      disabled={disabled}
+      value={value}
+      onChange={(event) => onChange?.(event.target.value)}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  ),
+}));
+
 vi.mock('antd', () => ({
   App: {
     useApp: () => ({
@@ -112,6 +143,7 @@ vi.mock('antd-style', () => ({
     styles: {
       field: 'field',
       fieldValue: 'fieldValue',
+      tokenSelect: 'tokenSelect',
     },
   }),
 }));
@@ -123,9 +155,12 @@ vi.mock('@/store/aiInfra', () => {
     useFetchAiProviderItem: mocks.useFetchAiProviderItem,
     useFetchAiProviderList: mocks.useFetchAiProviderList,
   };
-  const useAiInfraStore = Object.assign((selector: (value: typeof state) => unknown) => selector(state), {
-    getState: () => state,
-  });
+  const useAiInfraStore = Object.assign(
+    (selector: (value: typeof state) => unknown) => selector(state),
+    {
+      getState: () => state,
+    },
+  );
 
   return { useAiInfraStore };
 });
@@ -142,18 +177,18 @@ vi.mock('@/services/newApi', () => ({
   },
 }));
 
-vi.mock('@/utils/format', () => ({
-  formatTokenNumber: (value: number) => `${value} tokens`,
-}));
-
 vi.mock('../../features/ModelList', () => ({
-  default: ({ id }: { id: string }) => <div data-testid="model-list">{id}: gpt-4o-mini</div>,
+  default: ({ id, showClearModels }: { id: string; showClearModels?: boolean }) => (
+    <div data-show-clear-models={String(showClearModels)} data-testid="model-list">
+      {id}: GLM-5.1
+    </div>
+  ),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.syncModels.mockResolvedValue({
-    models: [{ id: 'gpt-4o-mini' }, { id: 'glm5.1' }],
+    models: [{ id: 'glm-5.1' }, { id: 'deepseek-v4-flash' }],
   });
 });
 
@@ -162,22 +197,31 @@ afterEach(() => {
 });
 
 describe('Aihub provider detail page', () => {
-  it('renders binding, RMB rows, token usage, model list, and refreshes models', async () => {
+  it('renders binding, visible RMB rows, model list, and refreshes models', async () => {
     render(<Page />);
 
-    expect(screen.getByText('Aihub 绑定')).toBeInTheDocument();
+    expect(screen.getByText('Aihub绑定情况')).toBeInTheDocument();
     expect(screen.getByText('已绑定')).toHaveAttribute('data-color', 'success');
-    expect(screen.getByText('Aihub 用户 ID')).toBeInTheDocument();
+    expect(screen.getByText('MasterLion状态')).toBeInTheDocument();
+    expect(screen.getByText('正常')).toBeInTheDocument();
+    expect(screen.getByLabelText('托管 Token')).toHaveValue('13');
+    expect(screen.getByRole('option', { name: 'masterlion-managed' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'backup-token' })).toBeInTheDocument();
     expect(screen.getByText('10193226')).toBeInTheDocument();
     expect(screen.getByText('余额')).toBeInTheDocument();
-    expect(screen.getAllByText('¥0.14').every((node) => node.classList.contains('fieldValue'))).toBe(
-      true,
-    );
-    expect(screen.getByText('Total Token')).toBeInTheDocument();
-    expect(screen.getByText('50 tokens')).toBeInTheDocument();
+    expect(
+      screen.getAllByText('¥0.14').every((node) => node.classList.contains('fieldValue')),
+    ).toBe(true);
+    expect(screen.queryByText('Aihub 用户 ID')).not.toBeInTheDocument();
+    expect(screen.queryByText('托管 Token 可用额度')).not.toBeInTheDocument();
+    expect(screen.queryByText('Total Token')).not.toBeInTheDocument();
+    expect(screen.queryByText('Prompt Token')).not.toBeInTheDocument();
+    expect(screen.queryByText('Completion Token')).not.toBeInTheDocument();
     expect(screen.queryByText('原始余额 quota')).not.toBeInTheDocument();
-    expect(screen.queryByText(/宸|鏈|鐢|浣|楼/)).not.toBeInTheDocument();
-    expect(screen.getByTestId('model-list')).toHaveTextContent('newapi: gpt-4o-mini');
+    expect(screen.queryByText(/[宸鏈鐢浣楼]/)).not.toBeInTheDocument();
+    expect(screen.getByTestId('model-list')).toHaveTextContent('newapi: GLM-5.1');
+    expect(screen.getByTestId('model-list')).toHaveAttribute('data-show-clear-models', 'false');
+    expect(screen.queryByLabelText('清除已获取的模型')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '刷新模型' }));
 

@@ -6,6 +6,7 @@ import {
   BusinessMobileRoutesWithMainLayout,
   BusinessMobileRoutesWithoutMainLayout,
 } from '@/business/client/BusinessMobileRoutes';
+import { featureGateElement } from '@/features/ProductFeatureGate';
 import { mobileAgentSettingsRouteMeta } from '@/features/RouteMeta/mobileRouteMeta';
 import { agentRouteMeta } from '@/routes/(main)/agent/features/routeMeta';
 import { shareTopicRouteMeta } from '@/routes/share/t/[id]/routeMeta';
@@ -200,9 +201,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
         ),
       },
     ],
-    element: dynamicElement(
-      () => import('@/routes/(mobile)/community/_layout'),
-      'Mobile > Discover > Layout',
+    element: featureGateElement(
+      'community',
+      dynamicElement(
+        () => import('@/routes/(mobile)/community/_layout'),
+        'Mobile > Discover > Layout',
+      ),
     ),
     errorElement: <ErrorBoundary />,
     path: 'community',
@@ -248,9 +252,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'agent',
       },
     ],
-    element: dynamicLayout(
-      () => import('@/routes/(main)/(task-workspace)/_layout'),
-      'Mobile > Task Workspace > Layout',
+    element: featureGateElement(
+      'tasks',
+      dynamicLayout(
+        () => import('@/routes/(main)/(task-workspace)/_layout'),
+        'Mobile > Task Workspace > Layout',
+      ),
     ),
   },
 
@@ -410,30 +417,42 @@ export const mobileRoutes: RouteObject[] = [
                 path: 'members',
               },
               {
-                element: dynamicElement(
-                  () => import('@/routes/(main)/[workspaceSlug]/settings/plans'),
-                  'Mobile > Workspace > Settings > Plans',
+                element: featureGateElement(
+                  'advancedSettings',
+                  dynamicElement(
+                    () => import('@/routes/(main)/[workspaceSlug]/settings/plans'),
+                    'Mobile > Workspace > Settings > Plans',
+                  ),
                 ),
                 path: 'plans',
               },
               {
-                element: dynamicElement(
-                  () => import('@/routes/(main)/[workspaceSlug]/settings/billing'),
-                  'Mobile > Workspace > Settings > Billing',
+                element: featureGateElement(
+                  'advancedSettings',
+                  dynamicElement(
+                    () => import('@/routes/(main)/[workspaceSlug]/settings/billing'),
+                    'Mobile > Workspace > Settings > Billing',
+                  ),
                 ),
                 path: 'billing',
               },
               {
-                element: dynamicElement(
-                  () => import('@/routes/(main)/[workspaceSlug]/settings/credits'),
-                  'Mobile > Workspace > Settings > Credits',
+                element: featureGateElement(
+                  'advancedSettings',
+                  dynamicElement(
+                    () => import('@/routes/(main)/[workspaceSlug]/settings/credits'),
+                    'Mobile > Workspace > Settings > Credits',
+                  ),
                 ),
                 path: 'credits',
               },
               {
-                element: dynamicElement(
-                  () => import('@/routes/(main)/[workspaceSlug]/settings/usage'),
-                  'Mobile > Workspace > Settings > Usage',
+                element: featureGateElement(
+                  'advancedSettings',
+                  dynamicElement(
+                    () => import('@/routes/(main)/[workspaceSlug]/settings/usage'),
+                    'Mobile > Workspace > Settings > Usage',
+                  ),
                 ),
                 path: 'usage',
               },

@@ -2,17 +2,24 @@ import { createEnv } from '@t3-oss/env-core';
 import { z } from 'zod';
 
 const DEFAULT_S3_FILE_PATH = 'files';
+const optionalEnv = (value?: string) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+};
 
 export const getFileConfig = () => {
-  if (!!process.env.NEXT_PUBLIC_S3_DOMAIN) {
+  const NEXT_PUBLIC_S3_DOMAIN = optionalEnv(process.env.NEXT_PUBLIC_S3_DOMAIN);
+  const S3_PUBLIC_DOMAIN = optionalEnv(process.env.S3_PUBLIC_DOMAIN) || NEXT_PUBLIC_S3_DOMAIN;
+  const S3_PUBLIC_UPLOAD_ENDPOINT =
+    optionalEnv(process.env.S3_PUBLIC_UPLOAD_ENDPOINT) ||
+    optionalEnv(process.env.S3_PUBLIC_ENDPOINT) ||
+    S3_PUBLIC_DOMAIN;
+
+  if (!!NEXT_PUBLIC_S3_DOMAIN) {
     console.warn(
       '⚠️ `NEXT_PUBLIC_S3_DOMAIN` will be de deprecated in the next major version, please replace it with `S3_PUBLIC_DOMAIN` in your env',
     );
   }
-
-  const S3_PUBLIC_DOMAIN = process.env.S3_PUBLIC_DOMAIN || process.env.NEXT_PUBLIC_S3_DOMAIN;
-  const S3_PUBLIC_UPLOAD_ENDPOINT =
-    process.env.S3_PUBLIC_UPLOAD_ENDPOINT || process.env.S3_PUBLIC_ENDPOINT || S3_PUBLIC_DOMAIN;
 
   return createEnv({
     clientPrefix: 'NEXT_PUBLIC_',
@@ -29,7 +36,7 @@ export const getFileConfig = () => {
       EMBEDDING_BATCH_SIZE: process.env.EMBEDDING_BATCH_SIZE,
       EMBEDDING_CONCURRENCY: process.env.EMBEDDING_CONCURRENCY,
 
-      NEXT_PUBLIC_S3_DOMAIN: process.env.NEXT_PUBLIC_S3_DOMAIN,
+      NEXT_PUBLIC_S3_DOMAIN,
       NEXT_PUBLIC_S3_FILE_PATH: process.env.NEXT_PUBLIC_S3_FILE_PATH || DEFAULT_S3_FILE_PATH,
 
       S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,

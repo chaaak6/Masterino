@@ -11,7 +11,6 @@ import {
   BoxIcon,
   CheckIcon,
   ChevronDownIcon,
-  ExternalLinkIcon,
   InfoIcon,
   LaptopIcon,
   MonitorDownIcon,
@@ -21,6 +20,7 @@ import {
 import { memo, type ReactNode, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isProductFeatureDisabled } from '@/config/productFeatures';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
 import { lambdaQuery } from '@/libs/trpc/client';
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
@@ -292,8 +292,9 @@ interface HeteroDeviceSwitcherProps {
 }
 
 const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(({ agentId }) => {
-  const { t } = useTranslation('chat');
+  const { t } = useTranslation(['chat', 'common']);
   const [open, setOpen] = useState(false);
+  const desktopAppDisabled = isProductFeatureDisabled('desktopApp');
 
   const agencyConfig = useAgentStore(agentByIdSelectors.getAgencyConfigById(agentId));
   const updateAgentConfigById = useAgentStore((s) => s.updateAgentConfigById);
@@ -420,15 +421,16 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(({ agentId }) => {
           </Tooltip>
         </Flexbox>
         {isDesktop || showWebDownloadCard ? null : (
-          <a
-            className={styles.headerLink}
-            href="https://aihub.bielcrystal.com/downloads"
-            rel="noreferrer"
-            target="_blank"
-          >
-            <Icon icon={ExternalLinkIcon} size={11} />
-            <span>{t('heteroAgent.executionTarget.downloadDesktop')}</span>
-          </a>
+          <Tooltip title={t('productFeatures.disabled', { ns: 'common' })}>
+            <span className={cx(styles.headerLink, desktopAppDisabled && styles.optionDisabled)}>
+              <Icon icon={MonitorDownIcon} size={11} />
+              <span>
+                {desktopAppDisabled
+                  ? t('productFeatures.disabled', { ns: 'common' })
+                  : t('heteroAgent.executionTarget.downloadDesktop')}
+              </span>
+            </span>
+          </Tooltip>
         )}
       </div>
       {isHetero ? null : (
@@ -467,28 +469,24 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(({ agentId }) => {
       {hasNoDevices && isLoading ? (
         <div className={styles.empty}>{t('heteroAgent.executionTarget.loading')}</div>
       ) : null}
-      {/* On web with no remote device, guide the user to the desktop app (which
-          unlocks local execution + `lh connect`) rather than a muted dead-end. */}
       {showWebDownloadCard ? (
-        <a
-          className={styles.downloadCard}
-          href="https://aihub.bielcrystal.com/downloads"
-          rel="noreferrer"
-          target="_blank"
-        >
+        <div className={cx(styles.downloadCard, desktopAppDisabled && styles.optionDisabled)}>
           <div className={styles.optionIcon}>
             <Icon icon={MonitorDownIcon} size={14} />
           </div>
           <div className={styles.optionMeta}>
             <div className={styles.optionTitle}>
-              {t('heteroAgent.executionTarget.downloadDesktopTitle')}
+              {desktopAppDisabled
+                ? t('productFeatures.disabled', { ns: 'common' })
+                : t('heteroAgent.executionTarget.downloadDesktopTitle')}
             </div>
             <div className={styles.desc}>
-              {t('heteroAgent.executionTarget.downloadDesktopDesc')}
+              {desktopAppDisabled
+                ? t('productFeatures.disabled', { ns: 'common' })
+                : t('heteroAgent.executionTarget.downloadDesktopDesc')}
             </div>
           </div>
-          <Icon className={styles.downloadCardArrow} icon={ExternalLinkIcon} size={13} />
-        </a>
+        </div>
       ) : null}
       {hasNoDevices && !isLoading && isDesktop ? (
         <div className={styles.empty}>{t('heteroAgent.executionTarget.noDevices')}</div>

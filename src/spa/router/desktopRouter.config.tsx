@@ -19,6 +19,7 @@ import { agentDocumentRouteMeta } from '@/features/AgentDocumentPage/routeMeta';
 import { taskRouteMeta, tasksRouteMeta } from '@/features/AgentTasks/routeMeta';
 import { fleetRouteMeta } from '@/features/Fleet/routeMeta';
 import { pageRouteMeta } from '@/features/Pages/routeMeta';
+import { featureGateElement } from '@/features/ProductFeatureGate';
 import { agentRouteMeta } from '@/routes/(main)/agent/features/routeMeta';
 import { groupRouteMeta } from '@/routes/(main)/group/features/routeMeta';
 import { settingsRouteMeta } from '@/routes/(main)/settings/features/routeMeta';
@@ -90,9 +91,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
             path: 'profile',
           },
           {
-            element: dynamicElement(
-              () => import('@/routes/(main)/agent/channel'),
-              'Desktop > Chat > Channel',
+            element: featureGateElement(
+              'advancedSettings',
+              dynamicElement(
+                () => import('@/routes/(main)/agent/channel'),
+                'Desktop > Chat > Channel',
+              ),
             ),
             path: 'channel',
           },
@@ -125,7 +129,10 @@ export const sharedMainAreaChildren: RouteObject[] = [
 
   // Fleet view (side-by-side agent dashboard)
   {
-    element: dynamicElement(() => import('@/routes/(main)/fleet'), 'Desktop > Fleet'),
+    element: featureGateElement(
+      'fleet',
+      dynamicElement(() => import('@/routes/(main)/fleet'), 'Desktop > Fleet'),
+    ),
     errorElement: <ErrorBoundary />,
     handle: { meta: fleetRouteMeta },
     path: 'fleet',
@@ -355,9 +362,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
         ),
       },
     ],
-    element: dynamicElement(
-      () => import('@/routes/(main)/community/_layout'),
-      'Desktop > Discover > Layout',
+    element: featureGateElement(
+      'community',
+      dynamicElement(
+        () => import('@/routes/(main)/community/_layout'),
+        'Desktop > Discover > Layout',
+      ),
     ),
     errorElement: <ErrorBoundary />,
     path: 'community',
@@ -416,9 +426,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'library/:id',
       },
     ],
-    element: dynamicElement(
-      () => import('@/routes/(main)/resource/_layout'),
-      'Desktop > Resource > Layout',
+    element: featureGateElement(
+      'resources',
+      dynamicElement(
+        () => import('@/routes/(main)/resource/_layout'),
+        'Desktop > Resource > Layout',
+      ),
     ),
     errorElement: <ErrorBoundary />,
     path: 'resource',
@@ -488,9 +501,9 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'activities',
       },
     ],
-    element: dynamicLayout(
-      () => import('@/routes/(main)/memory/_layout'),
-      'Desktop > Memory > Layout',
+    element: featureGateElement(
+      'memory',
+      dynamicLayout(() => import('@/routes/(main)/memory/_layout'), 'Desktop > Memory > Layout'),
     ),
     errorElement: <ErrorBoundary />,
     path: 'memory',
@@ -504,9 +517,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
         index: true,
       },
     ],
-    element: dynamicLayout(
-      () => import('@/routes/(main)/(create)/video/_layout'),
-      'Desktop > Video > Layout',
+    element: featureGateElement(
+      'generation',
+      dynamicLayout(
+        () => import('@/routes/(main)/(create)/video/_layout'),
+        'Desktop > Video > Layout',
+      ),
     ),
     errorElement: <ErrorBoundary />,
     path: 'video',
@@ -523,9 +539,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
         index: true,
       },
     ],
-    element: dynamicLayout(
-      () => import('@/routes/(main)/(create)/image/_layout'),
-      'Desktop > Image > Layout',
+    element: featureGateElement(
+      'generation',
+      dynamicLayout(
+        () => import('@/routes/(main)/(create)/image/_layout'),
+        'Desktop > Image > Layout',
+      ),
     ),
     errorElement: <ErrorBoundary />,
     path: 'image',
@@ -597,9 +616,9 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'bench/:benchmarkId',
       },
     ],
-    element: dynamicElement(
-      () => import('@/routes/(main)/eval/_layout'),
-      'Desktop > Eval > Layout',
+    element: featureGateElement(
+      'eval',
+      dynamicElement(() => import('@/routes/(main)/eval/_layout'), 'Desktop > Eval > Layout'),
     ),
     errorElement: <ErrorBoundary />,
     path: 'eval',
@@ -634,9 +653,12 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'task',
       },
     ],
-    element: dynamicLayout(
-      () => import('@/routes/(main)/(task-workspace)/_layout'),
-      'Desktop > Task Workspace > Layout',
+    element: featureGateElement(
+      'tasks',
+      dynamicLayout(
+        () => import('@/routes/(main)/(task-workspace)/_layout'),
+        'Desktop > Task Workspace > Layout',
+      ),
     ),
   },
 
@@ -659,7 +681,10 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: ':id',
       },
     ],
-    element: dynamicLayout(() => import('@/routes/(main)/page/_layout'), 'Desktop > Page > Layout'),
+    element: featureGateElement(
+      'pages',
+      dynamicLayout(() => import('@/routes/(main)/page/_layout'), 'Desktop > Page > Layout'),
+    ),
     errorElement: <ErrorBoundary />,
     path: 'page',
   },
@@ -772,9 +797,12 @@ export const desktopRoutes: RouteObject[] = [
                 path: 'provider',
               },
               {
-                element: dynamicElement(
-                  () => import('@/routes/(main)/[workspaceSlug]/settings/skill'),
-                  'Desktop > Workspace > Settings > Skill',
+                element: featureGateElement(
+                  'advancedSettings',
+                  dynamicElement(
+                    () => import('@/routes/(main)/[workspaceSlug]/settings/skill'),
+                    'Desktop > Workspace > Settings > Skill',
+                  ),
                 ),
                 path: 'skill',
               },
@@ -796,37 +824,52 @@ export const desktopRoutes: RouteObject[] = [
                     path: 'members',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/stats'),
-                      'Desktop > Workspace > Settings > Stats',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/stats'),
+                        'Desktop > Workspace > Settings > Stats',
+                      ),
                     ),
                     path: 'stats',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/plans'),
-                      'Desktop > Workspace > Settings > Plans',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/plans'),
+                        'Desktop > Workspace > Settings > Plans',
+                      ),
                     ),
                     path: 'plans',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/billing'),
-                      'Desktop > Workspace > Settings > Billing',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/billing'),
+                        'Desktop > Workspace > Settings > Billing',
+                      ),
                     ),
                     path: 'billing',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/credits'),
-                      'Desktop > Workspace > Settings > Credits',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/credits'),
+                        'Desktop > Workspace > Settings > Credits',
+                      ),
                     ),
                     path: 'credits',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/usage'),
-                      'Desktop > Workspace > Settings > Usage',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/usage'),
+                        'Desktop > Workspace > Settings > Usage',
+                      ),
                     ),
                     path: 'usage',
                   },
@@ -838,23 +881,32 @@ export const desktopRoutes: RouteObject[] = [
                     path: 'service-model',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/creds'),
-                      'Desktop > Workspace > Settings > Creds',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/creds'),
+                        'Desktop > Workspace > Settings > Creds',
+                      ),
                     ),
                     path: 'creds',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/apikey'),
-                      'Desktop > Workspace > Settings > API Key',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/apikey'),
+                        'Desktop > Workspace > Settings > API Key',
+                      ),
                     ),
                     path: 'apikey',
                   },
                   {
-                    element: dynamicElement(
-                      () => import('@/routes/(main)/[workspaceSlug]/settings/storage'),
-                      'Desktop > Workspace > Settings > Storage',
+                    element: featureGateElement(
+                      'advancedSettings',
+                      dynamicElement(
+                        () => import('@/routes/(main)/[workspaceSlug]/settings/storage'),
+                        'Desktop > Workspace > Settings > Storage',
+                      ),
                     ),
                     path: 'storage',
                   },
@@ -967,9 +1019,12 @@ export const desktopRoutes: RouteObject[] = [
               path: ':identifier',
             },
           ],
-          element: dynamicLayout(
-            () => import('@/routes/(main)/devtools/_layout'),
-            'Desktop > Devtools > Layout',
+          element: featureGateElement(
+            'devtools',
+            dynamicLayout(
+              () => import('@/routes/(main)/devtools/_layout'),
+              'Desktop > Devtools > Layout',
+            ),
           ),
           errorElement: <ErrorBoundary />,
           path: '/devtools',

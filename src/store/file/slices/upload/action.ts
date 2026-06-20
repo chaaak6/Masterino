@@ -160,7 +160,10 @@ export class FileUploadActionImpl {
             onStatusUpdate?.({
               id: statusId,
               type: 'updateFile',
-              value: { status: status === 'success' ? 'processing' : status, uploadState: upload },
+              value: {
+                status: status === 'success' ? 'processing' : status,
+                uploadState: upload,
+              },
             });
           },
           skipCheckFileType,
@@ -208,6 +211,12 @@ export class FileUploadActionImpl {
 
       return { ...data, dimensions, filename: normalizedFile.name };
     } catch (error) {
+      onStatusUpdate?.({
+        id: statusId,
+        type: 'updateFile',
+        value: { status: 'error' },
+      });
+
       if (
         handleFileUploadError(error, {
           onUploadBlocked: () => onStatusUpdate?.({ id: statusId, type: 'removeFile' }),

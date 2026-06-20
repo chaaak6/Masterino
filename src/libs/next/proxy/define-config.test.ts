@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { defineConfig } from './define-config';
 
@@ -12,12 +12,16 @@ vi.mock('@/auth', () => ({
 
 const { middleware } = defineConfig();
 
-const run = async (url: string) => {
-  const res = await middleware(new NextRequest(url));
+const run = async (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) => {
+  const res = await middleware(new NextRequest(url, init));
   return res?.headers.get('x-middleware-rewrite');
 };
 
 describe('defineConfig locale path-traversal hardening', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('rewrites a normal locale into /spa-auth/<locale>', async () => {
     const rewrite = await run('http://localhost:3010/signin?hl=ja-JP');
     expect(new URL(rewrite!).pathname).toBe('/spa-auth/ja-JP/signin');
@@ -41,5 +45,29 @@ describe('defineConfig locale path-traversal hardening', () => {
     const rewrite = await run('http://localhost:3010/api/upload/s3-proxy');
 
     expect(rewrite).toBeNull();
+  });
+
+  it('redirects protected routes to signin on the current request origin when dynamic origins are enabled', async () => {
+    vi.stubEnv('APP_URL_DYNAMIC', '1');
+    vi.stubEnv('APP_URL_ALLOWED_HOSTS', '*');
+
+    const response = await middleware(
+      new NextRequest('http://internal:3210/settings/provider/newapi?hl=zh-CN', {
+        headers: {
+          'host': 'internal:3210',
+          'x-forwarded-host': 'chat.example.com',
+          'x-forwarded-proto': 'https',
+        },
+      }),
+    );
+
+    const location = response?.headers.get('location');
+    expect(location).toBeTruthy();
+    const signInUrl = new URL(location!);
+    expect(signInUrl.origin).toBe('https://chat.example.com');
+    expect(signInUrl.pathname).toBe('/signin');
+    expect(signInUrl.searchParams.get('callbackUrl')).toBe(
+      'https://chat.example.com/settings/provider/newapi?hl=zh-CN',
+    );
   });
 });

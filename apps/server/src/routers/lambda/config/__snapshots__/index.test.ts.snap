@@ -2,7 +2,7 @@
 
 exports[`configRouter > getGlobalConfig > Model Provider env > OPENAI_MODEL_LIST > custom deletion, addition, and renaming of models 1`] = `
 {
-  "enabled": true,
+  "enabled": false,
   "enabledModels": [
     "llama",
     "claude-2",

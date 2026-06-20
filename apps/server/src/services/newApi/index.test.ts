@@ -73,8 +73,12 @@ const createGateKeeper = () =>
   }) as any;
 
 describe('NewApiService', () => {
+  let mathRandomSpy: ReturnType<typeof vi.spyOn> | undefined;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mathRandomSpy?.mockRestore();
+    mathRandomSpy = undefined;
     mocks.bindingStore.clear();
     process.env.AIHUB_PROXY_URL = 'https://aihub.internal';
     process.env.AIHUB_ADMIN_USER_ID = '1';
@@ -82,6 +86,7 @@ describe('NewApiService', () => {
     process.env.AIHUB_DATA_SOURCE = 'hybrid';
     process.env.AIHUB_MANAGED_TOKEN_NAME = 'masterlion-managed';
     delete process.env.AIHUB_READONLY_DATABASE_URL;
+    delete process.env.AIHUB_DEFAULT_MODEL;
   });
 
   it('imports a binding by matching the MasterLion email to an Aihub user with admin auth', async () => {
@@ -476,7 +481,9 @@ describe('NewApiService', () => {
         username: 'neo',
       }),
       isEnabled: vi.fn(() => true),
-      listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini', 'deepseek-chat']),
+      listAccessibleModels: vi
+        .fn()
+        .mockResolvedValue(['glm-5.1', 'qwen-image-2.0', 'text-embedding-v4']),
     };
     const service = new NewApiService({
       client: client as any,
@@ -510,15 +517,139 @@ describe('NewApiService', () => {
       expect.any(Function),
       expect.any(Function),
     );
-    expect(synced.models.map((model: any) => model.id)).toEqual(['gpt-4o-mini', 'deepseek-chat']);
+    expect(synced.models.map((model: any) => model.id)).toEqual([
+      'glm-5.1',
+      'qwen-image-2.0',
+      'text-embedding-v4',
+    ]);
+    expect(synced.defaultModel).toBe('glm-5.1');
+    expect(synced.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          abilities: expect.objectContaining({
+            functionCall: true,
+            reasoning: true,
+            search: true,
+          }),
+          id: 'glm-5.1',
+          settings: expect.objectContaining({
+            searchImpl: 'params',
+          }),
+          type: 'chat',
+        }),
+        expect.objectContaining({
+          abilities: expect.objectContaining({
+            functionCall: false,
+          }),
+          id: 'qwen-image-2.0',
+          type: 'image',
+        }),
+        expect.objectContaining({
+          id: 'text-embedding-v4',
+          type: 'embedding',
+        }),
+      ]),
+    );
     expect(mocks.batchUpdateAiModels).toHaveBeenCalledWith(
       'newapi',
       expect.arrayContaining([
-        expect.objectContaining({ id: 'gpt-4o-mini' }),
-        expect.objectContaining({ id: 'deepseek-chat' }),
+        expect.objectContaining({
+          abilities: expect.objectContaining({ functionCall: true, reasoning: true }),
+          id: 'glm-5.1',
+          type: 'chat',
+        }),
+        expect.objectContaining({ id: 'qwen-image-2.0', type: 'image' }),
+        expect.objectContaining({ id: 'text-embedding-v4', type: 'embedding' }),
       ]),
     );
     expect(client.listModels).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a random chat model when the Aihub default model is not accessible', async () => {
+    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.7);
+    mocks.bindingStore.set('current-user', {
+      encryptedAccessToken: null,
+      errorMessage: null,
+      lastSyncedAt: null,
+      managedTokenId: 44,
+      newApiUserId: 17,
+      status: 'active',
+      userId: 'current-user',
+    });
+    const readOnlyDb = {
+      findManagedToken: vi.fn().mockResolvedValue({
+        id: 44,
+        key: 'sk-db-token',
+        model_limits: '',
+        model_limits_enabled: false,
+        name: 'manual-token',
+      }),
+      findUserById: vi.fn().mockResolvedValue({
+        group: 'default',
+        id: 17,
+      }),
+      isEnabled: vi.fn(() => true),
+      listAccessibleModels: vi
+        .fn()
+        .mockResolvedValue(['deepseek-v4-flash', 'kimi-k2.7-code', 'minimax-m3']),
+    };
+    const service = new NewApiService({
+      client: {} as any,
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      readOnlyDb: readOnlyDb as any,
+      userId: 'current-user',
+    });
+
+    const synced = await service.syncModels();
+
+    expect(synced.defaultModel).toBe('minimax-m3');
+    expect(mocks.updateConfig).toHaveBeenCalledWith(
+      'newapi',
+      expect.objectContaining({
+        checkModel: 'minimax-m3',
+      }),
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('uses compact GLM aliases as the Aihub default model when the canonical id is not present', async () => {
+    mocks.bindingStore.set('current-user', {
+      encryptedAccessToken: null,
+      errorMessage: null,
+      lastSyncedAt: null,
+      managedTokenId: 44,
+      newApiUserId: 17,
+      status: 'active',
+      userId: 'current-user',
+    });
+    const readOnlyDb = {
+      findManagedToken: vi.fn().mockResolvedValue({
+        id: 44,
+        key: 'sk-db-token',
+        model_limits: '',
+        model_limits_enabled: false,
+        name: 'manual-token',
+      }),
+      findUserById: vi.fn().mockResolvedValue({
+        group: 'default',
+        id: 17,
+      }),
+      isEnabled: vi.fn(() => true),
+      listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini', 'glm5.1', 'deepseek-chat']),
+    };
+    const service = new NewApiService({
+      client: {} as any,
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      readOnlyDb: readOnlyDb as any,
+      userId: 'current-user',
+    });
+
+    const synced = await service.syncModels();
+
+    expect(synced.defaultModel).toBe('glm5.1');
   });
 
   it('does not auto-bind enterprise WeCom users without a provisioning-created binding', async () => {
@@ -742,9 +873,13 @@ describe('NewApiService', () => {
             },
           ],
           total: 3,
-        }),
+      }),
       isEnabled: vi.fn(() => true),
       listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini', 'glm5.1', 'deepseek-chat']),
+      listManagedTokens: vi.fn().mockResolvedValue([
+        { id: 13, name: 'masterlion-managed' },
+        { id: 12, name: 'masterlion-managed' },
+      ]),
     };
     const service = new NewApiService({
       client: client as any,
@@ -762,6 +897,10 @@ describe('NewApiService', () => {
     expect(status).toMatchObject({
       isBound: true,
       managedTokenId: 13,
+      managedTokens: [
+        { id: 13, name: 'masterlion-managed' },
+        { id: 12, name: 'masterlion-managed' },
+      ],
       newApiUserId: 6,
       status: 'active',
     });
@@ -823,7 +962,7 @@ describe('NewApiService', () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith(
       'newapi',
       expect.objectContaining({
-        checkModel: 'gpt-4o-mini',
+        checkModel: 'glm5.1',
         keyVaults: {
           apiKey: 'sk-bridge-token',
           baseURL: 'https://aihub.internal',

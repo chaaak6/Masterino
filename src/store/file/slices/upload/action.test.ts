@@ -789,18 +789,24 @@ describe('FileUploadAction', () => {
 
         const mockFile = new File(['test content'], 'error.png', { type: 'image/png' });
         const mockCheckResult = { isExist: false };
+        const onStatusUpdate = vi.fn();
 
         vi.mocked(getImageDimensions).mockResolvedValue(undefined);
         vi.spyOn(fileService, 'checkFileHash').mockResolvedValue(mockCheckResult);
         vi.spyOn(uploadService, 'uploadFileToS3').mockRejectedValue(new Error('Upload failed'));
 
         await expect(
-          act(async () => {
-            await uploadWithProgress({
-              file: mockFile,
-            });
+          uploadWithProgress({
+            file: mockFile,
+            onStatusUpdate,
           }),
         ).rejects.toThrow('Upload failed');
+
+        expect(onStatusUpdate).toHaveBeenCalledWith({
+          id: mockFile.name,
+          type: 'updateFile',
+          value: { status: 'error' },
+        });
       });
 
       it('should handle createFile errors', async () => {

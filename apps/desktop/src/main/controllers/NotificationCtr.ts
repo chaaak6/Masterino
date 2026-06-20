@@ -8,6 +8,7 @@ import * as electronIs from 'electron-is';
 import { getIpcContext } from '@/utils/ipc';
 import { createLogger } from '@/utils/logger';
 
+import { WINDOWS_APP_USER_MODEL_ID } from '../const/notification';
 import { ControllerModule, IpcMethod } from './index';
 
 const logger = createLogger('controllers:NotificationCtr');
@@ -89,7 +90,7 @@ export default class NotificationCtr extends ControllerModule {
 
       // Set app user model ID on Windows
       if (electronIs.windows()) {
-          app.setAppUserModelId('com.masterlion.chat');
+        app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
         logger.debug('Set Windows App User Model ID for notifications');
       }
 

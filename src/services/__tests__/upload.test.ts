@@ -359,7 +359,30 @@ describe('UploadService', () => {
         }
       });
 
-      await expect(uploadService.uploadToServerS3(mockFile, {})).rejects.toBe('Bad Request');
+      await expect(uploadService.uploadToServerS3(mockFile, {})).rejects.toThrow(
+        'Upload failed with HTTP 400 for https://example.com/presign: Bad Request',
+      );
+    });
+
+    it('should include status, url, and response text when upload status text is empty', async () => {
+      const xhr = new XMLHttpRequest();
+
+      vi.spyOn(xhr, 'addEventListener').mockImplementation((event, handler) => {
+        if (event === 'load') {
+          Object.assign(xhr, {
+            responseText: 'Invalid or expired upload URL',
+            status: 403,
+            statusText: '',
+          });
+
+          // @ts-expect-error - mock implementation
+          handler({});
+        }
+      });
+
+      await expect(uploadService.uploadToServerS3(mockFile, {})).rejects.toThrow(
+        'Upload failed with HTTP 403 for https://example.com/presign: Invalid or expired upload URL',
+      );
     });
 
     it('should use custom directory when provided', async () => {

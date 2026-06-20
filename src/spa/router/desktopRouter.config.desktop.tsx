@@ -19,6 +19,7 @@ import { agentDocumentRouteMeta } from '@/features/AgentDocumentPage/routeMeta';
 import { taskRouteMeta, tasksRouteMeta } from '@/features/AgentTasks/routeMeta';
 import { fleetRouteMeta } from '@/features/Fleet/routeMeta';
 import { pageRouteMeta } from '@/features/Pages/routeMeta';
+import { featureGateElement } from '@/features/ProductFeatureGate';
 import DesktopOnboarding from '@/routes/(desktop)/desktop-onboarding';
 // Layouts — sync import (Electron local, no network overhead)
 import DesktopMainLayout from '@/routes/(main)/_layout';
@@ -171,7 +172,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
             path: 'profile',
           },
           {
-            element: <AgentChannelPage />,
+            element: featureGateElement('advancedSettings', <AgentChannelPage />),
             path: 'channel',
           },
           {
@@ -194,7 +195,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
 
   // Fleet view (side-by-side agent dashboard)
   {
-    element: <FleetPage />,
+    element: featureGateElement('fleet', <FleetPage />),
     errorElement: <ErrorBoundary />,
     handle: { meta: fleetRouteMeta },
     path: 'fleet',
@@ -352,7 +353,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         element: <CommunityDetailLayout />,
       },
     ],
-    element: <CommunityLayout />,
+    element: featureGateElement('community', <CommunityLayout />),
     errorElement: <ErrorBoundary />,
     path: 'community',
   },
@@ -395,7 +396,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'library/:id',
       },
     ],
-    element: <ResourceLayout />,
+    element: featureGateElement('resources', <ResourceLayout />),
     errorElement: <ErrorBoundary />,
     path: 'resource',
   },
@@ -446,7 +447,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'activities',
       },
     ],
-    element: <DesktopMemoryLayout />,
+    element: featureGateElement('memory', <DesktopMemoryLayout />),
     errorElement: <ErrorBoundary />,
     path: 'memory',
   },
@@ -459,7 +460,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         index: true,
       },
     ],
-    element: <DesktopVideoLayout />,
+    element: featureGateElement('generation', <DesktopVideoLayout />),
     errorElement: <ErrorBoundary />,
     path: 'video',
   },
@@ -475,7 +476,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         index: true,
       },
     ],
-    element: <DesktopImageLayout />,
+    element: featureGateElement('generation', <DesktopImageLayout />),
     errorElement: <ErrorBoundary />,
     path: 'image',
   },
@@ -524,7 +525,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'bench/:benchmarkId',
       },
     ],
-    element: <EvalLayout />,
+    element: featureGateElement('eval', <EvalLayout />),
     errorElement: <ErrorBoundary />,
     path: 'eval',
   },
@@ -555,7 +556,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: 'task',
       },
     ],
-    element: <TaskWorkspaceLayout />,
+    element: featureGateElement('tasks', <TaskWorkspaceLayout />),
   },
 
   // Pages routes
@@ -574,7 +575,7 @@ export const sharedMainAreaChildren: RouteObject[] = [
         path: ':id',
       },
     ],
-    element: <DesktopPageLayout />,
+    element: featureGateElement('pages', <DesktopPageLayout />),
     errorElement: <ErrorBoundary />,
     path: 'page',
   },
@@ -655,21 +656,75 @@ export const desktopRoutes: RouteObject[] = [
               // Full-bleed tabs render directly inside the workspace settings
               // shell (sidebar + outlet) — they own their internal layout.
               { element: <WorkspaceSlugSettingsProviderPage />, path: 'provider' },
-              { element: <WorkspaceSlugSettingsSkillPage />, path: 'skill' },
+              {
+                element: featureGateElement(
+                  'advancedSettings',
+                  <WorkspaceSlugSettingsSkillPage />,
+                ),
+                path: 'skill',
+              },
               // Padded tabs share a centered, max-width container layout.
               {
                 children: [
                   { element: <WorkspaceSlugSettingsGeneralPage />, path: 'general' },
                   { element: <WorkspaceSlugSettingsMembersPage />, path: 'members' },
-                  { element: <WorkspaceSlugSettingsStatsPage />, path: 'stats' },
-                  { element: <WorkspaceSlugSettingsPlansPage />, path: 'plans' },
-                  { element: <WorkspaceSlugSettingsBillingPage />, path: 'billing' },
-                  { element: <WorkspaceSlugSettingsCreditsPage />, path: 'credits' },
-                  { element: <WorkspaceSlugSettingsUsagePage />, path: 'usage' },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsStatsPage />,
+                    ),
+                    path: 'stats',
+                  },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsPlansPage />,
+                    ),
+                    path: 'plans',
+                  },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsBillingPage />,
+                    ),
+                    path: 'billing',
+                  },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsCreditsPage />,
+                    ),
+                    path: 'credits',
+                  },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsUsagePage />,
+                    ),
+                    path: 'usage',
+                  },
                   { element: <WorkspaceSlugSettingsServiceModelPage />, path: 'service-model' },
-                  { element: <WorkspaceSlugSettingsCredsPage />, path: 'creds' },
-                  { element: <WorkspaceSlugSettingsApiKeyPage />, path: 'apikey' },
-                  { element: <WorkspaceSlugSettingsStoragePage />, path: 'storage' },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsCredsPage />,
+                    ),
+                    path: 'creds',
+                  },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsApiKeyPage />,
+                    ),
+                    path: 'apikey',
+                  },
+                  {
+                    element: featureGateElement(
+                      'advancedSettings',
+                      <WorkspaceSlugSettingsStoragePage />,
+                    ),
+                    path: 'storage',
+                  },
                 ],
                 element: <WorkspaceSlugSettingsContentLayout />,
               },
@@ -753,7 +808,7 @@ export const desktopRoutes: RouteObject[] = [
             { element: <DevtoolsIndexPage />, index: true },
             { element: <DevtoolsToolPage />, path: ':identifier' },
           ],
-          element: <DevtoolsLayout />,
+          element: featureGateElement('devtools', <DevtoolsLayout />),
           errorElement: <ErrorBoundary />,
           path: '/devtools',
         },

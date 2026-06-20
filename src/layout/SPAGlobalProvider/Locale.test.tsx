@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import Locale from './Locale';
+
 const mocks = vi.hoisted(() => {
   const fakeI18n = {
     init: vi.fn(),
@@ -48,8 +50,6 @@ vi.mock('@/utils/dayjsLocale', () => ({
 vi.mock('@/utils/locale', () => ({
   getAntdLocale: vi.fn(async () => ({})),
 }));
-
-import Locale from './Locale';
 
 describe('SPAGlobalProvider Locale', () => {
   it('provides the initialized i18next instance to react-i18next consumers', () => {

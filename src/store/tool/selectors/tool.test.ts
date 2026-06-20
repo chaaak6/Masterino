@@ -100,14 +100,14 @@ describe('toolSelectors', () => {
       const result = toolSelectors.metaList(mockState);
       expect(result).toEqual([
         {
-          author: 'LobeHub',
+          author: 'MasterLion',
           identifier: 'test-skill',
           meta: { avatar: '🧪', description: 'A test skill', title: 'Test Skill' },
           type: 'builtin',
         },
         {
           type: 'builtin',
-          author: 'LobeHub',
+          author: 'MasterLion',
           identifier: 'builtin-1',
           meta: { title: 'Builtin 1', description: 'Builtin 1 description' },
         },

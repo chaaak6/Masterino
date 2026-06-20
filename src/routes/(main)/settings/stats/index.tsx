@@ -14,6 +14,7 @@ import { statsKeys } from '@/libs/swr/keys';
 import SettingHeader from '@/routes/(main)/settings/features/SettingHeader';
 import { usageService } from '@/services/usage';
 
+import NewApiUsage from './features/newApi/NewApiUsage';
 import {
   ShareButton,
   TotalAssistants,
@@ -25,7 +26,6 @@ import {
 import { AssistantsRank, ModelsRank, TopicsRank } from './features/rankings';
 import { UsageCards, UsageTable, UsageTrends } from './features/usage';
 import { AiHeatmaps } from './features/visualization';
-import NewApiUsage from './features/newApi/NewApiUsage';
 import { GroupBy, type UserDisplayResolver } from './types';
 
 interface StatsSettingProps {

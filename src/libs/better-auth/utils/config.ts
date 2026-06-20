@@ -32,7 +32,7 @@ export const normalizeOrigin = (url?: string) => {
 /**
  * Build trusted origins with env override and Vercel-aware defaults.
  */
-export const getTrustedOrigins = (enabledSSOProviders: string[]) => {
+export const getTrustedOrigins = (enabledSSOProviders: string[], extraOrigins: string[] = []) => {
   if (authEnv.AUTH_TRUSTED_ORIGINS) {
     const originsFromEnv = authEnv.AUTH_TRUSTED_ORIGINS.split(',')
       .map((item) => {
@@ -45,7 +45,7 @@ export const getTrustedOrigins = (enabledSSOProviders: string[]) => {
       })
       .filter(Boolean) as string[];
 
-    if (originsFromEnv.length > 0) return Array.from(new Set(originsFromEnv));
+    if (originsFromEnv.length > 0) return Array.from(new Set([...originsFromEnv, ...extraOrigins]));
   }
 
   const defaults = [
@@ -57,7 +57,10 @@ export const getTrustedOrigins = (enabledSSOProviders: string[]) => {
     ...(isDev ? [EXPO_DEV_SCHEME] : []),
   ].filter(Boolean) as string[];
 
-  const baseTrustedOrigins = defaults.length > 0 ? Array.from(new Set(defaults)) : undefined;
+  const baseTrustedOrigins =
+    defaults.length > 0 || extraOrigins.length > 0
+      ? Array.from(new Set([...defaults, ...extraOrigins]))
+      : undefined;
 
   if (!enabledSSOProviders.includes('apple')) return baseTrustedOrigins;
 

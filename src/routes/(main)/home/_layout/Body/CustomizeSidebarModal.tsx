@@ -30,6 +30,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
+import { isProductFeatureDisabled } from '@/config/productFeatures';
 import { getRouteById } from '@/config/routes';
 import { useGlobalStore } from '@/store/global';
 import { DEFAULT_HOME_SIDEBAR_EXPANDED_KEYS } from '@/store/global/initialState';
@@ -49,20 +50,51 @@ const ACCORDION_GROUP_ID = 'accordion-group';
 
 export interface SidebarItemConfig {
   alwaysVisible?: boolean;
+  disabled?: boolean;
   id: string;
   labelKey: string;
   routeId?: string;
 }
 
 const ALL_SIDEBAR_ITEMS: SidebarItemConfig[] = [
-  { id: 'tasks', labelKey: 'tab.tasks', routeId: 'tasks' },
-  { id: 'pages', labelKey: 'tab.pages', routeId: 'page' },
+  {
+    disabled: isProductFeatureDisabled('tasks'),
+    id: 'tasks',
+    labelKey: 'tab.tasks',
+    routeId: 'tasks',
+  },
+  {
+    disabled: isProductFeatureDisabled('pages'),
+    id: 'pages',
+    labelKey: 'tab.pages',
+    routeId: 'page',
+  },
   { id: 'recents', labelKey: 'recents' },
   { alwaysVisible: true, id: 'agent', labelKey: 'navPanel.agent' },
-  { id: 'image', labelKey: 'tab.generation', routeId: 'image' },
-  { id: 'community', labelKey: 'tab.community', routeId: 'community' },
-  { id: 'resource', labelKey: 'tab.resource', routeId: 'resource' },
-  { id: 'memory', labelKey: 'tab.memory', routeId: 'memory' },
+  {
+    disabled: isProductFeatureDisabled('generation'),
+    id: 'image',
+    labelKey: 'tab.generation',
+    routeId: 'image',
+  },
+  {
+    disabled: isProductFeatureDisabled('community'),
+    id: 'community',
+    labelKey: 'tab.community',
+    routeId: 'community',
+  },
+  {
+    disabled: isProductFeatureDisabled('resources'),
+    id: 'resource',
+    labelKey: 'tab.resource',
+    routeId: 'resource',
+  },
+  {
+    disabled: isProductFeatureDisabled('memory'),
+    id: 'memory',
+    labelKey: 'tab.memory',
+    routeId: 'memory',
+  },
 ];
 
 export const getAvailableSidebarItems = (isWorkspaceMode: boolean): SidebarItemConfig[] =>
@@ -161,6 +193,7 @@ const SortableItem = memo<{
 
   const route = item.routeId ? getRouteById(item.routeId) : undefined;
   const isHidden = !item.alwaysVisible && hiddenSections.includes(id);
+  const isDisabled = item.disabled;
 
   return (
     <Flexbox
@@ -171,7 +204,7 @@ const SortableItem = memo<{
       justify={'space-between'}
       ref={setNodeRef}
       style={{
-        opacity: isHidden && !isDragging ? 0.5 : undefined,
+        opacity: (isHidden || isDisabled) && !isDragging ? 0.5 : undefined,
         transform: CSS.Translate.toString(transform),
         transition,
       }}
@@ -188,8 +221,8 @@ const SortableItem = memo<{
         {route?.icon && <Icon icon={route.icon} size={18} />}
         <Text>{t(item.labelKey as any)}</Text>
       </Flexbox>
-      {item.alwaysVisible ? (
-        <Tooltip title={t('navPanel.pinned' as any)}>
+      {item.alwaysVisible || isDisabled ? (
+        <Tooltip title={t((isDisabled ? 'productFeatures.disabled' : 'navPanel.pinned') as any)}>
           <ActionIcon icon={PinIcon} size={'small'} style={{ cursor: 'default', opacity: 0.45 }} />
         </Tooltip>
       ) : (

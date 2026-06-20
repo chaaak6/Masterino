@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import Editor from './Editor';
+
 const mocks = vi.hoisted(() => ({
   useTranslation: vi.fn(),
 }));
@@ -16,8 +18,6 @@ vi.mock('@lobehub/editor/react', () => ({
     </div>
   ),
 }));
-
-import Editor from './Editor';
 
 describe('GlobalProvider Editor', () => {
   beforeEach(() => {

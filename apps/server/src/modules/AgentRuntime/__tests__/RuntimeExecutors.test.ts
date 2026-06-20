@@ -1,4 +1,5 @@
 import { type AgentState } from '@lobechat/agent-runtime';
+import { BRANDING_PROVIDER } from '@lobechat/business-const';
 import { consumeStreamUntilDone } from '@lobechat/model-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -92,11 +93,24 @@ vi.mock('@/envs/file', () => ({
   fileEnv: { NEXT_PUBLIC_S3_FILE_PATH: 'files' },
 }));
 
-// FileService is constructed by the runtime to persist model-generated images.
+const { mockFindFileById } = vi.hoisted(() => ({ mockFindFileById: vi.fn() }));
+vi.mock('@/database/models/file', () => ({
+  FileModel: vi.fn().mockImplementation(() => ({
+    findById: mockFindFileById,
+    findFilesToInitInSandbox: vi.fn().mockResolvedValue([]),
+  })),
+}));
+
+// FileService is constructed by the runtime to persist model-generated images
+// and to read user-uploaded image attachments for provider-safe data URLs.
 // `mockUploadBase64` is the spy multimodal-image tests assert against.
-const { mockUploadBase64 } = vi.hoisted(() => ({ mockUploadBase64: vi.fn() }));
+const { mockGetFileByteArray, mockUploadBase64 } = vi.hoisted(() => ({
+  mockGetFileByteArray: vi.fn(),
+  mockUploadBase64: vi.fn(),
+}));
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
+    getFileByteArray: mockGetFileByteArray,
     getFileAccessUrl: vi.fn().mockResolvedValue('https://files.example/access'),
     uploadBase64: mockUploadBase64,
   })),
@@ -110,6 +124,9 @@ describe('RuntimeExecutors', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFindFileById.mockReset();
+    mockGetFileByteArray.mockReset();
+    mockUploadBase64.mockReset();
     vi.mocked(initModelRuntimeFromDB).mockReset();
     mockCreateCompressionGroup.mockReset();
     mockFinalizeCompression.mockReset();
@@ -681,7 +698,7 @@ describe('RuntimeExecutors', () => {
             payload: {
               messages: [{ content: 'Hello', role: 'user' }],
               model: 'deepseek-v4-pro',
-              provider: 'lobehub',
+              provider: BRANDING_PROVIDER,
               tools: [],
             },
             type: 'call_llm' as const,
@@ -1573,6 +1590,61 @@ describe('RuntimeExecutors', () => {
         expect(chatMessages.at(-1)).toEqual(
           expect.objectContaining({ content: 'Hello', role: 'user' }),
         );
+      });
+
+      it('should inline private file image URLs before provider call', async () => {
+        mockFindFileById.mockResolvedValue({
+          fileType: 'image/png',
+          id: 'file-local',
+          url: 'files/user-123/local.png',
+        });
+        mockGetFileByteArray.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+        const ctxWithConfig: RuntimeExecutorContext = {
+          ...ctx,
+          agentConfig: {
+            plugins: [],
+            systemRole: 'test',
+          },
+        };
+        const executors = createRuntimeExecutors(ctxWithConfig);
+        const state = createMockState();
+
+        await executors.call_llm!(
+          {
+            payload: {
+              messages: [
+                {
+                  content: 'What is in this image?',
+                  imageList: [
+                    {
+                      alt: 'local.png',
+                      id: 'file-local',
+                      url: 'http://localhost:3210/f/file-local',
+                    },
+                  ],
+                  role: 'user',
+                },
+              ],
+              model: 'gpt-4',
+              provider: 'openai',
+            },
+            type: 'call_llm' as const,
+          },
+          state,
+        );
+
+        const engineInput = engineSpy.mock.calls[0][0];
+        expect(engineInput.messages[0].imageList[0].url).toBe(
+          'http://localhost:3210/f/file-local',
+        );
+
+        const chatMessages = mockChat.mock.calls[0][0].messages;
+        const userMessage = chatMessages.find((message: any) => message.role === 'user');
+        const imagePart = userMessage.content.find((part: any) => part.type === 'image_url');
+        expect(imagePart.image_url.url).toBe('data:image/png;base64,AQID');
+        expect(mockFindFileById).toHaveBeenCalledWith('file-local');
+        expect(mockGetFileByteArray).toHaveBeenCalledWith('files/user-123/local.png');
       });
 
       it('should keep current turn when agent historyCount is 0', async () => {
@@ -4355,7 +4427,7 @@ describe('RuntimeExecutors', () => {
           messages: [{ content: 'Hello', role: 'user' }],
           model: 'gpt-4',
           parentMessageId: 'parent-msg-123',
-          provider: 'lobehub',
+          provider: BRANDING_PROVIDER,
           tools: [],
         },
         type: 'call_llm' as const,

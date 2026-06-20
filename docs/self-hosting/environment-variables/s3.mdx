@@ -14,6 +14,44 @@ tags:
 
 MasterLion supports multimodal AI sessions, including the ability to upload unstructured data such as images and files to large language models. To optimize storage and performance, we use S3-compatible file storage services to store image files and support file upload/knowledge base functionality.
 
+## Alibaba Cloud OSS / Tencent Cloud COS
+
+MasterLion uses the AWS S3-compatible API. Alibaba Cloud OSS and Tencent Cloud COS can be used without a dedicated storage adapter as long as their S3-compatible endpoint is configured.
+
+Recommended deployment defaults:
+
+- Keep the bucket private.
+- Set `S3_SET_ACL=0`.
+- Set `S3_ENABLE_PATH_STYLE=0` for virtual-host style endpoints.
+- Leave `S3_PUBLIC_UPLOAD_ENDPOINT` unset. Browser uploads use the same-origin `/api/upload/s3-proxy` route, so no browser direct-upload CORS policy is required by default.
+- Set `LLM_VISION_IMAGE_USE_BASE64=1` when images are sent to providers that cannot fetch private or internal file URLs directly.
+
+Alibaba Cloud OSS example:
+
+```env
+S3_ENDPOINT=https://s3.oss-cn-hangzhou.aliyuncs.com
+S3_REGION=cn-hangzhou
+S3_BUCKET=your-oss-bucket
+S3_ACCESS_KEY_ID=your-ram-access-key-id
+S3_SECRET_ACCESS_KEY=your-ram-access-key-secret
+S3_ENABLE_PATH_STYLE=0
+S3_SET_ACL=0
+```
+
+Tencent Cloud COS example:
+
+```env
+S3_ENDPOINT=https://cos.ap-shanghai.myqcloud.com
+S3_REGION=ap-shanghai
+S3_BUCKET=your-cos-bucket
+S3_ACCESS_KEY_ID=your-cam-secret-id
+S3_SECRET_ACCESS_KEY=your-cam-secret-key
+S3_ENABLE_PATH_STYLE=0
+S3_SET_ACL=0
+```
+
+If you are replacing a local RustFS deployment without migrating old objects, only new uploads will be written to OSS/COS. Existing database rows still point to their original object keys, but the object bytes must exist in the configured bucket to be readable.
+
 ## Core Environment Variables
 
 ### `S3_ACCESS_KEY_ID`

@@ -367,9 +367,11 @@ const Footer = memo(() => {
                 <ActionIcon icon={GithubIcon} size={16} title={'GitHub'} />
               </a>
             )}
-            <WorkspaceLink to="/eval">
-              <ActionIcon icon={FlaskConical} size={16} title="Evaluation Lab" />
-            </WorkspaceLink>
+            {footer.showEvalEntry && (
+              <WorkspaceLink to="/eval">
+                <ActionIcon icon={FlaskConical} size={16} title="Evaluation Lab" />
+              </WorkspaceLink>
+            )}
           </Flexbox>
           <ThemeButton placement={'topCenter'} size={16} />
         </Flexbox>

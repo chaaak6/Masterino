@@ -1,3 +1,4 @@
+import { BRANDING_PROVIDER } from '@lobechat/business-const';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AsyncTaskStatus, AsyncTaskType } from '@/types/asyncTask';
@@ -215,7 +216,7 @@ describe('imageRouter', () => {
       expect(mockServerDB.transaction).toHaveBeenCalled();
     });
 
-    it('should validate mapped model id before rejecting deprecated lobehub image models', async () => {
+    it('should validate mapped model id before rejecting deprecated branded image models', async () => {
       mockResolveBusinessModelMapping.mockResolvedValue({
         requestedModelId: 'onboarding-image',
         resolvedModelId: 'gpt-image-1',
@@ -224,14 +225,17 @@ describe('imageRouter', () => {
       const ctx = createMockCtx();
       const input = createDefaultInput({
         model: 'onboarding-image',
-        provider: 'lobehub',
+        provider: BRANDING_PROVIDER,
       });
 
       const caller = imageRouter.createCaller(ctx);
       const result = await caller.createImage(input);
 
       expect(result.success).toBe(true);
-      expect(mockResolveBusinessModelMapping).toHaveBeenCalledWith('lobehub', 'onboarding-image');
+      expect(mockResolveBusinessModelMapping).toHaveBeenCalledWith(
+        BRANDING_PROVIDER,
+        'onboarding-image',
+      );
       expect(mockIsLobeHubModelAvailable).toHaveBeenCalledWith('gpt-image-1', 'image', {
         getUserEmail: expect.any(Function),
       });
@@ -242,13 +246,13 @@ describe('imageRouter', () => {
       expect(mockCreateAsyncCaller).toHaveBeenCalledWith({ userId: mockUserId });
     });
 
-    it('should reject unavailable lobehub image models before creating async tasks', async () => {
+    it('should reject unavailable branded image models before creating async tasks', async () => {
       mockIsLobeHubModelAvailable.mockResolvedValue(false);
 
       const ctx = createMockCtx();
       const input = createDefaultInput({
         model: 'restricted-image-model',
-        provider: 'lobehub',
+        provider: BRANDING_PROVIDER,
       });
 
       const caller = imageRouter.createCaller(ctx);

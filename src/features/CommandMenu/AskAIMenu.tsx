@@ -6,6 +6,7 @@ import { Bot, Image } from 'lucide-react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useHomeStore } from '@/store/home';
 import { homeAgentListSelectors } from '@/store/home/selectors';
@@ -77,12 +78,14 @@ const AskAIMenu = memo(() => {
           <div className={styles.itemLabel}>{t('starter.createGroup', { ns: 'home' })}</div>
         </div>
       </Command.Item>
-      <Command.Item value="ai-painting" onSelect={handleAIPainting}>
-        <Image className={styles.icon} />
-        <div className={styles.itemContent}>
-          <div className={styles.itemLabel}>{t('cmdk.aiPainting')}</div>
-        </div>
-      </Command.Item>
+      {isProductFeatureEnabled('generation') && (
+        <Command.Item value="ai-painting" onSelect={handleAIPainting}>
+          <Image className={styles.icon} />
+          <div className={styles.itemContent}>
+            <div className={styles.itemLabel}>{t('cmdk.aiPainting')}</div>
+          </div>
+        </Command.Item>
+      )}
 
       {agents.map((agent) => (
         <CommandItem

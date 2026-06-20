@@ -1,0 +1,22 @@
+# Keep Docker builds from copying local dependencies into the image.
+node_modules/
+**/node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+test-output/
+logs/
+
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+.codex/
+.agents/
+.superpowers/
+
+.git/
+docker-compose/dev/data/

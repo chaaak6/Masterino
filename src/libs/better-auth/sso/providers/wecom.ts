@@ -1,5 +1,5 @@
-import { authEnv } from '@/envs/auth';
 import { appEnv } from '@/envs/app';
+import { authEnv } from '@/envs/auth';
 import { getWecomSsoRuntimeConfig } from '@/server/services/enterprise/wecomSsoService';
 
 import { type GenericProviderDefinition } from '../types';

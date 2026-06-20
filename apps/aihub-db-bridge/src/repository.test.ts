@@ -77,6 +77,35 @@ describe('AihubBridgeRepository', () => {
     ]);
   });
 
+  it('lists managed token metadata without selecting token keys', async () => {
+    const client = createClient([
+      { id: 12, model_limits_enabled: 0, name: 'masterlion-managed', unlimited_quota: 1 },
+      { id: 11, model_limits_enabled: 1, name: 'masterlion-managed', unlimited_quota: 0 },
+    ]);
+    const repo = new AihubBridgeRepository({ client, dialect: 'mysql' });
+
+    const tokens = await repo.listManagedTokens(7, 'masterlion-managed');
+
+    expect(tokens).toEqual([
+      {
+        id: 12,
+        model_limits_enabled: false,
+        name: 'masterlion-managed',
+        unlimited_quota: true,
+      },
+      {
+        id: 11,
+        model_limits_enabled: true,
+        name: 'masterlion-managed',
+        unlimited_quota: false,
+      },
+    ]);
+    expect(client.query).toHaveBeenCalledWith(expect.not.stringContaining('`key`'), [
+      7,
+      'masterlion-managed',
+    ]);
+  });
+
   it('intersects token model limits with enabled abilities for the user group', async () => {
     const client = createClient([
       { model: 'gpt-4o-mini' },
@@ -104,6 +133,25 @@ describe('AihubBridgeRepository', () => {
 
     expect(models).toEqual(['deepseek-chat', 'gpt-4o-mini']);
     expect(client.query).toHaveBeenCalledWith(expect.stringContaining('from abilities'), ['vip']);
+  });
+
+  it('queries enabled abilities through the current token user group when token has user id', async () => {
+    const client = createClient([{ model: 'deepseek-chat' }, { model: 'glm5.1' }]);
+    const repo = new AihubBridgeRepository({ client, dialect: 'mysql' });
+
+    const models = await repo.listAccessibleModels('vip', {
+      id: 12,
+      model_limits: 'glm5.1,vip-only,deepseek-chat',
+      model_limits_enabled: true,
+      name: 'managed',
+      user_id: 7,
+    });
+
+    expect(models).toEqual(['deepseek-chat', 'glm5.1']);
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('join users u on u.`group` = a.`group`'),
+      [7],
+    );
   });
 
   it('inlines MySQL usage log pagination after validating numeric bounds', async () => {

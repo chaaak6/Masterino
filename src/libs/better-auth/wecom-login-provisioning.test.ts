@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  createDefaultWorkspaceAssigner,
+  provisionWecomLoginAccount,
+} from './wecom-login-provisioning';
+
 const defaultWorkspaceAssignerMocks = vi.hoisted(() => ({
   assignWorkspaceRoleToUser: vi.fn(),
   seedWorkspaceRoles: vi.fn(),
@@ -25,11 +30,6 @@ vi.mock('@/database/models/workspaceMember', () => ({
     getMember: defaultWorkspaceAssignerMocks.workspaceMemberGetMember,
   })),
 }));
-
-import {
-  createDefaultWorkspaceAssigner,
-  provisionWecomLoginAccount,
-} from './wecom-login-provisioning';
 
 const account = {
   accountId: 'E001',

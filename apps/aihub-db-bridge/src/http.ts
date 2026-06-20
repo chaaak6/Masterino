@@ -106,6 +106,13 @@ export const createBridgeHandler = ({
         return success(token);
       }
 
+      if (url.pathname === `/v1/users/${userId}/managed-tokens`) {
+        const tokenName = url.searchParams.get('name') || managedTokenName;
+        const tokens = await repository.listManagedTokens(userId, tokenName);
+
+        return success(tokens);
+      }
+
       if (url.pathname === `/v1/users/${userId}/models`) {
         const tokenName = url.searchParams.get('tokenName') || managedTokenName;
         const [user, token] = await Promise.all([

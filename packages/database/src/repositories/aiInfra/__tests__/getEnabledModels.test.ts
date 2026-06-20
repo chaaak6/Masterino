@@ -1,5 +1,5 @@
 import type { AiProviderListItem } from '@lobechat/types';
-import type { EnabledAiModel, ExtendParamsType } from 'model-bank';
+import { AiModelSourceEnum, type EnabledAiModel, type ExtendParamsType } from 'model-bank';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTestDB } from '../../../core/getTestDB';
@@ -205,6 +205,46 @@ describe('AiInfraRepos', () => {
       // Verify disabled models are included
       const disabledModels = result.filter((model) => !model.enabled);
       expect(disabledModels.length).toBeGreaterThan(0);
+    });
+
+    it('should use remote newapi models instead of builtin fallback models', async () => {
+      const mockProviders = [
+        { enabled: true, id: 'newapi', name: 'NewAPI', source: 'builtin' as const },
+      ] as AiProviderListItem[];
+
+      const mockAllModels = [
+        {
+          abilities: { functionCall: true },
+          enabled: true,
+          id: 'deepseek-v4-flash',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Remote,
+          type: 'chat' as const,
+        },
+      ] as EnabledAiModel[];
+
+      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo.aiModelModel, 'getAllModels').mockResolvedValue(mockAllModels);
+      vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue([
+        {
+          enabled: true,
+          id: 'vip-only-model',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Builtin,
+          type: 'chat' as const,
+        },
+      ]);
+
+      const result = await repo.getEnabledModels();
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          abilities: { functionCall: true },
+          id: 'deepseek-v4-flash',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Remote,
+        }),
+      ]);
     });
 
     it('should allow search=true and add searchImpl=params when user enables it without providing settings (builtin has no search and no settings)', async () => {

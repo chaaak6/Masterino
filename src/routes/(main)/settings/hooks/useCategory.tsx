@@ -18,7 +18,6 @@ import {
   KeyRound,
   Map,
   MessageCircleIcon,
-  MonitorSmartphoneIcon,
   PaletteIcon,
   Sparkles,
   TerminalSquare,
@@ -58,6 +57,18 @@ export interface CategoryGroup {
   key: SettingsGroupKey;
   title: string;
 }
+
+const CONVERGED_SETTINGS_TABS = new Set<SettingsTabs>([
+  SettingsTabs.Profile,
+  SettingsTabs.Stats,
+  SettingsTabs.Appearance,
+  SettingsTabs.Hotkey,
+  SettingsTabs.Provider,
+  SettingsTabs.ServiceModel,
+  SettingsTabs.Proxy,
+  SettingsTabs.Security,
+  SettingsTabs.About,
+]);
 
 export const useCategory = () => {
   const { t } = useTranslation('setting');
@@ -99,11 +110,6 @@ export const useCategory = () => {
         icon: PaletteIcon,
         key: SettingsTabs.Appearance,
         label: t('tab.appearance'),
-      },
-      {
-        icon: MonitorSmartphoneIcon,
-        key: SettingsTabs.Devices,
-        label: t('tab.devices'),
       },
       !mobile && {
         icon: KeyboardIcon,
@@ -229,7 +235,12 @@ export const useCategory = () => {
       title: t('group.system'),
     });
 
-    return groups;
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => CONVERGED_SETTINGS_TABS.has(item.key)),
+      }))
+      .filter((group) => group.items.length > 0);
   }, [
     t,
     tAuth,

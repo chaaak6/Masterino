@@ -147,7 +147,7 @@ describe('NewApiUsage', () => {
     expect(screen.getAllByText('¥0.14').length).toBeGreaterThan(0);
     expect(screen.getAllByText('30 tokens').length).toBeGreaterThan(0);
     expect(screen.getAllByText('glm5.1').length).toBeGreaterThan(0);
-    expect(screen.queryByText(/宸|鏈|鐢|浣|楼/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/[宸鏈鐢浣楼]/)).not.toBeInTheDocument();
   });
 
   it('shows a clear local message when the current user is not bound', () => {

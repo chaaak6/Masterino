@@ -1,6 +1,6 @@
 import { codeInspectorPlugin } from 'code-inspector-plugin';
 import { type NextConfig } from 'next';
-import { type Header, type Redirect } from 'next/dist/lib/load-custom-routes';
+import { type Header, type Redirect, type Rewrite } from 'next/dist/lib/load-custom-routes';
 
 const LANDING_SITEMAP_URL = 'https://aihub.bielcrystal.com/sitemap.xml';
 
@@ -10,10 +10,52 @@ interface CustomNextConfig {
   outputFileTracingExcludes?: NextConfig['outputFileTracingExcludes'];
   outputFileTracingIncludes?: NextConfig['outputFileTracingIncludes'];
   redirects?: Redirect[];
+  rewrites?: NextConfig['rewrites'];
   serverExternalPackages?: NextConfig['serverExternalPackages'];
   turbopack?: NextConfig['turbopack'];
   webpack?: NextConfig['webpack'];
 }
+
+const createViteDevProxyRewrites = (): Rewrite[] => {
+  if (process.env.NEXT_VITE_DEV_PROXY !== '1') return [];
+
+  const viteOrigin = process.env.VITE_DEV_INTERNAL_ORIGIN || 'http://localhost:9876';
+
+  return [
+    {
+      destination: `${viteOrigin}/@vite/:path*`,
+      source: '/@vite/:path*',
+    },
+    {
+      destination: `${viteOrigin}/@react-refresh`,
+      source: '/@react-refresh',
+    },
+    {
+      destination: `${viteOrigin}/@id/:path*`,
+      source: '/@id/:path*',
+    },
+    {
+      destination: `${viteOrigin}/@fs/:path*`,
+      source: '/@fs/:path*',
+    },
+    {
+      destination: `${viteOrigin}/node_modules/:path*`,
+      source: '/node_modules/:path*',
+    },
+    {
+      destination: `${viteOrigin}/package.json`,
+      source: '/package.json',
+    },
+    {
+      destination: `${viteOrigin}/packages/:path*`,
+      source: '/packages/:path*',
+    },
+    {
+      destination: `${viteOrigin}/src/:path*`,
+      source: '/src/:path*',
+    },
+  ];
+};
 
 export function defineConfig(config: CustomNextConfig) {
   const isProd = process.env.NODE_ENV === 'production';
@@ -353,6 +395,19 @@ export function defineConfig(config: CustomNextConfig) {
       },
       ...(config.redirects ?? []),
     ],
+    rewrites: async () => {
+      const viteProxyRewrites = createViteDevProxyRewrites();
+      const configuredRewrites =
+        typeof config.rewrites === 'function' ? await config.rewrites() : undefined;
+
+      if (!configuredRewrites) return viteProxyRewrites;
+      if (Array.isArray(configuredRewrites)) return [...viteProxyRewrites, ...configuredRewrites];
+
+      return {
+        ...configuredRewrites,
+        beforeFiles: [...viteProxyRewrites, ...(configuredRewrites.beforeFiles ?? [])],
+      };
+    },
     // when external packages in dev mode with turbopack, this config will lead to bundle error
     // @napi-rs/canvas is a native module that can't be bundled by Turbopack
     // pdfjs-dist uses @napi-rs/canvas for DOMMatrix polyfill in Node.js environment

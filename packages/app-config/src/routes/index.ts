@@ -10,6 +10,8 @@ import {
   Video,
 } from 'lucide-react';
 
+import { isProductFeatureEnabled } from '../productFeatures';
+
 export interface NavigationRoute {
   /** CMDK i18n key in common namespace */
   cmdkKey: string;
@@ -138,6 +140,18 @@ export const getRouteById = (id: string): NavigationRoute | undefined =>
 export const getNavigableRoutes = (): NavigationRoute[] =>
   NAVIGATION_ROUTES.filter((r) =>
     ['community', 'image', 'resource', 'page', 'memory'].includes(r.id),
+  ).filter((r) =>
+    r.id === 'image'
+      ? isProductFeatureEnabled('generation')
+      : r.id === 'resource'
+        ? isProductFeatureEnabled('resources')
+        : r.id === 'page'
+          ? isProductFeatureEnabled('pages')
+          : r.id === 'memory'
+            ? isProductFeatureEnabled('memory')
+            : r.id === 'community'
+              ? isProductFeatureEnabled('community')
+              : true,
   ).map((r) =>
     r.id === 'image'
       ? {

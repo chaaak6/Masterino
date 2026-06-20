@@ -1,6 +1,6 @@
 export const DEFAULT_EMBEDDING_PROVIDER = 'newapi';
 
-const DEFAULT_AIHUB_MODEL = process.env.AIHUB_DEFAULT_MODEL || 'glm5.1';
+const DEFAULT_AIHUB_MODEL = process.env.AIHUB_DEFAULT_MODEL || 'glm-5.1';
 
 export const DEFAULT_MODEL = DEFAULT_AIHUB_MODEL;
 export const DEFAULT_PROVIDER = 'newapi';

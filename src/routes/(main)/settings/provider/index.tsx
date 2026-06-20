@@ -10,25 +10,16 @@ import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwar
 import DesktopLayoutContainer from './_layout/Desktop/Container';
 import Footer from './(list)/Footer';
 import ProviderDetailPageComponent from './detail';
-import ProviderMenu from './ProviderMenu';
 
 // Layout component that wraps provider pages with navigation
 export const ProviderLayout = memo(() => {
-  const navigate = useWorkspaceAwareNavigate();
-
-  const handleProviderSelect = (providerKey: string) => {
-    navigate(`/settings/provider/${providerKey}`);
-  };
-
   return (
     <Flexbox
-      horizontal
       width={'100%'}
       style={{
         maxHeight: '100%',
       }}
     >
-      <ProviderMenu mobile={false} onProviderSelect={handleProviderSelect} />
       <DesktopLayoutContainer>
         <Outlet />
         {!isCustomBranding && <Footer />}

@@ -1,6 +1,6 @@
 import type { ModelProviderCard } from '@/types/llm';
 
-const DEFAULT_AIHUB_MODEL = process.env.AIHUB_DEFAULT_MODEL || 'glm5.1';
+const DEFAULT_AIHUB_MODEL = process.env.AIHUB_DEFAULT_MODEL || 'glm-5.1';
 
 const Aihub: ModelProviderCard = {
   chatModels: [],

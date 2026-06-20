@@ -1,6 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
+import { BRANDING_PROVIDER } from '@lobechat/business-const';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -140,9 +141,9 @@ describe('ModelDetailPanel pricing', () => {
   it('renders branding provider token pricing in credits', () => {
     const { container } = render(
       <ModelDetailPanel
-        enabledList={createEnabledList('lobehub', textPricing)}
+        enabledList={createEnabledList(BRANDING_PROVIDER, textPricing)}
         model="test-model"
-        provider="lobehub"
+        provider={BRANDING_PROVIDER}
       />,
     );
 
@@ -168,10 +169,10 @@ describe('ModelDetailPanel pricing', () => {
   it('renders branding provider image and video pricing in credits', () => {
     const imageResult = render(
       <ModelDetailPanel
-        enabledList={createEnabledList('lobehub', imagePricing)}
+        enabledList={createEnabledList(BRANDING_PROVIDER, imagePricing)}
         model="test-model"
         pricingMode="image"
-        provider="lobehub"
+        provider={BRANDING_PROVIDER}
       />,
     );
 
@@ -183,10 +184,10 @@ describe('ModelDetailPanel pricing', () => {
 
     const videoResult = render(
       <ModelDetailPanel
-        enabledList={createEnabledList('lobehub', imagePricing)}
+        enabledList={createEnabledList(BRANDING_PROVIDER, imagePricing)}
         model="test-model"
         pricingMode="video"
-        provider="lobehub"
+        provider={BRANDING_PROVIDER}
       />,
     );
 

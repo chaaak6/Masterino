@@ -31,7 +31,7 @@ export const FILE_URL = {
 
 export const BRANDING_EMAIL = {
   business: 'support@bielcrystal.com',
-  support: 'support@bielcrystal.com',
+  support: 'ai@bielcrystal.com',
 };
 
 export const BRANDING_PROVIDER = 'newapi';

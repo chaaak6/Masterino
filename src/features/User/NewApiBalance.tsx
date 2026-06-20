@@ -1,6 +1,6 @@
 'use client';
 
-import { type FlexboxProps, Flexbox, Tag } from '@lobehub/ui';
+import { Flexbox, type FlexboxProps, Tag } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
 import { isUndefined } from 'es-toolkit/compat';
 import { memo, type ReactNode } from 'react';

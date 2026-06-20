@@ -37,7 +37,7 @@ export async function register() {
     return;
   }
 
-  const loadNodeInstrumentation = Function('specifier', 'return import(specifier)') as (
+  const loadNodeInstrumentation = new Function('specifier', 'return import(specifier)') as (
     specifier: string,
   ) => Promise<unknown>;
 

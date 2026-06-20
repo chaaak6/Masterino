@@ -147,18 +147,18 @@ describe('configRouter', () => {
         });
       });
 
-      it('should enable the default DeepSeek provider without a server API key', async () => {
-        const originalApiKey = process.env.DEEPSEEK_API_KEY;
-        delete process.env.DEEPSEEK_API_KEY;
+      it('should enable the MasterLion Aihub provider without a provider API key', async () => {
+        const originalProxyUrl = process.env.AIHUB_PROXY_URL;
+        process.env.AIHUB_PROXY_URL = originalProxyUrl || 'https://aihub.example.com';
 
         const response = await router.getGlobalConfig();
 
-        expect(response.serverConfig.aiProvider?.deepseek?.enabled).toBe(true);
+        expect(response.serverConfig.aiProvider?.newapi?.enabled).toBe(true);
 
-        if (originalApiKey === undefined) {
-          delete process.env.DEEPSEEK_API_KEY;
+        if (originalProxyUrl === undefined) {
+          delete process.env.AIHUB_PROXY_URL;
         } else {
-          process.env.DEEPSEEK_API_KEY = originalApiKey;
+          process.env.AIHUB_PROXY_URL = originalProxyUrl;
         }
       });
     });

@@ -231,6 +231,22 @@ const normalizeModelType = (value: unknown): AiModelType | undefined => {
   return undefined;
 };
 
+const getKnownModelIdCandidates = (modelId: string): string[] => {
+  const lowerModelId = modelId.toLowerCase();
+  const candidates = new Set([lowerModelId]);
+
+  // Aihub/NewAPI can expose Zhipu GLM ids without the official hyphen
+  // (for example `glm5.1`), while the model bank keeps canonical ids
+  // such as `glm-5.1`.
+  const normalizedGLMId = lowerModelId.replaceAll(/(^|\/)glm(?=\d)/g, '$1glm-');
+
+  if (normalizedGLMId !== lowerModelId) {
+    candidates.add(normalizedGLMId);
+  }
+
+  return [...candidates];
+};
+
 /**
  * Detect whether a keyword list matches a model ID (supports multiple matching patterns)
  * @param modelId Model ID (lowercase)
@@ -284,7 +300,7 @@ const findKnownModelByProvider = async (
   modelId: string,
   provider: keyof typeof MODEL_LIST_CONFIGS,
 ): Promise<any> => {
-  const lowerModelId = modelId.toLowerCase();
+  const modelIdCandidates = getKnownModelIdCandidates(modelId);
 
   try {
     // Attempt to dynamically import the corresponding configuration file
@@ -299,7 +315,7 @@ const findKnownModelByProvider = async (
 
     // If import succeeds and has data, perform search
     if (Array.isArray(providerModels)) {
-      return providerModels.find((m) => m.id.toLowerCase() === lowerModelId);
+      return providerModels.find((m) => modelIdCandidates.includes(m.id.toLowerCase()));
     }
 
     return null;
@@ -690,7 +706,8 @@ export const processModelList = async (
 
       // If not found, fall back to global configuration
       if (!knownModel) {
-        knownModel = builtinModels.find((m) => model.id.toLowerCase() === m.id.toLowerCase());
+        const modelIdCandidates = getKnownModelIdCandidates(model.id);
+        knownModel = builtinModels.find((m) => modelIdCandidates.includes(m.id.toLowerCase()));
       }
 
       const processedModel = processModelCard(model, config, knownModel);
@@ -742,7 +759,8 @@ export const processMultiProviderModelList = async (
 
       // If not found, fall back to global configuration
       if (!knownModel) {
-        knownModel = builtinModels.find((m) => model.id.toLowerCase() === m.id.toLowerCase());
+        const modelIdCandidates = getKnownModelIdCandidates(model.id);
+        knownModel = builtinModels.find((m) => modelIdCandidates.includes(m.id.toLowerCase()));
       }
 
       const includeKnownExtendParams =

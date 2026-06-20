@@ -45,6 +45,21 @@ const styles = createStaticStyles(({ css }) => ({
   `,
 }));
 
+const CHINESE_INITIAL_OVERRIDES: Record<string, string> = {
+  陈: 'C',
+};
+
+const getAvatarInitial = (name?: string | null) => {
+  const firstChar = name?.trim().charAt(0);
+  if (!firstChar) return undefined;
+
+  const mapped = CHINESE_INITIAL_OVERRIDES[firstChar];
+  if (mapped) return mapped;
+
+  const asciiInitial = firstChar.match(/[a-z]/i)?.[0];
+  return (asciiInitial || firstChar).toUpperCase();
+};
+
 export interface UserAvatarProps extends AvatarProps {
   /**
    * Override the avatar URL/emoji — used when the component is acting as a
@@ -94,9 +109,10 @@ const UserAvatar = ({
   // mode (e.g. active team workspace). Stay inside that identity — don't fall
   // through to the signed-in user's avatar/name, or the icon and the label
   // will disagree. When `nameOverride` is absent, keep the original user flow.
+  const displayName = nameOverride || nickName || username;
   const avatarValue = nameOverride
-    ? avatarOverride || nameOverride
-    : avatarOverride || userAvatarUrl || nickName || username;
+    ? avatarOverride || getAvatarInitial(nameOverride)
+    : avatarOverride || userAvatarUrl || getAvatarInitial(displayName);
   const altText = nameOverride || (isSignedIn ? nickName || username || 'User' : BRANDING_NAME);
 
   return (

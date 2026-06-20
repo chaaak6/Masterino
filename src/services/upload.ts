@@ -10,6 +10,11 @@ import { type FileUploadState, type FileUploadStatus } from '@/types/files/uploa
 
 export const UPLOAD_NETWORK_ERROR = 'NetWorkError';
 
+const createUploadHttpError = (xhr: XMLHttpRequest, url: string) => {
+  const details = xhr.responseText?.trim() || xhr.statusText || 'Unknown upload error';
+  return new Error(`Upload failed with HTTP ${xhr.status} for ${url}: ${details}`);
+};
+
 /**
  * Generate file storage path metadata for S3-compatible storage
  * @param originalFilename - Original filename
@@ -191,12 +196,12 @@ class UploadService {
           });
           resolve(xhr.response);
         } else {
-          reject(xhr.statusText);
+          reject(createUploadHttpError(xhr, preSignUrl));
         }
       });
       xhr.addEventListener('error', () => {
         if (xhr.status === 0) reject(UPLOAD_NETWORK_ERROR);
-        else reject(xhr.statusText);
+        else reject(createUploadHttpError(xhr, preSignUrl));
       });
       xhr.addEventListener('abort', () => {
         onProgress?.('cancelled', { progress: 0, restTime: 0, speed: 0 });

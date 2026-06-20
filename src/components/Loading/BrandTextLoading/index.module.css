@@ -21,11 +21,12 @@
   align-items: center;
   gap: 12px;
 
-  opacity: 0.6;
+  opacity: 0.76;
   color: var(--brand-text-color);
 }
 
-.brand :global(.lobe-brand-loading) {
+.brandLoading {
   display: block;
-  color: inherit;
+  width: min(220px, 56vw);
+  height: auto;
 }

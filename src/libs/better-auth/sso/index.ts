@@ -21,8 +21,8 @@ import Keycloak from './providers/keycloak';
 import Logto from './providers/logto';
 import Microsoft from './providers/microsoft';
 import Okta from './providers/okta';
-import Wecom from './providers/wecom';
 import Wechat from './providers/wechat';
+import Wecom from './providers/wecom';
 import Zitadel from './providers/zitadel';
 
 const providerDefinitions = [

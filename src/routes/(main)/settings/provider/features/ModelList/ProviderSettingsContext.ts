@@ -4,6 +4,7 @@ export interface ProviderSettingsContextValue {
   modelEditable?: boolean;
   sdkType?: string;
   showAddNewModel?: boolean;
+  showClearModels?: boolean;
   showDeployName?: boolean;
   showModelFetcher?: boolean;
 }

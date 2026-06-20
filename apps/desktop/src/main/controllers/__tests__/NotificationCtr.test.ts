@@ -2,6 +2,7 @@ import type { ShowDesktopNotificationParams } from '@lobechat/electron-client-ip
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { App } from '@/core/App';
+import { WINDOWS_APP_USER_MODEL_ID } from '@/const/notification';
 
 import NotificationCtr from '../NotificationCtr';
 
@@ -113,7 +114,7 @@ describe('NotificationCtr', () => {
 
       controller.afterAppReady();
 
-      expect(app.setAppUserModelId).toHaveBeenCalledWith('com.lobehub.chat');
+      expect(app.setAppUserModelId).toHaveBeenCalledWith(WINDOWS_APP_USER_MODEL_ID);
 
       vi.mocked(windows).mockReturnValue(false);
     });

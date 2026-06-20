@@ -1,15 +1,15 @@
 import { LOBE_CHAT_CLOUD, UTM_SOURCE } from '@lobechat/business-const';
 import { DOWNLOAD_URL, isDesktop } from '@lobechat/const';
-import { Flexbox, Hotkey, Icon, Tag } from '@lobehub/ui';
+import { Hotkey, Icon } from '@lobehub/ui';
 import { type ItemType } from 'antd/es/menu/interface';
 import { BrainCircuit, Cloudy, Download, HardDriveDownload, LogOut, Settings2 } from 'lucide-react';
-import { type PropsWithChildren } from 'react';
-import { memo, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import useBusinessMenuItems from '@/business/client/features/User/useBusinessMenuItems';
 import { type MenuProps } from '@/components/Menu';
+import { isProductFeatureDisabled } from '@/config/productFeatures';
 import { DEFAULT_DESKTOP_HOTKEY_CONFIG } from '@/const/desktop';
 import { OFFICIAL_URL } from '@/const/url';
 import DataImporter from '@/features/DataImporter';
@@ -20,34 +20,7 @@ import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfi
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
 
-import { useNewVersion } from './useNewVersion';
-
-const NewVersionBadge = memo(
-  ({
-    children,
-    showBadge,
-    onClick,
-  }: PropsWithChildren & { onClick?: () => void; showBadge?: boolean }) => {
-    const { t } = useTranslation('common');
-    if (!showBadge)
-      return (
-        <Flexbox flex={1} onClick={onClick}>
-          {children}
-        </Flexbox>
-      );
-    return (
-      <Flexbox horizontal align={'center'} flex={1} gap={8} width={'100%'} onClick={onClick}>
-        {children}
-        <Tag color={'info'} size={'small'} style={{ borderRadius: 16, paddingInline: 8 }}>
-          {t('upgradeVersion.hasNew')}
-        </Tag>
-      </Flexbox>
-    );
-  },
-);
-
 export const useMenu = () => {
-  const hasNewVersion = useNewVersion();
   const { t } = useTranslation(['common', 'setting', 'auth']);
   const { showCloudPromotion, hideDocs } = useServerConfigStore(featureFlagsSelectors);
   const [isLogin, isLoginWithAuth] = useUserStore((s) => [
@@ -57,6 +30,7 @@ export const useMenu = () => {
   const { userPanel } = useNavLayout();
   const businessMenuItems = useBusinessMenuItems(isLogin);
   const { isIOS, isAndroid } = usePlatform();
+  const desktopAppDisabled = isProductFeatureDisabled('desktopApp');
 
   const downloadUrl = useMemo(() => {
     if (isIOS) return DOWNLOAD_URL.ios;
@@ -73,11 +47,7 @@ export const useMenu = () => {
       ) : undefined,
       icon: <Icon icon={Settings2} />,
       key: 'setting',
-      label: (
-        <WorkspaceLink to="/settings">
-          <NewVersionBadge showBadge={hasNewVersion}>{t('userPanel.setting')}</NewVersionBadge>
-        </WorkspaceLink>
-      ),
+      label: <WorkspaceLink to="/settings">{t('userPanel.setting')}</WorkspaceLink>,
     },
     ...(userPanel.showMemory
       ? [
@@ -92,9 +62,24 @@ export const useMenu = () => {
 
   const getDesktopApp: MenuProps['items'] = [
     {
+      disabled: desktopAppDisabled,
       icon: <Icon icon={Download} />,
       key: 'get-desktop-app',
-      label: (
+      label: desktopAppDisabled ? (
+        <span style={{ alignItems: 'center', display: 'flex', gap: 12, width: '100%' }}>
+          <span>{t('getDesktopApp')}</span>
+          <span
+            style={{
+              fontSize: 12,
+              marginInlineStart: 'auto',
+              opacity: 0.62,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t('productFeatures.disabled')}
+          </span>
+        </span>
+      ) : (
         <a href={downloadUrl} rel="noopener noreferrer" target="_blank">
           {t('getDesktopApp')}
         </a>

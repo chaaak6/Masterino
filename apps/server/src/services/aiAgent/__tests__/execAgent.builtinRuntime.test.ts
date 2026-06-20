@@ -533,7 +533,7 @@ describe('AiAgentService.execAgent - builtin agent runtime config', () => {
       topicId: 'topic-1',
     });
     expect(callArgs.initialContext.initialContext.taskManager.contextPrompt).toContain(
-      'Default Lobe AI agent id: agt_inbox',
+      'Default MasterLion agent id: agt_inbox',
     );
   });
 

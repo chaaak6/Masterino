@@ -20,6 +20,7 @@ export interface NewApiReadSource {
   ): Promise<NewApiPage<NewApiLogItem>>;
   isEnabled(): boolean;
   listAccessibleModels(group?: string, token?: NewApiToken): Promise<string[]>;
+  listManagedTokens(userId: number, tokenName: string): Promise<NewApiToken[]>;
 }
 
 export const getNewApiDataSource = () => (process.env.AIHUB_DATA_SOURCE || 'hybrid').toLowerCase();

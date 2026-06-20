@@ -567,7 +567,7 @@ describe('MessengerRouter member_joined_channel welcome', () => {
     expect(mockSetIfNotExists).toHaveBeenCalledWith('channel_welcomed:C_GENERAL', '1');
     expect(mockSlackBinder.sendDmText).toHaveBeenCalledTimes(1);
     expect(mockSlackBinder.sendDmText.mock.calls[0][0]).toBe('C_GENERAL');
-    expect(mockSlackBinder.sendDmText.mock.calls[0][1]).toMatch(/LobeHub/);
+    expect(mockSlackBinder.sendDmText.mock.calls[0][1]).toMatch(/MasterLion/);
   });
 
   it('does nothing when a regular user (not the bot) joins the channel', async () => {

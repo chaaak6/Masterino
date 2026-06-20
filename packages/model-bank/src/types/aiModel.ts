@@ -490,6 +490,7 @@ export interface AiProviderModelListItem {
   knowledgeCutoff?: string;
   parameters?: ModelParamsSchema;
   pricing?: Pricing;
+  providerId?: string;
   releasedAt?: string;
   settings?: AiModelSettings;
   source?: AiModelSourceType;
@@ -573,6 +574,7 @@ export interface EnabledAiModel {
   providerId: string;
   releasedAt?: string;
   settings?: AiModelSettings;
+  source?: AiModelSourceType;
   sort?: number;
   type: AiModelType;
   visible?: boolean;

@@ -70,11 +70,16 @@ import {
   type MessageToolCall,
   type UIChatMessage,
 } from '@lobechat/types';
-import { sanitizeToolCallArguments, serializePartsForStorage } from '@lobechat/utils';
+import {
+  isLocalOrPrivateUrl,
+  sanitizeToolCallArguments,
+  serializePartsForStorage,
+} from '@lobechat/utils';
 import debug from 'debug';
 import type { ExtendParamsType } from 'model-bank';
 
 import { composioEnv } from '@/config/composio';
+import { FileModel } from '@/database/models/file';
 import { type MessageModel, MessageModel as MessageModelClass } from '@/database/models/message';
 import { TopicModel } from '@/database/models/topic';
 import { UserModel } from '@/database/models/user';
@@ -332,6 +337,120 @@ const buildPostProcessUrl = (
   }
   return (path: string | null, file: { id?: string | null }) =>
     fileService!.getFileAccessUrl({ id: file.id, url: path });
+};
+
+const extractFileProxyId = (url?: string | null) => {
+  if (!url) return undefined;
+
+  try {
+    const { pathname } = new URL(url);
+    return pathname.startsWith('/f/') ? decodeURIComponent(pathname.slice(3)) : undefined;
+  } catch {
+    return url.startsWith('/f/') ? decodeURIComponent(url.slice(3)) : undefined;
+  }
+};
+
+const shouldInlineProviderImageUrl = (url?: string | null) => {
+  if (!url || url.startsWith('data:')) return false;
+
+  return !!extractFileProxyId(url) || isLocalOrPrivateUrl(url);
+};
+
+const buildProviderImageDataUrlResolver = (
+  ctx: Pick<RuntimeExecutorContext, 'serverDB' | 'userId' | 'workspaceId'>,
+  workspaceId?: string,
+) => {
+  if (!ctx.userId || !ctx.serverDB) return undefined;
+
+  let fileModel: FileModel;
+  let fileService: FileService;
+  try {
+    fileModel = new FileModel(ctx.serverDB, ctx.userId, workspaceId ?? ctx.workspaceId);
+    fileService = new FileService(ctx.serverDB, ctx.userId, workspaceId ?? ctx.workspaceId);
+  } catch {
+    return undefined;
+  }
+
+  const cache = new Map<string, Promise<string | undefined>>();
+
+  return (fileId: string) => {
+    if (!cache.has(fileId)) {
+      cache.set(
+        fileId,
+        (async () => {
+          const file = await fileModel.findById(fileId);
+          if (!file?.url || !file.fileType?.startsWith('image')) return undefined;
+
+          const bytes = await fileService.getFileByteArray(file.url);
+          return `data:${file.fileType};base64,${Buffer.from(bytes).toString('base64')}`;
+        })().catch((error) => {
+          log('Failed to inline image attachment %s for provider payload: %O', fileId, error);
+          return undefined;
+        }),
+      );
+    }
+
+    return cache.get(fileId)!;
+  };
+};
+
+const buildProviderImageFileIdLookup = (messages: UIChatMessage[]) => {
+  const lookup = new Map<string, string>();
+
+  for (const message of messages) {
+    for (const image of message.imageList ?? []) {
+      const fileId = extractFileProxyId(image.url) || image.id;
+      if (fileId && image.url) lookup.set(image.url, fileId);
+    }
+  }
+
+  return lookup;
+};
+
+const inlineProviderImageContentParts = async (
+  messages: ChatStreamPayload['messages'],
+  sourceMessages: UIChatMessage[],
+  resolveImageDataUrl?: (fileId: string) => Promise<string | undefined>,
+) => {
+  if (!resolveImageDataUrl) return messages;
+
+  let changed = false;
+  const forceImageBase64 = process.env.LLM_VISION_IMAGE_USE_BASE64 === '1';
+  const imageFileIdLookup = buildProviderImageFileIdLookup(sourceMessages);
+
+  const nextMessages = await Promise.all(
+    messages.map(async (message) => {
+      if (!Array.isArray(message.content)) return message;
+
+      let messageChanged = false;
+      const content = await Promise.all(
+        message.content.map(async (part: any) => {
+          if (part?.type !== 'image_url') return part;
+
+          const url = part.image_url?.url;
+          if (!url || url.startsWith('data:')) return part;
+
+          const fileId = extractFileProxyId(url) || imageFileIdLookup.get(url);
+          if (!fileId) return part;
+
+          if (!forceImageBase64 && !shouldInlineProviderImageUrl(url)) return part;
+
+          const dataUrl = await resolveImageDataUrl(fileId);
+          if (!dataUrl) return part;
+
+          messageChanged = true;
+          return { ...part, image_url: { ...part.image_url, url: dataUrl } };
+        }),
+      );
+
+      if (!messageChanged) return message;
+
+      changed = true;
+      return { ...message, content };
+    }),
+  );
+
+  return changed ? nextMessages : messages;
 };
 
 /**
@@ -880,6 +999,7 @@ export const createRuntimeExecutors = (
       let shouldReplayAssistantReasoning = false;
       let preserveThinkingForPayload: boolean | undefined;
       let resolvedExtendParams: ModelExtendParams | undefined;
+      let sourceMessagesForProviderImages = llmPayload.messages as UIChatMessage[];
 
       // Process messages through serverMessagesEngine to inject system role, knowledge, etc.
       // Rebuild params from agentConfig at execution time (capabilities built dynamically)
@@ -952,9 +1072,11 @@ export const createRuntimeExecutors = (
           });
         }
 
-        const messagesForContext = shouldReplayAssistantReasoning
+        const rawMessagesForContext = shouldReplayAssistantReasoning
           ? (llmPayload.messages as UIChatMessage[])
           : stripAssistantReasoningForReplay(llmPayload.messages as UIChatMessage[]);
+        const messagesForContext = rawMessagesForContext;
+        sourceMessagesForProviderImages = messagesForContext;
 
         // Extract <refer_topic> tags from messages and fetch summaries.
         // Skip if messages already contain injected topic_reference_context
@@ -1388,8 +1510,13 @@ export const createRuntimeExecutors = (
 
       // Construct ChatStreamPayload
       const stream = ctx.stream ?? true;
+      const providerMessages = await inlineProviderImageContentParts(
+        processedMessages,
+        sourceMessagesForProviderImages,
+        buildProviderImageDataUrlResolver(ctx, state.metadata?.workspaceId),
+      );
       const chatPayload = {
-        messages: processedMessages,
+        messages: providerMessages,
         model,
         stream,
         tools,

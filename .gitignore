@@ -141,7 +141,14 @@ scripts/clerk-to-betterauth/prod/*.json
 ./packages/lobe-ui
 *.ppt*
 *.doc*
+!.dockerignore
 *.xls*
+!packages/file-loaders/src/loaders/**/fixtures/*.doc
+!packages/file-loaders/src/loaders/**/fixtures/*.docx
+!packages/file-loaders/src/loaders/**/fixtures/*.pdf
+!packages/file-loaders/src/loaders/**/fixtures/*.pptx
+!packages/file-loaders/src/loaders/**/fixtures/*.xlsx
+!packages/file-loaders/test/fixtures/*.pdf
 e2e/reports
 out
 i18n-unused-keys-report.json

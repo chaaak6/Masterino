@@ -75,4 +75,20 @@ describe('settings useCategory', () => {
 
     expect(keys).not.toContain(SettingsTabs.Provider);
   });
+
+  it('hides non-core settings while the product is converged to chat', () => {
+    const keys = getItemKeys();
+
+    expect(keys).toContain(SettingsTabs.Profile);
+    expect(keys).toContain(SettingsTabs.Appearance);
+    expect(keys).toContain(SettingsTabs.Provider);
+    expect(keys).toContain(SettingsTabs.ServiceModel);
+    expect(keys).not.toContain(SettingsTabs.Devices);
+    expect(keys).not.toContain(SettingsTabs.Skill);
+    expect(keys).not.toContain(SettingsTabs.Memory);
+    expect(keys).not.toContain(SettingsTabs.Creds);
+    expect(keys).not.toContain(SettingsTabs.Messenger);
+    expect(keys).not.toContain(SettingsTabs.Storage);
+    expect(keys).not.toContain(SettingsTabs.Advanced);
+  });
 });

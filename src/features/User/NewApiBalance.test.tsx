@@ -84,7 +84,7 @@ describe('NewApiBalance', () => {
     expect(screen.getByText('¥0.14')).toHaveClass('value');
     expect(screen.getByText('¥0.02')).toHaveClass('value');
     expect(screen.getByText('11')).toHaveClass('value');
-    expect(screen.queryByText(/宸|鏈|鐢|浣|楼/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/[宸鏈鐢浣楼]/)).not.toBeInTheDocument();
     expect(mocks.useAccountSummary).toHaveBeenCalledWith(true);
   });
 

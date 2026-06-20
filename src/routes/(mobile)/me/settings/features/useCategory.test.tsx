@@ -86,4 +86,22 @@ describe('mobile settings useCategory', () => {
 
     expect(keys).not.toContain(SettingsTabs.Provider);
   });
+
+  it('hides non-core mobile settings while the product is converged to chat', () => {
+    const { result } = renderHook(() => useCategory(), {
+      wrapper: createWrapper(true),
+    });
+
+    const keys = result.current.flatMap((group) => group.items.map((item) => item.key));
+
+    expect(keys).toContain(SettingsTabs.Profile);
+    expect(keys).toContain(SettingsTabs.Appearance);
+    expect(keys).toContain(SettingsTabs.Provider);
+    expect(keys).toContain(SettingsTabs.ServiceModel);
+    expect(keys).not.toContain(SettingsTabs.Skill);
+    expect(keys).not.toContain(SettingsTabs.Memory);
+    expect(keys).not.toContain(SettingsTabs.Creds);
+    expect(keys).not.toContain(SettingsTabs.Storage);
+    expect(keys).not.toContain(SettingsTabs.Advanced);
+  });
 });

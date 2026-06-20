@@ -1,3 +1,4 @@
+import { BRANDING_PROVIDER } from '@lobechat/business-const';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AsyncTaskModel } from '@/database/models/asyncTask';
@@ -181,7 +182,7 @@ describe('videoRouter', () => {
       expect(mockAfter).not.toHaveBeenCalled();
     });
 
-    it('should validate mapped model id before rejecting deprecated lobehub video models', async () => {
+    it('should validate mapped model id before rejecting deprecated branded video models', async () => {
       setupMocks();
       mockResolveBusinessModelMapping.mockResolvedValue({
         requestedModelId: 'onboarding-video',
@@ -193,11 +194,14 @@ describe('videoRouter', () => {
       const result = await caller.createVideo({
         ...defaultInput,
         model: 'onboarding-video',
-        provider: 'lobehub',
+        provider: BRANDING_PROVIDER,
       });
 
       expect(result.success).toBe(true);
-      expect(mockResolveBusinessModelMapping).toHaveBeenCalledWith('lobehub', 'onboarding-video');
+      expect(mockResolveBusinessModelMapping).toHaveBeenCalledWith(
+        BRANDING_PROVIDER,
+        'onboarding-video',
+      );
       expect(mockIsLobeHubModelAvailable).toHaveBeenCalledWith(
         'dreamina-seedance-2-0-260128',
         'video',
@@ -213,7 +217,7 @@ describe('videoRouter', () => {
       );
     });
 
-    it('should reject unavailable lobehub video models before creating async tasks', async () => {
+    it('should reject unavailable branded video models before creating async tasks', async () => {
       setupMocks();
       mockIsLobeHubModelAvailable.mockResolvedValue(false);
 
@@ -223,7 +227,7 @@ describe('videoRouter', () => {
         caller.createVideo({
           ...defaultInput,
           model: 'restricted-video-model',
-          provider: 'lobehub',
+          provider: BRANDING_PROVIDER,
         }),
       ).rejects.toMatchObject({
         code: 'BAD_REQUEST',

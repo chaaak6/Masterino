@@ -1,11 +1,35 @@
 import { analyticsEnv } from '@/envs/analytics';
+import { getRequestOrigin } from '@/libs/url/requestOrigin';
 import { serializeForHtml } from '@/server/utils/serializeForHtml';
 import { type AnalyticsConfig } from '@/types/spaServerConfig';
 
-export const VITE_DEV_ORIGIN = 'http://localhost:9876';
+export const VITE_DEV_ORIGIN = process.env.VITE_DEV_ORIGIN || 'http://localhost:9876';
+const VITE_DEV_INTERNAL_ORIGIN = process.env.VITE_DEV_INTERNAL_ORIGIN || 'http://localhost:9876';
+const VITE_DEV_PORT = process.env.VITE_DEV_PORT || '9876';
+const VITE_DEV_PUBLIC_SAME_ORIGIN = process.env.VITE_DEV_PUBLIC_SAME_ORIGIN === '1';
 
 const SERVER_CONFIG_PLACEHOLDER =
   /window\.__SERVER_CONFIG__\s*=\s*undefined;\s*\/\*\s*SERVER_CONFIG\s*\*\//;
+const DEV_SERVICE_WORKER_CLEANUP_MARKER = 'masterlion-dev-service-worker-cleanup';
+const DEV_SERVICE_WORKER_CLEANUP_SCRIPT = `<script id="${DEV_SERVICE_WORKER_CLEANUP_MARKER}">
+(function(){
+if(!('serviceWorker' in navigator))return;
+var reloadKey='__masterlion_dev_sw_cleanup_reloaded__';
+Promise.all([
+  navigator.serviceWorker.getRegistrations().then(function(registrations){
+    return Promise.all(registrations.map(function(registration){return registration.unregister()}));
+  }),
+  'caches' in window ? caches.keys().then(function(keys){
+    return Promise.all(keys.map(function(key){return caches.delete(key)}));
+  }) : Promise.resolve()
+]).then(function(){
+  if(navigator.serviceWorker.controller&&!sessionStorage.getItem(reloadKey)){
+    sessionStorage.setItem(reloadKey,'1');
+    location.reload();
+  }
+}).catch(function(){});
+})();
+</script>`;
 
 async function rewriteViteAssetUrls(html: string, origin = VITE_DEV_ORIGIN): Promise<string> {
   const { parseHTML } = await import('linkedom');
@@ -57,11 +81,28 @@ globalThis.Worker.prototype=O.prototype;
 export async function fetchViteDevTemplate(
   pathname = '/',
   origin = VITE_DEV_ORIGIN,
+  fetchOrigin = VITE_DEV_INTERNAL_ORIGIN,
 ): Promise<string> {
-  const res = await fetch(`${origin}${pathname}`);
+  const res = await fetch(`${fetchOrigin}${pathname}`);
   const html = await res.text();
 
   return rewriteViteAssetUrls(html, origin);
+}
+
+export function getViteDevOrigin(request?: Request): string {
+  if (process.env.VITE_DEV_ORIGIN) return process.env.VITE_DEV_ORIGIN;
+  if (!request) return VITE_DEV_ORIGIN;
+
+  if (VITE_DEV_PUBLIC_SAME_ORIGIN) {
+    return getRequestOrigin(request, {
+      fallbackUrl: VITE_DEV_ORIGIN,
+    });
+  }
+
+  return getRequestOrigin(request, {
+    fallbackUrl: VITE_DEV_ORIGIN,
+    port: VITE_DEV_PORT,
+  });
 }
 
 export function buildAnalyticsConfig(options: { desktop?: boolean } = {}): AnalyticsConfig {
@@ -144,6 +185,9 @@ export function renderSpaHtml(
 
   html = html.replace('<!--SEO_META-->', options.seoMeta);
   html = html.replace('<!--ANALYTICS_SCRIPTS-->', '');
+  if (process.env.NODE_ENV === 'development' && !html.includes(DEV_SERVICE_WORKER_CLEANUP_MARKER)) {
+    html = html.replace('</head>', `${DEV_SERVICE_WORKER_CLEANUP_SCRIPT}</head>`);
+  }
 
   return new Response(html, {
     headers: {

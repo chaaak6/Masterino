@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { OPTIONS, PUT } from './route';
+
 const mocks = vi.hoisted(() => ({
   uploadBuffer: vi.fn(),
   verifyS3UploadProxySignature: vi.fn(),
@@ -13,8 +15,6 @@ vi.mock('@/server/modules/S3', () => ({
 vi.mock('@/server/services/file/uploadProxyToken', () => ({
   verifyS3UploadProxySignature: mocks.verifyS3UploadProxySignature,
 }));
-
-import { OPTIONS, PUT } from './route';
 
 describe('S3 upload proxy route', () => {
   beforeEach(() => {

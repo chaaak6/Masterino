@@ -1,4 +1,4 @@
-import type { AiProviderModelListItem } from 'model-bank';
+import { AiModelSourceEnum, type AiProviderModelListItem } from 'model-bank';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTestDB } from '../../../core/getTestDB';
@@ -813,6 +813,43 @@ describe('AiInfraRepos', () => {
       const custom = result.find((m) => m.id === 'my-custom-model');
       expect(custom).toBeDefined();
       expect(custom!.type).toBe('chat');
+    });
+
+    it('should use remote newapi models instead of builtin fallback models', async () => {
+      const providerId = 'newapi';
+      const userModels: AiProviderModelListItem[] = [
+        {
+          abilities: { functionCall: true },
+          enabled: true,
+          id: 'deepseek-v4-flash',
+          providerId,
+          source: AiModelSourceEnum.Remote,
+          type: 'chat',
+        },
+      ] as AiProviderModelListItem[];
+      const builtinModels: AiProviderModelListItem[] = [
+        {
+          enabled: true,
+          id: 'vip-only-model',
+          providerId,
+          source: AiModelSourceEnum.Builtin,
+          type: 'chat',
+        },
+      ] as AiProviderModelListItem[];
+
+      vi.spyOn(repo.aiModelModel, 'getModelListByProviderId').mockResolvedValue(userModels);
+      vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue(builtinModels);
+
+      const result = await repo.getAiProviderModelList(providerId);
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          abilities: { functionCall: true },
+          id: 'deepseek-v4-flash',
+          providerId,
+          source: AiModelSourceEnum.Remote,
+        }),
+      ]);
     });
   });
 });
