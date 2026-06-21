@@ -200,7 +200,7 @@ describe('aiModelSelectors', () => {
       expect(aiModelSelectors.isModelSupportToolUse('model4', 'provider2')(mockState)).toBe(false);
     });
 
-    it('should not rewrite Aihub GLM aliases when checking tool use support', () => {
+    it('should check Aihub GLM tool use support with the bare model id', () => {
       const state = {
         ...mockState,
         enabledAiModels: [
@@ -212,18 +212,18 @@ describe('aiModelSelectors', () => {
               search: true,
             },
             displayName: 'GLM-5.1',
-            id: 'glm5-5.1',
+            id: 'glm-5.1',
             providerId: 'newapi',
             type: 'chat' as const,
           },
         ],
       };
 
-      expect(aiModelSelectors.getEnabledModelById('glm5-5.1', 'newapi')(state)?.id).toBe(
-        'glm5-5.1',
+      expect(aiModelSelectors.getEnabledModelById('glm-5.1', 'newapi')(state)?.id).toBe(
+        'glm-5.1',
       );
-      expect(aiModelSelectors.getEnabledModelById('glm-5.1', 'newapi')(state)).toBeUndefined();
-      expect(aiModelSelectors.isModelSupportToolUse('glm5-5.1', 'newapi')(state)).toBe(true);
+      expect(aiModelSelectors.getEnabledModelById('glm5-5.1', 'newapi')(state)).toBeUndefined();
+      expect(aiModelSelectors.isModelSupportToolUse('glm-5.1', 'newapi')(state)).toBe(true);
     });
 
     it('should check vision support', () => {

@@ -16,7 +16,7 @@ vi.mock('@lobehub/ui', () => ({
 vi.mock('@lobehub/ui/base-ui', () => ({
   Select: (props: any) => {
     selectMock(props);
-    return <button onClick={() => props.onChange('newapi/glm5-5.1', { provider: 'newapi' })} />;
+    return <button onClick={() => props.onChange('newapi/glm-5.1', { provider: 'newapi' })} />;
   },
 }));
 
@@ -57,18 +57,18 @@ describe('ModelSelect', () => {
     const onChange = vi.fn();
 
     const { container } = render(
-      <ModelSelect value={{ model: 'glm5-5.1', provider: 'newapi' }} onChange={onChange} />,
+      <ModelSelect value={{ model: 'glm-5.1', provider: 'newapi' }} onChange={onChange} />,
     );
 
     expect(selectMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        defaultValue: 'newapi/glm5-5.1',
-        value: 'newapi/glm5-5.1',
+        defaultValue: 'newapi/glm-5.1',
+        value: 'newapi/glm-5.1',
       }),
     );
 
     container.querySelector('button')?.click();
 
-    expect(onChange).toHaveBeenCalledWith({ model: 'glm5-5.1', provider: 'newapi' });
+    expect(onChange).toHaveBeenCalledWith({ model: 'glm-5.1', provider: 'newapi' });
   });
 });
