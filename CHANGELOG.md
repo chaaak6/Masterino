@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 0.0.4](https://github.com/biel-cc/MasterLion/compare/v0.0.3...v0.0.4)
+
+<sup>Released on **2026-06-21**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: align mobile experience and branding.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: align mobile experience and branding ([818fae2](https://github.com/biel-cc/MasterLion/commit/818fae2))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.3](https://github.com/biel-cc/MasterLion/compare/v0.0.2...v0.0.3)
 
 <sup>Released on **2026-06-21**</sup>

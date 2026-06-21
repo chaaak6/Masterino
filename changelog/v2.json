@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "align mobile experience and branding."
+      ]
+    },
+    "date": "2026-06-21",
+    "version": "0.0.4"
+  },
+  {
+    "children": {
+      "fixes": [
         "localize SearXNG to Chinese search engines for GFW-blocked environments."
       ]
     },
