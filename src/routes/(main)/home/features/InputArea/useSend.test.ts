@@ -117,6 +117,8 @@ vi.mock('@/store/file', () => {
     fileChatSelectors: {
       chatContextSelections: (state: typeof fileState) => state.chatContextSelections,
       chatUploadFileList: (state: typeof fileState) => state.chatUploadFileList,
+      isUploadingFiles: (state: typeof fileState) =>
+        state.chatUploadFileList.some((file: any) => file.status === 'processing'),
     },
     useFileStore,
   };
@@ -140,6 +142,8 @@ describe('Home InputArea useSend', () => {
     homeDailyBriefState.advance.mockReset();
     homeDailyBriefState.currentPair = undefined;
     chatState.inputMessage = 'hello';
+    fileState.chatContextSelections = [];
+    fileState.chatUploadFileList = [];
   });
 
   it('routes cold homepage sends to the created topic instead of relying on ChatHydration timing', async () => {
@@ -200,5 +204,27 @@ describe('Home InputArea useSend', () => {
     expect(sentPayload.message).toBe('看下 Bug #14153 + #14112 Agent 手机端不同步/不显示');
     expect(sentPayload.editorData).toBeUndefined();
     expect(homeDailyBriefState.advance).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send while an uploaded file is still being analyzed', async () => {
+    fileState.chatUploadFileList = [
+      { id: 'file-processing', file: new File(['body'], 'doc.txt'), status: 'processing' },
+    ] as any;
+
+    const { result } = renderHook(() => useSend());
+    const params: Parameters<SendButtonHandler>[0] = {
+      clearContent: vi.fn(),
+      editor: {} as Parameters<SendButtonHandler>[0]['editor'],
+      getEditorData: () => undefined,
+      getMarkdownContent: () => 'summarize it',
+    };
+
+    await act(async () => {
+      await result.current.send(params);
+    });
+
+    expect(sendMessageMock).not.toHaveBeenCalled();
+    expect(clearChatUploadFileListMock).not.toHaveBeenCalled();
+    expect(clearChatContextSelectionsMock).not.toHaveBeenCalled();
   });
 });

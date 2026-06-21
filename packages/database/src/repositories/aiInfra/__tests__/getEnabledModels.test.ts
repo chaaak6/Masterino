@@ -247,6 +247,65 @@ describe('AiInfraRepos', () => {
       ]);
     });
 
+    it('should keep remote newapi models that share ids with builtin fallback models', async () => {
+      const mockProviders = [
+        { enabled: true, id: 'newapi', name: 'Aihub', source: 'builtin' as const },
+      ] as AiProviderListItem[];
+
+      const mockAllModels = [
+        {
+          abilities: { functionCall: true, reasoning: true, search: true },
+          displayName: 'GLM-5.1',
+          enabled: true,
+          id: 'glm-5.1',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Remote,
+          type: 'chat' as const,
+        },
+        {
+          abilities: { functionCall: true },
+          displayName: 'DeepSeek V4 Flash',
+          enabled: true,
+          id: 'deepseek-v4-flash',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Remote,
+          type: 'chat' as const,
+        },
+      ] as EnabledAiModel[];
+
+      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo.aiModelModel, 'getAllModels').mockResolvedValue(mockAllModels);
+      vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue([
+        {
+          abilities: { functionCall: true },
+          displayName: 'Builtin GLM-5.1',
+          enabled: true,
+          id: 'glm-5.1',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Builtin,
+          type: 'chat' as const,
+        },
+      ]);
+
+      const result = await repo.getEnabledModels();
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          abilities: { functionCall: true, reasoning: true, search: true },
+          displayName: 'GLM-5.1',
+          id: 'glm-5.1',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Remote,
+        }),
+        expect.objectContaining({
+          id: 'deepseek-v4-flash',
+          providerId: 'newapi',
+          source: AiModelSourceEnum.Remote,
+        }),
+      ]);
+      expect(result.filter((model) => model.id === 'glm-5.1')).toHaveLength(1);
+    });
+
     it('should allow search=true and add searchImpl=params when user enables it without providing settings (builtin has no search and no settings)', async () => {
       const mockProviders = [
         { enabled: true, id: 'openai', name: 'OpenAI', source: 'builtin' as const },

@@ -31,4 +31,16 @@ describe('MasterLion loading assets', () => {
 
     expect(new Set(getDurations(decodedSvg))).toEqual(new Set([loadingDuration]));
   });
+
+  it('renders the app loading wordmark large enough for the home screen', () => {
+    const css = readAsset('src/components/Loading/BrandTextLoading/index.module.css');
+
+    expect(css).toContain('width: min(320px, 72vw);');
+  });
+
+  it('renders the fullscreen loading wordmark at the same size as app loading', () => {
+    const source = readAsset('src/components/Loading/FullscreenLoading/index.tsx');
+
+    expect(source).toContain("width: 'min(320px, 72vw)'");
+  });
 });

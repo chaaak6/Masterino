@@ -51,6 +51,14 @@ const createViteDevProxyRewrites = (): Rewrite[] => {
       source: '/packages/:path*',
     },
     {
+      destination: `${viteOrigin}/apps/:path*`,
+      source: '/apps/:path*',
+    },
+    {
+      destination: `${viteOrigin}/locales/:path*`,
+      source: '/locales/:path*',
+    },
+    {
       destination: `${viteOrigin}/src/:path*`,
       source: '/src/:path*',
     },

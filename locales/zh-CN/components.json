@@ -67,7 +67,7 @@
   "FileManager.view.masonry": "网格视图",
   "FileParsingStatus.chunks.embeddingStatus.empty": "文本块尚未完全向量化，语义检索将不可用。你可以先完成向量化，再开始检索或对话",
   "FileParsingStatus.chunks.embeddingStatus.error": "向量化失败",
-  "FileParsingStatus.chunks.embeddingStatus.errorResult": "向量化失败，请检查后重试。失败原因：",
+  "FileParsingStatus.chunks.embeddingStatus.errorResult": "文件已上传并完成分块，但向量化失败。这不是对象存储上传失败。失败原因：",
   "FileParsingStatus.chunks.embeddingStatus.processing": "文本块正在向量化，请稍等",
   "FileParsingStatus.chunks.embeddingStatus.success": "当前文本块均已向量化",
   "FileParsingStatus.chunks.embeddings": "向量化",

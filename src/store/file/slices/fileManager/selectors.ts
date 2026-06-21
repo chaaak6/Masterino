@@ -19,6 +19,12 @@ const overviewUploadingStatus = (s: FilesStoreState): FileUploadStatus => {
   if (s.dockUploadFileList.some((file) => uploadStatusArray.has(file.status))) {
     return 'uploading';
   }
+  if (s.dockUploadFileList.some((file) => file.status === 'error')) {
+    return 'error';
+  }
+  if (s.dockUploadFileList.every((file) => file.status === 'cancelled')) {
+    return 'cancelled';
+  }
 
   return 'success';
 };

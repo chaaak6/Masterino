@@ -36,7 +36,11 @@ export const useBuildListItems = (
         for (const modelItem of providerItem.children) {
           const displayName = modelItem.displayName || modelItem.id;
 
-          if (!matchesSearch(displayName) && !matchesSearch(providerItem.name)) {
+          if (
+            !matchesSearch(displayName) &&
+            !matchesSearch(modelItem.id) &&
+            !matchesSearch(providerItem.name)
+          ) {
             continue;
           }
 
@@ -84,6 +88,7 @@ export const useBuildListItems = (
         const filteredModels = providerItem.children.filter(
           (modelItem) =>
             matchesSearch(modelItem.displayName || modelItem.id) ||
+            matchesSearch(modelItem.id) ||
             matchesSearch(providerItem.name),
         );
 

@@ -226,11 +226,56 @@ export class FileActionImpl {
       // image don't need to be chunked and embedding
       if (isChunkingUnsupported(file.type)) return;
 
+      const updateUploadedFile = (value: Partial<UploadFileItem>) => {
+        dispatchChatUploadFileList({
+          id: fileResult.id,
+          type: 'updateFile',
+          value,
+        });
+
+        if (fileResult.id !== file.name) {
+          dispatchChatUploadFileList({
+            id: file.name,
+            type: 'updateFile',
+            value,
+          });
+        }
+      };
+
+      updateUploadedFile({
+        errorReason: undefined,
+        fileUrl: fileResult.url,
+        id: fileResult.id,
+        processStage: 'content_parsing',
+        status: 'processing',
+      });
+
       try {
         await ragService.parseFileContent(fileResult.id);
+
+        updateUploadedFile({
+          errorReason: undefined,
+          processStage: 'ready_for_chat',
+          status: 'success',
+        });
       } catch (error) {
+        updateUploadedFile({
+          diagnostic: {
+            fileId: fileResult.id,
+            message: getErrorMessage(error),
+            name: error instanceof Error ? error.name : undefined,
+            stage: 'content_parse_failed',
+          },
+          errorReason: getErrorMessage(error),
+          processStage: 'content_parse_failed',
+          status: 'error',
+        });
+        notification.warning({
+          description: t('upload.parseFailedDesc', { filename: file.name, ns: 'chat' }),
+          message: t('upload.parseFailed', { ns: 'chat' }),
+        });
         console.warn(
-          '[uploadChatFiles] File was uploaded, but background parsing or embedding failed. The current chat can still use the attachment fallback.',
+          '[uploadChatFiles] File was uploaded, but content parsing failed. This is not an object storage upload failure.',
           error,
         );
       }

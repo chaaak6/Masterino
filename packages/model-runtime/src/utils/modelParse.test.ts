@@ -133,6 +133,16 @@ vi.mock('model-bank', () => ({
       settings: { extendParams: ['enableReasoning'], searchImpl: 'params' },
     },
   ],
+  newapi: [
+    {
+      id: 'glm-5.1',
+      displayName: 'GLM-5.1',
+      abilities: { search: true, functionCall: true, reasoning: true },
+      enabled: true,
+      settings: { extendParams: ['enableReasoning'], searchImpl: 'params' },
+      type: 'chat',
+    },
+  ],
 }));
 
 vi.mock('@lobechat/business-model-bank/model-config', () => ({
@@ -1005,18 +1015,46 @@ describe('modelParse', () => {
         }
       });
 
-      it('should infer GLM tool capabilities for Aihub/NewAPI model aliases without hyphens', async () => {
+      it('should keep Aihub/NewAPI model ids without provider-specific GLM canonicalization', async () => {
         const out = await processMultiProviderModelList([{ id: 'glm5.1' }], 'newapi');
 
         expect(out).toHaveLength(1);
         expect(out[0]).toMatchObject({
-          displayName: 'GLM-5.1',
-          functionCall: true,
+          displayName: 'glm5.1',
           id: 'glm5.1',
-          reasoning: true,
-          search: true,
-          settings: { extendParams: ['enableReasoning'], searchImpl: 'params' },
+          type: 'chat',
         });
+        expect(out[0].functionCall).toBe(false);
+        expect(out[0].reasoning).toBe(false);
+        expect(out[0].search).toBe(false);
+      });
+
+      it('should keep Aihub GLM aliases enabled when their casing differs from the local default', async () => {
+        const out = await processMultiProviderModelList([{ id: 'GLM-5.1' }], 'newapi');
+
+        expect(out).toHaveLength(1);
+        expect(out[0]).toMatchObject({
+          enabled: true,
+          functionCall: true,
+          id: 'GLM-5.1',
+          reasoning: true,
+          type: 'chat',
+        });
+      });
+
+      it('should preserve Aihub GLM aliases that include an extra GLM family separator', async () => {
+        const out = await processMultiProviderModelList([{ id: 'glm5-5.1' }], 'newapi');
+
+        expect(out).toHaveLength(1);
+        expect(out[0]).toMatchObject({
+          displayName: 'glm5-5.1',
+          enabled: false,
+          id: 'glm5-5.1',
+          type: 'chat',
+        });
+        expect(out[0].functionCall).toBe(false);
+        expect(out[0].reasoning).toBe(false);
+        expect(out[0].search).toBe(false);
       });
 
       it('should correctly handle models with excluded keywords in different providers', async () => {

@@ -240,14 +240,21 @@ export class AiInfraRepos {
     );
 
     const builtinModels = builtinModelList.flat();
-    const builtinModelKeys = new Set(builtinModels.map((item) => `${item.providerId}:${item.id}`));
     const hasBrandingRemoteModels = allModels.some(
       (item) => item.providerId === BRANDING_PROVIDER && item.source === AiModelSourceEnum.Remote,
+    );
+    const visibleBuiltinModels = hasBrandingRemoteModels
+      ? builtinModels.filter((item) => item.providerId !== BRANDING_PROVIDER)
+      : builtinModels;
+    const visibleBuiltinModelKeys = new Set(
+      visibleBuiltinModels.map((item) => `${item.providerId}:${item.id}`),
     );
 
     const enabledProviderIds = new Set(enabledProviders.map((item) => item.id));
     // User database models, check search settings
-    // Exclude models already handled in builtinModelList to avoid duplicates
+    // Exclude models already handled in the visible builtin list to avoid duplicates.
+    // Branding provider builtin fallback models are hidden when Aihub remote models exist, so
+    // they must not suppress same-id remote models such as glm-5.1.
     const appendedUserModels = allModels
       .filter((item) => {
         if (
@@ -255,14 +262,10 @@ export class AiInfraRepos {
           item.source !== AiModelSourceEnum.Remote
         )
           return false;
-        if (builtinModelKeys.has(`${item.providerId}:${item.id}`)) return false;
+        if (visibleBuiltinModelKeys.has(`${item.providerId}:${item.id}`)) return false;
         return filterEnabled ? enabledProviderIds.has(item.providerId) && item.enabled : true;
       })
       .map((item) => injectSearchSettings(item.providerId, item));
-
-    const visibleBuiltinModels = hasBrandingRemoteModels
-      ? builtinModels.filter((item) => item.providerId !== BRANDING_PROVIDER)
-      : builtinModels;
 
     return [...visibleBuiltinModels, ...appendedUserModels].sort(
       (a, b) => (a?.sort ?? Infinity) - (b?.sort ?? Infinity),

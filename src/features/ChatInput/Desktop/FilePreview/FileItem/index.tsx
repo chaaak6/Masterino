@@ -47,7 +47,7 @@ const styles = createStaticStyles(({ css }) => ({
 type FileItemProps = UploadFileItem;
 
 const FileItem = memo<FileItemProps>((props) => {
-  const { file, uploadState, status, id, tasks } = props;
+  const { file, uploadState, status, id, tasks, processStage, errorReason } = props;
   const { t } = useTranslation(['chat', 'common']);
   const [removeChatUploadFile] = useFileStore((s) => [s.removeChatUploadFile]);
 
@@ -65,7 +65,14 @@ const FileItem = memo<FileItemProps>((props) => {
         >
           {file.name}
         </Text>
-        <UploadDetail size={file.size} status={status} tasks={tasks} uploadState={uploadState} />
+        <UploadDetail
+          errorReason={errorReason}
+          processStage={processStage}
+          size={file.size}
+          status={status}
+          tasks={tasks}
+          uploadState={uploadState}
+        />
       </Flexbox>
       <Flexbox className={styles.actions}>
         <ActionIcon

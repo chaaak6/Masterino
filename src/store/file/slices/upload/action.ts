@@ -8,7 +8,8 @@ import { message } from '@/components/AntdStaticMethods';
 import { fileService } from '@/services/file';
 import { uploadService } from '@/services/upload';
 import { type StoreSetter } from '@/store/types';
-import { type FileMetadata, type UploadFileItem } from '@/types/files';
+import { type FileMetadata, type FileUploadDiagnostic, type UploadFileItem } from '@/types/files';
+import { type FileUploadProcessStage } from '@/types/files/upload';
 import { getImageDimensions } from '@/utils/client/imageDimensions';
 
 import { type FileStore } from '../../store';
@@ -72,6 +73,47 @@ const normalizeUploadedImageFileType = async (
 
 type Setter = StoreSetter<FileStore>;
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+
+  return String(error);
+};
+
+const getFailedStage = (stage: FileUploadProcessStage): FileUploadProcessStage => {
+  if (stage === 'storage_uploading') return 'storage_upload_failed';
+
+  return 'file_record_failed';
+};
+
+const getFailureDiagnostic = (
+  error: unknown,
+  stage: FileUploadProcessStage,
+): FileUploadDiagnostic => ({
+  message: getErrorMessage(error),
+  name: error instanceof Error ? error.name : undefined,
+  stage,
+  status:
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    typeof (error as { status?: unknown }).status === 'number'
+      ? (error as { status: number }).status
+      : undefined,
+  url:
+    typeof error === 'object' &&
+    error !== null &&
+    'url' in error &&
+    typeof (error as { url?: unknown }).url === 'string'
+      ? (error as { url: string }).url
+      : undefined,
+});
+
 export const createFileUploadSlice = (set: Setter, get: () => FileStore, _api?: unknown) =>
   new FileUploadActionImpl(set, get, _api);
 
@@ -118,6 +160,7 @@ export class FileUploadActionImpl {
     abortController,
   }: UploadWithProgressParams): Promise<UploadWithProgressResult | undefined> => {
     const statusId = uploadId ?? file.name;
+    let processStage: FileUploadProcessStage = 'pending';
 
     try {
       const fileArrayBuffer = await file.arrayBuffer();
@@ -134,15 +177,21 @@ export class FileUploadActionImpl {
 
       // 3. if file exist, just skip upload
       if (checkStatus.isExist) {
+        processStage = 'file_record_creating';
         metadata = checkStatus.metadata as FileMetadata;
         onStatusUpdate?.({
           id: statusId,
           type: 'updateFile',
-          value: { status: 'processing', uploadState: { progress: 100, restTime: 0, speed: 0 } },
+          value: {
+            processStage,
+            status: 'processing',
+            uploadState: { progress: 100, restTime: 0, speed: 0 },
+          },
         });
       }
       // 3. if file don't exist, need upload files
       else {
+        processStage = 'storage_uploading';
         const { data, success } = await uploadService.uploadFileToS3(normalizedFile, {
           abortController,
           onNotSupported: () => {
@@ -157,10 +206,12 @@ export class FileUploadActionImpl {
             });
           },
           onProgress: (status, upload) => {
+            processStage = status === 'success' ? 'file_record_creating' : 'storage_uploading';
             onStatusUpdate?.({
               id: statusId,
               type: 'updateFile',
               value: {
+                processStage,
                 status: status === 'success' ? 'processing' : status,
                 uploadState: upload,
               },
@@ -184,6 +235,7 @@ export class FileUploadActionImpl {
       }
 
       // 5. create file to db
+      processStage = 'file_record_creating';
       const data = await fileService.createFile(
         {
           fileType,
@@ -198,12 +250,15 @@ export class FileUploadActionImpl {
         knowledgeBaseId,
       );
 
+      processStage = 'file_record_created';
       onStatusUpdate?.({
         id: statusId,
         type: 'updateFile',
         value: {
+          errorReason: undefined,
           fileUrl: data.url,
           id: data.id,
+          processStage,
           status: 'success',
           uploadState: { progress: 100, restTime: 0, speed: 0 },
         },
@@ -211,10 +266,17 @@ export class FileUploadActionImpl {
 
       return { ...data, dimensions, filename: normalizedFile.name };
     } catch (error) {
+      const failedStage = getFailedStage(processStage);
+
       onStatusUpdate?.({
         id: statusId,
         type: 'updateFile',
-        value: { status: 'error' },
+        value: {
+          diagnostic: getFailureDiagnostic(error, failedStage),
+          errorReason: getErrorMessage(error),
+          processStage: failedStage,
+          status: 'error',
+        },
       });
 
       if (

@@ -10,6 +10,7 @@ describe('SPA boot loading template', () => {
     const html = readFileSync(resolve(root, 'index.html'), 'utf8');
 
     expect(html).toContain('/brand/masterlion/loading-masterlion-zh.svg');
+    expect(html).toContain('width: min(320px, 72vw);');
     expect(html).not.toContain('<title>LobeHub</title>');
     expect(html).not.toContain('viewBox="0 0 940 320"');
   });

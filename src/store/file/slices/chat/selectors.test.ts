@@ -90,6 +90,16 @@ describe('fileChatSelectors', () => {
       expect(fileChatSelectors.isUploadingFiles(state)).toBe(true);
     });
 
+    it('should return true if any file analysis failed and needs user recovery', () => {
+      const state = {
+        chatUploadFileList: [
+          { status: 'error' },
+          { status: 'success', tasks: { finishEmbedding: true } },
+        ] as UploadFileItem[],
+      } as FilesStoreState;
+      expect(fileChatSelectors.isUploadingFiles(state)).toBe(true);
+    });
+
     it('should return false if no files are uploading or have unfinished tasks', () => {
       const state: FilesStoreState = {
         chatUploadFileList: [

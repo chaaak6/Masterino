@@ -22,7 +22,10 @@ export const usePanelHandlers = ({
       setTimeout(() => {
         if (!canCreateContent) return;
 
-        const params = { model: modelId, provider: providerId };
+        const params = {
+          model: modelId,
+          provider: providerId,
+        };
         if (onModelChangeProp) {
           onModelChangeProp(params);
         } else {

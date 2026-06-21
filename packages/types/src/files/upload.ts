@@ -22,6 +22,32 @@ export type FileUploadStatus =
   | 'error'
   | 'cancelled';
 
+export type FileUploadProcessStage =
+  | 'pending'
+  | 'storage_uploading'
+  | 'storage_upload_failed'
+  | 'file_record_creating'
+  | 'file_record_created'
+  | 'file_record_failed'
+  | 'content_parsing'
+  | 'content_parse_failed'
+  | 'chunking'
+  | 'chunk_failed'
+  | 'embedding'
+  | 'embedding_failed'
+  | 'ready_for_chat'
+  | 'ready_for_search';
+
+export interface FileUploadDiagnostic {
+  fileId?: string;
+  message?: string;
+  name?: string;
+  stage: FileUploadProcessStage;
+  status?: number;
+  taskId?: string;
+  url?: string;
+}
+
 export type FileProcessStatus = 'pending' | 'chunking' | 'embedding' | 'success' | 'error';
 
 export const UPLOAD_STATUS_SET = new Set(['uploading', 'pending', 'processing']);
@@ -36,6 +62,8 @@ export interface UploadFileItem {
    * base64 data, it will use in other data
    */
   base64Url?: string;
+  diagnostic?: FileUploadDiagnostic;
+  errorReason?: string;
   file: File;
   /**
    * the file url after upload,it will be s3 url
@@ -48,6 +76,7 @@ export interface UploadFileItem {
    * it will use in the file preview before send the message
    */
   previewUrl?: string;
+  processStage?: FileUploadProcessStage;
   status: FileUploadStatus;
   tasks?: FileParsingTask;
   uploadState?: FileUploadState;

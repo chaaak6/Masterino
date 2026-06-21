@@ -18,7 +18,7 @@ const FullscreenLoading = memo<FullscreenLoadingProps>(({ activeStage, stages, c
         <img
           alt={'小宗狮 loading'}
           src={'/brand/masterlion/loading-masterlion-zh.svg'}
-          style={{ display: 'block', height: 'auto', opacity: 0.76, width: 'min(220px, 56vw)' }}
+          style={{ display: 'block', height: 'auto', opacity: 0.76, width: 'min(320px, 72vw)' }}
         />
         {contentRender ? contentRender : <InitProgress activeStage={activeStage} stages={stages} />}
       </Center>

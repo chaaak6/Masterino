@@ -614,7 +614,8 @@ describe('NewApiService', () => {
     );
   });
 
-  it('uses compact GLM aliases as the Aihub default model when the canonical id is not present', async () => {
+  it('falls back when compact GLM aliases are present without the exact Aihub default model id', async () => {
+    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     mocks.bindingStore.set('current-user', {
       encryptedAccessToken: null,
       errorMessage: null,
@@ -649,7 +650,64 @@ describe('NewApiService', () => {
 
     const synced = await service.syncModels();
 
-    expect(synced.defaultModel).toBe('glm5.1');
+    expect(synced.defaultModel).toBe('gpt-4o-mini');
+  });
+
+  it('keeps separated compact GLM aliases as ordinary Aihub chat models', async () => {
+    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    mocks.bindingStore.set('current-user', {
+      encryptedAccessToken: null,
+      errorMessage: null,
+      lastSyncedAt: null,
+      managedTokenId: 44,
+      newApiUserId: 17,
+      status: 'active',
+      userId: 'current-user',
+    });
+    const readOnlyDb = {
+      findManagedToken: vi.fn().mockResolvedValue({
+        id: 44,
+        key: 'sk-db-token',
+        model_limits: '',
+        model_limits_enabled: false,
+        name: 'manual-token',
+      }),
+      findUserById: vi.fn().mockResolvedValue({
+        group: 'default',
+        id: 17,
+      }),
+      isEnabled: vi.fn(() => true),
+      listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini', 'glm5-5.1', 'deepseek-chat']),
+    };
+    const service = new NewApiService({
+      client: {} as any,
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      readOnlyDb: readOnlyDb as any,
+      userId: 'current-user',
+    });
+
+    const synced = await service.syncModels();
+
+    expect(synced.defaultModel).toBe('gpt-4o-mini');
+    expect(synced.models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          displayName: 'glm5-5.1',
+          enabled: true,
+          id: 'glm5-5.1',
+          type: 'chat',
+        }),
+      ]),
+    );
+    expect(mocks.updateConfig).toHaveBeenCalledWith(
+      'newapi',
+      expect.objectContaining({
+        checkModel: 'gpt-4o-mini',
+      }),
+      expect.any(Function),
+      expect.any(Function),
+    );
   });
 
   it('does not auto-bind enterprise WeCom users without a provisioning-created binding', async () => {
@@ -795,6 +853,7 @@ describe('NewApiService', () => {
   });
 
   it('covers the bridge-backed user journey: bind, choose models, read balance, and aggregate usage', async () => {
+    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     process.env.AIHUB_DATA_SOURCE = 'bridge';
     process.env.AIHUB_USAGE_PAGE_SIZE = '2';
     mocks.findUserById.mockResolvedValue({
@@ -962,7 +1021,7 @@ describe('NewApiService', () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith(
       'newapi',
       expect.objectContaining({
-        checkModel: 'glm5.1',
+        checkModel: 'gpt-4o-mini',
         keyVaults: {
           apiKey: 'sk-bridge-token',
           baseURL: 'https://aihub.internal',

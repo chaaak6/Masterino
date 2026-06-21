@@ -77,6 +77,23 @@ describe('aiProvider action helpers', () => {
       expect(result.pricing).toBe(pricing);
       expect(fallbackSpy).not.toHaveBeenCalled();
     });
+
+    it('preserves Aihub model ids and abilities like other chat models', async () => {
+      const result = await normalizeChatModel(
+        createChatModel({
+          abilities: { functionCall: false, reasoning: false, search: false },
+          displayName: 'glm5-5.1',
+          id: 'glm5-5.1',
+          providerId: 'newapi',
+        }),
+      );
+
+      expect(result).toMatchObject({
+        abilities: { functionCall: false, reasoning: false, search: false },
+        displayName: 'glm5-5.1',
+        id: 'glm5-5.1',
+      });
+    });
   });
 
   describe('normalizeImageModel', () => {
@@ -190,6 +207,31 @@ describe('aiProvider action helpers', () => {
       );
 
       expect(result.map((model) => model.id)).toEqual(['visible-model']);
+    });
+
+    it('deduplicates only exact Aihub model ids', async () => {
+      const result = await getChatModelList(
+        [
+          createChatModel({
+            abilities: { functionCall: false, reasoning: false, search: false },
+            displayName: 'glm5-5.1',
+            id: 'glm5-5.1',
+            providerId: 'newapi',
+          }),
+          createChatModel({
+            displayName: 'GLM-5.1',
+            id: 'glm-5.1',
+            providerId: 'newapi',
+          }),
+        ],
+        'newapi',
+      );
+
+      expect(result.map((model) => model.id)).toEqual(['glm5-5.1', 'glm-5.1']);
+      expect(result[0]).toMatchObject({
+        abilities: { functionCall: false, reasoning: false, search: false },
+        displayName: 'glm5-5.1',
+      });
     });
   });
 

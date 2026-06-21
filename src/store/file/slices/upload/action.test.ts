@@ -235,7 +235,11 @@ describe('FileUploadAction', () => {
         expect(onStatusUpdate).toHaveBeenCalledWith({
           id: mockFile.name,
           type: 'updateFile',
-          value: { status: 'processing', uploadState: { progress: 100, restTime: 0, speed: 0 } },
+          value: {
+            processStage: 'file_record_creating',
+            status: 'processing',
+            uploadState: { progress: 100, restTime: 0, speed: 0 },
+          },
         });
         expect(fileService.createFile).toHaveBeenCalledWith(
           {
@@ -314,8 +318,10 @@ describe('FileUploadAction', () => {
           id: mockFile.name,
           type: 'updateFile',
           value: {
+            errorReason: undefined,
             fileUrl: mockFileResponse.url,
             id: mockFileResponse.id,
+            processStage: 'file_record_created',
             status: 'success',
             uploadState: { progress: 100, restTime: 0, speed: 0 },
           },
@@ -365,12 +371,82 @@ describe('FileUploadAction', () => {
         expect(onStatusUpdate).toHaveBeenCalledWith({
           id: mockFile.name,
           type: 'updateFile',
-          value: { status: 'uploading', uploadState: { progress: 50, restTime: 5, speed: 1024 } },
+          value: {
+            processStage: 'storage_uploading',
+            status: 'uploading',
+            uploadState: { progress: 50, restTime: 5, speed: 1024 },
+          },
         });
         expect(onStatusUpdate).toHaveBeenCalledWith({
           id: mockFile.name,
           type: 'updateFile',
-          value: { status: 'processing', uploadState: { progress: 100, restTime: 0, speed: 2048 } },
+          value: {
+            processStage: 'file_record_creating',
+            status: 'processing',
+            uploadState: { progress: 100, restTime: 0, speed: 2048 },
+          },
+        });
+      });
+
+      it('should classify object storage upload failures separately from later processing', async () => {
+        const { uploadWithProgress } = useStore.getState();
+
+        const mockFile = new File(['test content'], 'storage-fail.txt', { type: 'text/plain' });
+        const uploadError = new Error('Upload failed with HTTP 403');
+        const onStatusUpdate = vi.fn();
+
+        vi.mocked(getImageDimensions).mockResolvedValue(undefined);
+        vi.spyOn(fileService, 'checkFileHash').mockResolvedValue({ isExist: false });
+        vi.spyOn(uploadService, 'uploadFileToS3').mockRejectedValue(uploadError);
+
+        await expect(uploadWithProgress({ file: mockFile, onStatusUpdate })).rejects.toThrow(
+          'Upload failed with HTTP 403',
+        );
+
+        expect(onStatusUpdate).toHaveBeenLastCalledWith({
+          id: mockFile.name,
+          type: 'updateFile',
+          value: expect.objectContaining({
+            errorReason: 'Upload failed with HTTP 403',
+            processStage: 'storage_upload_failed',
+            status: 'error',
+          }),
+        });
+      });
+
+      it('should classify file record creation failures separately from storage upload failures', async () => {
+        const { uploadWithProgress } = useStore.getState();
+
+        const mockFile = new File(['test content'], 'record-fail.txt', { type: 'text/plain' });
+        const mockMetadata = {
+          date: '12345',
+          dirname: '/uploads',
+          filename: 'record-fail.txt',
+          path: '/uploads/record-fail.txt',
+        };
+        const recordError = new Error('database insert failed');
+        const onStatusUpdate = vi.fn();
+
+        vi.mocked(getImageDimensions).mockResolvedValue(undefined);
+        vi.spyOn(fileService, 'checkFileHash').mockResolvedValue({ isExist: false });
+        vi.spyOn(uploadService, 'uploadFileToS3').mockResolvedValue({
+          data: mockMetadata,
+          success: true,
+        });
+        vi.spyOn(fileService, 'createFile').mockRejectedValue(recordError);
+
+        await expect(uploadWithProgress({ file: mockFile, onStatusUpdate })).rejects.toThrow(
+          'database insert failed',
+        );
+
+        expect(onStatusUpdate).toHaveBeenLastCalledWith({
+          id: mockFile.name,
+          type: 'updateFile',
+          value: expect.objectContaining({
+            errorReason: 'database insert failed',
+            processStage: 'file_record_failed',
+            status: 'error',
+          }),
         });
       });
 
@@ -805,7 +881,11 @@ describe('FileUploadAction', () => {
         expect(onStatusUpdate).toHaveBeenCalledWith({
           id: mockFile.name,
           type: 'updateFile',
-          value: { status: 'error' },
+          value: expect.objectContaining({
+            errorReason: 'Upload failed',
+            processStage: 'storage_upload_failed',
+            status: 'error',
+          }),
         });
       });
 

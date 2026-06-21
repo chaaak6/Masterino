@@ -243,16 +243,11 @@ const enrichNewApiModels = async (models: NewApiModelCard[]): Promise<AiProvider
   });
 };
 
-const normalizeDefaultModelId = (modelId: string) =>
-  modelId.toLowerCase().replaceAll(/(^|\/)glm(?=\d)/g, '$1glm-');
-
 const getDefaultModel = (models: AiProviderModelListItem[]) => {
   const chatModels = models.filter((model) => model.type === 'chat');
   if (chatModels.length === 0) return undefined;
 
-  const defaultModel = chatModels.find(
-    (model) => normalizeDefaultModelId(model.id) === normalizeDefaultModelId(DEFAULT_AIHUB_CHAT_MODEL),
-  );
+  const defaultModel = chatModels.find((model) => model.id === DEFAULT_AIHUB_CHAT_MODEL);
 
   if (defaultModel) return defaultModel.id;
 

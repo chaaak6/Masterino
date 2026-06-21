@@ -61,10 +61,14 @@ export const useSend = () => {
       // `onChange`, so a fast type-then-Enter sequence can fire before the
       // cache catches up and the empty-message guard would bail incorrectly.
       const typed = (getMarkdownContent?.() ?? inputMessage ?? '').trim();
-      const fileList = fileChatSelectors.chatUploadFileList(useFileStore.getState());
-      const contextList = fileChatSelectors.chatContextSelections(useFileStore.getState());
+      const fileState = useFileStore.getState();
+      const fileList = fileChatSelectors.chatUploadFileList(fileState);
+      const contextList = fileChatSelectors.chatContextSelections(fileState);
+      const isUploadingFiles = fileChatSelectors.isUploadingFiles(fileState);
       const { sendAsAgent, sendAsGroup, sendAsWrite, sendAsResearch, inputActiveMode } =
         useHomeStore.getState();
+
+      if (isUploadingFiles) return;
 
       // If the user pressed Enter on an empty input, fall back to the
       // currently displayed daily-brief hint (with cosmetic ellipsis stripped)
