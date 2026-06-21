@@ -614,7 +614,8 @@ describe('NewApiService', () => {
     );
   });
 
-  it('canonicalizes compact GLM aliases as the Aihub default model when the canonical id is not present', async () => {
+  it('falls back when compact GLM aliases are present without the exact Aihub default model id', async () => {
+    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     mocks.bindingStore.set('current-user', {
       encryptedAccessToken: null,
       errorMessage: null,
@@ -649,10 +650,11 @@ describe('NewApiService', () => {
 
     const synced = await service.syncModels();
 
-    expect(synced.defaultModel).toBe('glm-5.1');
+    expect(synced.defaultModel).toBe('gpt-4o-mini');
   });
 
-  it('canonicalizes separated compact GLM aliases as enabled agent-capable Aihub chat models', async () => {
+  it('keeps separated compact GLM aliases as ordinary Aihub chat models', async () => {
+    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     mocks.bindingStore.set('current-user', {
       encryptedAccessToken: null,
       errorMessage: null,
@@ -687,14 +689,13 @@ describe('NewApiService', () => {
 
     const synced = await service.syncModels();
 
-    expect(synced.defaultModel).toBe('glm-5.1');
+    expect(synced.defaultModel).toBe('gpt-4o-mini');
     expect(synced.models).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          abilities: expect.objectContaining({ functionCall: true, reasoning: true, search: true }),
-          displayName: 'GLM-5.1',
+          displayName: 'glm5-5.1',
           enabled: true,
-          id: 'glm-5.1',
+          id: 'glm5-5.1',
           type: 'chat',
         }),
       ]),
@@ -702,7 +703,7 @@ describe('NewApiService', () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith(
       'newapi',
       expect.objectContaining({
-        checkModel: 'glm-5.1',
+        checkModel: 'gpt-4o-mini',
       }),
       expect.any(Function),
       expect.any(Function),
@@ -852,6 +853,7 @@ describe('NewApiService', () => {
   });
 
   it('covers the bridge-backed user journey: bind, choose models, read balance, and aggregate usage', async () => {
+    mathRandomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     process.env.AIHUB_DATA_SOURCE = 'bridge';
     process.env.AIHUB_USAGE_PAGE_SIZE = '2';
     mocks.findUserById.mockResolvedValue({
@@ -963,7 +965,7 @@ describe('NewApiService', () => {
     });
     expect(synced.models.map((model: any) => model.id)).toEqual([
       'gpt-4o-mini',
-      'glm-5.1',
+      'glm5.1',
       'deepseek-chat',
     ]);
     expect(summary).toMatchObject({
@@ -1019,7 +1021,7 @@ describe('NewApiService', () => {
     expect(mocks.updateConfig).toHaveBeenCalledWith(
       'newapi',
       expect.objectContaining({
-        checkModel: 'glm-5.1',
+        checkModel: 'gpt-4o-mini',
         keyVaults: {
           apiKey: 'sk-bridge-token',
           baseURL: 'https://aihub.internal',

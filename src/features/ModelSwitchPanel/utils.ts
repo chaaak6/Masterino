@@ -1,9 +1,6 @@
-import { normalizeAihubModelId } from '@/utils/aihubModelId';
-
 import { type ListItem } from './types';
 
-export const menuKey = (provider: string, model: string) =>
-  `${provider}-${provider === 'newapi' ? normalizeAihubModelId(model) : model}`;
+export const menuKey = (provider: string, model: string) => `${provider}-${model}`;
 
 export const getListItemKey = (item: ListItem): string => {
   switch (item.type) {

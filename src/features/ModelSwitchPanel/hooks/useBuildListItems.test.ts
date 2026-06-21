@@ -21,17 +21,9 @@ describe('useBuildListItems', () => {
     },
   ];
 
-  it('matches Aihub GLM aliases when filtering by model id', () => {
+  it('filters Aihub models by their raw model id text', () => {
     const { result } = renderHook(() => useBuildListItems(enabledList, 'byProvider', 'glm-5.1'));
 
-    expect(result.current).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          model: expect.objectContaining({ id: 'glm5-5.1' }),
-          provider: expect.objectContaining({ id: 'newapi' }),
-          type: 'provider-model-item',
-        }),
-      ]),
-    );
+    expect(result.current).toEqual([]);
   });
 });

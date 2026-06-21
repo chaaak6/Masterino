@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { type EnabledProviderWithModels } from '@/types/aiProvider';
-import { includesAihubModelSearchText } from '@/utils/aihubModelId';
 
 import { type GroupMode, type ListItem, type ModelWithProviders } from '../types';
 
@@ -18,7 +17,7 @@ export const useBuildListItems = (
     const matchesSearch = (text: string): boolean => {
       if (!searchKeyword.trim()) return true;
       const keyword = searchKeyword.toLowerCase().trim();
-      return text.toLowerCase().includes(keyword) || includesAihubModelSearchText(text, keyword);
+      return text.toLowerCase().includes(keyword);
     };
 
     // lobehub first, then others

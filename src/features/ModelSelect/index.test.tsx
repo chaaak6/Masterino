@@ -53,7 +53,7 @@ vi.mock('@/hooks/useEnabledChatModels', () => ({
 }));
 
 describe('ModelSelect', () => {
-  it('canonicalizes Aihub GLM aliases in the controlled value and onChange payload', () => {
+  it('passes Aihub model ids through like other providers', () => {
     const onChange = vi.fn();
 
     const { container } = render(
@@ -62,13 +62,13 @@ describe('ModelSelect', () => {
 
     expect(selectMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        defaultValue: 'newapi/glm-5.1',
-        value: 'newapi/glm-5.1',
+        defaultValue: 'newapi/glm5-5.1',
+        value: 'newapi/glm5-5.1',
       }),
     );
 
     container.querySelector('button')?.click();
 
-    expect(onChange).toHaveBeenCalledWith({ model: 'glm-5.1', provider: 'newapi' });
+    expect(onChange).toHaveBeenCalledWith({ model: 'glm5-5.1', provider: 'newapi' });
   });
 });

@@ -1015,18 +1015,18 @@ describe('modelParse', () => {
         }
       });
 
-      it('should infer GLM tool capabilities and canonicalize Aihub/NewAPI aliases without hyphens', async () => {
+      it('should keep Aihub/NewAPI model ids without provider-specific GLM canonicalization', async () => {
         const out = await processMultiProviderModelList([{ id: 'glm5.1' }], 'newapi');
 
         expect(out).toHaveLength(1);
         expect(out[0]).toMatchObject({
-          displayName: 'GLM-5.1',
-          functionCall: true,
-          id: 'glm-5.1',
-          reasoning: true,
-          search: true,
-          settings: { extendParams: ['enableReasoning'], searchImpl: 'params' },
+          displayName: 'glm5.1',
+          id: 'glm5.1',
+          type: 'chat',
         });
+        expect(out[0].functionCall).toBe(false);
+        expect(out[0].reasoning).toBe(false);
+        expect(out[0].search).toBe(false);
       });
 
       it('should keep Aihub GLM aliases enabled when their casing differs from the local default', async () => {
@@ -1042,19 +1042,19 @@ describe('modelParse', () => {
         });
       });
 
-      it('should canonicalize Aihub GLM aliases that include an extra GLM family separator', async () => {
+      it('should preserve Aihub GLM aliases that include an extra GLM family separator', async () => {
         const out = await processMultiProviderModelList([{ id: 'glm5-5.1' }], 'newapi');
 
         expect(out).toHaveLength(1);
         expect(out[0]).toMatchObject({
-          displayName: 'GLM-5.1',
-          enabled: true,
-          functionCall: true,
-          id: 'glm-5.1',
-          reasoning: true,
-          search: true,
+          displayName: 'glm5-5.1',
+          enabled: false,
+          id: 'glm5-5.1',
           type: 'chat',
         });
+        expect(out[0].functionCall).toBe(false);
+        expect(out[0].reasoning).toBe(false);
+        expect(out[0].search).toBe(false);
       });
 
       it('should correctly handle models with excluded keywords in different providers', async () => {

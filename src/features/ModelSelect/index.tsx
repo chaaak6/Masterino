@@ -7,7 +7,6 @@ import { memo, useMemo } from 'react';
 import { ModelItemRender, ProviderItemRender, TAG_CLASSNAME } from '@/components/ModelSelect';
 import { useEnabledChatModels } from '@/hooks/useEnabledChatModels';
 import { type EnabledProviderWithModels } from '@/types/aiProvider';
-import { canonicalizeAihubModelIdForProvider } from '@/utils/aihubModelId';
 
 const prefixCls = 'ant';
 
@@ -78,7 +77,7 @@ const ModelSelect = memo<ModelSelectProps>(
           ...model,
           label: <ModelItemRender {...model} {...model.abilities} showInfoTag={false} />,
           provider: provider.id,
-          value: `${provider.id}/${canonicalizeAihubModelIdForProvider(provider.id, model.id)}`,
+          value: `${provider.id}/${model.id}`,
         }));
       };
 
@@ -109,11 +108,7 @@ const ModelSelect = memo<ModelSelectProps>(
     }, [enabledList, requiredAbilities, showAbility]);
 
     const selectedProvider = value?.provider;
-    const selectedModel =
-      value?.model && selectedProvider
-        ? canonicalizeAihubModelIdForProvider(selectedProvider, value.model)
-        : value?.model;
-    const selectedValue = `${selectedProvider}/${selectedModel}`;
+    const selectedValue = `${selectedProvider}/${value?.model}`;
 
     return (
       <TooltipGroup>
@@ -143,7 +138,7 @@ const ModelSelect = memo<ModelSelectProps>(
           onChange={(value, option) => {
             const model = value.split('/').slice(1).join('/');
             const provider = (option as unknown as ModelOption).provider;
-            onChange?.({ model: canonicalizeAihubModelIdForProvider(provider, model), provider });
+            onChange?.({ model, provider });
           }}
         />
       </TooltipGroup>

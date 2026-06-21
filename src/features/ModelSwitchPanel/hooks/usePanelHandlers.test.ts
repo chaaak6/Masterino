@@ -23,7 +23,7 @@ describe('usePanelHandlers', () => {
     vi.useRealTimers();
   });
 
-  it('canonicalizes Aihub GLM aliases before emitting model changes', () => {
+  it('emits Aihub model ids without provider-specific rewriting', () => {
     const onModelChange = vi.fn();
     const { result } = renderHook(() => usePanelHandlers({ onModelChange }));
 
@@ -32,6 +32,6 @@ describe('usePanelHandlers', () => {
       vi.advanceTimersByTime(150);
     });
 
-    expect(onModelChange).toHaveBeenCalledWith({ model: 'glm-5.1', provider: 'newapi' });
+    expect(onModelChange).toHaveBeenCalledWith({ model: 'glm5-5.1', provider: 'newapi' });
   });
 });

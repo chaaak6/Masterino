@@ -232,41 +232,10 @@ const normalizeModelType = (value: unknown): AiModelType | undefined => {
 };
 
 const getKnownModelIdCandidates = (modelId: string): string[] => {
-  const lowerModelId = modelId.toLowerCase();
-  const candidates = new Set([lowerModelId]);
-
-  // Aihub/NewAPI can expose Zhipu GLM ids without the official hyphen
-  // (for example `glm5.1`) or with a duplicated family separator
-  // (for example `glm5-5.1`), while the model bank keeps canonical ids
-  // such as `glm-5.1`.
-  const compactSeparatedGLMId = lowerModelId.replaceAll(
-    /(^|\/)glm(\d+)-\2(?=\.|$)/g,
-    '$1glm-$2',
-  );
-
-  if (compactSeparatedGLMId !== lowerModelId) {
-    candidates.add(compactSeparatedGLMId);
-  }
-
-  const normalizedGLMId = compactSeparatedGLMId.replaceAll(/(^|\/)glm(?=\d)/g, '$1glm-');
-
-  if (normalizedGLMId !== lowerModelId) {
-    candidates.add(normalizedGLMId);
-  }
-
-  return [...candidates];
+  return [modelId.toLowerCase()];
 };
 
-const getCanonicalKnownModelId = (modelId: string, knownModel?: { id?: string }): string => {
-  if (!knownModel?.id) return modelId;
-
-  const knownModelId = knownModel.id.toLowerCase();
-  const normalizedModelId = modelId.toLowerCase();
-
-  if (knownModelId !== normalizedModelId && getKnownModelIdCandidates(modelId).includes(knownModelId)) {
-    return knownModel.id;
-  }
-
+const getCanonicalKnownModelId = (modelId: string): string => {
   return modelId;
 };
 
@@ -664,7 +633,7 @@ const processModelCard = (
       knownModel?.abilities?.functionCall ??
       ((isKeywordListMatch(model.id.toLowerCase(), functionCallKeywords) && !isExcludedModel) ||
         false),
-    id: getCanonicalKnownModelId(model.id, knownModel),
+    id: getCanonicalKnownModelId(model.id),
     imageOutput:
       model.imageOutput ??
       knownModel?.abilities?.imageOutput ??
