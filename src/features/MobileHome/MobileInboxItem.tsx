@@ -45,6 +45,7 @@ const MobileInboxItem = memo(() => {
         avatar={<Avatar emojiScaleWithBackground avatar={avatar} shape={'square'} size={40} />}
         className={styles.item}
         description={inboxMeta.description || undefined}
+        key={'inbox'}
         title={<span className={styles.title}>{title}</span>}
       />
     </WorkspaceLink>

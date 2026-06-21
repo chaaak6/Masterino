@@ -1,34 +1,40 @@
 import { Button, Flexbox } from '@lobehub/ui';
+import { createStaticStyles } from 'antd-style';
 import { Plus } from 'lucide-react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useActionSWR } from '@/libs/swr';
-import { sessionKeys } from '@/libs/swr/keys';
+import {
+  MOBILE_CREATE_COMING_SOON_KEY,
+  MobileCreateComingSoonLabel,
+} from '@/features/MobileHome/mobileCreate';
 import { useServerConfigStore } from '@/store/serverConfig';
-import { useSessionStore } from '@/store/session';
 
-const AddButton = memo<{ groupId?: string }>(({ groupId }) => {
+const styles = createStaticStyles(({ css }) => ({
+  label: css`
+    width: 100%;
+  `,
+}));
+
+const AddButton = memo<{ groupId?: string }>(() => {
   const { t } = useTranslation('chat');
-  const createSession = useSessionStore((s) => s.createSession);
   const mobile = useServerConfigStore((s) => s.isMobile);
-  const { mutate, isValidating } = useActionSWR(sessionKeys.createSession(groupId), () => {
-    return createSession({ group: groupId });
-  });
+  const comingSoon = t(MOBILE_CREATE_COMING_SOON_KEY);
 
   return (
     <Flexbox flex={1} padding={mobile ? 16 : 0}>
       <Button
         block
+        disabled
         icon={Plus}
-        loading={isValidating}
         variant={'filled'}
         style={{
           marginTop: 8,
         }}
-        onClick={() => mutate()}
       >
-        {t('newAgent')}
+        <div className={styles.label}>
+          <MobileCreateComingSoonLabel comingSoon={comingSoon} label={t('newAgent')} />
+        </div>
       </Button>
     </Flexbox>
   );

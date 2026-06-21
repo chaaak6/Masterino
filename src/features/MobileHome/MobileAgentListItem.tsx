@@ -66,6 +66,7 @@ const MobileAgentListItem = memo<MobileAgentListItemProps>(({ item }) => {
         avatar={avatar}
         className={styles.item}
         description={item.description || undefined}
+        key={`${item.type}-${item.id}`}
         title={<span className={styles.title}>{title}</span>}
       />
     </WorkspaceLink>

@@ -21,3 +21,17 @@ describe('mobileRouter task routes', () => {
     expect(source).not.toContain("import('@/routes/(main)/tasks/_layout')");
   });
 });
+
+describe('mobileRouter group routes', () => {
+  it('registers group chat routes under the mobile main area', async () => {
+    const source = await readFile(
+      path.join(process.cwd(), 'src/spa/router/mobileRouter.config.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain("import('@/routes/(mobile)/group')");
+    expect(source).toContain("import('@/routes/(mobile)/group/_layout')");
+    expect(source).toContain("path: 'group'");
+    expect(source).toContain("path: ':gid'");
+  });
+});

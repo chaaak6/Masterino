@@ -14,12 +14,16 @@ const TopicSearchBar = memo<{ onClear?: () => void }>(({ onClear }) => {
   const [tempValue, setTempValue] = useState('');
   const [searchKeyword, setSearchKeywords] = useState('');
   const mobile = useServerConfigStore((s) => s.isMobile);
-  const [activeAgentId, useSearchTopics] = useChatStore((s) => [
+  const [activeAgentId, activeGroupId, useSearchTopics] = useChatStore((s) => [
     s.activeAgentId,
+    s.activeGroupId,
     s.useSearchTopics,
   ]);
 
-  useSearchTopics(searchKeyword, { agentId: activeAgentId });
+  useSearchTopics(
+    searchKeyword,
+    activeGroupId ? { groupId: activeGroupId } : { agentId: activeAgentId },
+  );
 
   useUnmount(() => {
     useChatStore.setState({ inSearchingMode: false, isSearchingTopic: false });

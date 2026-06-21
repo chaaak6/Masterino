@@ -27,7 +27,7 @@ const Section = memo<SectionProps>(({ title, items }) => {
   return (
     <Flexbox gap={2}>
       {title && (
-        <Text fontSize={12} paddingInline={12} type={'secondary'} weight={500}>
+        <Text fontSize={12} style={{ paddingInline: 12 }} type={'secondary'} weight={500}>
           {title}
         </Text>
       )}

@@ -4,9 +4,8 @@ import { memo } from 'react';
 import LazyLoad from 'react-lazy-load';
 import { Link } from 'react-router-dom';
 
-import { SESSION_CHAT_URL } from '@/const/index';
+import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useNavigateToAgent } from '@/hooks/useNavigateToAgent';
-import { useServerConfigStore } from '@/store/serverConfig';
 import { getSessionStoreState, useSessionStore } from '@/store/session';
 import { sessionGroupSelectors, sessionSelectors } from '@/store/session/selectors';
 import { getUserStoreState } from '@/store/user';
@@ -16,6 +15,7 @@ import { type LobeSessions } from '@/types/session';
 import SkeletonList from '../../SkeletonList';
 import AddButton from './AddButton';
 import SessionItem from './Item';
+import { getSessionNavigationTarget } from './navigation';
 
 const styles = createStaticStyles(
   ({ css }) => css`
@@ -31,57 +31,66 @@ const SessionList = memo<SessionListProps>(({ dataSource, groupId, showAddButton
   const { analytics } = useAnalytics();
 
   const isInit = useSessionStore(sessionSelectors.isSessionListInit);
-  const mobile = useServerConfigStore((s) => s.isMobile);
 
   const navigateToAgent = useNavigateToAgent();
+  const navigate = useWorkspaceAwareNavigate();
 
   const isEmpty = !dataSource || dataSource.length === 0;
   return !isInit ? (
     <SkeletonList />
   ) : !isEmpty ? (
-    dataSource.map(({ id, ...res }) => (
-      <LazyLoad className={styles} key={id}>
-        <Link
-          aria-label={id}
-          to={SESSION_CHAT_URL((res as any).config?.id, mobile)}
-          onClick={(e) => {
-            e.preventDefault();
-            navigateToAgent((res as any).config?.id);
+    dataSource.map((session) => {
+      const { id } = session;
+      const navigationTarget = getSessionNavigationTarget(session);
 
-            // Enhanced analytics tracking
-            if (analytics) {
-              const userStore = getUserStoreState();
-              const sessionStore = getSessionStoreState();
-
-              const userId = userProfileSelectors.userId(userStore);
-              const session = sessionSelectors.getSessionById(id)(sessionStore);
-
-              if (session) {
-                const sessionGroupId = session.group || 'default';
-                const group = sessionGroupSelectors.getGroupById(sessionGroupId)(sessionStore);
-                const groupName =
-                  group?.name || (sessionGroupId === 'default' ? 'Default' : 'Unknown');
-
-                analytics?.track({
-                  name: 'switch_session',
-                  properties: {
-                    assistant_name: session.meta?.title || 'Untitled Agent',
-                    assistant_tags: session.meta?.tags || [],
-                    group_id: sessionGroupId,
-                    group_name: groupName,
-                    session_id: id,
-                    spm: 'homepage.chat.session_list_item.click',
-                    user_id: userId || 'anonymous',
-                  },
-                });
+      return (
+        <LazyLoad className={styles} key={id}>
+          <Link
+            aria-label={id}
+            to={navigationTarget.href}
+            onClick={(e) => {
+              e.preventDefault();
+              if (navigationTarget.type === 'group') {
+                navigate(navigationTarget.href);
+              } else {
+                navigateToAgent(navigationTarget.targetId);
               }
-            }
-          }}
-        >
-          <SessionItem id={id} />
-        </Link>
-      </LazyLoad>
-    ))
+
+              // Enhanced analytics tracking
+              if (analytics) {
+                const userStore = getUserStoreState();
+                const sessionStore = getSessionStoreState();
+
+                const userId = userProfileSelectors.userId(userStore);
+                const session = sessionSelectors.getSessionById(id)(sessionStore);
+
+                if (session) {
+                  const sessionGroupId = session.group || 'default';
+                  const group = sessionGroupSelectors.getGroupById(sessionGroupId)(sessionStore);
+                  const groupName =
+                    group?.name || (sessionGroupId === 'default' ? 'Default' : 'Unknown');
+
+                  analytics?.track({
+                    name: 'switch_session',
+                    properties: {
+                      assistant_name: session.meta?.title || 'Untitled Agent',
+                      assistant_tags: session.meta?.tags || [],
+                      group_id: sessionGroupId,
+                      group_name: groupName,
+                      session_id: id,
+                      spm: 'homepage.chat.session_list_item.click',
+                      user_id: userId || 'anonymous',
+                    },
+                  });
+                }
+              }
+            }}
+          >
+            <SessionItem id={id} />
+          </Link>
+        </LazyLoad>
+      );
+    })
   ) : (
     showAddButton && <AddButton groupId={groupId} />
   );

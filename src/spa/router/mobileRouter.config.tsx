@@ -9,6 +9,7 @@ import {
 import { featureGateElement } from '@/features/ProductFeatureGate';
 import { mobileAgentSettingsRouteMeta } from '@/features/RouteMeta/mobileRouteMeta';
 import { agentRouteMeta } from '@/routes/(main)/agent/features/routeMeta';
+import { groupRouteMeta } from '@/routes/(main)/group/features/routeMeta';
 import { shareTopicRouteMeta } from '@/routes/share/t/[id]/routeMeta';
 import { dynamicElement, dynamicLayout, ErrorBoundary, redirectElement } from '@/utils/router';
 
@@ -58,6 +59,32 @@ export const sharedMainAreaChildren: RouteObject[] = [
       },
     ],
     path: 'agent',
+  },
+
+  // Group chat routes
+  {
+    children: [
+      {
+        element: redirectElement('..'),
+        index: true,
+      },
+      {
+        children: [
+          {
+            element: dynamicElement(() => import('@/routes/(mobile)/group'), 'Mobile > Group'),
+            handle: { meta: groupRouteMeta },
+            index: true,
+          },
+        ],
+        element: dynamicLayout(
+          () => import('@/routes/(mobile)/group/_layout'),
+          'Mobile > Group > Layout',
+        ),
+        errorElement: <ErrorBoundary />,
+        path: ':gid',
+      },
+    ],
+    path: 'group',
   },
 
   // Discover routes with nested structure

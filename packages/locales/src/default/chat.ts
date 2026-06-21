@@ -388,6 +388,7 @@ export default {
   'codexInstallGuide.menuNotification.title': 'Codex CLI not found',
   'codexInstallGuide.reason': 'MasterLion could not start Codex: {{message}}',
   'codexInstallGuide.title': 'Install Codex CLI',
+  'mobileCreate.comingSoon': 'Coming soon',
   'newAgent': 'Create Agent',
   'newClaudeCodeAgent': 'Add Claude Code',
   'newCodexAgent': 'Add Codex',

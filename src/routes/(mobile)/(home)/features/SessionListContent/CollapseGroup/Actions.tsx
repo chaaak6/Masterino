@@ -8,6 +8,10 @@ import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { MemberSelectionModal } from '@/components/MemberSelectionModal';
+import {
+  disableMobileCreateItem,
+  MOBILE_CREATE_COMING_SOON_KEY,
+} from '@/features/MobileHome/mobileCreate';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAgentGroupStore } from '@/store/agentGroup';
 import { useSessionStore } from '@/store/session';
@@ -34,6 +38,7 @@ const Actions = memo<ActionsProps>(
     const { message } = App.useApp();
 
     const isMobile = useIsMobile();
+    const comingSoon = t(MOBILE_CREATE_COMING_SOON_KEY);
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
@@ -166,8 +171,15 @@ const Actions = memo<ActionsProps>(
     );
 
     const menuItems = useMemo(() => {
-      return [newAgentPublicItem, newGroupChatItem, { type: 'divider' as const }, ...tailItems];
-    }, [newAgentPublicItem, newGroupChatItem, tailItems]);
+      const mobileCreateItems = isMobile
+        ? [
+            disableMobileCreateItem(newAgentPublicItem, comingSoon),
+            disableMobileCreateItem(newGroupChatItem, comingSoon),
+          ]
+        : [newAgentPublicItem, newGroupChatItem];
+
+      return [...mobileCreateItems, { type: 'divider' as const }, ...tailItems];
+    }, [comingSoon, isMobile, newAgentPublicItem, newGroupChatItem, tailItems]);
 
     return (
       <>
