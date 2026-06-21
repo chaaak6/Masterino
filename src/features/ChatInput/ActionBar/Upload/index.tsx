@@ -27,6 +27,7 @@ import { useChatInputStore } from '../../store';
 import Action from '../components/Action';
 import { type ActionDropdownMenuItems } from '../components/ActionDropdown';
 import CheckboxItem from '../components/CheckboxWithLoading';
+import { warnUnsupportedVisualUpload } from '../visualUploadGuard';
 
 const hotArea = css`
   &::before {
@@ -92,6 +93,14 @@ const FileUpload = memo(() => {
     );
   }
 
+  const warnIfUnsupportedVisualUpload = (file: File) =>
+    warnUnsupportedVisualUpload(file, {
+      canUploadImage,
+      canUploadVideo,
+      warning: (content) => message.warning(content),
+      warningText: t('upload.clientMode.visionNotSupported'),
+    });
+
   const uploadItems: ActionDropdownMenuItems = [
     {
       closeOnClick: false,
@@ -128,11 +137,7 @@ const FileUpload = memo(() => {
           multiple
           showUploadList={false}
           beforeUpload={async (file) => {
-            if (
-              (file.type.startsWith('image') && !canUploadImage) ||
-              (file.type.startsWith('video') && !canUploadVideo)
-            )
-              return false;
+            if (warnIfUnsupportedVisualUpload(file)) return false;
 
             // Validate video file size
             const validation = validateVideoFileSize(file);
@@ -167,11 +172,7 @@ const FileUpload = memo(() => {
           multiple={true}
           showUploadList={false}
           beforeUpload={async (file) => {
-            if (
-              (file.type.startsWith('image') && !canUploadImage) ||
-              (file.type.startsWith('video') && !canUploadVideo)
-            )
-              return false;
+            if (warnIfUnsupportedVisualUpload(file)) return false;
 
             // Validate video file size
             const validation = validateVideoFileSize(file);

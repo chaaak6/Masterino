@@ -55,6 +55,7 @@ import { type ActionDropdownMenuItems } from '../components/ActionDropdown';
 import { useControls as useKnowledgeControls } from '../Knowledge/useControls';
 import { useMemoryEnabled } from '../Memory/useMemoryEnabled';
 import { useControls as useToolsControls } from '../Tools/useControls';
+import { warnUnsupportedVisualUpload } from '../visualUploadGuard';
 
 const hotArea = css`
   &::before {
@@ -460,6 +461,14 @@ const PlusAction = memo(() => {
 
     const skillMenuItems = stripPopoverContent(skillItems as ActionDropdownMenuItems);
 
+    const warnIfUnsupportedVisualUpload = (file: File) =>
+      warnUnsupportedVisualUpload(file, {
+        canUploadImage,
+        canUploadVideo,
+        warning: (content) => message.warning(content),
+        warningText: t('upload.clientMode.visionNotSupported'),
+      });
+
     const uploadItems: ActionDropdownMenuItems = [
       {
         closeOnClick: false,
@@ -471,8 +480,7 @@ const PlusAction = memo(() => {
             multiple
             showUploadList={false}
             beforeUpload={async (file) => {
-              if (file.type.startsWith('image') && !canUploadImage) return false;
-              if (file.type.startsWith('video') && !canUploadVideo) return false;
+              if (warnIfUnsupportedVisualUpload(file)) return false;
               const validation = validateVideoFileSize(file);
               if (!validation.isValid) {
                 message.error(
