@@ -169,8 +169,8 @@ jobs:
           VERSION="${{ env.VERSION }}"
 
           # Configure git
-          git config --global user.name "lobehubbot"
-          git config --global user.email "i@lobehub.com"
+          git config --global user.name "MasterLion Bot"
+          git config --global user.email "ai@bielcrystal.com"
 
           # Commit changes (if any) and push
           git add package.json CHANGELOG.md changelog/

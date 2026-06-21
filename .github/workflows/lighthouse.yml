@@ -2,9 +2,9 @@ name: Lighthouse Badger
 
 env:
   TOKEN_NAME: 'GH_TOKEN'
-  REPO_BRANCH: 'lobehub/lobe-chat lighthouse'
-  USER_NAME: 'lobehubbot'
-  USER_EMAIL: 'i@lobehub.com'
+  REPO_BRANCH: 'biel-cc/MasterLion lighthouse'
+  USER_NAME: 'MasterLion Bot'
+  USER_EMAIL: 'ai@bielcrystal.com'
   AUDIT_TYPE: 'both'
   MOBILE_LIGHTHOUSE_PARAMS: '--throttling.cpuSlowdownMultiplier=2'
   DESKTOP_LIGHTHOUSE_PARAMS: '--preset=desktop --throttling.cpuSlowdownMultiplier=1'
@@ -24,11 +24,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - NAME: 'LobeChat | Chat'
+          - NAME: 'MasterLion | Chat'
             URLS: 'https://aihub.bielcrystal.com/chat'
             BADGES_ARGS: '-b pagespeed -o lighthouse/chat -r'
             COMMIT_MESSAGE: '🤖 chore: Lighthouse Results | Chat'
-          - NAME: 'LobeChat | Market'
+          - NAME: 'MasterLion | Discover'
             URLS: 'https://aihub.bielcrystal.com/discover'
             BADGES_ARGS: '-b pagespeed -o lighthouse/discover -r'
             COMMIT_MESSAGE: '🤖 chore: Lighthouse Results | Discover'

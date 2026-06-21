@@ -26,8 +26,8 @@ jobs:
 
       - name: Set up Git
         run: |
-          git config --global user.name 'lobehubbot'
-          git config --global user.email 'i@lobehub.com'
+          git config --global user.name 'MasterLion Bot'
+          git config --global user.email 'ai@bielcrystal.com'
 
       - name: Sync main to canary
         if: github.ref == 'refs/heads/main'

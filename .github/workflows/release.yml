@@ -64,8 +64,8 @@ jobs:
       - name: Commit changes
         run: |-
           git diff
-          git config --global user.name "lobehubbot"
-          git config --global user.email "i@lobehub.com"
+          git config --global user.name "MasterLion Bot"
+          git config --global user.email "ai@bielcrystal.com"
           git add .
           git commit -m "📝 docs(bot): Auto sync agents & plugin to readme" || exit 0
           git push
