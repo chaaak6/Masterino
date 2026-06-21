@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 0.0.3](https://github.com/biel-cc/MasterLion/compare/v0.0.2...v0.0.3)
+
+<sup>Released on **2026-06-21**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: localize SearXNG to Chinese search engines for GFW-blocked environments.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: localize SearXNG to Chinese search engines for GFW-blocked environments ([219e16e](https://github.com/biel-cc/MasterLion/commit/219e16e))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.2](https://github.com/biel-cc/MasterLion/compare/v0.0.1...v0.0.2)
 
 <sup>Released on **2026-06-21**</sup>

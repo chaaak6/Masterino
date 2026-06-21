@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "localize SearXNG to Chinese search engines for GFW-blocked environments."
+      ]
+    },
+    "date": "2026-06-21",
+    "version": "0.0.3"
+  },
+  {
+    "children": {
+      "fixes": [
         "warn on unsupported visual uploads."
       ]
     },
