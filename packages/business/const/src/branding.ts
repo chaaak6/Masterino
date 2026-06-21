@@ -1,6 +1,6 @@
 // the code below can only be modified with commercial license
 // if you want to use it in the commercial usage
-// please contact us for more information: support@bielcrystal.com
+// please contact us for more information: ai@bielcrystal.com
 
 export const LOBE_CHAT_CLOUD = 'MasterLion Cloud';
 
@@ -19,7 +19,7 @@ export const BRANDING_URL = {
 
 export const SOCIAL_URL = {
   discord: 'https://aihub.bielcrystal.com',
-  github: 'https://aihub.bielcrystal.com',
+  github: 'https://github.com/biel-cc/MasterLion',
   medium: 'https://aihub.bielcrystal.com',
   x: 'https://aihub.bielcrystal.com',
   youtube: 'https://aihub.bielcrystal.com',
@@ -30,7 +30,7 @@ export const FILE_URL = {
 };
 
 export const BRANDING_EMAIL = {
-  business: 'support@bielcrystal.com',
+  business: 'ai@bielcrystal.com',
   support: 'ai@bielcrystal.com',
 };
 

@@ -4,11 +4,10 @@ import { Icon } from '@lobehub/ui';
 import { type TabBarProps } from '@lobehub/ui/mobile';
 import { TabBar } from '@lobehub/ui/mobile';
 import { createStaticStyles } from 'antd-style';
-import { Compass, MessageSquare, User } from 'lucide-react';
+import { Compass, MessageSquare, MessagesSquare, User } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getProductFeature, isProductFeatureDisabled } from '@/config/productFeatures';
 import { MOBILE_TABBAR_HEIGHT } from '@/const/layoutTokens';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useActiveTabKey } from '@/hooks/useActiveTabKey';
@@ -35,8 +34,6 @@ const NavBar = memo(() => {
   const navigate = useWorkspaceAwareNavigate();
 
   const { showMarket } = useServerConfigStore(featureFlagsSelectors);
-  const communityDisabled = isProductFeatureDisabled('community');
-  const communityDisabledReason = getProductFeature('community').disabledReasonKey;
 
   const items: TabBarProps['items'] = useMemo(
     () =>
@@ -53,20 +50,23 @@ const NavBar = memo(() => {
         },
         showMarket && {
           icon: (active: boolean) => (
-            <Icon
-              className={active ? styles.active : undefined}
-              icon={Compass}
-              style={communityDisabled ? { opacity: 0.45 } : undefined}
-            />
+            <Icon className={active ? styles.active : undefined} icon={Compass} />
           ),
           key: SidebarTabKey.Community,
           onClick: () => {
-            if (communityDisabled) return;
             navigate('/community');
           },
-          title: communityDisabled
-            ? `${t('tab.community')} · ${t(communityDisabledReason as any)}`
-            : t('tab.community'),
+          title: t('tab.community'),
+        },
+        {
+          icon: (active: boolean) => (
+            <Icon className={active ? styles.active : undefined} icon={MessagesSquare} />
+          ),
+          key: SidebarTabKey.Messages,
+          onClick: () => {
+            navigate('/messages');
+          },
+          title: t('tab.message'),
         },
         {
           icon: (active: boolean) => (
@@ -79,7 +79,7 @@ const NavBar = memo(() => {
           title: t('tab.me'),
         },
       ].filter(Boolean) as TabBarProps['items'],
-    [communityDisabled, communityDisabledReason, navigate, showMarket, t],
+    [navigate, showMarket, t],
   );
 
   return (

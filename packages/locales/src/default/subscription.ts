@@ -151,7 +151,7 @@ export default {
   'header.title': 'Billing',
   'keyMissMatch.button': 'Restore usage and continue conversation',
   'keyMissMatch.description':
-    'Due to an occasional system failure, your current subscription usage is temporarily inactive. Please click the button below to restore usage and continue the conversation. If this happens repeatedly, please contact us via email (support@bielcrystal.com)',
+    'Due to an occasional system failure, your current subscription usage is temporarily inactive. Please click the button below to restore usage and continue the conversation. If this happens repeatedly, please contact us via email (ai@bielcrystal.com)',
   'keyMissMatch.title': 'Restore Subscription Usage Now',
   'limitation.chat.budgetReady.action': 'Continue Chatting',
   'limitation.chat.budgetReady.desc': 'Your available credits now cover this request.',

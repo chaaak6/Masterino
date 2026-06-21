@@ -1,5 +1,6 @@
 'use client';
 
+import { BRANDING_EMAIL } from '@lobechat/business-const';
 import { ActionIcon, copyToClipboard } from '@lobehub/ui';
 import { type DropdownItem, DropdownMenu } from '@lobehub/ui/base-ui';
 import { App } from 'antd';
@@ -8,8 +9,6 @@ import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { mailTo, OFFICIAL_SITE } from '@/const/url';
-
-const REPORT_EMAIL = 'support@bielcrystal.com';
 
 const HeaderMenu = memo(() => {
   const { t } = useTranslation('chat');
@@ -40,7 +39,7 @@ const HeaderMenu = memo(() => {
       {
         icon: <Flag size={16} />,
         key: 'report',
-        label: <a href={mailTo(REPORT_EMAIL)}>{t('sharePage.menu.report')}</a>,
+        label: <a href={mailTo(BRANDING_EMAIL.support)}>{t('sharePage.menu.report')}</a>,
       },
     ],
     [t, handleCopyLink],

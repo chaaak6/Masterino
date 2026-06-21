@@ -13,7 +13,7 @@ If you are running an older internal build, upgrade to the latest MasterLion `0.
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities through the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/chaaak6/MasterLion/security/advisories/new) tab or through the internal MasterLion owner channel.
+Please report security vulnerabilities through the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/biel-cc/MasterLion/security/advisories/new) tab or through the internal MasterLion owner channel.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
@@ -81,5 +81,5 @@ Reports based on theoretical attack scenarios without a working proof of concept
 
 ## Contact
 
-- **Primary**: [GitHub Security Advisories](https://github.com/chaaak6/MasterLion/security/advisories/new)
+- **Primary**: [GitHub Security Advisories](https://github.com/biel-cc/MasterLion/security/advisories/new)
 - **Urgent**: Contact the MasterLion project owner directly.

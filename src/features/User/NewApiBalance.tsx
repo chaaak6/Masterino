@@ -12,7 +12,7 @@ import { formatNewApiQuota } from '@/utils/newApiQuota';
 const styles = createStaticStyles(({ css, cssVar }) => ({
   card: css`
     padding: 8px;
-    border-radius: ${cssVar.borderRadius};
+    border-radius: ${cssVar.borderRadiusLG};
     background: ${cssVar.colorFillTertiary};
 
     &:hover {
@@ -61,13 +61,13 @@ const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) 
     >
       <Flexbox className={styles.card} gap={6}>
         <Flexbox horizontal align={'center'} justify={'space-between'}>
-          <span className={styles.label}>Aihub</span>
+          <span className={styles.label}>AIHUB</span>
           <Tag color={binding?.status === 'active' ? 'success' : 'warning'}>
             {binding?.status === 'active' ? '已绑定' : '未绑定'}
           </Tag>
         </Flexbox>
         <AmountRow
-          label="Aihub 余额"
+          label="AIHUB 余额"
           value={
             loading || isUndefined(account?.quota)
               ? loadingNode

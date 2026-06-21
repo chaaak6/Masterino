@@ -46,11 +46,20 @@ describe('useCategory', () => {
 
     act(() => {
       const items = result.current;
+      const getApp = items.find((item) => item.key === 'get-app');
+      const docs = items.find((item) => item.key === 'docs');
+      const feedback = items.find((item) => item.key === 'feedback');
+
       expect(items.some((item) => item.key === 'profile')).toBe(true);
       expect(items.some((item) => item.key === 'setting')).toBe(true);
-      expect(items.some((item) => item.key === 'docs')).toBe(true);
-      expect(items.some((item) => item.key === 'feedback')).toBe(true);
-      expect(items.some((item) => item.key === 'changelog')).toBe(true);
+      expect(getApp).toMatchObject({
+        disabled: true,
+        extra: 'productFeatures.disabled',
+        label: 'getApp',
+      });
+      expect(docs).toMatchObject({ disabled: true, extra: 'productFeatures.disabled' });
+      expect(feedback).toMatchObject({ disabled: true, extra: 'productFeatures.disabled' });
+      expect(items.some((item) => item.key === 'changelog')).toBe(false);
     });
   });
 
@@ -63,12 +72,21 @@ describe('useCategory', () => {
 
     act(() => {
       const items = result.current;
+      const getApp = items.find((item) => item.key === 'get-app');
+      const docs = items.find((item) => item.key === 'docs');
+      const feedback = items.find((item) => item.key === 'feedback');
+
       expect(items.some((item) => item.key === 'profile')).toBe(false);
       expect(items.some((item) => item.key === 'setting')).toBe(false);
       expect(items.some((item) => item.key === 'data')).toBe(false);
-      expect(items.some((item) => item.key === 'docs')).toBe(true);
-      expect(items.some((item) => item.key === 'feedback')).toBe(true);
-      expect(items.some((item) => item.key === 'changelog')).toBe(true);
+      expect(getApp).toMatchObject({
+        disabled: true,
+        extra: 'productFeatures.disabled',
+        label: 'getApp',
+      });
+      expect(docs).toMatchObject({ disabled: true, extra: 'productFeatures.disabled' });
+      expect(feedback).toMatchObject({ disabled: true, extra: 'productFeatures.disabled' });
+      expect(items.some((item) => item.key === 'changelog')).toBe(false);
     });
   });
 });

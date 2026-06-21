@@ -2,7 +2,7 @@ import { Icon } from '@lobehub/ui';
 import { type TabBarProps } from '@lobehub/ui/mobile';
 import { TabBar } from '@lobehub/ui/mobile';
 import { createStaticStyles, cssVar } from 'antd-style';
-import { Bot, MessageSquare, User } from 'lucide-react';
+import { Bot, MessageSquare, MessagesSquare, User } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -56,6 +56,16 @@ export default memo<Props>(({ className, tabBarKey }) => {
         },
         {
           icon: (active: boolean) => (
+            <Icon className={active ? styles.active : undefined} icon={MessagesSquare} />
+          ),
+          key: SidebarTabKey.Messages,
+          onClick: () => {
+            router.push('/messages');
+          },
+          title: t('tab.message'),
+        },
+        {
+          icon: (active: boolean) => (
             <Icon className={active ? styles.active : undefined} icon={User} />
           ),
           key: SidebarTabKey.Setting,
@@ -63,7 +73,7 @@ export default memo<Props>(({ className, tabBarKey }) => {
           title: t('tab.setting'),
         },
       ].filter(Boolean) as TabBarProps['items'],
-    [t],
+    [router, showMarket, t],
   );
 
   return <TabBar safeArea activeKey={tabBarKey} className={className} items={items} />;

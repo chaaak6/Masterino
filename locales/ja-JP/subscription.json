@@ -134,7 +134,7 @@
   "header.desc": "使用状況とサブスクリプションの管理",
   "header.title": "請求",
   "keyMissMatch.button": "使用を復元して会話を続ける",
-  "keyMissMatch.description": "システムの一時的な障害により、現在のサブスクリプションの使用が一時的に無効になっています。下のボタンをクリックして使用を復元し、会話を続けてください。繰り返し発生する場合は、support@aihub.bielcrystal.com までご連絡ください。",
+  "keyMissMatch.description": "システムの一時的な障害により、現在のサブスクリプションの使用が一時的に無効になっています。下のボタンをクリックして使用を復元し、会話を続けてください。繰り返し発生する場合は、ai@bielcrystal.com までご連絡ください。",
   "keyMissMatch.title": "今すぐサブスクリプション使用を復元",
   "limitation.chat.budgetReady.action": "チャットを続ける",
   "limitation.chat.budgetReady.desc": "現在の利用可能なクレジットでこのリクエストをカバーできます。",

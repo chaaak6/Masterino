@@ -134,7 +134,7 @@
   "header.desc": "Gestion de l'utilisation et des abonnements",
   "header.title": "Facturation",
   "keyMissMatch.button": "Restaurer l'utilisation et continuer la conversation",
-  "keyMissMatch.description": "En raison d'une défaillance système occasionnelle, l'utilisation de votre abonnement est temporairement inactive. Veuillez cliquer sur le bouton ci-dessous pour restaurer l'utilisation et continuer la conversation. Si cela se reproduit, veuillez nous contacter par e-mail (support@aihub.bielcrystal.com)",
+  "keyMissMatch.description": "En raison d'une défaillance système occasionnelle, l'utilisation de votre abonnement est temporairement inactive. Veuillez cliquer sur le bouton ci-dessous pour restaurer l'utilisation et continuer la conversation. Si cela se reproduit, veuillez nous contacter par e-mail (ai@bielcrystal.com)",
   "keyMissMatch.title": "Restaurer l'utilisation de l'abonnement maintenant",
   "limitation.chat.budgetReady.action": "Continuer à discuter",
   "limitation.chat.budgetReady.desc": "Vos crédits disponibles couvrent désormais cette demande.",

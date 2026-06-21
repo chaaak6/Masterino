@@ -12,7 +12,7 @@ const linearIssueResult = {
   links: [
     {
       title: 'PR #15766: refactor(chat): unify agent run lifecycle',
-      url: 'https://github.com/lobehub/lobehub/pull/15766',
+      url: 'https://github.com/biel-cc/MasterLion/pull/15766',
     },
   ],
   state: { name: 'In Review' },
@@ -397,7 +397,7 @@ export default defineFixtures({
     WebFetch: single({
       args: {
         prompt: 'Summarize the key changes in the latest release.',
-        url: 'https://github.com/lobehub/lobe-chat/releases/latest',
+        url: 'https://github.com/biel-cc/MasterLion/releases/latest',
       },
       content:
         '## LobeChat v1.0\n\n- New agent runtime with tool streaming\n- Faster cold start\n- Fixed a memory leak in the chat store',

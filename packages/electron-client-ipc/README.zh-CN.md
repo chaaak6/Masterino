@@ -59,7 +59,7 @@
 
 ### 贡献流程
 
-1. Fork [MasterLion 仓库](https://github.com/chaaak6/MasterLion)
+1. Fork [MasterLion 仓库](https://github.com/biel-cc/MasterLion)
 2. 对 IPC 客户端包进行修改
 3. 提交 Pull Request 并描述：
 

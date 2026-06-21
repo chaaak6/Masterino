@@ -4,6 +4,7 @@ import { Flexbox } from '@lobehub/ui';
 import { memo } from 'react';
 
 import DataStatistics from '@/features/User/DataStatistics';
+import NewApiBalance from '@/features/User/NewApiBalance';
 import UserInfo from '@/features/User/UserInfo';
 import UserLoginOrSignup from '@/features/User/UserLoginOrSignup/Community';
 import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
@@ -23,6 +24,9 @@ const UserBanner = memo(() => {
           </WorkspaceLink>
           <WorkspaceLink style={{ color: 'inherit' }} to="/settings/stats">
             <DataStatistics paddingInline={12} />
+          </WorkspaceLink>
+          <WorkspaceLink style={{ color: 'inherit' }} to="/settings/stats">
+            <NewApiBalance paddingInline={12} />
           </WorkspaceLink>
         </>
       ) : (

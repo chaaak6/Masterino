@@ -78,7 +78,7 @@ describe('NewApiBalance', () => {
     render(<NewApiBalance />);
 
     expect(screen.getByText('已绑定')).toHaveAttribute('data-color', 'success');
-    expect(screen.getByText('Aihub 余额')).toBeInTheDocument();
+    expect(screen.getByText('AIHUB 余额')).toBeInTheDocument();
     expect(screen.getByText('已用金额')).toBeInTheDocument();
     expect(screen.getByText('请求数')).toBeInTheDocument();
     expect(screen.getByText('¥0.14')).toHaveClass('value');

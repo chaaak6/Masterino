@@ -1,11 +1,13 @@
 'use client';
 
 import { ExclamationCircleOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { BRANDING_EMAIL } from '@lobechat/business-const';
 import { Button, FluentEmoji, Text } from '@lobehub/ui';
 import { Result } from 'antd';
 import { memo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { mailTo } from '@/const/url';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 
 interface StatusPageProps {
@@ -46,7 +48,9 @@ const StatusPage = memo<StatusPageProps>(({ status }) => {
                 i18nKey="assistants.status.unpublished.subtitle"
                 ns="discover"
                 components={{
-                  email: <a href="mailto:support@bielcrystal.com">support@bielcrystal.com</a>,
+                  email: (
+                    <a href={mailTo(BRANDING_EMAIL.support)}>{BRANDING_EMAIL.support}</a>
+                  ),
                 }}
               />
             </Text>
@@ -101,7 +105,9 @@ const StatusPage = memo<StatusPageProps>(({ status }) => {
                 i18nKey="assistants.status.support"
                 ns="discover"
                 components={{
-                  email: <a href="mailto:support@bielcrystal.com">support@bielcrystal.com</a>,
+                  email: (
+                    <a href={mailTo(BRANDING_EMAIL.support)}>{BRANDING_EMAIL.support}</a>
+                  ),
                 }}
               />
             </p>

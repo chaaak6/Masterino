@@ -5,6 +5,7 @@ import { shuffle } from 'es-toolkit/compat';
 import { memo, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { GITHUB } from '@/const/url';
 import { useHomeDailyBrief } from '@/hooks/useHomeDailyBrief';
 import { useStableNavigate } from '@/hooks/useStableNavigate';
 
@@ -61,7 +62,7 @@ interface AutoLinkPattern {
 // becomes clickable.
 const AUTO_LINK_PATTERNS: AutoLinkPattern[] = [
   {
-    build: (match) => `https://github.com/lobehub/lobehub/issues/${match.slice(1)}`,
+    build: (match) => `${GITHUB}/issues/${match.slice(1)}`,
     regex: /#\d+/g,
   },
 ];

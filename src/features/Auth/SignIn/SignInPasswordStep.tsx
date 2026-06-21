@@ -1,4 +1,6 @@
 import { Button, Icon, InputPassword, Text } from '@lobehub/ui';
+import { TypewriterEffect } from '@lobehub/ui/awesome';
+import { LoadingDots } from '@lobehub/ui/chat';
 import { type FormInstance, type InputRef } from 'antd';
 import { Form } from 'antd';
 import { cssVar } from 'antd-style';
@@ -25,7 +27,9 @@ export const SignInPasswordStep = ({
   onForgotPassword,
   onSubmit,
 }: SignInPasswordStepProps) => {
-  const { t } = useTranslation('auth');
+  const { i18n, t } = useTranslation('auth');
+  const title = t('signin.title');
+  const titleKey = `${i18n.resolvedLanguage || i18n.language}-${title}`;
   const passwordInputRef = useRef<InputRef>(null);
 
   useEffect(() => {
@@ -35,7 +39,18 @@ export const SignInPasswordStep = ({
   return (
     <AuthCard
       subtitle={t('betterAuth.signin.passwordStep.subtitle')}
-      title={'Agent teammates that grow with you'}
+      title={
+        <TypewriterEffect
+          cursorCharacter={<LoadingDots size={28} variant={'pulse'} />}
+          cursorFade={false}
+          hideCursorWhileTyping={'afterTyping'}
+          key={titleKey}
+          loop={false}
+          sentences={[title]}
+          textColors={[cssVar.colorText]}
+          typingSpeed={64}
+        />
+      }
       footer={
         <>
           <Text fontSize={13} type={'secondary'}>

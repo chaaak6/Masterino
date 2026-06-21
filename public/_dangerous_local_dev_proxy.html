@@ -71,7 +71,25 @@
           (document.cookie.match(/(?:^|;\s*)LOBE_LOCALE=([^;]*)/) || [])[1] || '',
         ) || 'en-US';
 
-      var configReady = fetch('/spa/' + locale + '/chat')
+      function isMobileDebugUserAgent() {
+        if (
+          navigator.userAgentData &&
+          typeof navigator.userAgentData.mobile === 'boolean'
+        ) {
+          return navigator.userAgentData.mobile;
+        }
+
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
+          navigator.userAgent || '',
+        );
+      }
+
+      var isMobileDebugLayout =
+        isMobileDebugUserAgent() ||
+        (window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
+      var spaVariant = locale + '__' + (isMobileDebugLayout ? '1' : '0');
+
+      var configReady = fetch('/spa/' + spaVariant + '/chat')
         .then(function (res) {
           return res.text();
         })
@@ -85,7 +103,7 @@
         });
 
       // --- 5. Fetch dev server HTML 并注入 ---
-      var devHtmlReady = fetch(host)
+      var devHtmlReady = fetch(host + (isMobileDebugLayout ? '/index.mobile.html' : '/'))
         .then(function (res) {
           return res.text();
         })

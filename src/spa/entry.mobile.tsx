@@ -11,7 +11,13 @@ import { mobileRoutes } from './router/mobileRouter.config';
 
 startAppInitialization();
 
-const router = createAppRouter(mobileRoutes);
+const debugProxyBase = '/_dangerous_local_dev_proxy';
+const basename =
+  window.__DEBUG_PROXY__ || window.location.pathname.startsWith(debugProxyBase)
+    ? debugProxyBase
+    : undefined;
+
+const router = createAppRouter(mobileRoutes, { basename });
 
 createRoot(document.getElementById('root')!).render(
   <NextThemeProvider>

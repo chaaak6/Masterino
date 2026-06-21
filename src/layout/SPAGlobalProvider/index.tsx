@@ -38,7 +38,7 @@ const SPAGlobalProvider = memo<PropsWithChildren>(({ children }) => {
 
   const locale = document.documentElement.lang || 'en-US';
   const isMobile =
-    (serverConfig?.isMobile ?? typeof __MOBILE__ !== 'undefined') ? __MOBILE__ : false;
+    serverConfig?.isMobile ?? (typeof __MOBILE__ !== 'undefined' ? __MOBILE__ : false);
 
   return (
     <Locale defaultLang={locale}>

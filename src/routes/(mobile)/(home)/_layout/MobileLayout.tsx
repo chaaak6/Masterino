@@ -1,19 +1,15 @@
 import { type PropsWithChildren } from 'react';
 
 import MobileContentLayout from '@/components/server/MobileNavLayout';
+import { AgentModalProvider } from '@/routes/(main)/home/_layout/Body/Agent/ModalProvider';
 
-import { styles } from './MobileLayout/style';
 import SessionHeader from './SessionHeader';
-import SessionSearchBar from './SessionSearchBar';
 
 const MobileLayout = ({ children }: PropsWithChildren) => {
   return (
-    <MobileContentLayout withNav header={<SessionHeader />}>
-      <div className={styles.searchBarContainer}>
-        <SessionSearchBar mobile />
-      </div>
-      {children}
-    </MobileContentLayout>
+    <AgentModalProvider>
+      <MobileContentLayout withNav header={<SessionHeader />}>{children}</MobileContentLayout>
+    </AgentModalProvider>
   );
 };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { ExclamationCircleOutlined, FolderOpenOutlined } from '@ant-design/icons';
+import { BRANDING_EMAIL } from '@lobechat/business-const';
 import { Button, FluentEmoji, Text } from '@lobehub/ui';
 import { Result } from 'antd';
 import { memo } from 'react';
@@ -43,8 +44,7 @@ const StatusPage = memo<StatusPageProps>(({ status }) => {
           subTitle={
             <Text fontSize={16} type={'secondary'}>
               {t('groupAgents.status.unpublished.subtitle', {
-                defaultValue:
-                  'This group agent is under review. Please contact support@bielcrystal.com if you have questions.',
+                defaultValue: `This group agent is under review. Please contact ${BRANDING_EMAIL.support} if you have questions.`,
               })}
             </Text>
           }

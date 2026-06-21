@@ -4,7 +4,7 @@
 
 当前版本：`0.0.1`
 
-GitHub 私有仓库：`https://github.com/chaaak6/MasterLion`
+GitHub 私有仓库：`https://github.com/biel-cc/MasterLion`
 
 ## 项目位置
 

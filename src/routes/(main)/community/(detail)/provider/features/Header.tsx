@@ -8,6 +8,8 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import urlJoin from 'url-join';
 
+import { GITHUB } from '@/const/url';
+
 import { useDetailContext } from './DetailProvider';
 
 const Header = memo<{ mobile?: boolean }>(({ mobile: isMobile }) => {
@@ -54,10 +56,7 @@ const Header = memo<{ mobile?: boolean }>(({ mobile: isMobile }) => {
           <a
             rel="noreferrer"
             target="_blank"
-            href={urlJoin(
-              'https://github.com/lobehub/lobe-chat-agents/tree/main/locales',
-              identifier as string,
-            )}
+            href={urlJoin(GITHUB, 'tree/main/locales', identifier as string)}
             onClick={stopPropagation}
           >
             <ActionIcon fill={cssVar.colorTextDescription} icon={Github} />

@@ -209,7 +209,7 @@ export default {
   'historySummary': 'Historical Message Summary',
   'inactive': 'Inactive',
   'inbox.desc': 'Collaborate in one Workspace and move ideas into outcomes.',
-  'inbox.title': 'MasterLion',
+  'inbox.title': '小宗狮AI',
   'input.addAi': 'Add an AI message',
   'input.addUser': 'Add a user message',
   'input.agentModeUnsupportedModel':

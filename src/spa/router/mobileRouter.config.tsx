@@ -65,6 +65,13 @@ export const sharedMainAreaChildren: RouteObject[] = [
     children: [
       {
         element: dynamicElement(
+          () => import('@/routes/(mobile)/community'),
+          'Mobile > Discover > Coming Soon',
+        ),
+        index: true,
+      },
+      {
+        element: dynamicElement(
           () => import('@/routes/(main)/community/(detail)/workspace/settings'),
           'Mobile > Discover > Workspace > Settings',
         ),
@@ -73,13 +80,6 @@ export const sharedMainAreaChildren: RouteObject[] = [
       // List routes (with ListLayout)
       {
         children: [
-          {
-            element: dynamicElement(
-              () => import('@/routes/(main)/community/(list)/(home)'),
-              'Mobile > Discover > List > Home',
-            ),
-            index: true,
-          },
           {
             children: [
               {
@@ -201,15 +201,18 @@ export const sharedMainAreaChildren: RouteObject[] = [
         ),
       },
     ],
-    element: featureGateElement(
-      'community',
-      dynamicElement(
-        () => import('@/routes/(mobile)/community/_layout'),
-        'Mobile > Discover > Layout',
-      ),
+    element: dynamicElement(
+      () => import('@/routes/(mobile)/community/_layout'),
+      'Mobile > Discover > Layout',
     ),
     errorElement: <ErrorBoundary />,
     path: 'community',
+  },
+
+  {
+    element: dynamicElement(() => import('@/routes/(mobile)/messages'), 'Mobile > Messages'),
+    errorElement: <ErrorBoundary />,
+    path: 'messages',
   },
 
   // Task workspace routes (cross-agent)
@@ -374,16 +377,8 @@ export const mobileRoutes: RouteObject[] = [
 
       // Default route - home page
       {
-        children: [
-          {
-            element: dynamicElement(() => import('@/routes/(mobile)/(home)/'), 'Mobile > Home'),
-            index: true,
-          },
-        ],
-        element: dynamicLayout(
-          () => import('@/routes/(mobile)/(home)/_layout'),
-          'Mobile > Home > Layout',
-        ),
+        element: dynamicElement(() => import('@/routes/(mobile)/(home)/'), 'Mobile > Home'),
+        index: true,
       },
 
       // Workspace slug routes — `/:workspaceSlug/*` mirrors the shared main area.

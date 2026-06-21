@@ -22,6 +22,12 @@ vi.mock('@/features/User/DataStatistics', () => ({
   default: vi.fn(() => <div>Mocked DataStatistics</div>),
 }));
 
+vi.mock('@/features/User/NewApiBalance', () => ({
+  default: vi.fn(({ paddingInline }: { paddingInline?: number }) => (
+    <div>Mocked NewApiBalance padding:{paddingInline}</div>
+  )),
+}));
+
 vi.mock('@/features/User/UserLoginOrSignup/Community', () => ({
   default: vi.fn(() => <div>Mocked UserLoginOrSignup</div>),
 }));
@@ -45,6 +51,7 @@ describe('UserBanner', () => {
 
     expect(screen.getByText('Mocked UserInfo')).toBeInTheDocument();
     expect(screen.getByText('Mocked DataStatistics')).toBeInTheDocument();
+    expect(screen.getByText('Mocked NewApiBalance padding:12')).toBeInTheDocument();
     expect(screen.queryByText('Mocked UserLoginOrSignup')).not.toBeInTheDocument();
   });
 

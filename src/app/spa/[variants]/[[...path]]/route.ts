@@ -39,7 +39,12 @@ export function generateStaticParams() {
 const isDev = process.env.NODE_ENV === 'development';
 
 async function getTemplate(isMobile: boolean, request: Request): Promise<string> {
-  if (isDev) return fetchViteDevTemplate('/', getViteDevOrigin(request));
+  if (isDev) {
+    return fetchViteDevTemplate(
+      isMobile ? '/index.mobile.html' : '/',
+      getViteDevOrigin(request),
+    );
+  }
 
   const { desktopHtmlTemplate, mobileHtmlTemplate } = await import('./spaHtmlTemplates');
 

@@ -134,7 +134,7 @@
   "header.desc": "Gestión de uso y suscripción",
   "header.title": "Facturación",
   "keyMissMatch.button": "Restaurar uso y continuar conversación",
-  "keyMissMatch.description": "Debido a una falla ocasional del sistema, el uso de tu suscripción actual está temporalmente inactivo. Haz clic en el botón de abajo para restaurar el uso y continuar la conversación. Si esto ocurre repetidamente, contáctanos por correo electrónico (support@aihub.bielcrystal.com)",
+  "keyMissMatch.description": "Debido a una falla ocasional del sistema, el uso de tu suscripción actual está temporalmente inactivo. Haz clic en el botón de abajo para restaurar el uso y continuar la conversación. Si esto ocurre repetidamente, contáctanos por correo electrónico (ai@bielcrystal.com)",
   "keyMissMatch.title": "Restaurar Uso de Suscripción Ahora",
   "limitation.chat.budgetReady.action": "Continuar Chateando",
   "limitation.chat.budgetReady.desc": "Tus créditos disponibles ahora cubren esta solicitud.",

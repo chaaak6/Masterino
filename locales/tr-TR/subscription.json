@@ -134,7 +134,7 @@
   "header.desc": "Kullanım ve abonelik yönetimi",
   "header.title": "Faturalandırma",
   "keyMissMatch.button": "Kullanımı geri yükle ve konuşmaya devam et",
-  "keyMissMatch.description": "Zaman zaman yaşanan sistem hatası nedeniyle mevcut abonelik kullanımınız geçici olarak devre dışı. Lütfen aşağıdaki butona tıklayarak kullanımı geri yükleyin ve konuşmaya devam edin. Bu durum tekrar ederse, lütfen bizimle e-posta yoluyla iletişime geçin (support@aihub.bielcrystal.com)",
+  "keyMissMatch.description": "Zaman zaman yaşanan sistem hatası nedeniyle mevcut abonelik kullanımınız geçici olarak devre dışı. Lütfen aşağıdaki butona tıklayarak kullanımı geri yükleyin ve konuşmaya devam edin. Bu durum tekrar ederse, lütfen bizimle e-posta yoluyla iletişime geçin (ai@bielcrystal.com)",
   "keyMissMatch.title": "Abonelik Kullanımını Şimdi Geri Yükle",
   "limitation.chat.budgetReady.action": "Sohbete Devam Et",
   "limitation.chat.budgetReady.desc": "Mevcut kredileriniz bu isteği karşılıyor.",

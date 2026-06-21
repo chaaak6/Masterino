@@ -5,7 +5,7 @@ MasterLion is a private, company-internal AI workspace. Contributions should foc
 ## Repository
 
 ```bash
-git clone https://github.com/chaaak6/MasterLion.git
+git clone https://github.com/biel-cc/MasterLion.git
 cd MasterLion
 ```
 

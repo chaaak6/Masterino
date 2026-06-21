@@ -6,6 +6,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 
 import WorkspaceContextSlot from '@/business/client/WorkspaceContextSlot';
 import Loading from '@/components/Loading/BrandTextLoading';
+import MobileAuthGuard from '@/features/MobileAuthGuard';
 import { RouteMetaBridge } from '@/features/RouteMeta';
 import { MarketAuthProvider } from '@/layout/AuthProvider/MarketAuth';
 import dynamic from '@/libs/next/dynamic';
@@ -22,6 +23,7 @@ const MOBILE_NAV_ROUTES = new Set([
   '/community/plugin',
   '/community/model',
   '/community/provider',
+  '/messages',
   '/me',
 ]);
 
@@ -36,8 +38,10 @@ const MobileMainLayout: FC = () => {
       <Suspense fallback={null}>{showCloudPromotion && <CloudBanner mobile />}</Suspense>
       <MarketAuthProvider isDesktop={false}>
         <Suspense fallback={<Loading debugId="MobileMainLayout > Outlet" />}>
-          <Outlet />
-          {showNav && <NavBar />}
+          <MobileAuthGuard>
+            <Outlet />
+            {showNav && <NavBar />}
+          </MobileAuthGuard>
         </Suspense>
       </MarketAuthProvider>
     </WorkspaceContextSlot>

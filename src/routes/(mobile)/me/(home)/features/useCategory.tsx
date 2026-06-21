@@ -1,23 +1,18 @@
 import { LOBE_CHAT_CLOUD, UTM_SOURCE } from '@lobechat/business-const';
-import { DOWNLOAD_URL, OFFICIAL_URL } from '@lobechat/const';
+import { OFFICIAL_URL } from '@lobechat/const';
 import {
   Book,
   CircleUserRound,
   Cloudy,
   Download,
   Feather,
-  FileClockIcon,
   Settings2,
 } from 'lucide-react';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import useBusinessMeCells from '@/business/client/features/User/useBusinessMeCells';
 import { type CellProps } from '@/components/Cell';
-import { openChangelogModal } from '@/components/ChangelogModal';
-import { DOCUMENTS, FEEDBACK } from '@/const/index';
-import { usePlatform } from '@/hooks/usePlatform';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
@@ -27,14 +22,8 @@ export const useCategory = () => {
   const { t } = useTranslation(['common', 'setting', 'auth']);
   const { showCloudPromotion, hideDocs } = useServerConfigStore(featureFlagsSelectors);
   const [isLoginWithAuth] = useUserStore((s) => [authSelectors.isLoginWithAuth(s)]);
-  const { isIOS, isAndroid } = usePlatform();
   const businessMeCells = useBusinessMeCells();
-
-  const downloadUrl = useMemo(() => {
-    if (isIOS) return DOWNLOAD_URL.ios;
-    if (isAndroid) return DOWNLOAD_URL.android;
-    return DOWNLOAD_URL.default;
-  }, [isIOS, isAndroid]);
+  const comingSoon = t('productFeatures.disabled');
 
   const profile: CellProps[] = [
     {
@@ -57,12 +46,13 @@ export const useCategory = () => {
     },
   ];
 
-  const getDesktopApp: CellProps[] = [
+  const getApp: CellProps[] = [
     {
+      disabled: true,
+      extra: comingSoon,
       icon: Download,
-      key: 'get-desktop-app',
-      label: t('getDesktopApp'),
-      onClick: () => window.open(downloadUrl, '__blank'),
+      key: 'get-app',
+      label: t('getApp'),
     },
     {
       type: 'divider',
@@ -77,22 +67,18 @@ export const useCategory = () => {
       onClick: () => window.open(`${OFFICIAL_URL}?utm_source=${UTM_SOURCE}`, '__blank'),
     },
     {
+      disabled: true,
+      extra: comingSoon,
       icon: Book,
       key: 'docs',
       label: t('document'),
-      onClick: () => window.open(DOCUMENTS, '__blank'),
     },
     {
+      disabled: true,
+      extra: comingSoon,
       icon: Feather,
       key: 'feedback',
       label: t('feedback'),
-      onClick: () => window.open(FEEDBACK, '__blank'),
-    },
-    {
-      icon: FileClockIcon,
-      key: 'changelog',
-      label: t('changelog'),
-      onClick: () => openChangelogModal(),
     },
   ].filter(Boolean) as CellProps[];
 
@@ -103,7 +89,7 @@ export const useCategory = () => {
     ...(isLoginWithAuth ? profile : []),
     ...(isLoginWithAuth ? settings : []),
     ...(isLoginWithAuth ? businessMeCells : []),
-    ...getDesktopApp,
+    ...getApp,
     ...(!hideDocs ? helps : []),
   ].filter(Boolean) as CellProps[];
 

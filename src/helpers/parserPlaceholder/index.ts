@@ -55,7 +55,7 @@ export const VARIABLE_GENERATORS = {
    *
    * | Value | Example |
    * |-------|---------|
-   * | `{{email}}` | demo@lobehub.com |
+   * | `{{email}}` | demo@example.com |
    * | `{{nickname}}` | Community User |
    * | `{{username}}` | LobeChat |
    *

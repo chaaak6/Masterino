@@ -5,6 +5,7 @@ import { cx } from 'antd-style';
 import { memo } from 'react';
 
 import { ProductLogo } from '@/components/Branding';
+import { DEFAULT_INBOX_TITLE } from '@/const/meta';
 import PluginTag from '@/features/PluginTag';
 import { filterToolIds } from '@/helpers/toolFilters';
 import { useAgentStore } from '@/store/agent';
@@ -78,7 +79,7 @@ const Preview = memo<PreviewProps>(
     });
 
     const displayTitle =
-      (isHeaderInbox ?? isInbox) ? 'Lobe AI' : headerMeta?.title || title || currentTitle;
+      (isHeaderInbox ?? isInbox) ? DEFAULT_INBOX_TITLE : headerMeta?.title || title || currentTitle;
     const displayAvatar = headerMeta?.avatar || currentAvatar;
     const displayBackgroundColor = headerMeta?.backgroundColor || currentBackgroundColor;
     const displayModel = headerModel || currentModel;

@@ -73,7 +73,7 @@ File formats and parsing requirements are constantly evolving. We welcome commun
 
 ### Contribution Process
 
-1. Fork the [MasterLion repository](https://github.com/chaaak6/MasterLion)
+1. Fork the [MasterLion repository](https://github.com/biel-cc/MasterLion)
 2. Add new format support or improve existing parsers
 3. Submit a Pull Request describing:
 
@@ -86,4 +86,4 @@ File formats and parsing requirements are constantly evolving. We welcome commun
 
 This is an internal module of MasterLion (`"private": true`), designed specifically for MasterLion and not published as a standalone package.
 
-If you're working on this project, use the private [MasterLion repository](https://github.com/chaaak6/MasterLion) for issues and pull requests.
+If you're working on this project, use the private [MasterLion repository](https://github.com/biel-cc/MasterLion) for issues and pull requests.

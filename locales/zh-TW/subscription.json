@@ -134,7 +134,7 @@
   "header.desc": "使用與訂閱管理",
   "header.title": "帳單",
   "keyMissMatch.button": "恢復使用並繼續對話",
-  "keyMissMatch.description": "由於系統偶發錯誤，您的訂閱使用暫時失效。請點擊下方按鈕恢復使用並繼續對話。如多次發生，請透過電子郵件聯繫我們（support@aihub.bielcrystal.com）",
+  "keyMissMatch.description": "由於系統偶發錯誤，您的訂閱使用暫時失效。請點擊下方按鈕恢復使用並繼續對話。如多次發生，請透過電子郵件聯繫我們（ai@bielcrystal.com）",
   "keyMissMatch.title": "立即恢復訂閱使用",
   "limitation.chat.budgetReady.action": "繼續聊天",
   "limitation.chat.budgetReady.desc": "您的可用點數現在足以覆蓋此請求。",

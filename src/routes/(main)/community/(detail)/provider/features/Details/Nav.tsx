@@ -8,6 +8,7 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import urlJoin from 'url-join';
 
+import { GITHUB, GITHUB_ISSUES } from '@/const/url';
 import { ProviderNavKey } from '@/types/discover';
 
 import { useDetailContext } from '../DetailProvider';
@@ -85,17 +86,14 @@ const Nav = memo<NavProps>(({ mobile, setActiveTab, activeTab = ProviderNavKey.O
             className={styles.link}
             rel="noreferrer"
             target="_blank"
-            href={urlJoin(
-              'https://github.com/lobehub/lobe-chat/tree/main/src/config/modelProviders',
-              `${identifier}.ts`,
-            )}
+            href={urlJoin(GITHUB, 'tree/main/src/config/modelProviders', `${identifier}.ts`)}
           >
             {t('mcp.details.nav.viewSourceCode')}
           </a>
         )}
         <a
           className={styles.link}
-          href="https://github.com/lobehub/lobe-chat/issues/new/choose"
+          href={GITHUB_ISSUES}
           rel="noreferrer"
           target="_blank"
         >

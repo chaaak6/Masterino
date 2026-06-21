@@ -1,17 +1,16 @@
 import { type MetaData } from '@lobechat/types';
 import { useMemo } from 'react';
 
+import { DEFAULT_INBOX_TITLE } from '@/const/meta';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 
 import { contextSelectors, useConversationStore } from '../store';
 
-const LOBE_AI_TITLE = 'Lobe AI';
-
 /**
  * Hook to get agent meta data for a specific agent or the current conversation.
  * Handles special cases for builtin agents (inbox, page agent, agent builder)
- * by showing Lobe AI title instead of the agent's own meta.
+ * by showing the product inbox title instead of the agent's own meta.
  * Avatar is now returned from the backend (merged from builtin-agents package).
  *
  * @param messageAgentId - Optional agent ID from the message. If provided, uses this agent's meta.
@@ -30,8 +29,8 @@ export const useAgentMeta = (messageAgentId?: string | null): MetaData => {
     const isBuiltinAgent = builtinAgentIds.includes(agentId);
 
     if (isBuiltinAgent) {
-      // Use DB-stored title if customized (e.g. via onboarding), otherwise fallback to Lobe AI
-      return { ...agentMeta, title: agentMeta.title || LOBE_AI_TITLE };
+      // Use DB-stored title if customized (e.g. via onboarding), otherwise fallback to inbox title.
+      return { ...agentMeta, title: agentMeta.title || DEFAULT_INBOX_TITLE };
     }
 
     return agentMeta;
