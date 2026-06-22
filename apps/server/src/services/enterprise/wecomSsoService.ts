@@ -12,7 +12,8 @@ import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 
 export const WECOM_SSO_PROVIDER = 'wecom' as const;
 export const WECOM_SSO_DISPLAY_NAME = '企业微信';
-export const WECOM_SSO_DEFAULT_MODE = 'web_qr' as const;
+export const WECOM_SSO_DEFAULT_MODES = ['web_qr', 'workbench'] as const;
+export const WECOM_DEFAULT_AIHUB_INITIAL_QUOTA = 50_000_000;
 
 const trimString = (value: unknown) => (typeof value === 'string' ? value.trim() : value);
 const emptyStringToUndefined = (value: unknown) => {
@@ -46,15 +47,15 @@ const wecomDepartmentSyncSchema = z
 
 const wecomAihubProvisioningSchema = z
   .object({
-    autoCreateUser: z.boolean().default(false),
-    enabled: z.boolean().default(false),
-    initialQuota: z.number().min(0).default(0),
+    autoCreateUser: z.boolean().default(true),
+    enabled: z.boolean().default(true),
+    initialQuota: z.number().min(0).default(WECOM_DEFAULT_AIHUB_INITIAL_QUOTA),
     lookupField: z.preprocess(
       emptyStringToUndefined,
       z.enum(['employeeNumber', 'email', 'name']).default('employeeNumber'),
     ),
     managedTokenName: stringWithDefault('masterlion-managed'),
-    managedTokenQuota: z.number().min(0).default(0),
+    managedTokenQuota: z.number().min(0).default(WECOM_DEFAULT_AIHUB_INITIAL_QUOTA),
     managedTokenUnlimitedQuota: z.boolean().default(false),
     userGroup: z.preprocess(emptyStringToUndefined, z.string().optional()),
   })
@@ -64,13 +65,13 @@ export const wecomSsoConfigSchema = z
   .object({
     agentId: trimmedStringSchema.default(''),
     aihubProvisioning: wecomAihubProvisioningSchema,
-    autoProvision: z.boolean().default(false),
+    autoProvision: z.boolean().default(true),
     corpId: trimmedStringSchema.default(''),
     defaultRole: z.enum(['owner', 'admin', 'member', 'viewer']).default('member'),
     defaultWorkspaceId: z.preprocess(emptyStringToUndefined, z.string().optional()),
     departmentSync: wecomDepartmentSyncSchema,
     enabled: z.boolean().default(false),
-    enabledModes: z.array(z.enum(['web_qr', 'workbench'])).default([]),
+    enabledModes: z.array(z.enum(['web_qr', 'workbench'])).default([...WECOM_SSO_DEFAULT_MODES]),
     identityMapping: wecomIdentityMappingSchema,
     redirectUri: z
       .preprocess(trimString, z.union([z.literal(''), z.string().url()]))
@@ -302,7 +303,7 @@ const getEnvRuntimeConfig = (): WecomSsoRuntimeConfig | undefined => {
     corpId: authEnv.AUTH_WECOM_CORP_ID,
     corpSecret: authEnv.AUTH_WECOM_CORP_SECRET,
     enabled: true,
-    enabledModes: [WECOM_SSO_DEFAULT_MODE],
+    enabledModes: [...WECOM_SSO_DEFAULT_MODES],
     redirectUri: getDefaultWecomRedirectUri(),
   };
 };

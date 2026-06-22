@@ -10,7 +10,7 @@ import {
   MicrosoftEntra,
   Zitadel,
 } from '@lobehub/ui/icons';
-import { User } from 'lucide-react';
+import { Building2, User } from 'lucide-react';
 
 const iconComponents: { [key: string]: any } = {
   'apple': Apple,
@@ -25,6 +25,7 @@ const iconComponents: { [key: string]: any } = {
   'logto': Logto.Color,
   'microsoft': Microsoft.Color,
   'microsoft-entra-id': MicrosoftEntra.Color,
+  'wecom': Building2,
   'zitadel': Zitadel.Color,
 };
 

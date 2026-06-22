@@ -56,19 +56,21 @@ const aihubLookupFieldOptions = [
   { label: 'Name', value: 'name' },
 ];
 
+const DEFAULT_AIHUB_INITIAL_QUOTA = 50_000_000;
+
 const emptyConfig = {
   agentId: '',
   aihubProvisioning: {
-    autoCreateUser: false,
-    enabled: false,
-    initialQuota: 0,
+    autoCreateUser: true,
+    enabled: true,
+    initialQuota: DEFAULT_AIHUB_INITIAL_QUOTA,
     lookupField: 'employeeNumber',
     managedTokenName: 'masterlion-managed',
-    managedTokenQuota: 0,
+    managedTokenQuota: DEFAULT_AIHUB_INITIAL_QUOTA,
     managedTokenUnlimitedQuota: false,
     userGroup: undefined as string | undefined,
   } as AihubProvisioning,
-  autoProvision: false,
+  autoProvision: true,
   corpId: '',
   defaultRole: 'member' as DefaultRole,
   defaultWorkspaceId: undefined as string | undefined,
@@ -77,7 +79,7 @@ const emptyConfig = {
     mode: 'login' as DepartmentSyncMode,
   } as DepartmentSync,
   enabled: false,
-  enabledModes: [] as EnabledMode[],
+  enabledModes: ['web_qr', 'workbench'] as EnabledMode[],
   identityMapping: {
     departmentField: 'department',
     emailField: 'email',
@@ -227,7 +229,11 @@ export default function SsoPage() {
           <Form.Item label="自动创建 AIHub 用户" name={['aihubProvisioning', 'autoCreateUser']} valuePropName="checked">
             <Switch />
           </Form.Item>
-          <Form.Item label="初始额度" name={['aihubProvisioning', 'initialQuota']}>
+          <Form.Item
+            extra="默认 50,000,000，按 AIHub 500,000 quota/USD 计约为 100 USD"
+            label="初始额度"
+            name={['aihubProvisioning', 'initialQuota']}
+          >
             <InputNumber min={0} precision={0} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="托管令牌名称" name={['aihubProvisioning', 'managedTokenName']}>
@@ -240,7 +246,11 @@ export default function SsoPage() {
           >
             <Switch />
           </Form.Item>
-          <Form.Item label="托管令牌额度" name={['aihubProvisioning', 'managedTokenQuota']}>
+          <Form.Item
+            extra="默认与用户初始额度一致"
+            label="托管令牌额度"
+            name={['aihubProvisioning', 'managedTokenQuota']}
+          >
             <InputNumber min={0} precision={0} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item label="用户组" name={['aihubProvisioning', 'userGroup']}>
