@@ -6,7 +6,8 @@ import { type GenericProviderDefinition } from '../types';
 
 const WECOM_TOKEN_URL = 'https://qyapi.weixin.qq.com/cgi-bin/gettoken';
 const WECOM_USERINFO_URL = 'https://qyapi.weixin.qq.com/cgi-bin/auth/getuserinfo';
-const WECOM_USER_DETAIL_URL = 'https://qyapi.weixin.qq.com/cgi-bin/user/get';
+const WECOM_USER_DETAIL_URL = 'https://qyapi.weixin.qq.com/cgi-bin/auth/getuserdetail';
+const WECOM_ADDRESS_BOOK_USER_URL = 'https://qyapi.weixin.qq.com/cgi-bin/user/get';
 
 type WecomAccessTokenResponse = {
   access_token?: string;
@@ -22,6 +23,8 @@ type WecomAuthUserResponse = {
   errcode?: number;
   errmsg?: string;
   expires_in?: number;
+  openid?: string;
+  userid?: string;
   user_ticket?: string;
 };
 
@@ -49,6 +52,41 @@ const assertWecomSuccess = (data: { errcode?: number; errmsg?: string }, fallbac
   if (hasWecomError(data)) {
     throw new Error(data.errmsg ?? fallback);
   }
+};
+
+const getAuthUserId = (authUser?: WecomAuthUserResponse) => authUser?.UserId ?? authUser?.userid;
+
+const getAuthOpenId = (authUser?: WecomAuthUserResponse) => authUser?.OpenId ?? authUser?.openid;
+
+const fetchWecomUserDetail = async (accessToken: string, userTicket: string) => {
+  const detailUrl = new URL(WECOM_USER_DETAIL_URL);
+  detailUrl.searchParams.set('access_token', accessToken);
+
+  const response = await fetch(detailUrl.toString(), {
+    body: JSON.stringify({ user_ticket: userTicket }),
+    cache: 'no-store',
+    headers: {
+      'content-type': 'application/json',
+    },
+    method: 'POST',
+  });
+
+  if (!response.ok) return;
+
+  const data = (await response.json()) as WecomUserDetailResponse;
+  if (!hasWecomError(data)) return data;
+};
+
+const fetchWecomAddressBookUser = async (accessToken: string, userId: string) => {
+  const detailUrl = new URL(WECOM_ADDRESS_BOOK_USER_URL);
+  detailUrl.searchParams.set('access_token', accessToken);
+  detailUrl.searchParams.set('userid', userId);
+
+  const response = await fetch(detailUrl, { cache: 'no-store' });
+  if (!response.ok) return;
+
+  const data = (await response.json()) as WecomUserDetailResponse;
+  if (!hasWecomError(data)) return data;
 };
 
 const provider: GenericProviderDefinition<{
@@ -92,7 +130,7 @@ const provider: GenericProviderDefinition<{
 
         assertWecomSuccess(authUser, 'Failed to fetch WeCom login user info');
 
-        if (!userInfoResponse.ok || (!authUser.UserId && !authUser.OpenId)) {
+        if (!userInfoResponse.ok || (!getAuthUserId(authUser) && !getAuthOpenId(authUser))) {
           throw new Error(authUser.errmsg ?? 'WeCom user info response is missing user identity');
         }
 
@@ -103,7 +141,7 @@ const provider: GenericProviderDefinition<{
             : undefined,
           expiresIn: token.expires_in,
           raw: { authUser, token } satisfies WecomTokenRaw,
-          scopes: ['snsapi_login'],
+          scopes: authUser.user_ticket ? ['snsapi_privateinfo'] : ['snsapi_login'],
           tokenType: 'Bearer',
         };
       },
@@ -112,35 +150,33 @@ const provider: GenericProviderDefinition<{
 
         const accessToken = tokens.accessToken;
         const raw = (tokens as { raw?: WecomTokenRaw }).raw;
-        const userId = raw?.authUser.UserId;
-        const openId = raw?.authUser.OpenId;
+        const userId = getAuthUserId(raw?.authUser);
+        const openId = getAuthOpenId(raw?.authUser);
         const fallbackId = userId ?? openId;
 
         if (!accessToken || !fallbackId) return null;
 
         let profile: WecomUserDetailResponse | undefined;
 
-        if (userId) {
-          const detailUrl = new URL(WECOM_USER_DETAIL_URL);
-          detailUrl.searchParams.set('access_token', accessToken);
-          detailUrl.searchParams.set('userid', userId);
+        if (raw?.authUser.user_ticket) {
+          profile = await fetchWecomUserDetail(accessToken, raw.authUser.user_ticket);
+        }
 
-          const response = await fetch(detailUrl, { cache: 'no-store' });
-          if (response.ok) {
-            const data = (await response.json()) as WecomUserDetailResponse;
-            if (!hasWecomError(data)) profile = data;
-          }
+        if (!profile && userId) {
+          profile = await fetchWecomAddressBookUser(accessToken, userId);
         }
 
         const finalId = profile?.userid ?? fallbackId;
+        const profileEmail = profile?.email;
 
         return {
           ...profile,
-          email: profile?.email || `${finalId}@wecom.sso`,
-          emailVerified: false,
+          email: profileEmail || `${finalId}@wecom.sso`,
+          emailVerified: Boolean(profileEmail),
           id: finalId,
           image: profile?.avatar,
           name: profile?.name ?? profile?.alias ?? finalId,
+          username: finalId,
         };
       },
       pkce: false,

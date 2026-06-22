@@ -71,12 +71,12 @@ const mockServerDB = { query: {} };
 
 const defaultEnterpriseWecomBlocks = {
   aihubProvisioning: {
-    autoCreateUser: false,
-    enabled: false,
-    initialQuota: 0,
+    autoCreateUser: true,
+    enabled: true,
+    initialQuota: 50_000_000,
     lookupField: 'employeeNumber',
     managedTokenName: 'masterlion-managed',
-    managedTokenQuota: 0,
+    managedTokenQuota: 50_000_000,
     managedTokenUnlimitedQuota: false,
   },
   departmentSync: {
@@ -96,12 +96,12 @@ const defaultEnterpriseWecomBlocks = {
 const mockSsoConfig = {
   config: {
     agentId: '',
-    autoProvision: false,
+    autoProvision: true,
     corpId: '',
     defaultRole: 'member',
     defaultWorkspaceId: undefined,
     enabled: false,
-    enabledModes: [] as string[],
+    enabledModes: ['web_qr', 'workbench'] as string[],
     redirectUri: '',
     trustedDomains: [] as string[],
     ...defaultEnterpriseWecomBlocks,

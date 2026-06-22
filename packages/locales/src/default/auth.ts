@@ -84,6 +84,7 @@ export default {
   'betterAuth.signin.continueWithMicrosoft': 'Continue with Microsoft',
   'betterAuth.signin.continueWithOIDC': 'Sign in with OIDC',
   'betterAuth.signin.continueWithOkta': 'Sign in with Okta',
+  'betterAuth.signin.continueWithWecom': 'Sign in with WeCom',
   'betterAuth.signin.continueWithWechat': 'Sign in with WeChat',
   'betterAuth.signin.continueWithZitadel': 'Sign in with Zitadel',
   'betterAuth.signin.emailPlaceholder': 'Enter your email or username',

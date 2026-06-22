@@ -79,12 +79,12 @@ const createMockDb = (existingRow: unknown = null) => {
 
 const defaultEnterpriseWecomBlocks = {
   aihubProvisioning: {
-    autoCreateUser: false,
-    enabled: false,
-    initialQuota: 0,
+    autoCreateUser: true,
+    enabled: true,
+    initialQuota: 50_000_000,
     lookupField: 'employeeNumber',
     managedTokenName: 'masterlion-managed',
-    managedTokenQuota: 0,
+    managedTokenQuota: 50_000_000,
     managedTokenUnlimitedQuota: false,
   },
   departmentSync: {
@@ -120,7 +120,7 @@ describe('wecomSsoService', () => {
       }),
     ).toEqual({
       agentId: '1000002',
-      autoProvision: false,
+      autoProvision: true,
       corpId: 'ww-corp',
       defaultRole: 'member',
       defaultWorkspaceId: undefined,
@@ -198,12 +198,12 @@ describe('wecomSsoService', () => {
     });
 
     expect(validateWecomSsoConfig({}).aihubProvisioning).toEqual({
-      autoCreateUser: false,
-      enabled: false,
-      initialQuota: 0,
+      autoCreateUser: true,
+      enabled: true,
+      initialQuota: 50_000_000,
       lookupField: 'employeeNumber',
       managedTokenName: 'masterlion-managed',
-      managedTokenQuota: 0,
+      managedTokenQuota: 50_000_000,
       managedTokenUnlimitedQuota: false,
     });
   });
@@ -277,12 +277,12 @@ describe('wecomSsoService', () => {
     await expect(getWecomSsoConfig(db as never)).resolves.toEqual({
       config: {
         agentId: '',
-        autoProvision: false,
+        autoProvision: true,
         corpId: '',
         defaultRole: 'member',
         defaultWorkspaceId: undefined,
         enabled: false,
-        enabledModes: [],
+        enabledModes: ['web_qr', 'workbench'],
         redirectUri: '',
         trustedDomains: [],
         ...defaultEnterpriseWecomBlocks,
@@ -701,7 +701,7 @@ describe('wecomSsoService', () => {
       corpId: 'env-corp',
       corpSecret: 'env-secret',
       enabled: true,
-      enabledModes: ['web_qr'],
+      enabledModes: ['web_qr', 'workbench'],
       redirectUri: 'https://app.example.com/api/auth/oauth2/callback/wecom',
     });
   });
