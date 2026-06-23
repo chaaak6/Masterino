@@ -5,6 +5,7 @@ import {
   type NewApiToken,
   type NewApiUser,
 } from './client';
+import { NewApiBridgeClient } from './bridgeClient';
 
 type LookupField = 'email' | 'employeeNumber' | 'name';
 
@@ -47,6 +48,7 @@ type ProvisioningClient = Pick<
 
 type NewApiProvisioningAdapterOptions = {
   adminAuth?: NewApiManagementAuth;
+  bridgeClient?: NewApiBridgeClient;
   client?: ProvisioningClient;
 };
 
@@ -151,6 +153,7 @@ const getCreateUsername = (input: ProvisionEnterpriseUserInput) => {
 
 export class NewApiProvisioningAdapter {
   private adminAuth: NewApiManagementAuth;
+  private bridgeClient: NewApiBridgeClient | undefined;
   private client: ProvisioningClient;
 
   constructor(options: NewApiProvisioningAdapterOptions = {}) {
@@ -160,6 +163,7 @@ export class NewApiProvisioningAdapter {
         baseUrl: process.env.AIHUB_PROXY_URL ?? '',
       });
     this.adminAuth = options.adminAuth ?? getAdminAuthFromEnv();
+    this.bridgeClient = options.bridgeClient ?? new NewApiBridgeClient();
   }
 
   async provisionEnterpriseUser(
@@ -243,9 +247,22 @@ export class NewApiProvisioningAdapter {
     managedTokenName: string,
     policy: AihubProvisioningPolicy,
   ) {
-    // Token management must use the admin's own credentials — the Aihub backend
-    // verifies that New-Api-User matches the access token's owner. Using the
-    // target user's id in New-Api-User with the admin's token causes a 401.
+    // 1. Try the bridge (direct DB read) to find an existing managed token for the target user.
+    //    The Aihub API only lists the authenticated user's own tokens, so admin can't see
+    //    other users' tokens via /api/token/. The bridge queries the DB directly.
+    if (this.bridgeClient?.isEnabled()) {
+      try {
+        const bridgedToken = await this.bridgeClient.findManagedToken(
+          newApiUserId,
+          managedTokenName,
+        );
+        if (bridgedToken && isValidId(bridgedToken.id)) return bridgedToken;
+      } catch {
+        // Bridge lookup failed — fall through to admin API approach
+      }
+    }
+
+    // 2. Fall back to admin API: list admin's own tokens for a name match.
     const findToken = async () => {
       const page = await this.client.listTokens(this.adminAuth, {
         keyword: managedTokenName,
@@ -258,6 +275,9 @@ export class NewApiProvisioningAdapter {
     const existingToken = await findToken();
     if (existingToken && isValidId(existingToken.id)) return existingToken;
 
+    // 3. Create a new token as admin. Note: the token is created under the admin user,
+    //    not the target user (Aihub API limitation). This is acceptable for managed
+    //    tokens whose quota/billing is tracked at the token level.
     await this.client.createToken(this.adminAuth, {
       expired_time: -1,
       name: managedTokenName,
