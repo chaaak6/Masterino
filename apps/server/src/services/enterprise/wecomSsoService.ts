@@ -247,7 +247,11 @@ export const getWecomSsoConfig = async (db: LobeChatDatabase): Promise<WecomSsoC
   const envConfig = getEnvRuntimeConfig();
   if (envConfig) {
     return {
-      config: validateWecomSsoConfig({ enabled: true }),
+      config: validateWecomSsoConfig({
+        agentId: envConfig.agentId,
+        corpId: envConfig.corpId,
+        enabled: true,
+      }),
       corpSecretConfigured: true,
       displayName: WECOM_SSO_DISPLAY_NAME,
       enabled: true,
