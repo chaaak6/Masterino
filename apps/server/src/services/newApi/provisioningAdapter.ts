@@ -243,12 +243,11 @@ export class NewApiProvisioningAdapter {
     managedTokenName: string,
     policy: AihubProvisioningPolicy,
   ) {
-    const targetAuth = {
-      accessToken: this.adminAuth.accessToken,
-      newApiUserId,
-    };
+    // Token management must use the admin's own credentials — the Aihub backend
+    // verifies that New-Api-User matches the access token's owner. Using the
+    // target user's id in New-Api-User with the admin's token causes a 401.
     const findToken = async () => {
-      const page = await this.client.listTokens(targetAuth, {
+      const page = await this.client.listTokens(this.adminAuth, {
         keyword: managedTokenName,
         pageSize: 100,
       });
@@ -259,7 +258,7 @@ export class NewApiProvisioningAdapter {
     const existingToken = await findToken();
     if (existingToken && isValidId(existingToken.id)) return existingToken;
 
-    await this.client.createToken(targetAuth, {
+    await this.client.createToken(this.adminAuth, {
       expired_time: -1,
       name: managedTokenName,
       remain_quota: policy.managedTokenQuota,

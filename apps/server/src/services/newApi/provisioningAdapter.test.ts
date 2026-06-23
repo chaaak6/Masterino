@@ -102,7 +102,7 @@ describe('NewApiProvisioningAdapter', () => {
       expect.objectContaining({ keyword: 'ada@example.com' }),
     );
     expect(client.listTokens).toHaveBeenCalledWith(
-      { accessToken: 'admin-token', newApiUserId: 9001 },
+      adminAuth,
       expect.objectContaining({ keyword: 'masterlion-managed' }),
     );
     expect(client.createUser).not.toHaveBeenCalled();
@@ -166,7 +166,7 @@ describe('NewApiProvisioningAdapter', () => {
     expect([createUserInput.display_name, createUserInput.name]).toContain('Ada Lovelace');
     expect([createUserInput.group, createUserInput.userGroup]).toContain('staff');
     expect(client.createToken).toHaveBeenCalledWith(
-      { accessToken: 'admin-token', newApiUserId: 9002 },
+      adminAuth,
       expect.objectContaining({
         name: 'masterlion-managed',
         remain_quota: 500,
