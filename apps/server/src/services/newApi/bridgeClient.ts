@@ -153,4 +153,50 @@ export class NewApiBridgeClient implements NewApiReadSource {
       }
     );
   }
+
+  /**
+   * Reassign a token to a different Aihub user by updating `user_id` directly in the DB.
+   * Requires the bridge DB account to have UPDATE privilege on the `tokens` table.
+   * Optionally updates the token name in the same request.
+   * Returns true if the reassignment succeeded, false otherwise.
+   */
+  async reassignToken(
+    tokenId: number,
+    targetUserId: number,
+    name?: string,
+  ): Promise<boolean> {
+    if (!this.baseUrl || !this.token) return false;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
+      try {
+        const payload: Record<string, unknown> = { userId: targetUserId };
+        if (name) payload.name = name;
+
+        const response = await this.fetchImpl(`${this.baseUrl}/v1/tokens/${tokenId}/reassign`, {
+          body: JSON.stringify(payload),
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${this.token}`,
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+          signal: controller.signal,
+        });
+
+        if (!response.ok) return false;
+
+        const text = await response.text();
+        const body = text ? JSON.parse(text) : undefined;
+
+        return body?.success === true;
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch {
+      return false;
+    }
+  }
 }

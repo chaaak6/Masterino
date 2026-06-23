@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 ## Set global build ENV
 ARG NODEJS_VERSION="24"
 
@@ -9,14 +11,15 @@ ARG USE_CN_MIRROR
 ENV CI="true" \
     DEBIAN_FRONTEND="noninteractive"
 
+# 使用 apt-get + --no-install-recommends，减少非必要包，降低基础层体积。
 RUN --mount=type=cache,id=masterlion-apt-lists,target=/var/lib/apt/lists,sharing=locked \
     --mount=type=cache,id=masterlion-apt-cache,target=/var/cache/apt,sharing=locked \
     set -e && \
     if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
         sed -i "s/deb.debian.org/mirrors.ustc.edu.cn/g" "/etc/apt/sources.list.d/debian.sources"; \
     fi && \
-    apt update && \
-    apt install ca-certificates proxychains-ng -qy && \
+    apt-get update && \
+    apt-get install --no-install-recommends ca-certificates proxychains-ng -qy && \
     mkdir -p /distroless/bin /distroless/etc /distroless/etc/ssl/certs /distroless/lib && \
     cp /usr/lib/$(arch)-linux-gnu/libproxychains.so.4 /distroless/lib/libproxychains.so.4 && \
     cp /usr/lib/$(arch)-linux-gnu/libdl.so.2 /distroless/lib/libdl.so.2 && \
@@ -29,10 +32,67 @@ RUN --mount=type=cache,id=masterlion-apt-lists,target=/var/lib/apt/lists,sharing
     cp /etc/ssl/certs/ca-certificates.crt /distroless/etc/ssl/certs/ca-certificates.crt && \
     rm -rf /tmp/* /var/tmp/*
 
+## manifest 阶段：只抽取 pnpm 安装依赖所需的 package.json / lockfile / workspace 文件。
+## 目的：业务源码变更时，不要让 pnpm install 依赖层失效。
+## BuildKit 基于 /manifests/ 内容 hash 缓存，源码变动时输出不变 → 依赖层命中缓存。
+FROM base AS workspace-manifests
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN set -e && \
+    mkdir -p /manifests && \
+    cp --parents package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc /manifests/ && \
+    if [ -d patches ]; then cp -a patches /manifests/patches; fi && \
+    for dir in packages apps; do \
+        if [ -d "$dir" ]; then \
+            find "$dir" -name package.json -type f -exec cp --parents {} /manifests/ \; ; \
+        fi; \
+    done
+
 ## Builder image, install all the dependencies and build the app
 FROM base AS builder
 
 ARG USE_CN_MIRROR
+
+# Node
+ENV NODE_OPTIONS="--max-old-space-size=8192"
+
+WORKDIR /app
+
+# 从 workspace-manifests 阶段只复制 manifest 文件，源码变动不影响此层缓存。
+COPY --from=workspace-manifests /manifests/ ./
+
+# 1. 直接使用 Node 自带 corepack，按 packageManager 固定 pnpm 版本。
+# 2. --frozen-lockfile 保证可复现，--prefer-offline 优先复用缓存。
+# 【新增】corepack-cache 挂载：避免每次构建重新下载 pnpm 本体。
+RUN --mount=type=cache,id=masterlion-npm-cache,target=/root/.npm,sharing=locked \
+    --mount=type=cache,id=masterlion-pnpm-store,target=/pnpm/store,sharing=locked \
+    --mount=type=cache,id=masterlion-corepack-cache,target=/root/.cache/node/corepack,sharing=locked \
+    set -e && \
+    if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
+        export SENTRYCLI_CDNURL="https://npmmirror.com/mirrors/sentry-cli"; \
+        npm config set registry "https://registry.npmmirror.com/"; \
+        echo 'canvas_binary_host_mirror=https://npmmirror.com/mirrors/canvas' >> .npmrc; \
+        export FFMPEG_BINARIES_URL="https://npmmirror.com/mirrors/ffmpeg-static"; \
+    fi && \
+    export COREPACK_NPM_REGISTRY="$(npm config get registry | sed 's/\/$//')" && \
+    corepack enable && \
+    corepack prepare "$(node -p 'require("./package.json").packageManager')" --activate && \
+    if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
+        pnpm config set registry "https://registry.npmmirror.com/"; \
+    fi && \
+    pnpm config set store-dir /pnpm/store && \
+    pnpm install --frozen-lockfile --node-linker=hoisted --prefer-offline && \
+    mkdir -p /deps && \
+    cd /deps && \
+    echo '{"name":"deps","private":true}' > package.json && \
+    pnpm add pg drizzle-orm --prefer-offline
+
+COPY . .
+
+# ARG/ENV 只影响预构建 / Next.js 构建，放在 COPY . . 之后，避免打掉依赖安装缓存。
 ARG NEXT_PUBLIC_BASE_PATH
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_ANALYTICS_POSTHOG
@@ -67,83 +127,50 @@ ENV NEXT_PUBLIC_ANALYTICS_UMAMI="${NEXT_PUBLIC_ANALYTICS_UMAMI}" \
     NEXT_PUBLIC_UMAMI_SCRIPT_URL="${NEXT_PUBLIC_UMAMI_SCRIPT_URL}" \
     NEXT_PUBLIC_UMAMI_WEBSITE_ID="${NEXT_PUBLIC_UMAMI_WEBSITE_ID}"
 
-# Node
-ENV NODE_OPTIONS="--max-old-space-size=8192"
+# Prebuild: env checks then remove desktop-only code（合并为一个 RUN，减少镜像层）。
+RUN pnpm exec tsx scripts/dockerPrebuild.mts && \
+    rm -rf src/app/desktop "src/app/(backend)/trpc/desktop"
 
-WORKDIR /app
-
-COPY package.json pnpm-workspace.yaml ./
-COPY .npmrc ./
-COPY packages ./packages
-COPY patches ./patches
-# bring in desktop workspace manifest so pnpm can resolve it
-COPY apps/desktop/src/main/package.json ./apps/desktop/src/main/package.json
-COPY apps/server/package.json ./apps/server/package.json
-COPY apps/aihub-db-bridge/package.json ./apps/aihub-db-bridge/package.json
-
-RUN --mount=type=cache,id=masterlion-npm-cache,target=/root/.npm,sharing=locked \
-    --mount=type=cache,id=masterlion-pnpm-store,target=/pnpm/store,sharing=locked \
-    set -e && \
-    if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
-        export SENTRYCLI_CDNURL="https://npmmirror.com/mirrors/sentry-cli"; \
-        npm config set registry "https://registry.npmmirror.com/"; \
-        echo 'canvas_binary_host_mirror=https://npmmirror.com/mirrors/canvas' >> .npmrc; \
-    fi && \
-    export COREPACK_NPM_REGISTRY=$(npm config get registry | sed 's/\/$//') && \
-    npm i -g corepack@latest && \
-    corepack enable && \
-    corepack use $(sed -n 's/.*"packageManager": "\(.*\)".*/\1/p' package.json) && \
-    pnpm config set store-dir /pnpm/store && \
-    pnpm i --node-linker=hoisted && \
-    mkdir -p /deps && \
-    cd /deps && \
-    echo '{"name":"deps","private":true}' > package.json && \
-    pnpm add pg drizzle-orm
-
-COPY . .
-
-# Prebuild: env checks (checkDeprecatedAuth, checkRequiredEnvVars, printEnvInfo) then remove desktop-only code
-RUN pnpm exec tsx scripts/dockerPrebuild.mts
-RUN rm -rf src/app/desktop "src/app/(backend)/trpc/desktop"
-
-# run build standalone for docker version
-RUN npm run build:docker
+# 构建：挂载 .next/cache 与 node_modules/.cache，二次构建走增量编译。
+# 【新增】node_modules/.cache 挂载：babel / terser 等构建工具缓存跨构建复用。
+RUN --mount=type=cache,id=masterlion-next-cache,target=/app/.next/cache,sharing=locked \
+    --mount=type=cache,id=masterlion-build-cache,target=/app/node_modules/.cache,sharing=locked \
+    npm run build:docker
 
 ## Application image, copy all the files for production
 FROM busybox:latest AS app
 
 COPY --from=base /distroless/ /
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder /app/.next/standalone /app/
-COPY --from=builder /app/.next/static /app/.next/static
-# Copy SPA assets (Vite build output)
-COPY --from=builder /app/public/_spa /app/public/_spa
-# Copy database migrations
-COPY --from=builder /app/packages/database/migrations /app/migrations
-COPY --from=builder /app/scripts/migrateServerDB/docker.cjs /app/docker.cjs
-COPY --from=builder /app/scripts/migrateServerDB/errorHint.js /app/errorHint.js
-
-# copy dependencies
-COPY --from=builder /deps/node_modules/.pnpm /app/node_modules/.pnpm
-COPY --from=builder /deps/node_modules/pg /app/node_modules/pg
-COPY --from=builder /deps/node_modules/drizzle-orm /app/node_modules/drizzle-orm
-
-# Copy server launcher and shared scripts
-COPY --from=builder /app/scripts/serverLauncher/startServer.js /app/startServer.js
-COPY --from=builder /app/scripts/_shared /app/scripts/_shared
-
+# 先创建用户，再 COPY --chown，避免最后 chown -R /app 生成大 layer。
 RUN set -e && \
     addgroup -S -g 1001 nodejs && \
     adduser -D -G nodejs -H -S -h /app -u 1001 nextjs && \
-    chown -R nextjs:nodejs /app /etc/proxychains4.conf
+    chown nextjs:nodejs /etc/proxychains4.conf
 
-## Production image, copy all the files and run next
-FROM scratch
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --chown=nextjs:nodejs --from=builder /app/.next/standalone /app/
+COPY --chown=nextjs:nodejs --from=builder /app/.next/static /app/.next/static
+# Copy SPA assets (Vite build output)
+COPY --chown=nextjs:nodejs --from=builder /app/public/_spa /app/public/_spa
+# Copy database migrations
+COPY --chown=nextjs:nodejs --from=builder /app/packages/database/migrations /app/migrations
+COPY --chown=nextjs:nodejs --from=builder /app/scripts/migrateServerDB/docker.cjs /app/docker.cjs
+COPY --chown=nextjs:nodejs --from=builder /app/scripts/migrateServerDB/errorHint.js /app/errorHint.js
 
-# Copy all the files from app, set the correct permission for prerender cache
-COPY --from=app / /
+# copy dependencies
+COPY --chown=nextjs:nodejs --from=builder /deps/node_modules/.pnpm /app/node_modules/.pnpm
+COPY --chown=nextjs:nodejs --from=builder /deps/node_modules/pg /app/node_modules/pg
+COPY --chown=nextjs:nodejs --from=builder /deps/node_modules/drizzle-orm /app/node_modules/drizzle-orm
+
+# Copy server launcher and shared scripts
+COPY --chown=nextjs:nodejs --from=builder /app/scripts/serverLauncher/startServer.js /app/startServer.js
+COPY --chown=nextjs:nodejs --from=builder /app/scripts/_shared /app/scripts/_shared
+
+## Production image
+# 不再用 scratch + COPY / / 压成一个大层；直接 FROM app 保留分层，push/pull 更容易复用 layer。
+FROM app AS production
 
 ENV NODE_ENV="production" \
     NODE_OPTIONS="--dns-result-order=ipv4first --use-openssl-ca" \

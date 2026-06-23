@@ -162,8 +162,13 @@ const provider: GenericProviderDefinition<{
           profile = await fetchWecomUserDetail(accessToken, raw.authUser.user_ticket);
         }
 
-        if (!profile && userId) {
-          profile = await fetchWecomAddressBookUser(accessToken, userId);
+        // auth/getuserdetail only returns basic fields (userid, name, avatar) — no email/mobile.
+        // Fetch from the address book API (user/get) to complete the profile.
+        if (userId && (!profile || !profile.email)) {
+          const addressBookProfile = await fetchWecomAddressBookUser(accessToken, userId);
+          if (addressBookProfile) {
+            profile = { ...addressBookProfile, ...profile };
+          }
         }
 
         const finalId = profile?.userid ?? fallbackId;

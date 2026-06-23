@@ -102,7 +102,7 @@ describe('NewApiProvisioningAdapter', () => {
       expect.objectContaining({ keyword: 'ada@example.com' }),
     );
     expect(client.listTokens).toHaveBeenCalledWith(
-      { accessToken: 'admin-token', newApiUserId: 9001 },
+      adminAuth,
       expect.objectContaining({ keyword: 'masterlion-managed' }),
     );
     expect(client.createUser).not.toHaveBeenCalled();
@@ -127,6 +127,7 @@ describe('NewApiProvisioningAdapter', () => {
       user_id: 9002,
     };
     client.searchUsers
+      .mockResolvedValueOnce({ items: [], total: 0 })
       .mockResolvedValueOnce({ items: [], total: 0 })
       .mockResolvedValueOnce({ items: [createdUser], total: 1 });
     client.createUser.mockResolvedValue(createdUser);
@@ -166,7 +167,7 @@ describe('NewApiProvisioningAdapter', () => {
     expect([createUserInput.display_name, createUserInput.name]).toContain('Ada Lovelace');
     expect([createUserInput.group, createUserInput.userGroup]).toContain('staff');
     expect(client.createToken).toHaveBeenCalledWith(
-      { accessToken: 'admin-token', newApiUserId: 9002 },
+      adminAuth,
       expect.objectContaining({
         name: 'masterlion-managed',
         remain_quota: 500,
@@ -177,7 +178,9 @@ describe('NewApiProvisioningAdapter', () => {
 
   it('rejects created users when Aihub returns a mismatched identity', async () => {
     const client = createClient();
-    client.searchUsers.mockResolvedValue({ items: [], total: 0 });
+    client.searchUsers
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({ items: [], total: 0 });
     client.createUser.mockResolvedValue({
       email: 'other@example.com',
       id: 9003,
@@ -232,9 +235,88 @@ describe('NewApiProvisioningAdapter', () => {
         employeeNumber: 'E-404',
         policy: createPolicy({ autoCreateUser: false }),
       }),
-    ).rejects.toThrow(/Aihub user.*E-404.*autoCreateUser/i);
+    ).rejects.toThrow(/Aihub user.*E-404.*ada@example.com.*autoCreateUser/i);
+    expect(client.searchUsers).toHaveBeenNthCalledWith(
+      1,
+      adminAuth,
+      expect.objectContaining({ keyword: 'E-404' }),
+    );
+    expect(client.searchUsers).toHaveBeenNthCalledWith(
+      2,
+      adminAuth,
+      expect.objectContaining({ keyword: 'ada@example.com' }),
+    );
     expect(client.createUser).not.toHaveBeenCalled();
     expect(client.createToken).not.toHaveBeenCalled();
+  });
+
+  it('falls back to email lookup when employee number lookup misses', async () => {
+    const client = createClient();
+    client.searchUsers
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({
+        items: [{ email: 'ada@example.com', id: 9001, username: 'ada-email' }],
+        total: 1,
+      });
+    client.listTokens.mockResolvedValue({
+      items: [
+        { id: 8001, name: 'masterlion-managed', remain_quota: 200, unlimited_quota: false, user_id: 9001 },
+      ],
+      total: 1,
+    });
+    const adapter = createAdapter(client);
+
+    const result = await adapter.provisionEnterpriseUser(enterpriseUserInput);
+
+    expect(result).toEqual({
+      managedTokenId: 8001,
+      newApiUserId: 9001,
+      status: 'active',
+    });
+    expect(client.searchUsers).toHaveBeenNthCalledWith(
+      1,
+      adminAuth,
+      expect.objectContaining({ keyword: 'E-1001' }),
+    );
+    expect(client.searchUsers).toHaveBeenNthCalledWith(
+      2,
+      adminAuth,
+      expect.objectContaining({ keyword: 'ada@example.com' }),
+    );
+    expect(client.createUser).not.toHaveBeenCalled();
+  });
+
+  it('skips email fallback when lookupField is already email', async () => {
+    const client = createClient();
+    client.searchUsers.mockResolvedValue({ items: [], total: 0 });
+    const adapter = createAdapter(client);
+
+    await expect(
+      adapter.provisionEnterpriseUser({
+        ...enterpriseUserInput,
+        policy: createPolicy({ autoCreateUser: false, lookupField: 'email' }),
+      }),
+    ).rejects.toThrow(/Aihub user.*ada@example.com.*autoCreateUser/i);
+    expect(client.searchUsers).toHaveBeenCalledTimes(1);
+    expect(client.searchUsers).toHaveBeenCalledWith(
+      adminAuth,
+      expect.objectContaining({ keyword: 'ada@example.com' }),
+    );
+  });
+
+  it('skips email fallback when input has no email', async () => {
+    const client = createClient();
+    client.searchUsers.mockResolvedValue({ items: [], total: 0 });
+    const adapter = createAdapter(client);
+
+    await expect(
+      adapter.provisionEnterpriseUser({
+        ...enterpriseUserInput,
+        email: undefined,
+        policy: createPolicy({ autoCreateUser: false }),
+      }),
+    ).rejects.toThrow(/Aihub user.*E-1001.*autoCreateUser/i);
+    expect(client.searchUsers).toHaveBeenCalledTimes(1);
   });
 
   it('propagates token initialization errors after resolving a valid Aihub user', async () => {
@@ -249,5 +331,88 @@ describe('NewApiProvisioningAdapter', () => {
     const adapter = createAdapter(client);
 
     await expect(adapter.provisionEnterpriseUser(enterpriseUserInput)).rejects.toBe(tokenError);
+  });
+
+  it('reassigns newly created token to the target user via the bridge', async () => {
+    const client = createClient();
+    client.searchUsers.mockResolvedValue({
+      items: [{ email: 'ada@example.com', id: 9001, username: 'E-1001' }],
+      total: 1,
+    });
+    const createdToken = {
+      id: 8003,
+      name: 'masterlion-managed',
+      remain_quota: 200,
+      unlimited_quota: false,
+      user_id: 1,
+    };
+    client.listTokens
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({ items: [createdToken], total: 1 });
+    client.createToken.mockResolvedValue(createdToken);
+
+    const bridgeClient = {
+      findManagedToken: vi.fn().mockResolvedValue(undefined),
+      isEnabled: () => true,
+      reassignToken: vi.fn().mockResolvedValue(true),
+    };
+
+    const adapter = new NewApiProvisioningAdapter({
+      adminAuth,
+      bridgeClient: bridgeClient as any,
+      client: client as any,
+    });
+
+    const result = await adapter.provisionEnterpriseUser({
+      ...enterpriseUserInput,
+      masterLionUsername: 'ada',
+    });
+
+    expect(result).toEqual({
+      managedTokenId: 8003,
+      newApiUserId: 9001,
+      status: 'active',
+    });
+    expect(bridgeClient.reassignToken).toHaveBeenCalledWith(8003, 9001, 'MasterLion_ada');
+  });
+
+  it('continues without error when bridge reassign fails (degraded mode)', async () => {
+    const client = createClient();
+    client.searchUsers.mockResolvedValue({
+      items: [{ email: 'ada@example.com', id: 9001, username: 'E-1001' }],
+      total: 1,
+    });
+    const createdToken = {
+      id: 8004,
+      name: 'masterlion-managed',
+      remain_quota: 200,
+      unlimited_quota: false,
+      user_id: 1,
+    };
+    client.listTokens
+      .mockResolvedValueOnce({ items: [], total: 0 })
+      .mockResolvedValueOnce({ items: [createdToken], total: 1 });
+    client.createToken.mockResolvedValue(createdToken);
+
+    const bridgeClient = {
+      findManagedToken: vi.fn().mockResolvedValue(undefined),
+      isEnabled: () => true,
+      reassignToken: vi.fn().mockResolvedValue(false),
+    };
+
+    const adapter = new NewApiProvisioningAdapter({
+      adminAuth,
+      bridgeClient: bridgeClient as any,
+      client: client as any,
+    });
+
+    const result = await adapter.provisionEnterpriseUser(enterpriseUserInput);
+
+    expect(result).toEqual({
+      managedTokenId: 8004,
+      newApiUserId: 9001,
+      status: 'active',
+    });
+    expect(bridgeClient.reassignToken).toHaveBeenCalled();
   });
 });

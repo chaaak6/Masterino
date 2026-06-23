@@ -22,6 +22,8 @@ const createRepo = () => ({
     { id: 12, name: 'managed' },
     { id: 11, name: 'managed' },
   ]),
+  reassignToken: vi.fn().mockResolvedValue(true),
+  updateTokenName: vi.fn().mockResolvedValue(true),
 });
 
 describe('createBridgeHandler', () => {
@@ -153,5 +155,65 @@ describe('createBridgeHandler', () => {
       pageSize: 5,
       startTimestamp: 10,
     });
+  });
+
+  it('reassigns a token to a different user via POST /v1/tokens/:id/reassign', async () => {
+    const repo = createRepo();
+    const handler = createBridgeHandler({
+      bridgeToken: 'secret',
+      managedTokenName: 'managed',
+      repository: repo as any,
+    });
+
+    const request = new Request('http://bridge.local/v1/tokens/167/reassign', {
+      body: JSON.stringify({ userId: 165, name: 'MasterLion_biel' }),
+      headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+
+    const response = await readResponse(await handler(request));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: { ok: true }, success: true });
+    expect(repo.reassignToken).toHaveBeenCalledWith(167, 165);
+    expect(repo.updateTokenName).toHaveBeenCalledWith(167, 'MasterLion_biel');
+  });
+
+  it('returns 400 when reassign body lacks a valid userId', async () => {
+    const handler = createBridgeHandler({
+      bridgeToken: 'secret',
+      managedTokenName: 'managed',
+      repository: createRepo() as any,
+    });
+
+    const request = new Request('http://bridge.local/v1/tokens/167/reassign', {
+      body: JSON.stringify({}),
+      headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+
+    const response = await readResponse(await handler(request));
+
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 404 when reassign fails (token not found)', async () => {
+    const repo = createRepo();
+    repo.reassignToken.mockResolvedValue(false);
+    const handler = createBridgeHandler({
+      bridgeToken: 'secret',
+      managedTokenName: 'managed',
+      repository: repo as any,
+    });
+
+    const request = new Request('http://bridge.local/v1/tokens/999/reassign', {
+      body: JSON.stringify({ userId: 165 }),
+      headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+
+    const response = await readResponse(await handler(request));
+
+    expect(response.status).toBe(404);
   });
 });

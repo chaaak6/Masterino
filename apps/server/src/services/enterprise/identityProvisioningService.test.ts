@@ -240,11 +240,18 @@ const createWorkspaceAssigner = () => ({
 describe('identityProvisioningService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.AIHUB_ADMIN_ACCESS_TOKEN = 'test-admin-token';
+    process.env.AIHUB_ADMIN_USER_ID = '1';
     newApiProvisioningAdapterMock.provisionEnterpriseUser.mockResolvedValue({
       managedTokenId: 8001,
       newApiUserId: 9001,
       status: 'active',
     });
+  });
+
+  afterEach(() => {
+    delete process.env.AIHUB_ADMIN_ACCESS_TOKEN;
+    delete process.env.AIHUB_ADMIN_USER_ID;
   });
 
   it('exports the service class and top-level provisioning function', () => {

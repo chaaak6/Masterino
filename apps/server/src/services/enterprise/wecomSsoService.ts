@@ -56,7 +56,7 @@ const wecomAihubProvisioningSchema = z
     ),
     managedTokenName: stringWithDefault('masterlion-managed'),
     managedTokenQuota: z.number().min(0).default(WECOM_DEFAULT_AIHUB_INITIAL_QUOTA),
-    managedTokenUnlimitedQuota: z.boolean().default(false),
+    managedTokenUnlimitedQuota: z.boolean().default(true),
     userGroup: z.preprocess(emptyStringToUndefined, z.string().optional()),
   })
   .default({});
@@ -241,7 +241,25 @@ const toWecomSsoConfigResult = (
 export const getWecomSsoConfig = async (db: LobeChatDatabase): Promise<WecomSsoConfigResult> => {
   const row = await findWecomSsoConfig(db);
 
-  return toWecomSsoConfigResult(row);
+  if (row) return toWecomSsoConfigResult(row);
+
+  // env-only mode: no DB row but env vars are set → treat as enabled with defaults
+  const envConfig = getEnvRuntimeConfig();
+  if (envConfig) {
+    return {
+      config: validateWecomSsoConfig({
+        agentId: envConfig.agentId,
+        corpId: envConfig.corpId,
+        enabled: true,
+      }),
+      corpSecretConfigured: true,
+      displayName: WECOM_SSO_DISPLAY_NAME,
+      enabled: true,
+      provider: WECOM_SSO_PROVIDER,
+    };
+  }
+
+  return toWecomSsoConfigResult(undefined);
 };
 
 export const upsertWecomSsoConfig = async (

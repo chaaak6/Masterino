@@ -11,6 +11,8 @@ import { generateTrustedClientToken } from '@/libs/trusted-client';
 import { normalizeLocale } from '@/locales/resources';
 import type { AgentForkBatchResult, AgentForkResponse } from '@/types/discover';
 
+import BUILTIN_ONBOARDING_AGENTS from './builtinOnboardingAgents';
+
 const MARKET_BASE_URL = process.env.MARKET_BASE_URL || 'https://market.lobehub.com';
 
 interface MarketUserInfo {
@@ -533,8 +535,8 @@ export const agentRouter = router({
       }
 
       if (!headers['x-lobe-trust-token'] && !headers['Authorization']) {
-        log('No Market authentication available for onboarding catalog; returning empty catalog');
-        return {};
+        log('No Market authentication available for onboarding catalog; returning builtin fallback');
+        return BUILTIN_ONBOARDING_AGENTS as unknown as Record<string, unknown[]>;
       }
 
       try {
@@ -548,17 +550,21 @@ export const agentRouter = router({
             response.statusText,
             errorText,
           );
-          throw new Error(`Failed to get onboarding full: ${response.statusText}`);
+          log('Falling back to builtin onboarding agents');
+          return BUILTIN_ONBOARDING_AGENTS as unknown as Record<string, unknown[]>;
         }
 
-        return (await response.json()) as Record<string, unknown[]>;
+        const data = (await response.json()) as Record<string, unknown[]>;
+        const totalAgents = Object.values(data).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+        if (totalAgents === 0) {
+          log('Market returned empty onboarding catalog; falling back to builtin agents');
+          return BUILTIN_ONBOARDING_AGENTS as unknown as Record<string, unknown[]>;
+        }
+
+        return data;
       } catch (error) {
-        log('Error getting onboarding full: %O', error);
-        throw new TRPCError({
-          cause: error,
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Failed to get onboarding full',
-        });
+        log('Error getting onboarding full: %O; falling back to builtin agents', error);
+        return BUILTIN_ONBOARDING_AGENTS as unknown as Record<string, unknown[]>;
       }
     }),
 

@@ -5,6 +5,7 @@ import {
   type NewApiToken,
   type NewApiUser,
 } from './client';
+import { NewApiBridgeClient } from './bridgeClient';
 
 type LookupField = 'email' | 'employeeNumber' | 'name';
 
@@ -28,6 +29,7 @@ export type ProvisioningPolicy = {
 export type ProvisionEnterpriseUserInput = {
   email?: string;
   employeeNumber?: string;
+  masterLionUsername?: string;
   name?: string;
   policy: ProvisioningPolicy;
   userId: string;
@@ -47,6 +49,7 @@ type ProvisioningClient = Pick<
 
 type NewApiProvisioningAdapterOptions = {
   adminAuth?: NewApiManagementAuth;
+  bridgeClient?: NewApiBridgeClient;
   client?: ProvisioningClient;
 };
 
@@ -151,6 +154,7 @@ const getCreateUsername = (input: ProvisionEnterpriseUserInput) => {
 
 export class NewApiProvisioningAdapter {
   private adminAuth: NewApiManagementAuth;
+  private bridgeClient: NewApiBridgeClient | undefined;
   private client: ProvisioningClient;
 
   constructor(options: NewApiProvisioningAdapterOptions = {}) {
@@ -160,6 +164,7 @@ export class NewApiProvisioningAdapter {
         baseUrl: process.env.AIHUB_PROXY_URL ?? '',
       });
     this.adminAuth = options.adminAuth ?? getAdminAuthFromEnv();
+    this.bridgeClient = options.bridgeClient ?? new NewApiBridgeClient();
   }
 
   async provisionEnterpriseUser(
@@ -172,17 +177,26 @@ export class NewApiProvisioningAdapter {
 
     let targetUser = await this.findUser(keyword);
 
+    if (!targetUser && lookupField !== 'email' && asTrimmedString(input.email)) {
+      targetUser = await this.findUser(input.email!);
+    }
+
     if (!targetUser) {
       if (!policy.autoCreateUser) {
         throw new Error(
-          `Aihub user matching "${keyword}" was not found and autoCreateUser is disabled`,
+          `Aihub user matching "${keyword}"${lookupField !== 'email' ? ` or "${input.email}"` : ''} was not found and autoCreateUser is disabled`,
         );
       }
 
       targetUser = await this.createUser(input, policy);
     }
 
-    const token = await this.ensureManagedToken(targetUser.id, managedTokenName, policy);
+    const token = await this.ensureManagedToken(
+      targetUser.id,
+      managedTokenName,
+      policy,
+      input.masterLionUsername,
+    );
 
     return {
       managedTokenId: token.id,
@@ -242,16 +256,35 @@ export class NewApiProvisioningAdapter {
     newApiUserId: number,
     managedTokenName: string,
     policy: AihubProvisioningPolicy,
+    masterLionUsername?: string,
   ) {
-    const targetAuth = {
-      accessToken: this.adminAuth.accessToken,
-      newApiUserId,
-    };
-    const findToken = async () => {
-      const page = await this.client.listTokens(targetAuth, {
+    // 1. Try the bridge (direct DB read) to find an existing managed token for the target user.
+    //    The Aihub API only lists the authenticated user's own tokens, so admin can't see
+    //    other users' tokens via /api/token/. The bridge queries the DB directly.
+    if (this.bridgeClient?.isEnabled()) {
+      try {
+        const bridgedToken = await this.bridgeClient.findManagedToken(
+          newApiUserId,
+          managedTokenName,
+        );
+        if (bridgedToken && isValidId(bridgedToken.id)) return bridgedToken;
+      } catch {
+        // Bridge lookup failed — fall through to admin API approach
+      }
+    }
+
+    // 2. Fall back to admin API: list admin's own tokens for a name match.
+    const findToken = async (filterByUserId = true) => {
+      const page = await this.client.listTokens(this.adminAuth, {
         keyword: managedTokenName,
         pageSize: 100,
       });
+
+      if (!filterByUserId) {
+        return (page.items ?? []).find(
+          (token) => asTrimmedString(token.name) === managedTokenName,
+        );
+      }
 
       return findExactToken(page.items ?? [], managedTokenName, newApiUserId);
     };
@@ -259,15 +292,50 @@ export class NewApiProvisioningAdapter {
     const existingToken = await findToken();
     if (existingToken && isValidId(existingToken.id)) return existingToken;
 
-    await this.client.createToken(targetAuth, {
+    // 3. Create a new token as admin. The Aihub API always assigns the token to the
+    //    authenticated user (admin), not the target user. After creation, we reassign
+    //    ownership to the target Aihub user via the bridge's direct DB write capability.
+    await this.client.createToken(this.adminAuth, {
       expired_time: -1,
       name: managedTokenName,
       remain_quota: policy.managedTokenQuota,
       unlimited_quota: policy.managedTokenUnlimitedQuota,
     });
 
-    const createdToken = await findToken();
-    if (createdToken && isValidId(createdToken.id)) return createdToken;
+    // After creation, the token is under admin (user_id=1), so we search by name
+    // without filtering by user_id. The reassign step below will correct the ownership.
+    const createdToken = await findToken(false);
+    if (createdToken && isValidId(createdToken.id)) {
+      // 4. Reassign the token to the target Aihub user via the bridge.
+      //    This corrects the user_id from admin (1) to the target user,
+      //    so the token appears under the correct user in Aihub and quota
+      //    is tracked properly. If the bridge is unavailable or lacks write
+      //    permission, the token remains under admin — a degraded but
+      //    functional state (the token key still works for API calls).
+      if (this.bridgeClient?.isEnabled()) {
+        const desiredName =
+          masterLionUsername && `MasterLion_${masterLionUsername}` !== managedTokenName
+            ? `MasterLion_${masterLionUsername}`
+            : undefined;
+        const reassigned = await this.bridgeClient.reassignToken(
+          createdToken.id,
+          newApiUserId,
+          desiredName,
+        );
+        if (!reassigned) {
+          console.warn(
+            `[Aihub Provisioning] Failed to reassign token ${createdToken.id} to user ${newApiUserId}; ` +
+              'token remains under admin user. Ensure the bridge DB account has UPDATE privilege on the tokens table.',
+          );
+        }
+      } else {
+        console.warn(
+          `[Aihub Provisioning] Bridge is not enabled; token ${createdToken.id} remains under admin user.`,
+        );
+      }
+
+      return createdToken;
+    }
 
     throw new Error(
       `Aihub managed token "${managedTokenName}" was not found after creation for user ${newApiUserId}`,

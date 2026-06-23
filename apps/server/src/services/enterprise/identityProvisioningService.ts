@@ -8,6 +8,7 @@ import {
   externalIdentities,
   newApiBindings,
   type NewApiBindingStatusType,
+  users,
 } from '@/database/schemas';
 
 import {
@@ -23,7 +24,11 @@ type DbLike = {
     enterpriseDepartments?: {
       findMany?: (args: unknown) => Promise<EnterpriseDepartmentRow[]>;
     };
+    users?: {
+      findFirst?: (args: unknown) => Promise<{ username?: string | null } | undefined>;
+    };
   };
+  select?: (fields: Record<string, unknown>) => { from: (table: unknown) => { where: (condition: unknown) => { limit: (n: number) => Promise<Array<{ username?: string | null }>> } } };
   update: (table: unknown) => any;
 };
 
@@ -312,92 +317,129 @@ export class IdentityProvisioningService {
 
     let aihub: ProvisionEnterpriseUserResult | { error: string; status: 'error' } | undefined;
     if (policy.aihubProvisioning?.enabled) {
-      try {
-        const aihubProvisioningAdapter =
-          this.aihubProvisioningAdapter ?? new NewApiProvisioningAdapter();
-        const provisioningResult = await aihubProvisioningAdapter.provisionEnterpriseUser({
-          email: input.email,
-          employeeNumber: input.employeeNumber,
-          name: input.name,
-          policy,
-          userId: input.userId,
-        });
+      const skipReason = this.aihubProvisioningAdapter
+        ? null
+        : (() => {
+            const adminToken = process.env.AIHUB_ADMIN_ACCESS_TOKEN?.trim();
+            const adminUserId = Number(process.env.AIHUB_ADMIN_USER_ID);
+            if (!adminToken || !Number.isInteger(adminUserId) || adminUserId <= 0) {
+              return 'AIHUB_ADMIN_ACCESS_TOKEN and AIHUB_ADMIN_USER_ID must be configured to enable Aihub provisioning. Set these env vars or disable aihubProvisioning in WeCom SSO config.';
+            }
+            return null;
+          })();
 
-        if (!isValidNewApiUserId(provisioningResult.newApiUserId)) {
-          throw new Error('Aihub provisioning did not return a valid NewAPI user id');
-        }
-
-        const bindingStatus = normalizeSuccessfulBindingStatus(provisioningResult.status);
-        aihub = {
-          ...provisioningResult,
-          newApiUserId: provisioningResult.newApiUserId,
-          status: bindingStatus,
-        };
-        await this.db
-          .insert(newApiBindings)
-          .values({
-            errorMessage: null,
-            managedTokenId: provisioningResult.managedTokenId ?? null,
-            newApiUserId: provisioningResult.newApiUserId,
-            status: bindingStatus,
-            userId: input.userId,
-          })
-          .onConflictDoUpdate({
-            set: {
-              errorMessage: null,
-              managedTokenId: provisioningResult.managedTokenId ?? null,
-              newApiUserId: provisioningResult.newApiUserId,
-              status: bindingStatus,
-            },
-            target: newApiBindings.userId,
-          })
-          .returning();
+      if (skipReason) {
+        console.warn(`[Aihub Provisioning] Skipped: ${skipReason}`);
 
         await this.writeAuditLogBestEffort({
-          action: 'identity.provision.success',
+          action: 'identity.provision.aihub_skipped',
           metadata: {
-            departmentIds: orderedDepartments.map((department) => department.id),
+            reason: 'admin_credentials_not_configured',
             provider: input.provider,
           },
           result: 'success',
           targetId: input.userId,
           targetType: 'user',
         });
-      } catch (error) {
-        const errorMessage = getErrorMessage(error);
-        aihub = {
-          error: errorMessage,
-          status: 'error',
-        };
+      } else
+        try {
+          const aihubProvisioningAdapter =
+            this.aihubProvisioningAdapter ?? new NewApiProvisioningAdapter();
 
-        await this.db
-          .insert(newApiBindings)
-          .values({
-            errorMessage,
-            newApiUserId: null,
-            status: 'error',
+          // Fetch the MasterLion username for token naming (MasterLion_{username}).
+          let masterLionUsername: string | undefined;
+          if (typeof this.db.query?.users?.findFirst === 'function') {
+            const userRow = await this.db.query.users.findFirst({
+              columns: { username: true },
+              where: eq(users.id, input.userId),
+            });
+            masterLionUsername = userRow?.username ?? undefined;
+          }
+
+          const provisioningResult = await aihubProvisioningAdapter.provisionEnterpriseUser({
+            email: input.email,
+            employeeNumber: input.employeeNumber,
+            masterLionUsername,
+            name: input.name,
+            policy,
             userId: input.userId,
-          })
-          .onConflictDoUpdate({
-            set: {
-              errorMessage,
-              status: 'error',
-            },
-            target: newApiBindings.userId,
-          })
-          .returning();
+          });
 
-        await this.writeAuditLogBestEffort({
-          action: 'identity.provision.aihub_error',
-          metadata: {
+          if (!isValidNewApiUserId(provisioningResult.newApiUserId)) {
+            throw new Error('Aihub provisioning did not return a valid NewAPI user id');
+          }
+
+          const bindingStatus = normalizeSuccessfulBindingStatus(provisioningResult.status);
+          aihub = {
+            ...provisioningResult,
+            newApiUserId: provisioningResult.newApiUserId,
+            status: bindingStatus,
+          };
+          await this.db
+            .insert(newApiBindings)
+            .values({
+              errorMessage: null,
+              managedTokenId: provisioningResult.managedTokenId ?? null,
+              newApiUserId: provisioningResult.newApiUserId,
+              status: bindingStatus,
+              userId: input.userId,
+            })
+            .onConflictDoUpdate({
+              set: {
+                errorMessage: null,
+                managedTokenId: provisioningResult.managedTokenId ?? null,
+                newApiUserId: provisioningResult.newApiUserId,
+                status: bindingStatus,
+              },
+              target: newApiBindings.userId,
+            })
+            .returning();
+
+          await this.writeAuditLogBestEffort({
+            action: 'identity.provision.success',
+            metadata: {
+              departmentIds: orderedDepartments.map((department) => department.id),
+              provider: input.provider,
+            },
+            result: 'success',
+            targetId: input.userId,
+            targetType: 'user',
+          });
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
+          aihub = {
             error: errorMessage,
-            provider: input.provider,
-          },
-          result: 'failed',
-          targetId: input.userId,
-          targetType: 'user',
-        });
-      }
+            status: 'error',
+          };
+
+          await this.db
+            .insert(newApiBindings)
+            .values({
+              errorMessage,
+              newApiUserId: null,
+              status: 'error',
+              userId: input.userId,
+            })
+            .onConflictDoUpdate({
+              set: {
+                errorMessage,
+                status: 'error',
+              },
+              target: newApiBindings.userId,
+            })
+            .returning();
+
+          await this.writeAuditLogBestEffort({
+            action: 'identity.provision.aihub_error',
+            metadata: {
+              error: errorMessage,
+              provider: input.provider,
+            },
+            result: 'failed',
+            targetId: input.userId,
+            targetType: 'user',
+          });
+        }
     } else {
       await this.writeAuditLogBestEffort({
         action: 'identity.provision.success',

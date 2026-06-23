@@ -81,13 +81,13 @@ describe('agentRouter.publishOrCreate', () => {
     );
   });
 
-  it('returns an empty onboarding catalog without calling Market when no market auth exists', async () => {
+  it('returns builtin onboarding agents when no market auth exists', async () => {
     mockMarketUserInfoValue.current = undefined;
     const caller = agentRouter.createCaller({ serverDB: {}, userId: 'user-1' } as any);
 
     const result = await caller.getOnboardingFull({ locale: 'zh-CN' });
 
-    expect(result).toEqual({});
+    expect(Object.keys(result).length).toBeGreaterThan(0);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

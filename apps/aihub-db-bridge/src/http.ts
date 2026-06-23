@@ -37,6 +37,13 @@ const parseUserId = (pathname: string) => {
   return Number(match[1]);
 };
 
+const parseTokenId = (pathname: string) => {
+  const match = pathname.match(/^\/v1\/tokens\/(\d+)(?:\/|$)/);
+  if (!match) return undefined;
+
+  return Number(match[1]);
+};
+
 const isAuthorized = (request: Request, bridgeToken: string) => {
   const header = request.headers.get('authorization') || '';
 
@@ -89,6 +96,38 @@ export const createBridgeHandler = ({
       }
 
       const userId = parseUserId(url.pathname);
+
+      // Token reassignment route — checked before the userId early-return
+      // because /v1/tokens/:id/* doesn't match the /v1/users/:id/* pattern.
+      const tokenId = parseTokenId(url.pathname);
+      if (tokenId && url.pathname === `/v1/tokens/${tokenId}/reassign` && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as {
+          name?: unknown;
+          userId?: unknown;
+        };
+        const targetUserId = typeof body.userId === 'number' ? body.userId : Number(body.userId);
+
+        if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+          return failure(400, 'bad_request', 'userId must be a positive integer');
+        }
+
+        const ok = await repository.reassignToken(tokenId, targetUserId);
+        if (!ok) {
+          return failure(
+            404,
+            'not_found',
+            'Token was not found or could not be reassigned',
+          );
+        }
+
+        // Optionally update the token name in the same request.
+        if (typeof body.name === 'string' && body.name.trim()) {
+          await repository.updateTokenName(tokenId, body.name.trim());
+        }
+
+        return success({ ok: true });
+      }
+
       if (!userId) return failure(404, 'not_found', 'Endpoint was not found');
 
       if (url.pathname === `/v1/users/${userId}`) {

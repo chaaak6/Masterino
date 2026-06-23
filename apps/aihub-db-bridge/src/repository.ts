@@ -338,4 +338,53 @@ ${paginationClause}
 
     return { items: rows, total: rows.length };
   }
+
+  /**
+   * Reassign a token to a different Aihub user by updating `user_id`.
+   * Requires UPDATE privilege on the `tokens` table.
+   * Returns true if the row was updated, false if no matching token was found.
+   */
+  async reassignToken(tokenId: number, targetUserId: number): Promise<boolean> {
+    const rows = await this.query<{ affected: number }>(
+      `
+update tokens
+set user_id = ?
+where id = ?
+  and deleted_at is null
+      `.trim(),
+      [targetUserId, tokenId],
+    );
+
+    // mysql2 returns affectedRows inside the rows array as a special header;
+    // our QueryClient returns the result rows. For UPDATE, we check rowCount.
+    // Since the abstraction doesn't expose rowCount uniformly, we re-read to verify.
+    const updated = await this.query<{ id: number; user_id: number }>(
+      `select id, user_id from tokens where id = ? and deleted_at is null`,
+      [tokenId],
+    );
+
+    return updated[0]?.user_id === targetUserId;
+  }
+
+  /**
+   * Update a token's name. Requires UPDATE privilege on the `tokens` table.
+   */
+  async updateTokenName(tokenId: number, name: string): Promise<boolean> {
+    await this.query(
+      `
+update tokens
+set name = ?
+where id = ?
+  and deleted_at is null
+      `.trim(),
+      [name, tokenId],
+    );
+
+    const updated = await this.query<{ id: number; name: string }>(
+      `select id, name from tokens where id = ? and deleted_at is null`,
+      [tokenId],
+    );
+
+    return updated[0]?.name === name;
+  }
 }
