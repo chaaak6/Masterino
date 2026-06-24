@@ -9,7 +9,7 @@ import type {
   NewApiUsageLogItem,
   NewApiUsageSummary,
 } from '@lobechat/types';
-import { DEFAULT_MODEL } from '@lobechat/business-const';
+import { DEFAULT_MODEL, isAihubModelHidden } from '@lobechat/business-const';
 import { processMultiProviderModelList } from '@lobechat/model-runtime';
 import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
@@ -789,6 +789,12 @@ export class NewApiService {
       const remoteModels = await this.client.listModels(key);
       models = await enrichNewApiModels(remoteModels.filter(supportsChat));
     }
+
+    // Apply the AIHUB_HIDDEN_MODELS deny-list before persisting, so models that
+    // are still enabled in the Aihub abilities table but should no longer be
+    // offered are dropped on the next sync and disappear after refresh.
+    models = models.filter((model) => !isAihubModelHidden(model.id));
+
     const defaultModel = getDefaultModel(models);
 
     const aiModelModel = new AiModelModel(this.db, this.userId);

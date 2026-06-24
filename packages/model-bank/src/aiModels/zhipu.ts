@@ -14,6 +14,69 @@ const zhipuChatModels: AIChatModelCard[] = [
       reasoning: true,
       search: true,
     },
+    contextWindowTokens: 1_000_000,
+    description:
+      'GLM-5.2 is Zhipu’s latest flagship model, matching GLM-5.1 in agentic and coding capabilities while extending the context window to 1 million tokens. It inherits GLM-5.1’s long-horizon planning, autonomous execution, and iterative refinement for up to 8 hours in a single task, and adds native reasoning-effort control for finer-grained quality/latency trade-offs, making it an ideal foundation for Autonomous Agents and long-context Coding Agents.',
+    displayName: 'GLM-5.2',
+    enabled: true,
+    family: 'glm',
+    generation: 'glm-5.2',
+    id: 'glm-5.2',
+    maxOutput: 131_072,
+    pricing: {
+      currency: 'CNY',
+      units: [
+        {
+          lookup: {
+            prices: {
+              '[0, 0.032]': 1.3,
+              '[0.032, infinity]': 2,
+            },
+            pricingParams: ['textInput'],
+          },
+          name: 'textInput_cacheRead',
+          strategy: 'lookup',
+          unit: 'millionTokens',
+        },
+        {
+          lookup: {
+            prices: {
+              '[0, 0.032]': 6,
+              '[0.032, infinity]': 8,
+            },
+            pricingParams: ['textInput'],
+          },
+          name: 'textInput',
+          strategy: 'lookup',
+          unit: 'millionTokens',
+        },
+        {
+          lookup: {
+            prices: {
+              '[0, 0.032]': 24,
+              '[0.032, infinity]': 28,
+            },
+            pricingParams: ['textInput'],
+          },
+          name: 'textOutput',
+          strategy: 'lookup',
+          unit: 'millionTokens',
+        },
+      ],
+    },
+    releasedAt: '2026-06-24',
+    settings: {
+      extendParams: ['enableReasoning', 'glm5_2ReasoningEffort'],
+      searchImpl: 'params',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+      search: true,
+    },
     contextWindowTokens: 200_000,
     description:
       'GLM-5.1 is Zhipu’s latest flagship model, aligned with Claude Opus 4.6 on overall and coding capabilities. It excels at long-horizon tasks, able to autonomously plan, execute, and iterate for up to 8 hours in a single task, making it an ideal foundation for Autonomous Agents and long-horizon Coding Agents.',

@@ -87,6 +87,7 @@ describe('NewApiService', () => {
     process.env.AIHUB_MANAGED_TOKEN_NAME = 'masterlion-managed';
     delete process.env.AIHUB_READONLY_DATABASE_URL;
     delete process.env.AIHUB_DEFAULT_MODEL;
+    delete process.env.AIHUB_HIDDEN_MODELS;
   });
 
   it('imports a binding by matching the MasterLion email to an Aihub user with admin auth', async () => {
@@ -1028,5 +1029,72 @@ describe('NewApiService', () => {
       expect.any(Function),
     );
     expect(client.listModels).not.toHaveBeenCalled();
+  });
+
+  it('filters out models listed in AIHUB_HIDDEN_MODELS during sync', async () => {
+    process.env.AIHUB_HIDDEN_MODELS = 'glm-5.1,gpt-3.5-turbo';
+    mocks.findUserById.mockResolvedValue({
+      email: 'neo@example.com',
+      id: 'current-user',
+      username: 'neo',
+    });
+    const readOnlyDb = {
+      findManagedToken: vi.fn().mockResolvedValue({
+        id: 44,
+        key: 'sk-db-token',
+        model_limits: '',
+        model_limits_enabled: false,
+        name: 'manual-token',
+      }),
+      findUserById: vi.fn().mockResolvedValue({
+        email: 'neo@example.com',
+        group: 'default',
+        id: 17,
+        quota: 900,
+        request_count: 4,
+        used_quota: 100,
+        username: 'neo',
+      }),
+      findUserByIdentity: vi.fn().mockResolvedValue({
+        email: 'neo@example.com',
+        group: 'default',
+        id: 17,
+        quota: 900,
+        request_count: 4,
+        used_quota: 100,
+        username: 'neo',
+      }),
+      isEnabled: vi.fn(() => true),
+      listAccessibleModels: vi
+        .fn()
+        .mockResolvedValue(['glm-5.1', 'glm-5.2', 'gpt-3.5-turbo', 'deepseek-chat']),
+    };
+    const service = new NewApiService({
+      client: {} as any,
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      readOnlyDb: readOnlyDb as any,
+      userId: 'current-user',
+    });
+
+    const synced = await service.syncModels();
+
+    expect(synced.models.map((model: any) => model.id)).toEqual(['glm-5.2', 'deepseek-chat']);
+    expect(synced.defaultModel).toBe('glm-5.2');
+    expect(mocks.batchUpdateAiModels).toHaveBeenCalledWith(
+      'newapi',
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'glm-5.2' }),
+        expect.objectContaining({ id: 'deepseek-chat' }),
+      ]),
+    );
+    expect(mocks.batchUpdateAiModels).not.toHaveBeenCalledWith(
+      'newapi',
+      expect.arrayContaining([expect.objectContaining({ id: 'glm-5.1' })]),
+    );
+    expect(mocks.batchUpdateAiModels).not.toHaveBeenCalledWith(
+      'newapi',
+      expect.arrayContaining([expect.objectContaining({ id: 'gpt-3.5-turbo' })]),
+    );
   });
 });
