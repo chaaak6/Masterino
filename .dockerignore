@@ -20,3 +20,14 @@ logs/
 
 .git/
 docker-compose/dev/data/
+
+# 构建产物 / 类型检查缓存（每次本地构建都会变，会让 COPY . . 层失效）
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# 非构建依赖的目录
+docs/
+e2e/
+tests/
+docker-compose/
+.github/

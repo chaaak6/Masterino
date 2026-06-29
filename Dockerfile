@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 ## Set global build ENV
 ARG NODEJS_VERSION="24"
 
@@ -86,9 +84,8 @@ RUN --mount=type=cache,id=masterlion-npm-cache,target=/root/.npm,sharing=locked 
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile --node-linker=hoisted --prefer-offline && \
     mkdir -p /deps && \
-    cd /deps && \
-    echo '{"name":"deps","private":true}' > package.json && \
-    pnpm add pg drizzle-orm --prefer-offline
+    echo '{"name":"deps","private":true}' > /deps/package.json && \
+    pnpm add --dir /deps pg drizzle-orm --prefer-offline
 
 COPY . .
 
@@ -138,7 +135,7 @@ RUN --mount=type=cache,id=masterlion-next-cache,target=/app/.next/cache,sharing=
     npm run build:docker
 
 ## Application image, copy all the files for production
-FROM busybox:latest AS app
+FROM busybox:1.37 AS app
 
 COPY --from=base /distroless/ /
 
