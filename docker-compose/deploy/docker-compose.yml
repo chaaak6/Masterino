@@ -1,12 +1,7 @@
 name: masterlion
 services:
   masterlion:
-    image: masterlion:local
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      args:
-        USE_CN_MIRROR: ${USE_CN_MIRROR:-true}
+    image: ${MASTERLION_IMAGE:-boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion:latest}
     container_name: masterlion
     ports:
       - '${LOBE_PORT}:3210'
@@ -57,10 +52,7 @@ services:
       - masterlion-network
 
   aihub-db-bridge:
-    image: masterlion-aihub-db-bridge:local
-    build:
-      context: ../..
-      dockerfile: apps/aihub-db-bridge/Dockerfile
+    image: ${MASTERLION_BRIDGE_IMAGE:-boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion-aihub-db-bridge:latest}
     container_name: masterlion-aihub-db-bridge
     environment:
       - 'AIHUB_BRIDGE_TOKEN=${AIHUB_BRIDGE_TOKEN:?Set AIHUB_BRIDGE_TOKEN to a long random shared secret}'
