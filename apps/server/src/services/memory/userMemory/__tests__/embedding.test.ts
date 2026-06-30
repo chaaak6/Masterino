@@ -60,7 +60,7 @@ describe('embedUserMemoryTexts', () => {
 
     expect(runtime.embeddings).toHaveBeenCalledWith(
       {
-        dimensions: 1024,
+        dimensions: 2048,
         input: ['two three four', 'short text'],
         model: 'text-embedding-3-large',
       },
@@ -94,7 +94,7 @@ describe('embedUserMemoryTexts', () => {
     expect(mocks.trimBasedOnBatchProbe).not.toHaveBeenCalled();
     expect(runtime.embeddings).toHaveBeenCalledWith(
       {
-        dimensions: 1024,
+        dimensions: 2048,
         input: ['one two three four'],
         model: 'text-embedding-3-large',
       },

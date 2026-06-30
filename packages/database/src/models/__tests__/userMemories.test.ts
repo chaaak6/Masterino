@@ -33,10 +33,10 @@ const userMemoryModel = new UserMemoryModel(serverDB, userId);
 
 /**
  * Generate a random normalized embedding vector
- * @param dimensions - Vector dimensions (default: 1024)
+ * @param dimensions - Vector dimensions (default: 2048)
  * @returns Normalized random vector
  */
-function generateRandomEmbedding(dimensions: number = 1024): number[] {
+function generateRandomEmbedding(dimensions: number = 2048): number[] {
   const vector = new Array(dimensions).fill(0).map(() => Math.random() * 2 - 1); // Random values between -1 and 1
 
   // Normalize the vector
@@ -47,7 +47,7 @@ function generateRandomEmbedding(dimensions: number = 1024): number[] {
 const mockEmbedding = generateRandomEmbedding();
 const mockEmbedding2 = generateRandomEmbedding();
 
-function createAxisVector(dimensions: number = 1024, index: number = 0): number[] {
+function createAxisVector(dimensions: number = 2048, index: number = 0): number[] {
   return Array.from({ length: dimensions }, (_, i) => (i === index ? 1 : 0));
 }
 
@@ -549,7 +549,7 @@ describe('UserMemoryModel', () => {
     it('ranks contexts, experiences, and preferences by embedding similarity', async () => {
       const now = new Date('2024-01-01T00:00:00.000Z');
       const axis0 = createAxisVector();
-      const axis1 = createAxisVector(1024, 1);
+      const axis1 = createAxisVector(2048, 1);
 
       const closeContextId = idGenerator('memory');
       const farContextId = idGenerator('memory');
