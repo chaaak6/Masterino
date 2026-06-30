@@ -66,7 +66,7 @@ export class ChunkingLoader {
 
         default: {
           throw new Error(
-            `Unsupported file type [${type}], please check your file is supported, or create report issue here: https://github.com/biel-cc/MasterLion/issues/new/choose`,
+            `Unsupported file type [${type}], please check your file is supported, or create report issue here: https://github.com/chaaak6/MasterLion/issues/new/choose`,
           );
         }
       }

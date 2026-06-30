@@ -16,7 +16,7 @@ permissions:
   pull-requests: write
 
 env:
-  REGISTRY_IMAGE: ghcr.io/biel-cc/masterlion
+  REGISTRY_IMAGE: ghcr.io/chaaak6/masterlion
   PR_TAG_PREFIX: pr-
 
 jobs:
@@ -166,7 +166,7 @@ jobs:
               dockerMetaJson: ${{ toJSON(steps.meta.outputs.json) }},
               image: "${{ env.REGISTRY_IMAGE }}",
               version: "${{ steps.meta.outputs.version }}",
-              dockerhubUrl: "https://github.com/biel-cc/MasterLion/pkgs/container/masterlion",
+              dockerhubUrl: "https://github.com/chaaak6/MasterLion/pkgs/container/masterlion",
               platforms: "linux/amd64, linux/arm64",
             });
             core.info(`Status: ${result.updated ? 'Updated' : 'Created'}, ID: ${result.id}`);

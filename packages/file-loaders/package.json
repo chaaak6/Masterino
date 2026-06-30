@@ -9,13 +9,13 @@
     "parser",
     "lobehub"
   ],
-  "homepage": "https://github.com/biel-cc/MasterLion/tree/main/packages/file-loaders",
+  "homepage": "https://github.com/chaaak6/MasterLion/tree/main/packages/file-loaders",
   "bugs": {
-    "url": "https://github.com/biel-cc/MasterLion/issues/new/choose"
+    "url": "https://github.com/chaaak6/MasterLion/issues/new/choose"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/biel-cc/MasterLion.git"
+    "url": "https://github.com/chaaak6/MasterLion.git"
   },
   "author": "MasterLion <ai@bielcrystal.com>",
   "sideEffects": false,

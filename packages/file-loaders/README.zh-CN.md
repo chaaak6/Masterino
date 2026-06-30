@@ -73,7 +73,7 @@
 
 ### 贡献流程
 
-1. Fork [MasterLion 仓库](https://github.com/biel-cc/MasterLion)
+1. Fork [MasterLion 仓库](https://github.com/chaaak6/MasterLion)
 2. 添加新格式支持或改进现有解析器
 3. 提交 Pull Request 并描述：
 
@@ -86,4 +86,4 @@
 
 这是 MasterLion 的内部模块（`"private": true`），专为 MasterLion 设计，不作为独立包发布。
 
-如果你在维护本项目，请通过私有 [MasterLion 仓库](https://github.com/biel-cc/MasterLion) 提交 issue 和 pull request。
+如果你在维护本项目，请通过私有 [MasterLion 仓库](https://github.com/chaaak6/MasterLion) 提交 issue 和 pull request。

@@ -59,7 +59,7 @@ IPC communication needs vary across different use cases and platforms. We welcom
 
 ### Contribution Process
 
-1. Fork the [MasterLion repository](https://github.com/biel-cc/MasterLion)
+1. Fork the [MasterLion repository](https://github.com/chaaak6/MasterLion)
 2. Make your changes to the IPC client package
 3. Submit a Pull Request describing:
 

@@ -10,7 +10,7 @@ export const OG_URL = OG_URL_EN;
 export const getOgImageUrl = (locale?: string) =>
   locale?.toLowerCase().startsWith('zh') ? OG_URL_ZH_CN : OG_URL_EN;
 
-export const GITHUB = 'https://github.com/biel-cc/MasterLion';
+export const GITHUB = 'https://github.com/chaaak6/MasterLion';
 export const GITHUB_ISSUES = urlJoin(GITHUB, 'issues/new/choose');
 export const CHANGELOG = 'https://aihub.bielcrystal.com/changelog';
 

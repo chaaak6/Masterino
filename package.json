@@ -16,11 +16,11 @@
   ],
   "homepage": "https://aihub.bielcrystal.com",
   "bugs": {
-    "url": "https://github.com/biel-cc/MasterLion/issues/new/choose"
+    "url": "https://github.com/chaaak6/MasterLion/issues/new/choose"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/biel-cc/MasterLion.git"
+    "url": "https://github.com/chaaak6/MasterLion.git"
   },
   "license": "MIT",
   "author": "MasterLion <ai@bielcrystal.com>",

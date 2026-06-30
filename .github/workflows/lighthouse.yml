@@ -2,7 +2,7 @@ name: Lighthouse Badger
 
 env:
   TOKEN_NAME: 'GH_TOKEN'
-  REPO_BRANCH: 'biel-cc/MasterLion lighthouse'
+  REPO_BRANCH: 'chaaak6/MasterLion lighthouse'
   USER_NAME: 'MasterLion Bot'
   USER_EMAIL: 'ai@bielcrystal.com'
   AUDIT_TYPE: 'both'

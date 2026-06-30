@@ -48,7 +48,7 @@ const url = [
 
 ### 规则提交流程
 
-1. Fork [MasterLion 仓库](https://github.com/biel-cc/MasterLion)
+1. Fork [MasterLion 仓库](https://github.com/chaaak6/MasterLion)
 2. 添加或修改 URL 规则
 3. 提交 Pull Request 并描述：
 

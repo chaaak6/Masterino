@@ -28,7 +28,7 @@ const linearIssueResult = {
   links: [
     {
       title: 'PR #15766: refactor(chat): unify agent run lifecycle',
-      url: 'https://github.com/biel-cc/MasterLion/pull/15766',
+      url: 'https://github.com/chaaak6/MasterLion/pull/15766',
     },
   ],
   state: { name: 'In Review' },

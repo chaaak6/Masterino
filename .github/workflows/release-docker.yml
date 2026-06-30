@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY_IMAGE: ghcr.io/biel-cc/masterlion
+  REGISTRY_IMAGE: ghcr.io/chaaak6/masterlion
 
 jobs:
   build:
@@ -127,7 +127,7 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
-          # Filter out tags with v prefix (e.g. ghcr.io/biel-cc/masterlion:v2.1.29), keep only version without v prefix and latest
+          # Filter out tags with v prefix (e.g. ghcr.io/chaaak6/masterlion:v2.1.29), keep only version without v prefix and latest
           TAGS=$(jq -cr '.tags | map(select(test(":v\\d") | not)) | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON")
           docker buildx imagetools create $TAGS \
             $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)

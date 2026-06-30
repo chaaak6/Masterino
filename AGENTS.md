@@ -97,7 +97,7 @@ Open this URL to develop locally against the production backend (aihub.bielcryst
 
 ### Git Workflow
 
-- **Repository**: `https://github.com/biel-cc/MasterLion`
+- **Repository**: `https://github.com/chaaak6/MasterLion`
 - **Default branch**: `main`
 - Create focused feature branches from the current target branch. In this workspace, there may already be user or agent changes in progress; inspect `git status -sb` and `git diff --stat` before editing.
 - Use rebase for `git pull`
