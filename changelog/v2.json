@@ -2444,6 +2444,15 @@
   {
     "children": {
       "features": [
+        "WeCom 工作台自动登录入口."
+      ]
+    },
+    "date": "2026-06-30",
+    "version": "0.0.9"
+  },
+  {
+    "children": {
+      "features": [
         "add GLM-5.2 model card and AIHUB_HIDDEN_MODELS deny-list.",
         "switch default model to glm-5.2 and unify AIHUB_DEFAULT_MODEL source."
       ]

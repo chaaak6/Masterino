@@ -2,6 +2,31 @@
 
 # Changelog
 
+## [Version 0.0.9](https://github.com/chaaak6/MasterLion/compare/v0.0.8...v0.0.9)
+
+<sup>Released on **2026-06-30**</sup>
+
+#### ✨ Features
+
+- **misc**: WeCom 工作台自动登录入口.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's improved
+
+- **misc**: WeCom 工作台自动登录入口 ([fd586e3](https://github.com/chaaak6/MasterLion/commit/fd586e3))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 0.0.8](https://github.com/biel-cc/MasterLion/compare/v0.0.7...v0.0.8)
 
 <sup>Released on **2026-06-25**</sup>
