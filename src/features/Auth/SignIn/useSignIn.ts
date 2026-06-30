@@ -60,6 +60,17 @@ export const useSignIn = () => {
     if (emailParam) form.setFieldValue('email', emailParam);
   }, [searchParams, form]);
 
+  useEffect(() => {
+    const autoSignInProvider = searchParams.get('autoSignIn');
+    if (!autoSignInProvider || !serverConfigInit) return;
+
+    const normalized = normalizeProviderId(autoSignInProvider);
+    const available = ENABLE_BUSINESS_FEATURES ? ssoProviders : oAuthSSOProviders;
+    if (available.includes(normalized) || available.includes(autoSignInProvider)) {
+      handleSocialSignIn(autoSignInProvider);
+    }
+  }, [searchParams, serverConfigInit]);
+
   const handleSendMagicLink = async (targetEmail?: string) => {
     try {
       const emailValue =

@@ -209,6 +209,10 @@ export function defineConfig() {
     // WeCom OAuth authorize proxy — redirects to WeCom QR/workbench page,
     // must be reachable before the user has a session.
     '/oauth/wecom/authorize',
+    // WeCom workbench entry — initiates the full OAuth flow (generates state,
+    // sets cookie, redirects to WeCom). Must be public because the user has
+    // no session yet when clicking the workbench link.
+    '/oauth/wecom/workbench',
     // Custom connector OAuth callback — hit via a cross-site redirect from the
     // provider, carries its own code+state, so it must not be session-gated.
     '/oauth/connector/callback',
