@@ -19,4 +19,13 @@ describe('MasterLion builtin agent branding', () => {
     expect(supervisorSystemRole).not.toContain('LobeAI');
     expect(supervisorSystemRole).not.toContain('LobeHub');
   });
+
+  it('describes the inbox agent as 小宗狮AI instead of Lobe', () => {
+    const runtime = typeof INBOX.runtime === 'function' ? INBOX.runtime({}) : INBOX.runtime;
+    const role = runtime.systemRole ?? '';
+    expect(role).toContain('小宗狮AI');
+    expect(role).not.toContain('You are Lobe');
+    expect(role).not.toContain('LobeAI');
+    expect(role).not.toContain('LobeHub');
+  });
 });
