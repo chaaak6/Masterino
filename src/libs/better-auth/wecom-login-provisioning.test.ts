@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createDefaultWorkspaceAssigner,
+  createDefaultWecomUserNamingSyncer,
   provisionWecomLoginAccount,
 } from './wecom-login-provisioning';
 
@@ -29,6 +30,22 @@ vi.mock('@/database/models/workspaceMember', () => ({
     addMember: defaultWorkspaceAssignerMocks.workspaceMemberAddMember,
     getMember: defaultWorkspaceAssignerMocks.workspaceMemberGetMember,
   })),
+}));
+
+const userModelMocks = vi.hoisted(() => ({
+  findById: vi.fn(),
+  findByUsername: vi.fn(),
+  update: vi.fn(),
+}));
+
+vi.mock('@/database/models/user', () => ({
+  UserModel: Object.assign(
+    vi.fn().mockImplementation(() => ({ updateUser: userModelMocks.update })),
+    {
+      findById: userModelMocks.findById,
+      findByUsername: userModelMocks.findByUsername,
+    },
+  ),
 }));
 
 const account = {
@@ -84,11 +101,14 @@ describe('provisionWecomLoginAccount', () => {
   const getWecomSsoConfig = vi.fn();
   const provisionFromSsoProfile = vi.fn();
   const resolveWecomProfile = vi.fn();
+  const userNamingSyncer = { syncNaming: vi.fn().mockResolvedValue(undefined) };
 
   beforeEach(() => {
     getWecomSsoConfig.mockReset();
     provisionFromSsoProfile.mockReset();
     resolveWecomProfile.mockReset();
+    userNamingSyncer.syncNaming.mockReset();
+    userNamingSyncer.syncNaming.mockResolvedValue(undefined);
     defaultWorkspaceAssignerMocks.assignWorkspaceRoleToUser.mockReset();
     defaultWorkspaceAssignerMocks.seedWorkspaceRoles.mockReset();
     defaultWorkspaceAssignerMocks.workspaceMemberAddMember.mockReset();
@@ -116,6 +136,7 @@ describe('provisionWecomLoginAccount', () => {
         getWecomSsoConfig,
         provisionFromSsoProfile,
         resolveWecomProfile,
+        userNamingSyncer,
       },
     );
 
@@ -151,6 +172,62 @@ describe('provisionWecomLoginAccount', () => {
         }),
       }),
     );
+  });
+
+  it('syncs fullName (姓名) and username (工号) from the WeCom profile before provisioning', async () => {
+    // Bug 3: every WeCom login must re-sync `users.fullName` ← 姓名 and
+    // `users.username` ← 工号 so first-registration fallbacks self-heal.
+    const rawProfile = {
+      email: 'e001@example.com',
+      name: '张三',
+      userid: '10003923',
+    };
+    getWecomSsoConfig.mockResolvedValue(createConfig());
+    resolveWecomProfile.mockResolvedValue(rawProfile);
+    provisionFromSsoProfile.mockResolvedValue({ userId: account.userId });
+
+    await provisionWecomLoginAccount(
+      { account },
+      {
+        db,
+        getWecomSsoConfig,
+        provisionFromSsoProfile,
+        resolveWecomProfile,
+        userNamingSyncer,
+      },
+    );
+
+    expect(userNamingSyncer.syncNaming).toHaveBeenCalledWith({
+      fullName: '张三',
+      userId: account.userId,
+      username: '10003923',
+    });
+    // provisioning still runs after the sync
+    expect(provisionFromSsoProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to accountId for username when the profile lacks the mapped employee field', async () => {
+    const rawProfile = { email: 'e001@example.com', name: 'Employee One' };
+    getWecomSsoConfig.mockResolvedValue(createConfig());
+    resolveWecomProfile.mockResolvedValue(rawProfile);
+    provisionFromSsoProfile.mockResolvedValue({ userId: account.userId });
+
+    await provisionWecomLoginAccount(
+      { account },
+      {
+        db,
+        getWecomSsoConfig,
+        provisionFromSsoProfile,
+        resolveWecomProfile,
+        userNamingSyncer,
+      },
+    );
+
+    expect(userNamingSyncer.syncNaming).toHaveBeenCalledWith({
+      fullName: 'Employee One',
+      userId: account.userId,
+      username: account.accountId,
+    });
   });
 
   it.each([
@@ -224,5 +301,59 @@ describe('provisionWecomLoginAccount', () => {
       userId: account.userId,
       workspaceId: 'workspace_001',
     });
+  });
+});
+
+describe('createDefaultWecomUserNamingSyncer', () => {
+  const syncer = createDefaultWecomUserNamingSyncer(db);
+
+  beforeEach(() => {
+    userModelMocks.findById.mockReset();
+    userModelMocks.findByUsername.mockReset();
+    userModelMocks.update.mockReset();
+  });
+
+  it('updates fullName and username when they differ and the username is free', async () => {
+    userModelMocks.findById.mockResolvedValue({ fullName: 'Old', id: 'user_001', username: 'old' });
+    userModelMocks.findByUsername.mockResolvedValue(undefined);
+
+    await syncer.syncNaming({ fullName: '张三', userId: 'user_001', username: '10003923' });
+
+    expect(userModelMocks.findById).toHaveBeenCalledWith(db, 'user_001');
+    expect(userModelMocks.findByUsername).toHaveBeenCalledWith(db, '10003923');
+    expect(userModelMocks.update).toHaveBeenCalledWith({
+      fullName: '张三',
+      username: '10003923',
+    });
+  });
+
+  it('skips the username update when another user already owns that username', async () => {
+    userModelMocks.findById.mockResolvedValue({ fullName: '', id: 'user_001', username: 'old' });
+    userModelMocks.findByUsername.mockResolvedValue({ id: 'user_002', username: '10003923' });
+
+    await syncer.syncNaming({ fullName: '张三', userId: 'user_001', username: '10003923' });
+
+    expect(userModelMocks.update).toHaveBeenCalledWith({ fullName: '张三' });
+  });
+
+  it('does nothing when the user already has the desired values', async () => {
+    userModelMocks.findById.mockResolvedValue({
+      fullName: '张三',
+      id: 'user_001',
+      username: '10003923',
+    });
+
+    await syncer.syncNaming({ fullName: '张三', userId: 'user_001', username: '10003923' });
+
+    expect(userModelMocks.findByUsername).not.toHaveBeenCalled();
+    expect(userModelMocks.update).not.toHaveBeenCalled();
+  });
+
+  it('skips silently when the user no longer exists', async () => {
+    userModelMocks.findById.mockResolvedValue(undefined);
+
+    await syncer.syncNaming({ fullName: '张三', userId: 'gone', username: '10003923' });
+
+    expect(userModelMocks.update).not.toHaveBeenCalled();
   });
 });

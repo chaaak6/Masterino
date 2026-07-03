@@ -121,6 +121,8 @@ const createRecordingDb = (
       status?: string;
     }>;
     failAuditActions?: string[];
+    existingNewApiUserId?: number;
+    userRow?: { email?: string | null; username?: string | null };
   } = {},
 ) => {
   const operations: DbWriteOperation[] = [];
@@ -186,14 +188,28 @@ const createRecordingDb = (
     return chain;
   });
 
+  const query: Record<string, any> = {
+    enterpriseDepartments: {
+      findMany: vi.fn(async () => departments),
+    },
+  };
+
+  if (options.existingNewApiUserId !== undefined) {
+    query.newApiBindings = {
+      findFirst: vi.fn(async () => ({ newApiUserId: options.existingNewApiUserId })),
+    };
+  }
+
+  if (options.userRow !== undefined) {
+    query.users = {
+      findFirst: vi.fn(async () => options.userRow ?? undefined),
+    };
+  }
+
   return {
     db: {
       insert,
-      query: {
-        enterpriseDepartments: {
-          findMany: vi.fn(async () => departments),
-        },
-      },
+      query,
       update,
     },
     departments,
@@ -221,6 +237,7 @@ const flattenValues = (operations: DbWriteOperation[]) =>
   });
 
 const createAihubAdapter = (result?: Record<string, unknown>) => ({
+  ensureUserQuota: vi.fn(async () => undefined),
   provisionEnterpriseUser: vi.fn(async () => ({
     managedTokenId: 8001,
     newApiUserId: 9001,
@@ -295,6 +312,28 @@ describe('identityProvisioningService', () => {
     });
   });
 
+  it('falls back to the MasterLion users table email when the SSO profile has no email', async () => {
+    // WeCom profiles often lack an email field. The user may have registered
+    // in Aihub independently with their real email. Falling back to the email
+    // stored in the MasterLion users table lets the provisioning lookup match
+    // the existing Aihub user instead of creating a duplicate.
+    const { db } = createRecordingDb({ userRow: { username: '10003923', email: 'you.yan@example.com' } });
+    const adapter = createAihubAdapter();
+    const service = new IdentityProvisioningService({ aihubProvisioningAdapter: adapter, db });
+
+    await service.provisionFromSsoProfile({
+      ...defaultProfile,
+      email: undefined, // WeCom profile has no email
+    });
+
+    expect(adapter.provisionEnterpriseUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'you.yan@example.com', // fell back to users table
+        employeeNumber: 'E-1001',
+      }),
+    );
+  });
+
   it('records a binding error without blocking enterprise identity writes when the default NewAPI adapter cannot initialize', async () => {
     const { db, operations } = createRecordingDb();
     newApiProvisioningAdapterMock.constructor.mockImplementationOnce(() => {
@@ -338,6 +377,38 @@ describe('identityProvisioningService', () => {
       targetId: 'user-ada',
       targetType: 'user',
     });
+  });
+
+  it('independently tops up balance for an old user when full provisioning fails', async () => {
+    // Bug 2d: when provisionEnterpriseUser throws but a previous binding
+    // already recorded a newApiUserId, ensureUserQuota must still be called
+    // so old users (e.g. 10003923) get their default balance on every login.
+    const { db } = createRecordingDb({ existingNewApiUserId: 9001 });
+    const adapter = createAihubAdapter();
+    adapter.provisionEnterpriseUser.mockRejectedValue(new Error('duplicate username'));
+    const service = new IdentityProvisioningService({
+      aihubProvisioningAdapter: adapter,
+      db,
+    });
+
+    const result = await service.provisionFromSsoProfile(defaultProfile);
+
+    expect(result.aihub).toMatchObject({ status: 'error' });
+    expect(adapter.ensureUserQuota).toHaveBeenCalledWith(9001, defaultPolicy);
+  });
+
+  it('does not call ensureUserQuota when there is no prior newApiUserId', async () => {
+    const { db } = createRecordingDb();
+    const adapter = createAihubAdapter();
+    adapter.provisionEnterpriseUser.mockRejectedValue(new Error('create failed'));
+    const service = new IdentityProvisioningService({
+      aihubProvisioningAdapter: adapter,
+      db,
+    });
+
+    await service.provisionFromSsoProfile(defaultProfile);
+
+    expect(adapter.ensureUserQuota).not.toHaveBeenCalled();
   });
 
   it('upserts normalized SSO identity, memberships, NewAPI binding, and success audit log', async () => {

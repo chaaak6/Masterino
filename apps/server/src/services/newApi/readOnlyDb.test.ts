@@ -58,8 +58,8 @@ describe('NewApiReadOnlyDb', () => {
       'ada@example.com',
       '',
       '',
-      'ada@example.com',
-      'ada@example.com',
+      '',
+      '',
     ]);
   });
 

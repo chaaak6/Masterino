@@ -1,8 +1,10 @@
 import {
   NewApiClient,
+  NewApiError,
   type NewApiCreateUserInput,
   type NewApiManagementAuth,
   type NewApiToken,
+  type NewApiUpdateUserInput,
   type NewApiUser,
 } from './client';
 import { NewApiBridgeClient } from './bridgeClient';
@@ -44,7 +46,7 @@ export type ProvisionEnterpriseUserResult = {
 
 type ProvisioningClient = Pick<
   NewApiClient,
-  'createToken' | 'createUser' | 'listTokens' | 'searchUsers'
+  'createToken' | 'createUser' | 'listTokens' | 'searchUsers' | 'updateUser'
 >;
 
 type NewApiProvisioningAdapterOptions = {
@@ -62,6 +64,24 @@ const asTrimmedString = (value: unknown) => {
 
 const isValidId = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0;
+
+// Bug 4: NewAPI requires a password on user creation (max 20 chars). SSO
+// users never use it to log in to Aihub directly (they use managed tokens),
+// so a random password is generated and discarded. 20 chars of base36 = ~103
+// bits of entropy, well beyond any brute-force threshold for a throwaway.
+const generateRandomPassword = (): string => {
+  const bytes = new Uint8Array(12);
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  // base36 keeps it alphanumeric, guaranteed to fit within 20 chars
+  return Array.from(bytes, (b) => b.toString(36))
+    .join('')
+    .slice(0, 20)
+    .padEnd(20, '0');
+};
 
 const getAdminAuthFromEnv = (): NewApiManagementAuth => {
   const accessToken = asTrimmedString(process.env.AIHUB_ADMIN_ACCESS_TOKEN);
@@ -129,6 +149,29 @@ const findExactToken = (tokens: NewApiToken[], name: string, newApiUserId: numbe
       (token.user_id === undefined || Number(token.user_id) === Number(newApiUserId)),
   );
 
+// Bug 1b: detect Aihub "username already exists" conflicts so createUser can
+// fall back to reusing the existing user instead of failing permanently.
+const isDuplicateUserError = (error: unknown): boolean => {
+  if (!(error instanceof NewApiError)) return false;
+  if (error.status !== 400 && error.status !== 409) return false;
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('already exists') ||
+    message.includes('already used') ||
+    message.includes('duplicate') ||
+    message.includes('已存在') ||
+    message.includes('已被使用') ||
+    message.includes('username')
+  );
+};
+
+const getUserQuota = (user: NewApiUser | undefined): number => {
+  if (!user) return 0;
+  const quota = user.quota;
+  return typeof quota === 'number' && Number.isFinite(quota) && quota > 0 ? quota : 0;
+};
+
 const getRequiredManagedTokenName = (policy: AihubProvisioningPolicy) => {
   const managedTokenName = asTrimmedString(policy.managedTokenName);
 
@@ -177,8 +220,16 @@ export class NewApiProvisioningAdapter {
 
     let targetUser = await this.findUser(keyword);
 
+    // Email fallback: only accept the match when the found user's username
+    // equals the expected MasterLion username (employeeNumber). This prevents
+    // binding to a user that self-registered in Aihub with a different
+    // username (e.g. newapi_320) but happens to share the same email.
     if (!targetUser && lookupField !== 'email' && asTrimmedString(input.email)) {
-      targetUser = await this.findUser(input.email!);
+      const emailMatch = await this.findUser(input.email!);
+      const expectedUsername = getCreateUsername(input);
+      if (emailMatch && asTrimmedString(emailMatch.username) === expectedUsername) {
+        targetUser = emailMatch;
+      }
     }
 
     if (!targetUser) {
@@ -191,12 +242,23 @@ export class NewApiProvisioningAdapter {
       targetUser = await this.createUser(input, policy);
     }
 
+    // Bug 2: an existing Aihub user created without the default initial quota
+    // (e.g. pre-provisioned manually or via a prior partial failure) would have
+    // no balance. Top up the configured initial quota when the user has none.
+    targetUser = await this.ensureInitialQuota(targetUser, policy);
+
     const token = await this.ensureManagedToken(
       targetUser.id,
       managedTokenName,
       policy,
       input.masterLionUsername,
     );
+
+    // Link the Aihub user to the OAuth provider (e.g. BIEL IAM) so that when
+    // the user later logs in to Aihub directly via IAM SSO, they are matched
+    // to this same account instead of creating a new one. Uses the employee
+    // number (工号) as provider_user_id — the same value IAM returns.
+    await this.ensureOAuthBinding(targetUser.id, input);
 
     return {
       managedTokenId: token.id,
@@ -211,7 +273,42 @@ export class NewApiProvisioningAdapter {
       pageSize: 20,
     });
 
-    return findExactUser(page.items ?? [], keyword);
+    const exact = findExactUser(page.items ?? [], keyword);
+    if (exact) return exact;
+
+    // Bug 1c: the admin API search can miss existing users (pagination cap of
+    // 20, permission scope, or keyword semantics). Fall back to the bridge's
+    // authoritative DB read so a user that exists in Aihub is not treated as
+    // "not found" — which would otherwise trigger a duplicate create attempt.
+    if (this.bridgeClient?.isEnabled()) {
+      try {
+        const bridged = await this.bridgeClient.findUserByIdentity({
+          email: keyword,
+          username: keyword,
+        });
+        if (bridged && isValidId(bridged.id)) return bridged;
+      } catch {
+        // bridge lookup failed — treat as not found and let the caller decide
+      }
+    }
+
+    return undefined;
+  }
+
+  private async refetchUser(userId: number, username: string) {
+    // Bug 1a: some NewAPI versions return only {id} on create without echoing
+    // back the identity fields. Re-fetch the authoritative record by id via
+    // the bridge (direct DB read), then fall back to an admin search.
+    if (this.bridgeClient?.isEnabled()) {
+      try {
+        const bridged = await this.bridgeClient.findUserById(userId);
+        if (bridged && isValidId(bridged.id)) return bridged;
+      } catch {
+        // fall through to admin search
+      }
+    }
+
+    return this.findUser(username);
   }
 
   private async createUser(
@@ -219,37 +316,138 @@ export class NewApiProvisioningAdapter {
     policy: AihubProvisioningPolicy,
   ) {
     const username = getCreateUsername(input);
+    // Bug 4: NewAPI's POST /api/user/ rejects creation without a password
+    // ("无效的参数"). SSO users never log in to Aihub directly, so generate a
+    // long random password they will never use.
+    const password = generateRandomPassword();
     const createInput: NewApiCreateUserInput = {
       display_name: asTrimmedString(input.name),
       email: asTrimmedString(input.email),
       group: asTrimmedString(policy.userGroup),
+      password,
       quota: policy.initialQuota,
       username,
     };
 
-    const createdUser = await this.client.createUser(this.adminAuth, createInput);
+    let createdUser: NewApiUser | undefined;
 
-    if (isValidId(createdUser.id)) {
-      if (!isSameUserIdentity(createdUser, input)) {
-        throw new Error(
-          `Aihub created user identity mismatch for "${username}": received user ${createdUser.id}`,
-        );
+    try {
+      createdUser = await this.client.createUser(this.adminAuth, createInput);
+    } catch (error) {
+      // Bug 1b: a prior partial provisioning failure may have already created
+      // the Aihub user. On a duplicate-username conflict, reuse the existing
+      // user instead of aborting — otherwise every subsequent login retries
+      // create and fails permanently.
+      if (isDuplicateUserError(error)) {
+        const existing = await this.findUser(username);
+        if (existing && isValidId(existing.id)) {
+          return existing;
+        }
+      }
+      throw error;
+    }
+
+    if (createdUser && isValidId(createdUser.id)) {
+      // Bug 1a: trust the valid id returned by Aihub. Only re-fetch the
+      // authoritative record when the response did not echo back a matching
+      // identity (some NewAPI versions omit username/email/display_name on the
+      // create response). Never abort a successful create over a mismatch.
+      if (isSameUserIdentity(createdUser, input)) {
+        return createdUser;
+      }
+
+      const reconfirmed = await this.refetchUser(createdUser.id, username);
+      if (reconfirmed && isValidId(reconfirmed.id)) {
+        return reconfirmed;
       }
 
       return createdUser;
     }
 
-    const page = await this.client.searchUsers(this.adminAuth, {
-      keyword: username,
-      pageSize: 20,
-    });
-    const targetUser = findExactUser(page.items ?? [], username);
-
+    // No valid id returned — try to locate the user we just created.
+    const targetUser = await this.findUser(username);
     if (targetUser && isValidId(targetUser.id)) {
       return targetUser;
     }
 
     throw new Error(`Aihub user "${username}" was created but no NewAPI user id was returned`);
+  }
+
+  private async ensureInitialQuota(
+    user: NewApiUser,
+    policy: AihubProvisioningPolicy,
+  ): Promise<NewApiUser> {
+    const initialQuota = typeof policy.initialQuota === 'number' ? policy.initialQuota : 0;
+    if (initialQuota <= 0) return user;
+    // Only top up when the user has no balance; never reduce an existing quota.
+    if (getUserQuota(user) > 0) return user;
+
+    try {
+      const updateInput: NewApiUpdateUserInput = {
+        id: user.id,
+        quota: initialQuota,
+      };
+      const updated = await this.client.updateUser(this.adminAuth, updateInput);
+      if (updated && isValidId(updated.id)) {
+        return { ...user, quota: initialQuota };
+      }
+    } catch (error) {
+      console.warn(
+        `[Aihub Provisioning] Failed to top up initial quota for user ${user.id}: ${(error as Error).message}`,
+      );
+    }
+
+    return user;
+  }
+
+  /**
+   * Independently ensure an existing Aihub user has the default initial quota.
+   *
+   * This is called outside {@link provisionEnterpriseUser} so that even when
+   * full provisioning fails (e.g. a duplicate-username conflict that could not
+   * be resolved, or a managed-token error), an *existing* Aihub user whose
+   * binding already records a `newApiUserId` still gets its balance topped up
+   * on every login. This covers the "old user with no balance" scenario.
+   */
+  async ensureUserQuota(
+    newApiUserId: number,
+    policy: ProvisioningPolicy,
+  ): Promise<void> {
+    if (!isValidId(newApiUserId)) return;
+    const aihubPolicy = policy.aihubProvisioning ?? {};
+    const initialQuota = typeof aihubPolicy.initialQuota === 'number' ? aihubPolicy.initialQuota : 0;
+    if (initialQuota <= 0) return;
+
+    // Fetch the current user record to check the existing quota.
+    let user: NewApiUser | undefined;
+    if (this.bridgeClient?.isEnabled()) {
+      try {
+        user = await this.bridgeClient.findUserById(newApiUserId);
+      } catch {
+        // fall through to admin search
+      }
+    }
+    if (!user) {
+      // Admin API has no "get user by id"; search by id as keyword.
+      const page = await this.client.searchUsers(this.adminAuth, {
+        keyword: String(newApiUserId),
+        pageSize: 20,
+      });
+      user = (page.items ?? []).find((u) => Number(u.id) === Number(newApiUserId));
+    }
+    if (!user || !isValidId(user.id)) return;
+    if (getUserQuota(user) > 0) return;
+
+    try {
+      await this.client.updateUser(this.adminAuth, {
+        id: user.id,
+        quota: initialQuota,
+      });
+    } catch (error) {
+      console.warn(
+        `[Aihub Provisioning] Failed to top up initial quota for user ${user.id}: ${(error as Error).message}`,
+      );
+    }
   }
 
   private async ensureManagedToken(
@@ -340,5 +538,33 @@ export class NewApiProvisioningAdapter {
     throw new Error(
       `Aihub managed token "${managedTokenName}" was not found after creation for user ${newApiUserId}`,
     );
+  }
+
+  private async ensureOAuthBinding(
+    newApiUserId: number,
+    input: ProvisionEnterpriseUserInput,
+  ): Promise<void> {
+    // The OAuth provider_user_id is the employee number (工号) — the same
+    // value BIEL IAM returns as account_no. This lets IAM login match the
+    // existing Aihub account instead of creating a new one.
+    const providerUserId = asTrimmedString(input.employeeNumber);
+    if (!providerUserId) return;
+
+    if (!this.bridgeClient?.isEnabled()) return;
+
+    const providerId = Number(process.env.AIHUB_IAM_PROVIDER_ID) || 1;
+
+    const linked = await this.bridgeClient.linkOAuthBinding(
+      newApiUserId,
+      providerUserId,
+      providerId,
+    );
+
+    if (!linked) {
+      console.warn(
+        `[Aihub Provisioning] Failed to link OAuth binding for user ${newApiUserId} ` +
+          `(providerUserId="${providerUserId}"); the user may get a duplicate account on IAM login.`,
+      );
+    }
   }
 }

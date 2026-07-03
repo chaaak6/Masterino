@@ -199,4 +199,57 @@ export class NewApiBridgeClient implements NewApiReadSource {
       return false;
     }
   }
+
+  /**
+   * Link an Aihub user to an OAuth provider (e.g. BIEL IAM) by inserting a row
+   * into `user_oauth_bindings` via the bridge. This ensures that when the user
+   * later logs in to Aihub directly via IAM SSO, they are matched to the same
+   * Aihub account instead of creating a new one.
+   *
+   * Requires the bridge DB account to have INSERT privilege on the
+   * `user_oauth_bindings` table. Returns true on success, false otherwise
+   * (including when the bridge is disabled — degraded mode, never throws).
+   */
+  async linkOAuthBinding(
+    userId: number,
+    providerUserId: string,
+    providerId?: number,
+  ): Promise<boolean> {
+    if (!this.baseUrl || !this.token) return false;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
+      try {
+        const payload: Record<string, unknown> = { providerUserId };
+        if (providerId) payload.providerId = providerId;
+
+        const response = await this.fetchImpl(
+          `${this.baseUrl}/v1/users/${userId}/oauth-binding`,
+          {
+            body: JSON.stringify(payload),
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${this.token}`,
+              'Content-Type': 'application/json',
+            },
+            method: 'POST',
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) return false;
+
+        const text = await response.text();
+        const body = text ? JSON.parse(text) : undefined;
+
+        return body?.success === true;
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch {
+      return false;
+    }
+  }
 }

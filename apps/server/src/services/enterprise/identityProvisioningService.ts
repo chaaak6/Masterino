@@ -24,16 +24,23 @@ type DbLike = {
     enterpriseDepartments?: {
       findMany?: (args: unknown) => Promise<EnterpriseDepartmentRow[]>;
     };
+    newApiBindings?: {
+      findFirst?: (args: unknown) => Promise<{ newApiUserId?: number | null } | undefined>;
+    };
     users?: {
-      findFirst?: (args: unknown) => Promise<{ username?: string | null } | undefined>;
+      findFirst?: (args: unknown) => Promise<{ email?: string | null; username?: string | null } | undefined>;
     };
   };
-  select?: (fields: Record<string, unknown>) => { from: (table: unknown) => { where: (condition: unknown) => { limit: (n: number) => Promise<Array<{ username?: string | null }>> } } };
+  select?: (fields: Record<string, unknown>) => { from: (table: unknown) => { where: (condition: unknown) => { limit: (n: number) => Promise<Array<{ email?: string | null; username?: string | null }>> } } };
   update: (table: unknown) => any;
 };
 
 type AihubProvisioningAdapter = {
   provisionEnterpriseUser: (input: ProvisionEnterpriseUserInput) => Promise<ProvisionEnterpriseUserResult>;
+  // Bug 2: independently ensure an existing Aihub user has the default initial
+  // quota, even when full provisioning fails. Called from the error path so
+  // old users with a recorded newApiUserId still get their balance topped up.
+  ensureUserQuota?: (newApiUserId: number, policy: ProvisioningPolicy) => Promise<void>;
 };
 
 type RoleAssigner = {
@@ -88,6 +95,12 @@ type TopLevelProvisioningInput = IdentityProvisioningInput &
   Partial<IdentityProvisioningServiceOptions>;
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const asTrimmedString = (value: unknown) => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+};
 
 const isValidNewApiUserId = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0;
@@ -341,23 +354,45 @@ export class IdentityProvisioningService {
           targetId: input.userId,
           targetType: 'user',
         });
-      } else
-        try {
-          const aihubProvisioningAdapter =
-            this.aihubProvisioningAdapter ?? new NewApiProvisioningAdapter();
+      } else {
+        // Bug 2: capture the previously-recorded Aihub user id before
+        // provisioning. If full provisioning fails (e.g. a duplicate-username
+        // conflict that could not be resolved, or a managed-token error) we
+        // still want to top up the balance of the *existing* Aihub user on
+        // every login — otherwise old users with no balance stay stuck.
+        let existingNewApiUserId: number | undefined;
+        if (typeof this.db.query?.newApiBindings?.findFirst === 'function') {
+          const existingBinding = await this.db.query.newApiBindings.findFirst({
+            columns: { newApiUserId: true },
+            where: eq(newApiBindings.userId, input.userId),
+          });
+          existingNewApiUserId = existingBinding?.newApiUserId ?? undefined;
+        }
 
-          // Fetch the MasterLion username for token naming (MasterLion_{username}).
+        let adapter: AihubProvisioningAdapter | undefined = this.aihubProvisioningAdapter;
+
+        try {
+          adapter = adapter ?? new NewApiProvisioningAdapter();
+
+          // Fetch the MasterLion username for token naming (MasterLion_{username}),
+          // and the email — WeCom profiles often lack an email field, but the user
+          // may have one in the MasterLion users table (e.g. self-registered in
+          // Aihub with the same email). Falling back to this email lets the
+          // provisioning lookup match an existing Aihub user instead of creating
+          // a duplicate.
           let masterLionUsername: string | undefined;
+          let masterLionEmail: string | undefined;
           if (typeof this.db.query?.users?.findFirst === 'function') {
             const userRow = await this.db.query.users.findFirst({
-              columns: { username: true },
+              columns: { email: true, username: true },
               where: eq(users.id, input.userId),
             });
             masterLionUsername = userRow?.username ?? undefined;
+            masterLionEmail = userRow?.email ?? undefined;
           }
 
-          const provisioningResult = await aihubProvisioningAdapter.provisionEnterpriseUser({
-            email: input.email,
+          const provisioningResult = await adapter.provisionEnterpriseUser({
+            email: asTrimmedString(input.email) ?? masterLionEmail,
             employeeNumber: input.employeeNumber,
             masterLionUsername,
             name: input.name,
@@ -429,6 +464,25 @@ export class IdentityProvisioningService {
             })
             .returning();
 
+          // Bug 2: even when full provisioning fails, independently top up the
+          // balance of an already-recorded Aihub user. This ensures old users
+          // (e.g. 10003923) whose Aihub account exists but has no quota get
+          // their default 700 RMB on every login, regardless of whether the
+          // rest of provisioning (token assignment, etc.) succeeds.
+          if (
+            existingNewApiUserId &&
+            isValidNewApiUserId(existingNewApiUserId) &&
+            typeof adapter?.ensureUserQuota === 'function'
+          ) {
+            try {
+              await adapter.ensureUserQuota(existingNewApiUserId, policy);
+            } catch (quotaError) {
+              console.warn(
+                `[Aihub Provisioning] Independent quota top-up failed for user ${existingNewApiUserId}: ${getErrorMessage(quotaError)}`,
+              );
+            }
+          }
+
           await this.writeAuditLogBestEffort({
             action: 'identity.provision.aihub_error',
             metadata: {
@@ -440,6 +494,7 @@ export class IdentityProvisioningService {
             targetType: 'user',
           });
         }
+      }
     } else {
       await this.writeAuditLogBestEffort({
         action: 'identity.provision.success',

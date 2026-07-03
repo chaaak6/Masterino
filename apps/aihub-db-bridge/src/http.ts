@@ -4,6 +4,7 @@ import type { AihubBridgeRepository } from './repository.js';
 
 interface HandlerOptions {
   bridgeToken: string;
+  iamProviderId: number;
   managedTokenName: string;
   repository: AihubBridgeRepository;
 }
@@ -67,6 +68,7 @@ const requestHeadersToWebHeaders = (request: IncomingMessage) => {
 
 export const createBridgeHandler = ({
   bridgeToken,
+  iamProviderId,
   managedTokenName,
   repository,
 }: HandlerOptions): BridgeHandler => {
@@ -129,6 +131,39 @@ export const createBridgeHandler = ({
       }
 
       if (!userId) return failure(404, 'not_found', 'Endpoint was not found');
+
+      if (url.pathname === `/v1/users/${userId}/oauth-binding` && request.method === 'POST') {
+        const body = (await request.json().catch(() => ({}))) as {
+          providerId?: unknown;
+          providerUserId?: unknown;
+        };
+
+        const providerId =
+          typeof body.providerId === 'number' ? body.providerId : Number(body.providerId);
+        const providerUserId =
+          typeof body.providerUserId === 'string' ? body.providerUserId.trim() : '';
+
+        const effectiveProviderId =
+          Number.isInteger(providerId) && providerId > 0 ? providerId : iamProviderId;
+
+        if (!Number.isInteger(effectiveProviderId) || effectiveProviderId <= 0) {
+          return failure(400, 'bad_request', 'providerId must be a positive integer');
+        }
+        if (!providerUserId) {
+          return failure(400, 'bad_request', 'providerUserId must be a non-empty string');
+        }
+
+        const ok = await repository.linkOAuthBinding(userId, effectiveProviderId, providerUserId);
+        if (!ok) {
+          return failure(
+            500,
+            'internal_error',
+            'OAuth binding could not be created',
+          );
+        }
+
+        return success({ ok: true });
+      }
 
       if (url.pathname === `/v1/users/${userId}`) {
         const user = await repository.findUserById(userId);

@@ -36,9 +36,20 @@ export type NewApiCreateUserInput = {
   email?: string;
   group?: string;
   name?: string;
+  password?: string;
   quota?: number;
   username: string;
   userGroup?: string;
+};
+
+export type NewApiUpdateUserInput = {
+  display_name?: string;
+  email?: string;
+  group?: string;
+  id: number;
+  name?: string;
+  quota?: number;
+  username?: string;
 };
 
 export interface NewApiToken {
@@ -257,6 +268,14 @@ export class NewApiClient {
       auth,
       body: JSON.stringify(input),
       method: 'POST',
+    });
+  }
+
+  updateUser(auth: NewApiManagementAuth, input: NewApiUpdateUserInput) {
+    return this.request<NewApiUser>('/api/user/', {
+      auth,
+      body: JSON.stringify(input),
+      method: 'PUT',
     });
   }
 
