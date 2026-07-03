@@ -24,6 +24,7 @@ const createRepo = () => ({
   ]),
   reassignToken: vi.fn().mockResolvedValue(true),
   updateTokenName: vi.fn().mockResolvedValue(true),
+  linkOAuthBinding: vi.fn().mockResolvedValue(true),
 });
 
 describe('createBridgeHandler', () => {
@@ -31,6 +32,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: createRepo() as any,
     });
 
@@ -47,6 +49,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -61,6 +64,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -76,6 +80,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -90,6 +95,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -104,6 +110,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -121,6 +128,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -139,6 +147,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -162,6 +171,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 
@@ -183,6 +193,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: createRepo() as any,
     });
 
@@ -203,6 +214,7 @@ describe('createBridgeHandler', () => {
     const handler = createBridgeHandler({
       bridgeToken: 'secret',
       managedTokenName: 'managed',
+      iamProviderId: 1,
       repository: repo as any,
     });
 

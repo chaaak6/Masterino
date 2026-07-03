@@ -44,6 +44,7 @@ services:
       - 'AIHUB_DATA_SOURCE=${AIHUB_DATA_SOURCE:-bridge}'
       - 'AIHUB_BRIDGE_URL=${AIHUB_BRIDGE_URL:-http://masterlion-aihub-db-bridge:3218}'
       - 'AIHUB_BRIDGE_TOKEN=${AIHUB_BRIDGE_TOKEN:?Set AIHUB_BRIDGE_TOKEN to a long random shared secret}'
+      - 'AIHUB_IAM_PROVIDER_ID=${AIHUB_IAM_PROVIDER_ID:-1}'
       - 'AIHUB_READONLY_DATABASE_URL='
     env_file:
       - .env
@@ -57,6 +58,7 @@ services:
     environment:
       - 'AIHUB_BRIDGE_TOKEN=${AIHUB_BRIDGE_TOKEN:?Set AIHUB_BRIDGE_TOKEN to a long random shared secret}'
       - 'AIHUB_MANAGED_TOKEN_NAME=${AIHUB_MANAGED_TOKEN_NAME:-masterlion-managed}'
+      - 'AIHUB_IAM_PROVIDER_ID=${AIHUB_IAM_PROVIDER_ID:-1}'
       - 'AIHUB_QUERY_TIMEOUT_MS=${AIHUB_QUERY_TIMEOUT_MS:-15000}'
       - 'AIHUB_READONLY_DATABASE_URL=${AIHUB_READONLY_DATABASE_URL:?Set AIHUB_READONLY_DATABASE_URL for aihub-db-bridge}'
       - 'PORT=3218'

@@ -152,6 +152,39 @@ describe('NewApiClient', () => {
     );
   });
 
+  it('updates users with administrator management auth via PUT', async () => {
+    const input = { id: 9001, quota: 1000 };
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        data: { id: 9001, quota: 1000, username: 'E-1001' },
+        success: true,
+      }),
+    );
+    const client = new NewApiClient({
+      baseUrl: 'https://aihub.internal',
+      fetchImpl: fetchMock,
+    });
+
+    const result = await client.updateUser(
+      { accessToken: 'admin-access-token', newApiUserId: 1 },
+      input,
+    );
+
+    expect(result).toEqual({ id: 9001, quota: 1000, username: 'E-1001' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://aihub.internal/api/user/',
+      expect.objectContaining({
+        body: JSON.stringify(input),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer admin-access-token',
+          'Content-Type': 'application/json',
+          'New-Api-User': '1',
+        }),
+        method: 'PUT',
+      }),
+    );
+  });
+
   it('lists target-user tokens with management auth and keyword search', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({

@@ -160,11 +160,11 @@ where deleted_at is null
     or (? <> '' and lower(username) = lower(?))
   )
 order by
-  case when ? <> '' and lower(email) = lower(?) then 0 else 1 end,
+  case when ? <> '' and lower(username) = lower(?) then 0 else 1 end,
   id desc
 limit 1
       `.trim(),
-      [email || '', email || '', username || '', username || '', email || '', email || ''],
+      [email || '', email || '', username || '', username || '', username || '', username || ''],
     );
 
     return rows[0];

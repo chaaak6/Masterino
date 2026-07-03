@@ -41,12 +41,21 @@ type WorkspaceAssigner = {
   }) => Promise<void>;
 };
 
+type WecomUserNamingSyncer = {
+  // Bug 3: keep `users.fullName` (姓名) and `users.username` (工号) in sync with
+  // the WeCom profile on every login. The SSO provider only persists these on
+  // first registration and never re-syncs, so stale fallback values (e.g. the
+  // WeCom openId used as username when userid was missing) would otherwise stick.
+  syncNaming: (input: { userId: string; fullName?: string; username?: string }) => Promise<void>;
+};
+
 type ProvisionWecomLoginDeps = {
   db?: unknown;
   getWecomSsoConfig?: (db: unknown) => Promise<WecomSsoConfigLike>;
   provisionFromSsoProfile?: (input: Record<string, unknown>) => Promise<unknown>;
   resolveWecomProfile?: (accountId: string) => Promise<WecomProfile>;
   roleAssigner?: RoleAssigner;
+  userNamingSyncer?: WecomUserNamingSyncer;
   workspaceAssigner?: WorkspaceAssigner;
 };
 
@@ -144,6 +153,43 @@ export const createDefaultWorkspaceAssigner = (db: unknown): WorkspaceAssigner =
   },
 });
 
+export const createDefaultWecomUserNamingSyncer = (db: unknown): WecomUserNamingSyncer => ({
+  syncNaming: async ({ userId, fullName, username }) => {
+    const { UserModel } = await import('@/database/models/user');
+    const database = db as Parameters<typeof UserModel.findById>[0];
+
+    const user = await UserModel.findById(database, userId);
+    if (!user) return;
+
+    const desiredFullName = fullName?.trim();
+    const desiredUsername = username?.trim();
+    const updates: { fullName?: string; username?: string } = {};
+
+    if (desiredFullName && (user.fullName ?? '').trim() !== desiredFullName) {
+      updates.fullName = desiredFullName;
+    }
+
+    // `users.username` has a unique constraint — only claim it when no other user
+    // already owns the target value. A collision (e.g. a duplicate employee id)
+    // is logged and skipped so provisioning still completes.
+    if (desiredUsername && (user.username ?? '').trim() !== desiredUsername) {
+      const existing = await UserModel.findByUsername(database, desiredUsername);
+      if (!existing || existing.id === userId) {
+        updates.username = desiredUsername;
+      } else {
+        console.warn(
+          `[WeCom Provisioning] Skipping username update for user ${userId}: ` +
+            `username "${desiredUsername}" is already taken by user ${existing.id}.`,
+        );
+      }
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    await new UserModel(database, userId).updateUser(updates);
+  },
+});
+
 const resolveDefaultDependencies = async (deps: ProvisionWecomLoginDeps) => {
   const db = deps.db ?? (await import('@lobechat/database')).serverDB;
   const getWecomSsoConfig =
@@ -162,6 +208,7 @@ const resolveDefaultDependencies = async (deps: ProvisionWecomLoginDeps) => {
     ) => Promise<unknown>,
     resolveWecomProfile: deps.resolveWecomProfile ?? resolveWecomProfile,
     roleAssigner: deps.roleAssigner ?? createDefaultRoleAssigner(db),
+    userNamingSyncer: deps.userNamingSyncer ?? createDefaultWecomUserNamingSyncer(db),
     workspaceAssigner: deps.workspaceAssigner ?? createDefaultWorkspaceAssigner(db),
   };
 };
@@ -217,6 +264,7 @@ export const provisionWecomLoginAccount = async (
     provisionFromSsoProfile,
     resolveWecomProfile: resolveProfile,
     roleAssigner,
+    userNamingSyncer,
     workspaceAssigner,
   } = await resolveDefaultDependencies(deps);
   const ssoConfig = await getWecomSsoConfig(db);
@@ -226,13 +274,27 @@ export const provisionWecomLoginAccount = async (
   const rawProfile = await resolveProfile(account.accountId);
   const mapping = ssoConfig.config.identityMapping;
 
+  const mappedName = getMappedString(rawProfile, mapping.nameField);
+  const mappedEmployeeNumber =
+    getMappedString(rawProfile, mapping.employeeNumberField) ?? account.accountId;
+
+  // Bug 3: sync `users.fullName` (姓名) and `users.username` (工号) from the
+  // WeCom profile before provisioning, so downstream Aihub token naming and
+  // identity lookups see the corrected values. Runs on every login to recover
+  // users whose first registration fell back to openId or stale data.
+  await userNamingSyncer.syncNaming({
+    fullName: mappedName,
+    userId: account.userId,
+    username: mappedEmployeeNumber,
+  });
+
   return provisionFromSsoProfile({
     db,
     departmentExternalIds: getDepartmentExternalIds(rawProfile, mapping.departmentField),
     email: getMappedString(rawProfile, mapping.emailField),
-    employeeNumber: getMappedString(rawProfile, mapping.employeeNumberField) ?? account.accountId,
+    employeeNumber: mappedEmployeeNumber,
     externalUserId: account.accountId,
-    name: getMappedString(rawProfile, mapping.nameField),
+    name: mappedName,
     policy: {
       aihubProvisioning: ssoConfig.config.aihubProvisioning,
       departmentSync: ssoConfig.config.departmentSync,

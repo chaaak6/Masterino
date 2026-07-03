@@ -1,6 +1,7 @@
 export interface BridgeConfig {
   bridgeToken: string;
   connectionString: string;
+  iamProviderId: number;
   managedTokenName: string;
   port: number;
   queryTimeoutMs: number;
@@ -28,6 +29,7 @@ const readPositiveInteger = (name: string, fallback: number) => {
 export const loadConfig = (): BridgeConfig => ({
   bridgeToken: readRequired('AIHUB_BRIDGE_TOKEN'),
   connectionString: readRequired('AIHUB_READONLY_DATABASE_URL'),
+  iamProviderId: readPositiveInteger('AIHUB_IAM_PROVIDER_ID', 1),
   managedTokenName: process.env.AIHUB_MANAGED_TOKEN_NAME || 'masterlion-managed',
   port: readPositiveInteger('PORT', 3218),
   queryTimeoutMs: readPositiveInteger('AIHUB_QUERY_TIMEOUT_MS', 15_000),

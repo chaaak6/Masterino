@@ -11,6 +11,7 @@ const repository = new AihubBridgeRepository({
 });
 const handler = createBridgeHandler({
   bridgeToken: config.bridgeToken,
+  iamProviderId: config.iamProviderId,
   managedTokenName: config.managedTokenName,
   repository,
 });

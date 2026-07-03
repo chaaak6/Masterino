@@ -154,11 +154,11 @@ where deleted_at is null
     or (? <> '' and lower(username) = lower(?))
   )
 order by
-  case when ? <> '' and lower(email) = lower(?) then 0 else 1 end,
+  case when ? <> '' and lower(username) = lower(?) then 0 else 1 end,
   id desc
 limit 1
       `.trim(),
-      [email || '', email || '', username || '', username || '', email || '', email || ''],
+      [email || '', email || '', username || '', username || '', username || '', username || ''],
     );
 
     return rows[0];
@@ -386,5 +386,36 @@ where id = ?
     );
 
     return updated[0]?.name === name;
+  }
+
+  /**
+   * Link an Aihub user to an OAuth provider (e.g. BIEL IAM) by inserting into
+   * `user_oauth_bindings`. Uses INSERT IGNORE so it is idempotent — if a
+   * binding already exists (same provider_id + provider_user_id, or same
+   * user_id + provider_id), the call succeeds without error.
+   * Requires INSERT privilege on the `user_oauth_bindings` table.
+   */
+  async linkOAuthBinding(
+    userId: number,
+    providerId: number,
+    providerUserId: string,
+  ): Promise<boolean> {
+    await this.query(
+      `
+insert ignore into user_oauth_bindings (user_id, provider_id, provider_user_id, created_at)
+values (?, ?, ?, now(3))
+      `.trim(),
+      [userId, providerId, providerUserId],
+    );
+
+    const rows = await this.query<{ id: number }>(
+      `
+select id from user_oauth_bindings
+where user_id = ? and provider_id = ? and provider_user_id = ?
+      `.trim(),
+      [userId, providerId, providerUserId],
+    );
+
+    return rows.length > 0;
   }
 }
