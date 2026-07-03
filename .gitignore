@@ -168,3 +168,11 @@ docs/superpowers/
 
 # Kagura agent runtime
 .kagura/
+
+# Production secrets — never commit
+deploy/.env*.prod
+deploy/.env*.local
+k8s/**/secret*.yaml
+k8s/**/*secret*.yaml
+# SearXNG config carries an internal secret_key
+k8s/12-searxng.yaml
