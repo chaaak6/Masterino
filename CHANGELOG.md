@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 0.0.12](https://github.com/chaaak6/MasterLion/compare/v0.0.11...v0.0.12)
+
+<sup>Released on **2026-07-03**</sup>
+
+#### 🐛 Bug Fixes
+
+- **aihub**: resolve WeCom provisioning failures, username matching, and IAM OAuth binding.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **aihub**: resolve WeCom provisioning failures, username matching, and IAM OAuth binding ([dd15e56](https://github.com/chaaak6/MasterLion/commit/dd15e56))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.11](https://github.com/chaaak6/MasterLion/compare/v0.0.10...v0.0.11)
 
 <sup>Released on **2026-06-30**</sup>
