@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 0.0.13](https://github.com/chaaak6/MasterLion/compare/v0.0.12...v0.0.13)
+
+<sup>Released on **2026-07-08**</sup>
+
+#### 🐛 Bug Fixes
+
+- **branding**: inbox agent 自称改为小宗狮AI.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **branding**: inbox agent 自称改为小宗狮AI ([5a57513](https://github.com/chaaak6/MasterLion/commit/5a57513))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.12](https://github.com/chaaak6/MasterLion/compare/v0.0.11...v0.0.12)
 
 <sup>Released on **2026-07-03**</sup>
