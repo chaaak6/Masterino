@@ -12,6 +12,12 @@ const mockSignInOauth2 = vi.hoisted(() => vi.fn());
 const mockSignInEmail = vi.hoisted(() => vi.fn());
 const mockSignInMagicLink = vi.hoisted(() => vi.fn());
 const mockRequestPasswordReset = vi.hoisted(() => vi.fn());
+const mockAuthServerConfig = vi.hoisted(() => ({
+  disableEmailPassword: false,
+  disableEmailSignup: false,
+  enableMagicLink: false,
+  oAuthSSOProviders: ['google', 'github'],
+}));
 const mockLocalStorage = vi.hoisted(() => {
   const store = new Map<string, string>();
 
@@ -63,11 +69,7 @@ vi.mock('@/business/client/hooks/useBusinessSignin', () => ({
 vi.mock('@/features/AuthShell', () => ({
   useAuthServerConfigStore: (selector: (s: any) => any) =>
     selector({
-      serverConfig: {
-        disableEmailPassword: false,
-        enableMagicLink: false,
-        oAuthSSOProviders: ['google', 'github'],
-      },
+      serverConfig: mockAuthServerConfig,
       serverConfigInit: true,
     }),
 }));
@@ -103,6 +105,9 @@ const originalLocation = window.location;
 describe('useSignIn', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthServerConfig.disableEmailPassword = false;
+    mockAuthServerConfig.disableEmailSignup = false;
+    mockAuthServerConfig.enableMagicLink = false;
     mockLocalStorage.clear();
     mockSearchParamsGet.mockReturnValue(null);
     Object.defineProperty(window, 'location', {
@@ -131,6 +136,7 @@ describe('useSignIn', () => {
       expect(result.current.socialLoading).toBeNull();
       expect(result.current.isSocialOnly).toBe(false);
       expect(result.current.disableEmailPassword).toBe(false);
+      expect(result.current.disableEmailSignup).toBe(false);
     });
   });
 
@@ -150,6 +156,41 @@ describe('useSignIn', () => {
       expect(mockNavigate).toHaveBeenCalledWith(
         expect.stringContaining('/signup?email=new%40example.com'),
       );
+    });
+
+    it('should show an error instead of redirecting when email signup is disabled', async () => {
+      mockAuthServerConfig.disableEmailSignup = true;
+      mockFetch.mockResolvedValueOnce({
+        json: async () => ({ exists: false }),
+        ok: true,
+      });
+
+      const { result } = renderHook(() => useSignIn());
+
+      await act(async () => {
+        await result.current.handleCheckUser({ email: 'new@example.com' });
+      });
+
+      expect(mockMessageError).toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(result.current.step).toBe('email');
+    });
+
+    it('should still allow an existing password user to continue when signup is disabled', async () => {
+      mockAuthServerConfig.disableEmailSignup = true;
+      mockFetch.mockResolvedValueOnce({
+        json: async () => ({ exists: true, hasPassword: true }),
+        ok: true,
+      });
+
+      const { result } = renderHook(() => useSignIn());
+
+      await act(async () => {
+        await result.current.handleCheckUser({ email: 'existing@example.com' });
+      });
+
+      expect(result.current.step).toBe('password');
+      expect(result.current.email).toBe('existing@example.com');
     });
 
     it('should go to password step when user exists with password', async () => {
@@ -334,6 +375,7 @@ describe('useSignIn', () => {
 
   describe('handleSocialSignIn', () => {
     it('should call signIn.social for builtin providers', async () => {
+      mockAuthServerConfig.disableEmailSignup = true;
       mockSignInSocial.mockResolvedValue({ url: 'https://google.com/auth' });
 
       const { result } = renderHook(() => useSignIn());

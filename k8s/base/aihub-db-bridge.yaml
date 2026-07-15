@@ -2,7 +2,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: masterlion-aihub-db-bridge
-  namespace: masterlion
   labels:
     app.kubernetes.io/name: aihub-db-bridge
     app.kubernetes.io/part-of: masterlion
@@ -11,14 +10,14 @@ spec:
   selector:
     app.kubernetes.io/name: aihub-db-bridge
   ports:
-    - port: 3218
+    - name: http
+      port: 3218
       targetPort: 3218
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: masterlion-aihub-db-bridge
-  namespace: masterlion
   labels:
     app.kubernetes.io/name: aihub-db-bridge
     app.kubernetes.io/part-of: masterlion
@@ -33,22 +32,20 @@ spec:
         app.kubernetes.io/name: aihub-db-bridge
         app.kubernetes.io/part-of: masterlion
     spec:
-      imagePullSecrets:
-        - name: acr-credential-secret-aggregation
       containers:
         - name: aihub-db-bridge
-          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion-aihub-db-bridge:latest
-          imagePullPolicy: Always
+          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion-aihub-db-bridge:v0.0.13
+          imagePullPolicy: IfNotPresent
           env:
             - name: AIHUB_BRIDGE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: masterlion-secret
+                  name: masterlion-bridge-secret
                   key: AIHUB_BRIDGE_TOKEN
             - name: AIHUB_READONLY_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: masterlion-secret
+                  name: masterlion-bridge-secret
                   key: AIHUB_READONLY_DATABASE_URL
             - name: AIHUB_MANAGED_TOKEN_NAME
               valueFrom:
@@ -69,6 +66,7 @@ spec:
               value: "3218"
           ports:
             - containerPort: 3218
+              name: http
           resources:
             requests:
               cpu: 100m
@@ -78,11 +76,11 @@ spec:
               memory: 512Mi
           readinessProbe:
             tcpSocket:
-              port: 3218
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             tcpSocket:
-              port: 3218
+              port: http
             initialDelaySeconds: 30
             periodSeconds: 30

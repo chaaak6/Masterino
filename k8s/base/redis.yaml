@@ -2,7 +2,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: masterlion-redis
-  namespace: masterlion
   labels:
     app.kubernetes.io/name: redis
     app.kubernetes.io/part-of: masterlion
@@ -11,14 +10,14 @@ spec:
   selector:
     app.kubernetes.io/name: redis
   ports:
-    - port: 6379
+    - name: redis
+      port: 6379
       targetPort: 6379
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: masterlion-redis
-  namespace: masterlion
   labels:
     app.kubernetes.io/name: redis
     app.kubernetes.io/part-of: masterlion
@@ -34,8 +33,6 @@ spec:
         app.kubernetes.io/name: redis
         app.kubernetes.io/part-of: masterlion
     spec:
-      imagePullSecrets:
-        - name: acr-credential-secret-aggregation
       containers:
         - name: redis
           image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/redis:7-alpine
@@ -55,6 +52,7 @@ spec:
                   key: REDIS_PASSWORD
           ports:
             - containerPort: 6379
+              name: redis
           resources:
             requests:
               cpu: 100m
@@ -67,12 +65,12 @@ spec:
               mountPath: /data
           readinessProbe:
             exec:
-              command: ["redis-cli", "-a", "$(REDIS_PASSWORD)", "ping"]
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             exec:
-              command: ["redis-cli", "-a", "$(REDIS_PASSWORD)", "ping"]
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
             initialDelaySeconds: 15
             periodSeconds: 10
   volumeClaimTemplates:

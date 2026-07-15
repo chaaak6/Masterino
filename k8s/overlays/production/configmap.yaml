@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: masterlion-config
+  labels:
+    app.kubernetes.io/part-of: masterlion
+data:
+  APP_URL: 'https://masterlion.bielcrystal.com'
+  APP_URL_DYNAMIC: '1'
+  APP_URL_ALLOWED_HOSTS: 'masterlion.bielcrystal.com'
+  INTERNAL_APP_URL: 'http://masterlion:3210'
+  AUTH_DISABLE_EMAIL_SIGNUP: '1'
+  AUTH_DISABLE_EMAIL_PASSWORD: '0'
+  DATABASE_DRIVER: 'node'
+  LOBE_DB_NAME: 'lobechat'
+  S3_ENDPOINT: 'https://oss-cn-shenzhen.aliyuncs.com'
+  S3_REGION: 'cn-shenzhen'
+  S3_BUCKET: 'masterlion-prd'
+  S3_ENABLE_PATH_STYLE: '0'
+  S3_SET_ACL: '0'
+  S3_PUBLIC_DOMAIN: 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com'
+  DEFAULT_FILES_CONFIG: 'embedding_model=newapi/text-embedding-3-large,query_mode=full_text'
+  CHUNKS_AUTO_EMBEDDING: '1'
+  LLM_VISION_IMAGE_USE_BASE64: '1'
+  AIHUB_PROXY_URL: 'https://aihub.bielcrystal.com'
+  AIHUB_DEFAULT_MODEL: 'glm-5.2'
+  AIHUB_HIDDEN_MODELS: 'glm-5.1'
+  AIHUB_MANAGED_TOKEN_NAME: 'masterlion-managed'
+  AIHUB_USAGE_PAGE_SIZE: '100'
+  AIHUB_DATA_SOURCE: 'bridge'
+  AIHUB_BRIDGE_URL: 'http://masterlion-aihub-db-bridge:3218'
+  AIHUB_QUERY_TIMEOUT_MS: '15000'
+  AIHUB_IAM_PROVIDER_ID: '1'
+  SANDBOX_PROVIDER: 'onlyboxes'
+  ONLYBOXES_BASE_URL: 'https://onlyboxes.internal.bielcrystal.com'
+  ONLYBOXES_JIT_ISSUER: 'https://masterlion.bielcrystal.com'
+  REDIS_PREFIX: 'lobechat'
+  REDIS_TLS: '0'

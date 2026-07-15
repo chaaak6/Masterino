@@ -7,11 +7,11 @@ import { useAuthServerConfigStore } from '@/features/AuthShell';
 import BetterAuthSignUpForm from './BetterAuthSignUpForm';
 
 const SignUp = () => {
-  const disableEmailPassword = useAuthServerConfigStore(
-    (s) => s.serverConfig.disableEmailPassword || false,
+  const disableEmailSignup = useAuthServerConfigStore(
+    (s) => s.serverConfig.disableEmailSignup || s.serverConfig.disableEmailPassword || false,
   );
 
-  if (disableEmailPassword) return <Navigate replace to="/signin" />;
+  if (disableEmailSignup) return <Navigate replace to="/signin" />;
 
   return <BetterAuthSignUpForm />;
 };

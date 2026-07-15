@@ -234,12 +234,14 @@ show_message() {
             case $LANGUAGE in
                 zh_CN)
                     echo "如需限制用户注册，可在 .env 中配置："
-                    echo "  - 使用 SSO 登录时，设置 AUTH_DISABLE_EMAIL_PASSWORD=1 可禁用邮箱密码注册"
+                    echo "  - 仅关闭邮箱新注册：设置 AUTH_DISABLE_EMAIL_SIGNUP=1（已有账号仍可登录/重置密码）"
+                    echo "  - 仅允许 SSO：设置 AUTH_DISABLE_EMAIL_PASSWORD=1 可禁用邮箱密码登录"
                     echo "  - 使用邮箱密码登录时，设置 AUTH_ALLOWED_EMAILS=user1@example.com,user2@example.com 可限制允许登录的邮箱"
                 ;;
                 *)
                     echo "To restrict user registration, configure in .env:"
-                    echo "  - For SSO login: set AUTH_DISABLE_EMAIL_PASSWORD=1 to disable email/password registration"
+                    echo "  - Disable only new email sign-up: set AUTH_DISABLE_EMAIL_SIGNUP=1 (existing users can still sign in/reset passwords)"
+                    echo "  - SSO-only login: set AUTH_DISABLE_EMAIL_PASSWORD=1 to disable email/password login"
                     echo "  - For email/password login: set AUTH_ALLOWED_EMAILS=user1@example.com,user2@example.com to allow specific emails"
                 ;;
             esac

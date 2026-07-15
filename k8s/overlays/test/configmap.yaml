@@ -2,25 +2,28 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: masterlion-config
-  namespace: masterlion
   labels:
     app.kubernetes.io/part-of: masterlion
+    masterlion.io/environment: test
 data:
-  APP_URL: "https://masterlion.bielcrystal.com"
+  APP_URL: "https://mlai-test.bielcrystal.com"
   APP_URL_DYNAMIC: "1"
-  APP_URL_ALLOWED_HOSTS: "masterlion.bielcrystal.com"
+  APP_URL_ALLOWED_HOSTS: "mlai-test.bielcrystal.com"
   INTERNAL_APP_URL: "http://masterlion:3210"
   DATABASE_DRIVER: "node"
   LOBE_DB_NAME: "lobechat"
   S3_ENDPOINT: "https://oss-cn-shenzhen.aliyuncs.com"
   S3_REGION: "cn-shenzhen"
-  S3_BUCKET: "masterlion-prd"
+  S3_BUCKET: "masterlion-test"
   S3_ENABLE_PATH_STYLE: "0"
   S3_SET_ACL: "0"
-  S3_PUBLIC_DOMAIN: "https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com"
+  S3_PUBLIC_DOMAIN: "https://masterlion-test.oss-cn-shenzhen.aliyuncs.com"
+  SSRF_ALLOW_PRIVATE_IP_ADDRESS: "1"
   DEFAULT_FILES_CONFIG: "embedding_model=newapi/text-embedding-3-large,query_mode=full_text"
   CHUNKS_AUTO_EMBEDDING: "1"
   LLM_VISION_IMAGE_USE_BASE64: "1"
+  # Optional web search is disabled until a dedicated test provider credential is supplied.
+  SEARCH_PROVIDERS: ""
   AIHUB_PROXY_URL: "https://aihub.bielcrystal.com"
   AIHUB_DEFAULT_MODEL: "glm-5.2"
   AIHUB_HIDDEN_MODELS: "glm-5.1"
@@ -30,6 +33,5 @@ data:
   AIHUB_BRIDGE_URL: "http://masterlion-aihub-db-bridge:3218"
   AIHUB_QUERY_TIMEOUT_MS: "15000"
   AIHUB_IAM_PROVIDER_ID: "1"
-  REDIS_PREFIX: "lobechat"
+  REDIS_PREFIX: "lobechat-test"
   REDIS_TLS: "0"
-  SEARXNG_URL: "http://masterlion-searxng:8080"

@@ -40,6 +40,8 @@ export default {
   'betterAuth.errors.emailNotRegistered': 'This email or username is not registered',
   'betterAuth.errors.emailNotVerified': 'Email not verified, please verify your email first',
   'betterAuth.errors.emailRequired': 'Please enter your email address or username',
+  'betterAuth.errors.emailSignupDisabled':
+    'Email sign-up is disabled. Please contact your administrator.',
   'betterAuth.errors.firstNameRequired': 'Please enter your first name',
   'betterAuth.errors.lastNameRequired': 'Please enter your last name',
   'betterAuth.errors.loginFailed': 'Sign in failed, please check your email and password',

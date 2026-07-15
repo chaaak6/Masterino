@@ -1,0 +1,7 @@
+[
+  {
+    "name": "nginx-ingress-controller",
+    "version": "v1.14.5-release.1",
+    "config": "{\"NLBConfig\":{\"Enabled\":true,\"ZoneMaps\":\"cn-shenzhen-e:vsw-wz96uryvrzbgxfo3qm3t6,cn-shenzhen-f:vsw-wz9ijb2up6j5o1pvek6lu\",\"NetworkType\":\"internet\"}}"
+  }
+]

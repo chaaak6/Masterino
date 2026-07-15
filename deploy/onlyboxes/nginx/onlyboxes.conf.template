@@ -1,0 +1,27 @@
+server {
+    listen 443 ssl http2;
+    server_name onlyboxes.internal.bielcrystal.com;
+
+    ssl_certificate /etc/nginx/tls/onlyboxes.internal.bielcrystal.com.crt;
+    ssl_certificate_key /etc/nginx/tls/onlyboxes.internal.bielcrystal.com.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Render these values with the production K8s egress CIDR and operations CIDR.
+    allow ${MASTERLION_EGRESS_CIDR};
+    allow ${OPERATIONS_CIDR};
+    deny all;
+
+    client_max_body_size 64m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8089;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization $http_authorization;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+}

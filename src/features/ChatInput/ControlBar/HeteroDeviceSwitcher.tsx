@@ -27,6 +27,7 @@ import { gatewayConnectionService } from '@/services/electron/gatewayConnection'
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useElectronStore } from '@/store/electron';
+import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
 
 const styles = createStaticStyles(({ css }) => ({
   button: css`
@@ -323,7 +324,7 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(({ agentId }) => {
   // desktop "local" selection that carries this desktop's boundDeviceId becomes
   // a device target when the same agent is opened from web.
   const executionTarget = resolveExecutionTarget(agencyConfig, { isDesktop, isHetero });
-  const isCloudSandboxEnabled = process.env.NEXT_PUBLIC_MASTERLION_ENABLE_CLOUD_SANDBOX === '1';
+  const isCloudSandboxEnabled = useServerConfigStore(serverConfigSelectors.enableCloudSandbox);
 
   const handleSelect = useCallback(
     async (target: DeviceExecutionTarget, deviceId?: string) => {
@@ -453,16 +454,16 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(({ agentId }) => {
       ) : null}
       <OptionRow
         active={isActive('sandbox')}
+        disabled={!isCloudSandboxEnabled}
+        icon={<Icon icon={BoxIcon} size={14} />}
+        label={t('heteroAgent.executionTarget.sandbox')}
         desc={
           isCloudSandboxEnabled
             ? t('heteroAgent.executionTarget.sandboxDesc')
             : t('heteroAgent.executionTarget.sandboxUnavailableDesc', {
-                defaultValue: '本地暂不可用',
+                defaultValue: 'Cloud sandbox is not configured on the server',
               })
         }
-        disabled={!isCloudSandboxEnabled}
-        icon={<Icon icon={BoxIcon} size={14} />}
-        label={t('heteroAgent.executionTarget.sandbox')}
         onClick={() => void handleSelect('sandbox')}
       />
       {(devices ?? []).map((d) => renderDeviceRow(d))}

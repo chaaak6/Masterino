@@ -53,6 +53,13 @@ MasterLion provides a complete authentication service capability when deployed. 
 - Default: `0`
 - Example: `1`
 
+#### `AUTH_DISABLE_EMAIL_SIGNUP`
+
+- Type: Optional
+- Description: Set to `1` to block new users from signing up through email/password, Magic Link, or Email OTP while preserving email login and password reset for existing users. OAuth and SSO providers may still create users on their first successful login. `AUTH_DISABLE_EMAIL_PASSWORD=1` also implies this restriction.
+- Default: `0`
+- Example: `1`
+
 #### `JWKS_KEY`
 
 - Type: Required

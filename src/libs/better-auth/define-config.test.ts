@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  authEnv: {
+    AUTH_DISABLE_EMAIL_PASSWORD: false,
+    AUTH_DISABLE_EMAIL_SIGNUP: false,
+    AUTH_EMAIL_VERIFICATION: true,
+    AUTH_ENABLE_MAGIC_LINK: false,
+    AUTH_SECRET: 'test-secret',
+    AUTH_SSO_PROVIDERS: '',
+  },
   betterAuth: vi.fn((options) => options),
+  emailOTP: vi.fn((options) => ({ id: 'email-otp', options })),
+  magicLink: vi.fn((options) => ({ id: 'magic-link', options })),
   provisionWecomLoginAccount: vi.fn(),
   serverDB: {
     query: {
@@ -54,9 +64,9 @@ vi.mock('better-auth/minimal', () => ({
 
 vi.mock('better-auth/plugins', () => ({
   admin: vi.fn(() => ({ id: 'admin' })),
-  emailOTP: vi.fn(() => ({ id: 'email-otp' })),
+  emailOTP: mocks.emailOTP,
   genericOAuth: vi.fn(() => ({ id: 'generic-oauth' })),
-  magicLink: vi.fn(() => ({ id: 'magic-link' })),
+  magicLink: mocks.magicLink,
 }));
 
 vi.mock('undici', () => ({
@@ -71,13 +81,7 @@ vi.mock('@/envs/app', () => ({
 }));
 
 vi.mock('@/envs/auth', () => ({
-  authEnv: {
-    AUTH_DISABLE_EMAIL_PASSWORD: false,
-    AUTH_EMAIL_VERIFICATION: true,
-    AUTH_ENABLE_MAGIC_LINK: false,
-    AUTH_SECRET: 'test-secret',
-    AUTH_SSO_PROVIDERS: '',
-  },
+  authEnv: mocks.authEnv,
 }));
 
 vi.mock('@/libs/better-auth/email-templates', () => ({
@@ -126,8 +130,66 @@ vi.mock('@/server/services/user', () => ({
 describe('defineConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.assign(mocks.authEnv, {
+      AUTH_DISABLE_EMAIL_PASSWORD: false,
+      AUTH_DISABLE_EMAIL_SIGNUP: false,
+      AUTH_EMAIL_VERIFICATION: true,
+      AUTH_ENABLE_MAGIC_LINK: false,
+      AUTH_SECRET: 'test-secret',
+      AUTH_SSO_PROVIDERS: '',
+    });
     mocks.serverDB.query.account.findFirst.mockReset();
   });
+
+  it.each([
+    {
+      disableEmailPassword: false,
+      disableEmailSignup: false,
+      emailLoginEnabled: true,
+      signupDisabled: false,
+    },
+    {
+      disableEmailPassword: false,
+      disableEmailSignup: true,
+      emailLoginEnabled: true,
+      signupDisabled: true,
+    },
+    {
+      disableEmailPassword: true,
+      disableEmailSignup: false,
+      emailLoginEnabled: false,
+      signupDisabled: true,
+    },
+    {
+      disableEmailPassword: true,
+      disableEmailSignup: true,
+      emailLoginEnabled: false,
+      signupDisabled: true,
+    },
+  ])(
+    'configures email auth when passwordDisabled=$disableEmailPassword and signupDisabled=$disableEmailSignup',
+    async ({ disableEmailPassword, disableEmailSignup, emailLoginEnabled, signupDisabled }) => {
+      mocks.authEnv.AUTH_DISABLE_EMAIL_PASSWORD = disableEmailPassword;
+      mocks.authEnv.AUTH_DISABLE_EMAIL_SIGNUP = disableEmailSignup;
+      mocks.authEnv.AUTH_ENABLE_MAGIC_LINK = true;
+
+      const { defineConfig } = await import('./define-config');
+      const options = defineConfig({ plugins: [] }) as any;
+      const emailOTPPlugin = options.plugins.find(
+        (plugin: { id?: string }) => plugin.id === 'email-otp',
+      );
+      const magicLinkPlugin = options.plugins.find(
+        (plugin: { id?: string }) => plugin.id === 'magic-link',
+      );
+
+      expect(options.emailAndPassword).toMatchObject({
+        disableSignUp: signupDisabled,
+        enabled: emailLoginEnabled,
+      });
+      expect(emailOTPPlugin.options.disableSignUp).toBe(signupDisabled);
+      expect(magicLinkPlugin.options.disableSignUp).toBe(signupDisabled);
+    },
+  );
 
   it('should revoke existing sessions after password reset by default', async () => {
     const { defineConfig } = await import('./define-config');

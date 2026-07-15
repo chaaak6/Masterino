@@ -9,7 +9,7 @@ tags:
 
 # Configuring Cloud Sandbox
 
-Cloud Sandbox powers the built-in code execution, shell command, file operation, and file export tools. By default, MasterLion uses the Market sandbox. Self-hosted deployments can switch the same tool surface to an Onlyboxes-compatible sandbox provider.
+Cloud Sandbox powers the built-in code execution, shell command, file operation, and file export tools. It remains unavailable until a server-side provider is explicitly configured. Deployments can use Market or an Onlyboxes-compatible self-hosted provider.
 
 ## Core Environment Variables
 
@@ -17,13 +17,15 @@ Cloud Sandbox powers the built-in code execution, shell command, file operation,
 
 - Type: Optional
 - Description: Selects the server-side sandbox provider.
-- Default: `market`
+- Default: `-` (Cloud Sandbox disabled)
 - Example: `onlyboxes`
 
 Supported values:
 
 - `market`: Use the existing Market sandbox.
 - `onlyboxes`: Use an Onlyboxes-compatible self-hosted sandbox console.
+
+When this variable is unset, the server reports Cloud Sandbox as unavailable and continues to reject sandbox tool calls.
 
 ### `MARKET_BASE_URL`
 
@@ -83,10 +85,10 @@ Supported values:
 
 ## Market Configuration
 
-By default, MasterLion uses the official Market sandbox and does not require extra sandbox configuration:
+To use the official Market sandbox, configure it explicitly:
 
 ```bash
-# SANDBOX_PROVIDER=market
+SANDBOX_PROVIDER=market
 ```
 
 To explicitly use Market, or to connect to a self-hosted or dedicated Market service, configure:
