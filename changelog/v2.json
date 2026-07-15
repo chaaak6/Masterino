@@ -2442,6 +2442,15 @@
     "version": "2.0.0-next.1"
   },
   {
+    "children": {
+      "fixes": [
+        "configure cloud sandbox and disable email signup."
+      ]
+    },
+    "date": "2026-07-15",
+    "version": "0.0.14"
+  },
+  {
     "children": {},
     "date": "2026-07-08",
     "version": "0.0.13"

@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 0.0.14](https://github.com/chaaak6/MasterLion/compare/v0.0.13...v0.0.14)
+
+<sup>Released on **2026-07-15**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: configure cloud sandbox and disable email signup.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: configure cloud sandbox and disable email signup ([a2e2785](https://github.com/chaaak6/MasterLion/commit/a2e2785))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.13](https://github.com/chaaak6/MasterLion/compare/v0.0.12...v0.0.13)
 
 <sup>Released on **2026-07-08**</sup>
