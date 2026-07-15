@@ -51,6 +51,13 @@ MasterLion 在部署时提供了完善的身份验证服务能力，以下是相
 - 默认值：`0`
 - 示例：`1`
 
+#### `AUTH_DISABLE_EMAIL_SIGNUP`
+
+- 类型：可选
+- 描述：设置为 `1` 后，禁止通过邮箱密码、Magic Link 或 Email OTP 创建新用户，同时保留已有用户的邮箱登录和密码重置。OAuth/SSO 首次登录仍可创建用户。`AUTH_DISABLE_EMAIL_PASSWORD=1` 时也会隐含启用此限制。
+- 默认值：`0`
+- 示例：`1`
+
 #### `JWKS_KEY`
 
 - 类型：必选

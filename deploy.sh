@@ -144,6 +144,10 @@ if [[ "$ENVIRONMENT" == "test" ]]; then
   required_secret_keys+=(AUTH_SSO_PROVIDERS)
 fi
 
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  required_secret_keys+=(ONLYBOXES_JIT_SIGNING_KEY)
+fi
+
 required_bridge_secret_keys=(AIHUB_BRIDGE_TOKEN AIHUB_READONLY_DATABASE_URL)
 
 check_secret() {

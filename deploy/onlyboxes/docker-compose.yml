@@ -1,0 +1,23 @@
+name: masterlion-onlyboxes
+
+services:
+  console:
+    image: ${ONLYBOXES_CONSOLE_IMAGE:?mirror the pinned Onlyboxes 0.7.1 image first}
+    container_name: masterlion-onlyboxes-console
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8089:8089'
+      - '127.0.0.1:50051:50051'
+    environment:
+      CONSOLE_HTTP_ADDR: ':8089'
+      CONSOLE_GRPC_ADDR: ':50051'
+      CONSOLE_DB_PATH: '/app/db/onlyboxes-console.db'
+      CONSOLE_ENABLE_REGISTRATION: 'false'
+      CONSOLE_HASH_KEY: ${CONSOLE_HASH_KEY:?set CONSOLE_HASH_KEY}
+      CONSOLE_DASHBOARD_USERNAME: ${CONSOLE_DASHBOARD_USERNAME:?set CONSOLE_DASHBOARD_USERNAME}
+      CONSOLE_DASHBOARD_PASSWORD: ${CONSOLE_DASHBOARD_PASSWORD:?set CONSOLE_DASHBOARD_PASSWORD}
+      CONSOLE_JIT_SIGNING_KEY: ${CONSOLE_JIT_SIGNING_KEY:?set CONSOLE_JIT_SIGNING_KEY}
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${ONLYBOXES_DATA_DIR:-/var/lib/onlyboxes/console}:/app/db

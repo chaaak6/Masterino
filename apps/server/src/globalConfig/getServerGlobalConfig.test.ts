@@ -17,7 +17,10 @@ const mocks = vi.hoisted(() => ({
 
 interface MockGlobalConfigOptions {
   agentGatewayUrl?: string;
+  disableEmailPassword?: boolean;
+  disableEmailSignup?: boolean;
   enableAgentGateway?: boolean;
+  sandboxConfigured?: boolean;
 }
 
 const mockGlobalConfigDependencies = (
@@ -25,6 +28,7 @@ const mockGlobalConfigDependencies = (
   options: MockGlobalConfigOptions = {},
 ) => {
   vi.doMock('@lobechat/business-const', () => ({
+    DEFAULT_MODEL: 'glm-5.2',
     ENABLE_BUSINESS_FEATURES: enableBusinessFeatures,
   }));
 
@@ -50,7 +54,8 @@ const mockGlobalConfigDependencies = (
 
   vi.doMock('@/envs/auth', () => ({
     authEnv: {
-      AUTH_DISABLE_EMAIL_PASSWORD: false,
+      AUTH_DISABLE_EMAIL_PASSWORD: options.disableEmailPassword ?? false,
+      AUTH_DISABLE_EMAIL_SIGNUP: options.disableEmailSignup ?? false,
       AUTH_EMAIL_VERIFICATION: false,
       AUTH_ENABLE_MAGIC_LINK: false,
       AUTH_SSO_PROVIDERS: '',
@@ -89,6 +94,10 @@ const mockGlobalConfigDependencies = (
 
   vi.doMock('@/server/globalConfig/parseSystemAgent', () => ({
     parseSystemAgent: vi.fn(() => undefined),
+  }));
+
+  vi.doMock('@/server/services/sandbox', () => ({
+    isSandboxConfigured: vi.fn(() => options.sandboxConfigured ?? false),
   }));
 
   vi.doMock('@/utils/object', () => ({
@@ -195,6 +204,26 @@ describe('getServerGlobalConfig', () => {
 
     await expect(loadServerConfig(false, { enableAgentGateway: true })).resolves.toMatchObject({
       enableGatewayMode: false,
+    });
+  });
+
+  it('should expose the server-derived cloud sandbox availability', async () => {
+    await expect(loadServerConfig(false, { sandboxConfigured: true })).resolves.toMatchObject({
+      enableCloudSandbox: true,
+    });
+    await expect(loadServerConfig(false, { sandboxConfigured: false })).resolves.toMatchObject({
+      enableCloudSandbox: false,
+    });
+  });
+
+  it('should expose effective email signup availability independently from email login', async () => {
+    await expect(loadServerConfig(false, { disableEmailSignup: true })).resolves.toMatchObject({
+      disableEmailPassword: false,
+      disableEmailSignup: true,
+    });
+    await expect(loadServerConfig(false, { disableEmailPassword: true })).resolves.toMatchObject({
+      disableEmailPassword: true,
+      disableEmailSignup: true,
     });
   });
 });

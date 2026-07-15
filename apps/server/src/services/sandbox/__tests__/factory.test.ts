@@ -75,4 +75,19 @@ describe('sandbox service factory', () => {
     expect(service.kind).toBe('onlyboxes');
     expect(service.capabilities.languages).toEqual(['python', 'javascript', 'typescript']);
   });
+
+  it('keeps onlyboxes disabled when the JIT signing key is missing', async () => {
+    vi.doMock('@/envs/sandbox', () => ({
+      sandboxEnv: {
+        ONLYBOXES_BASE_URL: 'https://onlyboxes.example.com',
+        SANDBOX_PROVIDER: 'onlyboxes',
+      },
+    }));
+
+    const { createSandboxService, isSandboxConfigured } = await import('../factory');
+    const service = createSandboxService(baseOptions);
+
+    expect(isSandboxConfigured()).toBe(false);
+    expect(service.kind).toBe('disabled');
+  });
 });

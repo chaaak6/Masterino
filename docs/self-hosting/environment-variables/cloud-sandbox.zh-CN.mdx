@@ -9,7 +9,7 @@ tags:
 
 # 配置云端沙箱
 
-云端沙箱用于内置的代码执行、Shell 命令、文件操作和文件导出工具。默认情况下，MasterLion 使用 Market 沙箱；自托管部署可以把同一套工具能力切换到兼容 Onlyboxes 的沙箱提供方。
+云端沙箱用于内置的代码执行、Shell 命令、文件操作和文件导出工具。只有服务端显式配置提供方后才可用；部署可以选择 Market，也可以使用兼容 Onlyboxes 的自托管提供方。
 
 ## 核心环境变量
 
@@ -17,13 +17,15 @@ tags:
 
 - 类型：可选
 - 描述：选择服务端使用的沙箱提供方。
-- 默认值：`market`
+- 默认值：`-`（禁用云端沙箱）
 - 示例：`onlyboxes`
 
 支持的取值：
 
 - `market`：使用现有 Market 沙箱。
 - `onlyboxes`：使用兼容 Onlyboxes 的自托管沙箱 Console。
+
+未设置该变量时，服务端会把云端沙箱报告为不可用，并继续拒绝沙箱工具调用。
 
 ### `MARKET_BASE_URL`
 
@@ -83,10 +85,10 @@ tags:
 
 ## Market 配置
 
-默认情况下，MasterLion 使用官方 Market 沙箱，不需要额外配置：
+如需使用官方 Market 沙箱，请显式配置：
 
 ```bash
-# SANDBOX_PROVIDER=market
+SANDBOX_PROVIDER=market
 ```
 
 如果你需要显式使用 Market，或者连接自托管 / 专用 Market 服务，可以配置：

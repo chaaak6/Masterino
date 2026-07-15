@@ -76,7 +76,6 @@ const getPasskeyOrigins = (baseURL = appEnv.APP_URL): string[] | undefined => {
 const MAGIC_LINK_EXPIRES_IN = 900;
 // OTP expiration time (in seconds) - 5 minutes for mobile OTP verification
 const OTP_EXPIRES_IN = 300;
-const enableMagicLink = authEnv.AUTH_ENABLE_MAGIC_LINK;
 const enabledSSOProviders = parseSSOProviders(authEnv.AUTH_SSO_PROVIDERS);
 
 const { socialProviders, genericOAuthProviders } = initBetterAuthSSOProviders();
@@ -112,6 +111,8 @@ const provisionWecomSessionAccount = async (
 
 export function defineConfig(customOptions: CustomBetterAuthOptions) {
   const baseURL = customOptions.baseURL || appEnv.APP_URL;
+  const disableEmailSignUp =
+    authEnv.AUTH_DISABLE_EMAIL_PASSWORD || authEnv.AUTH_DISABLE_EMAIL_SIGNUP;
 
   const options = {
     account: {
@@ -128,7 +129,7 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
 
     emailAndPassword: {
       autoSignIn: true,
-      disableSignUp: authEnv.AUTH_DISABLE_EMAIL_PASSWORD,
+      disableSignUp: disableEmailSignUp,
       enabled: !authEnv.AUTH_DISABLE_EMAIL_PASSWORD,
       maxPasswordLength: 64,
       minPasswordLength: 8,
@@ -311,6 +312,7 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
         expiresIn: OTP_EXPIRES_IN,
         otpLength: 6,
         allowedAttempts: 3,
+        disableSignUp: disableEmailSignUp,
         // Don't automatically send OTP on sign up - let mobile client manually trigger it
         sendVerificationOnSignUp: false,
         async sendVerificationOTP({ email, otp }) {
@@ -347,9 +349,10 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
             }),
           ]
         : []),
-      ...(enableMagicLink
+      ...(authEnv.AUTH_ENABLE_MAGIC_LINK
         ? [
             magicLink({
+              disableSignUp: disableEmailSignUp,
               expiresIn: MAGIC_LINK_EXPIRES_IN,
               sendMagicLink: async ({ email, url }) => {
                 const template = getMagicLinkEmailTemplate({

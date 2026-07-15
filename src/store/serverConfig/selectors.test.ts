@@ -27,6 +27,31 @@ describe('featureFlagsSelectors', () => {
 });
 
 describe('serverConfigSelectors', () => {
+  describe('cloud sandbox and email signup', () => {
+    it('should return the server-provided availability flags', () => {
+      const store = initServerConfigStore({
+        serverConfig: {
+          aiProvider: {},
+          disableEmailSignup: true,
+          enableCloudSandbox: true,
+          telemetry: {},
+        },
+      });
+
+      expect(serverConfigSelectors.disableEmailSignup(store.getState())).toBe(true);
+      expect(serverConfigSelectors.enableCloudSandbox(store.getState())).toBe(true);
+    });
+
+    it('should default optional availability flags to false', () => {
+      const store = initServerConfigStore({
+        serverConfig: { aiProvider: {}, telemetry: {} },
+      });
+
+      expect(serverConfigSelectors.disableEmailSignup(store.getState())).toBe(false);
+      expect(serverConfigSelectors.enableCloudSandbox(store.getState())).toBe(false);
+    });
+  });
+
   describe('enableGatewayMode', () => {
     it('should return true when gateway mode is enabled', () => {
       const store = initServerConfigStore({
