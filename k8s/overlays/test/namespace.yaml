@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: masterlion-test
+  labels:
+    app.kubernetes.io/part-of: masterlion
+    masterlion.io/environment: test
+  annotations:
+    masterlion.io/ack-cluster-id: c23ea84b986c446d5b3fa9227962e77f4
+    masterlion.io/ack-region: cn-shenzhen

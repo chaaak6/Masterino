@@ -174,5 +174,7 @@ deploy/.env*.prod
 deploy/.env*.local
 k8s/**/secret*.yaml
 k8s/**/*secret*.yaml
+k8s/**/*.env
+migration-artifacts/
 # SearXNG config carries an internal secret_key
 k8s/12-searxng.yaml

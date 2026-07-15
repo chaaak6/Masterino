@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: masterlion-ingress
+  labels:
+    app.kubernetes.io/name: masterlion
+    app.kubernetes.io/part-of: masterlion
+    masterlion.io/environment: test
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - mlai-test.bielcrystal.com
+      secretName: 20261122bielcrystal.com
+  rules:
+    - host: mlai-test.bielcrystal.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: masterlion
+                port:
+                  number: 3210

@@ -1,0 +1,14 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: masterlion-test-essd-retain
+  labels:
+    app.kubernetes.io/part-of: masterlion
+    masterlion.io/environment: test
+provisioner: diskplugin.csi.alibabacloud.com
+parameters:
+  type: cloud_essd
+  fstype: ext4
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer

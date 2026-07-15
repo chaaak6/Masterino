@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../test
+replicas:
+  # The guarded deploy script uses this overlay until the first successful cutover.
+  - name: masterlion
+    count: 0
