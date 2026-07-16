@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "make sandbox file exports reliable."
+      ]
+    },
+    "date": "2026-07-16",
+    "version": "0.0.15"
+  },
+  {
+    "children": {
+      "fixes": [
         "configure cloud sandbox and disable email signup."
       ]
     },

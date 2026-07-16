@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 0.0.15](https://github.com/chaaak6/MasterLion/compare/v0.0.14...v0.0.15)
+
+<sup>Released on **2026-07-16**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: make sandbox file exports reliable.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: make sandbox file exports reliable, closes [#27](https://github.com/chaaak6/MasterLion/issues/27) ([58c7f0a](https://github.com/chaaak6/MasterLion/commit/58c7f0a))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.14](https://github.com/chaaak6/MasterLion/compare/v0.0.13...v0.0.14)
 
 <sup>Released on **2026-07-15**</sup>
