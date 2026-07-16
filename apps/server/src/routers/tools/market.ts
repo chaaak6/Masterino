@@ -156,7 +156,11 @@ export interface CallToolResult {
 
 export interface ExportAndUploadFileResult {
   error?: {
+    code: string;
     message: string;
+    name?: string;
+    retryable: boolean;
+    stage: 'fallback' | 'inspect' | 'metadata' | 'record' | 'sign' | 'upload';
   };
   fileId?: string;
   filename: string;
@@ -697,7 +701,13 @@ export const marketRouter = router({
         }
 
         return {
-          error: { message: errorMessage },
+          error: {
+            code: 'EXPORT_FAILED',
+            message: errorMessage,
+            name: (error as Error).name,
+            retryable: true,
+            stage: 'upload',
+          },
           filename,
           success: false,
         } as ExportAndUploadFileResult;

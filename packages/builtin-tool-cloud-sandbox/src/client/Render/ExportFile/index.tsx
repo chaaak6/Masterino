@@ -1,10 +1,14 @@
 'use client';
 
-import { CheckCircleFilled, CloseCircleFilled, DownloadOutlined } from '@ant-design/icons';
+import { CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
 import type { BuiltinRenderProps } from '@lobechat/types';
-import { ActionIcon, Flexbox, Text } from '@lobehub/ui';
+import { ActionIcon, copyToClipboard, Flexbox, Text } from '@lobehub/ui';
 import { createStaticStyles, cssVar } from 'antd-style';
+import { Copy, Download, Eye, RotateCcw } from 'lucide-react';
 import { memo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { useChatStore } from '@/store/chat';
 
 import type { ExportFileState } from '../../../types';
 
@@ -23,33 +27,38 @@ interface ExportFileParams {
 }
 
 const ExportFile = memo<BuiltinRenderProps<ExportFileParams, ExportFileState>>(
-  ({ args, pluginState }) => {
+  ({ args, messageId, pluginState }) => {
+    const { t } = useTranslation('plugin');
+    const [openFilePreview, reInvokeToolMessage] = useChatStore((s) => [
+      s.openFilePreview,
+      s.reInvokeToolMessage,
+    ]);
     const isSuccess = pluginState?.success;
 
-    const handleDownload = useCallback(async () => {
+    const handleDownload = useCallback(() => {
       if (!pluginState?.downloadUrl || !pluginState?.filename) return;
-
-      try {
-        // Fetch the file content to bypass cross-origin download restrictions
-        const response = await fetch(pluginState.downloadUrl);
-        const blob = await response.blob();
-
-        // Create a blob URL and trigger download
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = pluginState.filename;
-        document.body.append(link);
-        link.click();
-        link.remove();
-
-        // Clean up the blob URL
-        URL.revokeObjectURL(blobUrl);
-      } catch {
-        // Fallback: open in new tab if fetch fails
-        window.open(pluginState.downloadUrl, '_blank');
-      }
+      const separator = pluginState.downloadUrl.includes('?') ? '&' : '?';
+      const link = document.createElement('a');
+      link.href = `${pluginState.downloadUrl}${separator}download=1`;
+      document.body.append(link);
+      link.click();
+      link.remove();
     }, [pluginState?.downloadUrl, pluginState?.filename]);
+
+    const handleCopyLink = useCallback(async () => {
+      if (!pluginState?.downloadUrl) return;
+      const url = new URL(pluginState.downloadUrl, window.location.origin);
+      url.searchParams.set('download', '1');
+      await copyToClipboard(url.toString());
+    }, [pluginState?.downloadUrl]);
+
+    const handlePreview = useCallback(() => {
+      if (pluginState?.fileId) openFilePreview({ fileId: pluginState.fileId });
+    }, [openFilePreview, pluginState?.fileId]);
+
+    const handleRetry = useCallback(async () => {
+      await reInvokeToolMessage(messageId);
+    }, [messageId, reInvokeToolMessage]);
 
     return (
       <Flexbox className={styles.container} gap={8}>
@@ -64,18 +73,49 @@ const ExportFile = memo<BuiltinRenderProps<ExportFileParams, ExportFileState>>(
           )}
           <Text code as={'span'} fontSize={12}>
             {isSuccess
-              ? `Exported: ${pluginState?.filename || args.path}`
-              : `Failed to export ${args.path}`}
+              ? t('builtins.lobe-cloud-sandbox.export.success', {
+                  filename: pluginState?.filename || args.path,
+                })
+              : t('builtins.lobe-cloud-sandbox.export.failed', { path: args.path })}
           </Text>
           {isSuccess && pluginState?.downloadUrl && (
+            <>
+              {pluginState.fileId && (
+                <ActionIcon
+                  icon={Eye}
+                  size={'small'}
+                  title={t('builtins.lobe-cloud-sandbox.actions.preview')}
+                  onClick={handlePreview}
+                />
+              )}
+              <ActionIcon
+                icon={Download}
+                size={'small'}
+                title={t('builtins.lobe-cloud-sandbox.actions.download')}
+                onClick={handleDownload}
+              />
+              <ActionIcon
+                icon={Copy}
+                size={'small'}
+                title={t('builtins.lobe-cloud-sandbox.actions.copyLink')}
+                onClick={handleCopyLink}
+              />
+            </>
+          )}
+          {!isSuccess && pluginState !== undefined && (
             <ActionIcon
-              icon={DownloadOutlined}
+              icon={RotateCcw}
               size={'small'}
-              title="Download"
-              onClick={handleDownload}
+              title={t('builtins.lobe-cloud-sandbox.actions.retry')}
+              onClick={handleRetry}
             />
           )}
         </Flexbox>
+        {!isSuccess && pluginState?.error?.message && (
+          <Text fontSize={12} style={{ paddingInlineStart: 20 }} type={'secondary'}>
+            {pluginState.error.message}
+          </Text>
+        )}
       </Flexbox>
     );
   },

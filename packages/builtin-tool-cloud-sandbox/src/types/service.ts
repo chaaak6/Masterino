@@ -10,11 +10,27 @@ export interface SandboxCallToolResult {
   success: boolean;
 }
 
+export type SandboxExportErrorStage =
+  | 'fallback'
+  | 'inspect'
+  | 'metadata'
+  | 'record'
+  | 'sign'
+  | 'upload';
+
+export interface SandboxExportError {
+  code: string;
+  message: string;
+  name?: string;
+  retryable: boolean;
+  stage: SandboxExportErrorStage;
+}
+
 /**
  * Result of exporting and uploading a file from sandbox
  */
 export interface SandboxExportFileResult {
-  error?: { message: string; name?: string };
+  error?: SandboxExportError;
   fileId?: string;
   filename: string;
   mimeType?: string;

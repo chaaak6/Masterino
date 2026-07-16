@@ -6,7 +6,7 @@ import { FileModel } from '@/database/models/file';
 import { fileEnv } from '@/envs/file';
 import { getRedisConfig } from '@/envs/redis';
 import { initializeRedis, isRedisEnabled } from '@/libs/redis';
-import { FileS3 } from '@/server/modules/S3';
+import { FileS3, type PreSignedUploadOptions } from '@/server/modules/S3';
 
 import type { FileServiceImpl, PreSignedUpload } from './type';
 
@@ -64,8 +64,13 @@ export class S3StaticFileImpl implements FileServiceImpl {
     return this.s3.createPreSignedUrl(key);
   }
 
-  async createPreSignedUpload(key: string): Promise<PreSignedUpload> {
-    return this.s3.createPreSignedUpload(key);
+  async createPreSignedUpload(
+    key: string,
+    options?: PreSignedUploadOptions,
+  ): Promise<PreSignedUpload> {
+    return options
+      ? this.s3.createPreSignedUpload(key, options)
+      : this.s3.createPreSignedUpload(key);
   }
 
   async getFileMetadata(key: string): Promise<{ contentLength: number; contentType?: string }> {
@@ -74,6 +79,15 @@ export class S3StaticFileImpl implements FileServiceImpl {
 
   async createPreSignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
     return this.s3.createPreSignedUrlForPreview(key, expiresIn);
+  }
+
+  async createPreSignedUrlForDownload(
+    url: string,
+    contentDisposition: string,
+    expiresIn?: number,
+  ): Promise<string> {
+    const key = await this.getStorageKeyFromUrl(url);
+    return this.s3.createPreSignedUrlForDownload(key, contentDisposition, expiresIn);
   }
 
   private async getStorageKeyFromUrl(url: string): Promise<string> {

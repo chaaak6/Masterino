@@ -86,6 +86,7 @@ export class CloudSandboxExecutionRuntime extends ComputerRuntime {
 
       const state: ExportFileState = {
         downloadUrl: result.success && result.url ? result.url : '',
+        error: result.error,
         fileId: result.fileId,
         filename: result.filename,
         mimeType: result.mimeType,

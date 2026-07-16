@@ -13,6 +13,8 @@ import type {
   SandboxProviderCapabilities,
   SandboxProviderFileExportRequest,
   SandboxProviderFileExportResult,
+  SandboxProviderFileInfoResult,
+  SandboxProviderFileReadResult,
   SandboxServiceOptions,
 } from '../types';
 
@@ -216,6 +218,41 @@ export class OnlyboxesSandboxProvider implements SandboxProvider {
         success: false,
       };
     }
+  }
+
+  async inspectFileForExport(path: string): Promise<SandboxProviderFileInfoResult> {
+    const inspected = await this.runJsonScript(inspectExportFileScript, { path });
+
+    if (!inspected.success) {
+      return {
+        error: inspected.error,
+        success: false,
+      };
+    }
+
+    return {
+      mimeType: String(inspected.result?.mimeType || 'application/octet-stream'),
+      size: Number(inspected.result?.size || 0),
+      success: true,
+    };
+  }
+
+  async readFileForExport(path: string, maxBytes: number): Promise<SandboxProviderFileReadResult> {
+    const read = await this.runJsonScript(readExportFileScript, { maxBytes, path });
+
+    if (!read.success) {
+      return {
+        error: read.error,
+        success: false,
+      };
+    }
+
+    return {
+      contentBase64: String(read.result?.contentBase64 || ''),
+      mimeType: String(read.result?.mimeType || 'application/octet-stream'),
+      size: Number(read.result?.size || 0),
+      success: true,
+    };
   }
 
   private get sessionId() {
@@ -753,6 +790,44 @@ def main(encoded):
         'totalCharCount': len(text),
         'totalLineCount': len(lines),
     })
+`;
+
+const inspectExportFileScript = `${scriptPrelude}
+import mimetypes
+
+def main(encoded):
+    args = load_args(encoded)
+    path = Path(args.get('path') or '')
+    if not path.exists():
+        emit({'success': False, 'error': 'File not found in sandbox'})
+        return
+    if not path.is_file():
+        emit({'success': False, 'error': 'Sandbox export path is not a file'})
+        return
+    mime_type = mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+    emit({'success': True, 'size': path.stat().st_size, 'mimeType': mime_type})
+`;
+
+const readExportFileScript = `${scriptPrelude}
+import mimetypes
+
+def main(encoded):
+    args = load_args(encoded)
+    path = Path(args.get('path') or '')
+    max_bytes = int(args.get('maxBytes') or 0)
+    if not path.exists():
+        emit({'success': False, 'error': 'File not found in sandbox'})
+        return
+    if not path.is_file():
+        emit({'success': False, 'error': 'Sandbox export path is not a file'})
+        return
+    size = path.stat().st_size
+    if max_bytes <= 0 or size > max_bytes:
+        emit({'success': False, 'error': 'Sandbox file exceeds server fallback size limit', 'size': size})
+        return
+    content = base64.b64encode(path.read_bytes()).decode('ascii')
+    mime_type = mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+    emit({'success': True, 'contentBase64': content, 'size': size, 'mimeType': mime_type})
 `;
 
 const prepareWriteFileScript = `${scriptPrelude}

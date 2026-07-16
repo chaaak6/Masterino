@@ -1,8 +1,12 @@
 'use client';
 
 import type { BuiltinRenderProps } from '@lobechat/types';
-import { Block, Highlighter } from '@lobehub/ui';
-import { memo } from 'react';
+import { ActionIcon, Block, copyToClipboard, Flexbox, Highlighter, Text } from '@lobehub/ui';
+import { Copy, Download, Eye } from 'lucide-react';
+import { memo, useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { HtmlPreviewDrawer, isHtmlFile } from '@/components/HtmlPreview';
 
 import type { WriteLocalFileState } from '../../../types';
 
@@ -49,7 +53,34 @@ const getLanguageFromExtension = (ext: string): string => {
 
 const WriteFile = memo<BuiltinRenderProps<WriteLocalFileParams, WriteLocalFileState>>(
   ({ args }) => {
-    if (!args?.content) {
+    const { t } = useTranslation('plugin');
+    const [previewOpen, setPreviewOpen] = useState(false);
+
+    const filename = args.path.split(/[\\/]/).pop() || 'sandbox-file.txt';
+    const isolatedMarkupFile =
+      isHtmlFile({ fileName: filename }) || filename.toLowerCase().endsWith('.svg');
+
+    const handleDownload = useCallback(() => {
+      const mimeType = filename.toLowerCase().endsWith('.svg')
+        ? 'image/svg+xml;charset=utf-8'
+        : isolatedMarkupFile
+          ? 'text/html;charset=utf-8'
+          : 'text/plain;charset=utf-8';
+      const blobUrl = URL.createObjectURL(new Blob([args.content], { type: mimeType }));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    }, [args.content, filename, isolatedMarkupFile]);
+
+    const handleCopy = useCallback(async () => {
+      await copyToClipboard(args.content);
+    }, [args.content]);
+
+    if (args?.content === undefined) {
       return null;
     }
 
@@ -58,6 +89,33 @@ const WriteFile = memo<BuiltinRenderProps<WriteLocalFileParams, WriteLocalFileSt
 
     return (
       <Block padding={8} variant={'outlined'}>
+        <Flexbox horizontal align={'center'} gap={8} justify={'space-between'} paddingInline={4}>
+          <Text ellipsis fontSize={12} type={'secondary'}>
+            {filename}
+          </Text>
+          <Flexbox horizontal gap={4}>
+            {isolatedMarkupFile && (
+              <ActionIcon
+                icon={Eye}
+                size={'small'}
+                title={t('builtins.lobe-cloud-sandbox.actions.preview')}
+                onClick={() => setPreviewOpen(true)}
+              />
+            )}
+            <ActionIcon
+              icon={Download}
+              size={'small'}
+              title={t('builtins.lobe-cloud-sandbox.actions.download')}
+              onClick={handleDownload}
+            />
+            <ActionIcon
+              icon={Copy}
+              size={'small'}
+              title={t('builtins.lobe-cloud-sandbox.actions.copyContent')}
+              onClick={handleCopy}
+            />
+          </Flexbox>
+        </Flexbox>
         <Highlighter
           showLanguage
           wrap
@@ -67,6 +125,13 @@ const WriteFile = memo<BuiltinRenderProps<WriteLocalFileParams, WriteLocalFileSt
         >
           {args.content}
         </Highlighter>
+        {isolatedMarkupFile && (
+          <HtmlPreviewDrawer
+            content={args.content}
+            open={previewOpen}
+            onClose={() => setPreviewOpen(false)}
+          />
+        )}
       </Block>
     );
   },

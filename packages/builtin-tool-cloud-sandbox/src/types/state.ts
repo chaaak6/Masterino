@@ -1,3 +1,5 @@
+import type { SandboxExportError } from './service';
+
 // Re-export shared state types from @lobechat/tool-runtime
 export type {
   EditFileState as EditLocalFileState,
@@ -19,6 +21,8 @@ export type {
 export interface ExportFileState {
   /** The download URL for the exported file (permanent /f/:id URL) */
   downloadUrl: string;
+  /** Structured error details when the export failed */
+  error?: SandboxExportError;
   /** The file ID in database (returned from server) */
   fileId?: string;
   /** The exported file name */
