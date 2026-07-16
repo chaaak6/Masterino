@@ -7,6 +7,7 @@ import { serverDBEnv } from '@/config/db';
 import { FileModel } from '@/database/models/file';
 import { type FileItem } from '@/database/schemas';
 import { appEnv } from '@/envs/app';
+import type { PreSignedUploadOptions } from '@/server/modules/S3';
 import { TempFileManager } from '@/server/utils/tempFileManager';
 import { isDev } from '@/utils/env';
 
@@ -75,8 +76,13 @@ export class FileService {
   /**
    * Create pre-signed upload descriptor
    */
-  public async createPreSignedUpload(key: string): Promise<PreSignedUpload> {
-    return this.impl.createPreSignedUpload(key);
+  public async createPreSignedUpload(
+    key: string,
+    options?: PreSignedUploadOptions,
+  ): Promise<PreSignedUpload> {
+    return options
+      ? this.impl.createPreSignedUpload(key, options)
+      : this.impl.createPreSignedUpload(key);
   }
 
   /**
@@ -94,6 +100,14 @@ export class FileService {
    */
   public async createPreSignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
     return this.impl.createPreSignedUrlForPreview(key, expiresIn);
+  }
+
+  public async createPreSignedUrlForDownload(
+    url: string,
+    contentDisposition: string,
+    expiresIn?: number,
+  ): Promise<string> {
+    return this.impl.createPreSignedUrlForDownload(url, contentDisposition, expiresIn);
   }
 
   /**

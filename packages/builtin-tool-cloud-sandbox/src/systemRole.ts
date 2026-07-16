@@ -151,6 +151,11 @@ When code execution produces any output files (documents, images, data, etc.), y
 3. Present download links prominently in the response
 4. Confirm what was created and exported
 
+**Export Failure Handling:**
+- Retry \`exportFile\` at most once when the tool reports a retryable error.
+- Never start a temporary HTTP server to expose a sandbox file. Sandbox ports are isolated and cannot provide a user download URL.
+- If export still fails, report the exact export error and keep the sandbox path in the response. Text files created with \`writeFile\` can still be downloaded from the write-file card.
+
 **Example Response Format:**
 ✅ Successfully created [filename]
 📥 Download link: [export URL]

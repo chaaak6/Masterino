@@ -8,6 +8,23 @@ const log = debug('lobe-file:proxy');
 
 type Params = Promise<{ id: string }>;
 
+const encodeRFC5987Value = (value: string) =>
+  encodeURIComponent(value).replaceAll(
+    /[!'()*]/g,
+    (char) => `%${char.codePointAt(0)!.toString(16).toUpperCase()}`,
+  );
+
+export const createAttachmentContentDisposition = (filename: string) => {
+  const asciiFilename = Array.from(filename, (char) => {
+    const codePoint = char.codePointAt(0) || 0;
+    return codePoint < 32 || codePoint > 126 || char === '"' || char === '\\' ? '_' : char;
+  })
+    .join('')
+    .slice(0, 160);
+
+  return `attachment; filename="${asciiFilename || 'download'}"; filename*=UTF-8''${encodeRFC5987Value(filename)}`;
+};
+
 /**
  * File proxy service
  * GET /f/:id
@@ -17,7 +34,7 @@ type Params = Promise<{ id: string }>;
  * - Generate a temporary S3 presigned preview URL
  * - Return 302 redirect
  */
-export const GET = async (_req: Request, segmentData: { params: Params }) => {
+export const GET = async (req: Request, segmentData: { params: Params }) => {
   try {
     const params = await segmentData.params;
     const { id } = params;
@@ -40,8 +57,13 @@ export const GET = async (_req: Request, segmentData: { params: Params }) => {
     // Create file service with file owner's userId
     const fileService = new FileService(db, file.userId);
 
-    // Web: Generate a cached S3 presigned URL, normalizing legacy full S3 URLs.
-    const redirectUrl = await fileService.createCachedPreSignedUrlForPreview(file.url);
+    const download = new URL(req.url).searchParams.get('download') === '1';
+    const redirectUrl = download
+      ? await fileService.createPreSignedUrlForDownload(
+          file.url,
+          createAttachmentContentDisposition(file.name),
+        )
+      : await fileService.createCachedPreSignedUrlForPreview(file.url);
     log('Web S3 presigned URL generated');
 
     // Return 302 redirect

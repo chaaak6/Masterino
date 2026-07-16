@@ -1,4 +1,4 @@
-import type { PreSignedUpload } from '@/server/modules/S3';
+import type { PreSignedUpload, PreSignedUploadOptions } from '@/server/modules/S3';
 
 export type { PreSignedUpload };
 
@@ -14,12 +14,22 @@ export interface FileServiceImpl {
   /**
    * Create pre-signed upload descriptor
    */
-  createPreSignedUpload: (key: string) => Promise<PreSignedUpload>;
+  createPreSignedUpload: (
+    key: string,
+    options?: PreSignedUploadOptions,
+  ) => Promise<PreSignedUpload>;
 
   /**
    * Create pre-signed upload URL
    */
   createPreSignedUrl: (key: string) => Promise<string>;
+
+  /** Create an attachment URL for browser downloads. */
+  createPreSignedUrlForDownload: (
+    url: string,
+    contentDisposition: string,
+    expiresIn?: number,
+  ) => Promise<string>;
 
   /**
    * Create pre-signed preview URL

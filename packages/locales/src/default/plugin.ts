@@ -123,6 +123,13 @@ export default {
   'builtins.lobe-cloud-sandbox.apiName.runCommand': 'Run command',
   'builtins.lobe-cloud-sandbox.apiName.searchFiles': 'Search files',
   'builtins.lobe-cloud-sandbox.apiName.writeFile': 'Write file',
+  'builtins.lobe-cloud-sandbox.actions.copyContent': 'Copy file content',
+  'builtins.lobe-cloud-sandbox.actions.copyLink': 'Copy download link',
+  'builtins.lobe-cloud-sandbox.actions.download': 'Download',
+  'builtins.lobe-cloud-sandbox.actions.preview': 'Preview',
+  'builtins.lobe-cloud-sandbox.actions.retry': 'Retry export',
+  'builtins.lobe-cloud-sandbox.export.failed': 'Failed to export {{path}}',
+  'builtins.lobe-cloud-sandbox.export.success': 'Exported: {{filename}}',
   // Legacy aliases — keep so historical tool calls still get a label
   'builtins.lobe-cloud-sandbox.apiName.editLocalFile': 'Edit file',
   'builtins.lobe-cloud-sandbox.apiName.globLocalFiles': 'Glob search files',
@@ -686,7 +693,8 @@ export default {
   'protocolInstall.meta.source': 'Source',
   'protocolInstall.meta.version': 'Version',
   'protocolInstall.official.badge': 'MasterLion Official Skill',
-  'protocolInstall.official.description': 'Official MasterLion Skill, verified and security-checked.',
+  'protocolInstall.official.description':
+    'Official MasterLion Skill, verified and security-checked.',
   'protocolInstall.official.loadingMessage': 'Loading Skill details…',
   'protocolInstall.official.loadingTitle': 'Loading',
   'protocolInstall.official.title': 'Install official Skill',

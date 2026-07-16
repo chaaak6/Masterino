@@ -38,7 +38,26 @@ export interface SandboxProvider extends Pick<ISandboxService, 'callTool'> {
     request: SandboxProviderFileExportRequest,
   ) => Promise<SandboxProviderFileExportResult>;
 
+  inspectFileForExport?: (path: string) => Promise<SandboxProviderFileInfoResult>;
+
   readonly kind: SandboxProviderKind;
+
+  readFileForExport?: (path: string, maxBytes: number) => Promise<SandboxProviderFileReadResult>;
+}
+
+export interface SandboxProviderFileInfoResult {
+  error?: { message: string; name?: string };
+  mimeType?: string;
+  size?: number;
+  success: boolean;
+}
+
+export interface SandboxProviderFileReadResult {
+  contentBase64?: string;
+  error?: { message: string; name?: string };
+  mimeType?: string;
+  size?: number;
+  success: boolean;
 }
 
 export interface SandboxService extends ISandboxService {

@@ -269,8 +269,12 @@ const FileViewer = memo<FileViewerProps>(({ id, style, fileType, url, name }) =>
     return <MSDocViewer fileId={id} url={url} />;
   }
 
-  // HTML files should render as a sandboxed preview before the broader code-file fallback.
-  if (isHtmlFile({ fileName: name, fileType })) {
+  // Executable markup must render in the isolated iframe before broader file fallbacks.
+  const isolatedMarkup =
+    isHtmlFile({ fileName: name, fileType }) ||
+    fileType?.toLowerCase() === 'image/svg+xml' ||
+    name?.toLowerCase().endsWith('.svg');
+  if (isolatedMarkup) {
     return <HTMLViewer fileId={id} url={url} />;
   }
 

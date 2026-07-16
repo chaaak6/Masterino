@@ -31,6 +31,10 @@ export interface PreSignedUpload {
   url: string;
 }
 
+export interface PreSignedUploadOptions {
+  contentType?: string;
+}
+
 export class S3 {
   private readonly client: S3Client;
 
@@ -143,19 +147,45 @@ export class S3 {
     return upload.url;
   }
 
-  public async createPreSignedUpload(key: string): Promise<PreSignedUpload> {
+  public async createPreSignedUpload(
+    key: string,
+    options?: PreSignedUploadOptions,
+  ): Promise<PreSignedUpload> {
     const command = new PutObjectCommand({
       ACL: this.setAcl ? PUBLIC_READ_ACL_HEADER : undefined,
       Bucket: this.bucket,
+      ContentType: options?.contentType,
       Key: key,
     });
 
     const url = await getSignedUrl(this.client, command, { expiresIn: 3600 });
 
     return {
-      headers: this.setAcl ? { 'x-amz-acl': PUBLIC_READ_ACL_HEADER } : undefined,
+      headers:
+        this.setAcl || options?.contentType
+          ? {
+              ...(options?.contentType ? { 'content-type': options.contentType } : {}),
+              ...(this.setAcl ? { 'x-amz-acl': PUBLIC_READ_ACL_HEADER } : {}),
+            }
+          : undefined,
       url,
     };
+  }
+
+  public async createPreSignedUrlForDownload(
+    key: string,
+    contentDisposition: string,
+    expiresIn?: number,
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ResponseContentDisposition: contentDisposition,
+    });
+
+    return getSignedUrl(this.client, command, {
+      expiresIn: expiresIn ?? fileEnv.S3_PREVIEW_URL_EXPIRE_IN,
+    });
   }
 
   public async createPreSignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
@@ -229,9 +259,13 @@ export class FileS3 extends S3 {
     });
   }
 
-  public override async createPreSignedUpload(key: string): Promise<PreSignedUpload> {
+  public override async createPreSignedUpload(
+    key: string,
+    options?: PreSignedUploadOptions,
+  ): Promise<PreSignedUpload> {
     const uploadEndpoint = fileEnv.S3_PUBLIC_UPLOAD_ENDPOINT;
-    if (!uploadEndpoint || uploadEndpoint === fileEnv.S3_ENDPOINT) return super.createPreSignedUpload(key);
+    if (!uploadEndpoint || uploadEndpoint === fileEnv.S3_ENDPOINT)
+      return super.createPreSignedUpload(key, options);
 
     const publicUploadS3 = new S3(
       fileEnv.S3_ACCESS_KEY_ID,
@@ -245,6 +279,6 @@ export class FileS3 extends S3 {
       },
     );
 
-    return publicUploadS3.createPreSignedUpload(key);
+    return publicUploadS3.createPreSignedUpload(key, options);
   }
 }

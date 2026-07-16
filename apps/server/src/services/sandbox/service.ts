@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   type SandboxCallToolResult,
+  type SandboxExportError,
   type SandboxExportFileResult,
   selectSandboxInitFiles,
 } from '@lobechat/builtin-tool-cloud-sandbox';
 import debug from 'debug';
 import { sha256 } from 'js-sha256';
+import mime from 'mime';
 
 import { FileModel } from '@/database/models/file';
 
@@ -23,6 +27,41 @@ import type {
 } from './types';
 
 const log = debug('lobe-server:sandbox:service');
+const EXPORT_FALLBACK_MAX_BYTES = 10 * 1024 * 1024;
+const EXPORT_UPLOAD_ATTEMPTS = 2;
+const SIGNED_URL_PATTERN = /https?:\/\/[^\s"')]+/gi;
+
+const sanitizeExportErrorMessage = (message: string) =>
+  message.replaceAll(SIGNED_URL_PATTERN, '[redacted-url]');
+
+const sanitizeExportFilename = (filename: string) => {
+  const baseName = filename.split(/[\\/]/).pop() || 'exported-file';
+  const withoutControlCharacters = Array.from(baseName, (char) =>
+    (char.codePointAt(0) || 0) < 32 ? '-' : char,
+  ).join('');
+  const sanitized = withoutControlCharacters
+    .replaceAll(/[<>:"/\\|?*]/g, '-')
+    .replaceAll(/\s+/g, ' ')
+    .replaceAll(/^\.+|\.+$/g, '')
+    .trim()
+    .slice(0, 160);
+
+  return sanitized || 'exported-file';
+};
+
+const exportError = (
+  stage: SandboxExportError['stage'],
+  code: string,
+  message: string,
+  retryable = false,
+  name?: string,
+): SandboxExportError => ({
+  code,
+  message: sanitizeExportErrorMessage(message),
+  name,
+  retryable,
+  stage,
+});
 
 export class SandboxMiddlewareService implements SandboxService {
   readonly capabilities: SandboxProviderCapabilities;
@@ -104,73 +143,267 @@ export class SandboxMiddlewareService implements SandboxService {
 
   async exportAndUploadFile(path: string, filename: string): Promise<SandboxExportFileResult> {
     const { fileService, topicId } = this.options;
+    const safeFilename = sanitizeExportFilename(filename);
 
     if (!fileService) {
       return {
-        error: { message: 'fileService is required for sandbox file export' },
-        filename,
+        error: exportError(
+          'record',
+          'FILE_SERVICE_UNAVAILABLE',
+          'File storage is not configured for sandbox export',
+        ),
+        filename: safeFilename,
         success: false,
       };
     }
 
-    log('Exporting file: %s from path: %s, topicId: %s', filename, path, topicId);
+    log('Exporting file: %s from sandbox, topicId: %s', safeFilename, topicId);
 
-    try {
-      const now = Date.now();
-      const today = new Date(now).toISOString().split('T')[0];
-      const key = `code-interpreter-exports/${today}/${topicId}/${filename}`;
-      const upload = await fileService.createPreSignedUpload(key);
+    const now = Date.now();
+    const today = new Date(now).toISOString().split('T')[0];
+    const key = `code-interpreter-exports/${today}/${topicId}/${randomUUID()}/${safeFilename}`;
+    let fileSize: number | undefined;
+    let mimeType = mime.getType(safeFilename) || 'application/octet-stream';
 
-      const exported = await this.provider.exportFileToUploadUrl({
-        filename,
-        path,
-        uploadHeaders: upload.headers,
-        uploadUrl: upload.url,
-      });
-
-      if (!exported.success) {
+    if (this.provider.inspectFileForExport) {
+      try {
+        const inspected = await this.provider.inspectFileForExport(path);
+        if (!inspected.success) {
+          return {
+            error: exportError(
+              'inspect',
+              'FILE_INSPECTION_FAILED',
+              inspected.error?.message || 'Unable to inspect the sandbox file',
+              false,
+              inspected.error?.name,
+            ),
+            filename: safeFilename,
+            success: false,
+          };
+        }
+        fileSize = inspected.size;
+        mimeType = inspected.mimeType || mimeType;
+      } catch (error) {
         return {
-          error: {
-            message: exported.error?.message || 'Failed to export file from sandbox',
-            name: exported.error?.name,
-          },
-          filename,
+          error: exportError(
+            'inspect',
+            'FILE_INSPECTION_FAILED',
+            (error as Error).message,
+            false,
+            (error as Error).name,
+          ),
+          filename: safeFilename,
+          success: false,
+        };
+      }
+    }
+
+    let uploaded = false;
+    let exportedMimeType: string | undefined;
+    let lastUploadError: { message: string; name?: string } | undefined;
+    let lastUploadStage: SandboxExportError['stage'] = 'upload';
+
+    for (let attempt = 1; attempt <= EXPORT_UPLOAD_ATTEMPTS; attempt++) {
+      let upload: { headers?: Record<string, string>; url: string };
+      try {
+        upload = await fileService.createPreSignedUpload(key, { contentType: mimeType });
+      } catch (error) {
+        const err = error as Error;
+        lastUploadError = { message: sanitizeExportErrorMessage(err.message), name: err.name };
+        lastUploadStage = 'sign';
+        log(
+          'Sandbox export signing attempt %d/%d failed for topic %s: %s',
+          attempt,
+          EXPORT_UPLOAD_ATTEMPTS,
+          topicId,
+          lastUploadError.message,
+        );
+        continue;
+      }
+
+      try {
+        const exported = await this.provider.exportFileToUploadUrl({
+          filename: safeFilename,
+          path,
+          uploadHeaders: upload.headers,
+          uploadUrl: upload.url,
+        });
+
+        if (exported.success) {
+          uploaded = true;
+          exportedMimeType = exported.mimeType;
+          fileSize ??= exported.size;
+          break;
+        }
+
+        lastUploadError = {
+          message: sanitizeExportErrorMessage(
+            exported.error?.message || 'Worker could not upload the sandbox file',
+          ),
+          name: exported.error?.name,
+        };
+        lastUploadStage = 'upload';
+        log(
+          'Sandbox export upload attempt %d/%d failed for topic %s: %s',
+          attempt,
+          EXPORT_UPLOAD_ATTEMPTS,
+          topicId,
+          lastUploadError.message,
+        );
+      } catch (error) {
+        const err = error as Error;
+        lastUploadError = { message: sanitizeExportErrorMessage(err.message), name: err.name };
+        lastUploadStage = 'upload';
+        log(
+          'Sandbox export upload attempt %d/%d threw for topic %s: %s',
+          attempt,
+          EXPORT_UPLOAD_ATTEMPTS,
+          topicId,
+          lastUploadError.message,
+        );
+      }
+    }
+
+    if (!uploaded) {
+      if (!this.provider.readFileForExport) {
+        return {
+          error: exportError(
+            lastUploadStage,
+            lastUploadStage === 'sign' ? 'UPLOAD_SIGNING_FAILED' : 'WORKER_UPLOAD_FAILED',
+            lastUploadError?.message || 'Worker could not upload the sandbox file',
+            true,
+            lastUploadError?.name,
+          ),
+          filename: safeFilename,
+          mimeType,
+          size: fileSize,
           success: false,
         };
       }
 
-      const metadata = await fileService.getFileMetadata(key);
-      const fileSize = metadata.contentLength;
-      const mimeType =
-        metadata.contentType ||
-        exported.mimeType ||
-        String(exported.result?.mimeType || '') ||
-        String(exported.result?.mime_type || '') ||
-        'application/octet-stream';
-      const fileHash = sha256(key + now.toString());
+      if (fileSize !== undefined && fileSize > EXPORT_FALLBACK_MAX_BYTES) {
+        return {
+          error: exportError(
+            'fallback',
+            'FALLBACK_FILE_TOO_LARGE',
+            'Worker upload failed and the file exceeds the 10 MiB server fallback limit',
+            true,
+          ),
+          filename: safeFilename,
+          mimeType,
+          size: fileSize,
+          success: false,
+        };
+      }
 
+      try {
+        const fallback = await this.provider.readFileForExport(path, EXPORT_FALLBACK_MAX_BYTES);
+        if (!fallback.success || fallback.contentBase64 === undefined) {
+          return {
+            error: exportError(
+              'fallback',
+              'FALLBACK_READ_FAILED',
+              fallback.error?.message || 'Unable to read the sandbox file for server upload',
+              true,
+              fallback.error?.name,
+            ),
+            filename: safeFilename,
+            mimeType,
+            size: fileSize,
+            success: false,
+          };
+        }
+
+        const buffer = Buffer.from(fallback.contentBase64, 'base64');
+        if (buffer.byteLength > EXPORT_FALLBACK_MAX_BYTES) {
+          return {
+            error: exportError(
+              'fallback',
+              'FALLBACK_FILE_TOO_LARGE',
+              'Sandbox file exceeds the 10 MiB server fallback limit',
+              true,
+            ),
+            filename: safeFilename,
+            mimeType,
+            size: buffer.byteLength,
+            success: false,
+          };
+        }
+
+        mimeType = fallback.mimeType || mimeType;
+        fileSize = buffer.byteLength;
+        await fileService.uploadBuffer(key, buffer, mimeType);
+        uploaded = true;
+        log('Sandbox export used server fallback for topic %s (%d bytes)', topicId, fileSize);
+      } catch (error) {
+        return {
+          error: exportError(
+            'fallback',
+            'FALLBACK_UPLOAD_FAILED',
+            (error as Error).message,
+            true,
+            (error as Error).name,
+          ),
+          filename: safeFilename,
+          mimeType,
+          size: fileSize,
+          success: false,
+        };
+      }
+    }
+
+    let metadata: { contentLength: number; contentType?: string };
+    try {
+      metadata = await fileService.getFileMetadata(key);
+    } catch (error) {
+      return {
+        error: exportError(
+          'metadata',
+          'STORAGE_METADATA_FAILED',
+          (error as Error).message,
+          true,
+          (error as Error).name,
+        ),
+        filename: safeFilename,
+        mimeType,
+        size: fileSize,
+        success: false,
+      };
+    }
+
+    fileSize = metadata.contentLength;
+    mimeType = metadata.contentType || exportedMimeType || mimeType;
+    const fileHash = sha256(key + now.toString());
+
+    try {
       const { fileId, url } = await fileService.createFileRecord({
         fileHash,
         fileType: mimeType,
-        name: filename,
+        name: safeFilename,
         size: fileSize,
         url: key,
       });
 
       return {
         fileId,
-        filename,
+        filename: safeFilename,
         mimeType,
         size: fileSize,
         success: true,
         url,
       };
     } catch (error) {
-      log('Error exporting file: %O', error);
-
       return {
-        error: { message: (error as Error).message },
-        filename,
+        error: exportError(
+          'record',
+          'FILE_RECORD_FAILED',
+          (error as Error).message,
+          true,
+          (error as Error).name,
+        ),
+        filename: safeFilename,
+        mimeType,
+        size: fileSize,
         success: false,
       };
     }

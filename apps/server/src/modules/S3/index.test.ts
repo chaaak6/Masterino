@@ -10,8 +10,6 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fileEnv } from '@/envs/file';
-
 import { FileS3, S3 } from './index';
 
 // Mock AWS SDK
@@ -398,12 +396,32 @@ describe('FileS3', () => {
       expect(PutObjectCommand).toHaveBeenCalledWith({
         ACL: 'public-read',
         Bucket: 'test-bucket',
+        ContentType: undefined,
         Key: 'upload-file.txt',
       });
       expect(mockGetSignedUrl).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
         expiresIn: 3600,
       });
       expect(result).toBe('https://presigned-url.example.com');
+    });
+
+    it('should sign and return the content type required by worker uploads', async () => {
+      const s3 = new FileS3();
+
+      const result = await s3.createPreSignedUpload('report.html', {
+        contentType: 'text/html',
+      });
+
+      expect(PutObjectCommand).toHaveBeenCalledWith({
+        ACL: 'public-read',
+        Bucket: 'test-bucket',
+        ContentType: 'text/html',
+        Key: 'report.html',
+      });
+      expect(result.headers).toEqual({
+        'content-type': 'text/html',
+        'x-amz-acl': 'public-read',
+      });
     });
   });
 
@@ -437,8 +455,7 @@ describe('FileS3', () => {
     });
 
     it('should use the private endpoint when public upload endpoint is unset', async () => {
-      (mockFileEnv as { S3_PUBLIC_UPLOAD_ENDPOINT?: string }).S3_PUBLIC_UPLOAD_ENDPOINT =
-        undefined;
+      (mockFileEnv as { S3_PUBLIC_UPLOAD_ENDPOINT?: string }).S3_PUBLIC_UPLOAD_ENDPOINT = undefined;
       const s3 = new FileS3();
 
       await s3.createPreSignedUpload('upload-file.txt');
@@ -472,6 +489,27 @@ describe('FileS3', () => {
 
       await s3.createPreSignedUrlForPreview('preview-file.jpg', 1800);
 
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+        expiresIn: 1800,
+      });
+    });
+  });
+
+  describe('createPreSignedUrlForDownload', () => {
+    it('should override content disposition for browser downloads', async () => {
+      const s3 = new FileS3();
+
+      await s3.createPreSignedUrlForDownload(
+        'report.html',
+        `attachment; filename="report.html"`,
+        1800,
+      );
+
+      expect(GetObjectCommand).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: 'report.html',
+        ResponseContentDisposition: `attachment; filename="report.html"`,
+      });
       expect(mockGetSignedUrl).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
         expiresIn: 1800,
       });

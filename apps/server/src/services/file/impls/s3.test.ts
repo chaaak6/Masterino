@@ -44,6 +44,9 @@ vi.mock('@/server/modules/S3', () => ({
     createPreSignedUrlForPreview: vi
       .fn()
       .mockResolvedValue('https://presigned.example.com/test.jpg'),
+    createPreSignedUrlForDownload: vi
+      .fn()
+      .mockResolvedValue('https://presigned.example.com/download'),
     getFileContent: vi.fn().mockResolvedValue('file content'),
     getFileByteArray: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     getFileMetadata: vi.fn().mockResolvedValue({ contentLength: 1024, contentType: 'image/png' }),

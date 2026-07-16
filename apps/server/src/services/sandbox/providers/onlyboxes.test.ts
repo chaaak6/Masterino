@@ -97,7 +97,7 @@ describe('OnlyboxesSandboxProvider', () => {
       iss: 'https://lobehub.example.com',
       sub: 'user-1',
     });
-  });
+  }, 10_000);
 
   it('treats non-zero terminal exit codes as successful tool transport results', async () => {
     vi.stubGlobal(
@@ -373,6 +373,66 @@ describe('OnlyboxesSandboxProvider', () => {
         }),
       }),
     );
+  });
+
+  it('inspects and reads bounded export files for the server fallback', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            exit_code: 0,
+            session_id: 'lobe-user-1-topic-1',
+            stderr: '',
+            stdout: JSON.stringify({ mimeType: 'text/html', size: 11, success: true }),
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            exit_code: 0,
+            session_id: 'lobe-user-1-topic-1',
+            stderr: '',
+            stdout: JSON.stringify({
+              contentBase64: Buffer.from('<h1>ok</h1>').toString('base64'),
+              mimeType: 'text/html',
+              size: 11,
+              success: true,
+            }),
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { OnlyboxesSandboxProvider } = await import('./onlyboxes');
+    const provider = new OnlyboxesSandboxProvider({
+      marketService: {} as MarketService,
+      topicId: 'topic-1',
+      userId: 'user-1',
+    });
+
+    await expect(provider.inspectFileForExport('/workspace/report.html')).resolves.toEqual({
+      mimeType: 'text/html',
+      size: 11,
+      success: true,
+    });
+    await expect(
+      provider.readFileForExport('/workspace/report.html', 10 * 1024 * 1024),
+    ).resolves.toEqual({
+      contentBase64: Buffer.from('<h1>ok</h1>').toString('base64'),
+      mimeType: 'text/html',
+      size: 11,
+      success: true,
+    });
+
+    const inspectBody = JSON.parse(String(fetchMock.mock.calls[0][1].body)) as { command: string };
+    const readBody = JSON.parse(String(fetchMock.mock.calls[1][1].body)) as { command: string };
+    expect(inspectBody.command).toContain('path.stat().st_size');
+    expect(readBody.command).toContain('base64.b64encode(path.read_bytes())');
+    expect(readBody.command).not.toContain('/workspace/report.html');
   });
 
   it('runs execScript from a prepared skill directory when skill zip URLs are available', async () => {

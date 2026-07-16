@@ -12,6 +12,7 @@ import { GET } from './route';
 const fileServiceMocks = vi.hoisted(() => {
   const instance = {
     createCachedPreSignedUrlForPreview: vi.fn(),
+    createPreSignedUrlForDownload: vi.fn(),
     getFullFileUrl: vi.fn(),
   };
 
@@ -50,6 +51,9 @@ describe('file proxy route', () => {
     fileServiceMocks.instance.createCachedPreSignedUrlForPreview.mockResolvedValue(
       'https://s3.example.com/presigned-preview-url',
     );
+    fileServiceMocks.instance.createPreSignedUrlForDownload.mockResolvedValue(
+      'https://s3.example.com/presigned-download-url',
+    );
   });
 
   it('should redirect to a cached presigned preview URL instead of a public full file URL', async () => {
@@ -65,5 +69,36 @@ describe('file proxy route', () => {
       'files/user-id/image.png',
     );
     expect(fileServiceMocks.instance.getFullFileUrl).not.toHaveBeenCalled();
+  });
+
+  it('should create an attachment URL for explicit downloads', async () => {
+    vi.mocked(FileModel.getFileById).mockResolvedValue({
+      id: 'file-id',
+      name: '中文 报告.html',
+      url: 'files/user-id/report.html',
+      userId: 'owner-user-id',
+    } as FileItem);
+
+    const response = await GET(new Request('https://aihub.bielcrystal.com/f/file-id?download=1'), {
+      params: Promise.resolve({ id: 'file-id' }),
+    });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('https://s3.example.com/presigned-download-url');
+    expect(fileServiceMocks.instance.createPreSignedUrlForDownload).toHaveBeenCalledWith(
+      'files/user-id/report.html',
+      expect.stringContaining("filename*=UTF-8''%E4%B8%AD%E6%96%87%20%E6%8A%A5%E5%91%8A.html"),
+    );
+    expect(fileServiceMocks.instance.createCachedPreSignedUrlForPreview).not.toHaveBeenCalled();
+  });
+
+  it('should return 404 for an unknown file id', async () => {
+    vi.mocked(FileModel.getFileById).mockResolvedValue(undefined);
+
+    const response = await GET(new Request('https://aihub.bielcrystal.com/f/missing'), {
+      params: Promise.resolve({ id: 'missing' }),
+    });
+
+    expect(response.status).toBe(404);
   });
 });
