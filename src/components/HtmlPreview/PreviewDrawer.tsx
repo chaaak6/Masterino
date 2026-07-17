@@ -17,6 +17,8 @@ import { useTranslation } from 'react-i18next';
 
 import { isDesktop } from '@/const/version';
 
+import { getHtmlFileName } from './fileName';
+
 const styles = createStaticStyles(({ css }) => ({
   container: css`
     height: 100%;
@@ -38,24 +40,9 @@ const HtmlPreviewDrawer = memo<HtmlPreviewDrawerProps>(({ content, open, onClose
 
   const htmlContent = content;
 
-  const extractTitle = useCallback(() => {
-    const m = htmlContent.match(/<title>([\S\s]*?)<\/title>/i);
-    return m ? m[1].trim() : undefined;
-  }, [htmlContent]);
-
-  const sanitizeFileName = useCallback((name: string) => {
-    return name
-      .replaceAll(/["*/:<>?\\|]/g, '-')
-      .replaceAll(/\s+/g, ' ')
-      .trim()
-      .slice(0, 100);
-  }, []);
-
   const onDownload = useCallback(() => {
-    const title = extractTitle();
-    const base = title ? sanitizeFileName(title) : `chat-html-preview-${Date.now()}`;
-    exportFile(content, `${base}.html`);
-  }, [content, extractTitle, sanitizeFileName]);
+    exportFile(content, getHtmlFileName(content, `chat-html-preview-${Date.now()}`));
+  }, [content]);
 
   const onCopy = useCallback(async () => {
     try {
