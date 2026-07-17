@@ -78,25 +78,34 @@ export const useMenu = ({
           return;
         }
 
-        if (!editor) return;
-        const markdown = (editor.getDocument('markdown') as unknown as string) || '';
+        let markdown: string;
+
+        try {
+          if (!editor) throw new Error('Editor is not ready');
+
+          markdown = (editor.getDocument('markdown') as unknown as string) || '';
+        } catch (editorError) {
+          console.warn(
+            'Failed to export live agent document markdown, falling back to persisted content:',
+            editorError,
+          );
+
+          const document = await documentService.getDocumentById(documentId);
+          if (!document) throw new Error('Document not found', { cause: editorError });
+
+          markdown = document.content || '';
+        }
+
         const fileName = `${title || 'Untitled'}.md`;
         if (isDesktop) {
           const { desktopExportService } = await import('@/services/electron/desktopExportService');
           await desktopExportService.exportMarkdown({ content: markdown, fileName });
         } else {
-          const blob = new Blob([markdown], { type: 'text/markdown' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.append(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
+          exportFile(markdown, fileName);
           message.success(t('pageEditor.exportSuccess'));
         }
-      } catch {
+      } catch (error) {
+        console.error('Failed to export agent document:', error);
         message.error(t('pageEditor.exportError'));
       }
     };
