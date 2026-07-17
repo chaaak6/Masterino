@@ -4,7 +4,7 @@ import { ActionIcon, Button, copyToClipboard, Flexbox, Icon, Segmented, Text } f
 import { App, ConfigProvider } from 'antd';
 import { cx } from 'antd-style';
 import { ArrowLeft, CodeIcon, CopyIcon, DownloadIcon, EyeIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { getHtmlFileName } from '@/components/HtmlPreview/fileName';
@@ -15,10 +15,45 @@ import { chatPortalSelectors } from '@/store/chat/selectors';
 import { ArtifactDisplayMode } from '@/store/chat/slices/portal/initialState';
 import { oneLineEllipsis } from '@/styles';
 
+interface ArtifactPersistenceEntry {
+  content: string;
+  task: Promise<void>;
+}
+
+const artifactPersistenceEntries = new Map<string, ArtifactPersistenceEntry>();
+
+const persistHtmlArtifact = (
+  persistenceKey: string,
+  params: Parameters<typeof agentDocumentService.writeByPath>[0],
+) => {
+  const currentEntry = artifactPersistenceEntries.get(persistenceKey);
+  if (currentEntry?.content === params.content) return currentEntry.task;
+
+  const previousTask = currentEntry?.task.catch(() => undefined) ?? Promise.resolve();
+  const nextEntry: ArtifactPersistenceEntry = {
+    content: params.content,
+    task: Promise.resolve(),
+  };
+
+  nextEntry.task = previousTask
+    .then(async () => {
+      await agentDocumentService.writeByPath(params);
+    })
+    .catch((error) => {
+      if (artifactPersistenceEntries.get(persistenceKey) === nextEntry) {
+        artifactPersistenceEntries.delete(persistenceKey);
+      }
+
+      throw error;
+    });
+  artifactPersistenceEntries.set(persistenceKey, nextEntry);
+
+  return nextEntry.task;
+};
+
 const Title = () => {
   const { message } = App.useApp();
   const { t } = useTranslation(['portal', 'components']);
-  const persistedArtifactRef = useRef<string | undefined>(undefined);
 
   const [
     displayMode,
@@ -82,23 +117,16 @@ const Title = () => {
     if (!showHtmlActions || !agentId || !artifactContent || !artifactMessageId) return;
 
     const persistenceKey = `${agentId}:${artifactMessageId}:${artifactIdentifier}`;
-    if (persistedArtifactRef.current === persistenceKey) return;
-
     const filename = getDocumentFileName();
-    void agentDocumentService
-      .writeByPath({
-        agentId,
-        content: artifactContent,
-        createMode: 'if-missing',
-        path: `./${filename}`,
-      })
-      .then(() => {
-        persistedArtifactRef.current = persistenceKey;
-      })
-      .catch((error) => {
-        console.error('Failed to persist HTML artifact to agent documents:', error);
-        message.error(t('artifacts.persistence.failed', { ns: 'portal' }));
-      });
+    void persistHtmlArtifact(persistenceKey, {
+      agentId,
+      content: artifactContent,
+      createMode: 'if-missing',
+      path: `./${filename}`,
+    }).catch((error) => {
+      console.error('Failed to persist HTML artifact to agent documents:', error);
+      message.error(t('artifacts.persistence.failed', { ns: 'portal' }));
+    });
   }, [
     agentId,
     artifactContent,
@@ -169,3 +197,4 @@ const Title = () => {
 };
 
 export default Title;
+
