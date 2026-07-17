@@ -5,8 +5,10 @@ import { isValidEditorData } from '@/libs/editor/isValidEditorData';
 
 import {
   applyLiteXMLOperations,
+  createAgentDocumentSnapshot,
   createMarkdownEditorSnapshot,
   exportEditorDataSnapshot,
+  isHtmlDocumentFilename,
 } from './headlessEditor';
 
 const hasNodeType = (value: unknown, type: string): boolean => {
@@ -35,6 +37,27 @@ describe('agent document headless editor', () => {
     const snapshot = await createMarkdownEditorSnapshot(' \n ');
 
     expect(snapshot.content).toBe('');
+    expect(isValidEditorData(snapshot.editorData)).toBe(true);
+  });
+
+  it('should preserve complete HTML source without passing it through the markdown editor', async () => {
+    const html =
+      '<!doctype html>\n<html><head><title>Report</title></head><body>完整内容</body></html>';
+
+    const snapshot = await createAgentDocumentSnapshot(html, 'report.html');
+
+    expect(snapshot.content).toBe(html);
+    expect(isValidEditorData(snapshot.editorData)).toBe(true);
+  });
+
+  it('should detect HTML extensions case-insensitively and keep markdown conversion unchanged', async () => {
+    expect(isHtmlDocumentFilename('report.HTML')).toBe(true);
+    expect(isHtmlDocumentFilename('report.htm')).toBe(true);
+    expect(isHtmlDocumentFilename('report.md')).toBe(false);
+
+    const snapshot = await createAgentDocumentSnapshot('# Heading', 'report.md');
+
+    expect(snapshot.content).toContain('# Heading');
     expect(isValidEditorData(snapshot.editorData)).toBe(true);
   });
 

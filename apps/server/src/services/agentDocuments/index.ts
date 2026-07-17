@@ -33,7 +33,7 @@ import { TOOL_RESULTS_DIR_NAME } from '../toolExecution/constants';
 import {
   type AgentDocumentLiteXMLOperation,
   applyLiteXMLOperations,
-  createMarkdownEditorSnapshot,
+  createAgentDocumentSnapshot,
   exportEditorDataSnapshot,
 } from './headlessEditor';
 
@@ -239,7 +239,7 @@ export class AgentDocumentsService {
       suffix += 1;
     }
 
-    const snapshot = await createMarkdownEditorSnapshot(content);
+    const snapshot = await createAgentDocumentSnapshot(content, filename);
 
     return this.agentDocumentModel.create(agentId, filename, snapshot.content, {
       ...params,
@@ -447,7 +447,7 @@ export class AgentDocumentsService {
     createdAt,
     updatedAt,
   }: UpsertDocumentParams) {
-    const snapshot = await createMarkdownEditorSnapshot(content);
+    const snapshot = await createAgentDocumentSnapshot(content, filename);
 
     return this.agentDocumentModel.upsert(agentId, filename, snapshot.content, {
       createdAt,
@@ -689,7 +689,7 @@ export class AgentDocumentsService {
   }) {
     const existing = await this.agentDocumentModel.findByFilename(agentId, filename);
     const projectedExisting = await this.projectDocumentContent(existing);
-    const snapshot = await createMarkdownEditorSnapshot(content);
+    const snapshot = await createAgentDocumentSnapshot(content, filename);
 
     if (existing && projectedExisting?.content !== snapshot.content) {
       await this.documentService.trySaveCurrentDocumentHistory(existing.documentId, 'llm_call');
@@ -703,7 +703,7 @@ export class AgentDocumentsService {
   async replaceDocumentContentById(documentId: string, content: string, expectedAgentId?: string) {
     const doc = await this.getDocumentByIdInAgent(documentId, expectedAgentId);
     if (!doc) return undefined;
-    const snapshot = await createMarkdownEditorSnapshot(content);
+    const snapshot = await createAgentDocumentSnapshot(content, doc.filename);
 
     if (doc.content !== snapshot.content) {
       await this.documentService.trySaveCurrentDocumentHistory(doc.documentId, 'llm_call');

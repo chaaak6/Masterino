@@ -8,7 +8,7 @@ import {
 } from '@/database/models/agentDocuments';
 import { DOCUMENT_FOLDER_TYPE } from '@/database/schemas';
 
-import { createMarkdownEditorSnapshot } from '../agentDocuments/headlessEditor';
+import { createAgentDocumentSnapshot } from '../agentDocuments/headlessEditor';
 import { AgentDocumentVfsError } from './errors';
 import { createSkillMount } from './mounts/skills/createSkillMount';
 import {
@@ -798,7 +798,7 @@ export class AgentDocumentVfsService {
         throw new AgentDocumentVfsError(`Path already exists: ${writablePath}`, 'BAD_REQUEST');
       }
 
-      const snapshot = await createMarkdownEditorSnapshot(content);
+      const snapshot = await createAgentDocumentSnapshot(content, existing.filename);
       await this.agentDocumentModel.update(existing.id, {
         content: snapshot.content,
         editorData: snapshot.editorData,
@@ -843,7 +843,7 @@ export class AgentDocumentVfsService {
     }
 
     const normalizedFilename = buildDocumentFilename(filename);
-    const snapshot = await createMarkdownEditorSnapshot(content);
+    const snapshot = await createAgentDocumentSnapshot(content, normalizedFilename);
     const created = await this.agentDocumentModel.create(
       ctx.agentId,
       normalizedFilename,

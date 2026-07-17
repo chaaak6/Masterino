@@ -172,6 +172,21 @@ describe('AgentDocumentsService', () => {
       });
     });
 
+    it('should preserve complete HTML source when creating an HTML document', async () => {
+      const html =
+        '<!doctype html><html><head><title>Report</title></head><body>Body</body></html>';
+      mockModel.findByFilename.mockResolvedValueOnce(undefined);
+      mockModel.create.mockResolvedValue({ id: 'new-doc', filename: 'report.html' });
+
+      const service = new AgentDocumentsService(db, userId);
+      await service.createDocument('agent-1', 'report.html', html);
+
+      expect(mockModel.create).toHaveBeenCalledWith('agent-1', 'report.html', html, {
+        editorData: expect.any(Object),
+        title: 'report.html',
+      });
+    });
+
     it('should append collision suffix before the filename extension', async () => {
       mockModel.findByFilename
         .mockResolvedValueOnce({ id: 'existing-doc' })

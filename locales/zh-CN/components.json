@@ -85,6 +85,8 @@
   "HtmlPreview.actions.copySuccess": "HTML 已复制",
   "HtmlPreview.actions.download": "下载",
   "HtmlPreview.actions.preview": "预览",
+  "HtmlPreview.documentLoadFailed": "HTML 文档加载失败",
+  "HtmlPreview.emptyDocument": "该 HTML 文档为空",
   "HtmlPreview.iframeTitle": "HTML 预览",
   "HtmlPreview.mode.code": "代码",
   "HtmlPreview.mode.preview": "预览",

@@ -99,6 +99,8 @@ const useTableOverrideStyles = createStyles(({ css }) => ({
 }));
 
 interface PageEditorProps {
+  /** Dedicated body renderer for document types that do not use the rich-text editor. */
+  content?: ReactNode;
   emoji?: string;
   /**
    * When true, the header spans the full editor width above the body and the
@@ -132,12 +134,14 @@ interface PageEditorProps {
 }
 
 interface PageEditorCanvasProps {
+  content?: ReactNode;
   fullWidthHeader?: boolean;
   header?: PageEditorHeader;
   rightPanel?: boolean;
 }
 
-const PageEditorCanvas = memo<PageEditorCanvasProps>(({ header, fullWidthHeader, rightPanel }) => {
+const PageEditorCanvas = memo<PageEditorCanvasProps>((props) => {
+  const { content, fullWidthHeader, header, rightPanel } = props;
   const showRightPanel = rightPanel !== false;
   const editable = usePageEditable();
   const editor = usePageEditorStore((s) => s.editor);
@@ -286,29 +290,35 @@ const PageEditorCanvas = memo<PageEditorCanvasProps>(({ header, fullWidthHeader,
         width={'100%'}
         onScroll={handleEditorScroll}
       >
-        <WideScreenContainer
-          wrapperStyle={{ cursor: editable ? 'text' : 'default' }}
-          onChange={notifyEditorLayoutChange}
-          onClick={() => {
-            if (!editable) return;
+        {content === undefined ? (
+          <WideScreenContainer
+            wrapperStyle={{ cursor: editable ? 'text' : 'default' }}
+            onChange={notifyEditorLayoutChange}
+            onClick={() => {
+              if (!editable) return;
 
-            editor?.focus();
-          }}
-        >
-          <Flexbox className={overrideStyles.editorContent} flex={1} style={editorContentStyle}>
-            <TitleSection />
-            <PageMetaBar />
-            {/* Surfaces local heartbeat health (unstable/lost) for the holder.
+              editor?.focus();
+            }}
+          >
+            <Flexbox className={overrideStyles.editorContent} flex={1} style={editorContentStyle}>
+              <TitleSection />
+              <PageMetaBar />
+              {/* Surfaces local heartbeat health (unstable/lost) for the holder.
                 Suppressed when LockedAlert is showing — see LockStatusBanner. */}
-            <LockStatusBanner />
-            {/* Prominent in-body notice when another member holds the lock; the
+              <LockStatusBanner />
+              {/* Prominent in-body notice when another member holds the lock; the
                 compact status badge lives in the Header (EditingIndicator). */}
-            <LockedAlert />
-            <EditorCanvas />
-          </Flexbox>
-        </WideScreenContainer>
+              <LockedAlert />
+              <EditorCanvas />
+            </Flexbox>
+          </WideScreenContainer>
+        ) : (
+          content
+        )}
       </Flexbox>
-      {documentId && <DiffAllToolbar documentId={documentId} editor={editor} />}
+      {content === undefined && documentId && (
+        <DiffAllToolbar documentId={documentId} editor={editor} />
+      )}
     </Flexbox>
   );
 
@@ -343,6 +353,7 @@ const PageEditorCanvas = memo<PageEditorCanvasProps>(({ header, fullWidthHeader,
  * A reusable component. Should NOT depend on context.
  */
 export const PageEditor: FC<PageEditorProps> = ({
+  content,
   pageId,
   header,
   fullWidthHeader,
@@ -392,6 +403,7 @@ export const PageEditor: FC<PageEditorProps> = ({
           }}
         >
           <PageEditorCanvas
+            content={content}
             fullWidthHeader={fullWidthHeader}
             header={header}
             rightPanel={rightPanel}
