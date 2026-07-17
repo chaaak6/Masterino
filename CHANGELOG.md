@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 0.0.16](https://github.com/chaaak6/MasterLion/compare/v0.0.15...v0.0.16)
+
+<sup>Released on **2026-07-17**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: 修复 HTML Artifact 复制、下载与空间保存.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: 修复 HTML Artifact 复制、下载与空间保存, closes [#28](https://github.com/chaaak6/MasterLion/issues/28) ([374a06a](https://github.com/chaaak6/MasterLion/commit/374a06a))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.15](https://github.com/chaaak6/MasterLion/compare/v0.0.14...v0.0.15)
 
 <sup>Released on **2026-07-16**</sup>

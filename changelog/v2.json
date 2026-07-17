@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "修复 HTML Artifact 复制、下载与空间保存."
+      ]
+    },
+    "date": "2026-07-17",
+    "version": "0.0.16"
+  },
+  {
+    "children": {
+      "fixes": [
         "make sandbox file exports reliable."
       ]
     },

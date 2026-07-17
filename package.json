@@ -1,6 +1,6 @@
 {
   "name": "@lobehub/lobehub",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "MasterLion - a company-internal AI chat workspace powered by NewAPI.",
   "keywords": [
     "framework",
