@@ -238,4 +238,3 @@ describe('Artifacts title', () => {
     expect(mocks.writeByPath).not.toHaveBeenCalled();
   });
 });
-
