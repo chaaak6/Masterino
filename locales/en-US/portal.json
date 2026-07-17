@@ -4,6 +4,7 @@
   "Plugins": "Skills",
   "artifacts.display.code": "Code",
   "artifacts.display.preview": "Preview",
+  "artifacts.persistence.failed": "Failed to save HTML to Space documents",
   "artifacts.svg.copyAsImage": "Copy as Image",
   "artifacts.svg.copyFail": "Copy failed: {{error}}. Try again.",
   "artifacts.svg.copySuccess": "Image copied successfully",
