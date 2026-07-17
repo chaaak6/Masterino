@@ -97,6 +97,8 @@ export default {
   'HtmlPreview.actions.copySuccess': 'HTML copied',
   'HtmlPreview.actions.download': 'Download',
   'HtmlPreview.actions.preview': 'Preview',
+  'HtmlPreview.documentLoadFailed': 'Failed to load the HTML document',
+  'HtmlPreview.emptyDocument': 'This HTML document is empty',
   'HtmlPreview.iframeTitle': 'HTML Preview',
   'HtmlPreview.mode.code': 'Code',
   'HtmlPreview.mode.preview': 'Preview',

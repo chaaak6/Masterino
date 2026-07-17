@@ -1,12 +1,15 @@
 'use client';
 
+import { Flexbox, Skeleton } from '@lobehub/ui';
 import { memo, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { isHtmlFile } from '@/components/HtmlPreview';
 import { PageEditor } from '@/features/PageEditor';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 
 import Header from './Header';
+import HtmlDocumentPreview from './HtmlDocumentPreview';
 import { useAgentDocumentItem } from './useAgentDocumentItem';
 
 interface AgentDocumentPageProps {
@@ -25,7 +28,7 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
   const { aid } = useParams<{ aid: string }>();
   const agentId = aid ?? '';
   const navigate = useWorkspaceAwareNavigate();
-  const { item, mutate } = useAgentDocumentItem(agentId, documentId);
+  const { isLoading, item, mutate } = useAgentDocumentItem(agentId, documentId);
 
   const backToChat = useCallback(
     () => navigate(agentId ? `/agent/${agentId}` : '/agent'),
@@ -33,6 +36,7 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
   );
 
   const title = item?.title || item?.filename;
+  const isHtmlDocument = isHtmlFile({ fileName: item?.filename, fileType: item?.fileType });
 
   const header = useMemo(
     () => (
@@ -40,18 +44,38 @@ const AgentDocumentPage = memo<AgentDocumentPageProps>(({ documentId }) => {
         agentDocumentId={item?.id}
         agentId={agentId}
         documentId={documentId}
+        filename={item?.filename}
+        isHtmlDocument={isHtmlDocument}
         title={title}
         updatedAt={item?.updatedAt}
         onBack={backToChat}
         onDeleted={backToChat}
       />
     ),
-    [agentId, backToChat, documentId, item?.id, item?.updatedAt, title],
+    [
+      agentId,
+      backToChat,
+      documentId,
+      isHtmlDocument,
+      item?.filename,
+      item?.id,
+      item?.updatedAt,
+      title,
+    ],
   );
+
+  const content = isLoading ? (
+    <Flexbox flex={1} style={{ padding: 24 }} width={'100%'}>
+      <Skeleton active paragraph={{ rows: 10 }} />
+    </Flexbox>
+  ) : isHtmlDocument ? (
+    <HtmlDocumentPreview documentId={documentId} />
+  ) : undefined;
 
   return (
     <PageEditor
       fullWidthHeader
+      content={content}
       header={header}
       key={documentId}
       pageId={documentId}

@@ -87,6 +87,16 @@ export interface AgentDocumentEditorSnapshot {
   litexml?: string;
 }
 
+const HTML_DOCUMENT_EXTENSIONS = ['.html', '.htm'];
+
+export const isHtmlDocumentFilename = (filename?: string | null): boolean => {
+  if (!filename) return false;
+
+  const normalizedFilename = filename.trim().toLowerCase();
+
+  return HTML_DOCUMENT_EXTENSIONS.some((extension) => normalizedFilename.endsWith(extension));
+};
+
 interface LoadEditorStateParams {
   editorData?: AgentDocumentEditorData | null;
   fallbackContent?: string;
@@ -150,6 +160,23 @@ export const createMarkdownEditorSnapshot = async (
   } finally {
     editor.destroy();
   }
+};
+
+/**
+ * Preserve raw HTML documents byte-for-byte instead of feeding them through
+ * the Markdown editor, which intentionally drops full HTML documents.
+ * Non-HTML agent documents keep the existing Markdown normalization path.
+ */
+export const createAgentDocumentSnapshot = async (
+  content: string,
+  filename?: string | null,
+): Promise<AgentDocumentEditorSnapshot> => {
+  if (!isHtmlDocumentFilename(filename)) return createMarkdownEditorSnapshot(content);
+
+  return {
+    content,
+    editorData: structuredClone(EMPTY_EDITOR_STATE) as AgentDocumentEditorData,
+  };
 };
 
 export const exportEditorDataSnapshot = async (

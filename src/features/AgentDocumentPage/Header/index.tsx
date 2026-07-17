@@ -22,6 +22,8 @@ interface HeaderProps {
   agentDocumentId?: string;
   agentId: string;
   documentId: string;
+  filename?: string;
+  isHtmlDocument?: boolean;
   onBack: () => void;
   onDeleted: () => void;
   title?: string;
@@ -29,13 +31,25 @@ interface HeaderProps {
 }
 
 const Header = memo<HeaderProps>(
-  ({ agentId, agentDocumentId, documentId, onBack, onDeleted, title, updatedAt }) => {
+  ({
+    agentId,
+    agentDocumentId,
+    documentId,
+    filename,
+    isHtmlDocument,
+    onBack,
+    onDeleted,
+    title,
+    updatedAt,
+  }) => {
     const { t } = useTranslation(['file', 'chat']);
     const meta = useAgentStore(agentSelectors.getAgentMetaById(agentId));
     const { menuItems } = useMenu({
       agentDocumentId,
       agentId,
       documentId,
+      filename,
+      isHtmlDocument,
       onDeleted,
       title,
       updatedAt,
@@ -64,7 +78,7 @@ const Header = memo<HeaderProps>(
         }
         right={
           <Flexbox horizontal align={'center'} gap={4}>
-            {documentId && <AutoSaveHint documentId={documentId} />}
+            {!isHtmlDocument && documentId && <AutoSaveHint documentId={documentId} />}
             {documentId && <ShareButton documentId={documentId} />}
             <ToggleRightPanelButton hideWhenExpanded />
             <DropdownMenu

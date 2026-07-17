@@ -12,12 +12,12 @@ import {
  * title / updatedAt for the page header.
  */
 export const useAgentDocumentItem = (agentId: string | undefined, documentId: string) => {
-  const { data, mutate } = useClientDataSWR(
+  const { data, isLoading, mutate } = useClientDataSWR(
     agentId ? agentDocumentSWRKeys.documentsList(agentId) : null,
     () => agentDocumentService.listDocuments({ agentId: agentId! }),
   );
 
   const item: AgentDocumentListItem | undefined = data?.find((d) => d.documentId === documentId);
 
-  return { item, mutate };
+  return { isLoading, item, mutate };
 };

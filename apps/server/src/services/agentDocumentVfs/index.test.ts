@@ -289,6 +289,32 @@ describe('AgentDocumentVfsService', () => {
     );
   });
 
+  it('preserves complete HTML source when creating an ordinary HTML file', async () => {
+    const html = '<!doctype html><html><head><title>Report</title></head><body>Body</body></html>';
+    mockAgentDocumentModel.findByParentAndFilename.mockResolvedValue(undefined);
+    mockAgentDocumentModel.create.mockResolvedValue({
+      accessSelf: AgentAccess.READ | AgentAccess.WRITE | AgentAccess.LIST,
+      content: html,
+      createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      documentId: 'documents-html',
+      fileType: AGENT_DOCUMENT_FILE_TYPE,
+      filename: 'report.html',
+      id: 'agent-doc-html',
+      metadata: null,
+      updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+    });
+
+    const service = new AgentDocumentVfsService(db, userId);
+    await service.write('./report.html', html, { agentId: 'agent-1' });
+
+    expect(mockAgentDocumentModel.create).toHaveBeenCalledWith(
+      'agent-1',
+      'report.html',
+      html,
+      expect.objectContaining({ editorData: expect.any(Object) }),
+    );
+  });
+
   it('resolves duplicate ordinary path segments to the oldest sibling', async () => {
     mockAgentDocumentModel.listByParentAndFilename.mockResolvedValue([
       {

@@ -1,5 +1,6 @@
 import { buildAgentDocumentUrl } from '@lobechat/builtin-tool-agent-documents';
 import { isDesktop } from '@lobechat/const';
+import { exportFile } from '@lobechat/utils/client';
 import { useEditor } from '@lobehub/editor/react';
 import { Icon } from '@lobehub/ui';
 import type { DropdownItem } from '@lobehub/ui/base-ui';
@@ -14,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
 import { useAppOrigin } from '@/hooks/useAppOrigin';
 import { agentDocumentService } from '@/services/agentDocument';
+import { documentService } from '@/services/document';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 
@@ -21,6 +23,8 @@ interface UseMenuParams {
   agentDocumentId?: string;
   agentId: string;
   documentId: string;
+  filename?: string;
+  isHtmlDocument?: boolean;
   onDeleted: () => void;
   title?: string;
   updatedAt?: Date | string | null;
@@ -35,6 +39,8 @@ export const useMenu = ({
   agentDocumentId,
   agentId,
   documentId,
+  filename,
+  isHtmlDocument,
   onDeleted,
   title,
   updatedAt,
@@ -62,10 +68,19 @@ export const useMenu = ({
     };
 
     const handleExportMarkdown = async () => {
-      if (!editor) return;
-      const markdown = (editor.getDocument('markdown') as unknown as string) || '';
-      const fileName = `${title || 'Untitled'}.md`;
       try {
+        if (isHtmlDocument) {
+          const document = await documentService.getDocumentById(documentId);
+          if (!document) throw new Error('Document not found');
+
+          exportFile(document.content || '', filename || `${title || 'Untitled'}.html`);
+          message.success(t('pageEditor.exportSuccess'));
+          return;
+        }
+
+        if (!editor) return;
+        const markdown = (editor.getDocument('markdown') as unknown as string) || '';
+        const fileName = `${title || 'Untitled'}.md`;
         if (isDesktop) {
           const { desktopExportService } = await import('@/services/electron/desktopExportService');
           await desktopExportService.exportMarkdown({ content: markdown, fileName });
@@ -134,7 +149,7 @@ export const useMenu = ({
         children: [
           {
             key: 'export-markdown',
-            label: t('pageEditor.menu.export.markdown'),
+            label: isHtmlDocument ? 'HTML' : t('pageEditor.menu.export.markdown'),
             onClick: handleExportMarkdown,
           },
         ],
@@ -177,6 +192,8 @@ export const useMenu = ({
     appOrigin,
     documentId,
     editor,
+    filename,
+    isHtmlDocument,
     lg,
     message,
     onDeleted,
