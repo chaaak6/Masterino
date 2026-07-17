@@ -108,12 +108,14 @@ vi.mock('@/store/chat/selectors', () => ({
 vi.mock('@/styles', () => ({ oneLineEllipsis: 'ellipsis' }));
 
 describe('Artifacts title', () => {
+  let testArtifactSequence = 0;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.activeAgentId = 'agent-1';
     mocks.artifactContent = '<html><head><title>Artifact</title></head><body>Hello</body></html>';
     mocks.artifactIdentifier = 'artifact-id';
-    mocks.artifactMessageId = 'message-1';
+    mocks.artifactMessageId = `message-${++testArtifactSequence}`;
     mocks.artifactTitle = 'Artifact title';
     mocks.artifactType = 'text/html';
     mocks.displayMode = ArtifactDisplayMode.Preview;
@@ -193,6 +195,26 @@ describe('Artifacts title', () => {
     );
   });
 
+  it('deduplicates concurrent persistence for the same artifact', async () => {
+    let resolveWrite: (() => void) | undefined;
+    mocks.writeByPath.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+
+    render(
+      <>
+        <Title />
+        <Title />
+      </>,
+    );
+
+    await waitFor(() => expect(mocks.writeByPath).toHaveBeenCalledTimes(1));
+    resolveWrite?.();
+  });
+
   it('shows an explicit error when saving to Space fails', async () => {
     const error = new Error('Storage unavailable');
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -216,3 +238,4 @@ describe('Artifacts title', () => {
     expect(mocks.writeByPath).not.toHaveBeenCalled();
   });
 });
+
