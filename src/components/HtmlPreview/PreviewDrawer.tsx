@@ -1,9 +1,17 @@
 import { TITLE_BAR_HEIGHT } from '@lobechat/desktop-bridge';
 import { exportFile } from '@lobechat/utils/client';
-import { Block, Button, Flexbox, Highlighter, HtmlPreview, Segmented } from '@lobehub/ui';
-import { Drawer } from 'antd';
+import {
+  Block,
+  Button,
+  copyToClipboard,
+  Flexbox,
+  Highlighter,
+  HtmlPreview,
+  Segmented,
+} from '@lobehub/ui';
+import { App, Drawer } from 'antd';
 import { createStaticStyles } from 'antd-style';
-import { Code2, Download, Eye } from 'lucide-react';
+import { Code2, Copy, Download, Eye } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -25,6 +33,7 @@ interface HtmlPreviewDrawerProps {
 
 const HtmlPreviewDrawer = memo<HtmlPreviewDrawerProps>(({ content, open, onClose }) => {
   const { t } = useTranslation('components');
+  const { message } = App.useApp();
   const [mode, setMode] = useState<'preview' | 'code'>('preview');
 
   const htmlContent = content;
@@ -47,6 +56,16 @@ const HtmlPreviewDrawer = memo<HtmlPreviewDrawerProps>(({ content, open, onClose
     const base = title ? sanitizeFileName(title) : `chat-html-preview-${Date.now()}`;
     exportFile(content, `${base}.html`);
   }, [content, extractTitle, sanitizeFileName]);
+
+  const onCopy = useCallback(async () => {
+    try {
+      await copyToClipboard(content);
+      message.success(t('HtmlPreview.actions.copySuccess'));
+    } catch (error) {
+      console.error('Failed to copy HTML preview content:', error);
+      message.error(t('HtmlPreview.actions.copyFailed'));
+    }
+  }, [content, message, t]);
 
   const Title = (
     <Flexbox horizontal align={'center'} justify={'space-between'} style={{ width: '100%' }}>
@@ -75,14 +94,19 @@ const HtmlPreviewDrawer = memo<HtmlPreviewDrawerProps>(({ content, open, onClose
         ]}
         onChange={(v) => setMode(v as 'preview' | 'code')}
       />
-      <Button
-        color={'default'}
-        icon={<Download size={16} />}
-        variant={'filled'}
-        onClick={onDownload}
-      >
-        {t('HtmlPreview.actions.download')}
-      </Button>
+      <Flexbox horizontal gap={8}>
+        <Button color={'default'} icon={<Copy size={16} />} variant={'filled'} onClick={onCopy}>
+          {t('HtmlPreview.actions.copy')}
+        </Button>
+        <Button
+          color={'default'}
+          icon={<Download size={16} />}
+          variant={'filled'}
+          onClick={onDownload}
+        >
+          {t('HtmlPreview.actions.download')}
+        </Button>
+      </Flexbox>
     </Flexbox>
   );
 
