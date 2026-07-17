@@ -1,38 +1,118 @@
 import { ArtifactType } from '@lobechat/types';
-import { ActionIcon, Flexbox, Icon, Segmented, Text } from '@lobehub/ui';
-import { ConfigProvider } from 'antd';
+import { exportFile } from '@lobechat/utils/client';
+import { ActionIcon, Button, copyToClipboard, Flexbox, Icon, Segmented, Text } from '@lobehub/ui';
+import { App, ConfigProvider } from 'antd';
 import { cx } from 'antd-style';
-import { ArrowLeft, CodeIcon, EyeIcon } from 'lucide-react';
+import { ArrowLeft, CodeIcon, CopyIcon, DownloadIcon, EyeIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { getHtmlFileName } from '@/components/HtmlPreview/fileName';
+import { isHtmlFile } from '@/components/HtmlPreview/fileType';
+import { agentDocumentService } from '@/services/agentDocument';
 import { useChatStore } from '@/store/chat';
 import { chatPortalSelectors } from '@/store/chat/selectors';
 import { ArtifactDisplayMode } from '@/store/chat/slices/portal/initialState';
 import { oneLineEllipsis } from '@/styles';
 
 const Title = () => {
-  const { t } = useTranslation('portal');
+  const { message } = App.useApp();
+  const { t } = useTranslation(['portal', 'components']);
+  const persistedArtifactRef = useRef<string | undefined>(undefined);
 
-  const [displayMode, artifactType, artifactTitle, isArtifactTagClosed, closeArtifact] =
-    useChatStore((s) => {
-      const messageId = chatPortalSelectors.artifactMessageId(s) || '';
-      const identifier = chatPortalSelectors.artifactIdentifier(s);
+  const [
+    displayMode,
+    artifactType,
+    artifactTitle,
+    artifactContent,
+    artifactIdentifier,
+    artifactMessageId,
+    isArtifactTagClosed,
+    agentId,
+    closeArtifact,
+  ] = useChatStore((s) => {
+    const messageId = chatPortalSelectors.artifactMessageId(s) || '';
+    const identifier = chatPortalSelectors.artifactIdentifier(s);
 
-      return [
-        s.portalArtifactDisplayMode,
-        chatPortalSelectors.artifactType(s),
-        chatPortalSelectors.artifactTitle(s),
-        chatPortalSelectors.isArtifactTagClosed(messageId, identifier)(s),
-        s.closeArtifact,
-      ];
-    });
+    return [
+      s.portalArtifactDisplayMode,
+      chatPortalSelectors.artifactType(s),
+      chatPortalSelectors.artifactTitle(s),
+      chatPortalSelectors.artifactCode(messageId, identifier)(s),
+      identifier,
+      messageId,
+      chatPortalSelectors.isArtifactTagClosed(messageId, identifier)(s),
+      s.activeAgentId,
+      s.closeArtifact,
+    ];
+  });
 
   // show switch only when artifact is closed and the type is not code
   const showSwitch = isArtifactTagClosed && artifactType !== ArtifactType.Code;
+  const isHtmlArtifact = !artifactType || isHtmlFile({ fileType: artifactType });
+  const showHtmlActions = isArtifactTagClosed && isHtmlArtifact;
+
+  const getDocumentFileName = useCallback(
+    () =>
+      getHtmlFileName(
+        artifactContent,
+        artifactTitle || artifactIdentifier || `artifact-${artifactMessageId}`,
+      ),
+    [artifactContent, artifactIdentifier, artifactMessageId, artifactTitle],
+  );
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await copyToClipboard(artifactContent);
+      message.success(t('HtmlPreview.actions.copySuccess', { ns: 'components' }));
+    } catch (error) {
+      console.error('Failed to copy HTML artifact content:', error);
+      message.error(t('HtmlPreview.actions.copyFailed', { ns: 'components' }));
+    }
+  }, [artifactContent, message, t]);
+
+  const handleDownload = useCallback(() => {
+    exportFile(
+      artifactContent,
+      getHtmlFileName(artifactContent, `chat-html-preview-${Date.now()}`),
+    );
+  }, [artifactContent]);
+
+  useEffect(() => {
+    if (!showHtmlActions || !agentId || !artifactContent || !artifactMessageId) return;
+
+    const persistenceKey = `${agentId}:${artifactMessageId}:${artifactIdentifier}`;
+    if (persistedArtifactRef.current === persistenceKey) return;
+
+    const filename = getDocumentFileName();
+    void agentDocumentService
+      .writeByPath({
+        agentId,
+        content: artifactContent,
+        createMode: 'if-missing',
+        path: `./${filename}`,
+      })
+      .then(() => {
+        persistedArtifactRef.current = persistenceKey;
+      })
+      .catch((error) => {
+        console.error('Failed to persist HTML artifact to agent documents:', error);
+        message.error(t('artifacts.persistence.failed', { ns: 'portal' }));
+      });
+  }, [
+    agentId,
+    artifactContent,
+    artifactIdentifier,
+    artifactMessageId,
+    getDocumentFileName,
+    message,
+    showHtmlActions,
+    t,
+  ]);
 
   return (
     <Flexbox horizontal align={'center'} flex={1} gap={12} justify={'space-between'} width={'100%'}>
-      <Flexbox horizontal align={'center'} gap={4}>
+      <Flexbox horizontal align={'center'} flex={1} gap={4} style={{ minWidth: 0 }}>
         <ActionIcon icon={ArrowLeft} size={'small'} onClick={() => closeArtifact()} />
         <Text className={cx(oneLineEllipsis)} type={'secondary'}>
           {artifactTitle}
@@ -69,6 +149,21 @@ const Title = () => {
           />
         )}
       </ConfigProvider>
+      {showHtmlActions && (
+        <Flexbox horizontal gap={8}>
+          <Button icon={<CopyIcon size={14} />} size={'small'} type={'text'} onClick={handleCopy}>
+            {t('HtmlPreview.actions.copy', { ns: 'components' })}
+          </Button>
+          <Button
+            icon={<DownloadIcon size={14} />}
+            size={'small'}
+            type={'text'}
+            onClick={handleDownload}
+          >
+            {t('HtmlPreview.actions.download', { ns: 'components' })}
+          </Button>
+        </Flexbox>
+      )}
     </Flexbox>
   );
 };
