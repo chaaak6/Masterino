@@ -2444,6 +2444,16 @@
   {
     "children": {
       "fixes": [
+        "修复 Agent 文档 Markdown 导出.",
+        "preserve and preview HTML agent documents."
+      ]
+    },
+    "date": "2026-07-17",
+    "version": "1.0.0"
+  },
+  {
+    "children": {
+      "fixes": [
         "修复 HTML Artifact 复制、下载与空间保存."
       ]
     },

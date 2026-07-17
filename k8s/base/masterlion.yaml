@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: masterlion
-          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion:v0.0.13
+          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion:v1.0.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3210

@@ -2,6 +2,33 @@
 
 # Changelog
 
+### [Version 1.0.0](https://github.com/chaaak6/MasterLion/compare/v0.0.16...v1.0.0)
+
+<sup>Released on **2026-07-17**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: 修复 Agent 文档 Markdown 导出.
+- **misc**: preserve and preview HTML agent documents.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: 修复 Agent 文档 Markdown 导出, closes [#30](https://github.com/chaaak6/MasterLion/issues/30) ([0ac4855](https://github.com/chaaak6/MasterLion/commit/0ac4855))
+- **misc**: preserve and preview HTML agent documents, closes [#29](https://github.com/chaaak6/MasterLion/issues/29) ([7791caa](https://github.com/chaaak6/MasterLion/commit/7791caa))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 0.0.16](https://github.com/chaaak6/MasterLion/compare/v0.0.15...v0.0.16)
 
 <sup>Released on **2026-07-17**</sup>
