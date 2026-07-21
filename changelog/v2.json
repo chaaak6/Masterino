@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "correct Masterion brand spelling."
+      ]
+    },
+    "date": "2026-07-21",
+    "version": "1.0.1"
+  },
+  {
+    "children": {
+      "fixes": [
         "修复 Agent 文档 Markdown 导出.",
         "preserve and preview HTML agent documents."
       ]

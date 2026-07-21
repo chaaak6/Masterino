@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 1.0.1](https://github.com/chaaak6/MasterLion/compare/v1.0.0...v1.0.1)
+
+<sup>Released on **2026-07-21**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: correct Masterion brand spelling.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: correct Masterion brand spelling, closes [#31](https://github.com/chaaak6/MasterLion/issues/31) ([857d266](https://github.com/chaaak6/MasterLion/commit/857d266))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.0.0](https://github.com/chaaak6/MasterLion/compare/v0.0.16...v1.0.0)
 
 <sup>Released on **2026-07-17**</sup>
