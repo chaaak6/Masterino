@@ -1,6 +1,6 @@
-# MasterLion Wiki
+# Masterion Wiki
 
-MasterLion is the internal 小宗狮 AI Agent workspace. This wiki should document the MasterLion product, Aihub integration, enterprise governance, local deployment, and release operations.
+Masterion is the internal 小宗狮 AI Agent workspace. This wiki should document the Masterion product, Aihub integration, enterprise governance, local deployment, and release operations.
 
 ## Start Here
 
@@ -20,4 +20,4 @@ MasterLion is the internal 小宗狮 AI Agent workspace. This wiki should docume
 
 ## Branding
 
-Use the 小宗狮 / MasterLion brand assets under `public/brand/masterlion/`. Do not use upstream public marketing graphics for new MasterLion docs.
+Use the 小宗狮 / Masterion brand assets under `public/brand/masterlion/`. Do not use upstream public marketing graphics for new Masterion docs.

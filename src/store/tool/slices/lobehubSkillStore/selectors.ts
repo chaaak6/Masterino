@@ -95,12 +95,12 @@ export const lobehubSkillStoreSelectors = {
           identifier: server.identifier,
           manifest: {
             api: apis,
-            author: 'MasterLion Market',
+            author: 'Masterion Market',
             homepage: 'https://aihub.bielcrystal.com',
             identifier: server.identifier,
             meta: {
               avatar: server.icon || '🔗',
-              description: `MasterLion Skill: ${server.name}`,
+              description: `Masterion Skill: ${server.name}`,
               tags: ['lobehub-skill', server.identifier],
               title: server.name,
             },
@@ -128,7 +128,7 @@ export const lobehubSkillStoreSelectors = {
         identifier: server.identifier,
         meta: {
           avatar: server.icon || '🔗',
-            description: `MasterLion Skill: ${server.name}`,
+            description: `Masterion Skill: ${server.name}`,
           title: server.name,
         },
       }));

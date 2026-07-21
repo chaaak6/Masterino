@@ -1,10 +1,10 @@
 ---
-title: MasterLion Knowledge Base / File Upload
+title: Masterion Knowledge Base / File Upload
 description: >-
-  Explore MasterLion's file upload and knowledge base management features with core
+  Explore Masterion's file upload and knowledge base management features with core
   components.
 tags:
-  - MasterLion
+  - Masterion
   - File Upload
   - Knowledge Base
   - PostgreSQL
@@ -13,7 +13,7 @@ tags:
 
 # Knowledge Base / File Upload
 
-MasterLion supports file upload and knowledge base management. This feature relies on the following core technical components. Understanding these components will help you successfully deploy and maintain the knowledge base system.
+Masterion supports file upload and knowledge base management. This feature relies on the following core technical components. Understanding these components will help you successfully deploy and maintain the knowledge base system.
 
 ## Core Components
 
@@ -50,7 +50,7 @@ dual-read fallback.
 An embedding model converts parsed text into vector representations for semantic search.
 
 <Callout type={'info'}>
-  MasterLion's historical fallback is OpenAI `text-embedding-3-small`. In an Aihub-backed
+  Masterion's historical fallback is OpenAI `text-embedding-3-small`. In an Aihub-backed
   deployment, set `DEFAULT_FILES_CONFIG` to an embedding model that Aihub exposes to the managed
   token or user group. Otherwise chunking can succeed while embedding tasks fail with
   `ModelNotFound`.
@@ -70,7 +70,7 @@ Unstructured.io is a powerful document processing tool.
 - **Use Case**: Handle non-plain text formats like PDF, Word
 - **Note**: Evaluate processing needs based on document complexity
 
-By correctly configuring and integrating these core components, you can build a powerful and efficient knowledge base system for MasterLion. Each component plays a crucial role in the overall architecture, supporting advanced document management and intelligent retrieval functions.
+By correctly configuring and integrating these core components, you can build a powerful and efficient knowledge base system for Masterion. Each component plays a crucial role in the overall architecture, supporting advanced document management and intelligent retrieval functions.
 
 ### 5. Custom Embedding
 

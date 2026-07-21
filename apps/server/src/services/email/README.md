@@ -25,7 +25,7 @@ const emailService = new EmailService();
 await emailService.sendMail({
   from: 'noreply@example.com',
   to: 'user@example.com',
-  subject: 'Welcome to MasterLion',
+  subject: 'Welcome to Masterion',
   text: 'Thanks for signing up!',
   html: '<p>Thanks for signing up!</p>',
 });

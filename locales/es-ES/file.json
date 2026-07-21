@@ -77,7 +77,7 @@
   "menu.allFiles": "Todos los archivos",
   "menu.allPages": "Todas las páginas",
   "networkError": "No se pudieron recuperar las bibliotecas. Verifica tu conexión a internet e inténtalo de nuevo.",
-  "notSupportGuide.desc": "El modo de implementación actual no admite la gestión de archivos. Cambia al <1>modo de base de datos en servidor</1> o utiliza <3>MasterLion Cloud</3>.",
+  "notSupportGuide.desc": "El modo de implementación actual no admite la gestión de archivos. Cambia al <1>modo de base de datos en servidor</1> o utiliza <3>Masterion Cloud</3>.",
   "notSupportGuide.features.allKind.desc": "Admite los tipos de archivo más comunes, incluidos formatos de página como Word, PPT, Excel, PDF, TXT, así como archivos de código populares como JS y Python.",
   "notSupportGuide.features.allKind.title": "Compatibilidad con múltiples tipos de archivo",
   "notSupportGuide.features.embeddings.desc": "Utiliza modelos vectoriales de alto rendimiento para vectorizar fragmentos de texto, permitiendo la búsqueda semántica del contenido.",

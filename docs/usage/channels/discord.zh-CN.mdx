@@ -1,7 +1,7 @@
 ---
-title: 将 MasterLion 连接到 Discord
+title: 将 Masterion 连接到 Discord
 description: >-
-  了解如何创建一个 Discord 机器人并将其连接到您的 MasterLion 代理作为消息渠道，使您的 AI 助手能够直接在 Discord
+  了解如何创建一个 Discord 机器人并将其连接到您的 Masterion 代理作为消息渠道，使您的 AI 助手能够直接在 Discord
   服务器和私信中与用户互动。
 tags:
   - Discord
@@ -10,13 +10,13 @@ tags:
   - 集成
 ---
 
-# 将 MasterLion 连接到 Discord
+# 将 Masterion 连接到 Discord
 
-通过将 Discord 渠道连接到您的 MasterLion 代理，用户可以直接通过 Discord 服务器频道和私信与 AI 助手互动。
+通过将 Discord 渠道连接到您的 Masterion 代理，用户可以直接通过 Discord 服务器频道和私信与 AI 助手互动。
 
 ## 前置条件
 
-- 一个拥有有效订阅的 MasterLion 账户
+- 一个拥有有效订阅的 Masterion 账户
 - 一个拥有目标服务器 **管理服务器** 权限的 Discord 账户
 
 ## 第一步：创建 Discord 应用程序和机器人
@@ -26,7 +26,7 @@ tags:
 
   ![](https://hub-apac-1.lobeobjects.space/docs/83f435317ea2c9c4a2adcbfd74301536.png)
 
-  访问 [Discord 开发者门户](https://discord.com/developers/applications)，点击 **新建应用程序**。为您的应用程序命名（例如，“MasterLion 助手”），然后点击 **创建**。
+  访问 [Discord 开发者门户](https://discord.com/developers/applications)，点击 **新建应用程序**。为您的应用程序命名（例如，“Masterion 助手”），然后点击 **创建**。
 
   ### 创建机器人
 
@@ -64,12 +64,12 @@ tags:
   您将在下一步中需要这三个值（机器人令牌、应用程序 ID、公钥）。
 </Steps>
 
-## 第二步：在 MasterLion 中配置 Discord
+## 第二步：在 Masterion 中配置 Discord
 
 <Steps>
   ### 打开渠道设置
 
-  在 MasterLion 中，导航到您的代理设置，然后选择 **渠道** 标签。点击平台列表中的 **Discord**。
+  在 Masterion 中，导航到您的代理设置，然后选择 **渠道** 标签。点击平台列表中的 **Discord**。
 
   ### 填写凭据
 
@@ -85,7 +85,7 @@ tags:
 
   ### 保存配置
 
-  点击 **保存配置**。您的凭据将被保存，MasterLion 将开始监听 Discord 事件。
+  点击 **保存配置**。您的凭据将被保存，Masterion 将开始监听 Discord 事件。
 </Steps>
 
 ## 第三步：邀请机器人加入您的服务器
@@ -122,7 +122,7 @@ tags:
 
 ## 第四步：测试连接
 
-返回 MasterLion 的 Discord 渠道设置，点击 **测试连接** 以验证配置是否正确。然后在 Discord 中向您的机器人发送消息，确认其是否响应。
+返回 Masterion 的 Discord 渠道设置，点击 **测试连接** 以验证配置是否正确。然后在 Discord 中向您的机器人发送消息，确认其是否响应。
 
 ## 第五步：填写你的平台身份（推荐）
 
@@ -136,17 +136,17 @@ tags:
 - **AI 工具主动推送** — 让 Agent 能主动联系你（提醒、通知），把内部用户引用映射到你的 Discord 账号。
 - **防自锁** — 自动被 **允许的用户** 信任，给好友收紧 bot 时不会把自己挡在外面。
 
-获取方式：在 Discord 中打开 **用户设置 → 高级**，启用 **开发者模式**。然后在任意位置右键你自己的用户名，选 **复制用户 ID**。把数字 ID 粘贴到 MasterLion 高级设置的 **你的平台用户 ID** 字段。
+获取方式：在 Discord 中打开 **用户设置 → 高级**，启用 **开发者模式**。然后在任意位置右键你自己的用户名，选 **复制用户 ID**。把数字 ID 粘贴到 Masterion 高级设置的 **你的平台用户 ID** 字段。
 
 ### 默认服务器
 
 Discord 的 guild ID。当你让 bot 做 "列出频道"、"发送到 #announcements" 这类需要服务器上下文但没指明哪台的事时，AI 工具会默认用这个 server。和访问控制无关 —— 那是 **群组策略** 的活。
 
-获取方式：在 **开发者模式** 已开启的情况下，在服务器列表中右键服务器名，选 **复制服务器 ID**。粘贴到 MasterLion 高级设置的 **默认服务器** 字段。
+获取方式：在 **开发者模式** 已开启的情况下，在服务器列表中右键服务器名，选 **复制服务器 ID**。粘贴到 Masterion 高级设置的 **默认服务器** 字段。
 
 ## 接入策略
 
-MasterLion 通过三层叠加配置控制入站消息，全部位于 **高级设置**，默认都为宽松。
+Masterion 通过三层叠加配置控制入站消息，全部位于 **高级设置**，默认都为宽松。
 
 ### 允许的用户 ID（全局）
 

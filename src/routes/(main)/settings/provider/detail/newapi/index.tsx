@@ -167,7 +167,7 @@ const Page = () => {
           <Flexbox horizontal gap={24} style={{ flexWrap: 'wrap' }}>
             <Field
               classNames={styles}
-              label="MasterLion状态"
+              label="Masterion状态"
               value={BINDING_STATUS_TEXT[binding?.status || 'missing'] || binding?.status || '未绑定'}
             />
             <ManagedTokenSelect

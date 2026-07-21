@@ -312,10 +312,10 @@ describe('identityProvisioningService', () => {
     });
   });
 
-  it('falls back to the MasterLion users table email when the SSO profile has no email', async () => {
+  it('falls back to the Masterion users table email when the SSO profile has no email', async () => {
     // WeCom profiles often lack an email field. The user may have registered
     // in Aihub independently with their real email. Falling back to the email
-    // stored in the MasterLion users table lets the provisioning lookup match
+    // stored in the Masterion users table lets the provisioning lookup match
     // the existing Aihub user instead of creating a duplicate.
     const { db } = createRecordingDb({ userRow: { username: '10003923', email: 'you.yan@example.com' } });
     const adapter = createAihubAdapter();

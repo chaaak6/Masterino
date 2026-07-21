@@ -1,10 +1,10 @@
 ---
-title: 在 MasterLion 中配置 Casdoor 身份验证
-description: 学习如何在 MasterLion 中配置 Casdoor SSO，包括创建应用和设置环境变量。
+title: 在 Masterion 中配置 Casdoor 身份验证
+description: 学习如何在 Masterion 中配置 Casdoor SSO，包括创建应用和设置环境变量。
 tags:
   - Casdoor
   - 身份验证
-  - MasterLion
+  - Masterion
   - 单点登录
   - OIDC
 ---
@@ -19,7 +19,7 @@ tags:
   1. 登录 Casdoor 管理控制台
   2. 前往 **Applications**，点击 **Add**
   3. 配置应用：
-     - Name: `MasterLion`
+     - Name: `Masterion`
      - Organization: 选择你的组织
      - Redirect URLs: 添加回调 URL
 
@@ -35,7 +35,7 @@ tags:
 
   ### 配置环境变量
 
-  在部署 MasterLion 时，你需要配置以下环境变量：
+  在部署 Masterion 时，你需要配置以下环境变量：
 
   | 环境变量                     | 类型 | 描述                                                |
   | ------------------------ | -- | ------------------------------------------------- |
@@ -54,7 +54,7 @@ tags:
 
   > 在 Casdoor `>=1.843.0` 上可用。
 
-  配置 Casdoor 的 [Webhook](https://www.casdoor.org/docs/webhooks/overview#setting-up-a-webhook) 以便在用户信息更新时同步到 MasterLion。
+  配置 Casdoor 的 [Webhook](https://www.casdoor.org/docs/webhooks/overview#setting-up-a-webhook) 以便在用户信息更新时同步到 Masterion。
 
   **同步的数据字段**：
 
@@ -75,11 +75,11 @@ tags:
   4. 将密钥填写到环境变量 `CASDOOR_WEBHOOK_SECRET`
 </Steps>
 
-<Callout type={'info'}>部署成功后，用户将可以通过 Casdoor 身份认证并使用 MasterLion。</Callout>
+<Callout type={'info'}>部署成功后，用户将可以通过 Casdoor 身份认证并使用 Masterion。</Callout>
 
 ## Docker Compose 部署 Casdoor
 
-如果你使用 Docker Compose 部署 MasterLion，可以参考以下配置来集成 Casdoor 作为鉴权服务。
+如果你使用 Docker Compose 部署 Masterion，可以参考以下配置来集成 Casdoor 作为鉴权服务。
 
 ### 反向代理配置
 
@@ -110,15 +110,15 @@ tags:
 
 ### 必要配置
 
-1. MasterLion 需要与 Casdoor 通讯，因此你需要配置 Casdoor 的 Issuer：
+1. Masterion 需要与 Casdoor 通讯，因此你需要配置 Casdoor 的 Issuer：
 
 ```env
 AUTH_CASDOOR_ISSUER=https://auth.example.com
 ```
 
-该配置会影响 MasterLion 的登录鉴权服务，你需要确保 Casdoor 服务的地址正确。
+该配置会影响 Masterion 的登录鉴权服务，你需要确保 Casdoor 服务的地址正确。
 
-2. 在 Casdoor 中允许回调地址为 MasterLion 的地址：
+2. 在 Casdoor 中允许回调地址为 Masterion 的地址：
 
 请在 Casdoor 的 Web 面板的 `身份认证 -> 应用` -> `<应用ID，默认为 app-built-in>` -> `重定向URL` 中添加一行：
 
@@ -219,13 +219,13 @@ lobehub      | [auth][error] r3: "response" is not a conform Authorization Serve
 lobehub      | [auth][error] TypeError: fetch failed
 ```
 
-成因：MasterLion 无法访问鉴权服务。
+成因：Masterion 无法访问鉴权服务。
 
 解决方案：
 
-- 请检查你的鉴权服务是否正常运行，以及 MasterLion 所在的网络是否能够访问到鉴权服务。
+- 请检查你的鉴权服务是否正常运行，以及 Masterion 所在的网络是否能够访问到鉴权服务。
 
-- 一个直接的排查方式，你可以在 MasterLion 容器的终端中，使用 `curl` 命令访问你的鉴权服务 `https://auth.example.com/.well-known/openid-configuration`，如果返回了 JSON 格式的数据，则说明你的鉴权服务正常运行。
+- 一个直接的排查方式，你可以在 Masterion 容器的终端中，使用 `curl` 命令访问你的鉴权服务 `https://auth.example.com/.well-known/openid-configuration`，如果返回了 JSON 格式的数据，则说明你的鉴权服务正常运行。
 
 #### 反向代理下 OAuth 令牌交换失败
 

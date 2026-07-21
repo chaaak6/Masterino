@@ -57,7 +57,7 @@ export default class NotificationCtr extends ControllerModule {
     }
 
     const notification = new Notification({
-        body: 'MasterLion can now send you notifications.',
+        body: 'Masterion can now send you notifications.',
       title: 'Notification Permission',
     });
 

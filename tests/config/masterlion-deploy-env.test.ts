@@ -19,7 +19,7 @@ const readRustfsDiagnosticCompose = async () => {
   return parse(composeText);
 };
 
-describe('MasterLion deploy environment', () => {
+describe('Masterion deploy environment', () => {
   it('passes file-analysis configuration into the app container', async () => {
     const environment = await readDeployServiceEnv();
 

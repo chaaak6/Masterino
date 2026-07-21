@@ -1,10 +1,10 @@
-# MasterLion Enterprise Architecture Plan
+# Masterion Enterprise Architecture Plan
 
 更新时间：2026-06-20
 
 ## 1. 总体目标
 
-MasterLion 要从单一 Web 客户端演进为企业 AI 工作台，核心目标是：
+Masterion 要从单一 Web 客户端演进为企业 AI 工作台，核心目标是：
 
 - Web 客户端继续承载聊天、知识库、Skill、MCP、文件与模型使用体验。
 - 管理后台独立成新项目目录，与 Web 客户端解耦，用于企业级用户、组织、角色、权限、SSO、Aihub 配额和全局配置管理。
@@ -14,7 +14,7 @@ MasterLion 要从单一 Web 客户端演进为企业 AI 工作台，核心目标
 
 ## 2. 源代码架构规划
 
-建议保持当前 LobeHub/MasterLion Web 工程不被后台侵入，新增独立后台项目：
+建议保持当前 LobeHub/Masterion Web 工程不被后台侵入，新增独立后台项目：
 
 ```text
 apps/
@@ -39,11 +39,11 @@ packages/
 
 ```mermaid
 flowchart LR
-  User["企业用户浏览器"] --> Web["MasterLion Web 客户端"]
-  AdminUser["企业管理员浏览器"] --> Admin["MasterLion Admin 管理后台"]
+  User["企业用户浏览器"] --> Web["Masterion Web 客户端"]
+  AdminUser["企业管理员浏览器"] --> Admin["Masterion Admin 管理后台"]
   Web --> API["apps/server API"]
   Admin --> API
-  API --> PG["MasterLion Postgres"]
+  API --> PG["Masterion Postgres"]
   API --> Redis["Redis / Cache / Queue"]
   API --> RustFS["RustFS / S3 文件存储"]
   API --> Bridge["aihub-db-bridge"]
@@ -67,7 +67,7 @@ flowchart LR
 sequenceDiagram
   participant U as 用户
   participant SSO as 企业微信/OAuth
-  participant API as MasterLion API
+  participant API as Masterion API
   participant RBAC as RBAC/Capability
   participant A as Aihub Bridge
   participant Web as Web 客户端

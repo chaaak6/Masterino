@@ -74,14 +74,14 @@ Some specialized events require explicit approval from Tencent.
 
 #### WebSocket Mode
 
-- MasterLion's \`lh bot connect\` handles the WebSocket gateway automatically
+- Masterion's \`lh bot connect\` handles the WebSocket gateway automatically
 - No URL configuration needed — just provide AppID and AppSecret
 
 ### Step 6: Configure IP Whitelist
 
 1. In development settings, add your server's IP address to the **IP whitelist**
 2. IP whitelist is required — without it, API calls and bot launch are blocked
-3. For MasterLion-hosted bots, contact support for the outbound IP range to whitelist
+3. For Masterion-hosted bots, contact support for the outbound IP range to whitelist
 
 ### Step 7: Test in Sandbox, Then Submit for Review
 

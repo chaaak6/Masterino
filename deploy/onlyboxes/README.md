@@ -1,6 +1,6 @@
-# MasterLion Onlyboxes 0.7.1 部署包
+# Masterion Onlyboxes 0.7.1 部署包
 
-此目录用于把 Onlyboxes Console 与 Docker Worker 部署到独立内网 Linux 节点。MasterLion 仍运行在 K8s，通过 `https://onlyboxes.internal.bielcrystal.com` 调用 Console。这里固定 Onlyboxes `0.7.1`，不在启动或沙箱执行时访问外部镜像仓库。
+此目录用于把 Onlyboxes Console 与 Docker Worker 部署到独立内网 Linux 节点。Masterion 仍运行在 K8s，通过 `https://onlyboxes.internal.bielcrystal.com` 调用 Console。这里固定 Onlyboxes `0.7.1`，不在启动或沙箱执行时访问外部镜像仓库。
 
 ## 1. 预先镜像全部产物
 
@@ -27,10 +27,10 @@ Compose 只把 HTTP `8089` 和 gRPC `50051` 映射到宿主机回环地址。`CO
 
 1. 用内部 CA 为 `onlyboxes.internal.bielcrystal.com` 签发证书。
 2. 渲染 `nginx/onlyboxes.conf.template` 中的 `${MASTERLION_EGRESS_CIDR}` 和 `${OPERATIONS_CIDR}`，安装到 Nginx。
-3. 让内部 DNS 只解析到专用节点地址，并确保 MasterLion Pod 信任内部 CA。
+3. 让内部 DNS 只解析到专用节点地址，并确保 Masterion Pod 信任内部 CA。
 4. 先运行 `nginx -t`，再重新加载 Nginx。
 
-Dashboard 和 REST/MCP API 共用 HTTPS 入口，模板默认仅允许 MasterLion 的固定出口 CIDR 与运维网段。Worker 与 Console 位于同一节点，直接通过 `127.0.0.1:50051` gRPC 通信，不对网络暴露 gRPC。
+Dashboard 和 REST/MCP API 共用 HTTPS 入口，模板默认仅允许 Masterion 的固定出口 CIDR 与运维网段。Worker 与 Console 位于同一节点，直接通过 `127.0.0.1:50051` gRPC 通信，不对网络暴露 gRPC。
 
 ## 4. 注册并启动 Worker
 
@@ -42,7 +42,7 @@ Dashboard 和 REST/MCP API 共用 HTTPS 入口，模板默认仅允许 MasterLio
 
 `WORKER_CONSOLE_INSECURE=true` 仅用于同机回环 gRPC；任何跨主机 Worker 都必须在 gRPC 前增加 TLS 网关并移除此设置。
 
-## 5. MasterLion 生产配置
+## 5. Masterion 生产配置
 
 仓库的 production ConfigMap 已设置：
 
@@ -60,7 +60,7 @@ AUTH_DISABLE_EMAIL_PASSWORD=0
 ONLYBOXES_JIT_SIGNING_KEY=<与 Console 相同的随机值>
 ```
 
-默认沿用 MasterLion 的 `ONLYBOXES_JIT_TTL_SEC=1800` 和 `ONLYBOXES_LEASE_TTL_SEC=900`。不要把 Dashboard、Worker 或 JIT 密钥写入 ConfigMap、Git 或命令历史。
+默认沿用 Masterion 的 `ONLYBOXES_JIT_TTL_SEC=1800` 和 `ONLYBOXES_LEASE_TTL_SEC=900`。不要把 Dashboard、Worker 或 JIT 密钥写入 ConfigMap、Git 或命令历史。
 
 ## 6. 出口隔离
 
@@ -82,10 +82,10 @@ Docker 会创建自己的 iptables 规则，因此 Docker/UFW 不能作为唯一
 
 - Python、JavaScript 和 Shell 命令执行
 - 同一会话内的文件写入、读取和状态保持
-- 从 MasterLion 上传文件完成沙箱初始化
+- 从 Masterion 上传文件完成沙箱初始化
 - 生成文件并通过 Aliyun OSS 预签名 URL 导出
-- 停止 Worker 后，MasterLion 返回明确的 Worker 离线错误
-- 临时使用不匹配的 JIT 签名密钥后，MasterLion 返回明确的认证 / 签名错误；测试后立即恢复正确密钥
+- 停止 Worker 后，Masterion 返回明确的 Worker 离线错误
+- 临时使用不匹配的 JIT 签名密钥后，Masterion 返回明确的认证 / 签名错误；测试后立即恢复正确密钥
 - Onlyboxes Dashboard 无法注册新账号，公网无法访问 Console HTTP/gRPC，沙箱无法访问未放行的公网地址
 
 本部署包不会自动构建镜像、修改防火墙或执行 K8s/Onlyboxes rollout；这些步骤必须在发布确认后由运维流程执行。

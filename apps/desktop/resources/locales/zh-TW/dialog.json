@@ -11,7 +11,7 @@
   "error.detail": "操作過程中發生錯誤，請稍後重試",
   "error.message": "發生錯誤",
   "error.title": "錯誤",
-  "fullDiskAccess.message": "MasterLion 需要完整磁碟存取權限以讀取檔案並啟用知識庫功能。請在系統設定中授予存取權限。",
+  "fullDiskAccess.message": "Masterion 需要完整磁碟存取權限以讀取檔案並啟用知識庫功能。請在系統設定中授予存取權限。",
   "fullDiskAccess.openSettings": "開啟設定",
   "fullDiskAccess.skip": "稍後",
   "fullDiskAccess.title": "需要完整磁碟存取權限",

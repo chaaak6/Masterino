@@ -9,7 +9,7 @@ export default {
   'alert.cloud.title': '{{name}} beta is live',
   'agentOnboardingPromo.actionLabel': 'Try it now',
   'agentOnboardingPromo.description':
-    'Set up your agent teams in a quick chat with MasterLion. Your existing agents remain unchanged.',
+    'Set up your agent teams in a quick chat with Masterion. Your existing agents remain unchanged.',
   'agentOnboardingPromo.title': 'Quick Wizard',
   'appLoading.appIdle': 'Ready to start',
   'appLoading.appInitializing': 'Application is starting...',
@@ -34,10 +34,10 @@ export default {
   'botIntegrationBanner.dismiss': 'Dismiss',
   'botIntegrationBanner.title': 'Create your own Bot Channel',
   'messengerBanner.dismiss': 'Dismiss',
-  'messengerBanner.title': 'Talk to MasterLion on your favorite messaging apps',
+  'messengerBanner.title': 'Talk to Masterion on your favorite messaging apps',
   'branching': 'Create Subtopic',
   'branchingDisable':
-    'The "Sub-topic" feature is unavailable in the current mode. To use this feature, please switch to Postgres/Pglite DB mode or use MasterLion Cloud.',
+    'The "Sub-topic" feature is unavailable in the current mode. To use this feature, please switch to Postgres/Pglite DB mode or use Masterion Cloud.',
   'branchingRequiresSavedTopic':
     'Current topic is not saved, please save it first to use subtopic feature',
   'cancel': 'Cancel',
@@ -127,7 +127,7 @@ export default {
   'cmdk.askAIHeadingEmpty': 'Choose an AI feature',
   'cmdk.askAgentHeading': 'Ask Agent',
   'cmdk.askAgentPlaceholder': 'Ask {{agent}} something...',
-  'cmdk.askLobeAI': 'Ask MasterLion',
+  'cmdk.askLobeAI': 'Ask Masterion',
   'cmdk.community': 'Community',
   'cmdk.communitySupport': 'Community Support',
   'cmdk.contactUs': 'Contact Us',

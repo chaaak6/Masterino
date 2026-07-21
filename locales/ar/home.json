@@ -44,7 +44,7 @@
   "project.create": "مشروع جديد",
   "project.deleteConfirm": "سيتم حذف هذا المشروع ولن يمكن استعادته. أكد للمتابعة.",
   "recommendations.heteroAgent.cta": "أضف الوكيل",
-  "recommendations.heteroAgent.description": "تم اكتشاف واجهة الأوامر {{name}} على هذا الجهاز — أضف وكيل {{name}} للدردشة معه من MasterLion.",
+  "recommendations.heteroAgent.description": "تم اكتشاف واجهة الأوامر {{name}} على هذا الجهاز — أضف وكيل {{name}} للدردشة معه من Masterion.",
   "recommendations.heteroAgent.tag": "وكيل البرمجة",
   "recommendations.heteroAgent.title": "أضف وكيل {{name}}",
   "recommendations.subtitle": "بعض التوصيات لإعدادك",

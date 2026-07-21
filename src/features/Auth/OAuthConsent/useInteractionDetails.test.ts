@@ -19,7 +19,7 @@ describe('fetchInteractionDetails', () => {
   it('returns interaction details on success', async () => {
     const details: OidcInteractionDetailsResponse = {
       clientId: 'lobehub-desktop',
-      clientMetadata: { clientName: 'MasterLion Desktop', isFirstParty: true },
+      clientMetadata: { clientName: 'Masterion Desktop', isFirstParty: true },
       prompt: 'consent',
       redirectUri: 'https://example.com/callback',
       scopes: ['openid', 'profile'],

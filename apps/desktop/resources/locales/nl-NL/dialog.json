@@ -11,7 +11,7 @@
   "error.detail": "Er is een fout opgetreden tijdens de operatie, probeer het later opnieuw",
   "error.message": "Er is een fout opgetreden",
   "error.title": "Fout",
-  "fullDiskAccess.message": "MasterLion heeft volledige schijf toegang nodig om bestanden te lezen en functies van de kennisbank mogelijk te maken. Geef toegang via de Systeeminstellingen.",
+  "fullDiskAccess.message": "Masterion heeft volledige schijf toegang nodig om bestanden te lezen en functies van de kennisbank mogelijk te maken. Geef toegang via de Systeeminstellingen.",
   "fullDiskAccess.openSettings": "Instellingen openen",
   "fullDiskAccess.skip": "Later",
   "fullDiskAccess.title": "Volledige schijf toegang vereist",

@@ -8,7 +8,7 @@ export enum ProtocolSource {
   DEVELOPER = 'developer',
   /** GitHub official */
   GITHUB_OFFICIAL = 'github_official',
-  /** Official MasterLion marketplace */
+  /** Official Masterion marketplace */
   OFFICIAL = 'official',
   /** Third-party marketplace */
   THIRD_PARTY = 'third_party',

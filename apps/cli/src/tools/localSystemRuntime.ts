@@ -44,7 +44,7 @@ export interface LocalSystemToolOutput {
  * interface just requires them, so we fail loudly if one is ever reached.
  */
 const unsupported = (method: string) => (): Promise<never> =>
-  Promise.reject(new Error(`${method} is not supported by the MasterLion CLI`));
+  Promise.reject(new Error(`${method} is not supported by the Masterion CLI`));
 
 /**
  * Adapter wiring the CLI's `@lobechat/local-file-shell` functions (file ops) and

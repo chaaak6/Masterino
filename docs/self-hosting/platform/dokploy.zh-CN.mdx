@@ -1,6 +1,6 @@
 ---
-title: 在 Dokploy 上部署 MasterLion
-description: 本文详细介绍如何在 Dokploy 中部署 MasterLion，包括数据库配置、身份验证服务配置的设置步骤。
+title: 在 Dokploy 上部署 Masterion
+description: 本文详细介绍如何在 Dokploy 中部署 Masterion，包括数据库配置、身份验证服务配置的设置步骤。
 tags:
   - 服务端数据库
   - Postgres
@@ -11,9 +11,9 @@ tags:
   - 环境变量配置
 ---
 
-# 在 Dokploy 上部署 MasterLion
+# 在 Dokploy 上部署 Masterion
 
-本文将详细介绍如何在 Dokploy 中部署 MasterLion。
+本文将详细介绍如何在 Dokploy 中部署 Masterion。
 
 ## 一、准备工作
 
@@ -71,7 +71,7 @@ S3_ENABLE_PATH_STYLE=
 
 ![在 Dokploy 中创建 PostgreSQL 数据库](/blog/assets7006b60baaf62aa0d95cd40456e24afe.webp)
 
-进入创建的数据库，在 External Credentials 设置一个未被占用的端口，使其能能通过外部访问，否则 MasterLion 将无法连接到该数据库。你可以在 External Host 查看 Postgres 数据库连接 URL ，如下：
+进入创建的数据库，在 External Credentials 设置一个未被占用的端口，使其能能通过外部访问，否则 Masterion 将无法连接到该数据库。你可以在 External Host 查看 Postgres 数据库连接 URL ，如下：
 
 ```shell
 postgresql://postgres:wAbLxfXSwkxxxxxx@45.577.281.48:5432/postgres
@@ -81,13 +81,13 @@ postgresql://postgres:wAbLxfXSwkxxxxxx@45.577.281.48:5432/postgres
 
 ![在 Dokploy 中部署数据库](/blog/assets1b9283f9cc5fc5073ff9cffc24880e96.webp)
 
-## 在 Dokploy 上部署 MasterLion
+## 在 Dokploy 上部署 Masterion
 
-点击 Create Service 选择 Application，创建 MasterLion 应用
+点击 Create Service 选择 Application，创建 Masterion 应用
 
-![在 Dokploy 中创建 MasterLion 应用](/blog/assetsb33085e7553d2b7194005b102184553e.webp)
+![在 Dokploy 中创建 Masterion 应用](/blog/assetsb33085e7553d2b7194005b102184553e.webp)
 
-进入创建的 MasterLion 应用，选择你 fork 的 lobehub 项目及分支，点击 Save 保存
+进入创建的 Masterion 应用，选择你 fork 的 lobehub 项目及分支，点击 Save 保存
 
 ![在 Dokploy 中选择仓库和分支](/blog/assetsf0ebf396dbe9559eb3478f48f648a6e2.webp)
 
@@ -124,14 +124,14 @@ S3_ENABLE_PATH_STYLE=
 
 添加完环境变量并保存后，点击 Deploy 进行部署，你可以在 Deployments 处查看部署进程及日志信息
 
-![部署 MasterLion 并查看进度](/blog/assets7c3eab218c0823fa353b1cd23afe21c3.webp)
+![部署 Masterion 并查看进度](/blog/assets7c3eab218c0823fa353b1cd23afe21c3.webp)
 
-部署成功后在 Domains 页面，为你的 MasterLion 应用绑定自己的域名并申请证书。
+部署成功后在 Domains 页面，为你的 Masterion 应用绑定自己的域名并申请证书。
 
 ![绑定域名并申请证书](/blog/assetseebf66254337ce88357629c34e78c08d.webp)
 
-## 验证 MasterLion 是否正常工作
+## 验证 Masterion 是否正常工作
 
-进入你的 MasterLion 网址，如果你点击左上角登录，可以正常显示登录弹窗，那么说明你已经配置成功了，尽情享用吧～
+进入你的 Masterion 网址，如果你点击左上角登录，可以正常显示登录弹窗，那么说明你已经配置成功了，尽情享用吧～
 
-![MasterLion 登录成功](/blog/assets11a8089b511aaa61e8982dea0a3665c5.webp)
+![Masterion 登录成功](/blog/assets11a8089b511aaa61e8982dea0a3665c5.webp)

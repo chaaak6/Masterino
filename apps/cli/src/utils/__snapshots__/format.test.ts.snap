@@ -30,7 +30,7 @@ exports[`printBoxTable > should render a table with title and multi-line cells 1
 exports[`printBoxTable > should render the usage table format 1`] = `
 "
  ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- │                    [1mMasterLion Token Usage Report - Monthly (2026-03)[22m                     │
+ │                     [1mMasterion Token Usage Report - Monthly (2026-03)[22m                     │
  ╰──────────────────────────────────────────────────────────────────────────────────────────╯
 
 ┌────────────┬────────────────────────┬───────────┬─────────┬───────────┬──────────┬───────┐

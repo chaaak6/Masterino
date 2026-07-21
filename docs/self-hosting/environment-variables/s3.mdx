@@ -12,11 +12,11 @@ tags:
 
 # Configuring S3 Storage Service
 
-MasterLion supports multimodal AI sessions, including the ability to upload unstructured data such as images and files to large language models. To optimize storage and performance, we use S3-compatible file storage services to store image files and support file upload/knowledge base functionality.
+Masterion supports multimodal AI sessions, including the ability to upload unstructured data such as images and files to large language models. To optimize storage and performance, we use S3-compatible file storage services to store image files and support file upload/knowledge base functionality.
 
 ## Alibaba Cloud OSS / Tencent Cloud COS
 
-MasterLion uses the AWS S3-compatible API. Alibaba Cloud OSS and Tencent Cloud COS can be used without a dedicated storage adapter as long as their S3-compatible endpoint is configured.
+Masterion uses the AWS S3-compatible API. Alibaba Cloud OSS and Tencent Cloud COS can be used without a dedicated storage adapter as long as their S3-compatible endpoint is configured.
 
 Recommended deployment defaults:
 
@@ -119,7 +119,7 @@ If you are replacing a local RustFS deployment without migrating old objects, on
 - Default: undefined
 - Example: `1`
 
-When set to `1`, MasterLion will convert images to base64 encoding before uploading them to the LLM model. When encountering the following error, please consider configuring this environment variable to `1`:
+When set to `1`, Masterion will convert images to base64 encoding before uploading them to the LLM model. When encountering the following error, please consider configuring this environment variable to `1`:
 
 ```log
 Route: [xai] ProviderBizError: Fetching images over plain http:// is not supported.
@@ -132,4 +132,4 @@ Route: [xai] ProviderBizError: Fetching images over plain http:// is not support
 - Default: undefined
 - Example: `1`
 
-When set to `1`, MasterLion will convert videos to base64 encoding before uploading them to the LLM model.
+When set to `1`, Masterion will convert videos to base64 encoding before uploading them to the LLM model.

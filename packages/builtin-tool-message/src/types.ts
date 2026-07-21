@@ -63,7 +63,7 @@ export const MessageApiName = {
   // ==================== System Bot Messenger Management ====================
   // Operates on `messenger_installations` (workspace-scoped OAuth installs)
   // and `messenger_account_links` (per-user routing decisions). Mirrors the
-  // per-agent bot CRUD surface but for the MasterLion System Bot, which can't
+  // per-agent bot CRUD surface but for the Masterion System Bot, which can't
   // be created via tool calls (OAuth requires browser flow).
   /** List the current user's System Bot installations across workspaces. */
   listMessengers: 'listMessengers',
@@ -71,7 +71,7 @@ export const MessageApiName = {
   getMessengerDetail: 'getMessengerDetail',
   /** Revoke a workspace install (cascades to all users in that workspace). */
   uninstallMessenger: 'uninstallMessenger',
-  /** List the platforms where the user can install the MasterLion System Bot. */
+  /** List the platforms where the user can install the Masterion System Bot. */
   listMessengerPlatforms: 'listMessengerPlatforms',
   /** List the user's account links — one row per (platform, tenant). */
   listMessengerLinks: 'listMessengerLinks',

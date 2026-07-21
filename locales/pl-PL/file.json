@@ -77,7 +77,7 @@
   "menu.allFiles": "Wszystkie pliki",
   "menu.allPages": "Wszystkie strony",
   "networkError": "Nie udało się pobrać bibliotek. Sprawdź połączenie sieciowe i spróbuj ponownie.",
-  "notSupportGuide.desc": "Obecny tryb wdrożenia nie obsługuje zarządzania plikami. Przełącz się na <1>tryb wdrożenia z bazą danych serwera</1> lub skorzystaj z <3>MasterLion Cloud</3>.",
+  "notSupportGuide.desc": "Obecny tryb wdrożenia nie obsługuje zarządzania plikami. Przełącz się na <1>tryb wdrożenia z bazą danych serwera</1> lub skorzystaj z <3>Masterion Cloud</3>.",
   "notSupportGuide.features.allKind.desc": "Obsługuje popularne typy plików, w tym formaty stron takie jak Word, PPT, Excel, PDF, TXT oraz popularne pliki kodu jak JS i Python.",
   "notSupportGuide.features.allKind.title": "Obsługa wielu typów plików",
   "notSupportGuide.features.embeddings.desc": "Wykorzystuje wydajne modele wektorowe do wektoryzacji fragmentów tekstu, umożliwiając semantyczne przeszukiwanie zawartości plików.",

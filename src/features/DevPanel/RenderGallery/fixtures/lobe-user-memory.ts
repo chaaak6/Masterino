@@ -28,7 +28,7 @@ export default defineFixtures({
         title: 'Preview workflow preference',
         withPreference: {
           appContext: {
-            app: 'MasterLion Desktop',
+            app: 'Masterion Desktop',
             feature: 'Builtin tool rendering',
             surface: '/devtools',
           },

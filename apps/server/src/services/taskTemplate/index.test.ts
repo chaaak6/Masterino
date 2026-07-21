@@ -63,7 +63,7 @@ describe('TaskTemplateService.listDailyRecommend', () => {
     mockGetTaskTemplateRecommendations.mockResolvedValue({ items: [template] });
   });
 
-  it('returns an empty list without calling Market when MasterLion market recommendations are disabled', async () => {
+  it('returns an empty list without calling Market when Masterion market recommendations are disabled', async () => {
     process.env.MASTERLION_ENABLE_MARKET_RECOMMENDATIONS = '0';
     const service = new TaskTemplateService('user-1');
 

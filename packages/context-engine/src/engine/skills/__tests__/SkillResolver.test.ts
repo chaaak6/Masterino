@@ -20,9 +20,9 @@ describe('SkillResolver', () => {
       name: 'Agent Browser',
     },
     {
-      description: 'MasterLion management',
+      description: 'Masterion management',
       identifier: 'lobehub-cli',
-      name: 'MasterLion CLI',
+      name: 'Masterion CLI',
     },
   ];
 

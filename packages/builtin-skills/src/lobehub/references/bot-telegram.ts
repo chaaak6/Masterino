@@ -54,7 +54,7 @@ lh bot connect <botId>
 ## Notes
 
 - **App ID** is the numeric bot ID extracted from the token prefix (e.g. token \`987654321:XYZ...\` → app-id \`987654321\`)
-- **Secret Token** (optional): a custom string you define; MasterLion includes it in webhook requests so you can verify they genuinely come from MasterLion — leave blank unless you have a security requirement
+- **Secret Token** (optional): a custom string you define; Masterion includes it in webhook requests so you can verify they genuinely come from Masterion — leave blank unless you have a security requirement
 - Telegram does not have native message search; use \`lh bot message read\` with pagination instead
 - If you lose the token, retrieve it by sending \`/token\` (then select your bot) to @BotFather
 `;

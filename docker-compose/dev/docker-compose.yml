@@ -7,7 +7,7 @@ services:
     ports:
       - '${RUSTFS_PORT}:9000' # RustFS API
       - '9001:9001' # RustFS Console
-      - '${LOBE_PORT}:3210' # MasterLion
+      - '${LOBE_PORT}:3210' # Masterion
     command: tail -f /dev/null
     networks:
       - masterlion-network
@@ -102,7 +102,7 @@ services:
           ]
         }
         EOF
-        mc cors set "rustfs/lobe" /tmp/rustfs-cors.json || echo "RustFS CORS API is unavailable; browser uploads use the MasterLion same-origin proxy."
+        mc cors set "rustfs/lobe" /tmp/rustfs-cors.json || echo "RustFS CORS API is unavailable; browser uploads use the Masterion same-origin proxy."
     restart: 'no'
     networks:
       - masterlion-network

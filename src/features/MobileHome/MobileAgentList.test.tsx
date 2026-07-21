@@ -22,7 +22,7 @@ vi.mock('@/store/agent', () => ({
       agentMap: {
         'inbox-agent': {
           avatar: '🦁',
-          title: 'MasterLion',
+          title: 'Masterion',
         },
       },
       builtinAgentIdMap: {

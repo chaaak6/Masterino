@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`DocLoader > should aggregate content correctly > aggregated_content 1`] = `
-"MasterLion legacy DOC fixture
+"Masterion legacy DOC fixture
 This text fallback fixture verifies DocLoader behavior in CI.
 It uses a .doc extension because the parser still receives legacy Word paths."
 `;
@@ -14,7 +14,7 @@ exports[`DocLoader > should load pages correctly from a DOC file 1`] = `
     "metadata": {
       "pageNumber": 1,
     },
-    "pageContent": "MasterLion legacy DOC fixture
+    "pageContent": "Masterion legacy DOC fixture
 This text fallback fixture verifies DocLoader behavior in CI.
 It uses a .doc extension because the parser still receives legacy Word paths.",
   },

@@ -2,7 +2,7 @@
 // if you want to use it in the commercial usage
 // please contact us for more information: ai@bielcrystal.com
 
-export const LOBE_CHAT_CLOUD = 'MasterLion Cloud';
+export const LOBE_CHAT_CLOUD = 'Masterion Cloud';
 
 export const BRANDING_NAME = '小宗狮';
 export const BRANDING_LOGO_URL = '/brand/masterlion/logo.png';

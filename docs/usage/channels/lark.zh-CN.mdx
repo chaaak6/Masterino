@@ -1,6 +1,6 @@
 ---
-title: 将 MasterLion 连接到 Lark
-description: 了解如何创建 Lark 自定义应用并将其连接到您的 MasterLion 代理作为消息渠道，使您的 AI 助手能够在 Lark 聊天中与团队成员互动。
+title: 将 Masterion 连接到 Lark
+description: 了解如何创建 Lark 自定义应用并将其连接到您的 Masterion 代理作为消息渠道，使您的 AI 助手能够在 Lark 聊天中与团队成员互动。
 tags:
   - Lark
   - 消息渠道
@@ -8,15 +8,15 @@ tags:
   - 集成
 ---
 
-# 将 MasterLion 连接到 Lark
+# 将 Masterion 连接到 Lark
 
-通过将 Lark 渠道连接到您的 MasterLion 代理，团队成员可以直接在 Lark 的私聊和群组对话中与 AI 助手互动。
+通过将 Lark 渠道连接到您的 Masterion 代理，团队成员可以直接在 Lark 的私聊和群组对话中与 AI 助手互动。
 
 > 如果您使用的是中国版（飞书），请参阅[飞书设置指南](/docs/usage/channels/feishu)。
 
 ## 前置条件
 
-- 一个拥有有效订阅的 MasterLion 账户
+- 一个拥有有效订阅的 Masterion 账户
 - 一个拥有创建企业应用权限的 Lark 账户
 
 ## 第一步：创建 Lark 应用
@@ -28,7 +28,7 @@ tags:
 
   ### 创建企业应用
 
-  点击 **Create Enterprise App**。填写应用名称（例如 "MasterLion Assistant"）、描述和图标，然后提交表单。
+  点击 **Create Enterprise App**。填写应用名称（例如 "Masterion Assistant"）、描述和图标，然后提交表单。
 
   ![](/blog/assetsa8003533498461272ea15a19407db9f4.webp)
 
@@ -86,12 +86,12 @@ tags:
   进入 **App Capability** → **Bot**。开启机器人功能并设置您喜欢的机器人名称。
 </Steps>
 
-## 第三步：在 MasterLion 中配置 Lark
+## 第三步：在 Masterion 中配置 Lark
 
 <Steps>
   ### 打开渠道设置
 
-  在 MasterLion 中，导航到您的代理设置，然后选择 **渠道** 标签。点击平台列表中的 **Lark**。
+  在 Masterion 中，导航到您的代理设置，然后选择 **渠道** 标签。点击平台列表中的 **Lark**。
 
   ### 填写应用凭证
 
@@ -118,7 +118,7 @@ tags:
 
   ### 配置请求 URL
 
-  将您从 MasterLion 复制的 **Event Subscription URL** 粘贴到 **Request URL** 字段中。平台会自动验证端点。
+  将您从 Masterion 复制的 **Event Subscription URL** 粘贴到 **Request URL** 字段中。平台会自动验证端点。
 
   ### 添加消息事件
 
@@ -126,7 +126,7 @@ tags:
 
   - `im.message.receive_v1` — 当收到消息时触发
 
-  这将使您的应用能够接收消息并将其转发到 MasterLion。
+  这将使您的应用能够接收消息并将其转发到 Masterion。
 
   ![](/blog/assets313dfd5108d6fade542c846a87e2aa5a.webp)
 
@@ -134,7 +134,7 @@ tags:
 
   配置事件订阅后，您可以在事件订阅页面顶部的 **Encryption Strategy** 中找到 **Verification Token** 和 **Encrypt Key**。
 
-  返回 MasterLion 的渠道设置，填写：
+  返回 Masterion 的渠道设置，填写：
 
   - **Verification Token** — 用于验证 webhook 事件是否来自 Lark
   - **Encrypt Key**（可选）— 用于解密加密事件负载
@@ -160,7 +160,7 @@ tags:
 
 ## 第六步：测试连接
 
-回到 MasterLion 的渠道设置，点击 **Test Connection** 以验证凭证。然后在 Lark 中搜索您的机器人名称并发送消息，确认其是否响应。
+回到 Masterion 的渠道设置，点击 **Test Connection** 以验证凭证。然后在 Lark 中搜索您的机器人名称并发送消息，确认其是否响应。
 
 ## 第七步：填写你的平台身份（推荐）
 
@@ -174,7 +174,7 @@ tags:
 - **AI 工具主动推送** — 让 Agent 能主动联系你（提醒、通知），把内部用户引用映射到你的 Lark 账号。
 - **防自锁** — 自动被 **允许的用户** 信任，给同事收紧 bot 时不会把自己挡在外面。
 
-获取方式：先用任意消息私信 bot 一次，查看入站事件 payload 中发送方的 `open_id` 字段，那就是你的。Lark 开发者后台也提供 **User ID 查询** 工具，用手机号 / 邮箱反查 `open_id`。粘贴到 MasterLion 高级设置的 **你的平台用户 ID** 字段。
+获取方式：先用任意消息私信 bot 一次，查看入站事件 payload 中发送方的 `open_id` 字段，那就是你的。Lark 开发者后台也提供 **User ID 查询** 工具，用手机号 / 邮箱反查 `open_id`。粘贴到 Masterion 高级设置的 **你的平台用户 ID** 字段。
 
 > Lark 没有一个 AI 工具能默认指向的 "默认服务器" 概念（bot 通过凭证按租户运行），因此 Lark 渠道不展示 **默认服务器** 字段。
 
@@ -219,8 +219,8 @@ tags:
 
 ## 故障排除
 
-- **Event Subscription URL 验证失败：** 确保您已在 MasterLion 中保存配置，并正确复制了 URL。
+- **Event Subscription URL 验证失败：** 确保您已在 Masterion 中保存配置，并正确复制了 URL。
 - **机器人未响应：** 验证应用已发布并获得批准，机器人功能已启用，并订阅了 `im.message.receive_v1` 事件。
-- **机器人不回私信：** 在 MasterLion 的 **高级设置** 检查 **私信策略**。如果是 `Disabled`，改成 `Open` 或 `Allowlist`；如果是 `Allowlist`，确认发起方的 `open_id` 已加入 **允许的用户 ID**。
+- **机器人不回私信：** 在 Masterion 的 **高级设置** 检查 **私信策略**。如果是 `Disabled`，改成 `Open` 或 `Allowlist`；如果是 `Allowlist`，确认发起方的 `open_id` 已加入 **允许的用户 ID**。
 - **权限错误：** 确保所有所需权限已在开发者门户中添加并获得批准。
-- **测试连接失败：** 仔细检查 App ID 和 App Secret。确保您在 MasterLion 的渠道设置中选择了 "Lark"（而不是 "飞书"）。
+- **测试连接失败：** 仔细检查 App ID 和 App Secret。确保您在 Masterion 的渠道设置中选择了 "Lark"（而不是 "飞书"）。

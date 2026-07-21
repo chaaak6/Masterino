@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="980" height="280" viewBox="0 0 980 280" role="img" aria-labelledby="title desc">
-  <title id="title">小宗狮 MasterLion 横向标识</title>
-  <desc id="desc">纯矢量横向 lockup，包含简化小宗狮图标、小宗狮中文主标和 MasterLion 英文辅标。</desc>
+  <title id="title">小宗狮 Masterion 横向标识</title>
+  <desc id="desc">纯矢量横向 lockup，包含简化小宗狮图标、小宗狮中文主标和 Masterion 英文辅标。</desc>
   <defs>
     <linearGradient id="lockupMane" x1="48" y1="28" x2="230" y2="238" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFFDF4" />
@@ -28,7 +28,7 @@
   </g>
   <g transform="translate(300 67)">
     <text x="0" y="72" fill="#20241F" font-family="Inter, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif" font-size="72" font-weight="800" letter-spacing="0">小宗狮</text>
-    <text x="2" y="132" fill="#007344" font-family="Inter, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif" font-size="42" font-weight="760" letter-spacing="0">MasterLion</text>
+    <text x="2" y="132" fill="#007344" font-family="Inter, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif" font-size="42" font-weight="760" letter-spacing="0">Masterion</text>
     <path d="M5 162h356" stroke="#C9971A" stroke-width="7" stroke-linecap="round" />
     <text x="4" y="205" fill="#6E756B" font-family="Inter, HarmonyOS Sans SC, Microsoft YaHei, system-ui, sans-serif" font-size="24" font-weight="600" letter-spacing="0">AI workspace brand system</text>
   </g>

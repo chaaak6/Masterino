@@ -1,6 +1,6 @@
-# MasterLion CLI
+# Masterion CLI
 
-MasterLion command-line interface for local development, automation, and server interaction.
+Masterion command-line interface for local development, automation, and server interaction.
 
 The executable names currently remain `lh`, `lobe`, and `lobehub` for compatibility with the upstream CLI packaging. Treat those command names as compatibility aliases, not user-facing product names.
 
@@ -19,7 +19,7 @@ The executable names currently remain `lh`, `lobe`, and `lobehub` for compatibil
 
 ## Custom Server URL
 
-By default the CLI connects to `https://aihub.bielcrystal.com`. To point it at a different server, such as a local MasterLion instance:
+By default the CLI connects to `https://aihub.bielcrystal.com`. To point it at a different server, such as a local Masterion instance:
 
 | Method | Command | Persistence |
 | --- | --- | --- |

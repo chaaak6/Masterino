@@ -31,7 +31,7 @@
   "botIntegrationBanner.dismiss": "Ignorer",
   "botIntegrationBanner.title": "Discutez avec Lobe AI dans vos applications de messagerie favorites",
   "branching": "Créer un sous-sujet",
-  "branchingDisable": "La fonctionnalité \"Sous-sujet\" n'est pas disponible dans le mode actuel. Pour l'utiliser, passez en mode base de données Postgres/PGlite ou utilisez MasterLion Cloud.",
+  "branchingDisable": "La fonctionnalité \"Sous-sujet\" n'est pas disponible dans le mode actuel. Pour l'utiliser, passez en mode base de données Postgres/PGlite ou utilisez Masterion Cloud.",
   "branchingRequiresSavedTopic": "Le sujet actuel n'est pas enregistré, veuillez l'enregistrer d'abord pour utiliser la fonction de sous-sujet",
   "cancel": "Annuler",
   "changelog": "Journal des modifications",

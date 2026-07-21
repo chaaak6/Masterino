@@ -18,7 +18,7 @@ const BrandTextLoading = ({ debugId }: BrandTextLoadingProps) => {
     <div className={styles.container} data-debug-id={debugId}>
       <div aria-label="Loading" className={styles.brand} role="status">
         <img
-          alt={isChinese ? '小宗狮 loading' : 'MasterLion loading'}
+          alt={isChinese ? '小宗狮 loading' : 'Masterion loading'}
           className={styles.brandLoading}
           src={loadingSrc}
         />

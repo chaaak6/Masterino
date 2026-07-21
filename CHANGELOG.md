@@ -436,15 +436,15 @@
 
 # Changelog
 
-All notable MasterLion changes are recorded here.
+All notable Masterion changes are recorded here.
 
 ## [0.0.1] - 2026-06-20
 
-Initial MasterLion release for the 小宗狮 internal AI workspace.
+Initial Masterion release for the 小宗狮 internal AI workspace.
 
 ### Added
 
-- Established MasterLion / 小宗狮 branding for the migrated AI Agent workspace.
+- Established Masterion / 小宗狮 branding for the migrated AI Agent workspace.
 - Added the standalone `aihub-db-bridge` service so the main application can consume Aihub read-only account, token, model, quota, and usage data without embedding direct Aihub database access.
 - Added Aihub account binding and provider pages for the real acceptance account `10193226`.
 - Added Aihub model synchronization with user-group ability filtering and token `model_limits` filtering.
@@ -457,7 +457,7 @@ Initial MasterLion release for the 小宗狮 internal AI workspace.
 ### Changed
 
 - Set the project version to `0.0.1`.
-- Renamed user-facing repository documentation from the historical upstream identity to MasterLion.
+- Renamed user-facing repository documentation from the historical upstream identity to Masterion.
 - Updated GitHub metadata to the private repository `chaaak6/MasterLion`.
 - Changed Docker release builds to use cached dependencies and `USE_CN_MIRROR=true` by default in deploy compose.
 - Set `CI=true` in the Docker build environment to avoid pnpm non-TTY module purge failures.

@@ -1,7 +1,7 @@
 ---
-title: Connect MasterLion to Discord
+title: Connect Masterion to Discord
 description: >-
-  Learn how to create a Discord bot and connect it to your MasterLion agent as a
+  Learn how to create a Discord bot and connect it to your Masterion agent as a
   message channel, allowing your AI assistant to interact with users directly in
   Discord servers and direct messages.
 tags:
@@ -11,13 +11,13 @@ tags:
   - Integration
 ---
 
-# Connect MasterLion to Discord
+# Connect Masterion to Discord
 
-By connecting a Discord channel to your MasterLion agent, users can interact with the AI assistant directly through Discord server channels and direct messages.
+By connecting a Discord channel to your Masterion agent, users can interact with the AI assistant directly through Discord server channels and direct messages.
 
 ## Prerequisites
 
-- A MasterLion account with an active subscription
+- A Masterion account with an active subscription
 - A Discord account with **Manage Server** permission on the target server
 
 ## Step 1: Create a Discord Application and Bot
@@ -27,7 +27,7 @@ By connecting a Discord channel to your MasterLion agent, users can interact wit
 
   ![](https://hub-apac-1.lobeobjects.space/docs/83f435317ea2c9c4a2adcbfd74301536.png)
 
-  Visit the [Discord Developer Portal](https://discord.com/developers/applications) and click **New Application**. Give your application a name (e.g., "MasterLion Assistant") and click **Create**.
+  Visit the [Discord Developer Portal](https://discord.com/developers/applications) and click **New Application**. Give your application a name (e.g., "Masterion Assistant") and click **Create**.
 
   ### Create a Bot
 
@@ -65,12 +65,12 @@ By connecting a Discord channel to your MasterLion agent, users can interact wit
   You will need all three values (Bot Token, Application ID, Public Key) in the next step.
 </Steps>
 
-## Step 2: Configure Discord in MasterLion
+## Step 2: Configure Discord in Masterion
 
 <Steps>
   ### Open Channel Settings
 
-  In MasterLion, navigate to your agent's settings, then select the **Channels** tab. Click **Discord** from the platform list.
+  In Masterion, navigate to your agent's settings, then select the **Channels** tab. Click **Discord** from the platform list.
 
   ### Fill in the Credentials
 
@@ -86,7 +86,7 @@ By connecting a Discord channel to your MasterLion agent, users can interact wit
 
   ### Save Configuration
 
-  Click **Save Configuration**. Your credentials will be saved and MasterLion will start listening for Discord events.
+  Click **Save Configuration**. Your credentials will be saved and Masterion will start listening for Discord events.
 </Steps>
 
 ## Step 3: Invite the Bot to Your Server
@@ -123,7 +123,7 @@ By connecting a Discord channel to your MasterLion agent, users can interact wit
 
 ## Step 4: Test the Connection
 
-Back in MasterLion's channel settings for Discord, click **Test Connection** to verify everything is configured correctly. Then send a message to your bot on Discord to confirm it responds.
+Back in Masterion's channel settings for Discord, click **Test Connection** to verify everything is configured correctly. Then send a message to your bot on Discord to confirm it responds.
 
 ## Step 5: Set Your Platform Identity (Recommended)
 
@@ -137,17 +137,17 @@ This is your own Discord user ID, used by:
 - **AI tools push** — lets the agent reach you proactively (reminders, notifications) by mapping its internal user reference to your Discord account.
 - **Anti-lockout** — auto-trusted by **Allowed Users**, so scoping the bot to friends won't accidentally lock you out.
 
-To get it: in Discord, open **User Settings → Advanced** and turn on **Developer Mode**. Then right-click your own username anywhere in Discord and choose **Copy User ID**. Paste the numeric ID into **Your Platform User ID** in MasterLion's Advanced Settings.
+To get it: in Discord, open **User Settings → Advanced** and turn on **Developer Mode**. Then right-click your own username anywhere in Discord and choose **Copy User ID**. Paste the numeric ID into **Your Platform User ID** in Masterion's Advanced Settings.
 
 ### Default Server
 
 The Discord guild ID the bot's AI tools should default to when you ask it to "list channels", "send to #announcements", or anything else that needs a server context without naming one explicitly. Doesn't affect access control — that's **Group Policy**'s job.
 
-To get it: with **Developer Mode** on, right-click the server name in your server list and choose **Copy Server ID**. Paste it into **Default Server** in MasterLion's Advanced Settings.
+To get it: with **Developer Mode** on, right-click the server name in your server list and choose **Copy Server ID**. Paste it into **Default Server** in Masterion's Advanced Settings.
 
 ## Access Policies
 
-MasterLion gates inbound traffic with three layered settings, all under **Advanced Settings** and all defaulting to permissive.
+Masterion gates inbound traffic with three layered settings, all under **Advanced Settings** and all defaulting to permissive.
 
 ### Allowed User IDs (global)
 

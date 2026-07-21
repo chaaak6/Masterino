@@ -395,7 +395,7 @@ export const MarketAuthProvider = ({ children, isDesktop }: MarketAuthProviderPr
    */
   const signIn = useCallback(async (scene: MarketAuthScene = 'default'): Promise<number | null> => {
     if (!useUserStore.getState().isSignedIn) {
-        throw new Error('MasterLion session required');
+        throw new Error('Masterion session required');
     }
     setAuthScene(scene);
     return new Promise<number | null>((resolve, reject) => {

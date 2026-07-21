@@ -13,7 +13,7 @@
   "consent.redirecting": "Yetkilendirme başarılı, yönlendiriliyorsunuz...",
   "consent.scope.email": "E-posta adresinize erişim",
   "consent.scope.offline_access": "Uygulamanın verilerinize erişmesine izin verin",
-  "consent.scope.openid": "MasterLion hesabınızla kimlik doğrulama",
+  "consent.scope.openid": "Masterion hesabınızla kimlik doğrulama",
   "consent.scope.profile": "Temel profil bilgilerinize erişim (isim, avatar vb.)",
   "consent.scope.sync-read": "Senkronize verilerinizi okuma",
   "consent.scope.sync-write": "Senkronize verilerinizi yazma ve güncelleme",

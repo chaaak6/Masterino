@@ -202,7 +202,7 @@ describe('Aihub provider detail page', () => {
 
     expect(screen.getByText('Aihub绑定情况')).toBeInTheDocument();
     expect(screen.getByText('已绑定')).toHaveAttribute('data-color', 'success');
-    expect(screen.getByText('MasterLion状态')).toBeInTheDocument();
+    expect(screen.getByText('Masterion状态')).toBeInTheDocument();
     expect(screen.getByText('正常')).toBeInTheDocument();
     expect(screen.getByLabelText('托管 Token')).toHaveValue('13');
     expect(screen.getByRole('option', { name: 'masterlion-managed' })).toBeInTheDocument();

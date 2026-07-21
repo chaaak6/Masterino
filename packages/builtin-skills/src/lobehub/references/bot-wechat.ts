@@ -14,9 +14,9 @@ WeChat uses **polling** mode (long-polling) — no webhook URL or WebSocket setu
 
 ## Setup: Use the Web UI
 
-WeChat requires a QR code scan to link your account, which is only supported through the MasterLion Web UI:
+WeChat requires a QR code scan to link your account, which is only supported through the Masterion Web UI:
 
-1. Open your agent in MasterLion
+1. Open your agent in Masterion
 2. In the left sidebar, click **消息频道** (Message Channel)
 3. Select **WeChat** from the platform list on the right
 4. A QR code is displayed — scan it with WeChat to authenticate

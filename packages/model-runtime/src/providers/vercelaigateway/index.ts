@@ -80,7 +80,7 @@ export const params = {
   constructorOptions: {
     defaultHeaders: {
       'http-referer': 'https://aihub.bielcrystal.com',
-      'x-title': 'MasterLion',
+      'x-title': 'Masterion',
     },
   },
   debug: {

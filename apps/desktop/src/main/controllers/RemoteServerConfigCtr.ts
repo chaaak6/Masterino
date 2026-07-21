@@ -39,7 +39,7 @@ const logger = createLogger('controllers:RemoteServerConfigCtr');
 
 /**
  * Remote Server Configuration Controller
- * Used to manage custom remote MasterLion server configuration
+ * Used to manage custom remote Masterion server configuration
  */
 export default class RemoteServerConfigCtr extends ControllerModule {
   static override readonly groupName = 'remoteServer';

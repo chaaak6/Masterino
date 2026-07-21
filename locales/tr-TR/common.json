@@ -31,7 +31,7 @@
   "botIntegrationBanner.dismiss": "Kapat",
   "botIntegrationBanner.title": "Favori mesajlaşma uygulamalarınızda Lobe AI ile konuşun",
   "branching": "Alt Konu Oluştur",
-  "branchingDisable": "\"Alt Konu\" özelliği mevcut modda kullanılamaz. Bu özelliği kullanmak için lütfen Postgres/Pglite DB moduna geçin veya MasterLion Cloud'u kullanın.",
+  "branchingDisable": "\"Alt Konu\" özelliği mevcut modda kullanılamaz. Bu özelliği kullanmak için lütfen Postgres/Pglite DB moduna geçin veya Masterion Cloud'u kullanın.",
   "branchingRequiresSavedTopic": "Geçerli konu kaydedilmedi, alt konu özelliğini kullanmak için lütfen önce kaydedin",
   "cancel": "İptal",
   "changelog": "Değişiklik Günlüğü",

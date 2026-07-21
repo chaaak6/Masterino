@@ -11,7 +11,7 @@
   "error.detail": "Si è verificato un errore durante l'operazione, riprovare più tardi",
   "error.message": "Si è verificato un errore",
   "error.title": "Errore",
-  "fullDiskAccess.message": "MasterLion necessita dell'accesso completo al disco per leggere i file e abilitare le funzionalità della base di conoscenza. Si prega di concedere l'accesso nelle Impostazioni di Sistema.",
+  "fullDiskAccess.message": "Masterion necessita dell'accesso completo al disco per leggere i file e abilitare le funzionalità della base di conoscenza. Si prega di concedere l'accesso nelle Impostazioni di Sistema.",
   "fullDiskAccess.openSettings": "Apri Impostazioni",
   "fullDiskAccess.skip": "Più tardi",
   "fullDiskAccess.title": "Accesso Completo al Disco Richiesto",

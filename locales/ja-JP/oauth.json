@@ -13,7 +13,7 @@
   "consent.redirecting": "認証に成功しました。リダイレクト中です...",
   "consent.scope.email": "あなたのメールアドレスにアクセス",
   "consent.scope.offline_access": "クライアントがあなたのデータにアクセスすることを許可",
-  "consent.scope.openid": "あなたの MasterLion アカウントで認証",
+  "consent.scope.openid": "あなたの Masterion アカウントで認証",
   "consent.scope.profile": "基本的なプロフィール情報（名前、アバターなど）にアクセス",
   "consent.scope.sync-read": "あなたの同期データを読み取る",
   "consent.scope.sync-write": "あなたの同期データを書き込み、更新する",

@@ -63,7 +63,7 @@ describe('GET /oidc/interaction/[uid]', () => {
       prompt: { name: 'consent' },
     });
     mocks.getClientMetadata.mockResolvedValue({
-      client_name: 'MasterLion Desktop',
+      client_name: 'Masterion Desktop',
       logo_uri: 'https://example.com/logo.png',
     });
 
@@ -73,7 +73,7 @@ describe('GET /oidc/interaction/[uid]', () => {
     await expect(response.json()).resolves.toEqual({
       clientId: 'lobehub-desktop',
       clientMetadata: {
-        clientName: 'MasterLion Desktop',
+        clientName: 'Masterion Desktop',
         isFirstParty: true,
         logo: 'https://example.com/logo.png',
       },
@@ -110,7 +110,7 @@ describe('GET /oidc/interaction/[uid]', () => {
       params: { client_id: 'lobehub-desktop' },
       prompt: { name: 'login' },
     });
-    mocks.getClientMetadata.mockResolvedValue({ client_name: 'MasterLion Desktop' });
+    mocks.getClientMetadata.mockResolvedValue({ client_name: 'Masterion Desktop' });
 
     const response = await GET(createRequest('uid-3'), createProps('uid-3'));
 

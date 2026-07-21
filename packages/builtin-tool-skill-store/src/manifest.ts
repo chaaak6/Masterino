@@ -96,7 +96,7 @@ export const SkillStoreManifest: BuiltinToolManifest = {
   meta: {
     avatar: '🏪',
     description:
-      'Browse and install agent skills from the MasterLion marketplace. MUST USE this tool when users mention: "SKILL.md", "MasterLion Skills", "skill store", "install skill", "search skill", or need extended capabilities.',
+      'Browse and install agent skills from the Masterion marketplace. MUST USE this tool when users mention: "SKILL.md", "Masterion Skills", "skill store", "install skill", "search skill", or need extended capabilities.',
     title: 'Skill Store',
   },
   systemRole: systemPrompt,

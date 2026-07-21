@@ -1,7 +1,7 @@
 ---
-title: Connect MasterLion to iMessage
+title: Connect Masterion to iMessage
 description: >-
-  Learn how to connect iMessage to your MasterLion agent through the local MasterLion Desktop BlueBubbles bridge.
+  Learn how to connect iMessage to your Masterion agent through the local Masterion Desktop BlueBubbles bridge.
 
 tags:
   - iMessage
@@ -11,13 +11,13 @@ tags:
   - Integration
 ---
 
-# Connect MasterLion to iMessage
+# Connect Masterion to iMessage
 
-MasterLion connects to iMessage through [BlueBubbles](https://bluebubbles.app/) running on a Mac signed into Messages. The MasterLion Desktop app runs a local bridge on that same Mac: it receives BlueBubbles webhooks on `127.0.0.1`, forwards them to MasterLion Cloud, and relays the agent's replies back to the local BlueBubbles REST API. BlueBubbles never needs to be exposed to the public internet.
+Masterion connects to iMessage through [BlueBubbles](https://bluebubbles.app/) running on a Mac signed into Messages. The Masterion Desktop app runs a local bridge on that same Mac: it receives BlueBubbles webhooks on `127.0.0.1`, forwards them to Masterion Cloud, and relays the agent's replies back to the local BlueBubbles REST API. BlueBubbles never needs to be exposed to the public internet.
 
 ```text
-iMessage user -> macOS Messages -> BlueBubbles -> MasterLion Desktop bridge -> MasterLion Cloud
-MasterLion agent -> Device Gateway -> MasterLion Desktop bridge -> BlueBubbles -> iMessage user
+iMessage user -> macOS Messages -> BlueBubbles -> Masterion Desktop bridge -> Masterion Cloud
+Masterion agent -> Device Gateway -> Masterion Desktop bridge -> BlueBubbles -> iMessage user
 ```
 
 > **Labs feature:** iMessage is gated behind a Labs toggle. The channel stays a "Coming Soon" placeholder until you enable it in **Settings → Advanced → Labs**.
@@ -26,9 +26,9 @@ MasterLion agent -> Device Gateway -> MasterLion Desktop bridge -> BlueBubbles -
 
 - A Mac signed into the Apple ID you want the bot to use
 - [BlueBubbles Server](https://bluebubbles.app/) installed on that Mac, with a server password set
-- MasterLion Desktop signed in and connected to the Device Gateway (Settings shows the gateway as connected)
+- Masterion Desktop signed in and connected to the Device Gateway (Settings shows the gateway as connected)
 
-> **Private API note:** BlueBubbles sends basic text and attachments through AppleScript out of the box. Advanced features such as typing indicators require the BlueBubbles Private API, which needs SIP disabled / a jailbroken Mac. MasterLion only depends on basic text and attachment send/receive — typing-indicator failures are logged and ignored.
+> **Private API note:** BlueBubbles sends basic text and attachments through AppleScript out of the box. Advanced features such as typing indicators require the BlueBubbles Private API, which needs SIP disabled / a jailbroken Mac. Masterion only depends on basic text and attachment send/receive — typing-indicator failures are logged and ignored.
 
 ## Step 1: Set Up BlueBubbles
 
@@ -39,7 +39,7 @@ MasterLion agent -> Device Gateway -> MasterLion Desktop bridge -> BlueBubbles -
 
   ### Set a server password
 
-  In BlueBubbles Server, set a strong password. The MasterLion Desktop bridge uses it locally to call the BlueBubbles REST API.
+  In BlueBubbles Server, set a strong password. The Masterion Desktop bridge uses it locally to call the BlueBubbles REST API.
 
   ### Keep it local
 
@@ -51,7 +51,7 @@ MasterLion agent -> Device Gateway -> MasterLion Desktop bridge -> BlueBubbles -
 <Steps>
   ### Open Labs
 
-  In MasterLion, go to **Settings → Advanced** and find the **Labs** section.
+  In Masterion, go to **Settings → Advanced** and find the **Labs** section.
 
   ### Turn on "iMessage Channel"
 
@@ -84,13 +84,13 @@ MasterLion agent -> Device Gateway -> MasterLion Desktop bridge -> BlueBubbles -
 
 ## Step 4: Test the Bot
 
-Have **another person or a second Apple ID** send an iMessage to the Apple ID / phone number signed into the BlueBubbles Mac. BlueBubbles fires a local `new-message` webhook, the Desktop bridge forwards it to MasterLion, and the agent replies in the same conversation.
+Have **another person or a second Apple ID** send an iMessage to the Apple ID / phone number signed into the BlueBubbles Mac. BlueBubbles fires a local `new-message` webhook, the Desktop bridge forwards it to Masterion, and the agent replies in the same conversation.
 
 > **Why a different sender?** Messages the hosted account sends itself are ignored by the `isFromMe` loop guard (so the bot never replies to its own messages). Testing from your own number won't trigger a reply — use a different sender.
 
 ## Feature Notes
 
-- **Markdown** — iMessage receives plain text; MasterLion strips Markdown before sending.
+- **Markdown** — iMessage receives plain text; Masterion strips Markdown before sending.
 - **Attachments** — inbound and outbound attachments are relayed through the bridge and the BlueBubbles attachment APIs.
 - **Typing indicators** — attempted only when the BlueBubbles Private API is available; otherwise they fail silently and don't affect replies.
 - **Group chats** — supported when BlueBubbles includes the `chatGuid` in events; use the `chatGuid` as the allowed-channel ID when scoping group access.
@@ -99,7 +99,7 @@ Have **another person or a second Apple ID** send an iMessage to the Apple ID / 
 ## Troubleshooting
 
 - **iMessage still shows "Coming Soon".** The iMessage Channel lab isn't enabled — turn it on in Settings → Advanced → Labs.
-- **Connect fails with `DEVICE_NOT_FOUND`.** MasterLion Desktop isn't reachable through the Device Gateway. Make sure Desktop is open, signed in, and the gateway shows as connected, then save again.
+- **Connect fails with `DEVICE_NOT_FOUND`.** Masterion Desktop isn't reachable through the Device Gateway. Make sure Desktop is open, signed in, and the gateway shows as connected, then save again.
 - **Test / save fails with a BlueBubbles error.** Recheck the local BlueBubbles URL and password.
 - **Bot never replies.** Confirm the BlueBubbles `new-message` webhook points at `127.0.0.1` and that the sender is not the hosted account itself.
 - **Typing indicator fails but text works.** Expected without the BlueBubbles Private API — safe to ignore.

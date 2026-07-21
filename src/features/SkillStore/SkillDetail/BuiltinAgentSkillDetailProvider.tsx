@@ -39,7 +39,7 @@ export const BuiltinAgentSkillDetailProvider = ({
   });
 
   const value: DetailContextValue = {
-    author: 'MasterLion',
+    author: 'Masterion',
     authorUrl: 'https://aihub.bielcrystal.com',
     config: null as any,
     description: skill.description,

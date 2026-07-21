@@ -15,7 +15,7 @@ interface WebSocketStreamOptions extends StreamOptions {
   gatewayUrl: string;
   operationId: string;
   /**
-   * MasterLion server URL the gateway should call back to when verifying
+   * Masterion server URL the gateway should call back to when verifying
    * an apiKey token (via `/api/v1/users/me`). Required when
    * `tokenType === 'apiKey'`; ignored for JWT.
    */

@@ -61,7 +61,7 @@ describe('LobeOpenRouterAI - custom features', () => {
       expect(params.constructorOptions).toBeDefined();
       expect(params.constructorOptions.defaultHeaders).toBeDefined();
       expect(params.constructorOptions.defaultHeaders['HTTP-Referer']).toBe('https://aihub.bielcrystal.com');
-      expect(params.constructorOptions.defaultHeaders['X-Title']).toBe('MasterLion');
+      expect(params.constructorOptions.defaultHeaders['X-Title']).toBe('Masterion');
     });
 
     it('should have debug configuration', () => {

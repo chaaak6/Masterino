@@ -31,7 +31,7 @@
   "botIntegrationBanner.dismiss": "关闭",
   "botIntegrationBanner.title": "创建你自己的消息频道",
   "branching": "创建子话题",
-  "branchingDisable": "「子话题」功能在当前模式下不可用。如需该功能，请切换到 Postgres/Pglite DB 模式或使用 MasterLion Cloud",
+  "branchingDisable": "「子话题」功能在当前模式下不可用。如需该功能，请切换到 Postgres/Pglite DB 模式或使用 Masterion Cloud",
   "branchingRequiresSavedTopic": "当前话题未保存。保存后即可使用子话题",
   "cancel": "取消",
   "changelog": "更新日志",

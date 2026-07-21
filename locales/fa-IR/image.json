@@ -50,7 +50,7 @@
   "generation.metadata.count": "{{count}} تصویر",
   "generation.status.failed": "تولید ناموفق بود",
   "generation.status.generating": "در حال تولید...",
-  "notSupportGuide.desc": "حالت فعلی استقرار از تولید تصویر با هوش مصنوعی پشتیبانی نمی‌کند. به <1>حالت استقرار پایگاه‌داده سرور</1> تغییر دهید یا از <3>MasterLion Cloud</3> استفاده کنید.",
+  "notSupportGuide.desc": "حالت فعلی استقرار از تولید تصویر با هوش مصنوعی پشتیبانی نمی‌کند. به <1>حالت استقرار پایگاه‌داده سرور</1> تغییر دهید یا از <3>Masterion Cloud</3> استفاده کنید.",
   "notSupportGuide.features.fileIntegration.desc": "ادغام عمیق با سیستم مدیریت فایل؛ تصاویر تولیدشده به‌صورت خودکار در سیستم فایل ذخیره می‌شوند تا مدیریت و سازماندهی یکپارچه‌ای فراهم شود.",
   "notSupportGuide.features.fileIntegration.title": "ادغام با سیستم فایل",
   "notSupportGuide.features.llmAssisted.desc": "ترکیب با قابلیت‌های مدل‌های زبانی بزرگ برای بهینه‌سازی هوشمند و گسترش درخواست‌ها، بهبود کیفیت تولید تصویر (به‌زودی).",

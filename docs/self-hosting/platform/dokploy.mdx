@@ -1,10 +1,10 @@
 ---
-title: Deploy MasterLion with database on Dokploy
+title: Deploy Masterion with database on Dokploy
 description: >-
-  Learn how to deploy MasterLion with database on Dokploy with ease, including:
+  Learn how to deploy Masterion with database on Dokploy with ease, including:
   database, authentication and S3 storage service.
 tags:
-  - Deploy MasterLion
+  - Deploy Masterion
   - Vercel Deployment
   - OpenAI API Key
   - Custom Domain Binding
@@ -12,7 +12,7 @@ tags:
 
 # Deploying Server Database Version on Dokploy.
 
-This article will detail how to deploy the server database version of MasterLion.
+This article will detail how to deploy the server database version of Masterion.
 
 ## 1. Preparation Work
 
@@ -70,7 +70,7 @@ Enter the previously created Project, click on Create Service, and select Databa
 
 ![Create PostgreSQL Database in Dokploy](/blog/assets7006b60baaf62aa0d95cd40456e24afe.webp)
 
-Enter the created database and set an unused port in External Credentials to allow external access; otherwise, MasterLion will not be able to connect to the database. You can view the Postgres database connection URL in External Host, as shown below:
+Enter the created database and set an unused port in External Credentials to allow external access; otherwise, Masterion will not be able to connect to the database. You can view the Postgres database connection URL in External Host, as shown below:
 
 ```shell
 postgresql://postgres:wAbLxfXSwkxxxxxx@45.577.281.48:5432/postgres
@@ -80,13 +80,13 @@ Finally, click Deploy to deploy the database.
 
 ![Deploy Database in Dokploy](/blog/assets1b9283f9cc5fc5073ff9cffc24880e96.webp)
 
-## Deploy MasterLion on Dokploy.
+## Deploy Masterion on Dokploy.
 
-Click "Create Service", select "Application", and create the MasterLion application.
+Click "Create Service", select "Application", and create the Masterion application.
 
-![Create MasterLion Application in Dokploy](/blog/assetsb33085e7553d2b7194005b102184553e.webp)
+![Create Masterion Application in Dokploy](/blog/assetsb33085e7553d2b7194005b102184553e.webp)
 
-Enter the created MasterLion application, select the forked lobehub project and branch, and click Save to save.
+Enter the created Masterion application, select the forked lobehub project and branch, and click Save to save.
 
 ![Select Repository and Branch in Dokploy](/blog/assetsf0ebf396dbe9559eb3478f48f648a6e2.webp)
 
@@ -123,14 +123,14 @@ S3_ENABLE_PATH_STYLE=
 
 After adding the environment variables and saving, click Deploy to initiate the deployment. You can check the deployment progress and log information under Deployments.
 
-![Deploy MasterLion and View Progress](/blog/assets7c3eab218c0823fa353b1cd23afe21c3.webp)
+![Deploy Masterion and View Progress](/blog/assets7c3eab218c0823fa353b1cd23afe21c3.webp)
 
-After a successful deployment, bind your own domain to your MasterLion application and request a certificate on the Domains page.
+After a successful deployment, bind your own domain to your Masterion application and request a certificate on the Domains page.
 
 ![Bind Domain and Request Certificate](/blog/assetseebf66254337ce88357629c34e78c08d.webp)
 
-## Check if MasterLion is working properly.
+## Check if Masterion is working properly.
 
-Go to your MasterLion website, and if you click on the login button in the upper left corner and the login pop-up appears normally, it means you have configured it successfully. Enjoy it to the fullest!
+Go to your Masterion website, and if you click on the login button in the upper left corner and the login pop-up appears normally, it means you have configured it successfully. Enjoy it to the fullest!
 
-![MasterLion Login Success](/blog/assets11a8089b511aaa61e8982dea0a3665c5.webp)
+![Masterion Login Success](/blog/assets11a8089b511aaa61e8982dea0a3665c5.webp)

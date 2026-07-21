@@ -1,4 +1,4 @@
-# MasterLion 测试环境部署至 ACK
+# Masterion 测试环境部署至 ACK
 
 目标为深圳 ACK 集群 `c23ea84b986c446d5b3fa9227962e77f4`、Namespace
 `masterlion-test` 和域名 `mlai-test.bielcrystal.com`。测试环境默认使用全新的 PostgreSQL
@@ -52,14 +52,14 @@ bash ./deploy.sh --env test deploy
 bash ./deploy.sh --env test rollout
 ```
 
-此时 PostgreSQL、Redis 和 Aihub DB Bridge 运行，MasterLion 保持 0 副本。检查 PostgreSQL
+此时 PostgreSQL、Redis 和 Aihub DB Bridge 运行，Masterion 保持 0 副本。检查 PostgreSQL
 同时提供 `vector` 与 `pg_search` 扩展。确认数据库与 OSS 配置正确后启动应用：
 
 ```bash
 CONFIRM_DATABASE_READY=masterlion-test bash ./deploy.sh --env test start
 ```
 
-MasterLion 首次启动会执行应用数据库 migration。migration 或 rollout 失败时不要修改 DNS。
+Masterion 首次启动会执行应用数据库 migration。migration 或 rollout 失败时不要修改 DNS。
 
 ## 5. 验收与切换
 
@@ -73,6 +73,6 @@ MasterLion 首次启动会执行应用数据库 migration。migration 或 rollou
 
 ## 6. 回滚
 
-- DNS 切换前失败：不修改 DNS，MasterLion 保持 0 副本。
+- DNS 切换前失败：不修改 DNS，Masterion 保持 0 副本。
 - DNS 切换后失败：执行 `bash ./deploy.sh --env test stop` 并回切 DNS。
 - 不自动删除 Namespace、PVC、云盘、旧服务器或旧 COS；清理必须单独审批。

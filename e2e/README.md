@@ -1,6 +1,6 @@
-# E2E Tests for MasterLion
+# E2E Tests for Masterion
 
-This directory contains end-to-end (E2E) tests for MasterLion using Cucumber (BDD) and Playwright.
+This directory contains end-to-end (E2E) tests for Masterion using Cucumber (BDD) and Playwright.
 
 ## Directory Structure
 

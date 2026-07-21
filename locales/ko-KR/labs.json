@@ -9,7 +9,7 @@
   "features.fleet.title": "Fleet 보기",
   "features.groupChat.desc": "다중 도우미 그룹 채팅 조정 기능을 활성화합니다.",
   "features.groupChat.title": "그룹 채팅 (다중 도우미)",
-  "features.imessage.desc": "로컬 MasterLion Desktop BlueBubbles 브리지를 통해 에이전트를 iMessage에 연결합니다.",
+  "features.imessage.desc": "로컬 Masterion Desktop BlueBubbles 브리지를 통해 에이전트를 iMessage에 연결합니다.",
   "features.imessage.title": "iMessage 채널",
   "features.inputMarkdown.desc": "입력 영역에서 실시간으로 Markdown을 렌더링합니다 (굵은 글씨, 코드 블록, 표 등).",
   "features.inputMarkdown.title": "입력창 Markdown 렌더링",

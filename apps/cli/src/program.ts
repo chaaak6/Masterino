@@ -44,7 +44,7 @@ export function createProgram() {
 
   program
     .name('lh')
-    .description('MasterLion CLI - manage and connect to MasterLion services')
+    .description('Masterion CLI - manage and connect to Masterion services')
     .version(version);
 
   registerLoginCommand(program);

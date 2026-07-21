@@ -9,7 +9,7 @@
   "features.fleet.title": "Flottenansicht",
   "features.groupChat.desc": "Koordination von Gruppenchats mit mehreren Agenten aktivieren.",
   "features.groupChat.title": "Gruppenchat (Multi-Agenten)",
-  "features.imessage.desc": "Verbinden Sie Agenten mit iMessage über die lokale MasterLion Desktop BlueBubbles-Bridge.",
+  "features.imessage.desc": "Verbinden Sie Agenten mit iMessage über die lokale Masterion Desktop BlueBubbles-Bridge.",
   "features.imessage.title": "iMessage-Kanal",
   "features.inputMarkdown.desc": "Markdown in Echtzeit im Eingabebereich rendern (fetter Text, Codeblöcke, Tabellen usw.).",
   "features.inputMarkdown.title": "Markdown-Darstellung im Eingabefeld",
