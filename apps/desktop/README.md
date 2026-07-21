@@ -1,6 +1,6 @@
-# 🤯 MasterLion Desktop Application
+# 🤯 Masterion Desktop Application
 
-MasterLion Desktop is a cross-platform desktop application for [MasterLion](https://github.com/chaaak6/MasterLion), built with Electron, providing a more native desktop experience and functionality.
+Masterion Desktop is a cross-platform desktop application for [Masterion](https://github.com/chaaak6/MasterLion), built with Electron, providing a more native desktop experience and functionality.
 
 ## ✨ Features
 
@@ -11,7 +11,7 @@ MasterLion Desktop is a cross-platform desktop application for [MasterLion](http
 - **🔒 Secure & Reliable**: macOS notarized, encrypted token storage, secure OAuth flow
 - **📦 Multiple Release Channels**: Stable, beta, and nightly build versions
 - **⚡ Advanced Window Management**: Multi-window architecture with theme synchronization
-- **🔗 Remote Server Sync**: Secure data synchronization with remote MasterLion instances
+- **🔗 Remote Server Sync**: Secure data synchronization with remote Masterion instances
 - **🎯 Developer Tools**: Built-in development panel and comprehensive debugging tools
 
 ## 🚀 Development Setup
@@ -347,7 +347,7 @@ Desktop application development involves complex cross-platform considerations a
 
 ### Contribution Process
 
-1. Fork or branch from the [MasterLion repository](https://github.com/chaaak6/MasterLion)
+1. Fork or branch from the [Masterion repository](https://github.com/chaaak6/MasterLion)
 2. Set up the desktop development environment following our setup guide
 3. Make your changes to the desktop application
 4. Submit a Pull Request describing:

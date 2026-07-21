@@ -1,13 +1,13 @@
 ---
-title: Configuration of Google SSO Authentication Service for MasterLion
+title: Configuration of Google SSO Authentication Service for Masterion
 description: >-
-  Learn how to configure Google SSO Authentication Service for MasterLion, create
+  Learn how to configure Google SSO Authentication Service for Masterion, create
   OAuth applications, add users, and set up environment variables for seamless
   integration.
 tags:
   - Google SSO
   - OAuth 2.0
-  - MasterLion
+  - Masterion
   - Authentication
   - Google Cloud
 ---
@@ -32,7 +32,7 @@ tags:
   ```
 
   <Callout type={'info'}>
-    - You can add or modify redirect URIs after registration, but make sure the URL matches your deployed MasterLion instance.
+    - You can add or modify redirect URIs after registration, but make sure the URL matches your deployed Masterion instance.
     - Replace "your-domain" with your actual domain.
   </Callout>
 
@@ -49,12 +49,12 @@ tags:
 
   ### Configure Environment Variables
 
-  When deploying MasterLion, configure the following environment variables:
+  When deploying Masterion, configure the following environment variables:
 
   | Environment Variable      | Type     | Description                                                                                                          |
   | ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
   | `NEXT_AUTH_SECRET`        | Required | Key to encrypt Auth.js session tokens. Generate using: `openssl rand -base64 32`                                     |
-  | `NEXT_AUTH_SSO_PROVIDERS` | Required | Select the single sign-on provider for MasterLion. Use `google` for Google SSO.                                         |
+  | `NEXT_AUTH_SSO_PROVIDERS` | Required | Select the single sign-on provider for Masterion. Use `google` for Google SSO.                                         |
   | `AUTH_GOOGLE_ID`          | Required | Client ID from Google Cloud OAuth.                                                                                   |
   | `AUTH_GOOGLE_SECRET`      | Required | Client Secret from Google Cloud OAuth.                                                                               |
   | `AUTH_URL`                | Required | Specifies the callback address for Auth.js when performing OAuth authentication. E.g. `https://your-domain/api/auth` |
@@ -65,7 +65,7 @@ tags:
 </Steps>
 
 <Callout>
-  After successful deployment, users can sign in to MasterLion using their Google accounts (those added as Test Users, if not in production).
+  After successful deployment, users can sign in to Masterion using their Google accounts (those added as Test Users, if not in production).
 </Callout>
 
 ## Advanced Configuration

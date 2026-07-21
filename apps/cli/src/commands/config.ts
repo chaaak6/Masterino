@@ -153,7 +153,7 @@ export function registerConfigCommand(program: Command) {
 
       const monthLabel = options.month || new Date().toISOString().slice(0, 7);
       const mode = options.daily ? 'Daily' : 'Monthly';
-      printBoxTable(columns, rows, `MasterLion Token Usage Report - ${mode} (${monthLabel})`);
+      printBoxTable(columns, rows, `Masterion Token Usage Report - ${mode} (${monthLabel})`);
 
       // Calendar heatmap - fetch past 12 months
       const now = new Date();

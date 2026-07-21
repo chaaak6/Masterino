@@ -169,7 +169,7 @@ jobs:
           VERSION="${{ env.VERSION }}"
 
           # Configure git
-          git config --global user.name "MasterLion Bot"
+          git config --global user.name "Masterion Bot"
           git config --global user.email "ai@bielcrystal.com"
 
           # Commit changes (if any) and push

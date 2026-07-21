@@ -1,7 +1,7 @@
 ---
-title: 将 MasterLion 连接到 iMessage
+title: 将 Masterion 连接到 iMessage
 description: >-
-  了解如何通过 MasterLion Desktop 本地 BlueBubbles 桥接，将 iMessage 连接到你的 MasterLion 智能体。
+  了解如何通过 Masterion Desktop 本地 BlueBubbles 桥接，将 iMessage 连接到你的 Masterion 智能体。
 
 tags:
   - iMessage
@@ -11,13 +11,13 @@ tags:
   - 集成
 ---
 
-# 将 MasterLion 连接到 iMessage
+# 将 Masterion 连接到 iMessage
 
-MasterLion 通过运行在已登录 Messages 的 Mac 上的 [BlueBubbles](https://bluebubbles.app/) 连接 iMessage。MasterLion Desktop 在同一台 Mac 上运行一个本地桥接：它在 `127.0.0.1` 接收 BlueBubbles 的 webhook，转发到 MasterLion 云端，并把智能体的回复经本地 BlueBubbles REST API 发回。BlueBubbles 无需暴露到公网。
+Masterion 通过运行在已登录 Messages 的 Mac 上的 [BlueBubbles](https://bluebubbles.app/) 连接 iMessage。Masterion Desktop 在同一台 Mac 上运行一个本地桥接：它在 `127.0.0.1` 接收 BlueBubbles 的 webhook，转发到 Masterion 云端，并把智能体的回复经本地 BlueBubbles REST API 发回。BlueBubbles 无需暴露到公网。
 
 ```text
-iMessage 用户 -> macOS Messages -> BlueBubbles -> MasterLion Desktop 桥接 -> MasterLion 云端
-MasterLion 智能体 -> Device Gateway -> MasterLion Desktop 桥接 -> BlueBubbles -> iMessage 用户
+iMessage 用户 -> macOS Messages -> BlueBubbles -> Masterion Desktop 桥接 -> Masterion 云端
+Masterion 智能体 -> Device Gateway -> Masterion Desktop 桥接 -> BlueBubbles -> iMessage 用户
 ```
 
 > **Labs 功能：** iMessage 由 Labs 开关控制。在你于 **设置 → 高级 → Labs** 中开启之前，该渠道会一直显示为 “即将推出” 占位。
@@ -26,9 +26,9 @@ MasterLion 智能体 -> Device Gateway -> MasterLion Desktop 桥接 -> BlueBubbl
 
 - 一台已登录目标 Apple ID 的 Mac
 - 该 Mac 上安装了 [BlueBubbles Server](https://bluebubbles.app/) 并设置了服务器密码
-- MasterLion Desktop 已登录，且已连接 Device Gateway（设置中显示网关已连接）
+- Masterion Desktop 已登录，且已连接 Device Gateway（设置中显示网关已连接）
 
-> **Private API 说明：** BlueBubbles 默认通过 AppleScript 发送基础文本和附件。打字指示等高级功能需要 BlueBubbles Private API（需关闭 SIP / 越狱的 Mac）。MasterLion 只依赖基础的文本与附件收发 —— 打字指示失败会被记录并忽略，不影响回复。
+> **Private API 说明：** BlueBubbles 默认通过 AppleScript 发送基础文本和附件。打字指示等高级功能需要 BlueBubbles Private API（需关闭 SIP / 越狱的 Mac）。Masterion 只依赖基础的文本与附件收发 —— 打字指示失败会被记录并忽略，不影响回复。
 
 ## 第 1 步：配置 BlueBubbles
 
@@ -39,7 +39,7 @@ MasterLion 智能体 -> Device Gateway -> MasterLion Desktop 桥接 -> BlueBubbl
 
   ### 设置服务器密码
 
-  在 BlueBubbles Server 中设置一个强密码。MasterLion Desktop 桥接会在本地用它调用 BlueBubbles REST API。
+  在 BlueBubbles Server 中设置一个强密码。Masterion Desktop 桥接会在本地用它调用 BlueBubbles REST API。
 
   ### 保持本地访问
 
@@ -51,7 +51,7 @@ MasterLion 智能体 -> Device Gateway -> MasterLion Desktop 桥接 -> BlueBubbl
 <Steps>
   ### 打开 Labs
 
-  在 MasterLion 中进入 **设置 → 高级**，找到 **Labs** 区域。
+  在 Masterion 中进入 **设置 → 高级**，找到 **Labs** 区域。
 
   ### 打开 “iMessage Channel”
 
@@ -84,13 +84,13 @@ MasterLion 智能体 -> Device Gateway -> MasterLion Desktop 桥接 -> BlueBubbl
 
 ## 第 4 步：测试 Bot
 
-让**另一个人或第二个 Apple ID** 给托管在 BlueBubbles Mac 上的 Apple ID / 手机号发一条 iMessage。BlueBubbles 触发本地 `new-message` webhook，Desktop 桥接转发到 MasterLion，智能体在同一会话里回复。
+让**另一个人或第二个 Apple ID** 给托管在 BlueBubbles Mac 上的 Apple ID / 手机号发一条 iMessage。BlueBubbles 触发本地 `new-message` webhook，Desktop 桥接转发到 Masterion，智能体在同一会话里回复。
 
 > **为什么要用其他发送方？** 托管账号自己发的消息会被 `isFromMe` 防循环逻辑忽略（这样 Bot 不会回复自己发的消息）。用你自己的号码测试不会触发回复 —— 请用其他发送方。
 
 ## 功能说明
 
-- **Markdown** —— iMessage 接收纯文本；MasterLion 在发送前会去除 Markdown 标记。
+- **Markdown** —— iMessage 接收纯文本；Masterion 在发送前会去除 Markdown 标记。
 - **附件** —— 入站和出站附件通过桥接与 BlueBubbles 附件 API 中转。
 - **打字指示** —— 仅在 BlueBubbles Private API 可用时尝试；否则静默失败，不影响回复。
 - **群聊** —— 当 BlueBubbles 在事件中包含 `chatGuid` 时支持群聊；限定群组访问时用 `chatGuid` 作为允许渠道 ID。
@@ -99,7 +99,7 @@ MasterLion 智能体 -> Device Gateway -> MasterLion Desktop 桥接 -> BlueBubbl
 ## 故障排查
 
 - **iMessage 仍显示 “即将推出”。** iMessage Channel lab 未开启 —— 在 设置 → 高级 → Labs 中打开。
-- **连接报 `DEVICE_NOT_FOUND`。** MasterLion Desktop 未通过 Device Gateway 可达。确认 Desktop 已打开、已登录、网关显示已连接，然后重新保存。
+- **连接报 `DEVICE_NOT_FOUND`。** Masterion Desktop 未通过 Device Gateway 可达。确认 Desktop 已打开、已登录、网关显示已连接，然后重新保存。
 - **测试 / 保存报 BlueBubbles 错误。** 重新检查本地 BlueBubbles URL 和密码。
 - **Bot 始终不回复。** 确认 BlueBubbles 的 `new-message` webhook 指向 `127.0.0.1`，且发送方不是托管账号本身。
 - **打字指示失败但文本正常。** 没有 BlueBubbles Private API 时属预期 —— 可忽略。

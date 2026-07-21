@@ -1,6 +1,6 @@
 # @lobechat/prompts
 
-This package contains prompt chains and templates for the MasterLion application.
+This package contains prompt chains and templates for the Masterion application.
 
 ## Features
 

@@ -77,7 +77,7 @@
   "menu.allFiles": "Tüm Dosyalar",
   "menu.allPages": "Tüm Sayfalar",
   "networkError": "Kütüphaneler alınamadı. Lütfen ağ bağlantınızı kontrol edip tekrar deneyin.",
-  "notSupportGuide.desc": "Mevcut dağıtım modu dosya yönetimini desteklemiyor. <1>sunucu veritabanı dağıtım moduna</1> geçin veya <3>MasterLion Cloud</3> kullanın.",
+  "notSupportGuide.desc": "Mevcut dağıtım modu dosya yönetimini desteklemiyor. <1>sunucu veritabanı dağıtım moduna</1> geçin veya <3>Masterion Cloud</3> kullanın.",
   "notSupportGuide.features.allKind.desc": "Word, PPT, Excel, PDF, TXT gibi yaygın sayfa biçimleri ve JS, Python gibi popüler kod dosyaları dahil olmak üzere ana dosya türlerini destekler.",
   "notSupportGuide.features.allKind.title": "Çoklu Dosya Türü Desteği",
   "notSupportGuide.features.embeddings.desc": "Yüksek performanslı vektör modelleri kullanarak metin parçalarını vektörleştirir, dosya içeriğinde anlamsal arama yapılmasını sağlar.",

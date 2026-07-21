@@ -36,7 +36,7 @@ export default function RequireAdmin({ children }: PropsWithChildren) {
           </Button>
         }
         status="403"
-        subTitle={'\u8bf7\u5148\u767b\u5f55 MasterLion \u540e\u53f0\u3002'}
+        subTitle={'\u8bf7\u5148\u767b\u5f55 Masterion \u540e\u53f0\u3002'}
         title={'\u9700\u8981\u767b\u5f55'}
       />
     );

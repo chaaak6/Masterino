@@ -1,7 +1,7 @@
 {
   "name": "@lobehub/lobehub",
   "version": "1.0.0",
-  "description": "MasterLion - a company-internal AI chat workspace powered by NewAPI.",
+  "description": "Masterion - a company-internal AI chat workspace powered by NewAPI.",
   "keywords": [
     "framework",
     "chatbot",
@@ -23,7 +23,7 @@
     "url": "https://github.com/chaaak6/MasterLion.git"
   },
   "license": "MIT",
-  "author": "MasterLion <ai@bielcrystal.com>",
+  "author": "Masterion <ai@bielcrystal.com>",
   "sideEffects": [
     "./src/initialize.ts",
     "./src/spa/entry.auth.tsx",

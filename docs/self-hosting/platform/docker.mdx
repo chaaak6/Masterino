@@ -1,10 +1,10 @@
 ---
-title: Deploying MasterLion Database with Docker
+title: Deploying Masterion Database with Docker
 description: >-
-  Learn how to deploy the MasterLion server database version using Docker on Linux
+  Learn how to deploy the Masterion server database version using Docker on Linux
   and local machines.
 tags:
-  - MasterLion
+  - Masterion
   - Docker
   - Database Deployment
   - Postgres
@@ -22,15 +22,15 @@ tags:
 
 <Callout type="info">
   This article assumes that you are familiar with the basic principles and processes of deploying
-  the MasterLion server database version, so it only includes content related to core environment
-  variable configuration. If you are not familiar with the deployment principles of the MasterLion
+  the Masterion server database version, so it only includes content related to core environment
+  variable configuration. If you are not familiar with the deployment principles of the Masterion
   server database version, please refer to [Deploying Server
   Database](/docs/self-hosting/server-database) first.
 </Callout>
 
 ## Deploying on a Linux Server
 
-Here is the process for deploying the MasterLion server database version on a Linux server:
+Here is the process for deploying the Masterion server database version on a Linux server:
 
 <Steps>
   ### Create a Postgres Database Instance
@@ -47,7 +47,7 @@ Here is the process for deploying the MasterLion server database version on a Li
 
   <Callout type="info">
     The ParadeDB image includes pgvector (vector search) and pg\_search (full-text search) plugins, which are important
-    components for MasterLion to implement RAG and knowledge base search.
+    components for Masterion to implement RAG and knowledge base search.
   </Callout>
 
   <Callout type="warning">
@@ -88,7 +88,7 @@ Here is the process for deploying the MasterLion server database version on a Li
   S3_ACCESS_KEY_ID=xxxxxxxxxx
   S3_SECRET_ACCESS_KEY=xxxxxxxxxx
   S3_ENDPOINT=https://xxxxxxxxxx.r2.cloudflarestorage.com
-  S3_BUCKET=MasterLion
+  S3_BUCKET=Masterion
 
   ```
 
@@ -128,7 +128,7 @@ Here is the process for deploying the MasterLion server database version on a Li
 
 ## Using Locally (Mac / Windows)
 
-The data version of MasterLion also supports direct use on a local Mac/Windows machine.
+The data version of Masterion also supports direct use on a local Mac/Windows machine.
 
 Here, we assume that you have a pg instance available on port 5432 locally on your Mac/Windows, with the account `postgres` and password `mysecretpassword`, accessible at `localhost:5432`.
 
@@ -144,7 +144,7 @@ $ docker run -it -d --name lobehub -p 3210:3210 \
   -e S3_ACCESS_KEY_ID=xxxxxxxxxx \
   -e S3_SECRET_ACCESS_KEY=xxxxxxxxxx \
   -e S3_ENDPOINT=https://xxxxxxxxxx.r2.cloudflarestorage.com \
-  -e S3_BUCKET=MasterLion \
+  -e S3_BUCKET=Masterion \
   lobehub/lobehub
 ```
 

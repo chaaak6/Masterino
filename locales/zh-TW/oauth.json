@@ -13,7 +13,7 @@
   "consent.redirecting": "授權成功，正在跳轉...",
   "consent.scope.email": "訪問您的電子郵件地址",
   "consent.scope.offline_access": "允許客戶端訪問您的資料",
-  "consent.scope.openid": "使用您的 MasterLion 帳戶進行身份驗證",
+  "consent.scope.openid": "使用您的 Masterion 帳戶進行身份驗證",
   "consent.scope.profile": "訪問您的基本資料信息（名稱、頭像等）",
   "consent.scope.sync-read": "讀取您的同步資料",
   "consent.scope.sync-write": "寫入並更新您的同步資料",

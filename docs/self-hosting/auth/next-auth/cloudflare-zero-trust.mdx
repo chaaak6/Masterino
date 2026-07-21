@@ -1,13 +1,13 @@
 ---
-title: Configuring Cloudflare Zero Trust Authentication Service for MasterLion
+title: Configuring Cloudflare Zero Trust Authentication Service for Masterion
 description: >-
   Learn how to configure Cloudflare Zero Trust for Single Sign-On (SSO) for
-  MasterLion, including creating an application provider, setting environment
+  Masterion, including creating an application provider, setting environment
   variables, and deployment instructions.
 tags:
   - Cloudflare Zero Trust
   - Single Sign-On (SSO)
-  - MasterLion Authentication
+  - Masterion Authentication
   - Environment Variables
   - Deployment Instructions
 ---
@@ -19,7 +19,7 @@ tags:
 <Steps>
   ### Creating an Application in Cloudflare Zero Trust
 
-  We assume you are already familiar with using the Cloudflare Zero Trust platform and that your MasterLion instance is deployed at `https://chat.example.com`.
+  We assume you are already familiar with using the Cloudflare Zero Trust platform and that your Masterion instance is deployed at `https://chat.example.com`.
 
   First, we need to visit `https://one.dash.cloudflare.com/` and navigate to `Access - Applications`.
 
@@ -29,23 +29,23 @@ tags:
 
   ![Add Application - Select SaaS](/blog/assetse717764a3618df4e56212e447a6c20cd.webp)
 
-  In the `Application` text box, enter the application name, such as `MasterLion SSO`. Then click `Select OIDC`, followed by clicking `Add application`.
+  In the `Application` text box, enter the application name, such as `Masterion SSO`. Then click `Select OIDC`, followed by clicking `Add application`.
 
-  ![Add MasterLion SSO Application](/blog/assets0ceb7e446f9a850df283093563ba7803.webp)
+  ![Add Masterion SSO Application](/blog/assets0ceb7e446f9a850df283093563ba7803.webp)
 
-  At this point, you have successfully created a SaaS application named `MasterLion SSO` in Cloudflare Zero Trust.
+  At this point, you have successfully created a SaaS application named `Masterion SSO` in Cloudflare Zero Trust.
 
   Next, we need to enter `https://chat.example.com/api/auth/callback/cloudflare-zero-trust` in the `Redirect URLs` field (note that `chat.example.com` should be replaced with your instance's address).
 
   ![Configure Redirect URLs](/blog/assets4aaf8d5d092608b649230e0e6fc92df6.webp)
 
-  Finally, scroll down the page and record the following three values: `Client secret`, `Client ID`, and `Issuer`. You will need these for setting the environment variables when deploying MasterLion.
+  Finally, scroll down the page and record the following three values: `Client secret`, `Client ID`, and `Issuer`. You will need these for setting the environment variables when deploying Masterion.
 
   ![Client ID, Client Secret and Issuer](/blog/assets66b0dfa56c1f5b3063b5ba740dd3ef8d.webp)
 
   ### Configure Environment Variables
 
-  When deploying MasterLion, you need to configure the following environment variables:
+  When deploying Masterion, you need to configure the following environment variables:
 
   | Environment Variable                | Type     | Description                                                                                                                                                                                                         |
   | ----------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,6 +62,6 @@ tags:
 </Steps>
 
 <Callout type={'info'}>
-  After a successful deployment, users will be able to use MasterLion by authenticating with the users
+  After a successful deployment, users will be able to use Masterion by authenticating with the users
   configured in Cloudflare Zero Trust.
 </Callout>

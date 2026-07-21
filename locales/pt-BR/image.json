@@ -50,7 +50,7 @@
   "generation.metadata.count": "{{count}} Imagens",
   "generation.status.failed": "Falha na Geração",
   "generation.status.generating": "Gerando...",
-  "notSupportGuide.desc": "O modo de implantação atual não suporta geração de imagens com IA. Mude para o <1>modo de implantação com banco de dados no servidor</1> ou utilize o <3>MasterLion Cloud</3>.",
+  "notSupportGuide.desc": "O modo de implantação atual não suporta geração de imagens com IA. Mude para o <1>modo de implantação com banco de dados no servidor</1> ou utilize o <3>Masterion Cloud</3>.",
   "notSupportGuide.features.fileIntegration.desc": "Integração profunda com o sistema de gerenciamento de arquivos; imagens geradas são salvas automaticamente no sistema de arquivos para gerenciamento e organização unificados.",
   "notSupportGuide.features.fileIntegration.title": "Integração com Sistema de Arquivos",
   "notSupportGuide.features.llmAssisted.desc": "Combina capacidades de modelos de linguagem de grande porte para otimizar e expandir prompts de forma inteligente, melhorando a qualidade da geração de imagens (Em breve).",

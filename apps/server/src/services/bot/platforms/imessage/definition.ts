@@ -6,7 +6,7 @@ export const imessage: PlatformDefinition = {
   id: 'imessage',
   name: 'iMessage',
   connectionMode: 'webhook',
-  description: 'Connect iMessage through the local MasterLion Desktop BlueBubbles bridge.',
+  description: 'Connect iMessage through the local Masterion Desktop BlueBubbles bridge.',
   documentation: {
     portalUrl: 'https://bluebubbles.app/',
     setupGuideUrl: 'https://aihub.bielcrystal.com',

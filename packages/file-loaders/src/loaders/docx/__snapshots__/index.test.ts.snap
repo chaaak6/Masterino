@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`DocxLoader > should aggregate content correctly > aggregated_content 1`] = `
-"MasterLion fixture report
+"Masterion fixture report
 
 
 
@@ -30,7 +30,7 @@ exports[`DocxLoader > should load pages correctly from a DOCX file 1`] = `
     "metadata": {
       "pageNumber": 1,
     },
-    "pageContent": "MasterLion fixture report
+    "pageContent": "Masterion fixture report
 
 
 

@@ -1,4 +1,4 @@
-# MasterLion Kubernetes layouts
+# Masterion Kubernetes layouts
 
 The manifests are split into a shared workload base and environment-specific overlays:
 

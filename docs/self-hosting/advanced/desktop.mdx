@@ -1,20 +1,20 @@
 ---
-title: Automatic Synchronization with MasterLion Desktop
-description: Configure MasterLion Desktop for a synchronized experience
+title: Automatic Synchronization with Masterion Desktop
+description: Configure Masterion Desktop for a synchronized experience
 tags:
-  - MasterLion
+  - Masterion
   - Desktop Synchronization
   - Self-Hosted Instance
   - OIDC Configuration
 ---
 
-# Automatic Synchronization with MasterLion Desktop
+# Automatic Synchronization with Masterion Desktop
 
-MasterLion Desktop provides users with an enhanced experience while also expanding the capabilities of MasterLion, allowing users to utilize MasterLion in offline environments. This document will guide you on how to configure MasterLion Desktop and connect it to your self-hosted instance.
+Masterion Desktop provides users with an enhanced experience while also expanding the capabilities of Masterion, allowing users to utilize Masterion in offline environments. This document will guide you on how to configure Masterion Desktop and connect it to your self-hosted instance.
 
 ## System Requirements
 
-MasterLion Desktop is built using Electron and supports the following operating systems:
+Masterion Desktop is built using Electron and supports the following operating systems:
 
 - Windows
 - macOS
@@ -22,16 +22,16 @@ MasterLion Desktop is built using Electron and supports the following operating 
 
 ## Desktop Version Information
 
-The version release of MasterLion Desktop follows this logic:
+The version release of Masterion Desktop follows this logic:
 
-- **Beta Version**: All merges to the main branch that are automatically released will be created as Beta versions of MasterLion Desktop.
+- **Beta Version**: All merges to the main branch that are automatically released will be created as Beta versions of Masterion Desktop.
 - **Stable Version**: The development team will periodically release stable versions through manual tagging.
 
 If you wish to access the latest features, you can use the Beta version; if you prioritize stability, please use the Stable version.
 
 ## Connecting to a Self-Hosted Instance
 
-MasterLion Desktop can connect to your self-hosted MasterLion instance, allowing you to use your self-hosted configuration on the desktop.
+Masterion Desktop can connect to your self-hosted Masterion instance, allowing you to use your self-hosted configuration on the desktop.
 
 ### Preparations
 
@@ -58,14 +58,14 @@ Add the generated environment variables to your deployment configuration.
 
 <Callout>If you have already configured `OIDC_JWKS_KEY`, no changes are needed. The system will automatically fall back to `OIDC_JWKS_KEY` for backward compatibility.</Callout>
 
-If you are deploying MasterLion using one-click deployment methods (such as Vercel, Railway, etc.), you need to:
+If you are deploying Masterion using one-click deployment methods (such as Vercel, Railway, etc.), you need to:
 
 1. Add the above environment variables to the environment variable configuration of your deployment platform.
 2. For Vercel deployments, ensure that the `APP_URL` environment variable is set to your domain URL, which is crucial for correctly handling authentication callbacks.
 
 ### Connection Steps
 
-1. Open MasterLion Desktop.
+1. Open Masterion Desktop.
 2. Click the Wi-Fi icon in the upper right corner.
 3. Enter the address of your self-hosted instance (e.g., `https://your-MasterLion-instance.com`).
 4. Click the "Connect" button.

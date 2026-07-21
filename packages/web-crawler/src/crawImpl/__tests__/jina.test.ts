@@ -60,7 +60,7 @@ describe('jina crawler', () => {
       headers: {
         'Accept': 'application/json',
         'Authorization': 'Bearer test-key',
-        'x-send-from': 'MasterLion Community',
+        'x-send-from': 'Masterion Community',
       },
       signal: expect.any(AbortSignal),
     });
@@ -97,7 +97,7 @@ describe('jina crawler', () => {
       headers: {
         'Accept': 'application/json',
         'Authorization': 'Bearer env-reader-key',
-        'x-send-from': 'MasterLion Community',
+        'x-send-from': 'Masterion Community',
       },
       signal: expect.any(AbortSignal),
     });
@@ -126,7 +126,7 @@ describe('jina crawler', () => {
       headers: {
         'Accept': 'application/json',
         'Authorization': 'Bearer env-key',
-        'x-send-from': 'MasterLion Community',
+        'x-send-from': 'Masterion Community',
       },
       signal: expect.any(AbortSignal),
     });
@@ -153,7 +153,7 @@ describe('jina crawler', () => {
       headers: {
         'Accept': 'application/json',
         'Authorization': '',
-        'x-send-from': 'MasterLion Community',
+        'x-send-from': 'Masterion Community',
       },
       signal: expect.any(AbortSignal),
     });
@@ -180,7 +180,7 @@ describe('jina crawler', () => {
       headers: {
         'Accept': 'application/json',
         'Authorization': '',
-        'x-send-from': 'MasterLion Community',
+        'x-send-from': 'Masterion Community',
       },
       signal: expect.any(AbortSignal),
     });

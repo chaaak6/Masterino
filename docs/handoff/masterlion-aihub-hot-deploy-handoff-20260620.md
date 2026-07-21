@@ -1,4 +1,4 @@
-# MasterLion Aihub 联调交接
+# Masterion Aihub 联调交接
 
 更新时间：2026-06-20
 
@@ -124,7 +124,7 @@ docker compose -f docker-compose/deploy/docker-compose.yml -f docker-compose/dep
 
 如果使用 direct Vite 模式，需要浏览器能访问：
 
-- MasterLion Next 服务端口：`3210`
+- Masterion Next 服务端口：`3210`
 - Vite SPA 端口：`9876`
 
 ## 已跑过的定向验证

@@ -13,7 +13,7 @@
   "consent.redirecting": "احراز هویت با موفقیت انجام شد، در حال هدایت...",
   "consent.scope.email": "دسترسی به آدرس ایمیل شما",
   "consent.scope.offline_access": "اجازه دسترسی برنامه به داده‌های شما",
-  "consent.scope.openid": "احراز هویت با استفاده از حساب MasterLion شما",
+  "consent.scope.openid": "احراز هویت با استفاده از حساب Masterion شما",
   "consent.scope.profile": "دسترسی به اطلاعات پایه پروفایل شما (نام، تصویر، و غیره)",
   "consent.scope.sync-read": "خواندن داده‌های همگام‌سازی‌شده شما",
   "consent.scope.sync-write": "نوشتن و به‌روزرسانی داده‌های همگام‌سازی‌شده شما",

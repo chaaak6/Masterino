@@ -1,18 +1,18 @@
 ---
 title: 本地模型与云端 AI 并行使用
-description: MasterLion v0.127.0 新增 Ollama 支持，让你可以用与云端模型相同的界面运行本地大语言模型。
+description: Masterion v0.127.0 新增 Ollama 支持，让你可以用与云端模型相同的界面运行本地大语言模型。
 tags:
   - Ollama AI
-  - MasterLion
+  - Masterion
   - 大语言模型
   - AI 对话
 ---
 
 # 本地模型与云端 AI 并行使用
 
-云端模型固然强大，但有时你需要数据留在本地。可能是敏感项目，可能是想免去 API 费用做实验，也可能只是希望完全掌控整个技术栈。MasterLion v0.127.0 现已支持 Ollama，无论模型运行在云端还是本地机器，你都能获得一致的对话体验。
+云端模型固然强大，但有时你需要数据留在本地。可能是敏感项目，可能是想免去 API 费用做实验，也可能只是希望完全掌控整个技术栈。Masterion v0.127.0 现已支持 Ollama，无论模型运行在云端还是本地机器，你都能获得一致的对话体验。
 
-无需学习新界面，无需割裂工作流程。将 MasterLion 指向你的 Ollama 实例，即可开始对话。
+无需学习新界面，无需割裂工作流程。将 Masterion 指向你的 Ollama 实例，即可开始对话。
 
 ## 一行命令连接本地模型
 
@@ -22,7 +22,7 @@ tags:
 docker run -d -p 3210:3210 -e OLLAMA_PROXY_URL=http://host.docker.internal:11434/v1 lobehub/lobe-chat
 ```
 
-仅此而已。MasterLion 会自动检测本地模型，并在你切换 GPT-4、Claude 等模型的同一处列出它们。根据每次对话的需求，自由混用云端和本地模型。
+仅此而已。Masterion 会自动检测本地模型，并在你切换 GPT-4、Claude 等模型的同一处列出它们。根据每次对话的需求，自由混用云端和本地模型。
 
 ## 本地模型的适用场景
 

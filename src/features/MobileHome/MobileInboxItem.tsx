@@ -35,7 +35,7 @@ const MobileInboxItem = memo(() => {
   const localizedTitle = t('inbox.title');
   const rawTitle = inboxMeta.title?.trim();
   const title =
-    !rawTitle || rawTitle === 'MasterLion' || rawTitle === 'Lobe AI' ? localizedTitle : rawTitle;
+    !rawTitle || rawTitle === 'Masterion' || rawTitle === 'Lobe AI' ? localizedTitle : rawTitle;
   const avatar = inboxMeta.avatar || DEFAULT_INBOX_AVATAR;
   const href = SESSION_CHAT_URL(inboxAgentId || INBOX_SESSION_ID, true);
 

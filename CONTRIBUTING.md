@@ -1,6 +1,6 @@
-# MasterLion Contributing Guide
+# Masterion Contributing Guide
 
-MasterLion is a private, company-internal AI workspace. Contributions should focus on the 小宗狮 product direction: Aihub integration, enterprise governance, local deployment stability, file analysis, model controls, and internal user experience.
+Masterion is a private, company-internal AI workspace. Contributions should focus on the 小宗狮 product direction: Aihub integration, enterprise governance, local deployment stability, file analysis, model controls, and internal user experience.
 
 ## Repository
 
@@ -48,7 +48,7 @@ For release validation, also run the Browser Harness acceptance flow when Aihub 
 
 ## Security and Boundaries
 
-- The main MasterLion app must not connect directly to the Aihub database.
+- The main Masterion app must not connect directly to the Aihub database.
 - Use `aihub-db-bridge` for controlled read-only Aihub data access.
 - Never expose managed Aihub token values to browser clients.
 - Aihub model lists must be filtered by user group and token model limits.

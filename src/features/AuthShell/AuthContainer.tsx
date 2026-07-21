@@ -23,7 +23,7 @@ const AuthContainer: FC<PropsWithChildren> = ({ children }) => {
         width={'100%'}
       >
         <Flexbox horizontal align={'center'} padding={16} width={'100%'}>
-          <a aria-label={'MasterLion'} href={'/'} style={{ display: 'inline-flex' }}>
+          <a aria-label={'Masterion'} href={'/'} style={{ display: 'inline-flex' }}>
             <ProductLogo size={40} />
           </a>
         </Flexbox>

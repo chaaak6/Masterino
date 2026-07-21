@@ -147,7 +147,7 @@ describe('configRouter', () => {
         });
       });
 
-      it('should enable the MasterLion Aihub provider without a provider API key', async () => {
+      it('should enable the Masterion Aihub provider without a provider API key', async () => {
         const originalProxyUrl = process.env.AIHUB_PROXY_URL;
         process.env.AIHUB_PROXY_URL = originalProxyUrl || 'https://aihub.example.com';
 

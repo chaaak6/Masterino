@@ -37,7 +37,7 @@ When this variable is unset, the server reports Cloud Sandbox as unavailable and
 ### `MARKET_TRUSTED_CLIENT_ID`
 
 - Type: Optional
-- Description: Market Trusted Client ID used by the MasterLion server to call Market capabilities on behalf of the current user. It must be registered by the target Market service.
+- Description: Market Trusted Client ID used by the Masterion server to call Market capabilities on behalf of the current user. It must be registered by the target Market service.
 - Default: -
 - Example: `lobechat-com`
 
@@ -72,7 +72,7 @@ When this variable is unset, the server reports Cloud Sandbox as unavailable and
 ### `ONLYBOXES_JIT_TTL_SEC`
 
 - Type: Optional
-- Description: Lifetime of each Onlyboxes JIT token minted by MasterLion.
+- Description: Lifetime of each Onlyboxes JIT token minted by Masterion.
 - Default: `1800`
 - Example: `900`
 
@@ -98,7 +98,7 @@ SANDBOX_PROVIDER=market
 MARKET_BASE_URL=https://market.example.com
 ```
 
-If that Market service requires the MasterLion server to call sandbox, credential, or skill capabilities on behalf of the current user, also configure Trusted Client credentials:
+If that Market service requires the Masterion server to call sandbox, credential, or skill capabilities on behalf of the current user, also configure Trusted Client credentials:
 
 ```bash
 MARKET_TRUSTED_CLIENT_ID=lobechat-com
@@ -109,7 +109,7 @@ MARKET_TRUSTED_CLIENT_SECRET=your-market-trusted-client-secret
 
 ## Onlyboxes Runtime Requirements
 
-The configured Onlyboxes worker should expose `terminalExec` and `terminalResource`. MasterLion uses `terminalExec` as the compatibility layer for shell commands, code execution, and file operations, and uses `terminalResource` for file export through a pre-signed upload URL.
+The configured Onlyboxes worker should expose `terminalExec` and `terminalResource`. Masterion uses `terminalExec` as the compatibility layer for shell commands, code execution, and file operations, and uses `terminalResource` for file export through a pre-signed upload URL.
 
 For feature parity with the Market sandbox, the terminal runtime image should include:
 
@@ -133,6 +133,6 @@ CONSOLE_JIT_SIGNING_KEY=onlyboxes-jit-signing-secret
 ```
 
 <Callout type={'info'}>
-  File export still writes the exported artifact to the configured MasterLion S3 storage. Configure the
+  File export still writes the exported artifact to the configured Masterion S3 storage. Configure the
   S3 environment variables when users need to download files generated inside the sandbox.
 </Callout>

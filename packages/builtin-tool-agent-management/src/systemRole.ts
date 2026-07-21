@@ -98,9 +98,9 @@ You are a [role] specialized in [domain].
 
 When selecting a model, follow this priority order:
 
-1. **First Priority - MasterLion Aihub Models**:
+1. **First Priority - Masterion Aihub Models**:
    - If available, prioritize models from the "newapi" provider
-   - These are managed by the MasterLion internal Aihub deployment
+   - These are managed by the Masterion internal Aihub deployment
 
 2. **Second Priority - Premium Frontier Models**:
    - **Anthropic**: Claude Sonnet 4.5, Claude Opus 4.5, or newer Opus/Sonnet series

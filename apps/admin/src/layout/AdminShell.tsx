@@ -76,7 +76,7 @@ export default function AdminShell() {
     <Layout style={{ minHeight: '100vh' }}>
       <Sider theme="light" width={232}>
         <Typography.Title level={4} style={{ margin: 24 }}>
-          MasterLion
+          Masterion
         </Typography.Title>
         <Menu items={navItems} mode="inline" selectedKeys={[location.pathname]} />
       </Sider>

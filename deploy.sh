@@ -13,7 +13,7 @@ TLS_SECRET_NAME="20261122bielcrystal.com"
 
 usage() {
   cat <<'EOF'
-MasterLion ACK deployment tool
+Masterion ACK deployment tool
 
 Usage:
   ./deploy.sh --env <test|production> <command> [arguments]
@@ -24,7 +24,7 @@ Required for all cluster commands:
 
 Required for mutating commands:
   ACK_API_SERVER             Exact API server URL printed by the preflight command.
-  MASTERLION_IMAGE_DIGEST    Immutable sha256: digest for MasterLion v1.0.0.
+  MASTERLION_IMAGE_DIGEST    Immutable sha256: digest for Masterion v1.0.0.
   BRIDGE_IMAGE_DIGEST        Immutable sha256: digest for Aihub DB Bridge v1.0.0.
 
 Commands:
@@ -35,13 +35,13 @@ Commands:
   create-secret [app-env] [bridge-env]
                               Create/update isolated app and bridge Secrets.
   deploy                     Server dry-run and apply the selected overlay.
-  start                      Scale MasterLion to one replica after data restore.
-  stop                       Scale MasterLion to zero replicas.
+  start                      Scale Masterion to one replica after data restore.
+  stop                       Scale Masterion to zero replicas.
   status                     Show workloads, ingress and persistent volumes.
   rollout                    Wait for all running workloads.
   logs [service]             Follow logs (masterlion|postgres|redis|aihub-db-bridge).
   restart [service]          Restart a workload.
-  port-forward [port]        Forward a local port to MasterLion.
+  port-forward [port]        Forward a local port to Masterion.
   update-image <service> <image@sha256:digest>
   info                       Show guarded cluster identity and namespace details.
 
@@ -275,7 +275,7 @@ case "$COMMAND" in
       cutover_complete="$("${KUBE[@]}" get namespace "$NAMESPACE" -o jsonpath='{.metadata.annotations.masterlion\.io/cutover-complete}')"
       if [[ "$cutover_complete" != "true" ]]; then
         deploy_overlay="$MIGRATION_OVERLAY_DIR"
-        echo "Migration mode: MasterLion will remain at zero replicas."
+        echo "Migration mode: Masterion will remain at zero replicas."
       fi
     fi
     render_manifests "$deploy_overlay" | "${KUBE[@]}" apply --server-side --dry-run=server -f - >/dev/null

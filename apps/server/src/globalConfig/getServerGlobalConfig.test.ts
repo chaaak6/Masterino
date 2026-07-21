@@ -166,7 +166,7 @@ describe('getServerGlobalConfig', () => {
     }
   });
 
-  it('should keep MasterLion provider defaults outside business feature mode', async () => {
+  it('should keep Masterion provider defaults outside business feature mode', async () => {
     const providerConfig = await loadCapturedProviderConfig(false);
 
     expect(providerConfig[ModelProvider.NewAPI].enabled).toBe(true);

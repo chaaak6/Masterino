@@ -51,7 +51,7 @@ describe('OIDC Provider - Market Client Integration', () => {
 
       expect(marketClient).toBeDefined();
       expect(marketClient?.client_id).toBe('lobehub-market');
-      expect(marketClient?.client_name).toBe('MasterLion Marketplace');
+      expect(marketClient?.client_name).toBe('Masterion Marketplace');
 
       vi.doUnmock('@/envs/app');
     });

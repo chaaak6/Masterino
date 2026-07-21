@@ -1,6 +1,6 @@
 ---
 title: 添加新的 Bot 平台
-description: 了解如何向 MasterLion 的渠道系统添加新的 Bot 平台（如 Slack、WhatsApp），包括 Schema 定义、客户端实现和平台注册。
+description: 了解如何向 Masterion 的渠道系统添加新的 Bot 平台（如 Slack、WhatsApp），包括 Schema 定义、客户端实现和平台注册。
 tags:
   - Bot 平台
   - 消息渠道
@@ -10,7 +10,7 @@ tags:
 
 # 添加新的 Bot 平台
 
-本指南介绍如何向 MasterLion 的渠道系统添加新的 Bot 平台。平台架构是模块化的 —— 每个平台是 `src/server/services/bot/platforms/` 下的一个独立目录。
+本指南介绍如何向 Masterion 的渠道系统添加新的 Bot 平台。平台架构是模块化的 —— 每个平台是 `src/server/services/bot/platforms/` 下的一个独立目录。
 
 ## 架构概览
 
@@ -388,7 +388,7 @@ platformRegistry.register(myPlatform);
 - `<platform>.mdx` — 英文教程
 - `<platform>.zh-CN.mdx` — 中文教程
 
-参考现有文档的结构（如 `discord.mdx`）：前置条件 → 创建应用 → 在 MasterLion 中配置 → 配置 Webhook → 测试连接 → 配置参考 → 故障排除。
+参考现有文档的结构（如 `discord.mdx`）：前置条件 → 创建应用 → 在 Masterion 中配置 → 配置 Webhook → 测试连接 → 配置参考 → 故障排除。
 
 ## 前端：自动 UI 生成
 

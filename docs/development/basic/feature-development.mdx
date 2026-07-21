@@ -1,23 +1,23 @@
 ---
-title: MasterLion Feature Development Complete Guide
-description: A comprehensive guide for developers on implementing features in MasterLion.
+title: Masterion Feature Development Complete Guide
+description: A comprehensive guide for developers on implementing features in Masterion.
 tags:
-  - MasterLion
+  - Masterion
   - Feature Development
   - Developer Guide
   - Postgres
   - Drizzle ORM
 ---
 
-# MasterLion Feature Development Complete Guide
+# Masterion Feature Development Complete Guide
 
-This document aims to guide developers on how to develop a complete feature in MasterLion.
+This document aims to guide developers on how to develop a complete feature in Masterion.
 
 We will use [RFC 021 - Custom Assistant Opening Guidance](https://github.com/biel-cc/MasterLion/discussions/891) as an example to illustrate the complete implementation process.
 
 ## 1. Update Schema
 
-MasterLion uses a PostgreSQL database, with [Drizzle ORM](https://orm.drizzle.team/) to operate the database.
+Masterion uses a PostgreSQL database, with [Drizzle ORM](https://orm.drizzle.team/) to operate the database.
 
 All schemas are located in `packages/database/src/schemas/`. We need to adjust the `agents` table to add two fields corresponding to the configuration items:
 
@@ -142,7 +142,7 @@ For this feature, `updateSessionConfig` simply merges config without field-level
 
 ### Data Flow Store Implementation
 
-MasterLion uses [zustand](https://zustand.docs.pmnd.rs/getting-started/introduction) as the global state management framework. For detailed practices on state management, refer to [State Management Best Practices](/docs/development/state-management/state-management-intro).
+Masterion uses [zustand](https://zustand.docs.pmnd.rs/getting-started/introduction) as the global state management framework. For detailed practices on state management, refer to [State Management Best Practices](/docs/development/state-management/state-management-intro).
 
 There are two stores related to the agent:
 
@@ -217,7 +217,7 @@ export const agentSelectors = {
 
 ### i18n Handling
 
-MasterLion is an internationalized project using [react-i18next](https://github.com/i18next/react-i18next). Newly added UI text needs to:
+Masterion is an internationalized project using [react-i18next](https://github.com/i18next/react-i18next). Newly added UI text needs to:
 
 1. Add keys to the corresponding namespace file in `src/locales/default/` (default language is English):
 
@@ -364,4 +364,4 @@ If you just want to check whether existing tests pass without running locally, y
 
 ## Summary
 
-The above is the complete implementation process for the MasterLion opening settings feature, covering the full chain from database schema → data model → Service/Model → Store → i18n → UI → testing. Developers can refer to this document for developing related features.
+The above is the complete implementation process for the Masterion opening settings feature, covering the full chain from database schema → data model → Service/Model → Store → i18n → UI → testing. Developers can refer to this document for developing related features.

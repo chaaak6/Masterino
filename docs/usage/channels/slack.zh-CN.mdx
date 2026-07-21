@@ -1,6 +1,6 @@
 ---
-title: 将 MasterLion 连接到 Slack
-description: 了解如何创建一个 Slack 应用并将其连接到您的 MasterLion 代理作为消息渠道，使您的 AI 助手能够直接在 Slack 频道和私信中与用户互动。
+title: 将 Masterion 连接到 Slack
+description: 了解如何创建一个 Slack 应用并将其连接到您的 Masterion 代理作为消息渠道，使您的 AI 助手能够直接在 Slack 频道和私信中与用户互动。
 tags:
   - Slack
   - 消息渠道
@@ -8,18 +8,18 @@ tags:
   - 集成
 ---
 
-# 将 MasterLion 连接到 Slack
+# 将 Masterion 连接到 Slack
 
-通过将 Slack 渠道连接到您的 MasterLion 代理，用户可以直接通过 Slack 频道和私信与 AI 助手互动。
+通过将 Slack 渠道连接到您的 Masterion 代理，用户可以直接通过 Slack 频道和私信与 AI 助手互动。
 
 ## 前置条件
 
-- 一个拥有有效订阅的 MasterLion 账户
+- 一个拥有有效订阅的 Masterion 账户
 - 一个拥有安装应用权限的 Slack 工作区
 
 ## 连接模式
 
-MasterLion 支持两种 Slack 连接模式：
+Masterion 支持两种 Slack 连接模式：
 
 - **Socket Mode / WebSocket（推荐）** — 通过 WebSocket 实时接收事件。无需公网 URL。适合开发环境和私有部署。
 - **Webhook** — 通过 Events API 的无状态 HTTP 回调。需要公网可访问的 URL。如果您的 Slack 应用已配置了事件订阅，请使用此模式。
@@ -43,15 +43,15 @@ MasterLion 支持两种 Slack 连接模式：
 
   ```yaml
   display_information:
-    name: MasterLion Assistant
-    description: AI assistant powered by MasterLion
+    name: Masterion Assistant
+    description: AI assistant powered by Masterion
   features:
     app_home:
       home_tab_enabled: false
       messages_tab_enabled: true
       messages_tab_read_only_enabled: false
     bot_user:
-      display_name: MasterLion Assistant
+      display_name: Masterion Assistant
       always_online: true
     slash_commands:
       - command: /new
@@ -131,12 +131,12 @@ MasterLion 支持两种 Slack 连接模式：
   ![](/blog/assetsfd4606a4b5d801a8764bf333cde77d57.webp)
 </Steps>
 
-### 第三步：在 MasterLion 中配置 Slack
+### 第三步：在 Masterion 中配置 Slack
 
 <Steps>
   ### 打开渠道设置
 
-  在 MasterLion 中，导航到代理设置 → **渠道** 标签 → 点击 **Slack**。
+  在 Masterion 中，导航到代理设置 → **渠道** 标签 → 点击 **Slack**。
 
   ### 输入凭证
 
@@ -160,7 +160,7 @@ MasterLion 支持两种 Slack 连接模式：
 
 ### 第四步：测试连接
 
-在 MasterLion 点击 **测试连接**，然后进入 Slack，将机器人邀请到频道，通过 `@MasterLion Assistant` 提及它，确认是否正常响应。
+在 Masterion 点击 **测试连接**，然后进入 Slack，将机器人邀请到频道，通过 `@MasterLion Assistant` 提及它，确认是否正常响应。
 
 > **Slash Commands：** 如果您使用了上方的 Manifest 模板，`/new` 和 `/stop` 命令已自动配置。在 Slack 输入 `/new` 可以重置对话，输入 `/stop` 可以停止当前执行。您也可以通过 `@bot /new` 的方式使用这些命令。
 
@@ -183,9 +183,9 @@ MasterLion 支持两种 Slack 连接模式：
 
   点击 **Install to Workspace**，复制 **Bot User OAuth Token**（`xoxb-...`）。
 
-  ### 在 MasterLion 中配置
+  ### 在 Masterion 中配置
 
-  在 MasterLion 的 Slack 渠道设置中输入 **应用 ID**、**Bot Token** 和 **签名密钥**。在高级设置中将 **连接模式** 设为 **Webhook**。保存后复制显示的 **Webhook URL**。
+  在 Masterion 的 Slack 渠道设置中输入 **应用 ID**、**Bot Token** 和 **签名密钥**。在高级设置中将 **连接模式** 设为 **Webhook**。保存后复制显示的 **Webhook URL**。
 
   ### 启用 App Home 消息功能
 
@@ -223,13 +223,13 @@ MasterLion 支持两种 Slack 连接模式：
 - **AI 工具主动推送** — 让 Agent 能主动联系你（提醒、通知），把内部用户引用映射到你的 Slack 账号。
 - **防自锁** — 自动被 **允许的用户** 信任，给同事收紧 bot 时不会把自己挡在外面。
 
-获取方式：在 Slack 中点击你的头像 → **个人资料**，点击 `⋮` 溢出菜单，选 **复制 member ID**。member ID 以 `U` 开头。粘贴到 MasterLion 高级设置的 **你的平台用户 ID** 字段。
+获取方式：在 Slack 中点击你的头像 → **个人资料**，点击 `⋮` 溢出菜单，选 **复制 member ID**。member ID 以 `U` 开头。粘贴到 Masterion 高级设置的 **你的平台用户 ID** 字段。
 
 ### 默认服务器
 
 Slack workspace（team）ID。当你让 bot 做 "列出频道"、"发送到 #announcements" 这类需要 workspace 上下文但没指明哪个的事时，AI 工具会默认用这个。和访问控制无关 —— 那是 **群组策略** 的活。
 
-获取方式：用浏览器打开 Slack，URL 里就有 team ID（`https://app.slack.com/client/T01ABCDEF/...`）—— 复制以 `T` 开头那段。粘贴到 MasterLion 高级设置的 **默认服务器** 字段。
+获取方式：用浏览器打开 Slack，URL 里就有 team ID（`https://app.slack.com/client/T01ABCDEF/...`）—— 复制以 `T` 开头那段。粘贴到 Masterion 高级设置的 **默认服务器** 字段。
 
 ## 接入策略
 
@@ -273,9 +273,9 @@ Slack workspace（team）ID。当你让 bot 做 "列出频道"、"发送到 #ann
 ## 故障排除
 
 - **私信显示 "Sending messages to this app has been turned off"：** 在 Slack API 控制台 → **App Home** → **Show Tabs** 中，确保 **Messages Tab** 已启用，并勾选 "Allow users to send Slash commands and messages from the messages tab"。如果使用 Manifest 模板创建应用则默认已开启。
-- **Slack 配置正常但机器人不回私信：** 在 MasterLion 的 **高级设置** 里检查 **私信策略**。如果是 `Disabled`，改成 `Open` 或 `Allowlist`；如果是 `Allowlist`，确认发起方的 Slack 成员 ID 已加入 **允许的用户 ID**。
+- **Slack 配置正常但机器人不回私信：** 在 Masterion 的 **高级设置** 里检查 **私信策略**。如果是 `Disabled`，改成 `Open` 或 `Allowlist`；如果是 `Allowlist`，确认发起方的 Slack 成员 ID 已加入 **允许的用户 ID**。
 - **机器人未响应：** 确认机器人已被邀请到频道。Socket Mode 下请确保应用级别 Token 正确且 Socket Mode 已在 Slack 应用设置中启用。
 - **测试连接失败：** 仔细检查应用 ID 和 Bot Token 是否正确。确保应用已安装到工作区。
 - **Webhook 验证失败（Webhook 模式）：** 确保签名密钥匹配且 Webhook URL 正确。
 - **Socket Mode 无法连接：** 验证应用级别 Token 具有 `connections:write` 权限。检查 Slack 应用设置中的 **Socket Mode** 是否已启用。
-- **日志中出现 `missing_scope` 错误（例如 `needed: 'users:read'`）：** 说明应用缺少所需的 OAuth scope，或者添加了 scope 但没有重新安装应用。`users:read` 用于解析消息中的 `@username` 提及，是必需的。进入 **OAuth & Permissions** → **Bot Token Scopes**，确认 manifest 中列出的所有 scope 都已添加，然后点击页面顶部的 **Reinstall to Workspace** 重新授权。如果 **Bot User OAuth Token** 发生变化，请同步更新到 MasterLion 中。
+- **日志中出现 `missing_scope` 错误（例如 `needed: 'users:read'`）：** 说明应用缺少所需的 OAuth scope，或者添加了 scope 但没有重新安装应用。`users:read` 用于解析消息中的 `@username` 提及，是必需的。进入 **OAuth & Permissions** → **Bot Token Scopes**，确认 manifest 中列出的所有 scope 都已添加，然后点击页面顶部的 **Reinstall to Workspace** 重新授权。如果 **Bot User OAuth Token** 发生变化，请同步更新到 Masterion 中。

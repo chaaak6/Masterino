@@ -1,11 +1,11 @@
 ---
 title: Codex
 description: >-
-  Delegate OpenAI Codex inside MasterLion — chat with the Codex CLI from your
+  Delegate OpenAI Codex inside Masterion — chat with the Codex CLI from your
   desktop app, watch file changes, todos, and command output stream in real
   time, and resume sessions across turns.
 tags:
-  - MasterLion
+  - Masterion
   - Codex
   - Coding Agent
   - Desktop
@@ -15,19 +15,19 @@ tags:
 
 # Codex
 
-Codex is OpenAI's coding agent that edits files, runs commands, and ships changes from your terminal. In MasterLion, you can delegate Codex from the desktop app — keep the chat UX you already use, while Codex does the work locally with full access to your project.
+Codex is OpenAI's coding agent that edits files, runs commands, and ships changes from your terminal. In Masterion, you can delegate Codex from the desktop app — keep the chat UX you already use, while Codex does the work locally with full access to your project.
 
 Send a prompt and Codex opens files, makes edits, runs tests, and reports back. File changes, todos, and command output stream into the chat as the agent moves; sessions resume across turns so a long task can span many messages.
 
-## What Is Codex in MasterLion?
+## What Is Codex in Masterion?
 
-A bridge between MasterLion's chat UI and the Codex CLI running on your machine. MasterLion spawns the Codex CLI as a local subprocess, streams its events into a chat conversation, and renders Codex's tool output — file changes, todo lists, command runs — as first-class chat blocks. You drive the agent in natural language; Codex executes locally with your environment, credentials, and project context.
+A bridge between Masterion's chat UI and the Codex CLI running on your machine. Masterion spawns the Codex CLI as a local subprocess, streams its events into a chat conversation, and renders Codex's tool output — file changes, todo lists, command runs — as first-class chat blocks. You drive the agent in natural language; Codex executes locally with your environment, credentials, and project context.
 
 ## Requirements
 
-- **MasterLion desktop app** — Codex agents only work in the desktop build. The web app cannot spawn local processes.
+- **Masterion desktop app** — Codex agents only work in the desktop build. The web app cannot spawn local processes.
 - **Codex CLI installed** — the `codex` command must be available on your `PATH`.
-- **Signed in** — you must run `codex` once in a terminal to authenticate before MasterLion can drive it.
+- **Signed in** — you must run `codex` once in a terminal to authenticate before Masterion can drive it.
 
 ## Install the Codex CLI
 
@@ -47,11 +47,11 @@ brew install --cask codex
 
 After installing, run `codex` once in a terminal to sign in. See the [Codex installation guide](https://github.com/openai/codex#installing-and-running-codex-cli) for details.
 
-If MasterLion can't find the CLI, it shows an **Install Codex CLI** prompt with the same commands and an **Open System Tools** button — click it after installing to re-detect the CLI.
+If Masterion can't find the CLI, it shows an **Install Codex CLI** prompt with the same commands and an **Open System Tools** button — click it after installing to re-detect the CLI.
 
-## Add Codex in MasterLion
+## Add Codex in Masterion
 
-When MasterLion detects the Codex CLI on your machine, an **Add Codex** recommendation card appears on the home page tagged "Coding Agent". Click it to create a Codex agent in one step.
+When Masterion detects the Codex CLI on your machine, an **Add Codex** recommendation card appears on the home page tagged "Coding Agent". Click it to create a Codex agent in one step.
 
 You can also create one manually from the **Create Agent** menu and pick **Codex** as the type.
 
@@ -61,11 +61,11 @@ Each agent is independent, so you can keep multiple Codex agents pinned to diffe
 
 Every Codex session is pinned to a working directory — the folder Codex sees as the project root. Set it from the chat input bar before sending your first message. Switching the working directory mid-conversation starts a new Codex session for the topic; chat history stays, but the previous session context cannot be resumed.
 
-If you change folders and the saved Codex thread can't be resumed safely, MasterLion shows: *"The saved Codex thread could not be resumed safely, so a new conversation has started for this topic."*
+If you change folders and the saved Codex thread can't be resumed safely, Masterion shows: *"The saved Codex thread could not be resumed safely, so a new conversation has started for this topic."*
 
 ## What Gets Rendered in Chat
 
-MasterLion renders Codex's tool calls with purpose-built blocks instead of raw JSON:
+Masterion renders Codex's tool calls with purpose-built blocks instead of raw JSON:
 
 **File changes** — Codex's edits show up as an expandable list with the operation kind (added, deleted, modified, renamed), the file path, and a per-file line count delta (+/−). Click to see what changed.
 
@@ -85,7 +85,7 @@ A session can't be resumed if:
 - The original Codex thread no longer exists
 - The CLI returns a "no conversation found" or "thread not found" error
 
-In any of these cases, MasterLion starts a fresh conversation automatically.
+In any of these cases, Masterion starts a fresh conversation automatically.
 
 ## Where It Can Run
 
@@ -97,13 +97,13 @@ The **Execution Device** selector lets you pick where the Codex agent runs:
 
 ## Limitations
 
-- **Desktop only** — the Codex agent runs in the MasterLion desktop app. The web app cannot spawn the CLI.
-- **One sign-in per machine** — Codex shares its authentication with the global CLI. If `codex` works in your terminal, it works in MasterLion.
+- **Desktop only** — the Codex agent runs in the Masterion desktop app. The web app cannot spawn the CLI.
+- **One sign-in per machine** — Codex shares its authentication with the global CLI. If `codex` works in your terminal, it works in Masterion.
 - **Working-directory-bound** — sessions don't follow you across folders or machines.
 
 ## Tips
 
-- **Run `codex` once in a terminal first** — sign-in happens at the CLI level, not in MasterLion.
+- **Run `codex` once in a terminal first** — sign-in happens at the CLI level, not in Masterion.
 - **Pick the working directory before your first message** — switching it later starts a new session.
 - **Watch the todo card** — it's the fastest read on what Codex thinks it still has to do.
 - **Use one Codex agent per project** — pinning each agent to a specific repo keeps sessions tidy and resumable.

@@ -13,7 +13,7 @@
   "consent.redirecting": "Оторизацията е успешна, пренасочване...",
   "consent.scope.email": "Достъп до вашия имейл адрес",
   "consent.scope.offline_access": "Позволете на клиента достъп до вашите данни",
-  "consent.scope.openid": "Удостоверяване чрез вашия MasterLion акаунт",
+  "consent.scope.openid": "Удостоверяване чрез вашия Masterion акаунт",
   "consent.scope.profile": "Достъп до основна информация от вашия профил (име, аватар и др.)",
   "consent.scope.sync-read": "Прочитане на синхронизираните ви данни",
   "consent.scope.sync-write": "Запис и актуализация на синхронизираните ви данни",

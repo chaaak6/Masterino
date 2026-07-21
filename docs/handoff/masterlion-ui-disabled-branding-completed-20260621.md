@@ -1,8 +1,8 @@
-# MasterLion UI / Disabled / Branding 完成交接
+# Masterion UI / Disabled / Branding 完成交接
 
 更新时间：2026-06-21
 
-状态：已完成。本文总结本轮已落地并热更新验证过的 MasterLion 品牌、未开放功能、用户菜单、关于页和启动加载体验改动。历史 handoff 文件保留，不删除。
+状态：已完成。本文总结本轮已落地并热更新验证过的 Masterion 品牌、未开放功能、用户菜单、关于页和启动加载体验改动。历史 handoff 文件保留，不删除。
 
 ## 完成范围
 
@@ -10,7 +10,7 @@
 
 - 修复首屏加载阶段残留 `LOBEHUB` 字样的问题。
 - `index.html` 和桌面 splash 入口改为小宗狮加载动画。
-- 小宗狮 / MasterLion 手写动画速度加快，避免加载时动画经常播不完。
+- 小宗狮 / Masterion 手写动画速度加快，避免加载时动画经常播不完。
 - hot compose 增加 `index.html` / `index.auth.html` bind mount，便于热更新验证 SPA 启动 HTML。
 
 ### 未开放功能统一提示

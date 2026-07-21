@@ -50,7 +50,7 @@
   "generation.metadata.count": "{{count}} Bilder",
   "generation.status.failed": "Generierung fehlgeschlagen",
   "generation.status.generating": "Generiere...",
-  "notSupportGuide.desc": "Der aktuelle Bereitstellungsmodus unterstützt keine KI-Bilderzeugung. Wechseln Sie in den <1>Server-Datenbank-Bereitstellungsmodus</1> oder nutzen Sie <3>MasterLion Cloud</3>.",
+  "notSupportGuide.desc": "Der aktuelle Bereitstellungsmodus unterstützt keine KI-Bilderzeugung. Wechseln Sie in den <1>Server-Datenbank-Bereitstellungsmodus</1> oder nutzen Sie <3>Masterion Cloud</3>.",
   "notSupportGuide.features.fileIntegration.desc": "Tiefgreifende Integration mit dem Dateiverwaltungssystem; generierte Bilder werden automatisch im Dateisystem gespeichert und zentral verwaltet.",
   "notSupportGuide.features.fileIntegration.title": "Dateisystem-Integration",
   "notSupportGuide.features.llmAssisted.desc": "Kombiniert die Fähigkeiten großer Sprachmodelle zur intelligenten Optimierung und Erweiterung von Prompts, um die Bildqualität zu verbessern (Demnächst verfügbar).",

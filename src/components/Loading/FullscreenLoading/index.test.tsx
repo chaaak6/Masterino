@@ -12,7 +12,7 @@ vi.mock('@/components/InitProgress', () => ({
 }));
 
 describe('FullscreenLoading', () => {
-  it('uses the MasterLion handwriting loading animation instead of ProductLogo', () => {
+  it('uses the Masterion handwriting loading animation instead of ProductLogo', () => {
     render(<FullscreenLoading activeStage={0} stages={[]} />);
 
     expect(screen.queryByTestId('product-logo')).not.toBeInTheDocument();

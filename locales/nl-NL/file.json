@@ -77,7 +77,7 @@
   "menu.allFiles": "Alle bestanden",
   "menu.allPages": "Alle pagina’s",
   "networkError": "Kan bibliotheken niet ophalen. Controleer je netwerkverbinding en probeer opnieuw.",
-  "notSupportGuide.desc": "De huidige implementatiemodus ondersteunt geen bestandsbeheer. Schakel over naar <1>serverdatabase-modus</1> of gebruik <3>MasterLion Cloud</3>.",
+  "notSupportGuide.desc": "De huidige implementatiemodus ondersteunt geen bestandsbeheer. Schakel over naar <1>serverdatabase-modus</1> of gebruik <3>Masterion Cloud</3>.",
   "notSupportGuide.features.allKind.desc": "Ondersteunt gangbare bestandsformaten, waaronder paginaformaten zoals Word, PPT, Excel, PDF, TXT, en populaire codebestanden zoals JS en Python.",
   "notSupportGuide.features.allKind.title": "Ondersteuning voor meerdere bestandstypen",
   "notSupportGuide.features.embeddings.desc": "Maakt gebruik van krachtige vectormodellen om tekstsegmenten te vectoriseren, waardoor semantisch zoeken in bestanden mogelijk is.",

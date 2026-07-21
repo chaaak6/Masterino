@@ -23,7 +23,7 @@ describe('RustFS browser upload CORS configuration', () => {
     expect(command).toContain('/tmp/rustfs-cors.json');
   });
 
-  it('allows browser PUT preflight from the local MasterLion app', async () => {
+  it('allows browser PUT preflight from the local Masterion app', async () => {
     for (const dir of [deployDir, devDir]) {
       const cors = JSON.parse(await readFile(path.join(dir, 'rustfs-cors.json'), 'utf8'));
 

@@ -1,4 +1,4 @@
-# MasterLion Onboarding 品牌修复与测试环境运维交接
+# Masterion Onboarding 品牌修复与测试环境运维交接
 
 更新时间：2026-07-01
 
@@ -19,7 +19,7 @@
 
 ### 背景
 
-`/onboarding` 首页 TelemetryStep 的打字机问候语硬编码了 `name: 'Lobe AI'`，中文环境下渲染为「嘿，你好，我是 Lobe AI」，与 MasterLion 品牌（小宗狮）不一致。
+`/onboarding` 首页 TelemetryStep 的打字机问候语硬编码了 `name: 'Lobe AI'`，中文环境下渲染为「嘿，你好，我是 Lobe AI」，与 Masterion 品牌（小宗狮）不一致。
 
 ### 根因
 

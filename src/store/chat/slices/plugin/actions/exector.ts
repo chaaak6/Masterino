@@ -86,7 +86,7 @@ export const lobehubSkillExecutor: RemoteToolExecutor = async (p, context) => {
 
   if (!result.success) {
     return createFailedResult(
-      result.error || `MasterLion Skill tool ${provider} ${p.apiName} execution failed`,
+      result.error || `Masterion Skill tool ${provider} ${p.apiName} execution failed`,
     );
   }
 

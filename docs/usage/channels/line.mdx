@@ -1,7 +1,7 @@
 ---
-title: Connect MasterLion to LINE
+title: Connect Masterion to LINE
 description: >-
-  Learn how to connect a LINE Messaging API bot to your MasterLion agent,
+  Learn how to connect a LINE Messaging API bot to your Masterion agent,
   enabling your AI assistant to chat with users on LINE through direct messages and
   group conversations.
 tags:
@@ -11,13 +11,13 @@ tags:
   - Integration
 ---
 
-# Connect MasterLion to LINE
+# Connect Masterion to LINE
 
-By connecting a LINE channel to your MasterLion agent, users can interact with the AI assistant through LINE direct messages, group chats, and multi-person rooms. The integration uses the official **LINE Messaging API** — there is no third-party broker between LINE and MasterLion.
+By connecting a LINE channel to your Masterion agent, users can interact with the AI assistant through LINE direct messages, group chats, and multi-person rooms. The integration uses the official **LINE Messaging API** — there is no third-party broker between LINE and Masterion.
 
 ## Prerequisites
 
-- A MasterLion account with an active subscription
+- A Masterion account with an active subscription
 - A [LINE Business ID](https://account.line.biz/signup) (sign up with a LINE account or email)
 - A **LINE Official Account** — every Messaging API channel must be attached to one
 
@@ -35,7 +35,7 @@ By connecting a LINE channel to your MasterLion agent, users can interact with t
   Open the new account → **Settings → Messaging API** → click **Enable Messaging API**. You will be asked to:
 
   - Register developer information (first-time only).
-  - Pick a **Provider** that will own this channel in the Developers Console — reuse an existing one, or create a fresh one (e.g. "MasterLion").
+  - Pick a **Provider** that will own this channel in the Developers Console — reuse an existing one, or create a fresh one (e.g. "Masterion").
 
   > **Heads-up:** the provider assignment is **permanent**. If you manage multiple unrelated services, give each one its own provider.
 
@@ -45,9 +45,9 @@ By connecting a LINE channel to your MasterLion agent, users can interact with t
 
   ### Note the channel identifiers
 
-  Open the **Basic settings** tab and copy the **Channel secret** — MasterLion uses it to verify webhook signatures in Step 4.
+  Open the **Basic settings** tab and copy the **Channel secret** — Masterion uses it to verify webhook signatures in Step 4.
 
-  > **Note:** the **"Your user ID"** field on the same tab is **your own** LINE user ID, **not** the bot's destination user ID. Both have the identical `U` + 32 hex format, but MasterLion needs the bot's, which is resolved automatically from the Channel Access Token in Step 4.
+  > **Note:** the **"Your user ID"** field on the same tab is **your own** LINE user ID, **not** the bot's destination user ID. Both have the identical `U` + 32 hex format, but Masterion needs the bot's, which is resolved automatically from the Channel Access Token in Step 4.
 
   Then open the **Messaging API** tab and note:
 
@@ -70,7 +70,7 @@ By connecting a LINE channel to your MasterLion agent, users can interact with t
 
 ## Step 3: Disable LINE's Built-in Auto-reply and Greeting
 
-By default the LINE Official Account Manager auto-replies to user messages and sends a greeting on first contact. These compete with MasterLion's responses, so they must be turned off.
+By default the LINE Official Account Manager auto-replies to user messages and sends a greeting on first contact. These compete with Masterion's responses, so they must be turned off.
 
 <Steps>
   ### Open the LINE Official Account Manager
@@ -88,19 +88,19 @@ By default the LINE Official Account Manager auto-replies to user messages and s
   This leaves your bot to handle every inbound message itself.
 </Steps>
 
-## Step 4: Configure LINE in MasterLion
+## Step 4: Configure LINE in Masterion
 
 <Steps>
   ### Open Channel Settings
 
-  In MasterLion, navigate to your agent's settings, then select the **Channels** tab. Click **LINE** from the platform list.
+  In Masterion, navigate to your agent's settings, then select the **Channels** tab. Click **LINE** from the platform list.
 
   ### Fill in the credentials
 
-  Recommended order — paste the token first so MasterLion can auto-fill the Destination User ID:
+  Recommended order — paste the token first so Masterion can auto-fill the Destination User ID:
 
   1. **Channel Access Token** — paste the long-lived token issued in Step 2.
-  2. **Destination User ID** — click **Fetch from LINE** next to this field. MasterLion calls `GET /v2/bot/info` with the token you just pasted and fills in the bot's `userId` (33 chars, starts with `U`) for you. You can also type/paste it manually if you already have it.
+  2. **Destination User ID** — click **Fetch from LINE** next to this field. Masterion calls `GET /v2/bot/info` with the token you just pasted and fills in the bot's `userId` (33 chars, starts with `U`) for you. You can also type/paste it manually if you already have it.
   3. **Channel Secret** — paste the Channel secret from the **Basic settings** tab.
 
   > **Why the auto-fetch?** The LINE Developers Console does **not** display the bot's destination user ID anywhere — `/v2/bot/info` is the only way to read it. The **Fetch from LINE** button removes the manual `curl` step.
@@ -118,9 +118,9 @@ By default the LINE Official Account Manager auto-replies to user messages and s
 
   ### Save Configuration
 
-  Click **Save Configuration**. MasterLion will encrypt your credentials, call `GET /v2/bot/info` once to verify the token works and that the bot user ID matches your Destination User ID, and surface a **Webhook URL** for the next step.
+  Click **Save Configuration**. Masterion will encrypt your credentials, call `GET /v2/bot/info` once to verify the token works and that the bot user ID matches your Destination User ID, and surface a **Webhook URL** for the next step.
 
-  > **Note:** Unlike Telegram, the LINE Messaging API does not allow programmatic webhook registration. MasterLion cannot wire the URL for you — you must paste it in the LINE Developers Console yourself in Step 5.
+  > **Note:** Unlike Telegram, the LINE Messaging API does not allow programmatic webhook registration. Masterion cannot wire the URL for you — you must paste it in the LINE Developers Console yourself in Step 5.
 </Steps>
 
 ## Step 5: Wire the Webhook in the LINE Developers Console
@@ -128,15 +128,15 @@ By default the LINE Official Account Manager auto-replies to user messages and s
 <Steps>
   ### Copy the Webhook URL
 
-  In MasterLion's LINE channel detail page, copy the **Webhook URL** displayed under the credentials section. It looks like `https://aihub.bielcrystal.com/api/agent/webhooks/line/<your-destination-user-id>`.
+  In Masterion's LINE channel detail page, copy the **Webhook URL** displayed under the credentials section. It looks like `https://aihub.bielcrystal.com/api/agent/webhooks/line/<your-destination-user-id>`.
 
   ### Paste it in the LINE Developers Console
 
   Back in the **Messaging API** tab of your channel:
 
-  - **Webhook URL:** paste the MasterLion Webhook URL.
+  - **Webhook URL:** paste the Masterion Webhook URL.
   - Click **Update**.
-  - Click **Verify**. LINE sends a signed `POST` with `events: []` to MasterLion, which responds 200 if the Channel Secret matches.
+  - Click **Verify**. LINE sends a signed `POST` with `events: []` to Masterion, which responds 200 if the Channel Secret matches.
   - Toggle **Use webhook** to **ON**.
 </Steps>
 
@@ -149,11 +149,11 @@ By default the LINE Official Account Manager auto-replies to user messages and s
 
   ### Send a real message
 
-  Send any message to the bot on LINE. Within a few seconds your MasterLion agent should reply.
+  Send any message to the bot on LINE. Within a few seconds your Masterion agent should reply.
 
   ### Run Test Connection (optional)
 
-  Click **Test Connection** in MasterLion's channel settings to re-verify the token and the bot identity match. Errors are surfaced with the exact LINE error message.
+  Click **Test Connection** in Masterion's channel settings to re-verify the token and the bot identity match. Errors are surfaced with the exact LINE error message.
 </Steps>
 
 ## Adding the Bot to Group Chats
@@ -170,27 +170,27 @@ To use the bot in LINE group chats or multi-person rooms:
 
 | Field                    | Required | Description                                                                                                                                                                                                                                                        |
 | ------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Destination User ID**  | Yes      | The bot's user ID (`U` + 32 hex chars). MasterLion auto-fills this via the **Fetch from LINE** button (calls `GET /v2/bot/info` with the access token); the LINE Developers Console UI does not display the value. Used as the bot identity and webhook path segment. |
+| **Destination User ID**  | Yes      | The bot's user ID (`U` + 32 hex chars). Masterion auto-fills this via the **Fetch from LINE** button (calls `GET /v2/bot/info` with the access token); the LINE Developers Console UI does not display the value. Used as the bot identity and webhook path segment. |
 | **Channel Access Token** | Yes      | Long-lived token issued from the **Messaging API** tab. Used as the bearer header on every LINE API call.                                                                                                                                                          |
 | **Channel Secret**       | Yes      | From the **Basic settings** tab. Used to verify `X-Line-Signature` on every inbound webhook delivery.                                                                                                                                                              |
 
 ## Feature Notes
 
-LINE's Messaging API has a few specifics that MasterLion maps as follows:
+LINE's Messaging API has a few specifics that Masterion maps as follows:
 
-- **Markdown** — LINE renders text messages as **plain text** only. MasterLion strips Markdown markup before sending so emphasis / heading / list markers are removed.
-- **Message editing** — the Messaging API does not support editing sent messages, so MasterLion only sends the **final reply**, not per-step progress edits.
+- **Markdown** — LINE renders text messages as **plain text** only. Masterion strips Markdown markup before sending so emphasis / heading / list markers are removed.
+- **Message editing** — the Messaging API does not support editing sent messages, so Masterion only sends the **final reply**, not per-step progress edits.
 - **Typing indicator** — the loading animation is shown in 1:1 user chats only. Group and multi-person room threads silently no-op.
 - **Reactions** — LINE bots cannot send message reactions today, so the 👀 / ✏️ status reactions used on Discord and Slack are not surfaced.
-- **Outbound** — MasterLion uses the **push API** (`/v2/bot/message/push`) rather than the reply API, because the reply token expires in \~60s while agent generation can take longer. Push messages count against your channel's monthly quota for paid plans; the free Developer Trial is unlimited.
+- **Outbound** — Masterion uses the **push API** (`/v2/bot/message/push`) rather than the reply API, because the reply token expires in \~60s while agent generation can take longer. Push messages count against your channel's monthly quota for paid plans; the free Developer Trial is unlimited.
 - **Attachments** — inbound images, video, audio, and files are downloaded on demand from the LINE data domain and forwarded to the model. Outbound replies are text-only today.
 
 ## Troubleshooting
 
-- **"Verify" fails in the LINE Developers Console.** The Channel Secret in MasterLion must match the value shown on the LINE Developers Console **Basic settings** tab exactly. Re-paste it, save, and try again.
-- **`Authentication failed.` on Save / Test Connection.** Your Channel Access Token is invalid or expired. Re-issue the long-lived token in the Messaging API tab and paste the new value into MasterLion.
+- **"Verify" fails in the LINE Developers Console.** The Channel Secret in Masterion must match the value shown on the LINE Developers Console **Basic settings** tab exactly. Re-paste it, save, and try again.
+- **`Authentication failed.` on Save / Test Connection.** Your Channel Access Token is invalid or expired. Re-issue the long-lived token in the Messaging API tab and paste the new value into Masterion.
 - **`Channel access token belongs to bot Uxxx, not Uyyy`.** The Destination User ID does not match the token. Easiest fix: clear the field and click **Fetch from LINE** to re-pull the correct `userId`. The `Uxxx` shown in the error is also the userId the token actually belongs to — you can paste it in directly. (Manual check: `curl -H "Authorization: Bearer <token>" https://api.line.me/v2/bot/info`.)
-- **Webhook delivery is rejected with `401 Invalid signature`.** The Channel Secret in MasterLion doesn't match the one shown in the LINE Developers Console. Update MasterLion with the correct Channel Secret.
+- **Webhook delivery is rejected with `401 Invalid signature`.** The Channel Secret in Masterion doesn't match the one shown in the LINE Developers Console. Update Masterion with the correct Channel Secret.
 - **Bot doesn't respond.** Check that:
   1. **Use webhook** is toggled **ON** in the Messaging API tab.
   2. **Auto-response messages** and **Greeting message** are disabled in the LINE Official Account Manager.

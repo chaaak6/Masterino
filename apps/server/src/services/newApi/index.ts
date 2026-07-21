@@ -342,7 +342,7 @@ export class NewApiService {
     if (!currentUser) {
       throw new TRPCError({
         code: 'NOT_FOUND',
-        message: `MasterLion user "${this.userId}" not found`,
+        message: `Masterion user "${this.userId}" not found`,
       });
     }
 
@@ -364,7 +364,7 @@ export class NewApiService {
     if (!binding) {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'Aihub binding could not be saved for the current MasterLion user',
+        message: 'Aihub binding could not be saved for the current Masterion user',
       });
     }
 
@@ -441,7 +441,7 @@ export class NewApiService {
 
     throw new TRPCError({
       code: 'PRECONDITION_FAILED',
-      message: 'Current MasterLion user is not bound to an Aihub account',
+      message: 'Current Masterion user is not bound to an Aihub account',
     });
   }
 
@@ -555,9 +555,9 @@ export class NewApiService {
   }
 
   private getLobeUserMissingMessage(row: NewApiBindingImportRow) {
-    if (row.lobeUserId) return `MasterLion user "${row.lobeUserId}" not found`;
-    if (row.email) return `MasterLion user email "${row.email}" not found`;
-    if (row.username) return `MasterLion username "${row.username}" not found`;
+    if (row.lobeUserId) return `Masterion user "${row.lobeUserId}" not found`;
+    if (row.email) return `Masterion user email "${row.email}" not found`;
+    if (row.username) return `Masterion username "${row.username}" not found`;
 
     return 'Either lobeUserId, email, or username is required';
   }
@@ -666,7 +666,7 @@ export class NewApiService {
     if (!targetUser) {
       throw new TRPCError({
         code: 'NOT_FOUND',
-        message: `MasterLion user "${targetUserId}" not found`,
+        message: `Masterion user "${targetUserId}" not found`,
       });
     }
 

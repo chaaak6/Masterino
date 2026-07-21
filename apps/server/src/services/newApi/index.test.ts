@@ -90,7 +90,7 @@ describe('NewApiService', () => {
     delete process.env.AIHUB_HIDDEN_MODELS;
   });
 
-  it('imports a binding by matching the MasterLion email to an Aihub user with admin auth', async () => {
+  it('imports a binding by matching the Masterion email to an Aihub user with admin auth', async () => {
     mocks.findUserByEmail.mockResolvedValue({
       email: 'ada@example.com',
       id: 'lobe-user',
@@ -446,7 +446,7 @@ describe('NewApiService', () => {
     expect(client.listTokens).not.toHaveBeenCalled();
   });
 
-  it('auto-binds the current MasterLion user from Aihub read-only DB and syncs accessible models', async () => {
+  it('auto-binds the current Masterion user from Aihub read-only DB and syncs accessible models', async () => {
     mocks.findUserById.mockResolvedValue({
       email: 'neo@example.com',
       id: 'current-user',

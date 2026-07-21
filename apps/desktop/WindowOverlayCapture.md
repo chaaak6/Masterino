@@ -6,7 +6,7 @@
 | 最后更新     | 2026-04-14                                            |
 | 适用范围     | Electron 桌面端全屏遮罩、窗口高亮、点击截窗、区域截图 |
 | 当前验证载体 | `tmp/electron-window-overlay-demo`                    |
-| 目标读者     | 后续将该能力接入 MasterLion Desktop 主业务的开发者       |
+| 目标读者     | 后续将该能力接入 Masterion Desktop 主业务的开发者       |
 
 ## 1. 文档目标
 

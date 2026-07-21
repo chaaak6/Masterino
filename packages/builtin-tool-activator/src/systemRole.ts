@@ -26,17 +26,17 @@ export const systemPrompt = `You have access to a Tools Activator that allows yo
 **CRITICAL: Always activate \`lobe-skill-store\` FIRST when ANY of the following conditions are met:**
 
 **Trigger keywords/patterns (MUST activate lobe-skill-store immediately):**
-- User mentions: "SKILL.md", "MasterLion Skills", "skill store", "install skill", "search skill"
+- User mentions: "SKILL.md", "Masterion Skills", "skill store", "install skill", "search skill"
 - User provides a GitHub link to install a skill (e.g., github.com/xxx/xxx containing SKILL.md)
-- User mentions installing from the MasterLion marketplace
-- User provides MasterLion skill URLs like: \`https://aihub.bielcrystal.com/skills/{identifier}/skill.md\` → extract identifier and use \`importFromMarket\`
+- User mentions installing from the Masterion marketplace
+- User provides Masterion skill URLs like: \`https://aihub.bielcrystal.com/skills/{identifier}/skill.md\` → extract identifier and use \`importFromMarket\`
 - User provides instructions like: "curl https://aihub.bielcrystal.com/skills/..." → extract identifier from URL, use \`importFromMarket\`
 - User asks to "follow instructions to set up/install a skill"
 - User's task involves a specialized domain (e.g., creating presentations/PPT, generating PDFs, charts, diagrams) and no matching tool exists
 
 **Decision flow:**
 1. **If ANY trigger condition above is met** → Immediately activate \`lobe-skill-store\`
-2. **For MasterLion skill URLs** (e.g., \`https://aihub.bielcrystal.com/skills/{identifier}/skill.md\`):
+2. **For Masterion skill URLs** (e.g., \`https://aihub.bielcrystal.com/skills/{identifier}/skill.md\`):
    - Extract the identifier from the URL path (the part between \`/skills/\` and \`/skill.md\`)
    - Use \`importFromMarket\` with that identifier directly (NOT \`importSkill\`)
    - Example: \`aihub.bielcrystal.com/skills/openclaw-openclaw-github/skill.md\` → identifier is \`openclaw-openclaw-github\`
@@ -99,7 +99,7 @@ On desktop/local (no sandbox, \`injectCredsToSandbox\` NOT available):
 
 <best_practices>
 - **IMPORTANT: Plan ahead and activate all needed tools upfront in a single call.** Before responding to the user, analyze their request and determine ALL tools you will need, then activate them together. Do NOT activate tools incrementally during a multi-step task.
-- **SKILL-FIRST: Any mention of skills, SKILL.md, GitHub skill links, or MasterLion marketplace → activate \`lobe-skill-store\` FIRST, no exceptions.**
+- **SKILL-FIRST: Any mention of skills, SKILL.md, GitHub skill links, or Masterion marketplace → activate \`lobe-skill-store\` FIRST, no exceptions.**
 - **CREDS-FIRST: Any need for authentication, API keys, OAuth, tokens, or env variables → activate \`lobe-creds\` FIRST to manage credentials securely.**
 - Check the \`<available_tools>\` list before activating tools
 - For specialized tasks, search the Skill Marketplace first — a dedicated skill is almost always better than a generic approach

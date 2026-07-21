@@ -1,7 +1,7 @@
 ---
-title: Connect MasterLion to WeChat
+title: Connect Masterion to WeChat
 description: >-
-  Learn how to connect a WeChat bot to your MasterLion agent via the iLink Bot API,
+  Learn how to connect a WeChat bot to your Masterion agent via the iLink Bot API,
   enabling your AI assistant to chat with users on WeChat through private and group
   conversations.
 tags:
@@ -11,18 +11,18 @@ tags:
   - Integration
 ---
 
-# Connect MasterLion to WeChat
+# Connect Masterion to WeChat
 
-By connecting a WeChat channel to your MasterLion agent, users can interact with the AI assistant through WeChat private chats and group conversations.
+By connecting a WeChat channel to your Masterion agent, users can interact with the AI assistant through WeChat private chats and group conversations.
 
 ## Prerequisites
 
-- A MasterLion account with an active subscription
+- A Masterion account with an active subscription
 - A WeChat account
 
 ## Step 1: Open Channel Settings
 
-In MasterLion, navigate to your agent's settings, then select the **Channels** tab. Click **WeChat** from the platform list.
+In Masterion, navigate to your agent's settings, then select the **Channels** tab. Click **WeChat** from the platform list.
 
 ## Step 2: Scan QR Code to Connect
 
@@ -33,7 +33,7 @@ In MasterLion, navigate to your agent's settings, then select the **Channels** t
 
   ### Scan with WeChat
 
-  Open WeChat on your phone, go to **Scan** (via the + button in the top right), and scan the QR code displayed in MasterLion.
+  Open WeChat on your phone, go to **Scan** (via the + button in the top right), and scan the QR code displayed in Masterion.
 
   ### Confirm Login
 
@@ -43,12 +43,12 @@ In MasterLion, navigate to your agent's settings, then select the **Channels** t
 
   ### Connection Complete
 
-  Once confirmed, MasterLion will automatically save your credentials and connect the bot. You should see a success message in the channel settings.
+  Once confirmed, Masterion will automatically save your credentials and connect the bot. You should see a success message in the channel settings.
 </Steps>
 
 ## Step 3: Test the Bot
 
-Open WeChat, find your bot contact, and send a message. The bot should respond through your MasterLion agent.
+Open WeChat, find your bot contact, and send a message. The bot should respond through your Masterion agent.
 
 ## Adding the Bot to Group Chats
 
@@ -70,9 +70,9 @@ To use the bot in WeChat groups:
 
 Unlike webhook-based platforms (Telegram, Slack), WeChat uses a **long-polling** mechanism via the iLink Bot API:
 
-1. When you scan the QR code, MasterLion obtains a bot token from WeChat's iLink API
-2. MasterLion continuously polls the iLink API for new messages (\~35 second intervals)
-3. When a message arrives, it is routed through the MasterLion agent for processing
+1. When you scan the QR code, Masterion obtains a bot token from WeChat's iLink API
+2. Masterion continuously polls the iLink API for new messages (\~35 second intervals)
+3. When a message arrives, it is routed through the Masterion agent for processing
 4. The agent's response is sent back to WeChat via the iLink API
 
 This polling is managed by a background cron job, so the connection is maintained automatically.

@@ -1,5 +1,5 @@
 @masterlion @auth @onboarding @smoke
-Feature: MasterLion auth entry
+Feature: Masterion auth entry
   Users should be able to enter registration and login flows from protected routes.
 
   Background:
