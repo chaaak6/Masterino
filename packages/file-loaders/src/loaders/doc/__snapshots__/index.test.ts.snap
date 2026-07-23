@@ -9,7 +9,7 @@ It uses a .doc extension because the parser still receives legacy Word paths."
 exports[`DocLoader > should load pages correctly from a DOC file 1`] = `
 [
   {
-    "charCount": 169,
+    "charCount": 168,
     "lineCount": 3,
     "metadata": {
       "pageNumber": 1,

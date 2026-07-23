@@ -1,3 +1,3 @@
-MasterLion legacy DOC fixture
+Masterino legacy DOC fixture
 This text fallback fixture verifies DocLoader behavior in CI.
 It uses a .doc extension because the parser still receives legacy Word paths.

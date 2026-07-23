@@ -25,7 +25,7 @@ Second page marker
 exports[`DocxLoader > should load pages correctly from a DOCX file 1`] = `
 [
   {
-    "charCount": 203,
+    "charCount": 202,
     "lineCount": 19,
     "metadata": {
       "pageNumber": 1,

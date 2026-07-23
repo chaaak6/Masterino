@@ -38,7 +38,7 @@ exports[`PdfLoader > should attach document metadata correctly 1`] = `
 exports[`PdfLoader > should load pages correctly from a PDF file 1`] = `
 [
   {
-    "charCount": 141,
+    "charCount": 140,
     "lineCount": 4,
     "metadata": {
       "pageNumber": 1,
