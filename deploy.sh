@@ -71,6 +71,8 @@ case "$ENVIRONMENT" in
     CUTOVER_OVERLAY_DIR="$SCRIPT_DIR/k8s/overlays/test-cutover"
     MIGRATION_OVERLAY_DIR="$SCRIPT_DIR/k8s/overlays/test-migration"
     ROLLBACK_INGRESS="$SCRIPT_DIR/k8s/compat/masterlion-test-ingress.yaml"
+    SOURCE_VERIFICATION_INGRESS="$SCRIPT_DIR/k8s/compat/masterlion-test-verification-ingress.yaml"
+    SOURCE_INGRESS_NAME="masterlion-test-ingress"
     EXPECTED_CONTEXT="${ACK_CONTEXT:-$DEFAULT_TEST_CONTEXT}"
     ;;
   production)
@@ -317,10 +319,10 @@ case "$COMMAND" in
     source_replicas="$("${KUBE[@]}" get deployment masterlion -n "$SOURCE_NAMESPACE" -o jsonpath='{.spec.replicas}')"
     [[ "$source_replicas" == "0" ]] || fail \
       "the old Masterino deployment must be scaled to zero before final data sync and cutover"
-    "${KUBE[@]}" get ingress masterlion-ingress -n "$SOURCE_NAMESPACE" >/dev/null
+    "${KUBE[@]}" get ingress "$SOURCE_INGRESS_NAME" -n "$SOURCE_NAMESPACE" >/dev/null
     render_manifests "$CUTOVER_OVERLAY_DIR" | \
       "${KUBE[@]}" apply --server-side --dry-run=server -f - >/dev/null
-    "${KUBE[@]}" delete ingress masterlion-ingress -n "$SOURCE_NAMESPACE"
+    "${KUBE[@]}" apply -f "$SOURCE_VERIFICATION_INGRESS"
     if ! render_manifests "$CUTOVER_OVERLAY_DIR" | "${KUBE[@]}" apply --server-side -f -; then
       "${KUBE[@]}" apply -f "$ROLLBACK_INGRESS"
       fail "cutover failed; the old test Ingress was restored"

@@ -33,7 +33,8 @@ identifiers in this migration.
 5. Start `masterino`, validate it through a local port-forward, and verify login,
    Aihub models/quota, chat, upload, and database writes.
 6. Run the guarded `cutover` command. It verifies the old Deployment is stopped,
-   removes the old Ingress, and installs the new Ingress.
+   removes only the old root route, retains the legacy enterprise-WeChat verification
+   path in its original namespace, and installs the new root Ingress.
 7. Observe health and logs. Keep the old namespace, PVCs, and ACR repositories
    unchanged during the rollback window.
 
