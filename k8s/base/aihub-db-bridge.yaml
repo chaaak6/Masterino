@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: aihub-db-bridge
-          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-aihub-db-bridge:v1.0.2
+          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-aihub-db-bridge:v1.0.3
           imagePullPolicy: IfNotPresent
           env:
             - name: AIHUB_BRIDGE_TOKEN

@@ -36,7 +36,7 @@ export const PRODUCT_FEATURES = {
   devtools: { key: 'devtools', status: 'hidden' },
   eval: { key: 'eval', status: 'hidden' },
   fleet: { disabledReasonKey: DISABLED_REASON_KEY, key: 'fleet', status: 'disabled' },
-  generation: { disabledReasonKey: DISABLED_REASON_KEY, key: 'generation', status: 'disabled' },
+  generation: { key: 'generation', status: 'enabled' },
   groupChat: { key: 'groupChat', status: 'enabled' },
   memory: { disabledReasonKey: DISABLED_REASON_KEY, key: 'memory', status: 'disabled' },
   pages: { disabledReasonKey: DISABLED_REASON_KEY, key: 'pages', status: 'disabled' },

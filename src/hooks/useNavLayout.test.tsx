@@ -64,7 +64,7 @@ describe('useNavLayout', () => {
     expect(memoryItem?.hidden).toBe(true);
   });
 
-  it('greys complex non-core navigation entries instead of removing them', async () => {
+  it('enables generation while greying unavailable navigation entries', async () => {
     const { useNavLayout } = await import('./useNavLayout');
     const { result } = renderHook(() => useNavLayout());
 
@@ -72,7 +72,7 @@ describe('useNavLayout', () => {
 
     expect(entries.find((item) => item.key === 'tasks')).toMatchObject({ disabled: true });
     expect(entries.find((item) => item.key === 'pages')).toMatchObject({ disabled: true });
-    expect(entries.find((item) => item.key === 'image')).toMatchObject({ disabled: true });
+    expect(entries.find((item) => item.key === 'image')).toMatchObject({ disabled: false });
     expect(entries.find((item) => item.key === 'community')).toMatchObject({ disabled: true });
     expect(entries.find((item) => item.key === 'resource')).toMatchObject({ disabled: true });
     expect(entries.find((item) => item.key === 'memory')).toMatchObject({ disabled: true });

@@ -8,7 +8,7 @@ EXPECTED_ACK_REGION="cn-shenzhen"
 DEFAULT_TEST_CONTEXT="ack-c23ea84b-masterlion-test"
 MASTERLION_IMAGE="boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino"
 BRIDGE_IMAGE="boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-aihub-db-bridge"
-IMAGE_TAG_MARKER="v1.0.2"
+IMAGE_TAG_MARKER="v1.0.3"
 TLS_SECRET_NAME="20261122bielcrystal.com"
 
 usage() {
@@ -24,8 +24,8 @@ Required for all cluster commands:
 
 Required for mutating commands:
   ACK_API_SERVER             Exact API server URL printed by the preflight command.
-  MASTERLION_IMAGE_DIGEST    Immutable sha256: digest for Masterino v1.0.2.
-  BRIDGE_IMAGE_DIGEST        Immutable sha256: digest for Aihub DB Bridge v1.0.2.
+  MASTERLION_IMAGE_DIGEST    Immutable sha256: digest for Masterino v1.0.3.
+  BRIDGE_IMAGE_DIGEST        Immutable sha256: digest for Aihub DB Bridge v1.0.3.
 
 Commands:
   preflight                  Read-only ACK capability and identity checks.
