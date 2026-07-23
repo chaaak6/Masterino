@@ -4,4 +4,4 @@ resources:
   - postgres.yaml
   - redis.yaml
   - aihub-db-bridge.yaml
-  - masterlion.yaml
+  - masterino.yaml

@@ -1,9 +1,9 @@
-name: masterlion
+name: masterino
 
 services:
-  masterlion:
-    image: ${MASTERLION_IMAGE:-boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion:latest}
-    container_name: masterlion
+  masterino:
+    image: ${MASTERLION_IMAGE:-boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino:latest}
+    container_name: masterino
     ports:
       - '${LOBE_PORT:-3210}:3210'
     depends_on:
@@ -57,12 +57,12 @@ services:
       - .env
     restart: always
     networks:
-      - masterlion-net
+      - masterino-net
       - 1panel-network
 
   aihub-db-bridge:
-    image: ${MASTERLION_BRIDGE_IMAGE:-boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion-aihub-db-bridge:latest}
-    container_name: masterlion-aihub-db-bridge
+    image: ${MASTERLION_BRIDGE_IMAGE:-boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-aihub-db-bridge:latest}
+    container_name: masterino-aihub-db-bridge
     environment:
       - 'AIHUB_BRIDGE_TOKEN=${AIHUB_BRIDGE_TOKEN}'
       - 'AIHUB_MANAGED_TOKEN_NAME=${AIHUB_MANAGED_TOKEN_NAME:-masterlion-managed}'
@@ -86,7 +86,7 @@ services:
 
   postgresql:
     image: paradedb/paradedb:latest-pg17
-    container_name: masterlion-postgres
+    container_name: masterino-postgres
     volumes:
       - 'postgres_data:/var/lib/postgresql/data'
     environment:
@@ -99,11 +99,11 @@ services:
       retries: 5
     restart: always
     networks:
-      - masterlion-net
+      - masterino-net
 
   redis:
     image: redis:7-alpine
-    container_name: masterlion-redis
+    container_name: masterino-redis
     command: redis-server --save 60 1000 --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
       - 'redis_data:/data'
@@ -114,21 +114,21 @@ services:
       retries: 5
     restart: always
     networks:
-      - masterlion-net
+      - masterino-net
 
   searxng:
     image: searxng/searxng
-    container_name: masterlion-searxng
+    container_name: masterino-searxng
     volumes:
       - './searxng:/etc/searxng'
     environment:
       - 'SEARXNG_SETTINGS_FILE=/etc/searxng/settings.yml'
     restart: always
     networks:
-      - masterlion-net
+      - masterino-net
 
 networks:
-  masterlion-net:
+  masterino-net:
     driver: bridge
   1panel-network:
     external: true

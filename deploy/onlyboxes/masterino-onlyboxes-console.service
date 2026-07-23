@@ -8,8 +8,8 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/onlyboxes
-ExecStart=/usr/bin/docker compose --env-file /etc/masterlion/onlyboxes-console.env up -d --remove-orphans
-ExecStop=/usr/bin/docker compose --env-file /etc/masterlion/onlyboxes-console.env down
+ExecStart=/usr/bin/docker compose --env-file /etc/masterino/onlyboxes-console.env up -d --remove-orphans
+ExecStop=/usr/bin/docker compose --env-file /etc/masterino/onlyboxes-console.env down
 TimeoutStartSec=120s
 TimeoutStopSec=60s
 

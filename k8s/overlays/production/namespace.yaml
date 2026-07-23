@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: masterlion
+  name: masterino
   labels:
-    app.kubernetes.io/part-of: masterlion
-    masterlion.io/environment: production
+    app.kubernetes.io/part-of: masterino
+    masterino.io/environment: production
   annotations:
-    masterlion.io/ack-cluster-id: c5c81a41c33164f578f4e43a77fda5fc3
-    masterlion.io/ack-region: cn-shenzhen
+    masterino.io/ack-cluster-id: c5c81a41c33164f578f4e43a77fda5fc3
+    masterino.io/ack-region: cn-shenzhen

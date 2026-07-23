@@ -48,7 +48,7 @@ const url = [
 
 ### Rule Submission Process
 
-1. Fork the [Masterino repository](https://github.com/chaaak6/MasterLion)
+1. Fork the [Masterino repository](https://github.com/chaaak6/Masterino)
 2. Add or modify URL rules
 3. Submit a Pull Request describing:
 

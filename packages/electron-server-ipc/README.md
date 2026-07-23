@@ -62,7 +62,7 @@ IPC server implementations need to handle various communication scenarios and ed
 
 ### Contribution Process
 
-1. Fork the [Masterino repository](https://github.com/chaaak6/MasterLion)
+1. Fork the [Masterino repository](https://github.com/chaaak6/Masterino)
 2. Implement your improvements to the IPC server package
 3. Submit a Pull Request describing:
 

@@ -1,9 +1,9 @@
-name: masterlion-onlyboxes
+name: masterino-onlyboxes
 
 services:
   console:
     image: ${ONLYBOXES_CONSOLE_IMAGE:?mirror the pinned Onlyboxes 0.7.1 image first}
-    container_name: masterlion-onlyboxes-console
+    container_name: masterino-onlyboxes-console
     restart: unless-stopped
     ports:
       - '127.0.0.1:8089:8089'

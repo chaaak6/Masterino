@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { consola } from 'consola';
 
-const REPO_URL = 'https://github.com/chaaak6/MasterLion';
+const REPO_URL = 'https://github.com/chaaak6/Masterino';
 const CHANGELOG_TITLE = '<a name="readme-top"></a>\n\n# Changelog';
 const BACK_TO_TOP = `<div align="right">
 

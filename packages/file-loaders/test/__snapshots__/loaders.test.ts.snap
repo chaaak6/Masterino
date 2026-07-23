@@ -30,7 +30,7 @@ Masterino PDF integration fixture
   },
   "pages": [
     {
-      "charCount": 38,
+      "charCount": 37,
       "lineCount": 2,
       "metadata": {
         "pageNumber": 1,
@@ -39,7 +39,7 @@ Masterino PDF integration fixture
 Masterino PDF integration fixture",
     },
   ],
-  "totalCharCount": 38,
+  "totalCharCount": 37,
   "totalLineCount": 2,
 }
 `;

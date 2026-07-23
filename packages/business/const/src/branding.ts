@@ -19,7 +19,7 @@ export const BRANDING_URL = {
 
 export const SOCIAL_URL = {
   discord: 'https://aihub.bielcrystal.com',
-  github: 'https://github.com/chaaak6/MasterLion',
+  github: 'https://github.com/chaaak6/Masterino',
   medium: 'https://aihub.bielcrystal.com',
   x: 'https://aihub.bielcrystal.com',
   youtube: 'https://aihub.bielcrystal.com',

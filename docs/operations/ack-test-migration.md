@@ -1,7 +1,7 @@
 # Masterino 测试环境部署至 ACK
 
 目标为深圳 ACK 集群 `c23ea84b986c446d5b3fa9227962e77f4`、Namespace
-`masterlion-test` 和域名 `mlai-test.bielcrystal.com`。测试环境默认使用全新的 PostgreSQL
+`masterino-test` 和域名 `mlai-test.bielcrystal.com`。测试环境默认使用全新的 PostgreSQL
 与 Redis；旧数据库迁移和旧 COS 附件迁移均为可选操作。
 
 ## 1. 连接与保护参数
@@ -9,7 +9,7 @@
 使用仓库外 kubeconfig，并显式指定 context 和 API Server：
 
 ```bash
-export KUBECONFIG=/secure/path/masterlion-test-ack-c23ea84b.yaml
+export KUBECONFIG=/secure/path/masterino-test-ack-c23ea84b.yaml
 export ACK_CONTEXT=ack-c23ea84b-masterlion-test
 export ACK_API_SERVER=https://example-api-server:6443
 
@@ -56,7 +56,7 @@ bash ./deploy.sh --env test rollout
 同时提供 `vector` 与 `pg_search` 扩展。确认数据库与 OSS 配置正确后启动应用：
 
 ```bash
-CONFIRM_DATABASE_READY=masterlion-test bash ./deploy.sh --env test start
+CONFIRM_DATABASE_READY=masterino-test bash ./deploy.sh --env test start
 ```
 
 Masterino 首次启动会执行应用数据库 migration。migration 或 rollout 失败时不要修改 DNS。

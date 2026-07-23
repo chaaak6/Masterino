@@ -1,37 +1,39 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: masterino-ingress
+  name: masterlion-test-ingress
+  namespace: masterlion-test
   labels:
-    app.kubernetes.io/name: masterino
-    app.kubernetes.io/part-of: masterino
+    app.kubernetes.io/name: masterlion
+    app.kubernetes.io/part-of: masterlion
+    masterlion.io/environment: test
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Proto $scheme;
-    nginx.ingress.kubernetes.io/server-snippet: |
-      location = /WW_verify_uSB5OnVf9BeWJX0U.txt {
-        return 200 "uSB5OnVf9BeWJX0U";
-        add_header Content-Type "text/plain";
-      }
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - masterlion.bielcrystal.com
+        - mlai-test.bielcrystal.com
       secretName: 20261122bielcrystal.com
   rules:
-    - host: masterlion.bielcrystal.com
+    - host: mlai-test.bielcrystal.com
       http:
         paths:
+          - path: /WW_verify_uSB5OnVf9BeWJX0U.txt
+            pathType: Exact
+            backend:
+              service:
+                name: masterlion-wecom-verification
+                port:
+                  number: 8080
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: masterino
+                name: masterlion
                 port:
                   number: 3210

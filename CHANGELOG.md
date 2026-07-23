@@ -2,7 +2,7 @@
 
 # Changelog
 
-### [Version 1.0.1](https://github.com/chaaak6/MasterLion/compare/v1.0.0...v1.0.1)
+### [Version 1.0.1](https://github.com/chaaak6/Masterino/compare/v1.0.0...v1.0.1)
 
 <sup>Released on **2026-07-21**</sup>
 
@@ -17,7 +17,7 @@
 
 #### What's fixed
 
-- **misc**: correct Masterino brand spelling, closes [#31](https://github.com/chaaak6/MasterLion/issues/31) ([857d266](https://github.com/chaaak6/MasterLion/commit/857d266))
+- **misc**: correct Masterino brand spelling, closes [#31](https://github.com/chaaak6/Masterino/issues/31) ([857d266](https://github.com/chaaak6/Masterino/commit/857d266))
 
 </details>
 
@@ -27,7 +27,7 @@
 
 </div>
 
-### [Version 1.0.0](https://github.com/chaaak6/MasterLion/compare/v0.0.16...v1.0.0)
+### [Version 1.0.0](https://github.com/chaaak6/Masterino/compare/v0.0.16...v1.0.0)
 
 <sup>Released on **2026-07-17**</sup>
 
@@ -43,8 +43,8 @@
 
 #### What's fixed
 
-- **misc**: 修复 Agent 文档 Markdown 导出, closes [#30](https://github.com/chaaak6/MasterLion/issues/30) ([0ac4855](https://github.com/chaaak6/MasterLion/commit/0ac4855))
-- **misc**: preserve and preview HTML agent documents, closes [#29](https://github.com/chaaak6/MasterLion/issues/29) ([7791caa](https://github.com/chaaak6/MasterLion/commit/7791caa))
+- **misc**: 修复 Agent 文档 Markdown 导出, closes [#30](https://github.com/chaaak6/Masterino/issues/30) ([0ac4855](https://github.com/chaaak6/Masterino/commit/0ac4855))
+- **misc**: preserve and preview HTML agent documents, closes [#29](https://github.com/chaaak6/Masterino/issues/29) ([7791caa](https://github.com/chaaak6/Masterino/commit/7791caa))
 
 </details>
 
@@ -54,7 +54,7 @@
 
 </div>
 
-### [Version 0.0.16](https://github.com/chaaak6/MasterLion/compare/v0.0.15...v0.0.16)
+### [Version 0.0.16](https://github.com/chaaak6/Masterino/compare/v0.0.15...v0.0.16)
 
 <sup>Released on **2026-07-17**</sup>
 
@@ -69,7 +69,7 @@
 
 #### What's fixed
 
-- **misc**: 修复 HTML Artifact 复制、下载与空间保存, closes [#28](https://github.com/chaaak6/MasterLion/issues/28) ([374a06a](https://github.com/chaaak6/MasterLion/commit/374a06a))
+- **misc**: 修复 HTML Artifact 复制、下载与空间保存, closes [#28](https://github.com/chaaak6/Masterino/issues/28) ([374a06a](https://github.com/chaaak6/Masterino/commit/374a06a))
 
 </details>
 
@@ -79,7 +79,7 @@
 
 </div>
 
-### [Version 0.0.15](https://github.com/chaaak6/MasterLion/compare/v0.0.14...v0.0.15)
+### [Version 0.0.15](https://github.com/chaaak6/Masterino/compare/v0.0.14...v0.0.15)
 
 <sup>Released on **2026-07-16**</sup>
 
@@ -94,7 +94,7 @@
 
 #### What's fixed
 
-- **misc**: make sandbox file exports reliable, closes [#27](https://github.com/chaaak6/MasterLion/issues/27) ([58c7f0a](https://github.com/chaaak6/MasterLion/commit/58c7f0a))
+- **misc**: make sandbox file exports reliable, closes [#27](https://github.com/chaaak6/Masterino/issues/27) ([58c7f0a](https://github.com/chaaak6/Masterino/commit/58c7f0a))
 
 </details>
 
@@ -104,7 +104,7 @@
 
 </div>
 
-### [Version 0.0.14](https://github.com/chaaak6/MasterLion/compare/v0.0.13...v0.0.14)
+### [Version 0.0.14](https://github.com/chaaak6/Masterino/compare/v0.0.13...v0.0.14)
 
 <sup>Released on **2026-07-15**</sup>
 
@@ -119,7 +119,7 @@
 
 #### What's fixed
 
-- **misc**: configure cloud sandbox and disable email signup ([a2e2785](https://github.com/chaaak6/MasterLion/commit/a2e2785))
+- **misc**: configure cloud sandbox and disable email signup ([a2e2785](https://github.com/chaaak6/Masterino/commit/a2e2785))
 
 </details>
 
@@ -129,7 +129,7 @@
 
 </div>
 
-### [Version 0.0.13](https://github.com/chaaak6/MasterLion/compare/v0.0.12...v0.0.13)
+### [Version 0.0.13](https://github.com/chaaak6/Masterino/compare/v0.0.12...v0.0.13)
 
 <sup>Released on **2026-07-08**</sup>
 
@@ -144,7 +144,7 @@
 
 #### What's fixed
 
-- **branding**: inbox agent 自称改为小宗狮AI ([5a57513](https://github.com/chaaak6/MasterLion/commit/5a57513))
+- **branding**: inbox agent 自称改为小宗狮AI ([5a57513](https://github.com/chaaak6/Masterino/commit/5a57513))
 
 </details>
 
@@ -154,7 +154,7 @@
 
 </div>
 
-### [Version 0.0.12](https://github.com/chaaak6/MasterLion/compare/v0.0.11...v0.0.12)
+### [Version 0.0.12](https://github.com/chaaak6/Masterino/compare/v0.0.11...v0.0.12)
 
 <sup>Released on **2026-07-03**</sup>
 
@@ -169,7 +169,7 @@
 
 #### What's fixed
 
-- **aihub**: resolve WeCom provisioning failures, username matching, and IAM OAuth binding ([dd15e56](https://github.com/chaaak6/MasterLion/commit/dd15e56))
+- **aihub**: resolve WeCom provisioning failures, username matching, and IAM OAuth binding ([dd15e56](https://github.com/chaaak6/Masterino/commit/dd15e56))
 
 </details>
 
@@ -179,7 +179,7 @@
 
 </div>
 
-### [Version 0.0.11](https://github.com/chaaak6/MasterLion/compare/v0.0.10...v0.0.11)
+### [Version 0.0.11](https://github.com/chaaak6/Masterino/compare/v0.0.10...v0.0.11)
 
 <sup>Released on **2026-06-30**</sup>
 
@@ -194,7 +194,7 @@
 
 #### What's fixed
 
-- **auth**: gate feature pages on aihub runtime state readiness ([e4840a3](https://github.com/chaaak6/MasterLion/commit/e4840a3))
+- **auth**: gate feature pages on aihub runtime state readiness ([e4840a3](https://github.com/chaaak6/Masterino/commit/e4840a3))
 
 </details>
 
@@ -204,7 +204,7 @@
 
 </div>
 
-## [Version 0.0.10](https://github.com/chaaak6/MasterLion/compare/v0.0.9...v0.0.10)
+## [Version 0.0.10](https://github.com/chaaak6/Masterino/compare/v0.0.9...v0.0.10)
 
 <sup>Released on **2026-06-30**</sup>
 
@@ -224,12 +224,12 @@
 
 #### What's fixed
 
-- **embedding**: align user memory dimensions to 2048 ([ba4c21a](https://github.com/chaaak6/MasterLion/commit/ba4c21a))
-- **onboarding**: replace Lobe AI branding with BRANDING_NAME ([61abe85](https://github.com/chaaak6/MasterLion/commit/61abe85))
+- **embedding**: align user memory dimensions to 2048 ([ba4c21a](https://github.com/chaaak6/Masterino/commit/ba4c21a))
+- **onboarding**: replace Lobe AI branding with BRANDING_NAME ([61abe85](https://github.com/chaaak6/Masterino/commit/61abe85))
 
 #### What's improved
 
-- **embedding**: adapt to 2048-dim TI embedding service ([9059547](https://github.com/chaaak6/MasterLion/commit/9059547))
+- **embedding**: adapt to 2048-dim TI embedding service ([9059547](https://github.com/chaaak6/Masterino/commit/9059547))
 
 </details>
 
@@ -239,7 +239,7 @@
 
 </div>
 
-## [Version 0.0.9](https://github.com/chaaak6/MasterLion/compare/v0.0.8...v0.0.9)
+## [Version 0.0.9](https://github.com/chaaak6/Masterino/compare/v0.0.8...v0.0.9)
 
 <sup>Released on **2026-06-30**</sup>
 
@@ -254,7 +254,7 @@
 
 #### What's improved
 
-- **misc**: WeCom 工作台自动登录入口 ([fd586e3](https://github.com/chaaak6/MasterLion/commit/fd586e3))
+- **misc**: WeCom 工作台自动登录入口 ([fd586e3](https://github.com/chaaak6/Masterino/commit/fd586e3))
 
 </details>
 
@@ -483,7 +483,7 @@ Initial Masterino release for the 小宗狮 internal AI workspace.
 
 - Set the project version to `0.0.1`.
 - Renamed user-facing repository documentation from the historical upstream identity to Masterino.
-- Updated GitHub metadata to the private repository `chaaak6/MasterLion`.
+- Updated GitHub metadata to the private repository `chaaak6/Masterino`.
 - Changed Docker release builds to use cached dependencies and `USE_CN_MIRROR=true` by default in deploy compose.
 - Set `CI=true` in the Docker build environment to avoid pnpm non-TTY module purge failures.
 - Changed RustFS CORS initialization to best-effort because RustFS currently returns `decoding xml: EOF` for the CORS API.

@@ -1,7 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: masterlion-ingress
+  name: masterlion-test-ingress
+  namespace: masterlion-test
   labels:
     app.kubernetes.io/name: masterlion
     app.kubernetes.io/part-of: masterlion
@@ -22,10 +23,10 @@ spec:
     - host: mlai-test.bielcrystal.com
       http:
         paths:
-          - path: /
-            pathType: Prefix
+          - path: /WW_verify_uSB5OnVf9BeWJX0U.txt
+            pathType: Exact
             backend:
               service:
-                name: masterlion
+                name: masterlion-wecom-verification
                 port:
-                  number: 3210
+                  number: 8080

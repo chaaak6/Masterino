@@ -12,12 +12,12 @@ import {
 
 describe('Masterino public repository URLs', () => {
   it('uses the Masterino GitHub repository for product links', () => {
-    expect(GITHUB).toBe('https://github.com/chaaak6/MasterLion');
-    expect(GITHUB_ISSUES).toBe('https://github.com/chaaak6/MasterLion/issues/new/choose');
+    expect(GITHUB).toBe('https://github.com/chaaak6/Masterino');
+    expect(GITHUB_ISSUES).toBe('https://github.com/chaaak6/Masterino/issues/new/choose');
     expect(FEEDBACK).toBe(GITHUB_ISSUES);
     expect(MORE_MODEL_PROVIDER_REQUEST_URL).toBe(GITHUB_ISSUES);
     expect(MORE_FILE_PREVIEW_REQUEST_URL).toBe(GITHUB_ISSUES);
     expect(AGENTS_INDEX_GITHUB).toBe(GITHUB);
-    expect(RELEASES_URL).toBe('https://github.com/chaaak6/MasterLion/releases');
+    expect(RELEASES_URL).toBe('https://github.com/chaaak6/Masterino/releases');
   });
 });

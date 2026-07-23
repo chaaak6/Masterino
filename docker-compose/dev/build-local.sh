@@ -5,9 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DEPLOY_DIR="$(cd "$SCRIPT_DIR/../deploy" && pwd)"
 
-IMAGE_NAME="${IMAGE_NAME:-masterlion:local}"
-BRIDGE_IMAGE="${BRIDGE_IMAGE:-masterlion-aihub-db-bridge:local}"
-NETWORK="${NETWORK:-masterlion_masterlion-net}"
+IMAGE_NAME="${IMAGE_NAME:-masterino:local}"
+BRIDGE_IMAGE="${BRIDGE_IMAGE:-masterino-aihub-db-bridge:local}"
+NETWORK="${NETWORK:-masterino_masterino-net}"
 
 export DOCKER_BUILDKIT=1
 
@@ -27,10 +27,10 @@ docker build \
   "$PROJECT_ROOT"
 
 echo "==> [3/3] Restarting Masterino container..."
-docker stop masterlion 2>/dev/null && docker rm masterlion 2>/dev/null || true
+docker stop masterino 2>/dev/null && docker rm masterino 2>/dev/null || true
 
 docker run -d \
-  --name masterlion \
+  --name masterino \
   --network "$NETWORK" \
   -p 3210:3210 \
   --restart always \
@@ -39,4 +39,4 @@ docker run -d \
 
 echo "==> Done."
 sleep 5
-docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" | grep -E "NAME|masterlion"
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" | grep -E "NAME|masterino"

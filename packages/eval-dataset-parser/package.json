@@ -11,13 +11,13 @@
     "jsonl",
     "lobehub"
   ],
-  "homepage": "https://github.com/chaaak6/MasterLion/tree/main/packages/eval-dataset-parser",
+  "homepage": "https://github.com/chaaak6/Masterino/tree/main/packages/eval-dataset-parser",
   "bugs": {
-    "url": "https://github.com/chaaak6/MasterLion/issues/new/choose"
+    "url": "https://github.com/chaaak6/Masterino/issues/new/choose"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/chaaak6/MasterLion.git"
+    "url": "https://github.com/chaaak6/Masterino.git"
   },
   "author": "Masterino <ai@bielcrystal.com>",
   "sideEffects": false,

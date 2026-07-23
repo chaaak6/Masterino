@@ -4,7 +4,7 @@
 
 版本：v0.0.10
 
-PR：[#23](https://github.com/chaaak6/MasterLion/pull/23)（已合并）
+PR：[#23](https://github.com/chaaak6/Masterino/pull/23)（已合并）
 
 ## 概述
 

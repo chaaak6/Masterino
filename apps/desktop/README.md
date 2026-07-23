@@ -1,6 +1,6 @@
 # 🤯 Masterino Desktop Application
 
-Masterino Desktop is a cross-platform desktop application for [Masterino](https://github.com/chaaak6/MasterLion), built with Electron, providing a more native desktop experience and functionality.
+Masterino Desktop is a cross-platform desktop application for [Masterino](https://github.com/chaaak6/Masterino), built with Electron, providing a more native desktop experience and functionality.
 
 ## ✨ Features
 
@@ -347,7 +347,7 @@ Desktop application development involves complex cross-platform considerations a
 
 ### Contribution Process
 
-1. Fork or branch from the [Masterino repository](https://github.com/chaaak6/MasterLion)
+1. Fork or branch from the [Masterino repository](https://github.com/chaaak6/Masterino)
 2. Set up the desktop development environment following our setup guide
 3. Make your changes to the desktop application
 4. Submit a Pull Request describing:
@@ -372,4 +372,4 @@ Desktop application development involves complex cross-platform considerations a
 - **Development Guide**: [`Development.md`](./Development.md) - Comprehensive development documentation
 - **Architecture Docs**: [`/docs`](../../docs/) - Detailed technical specifications
 - **Contributing**: [`CONTRIBUTING.md`](../../CONTRIBUTING.md) - Contribution guidelines
-- **Issues & Support**: [GitHub Issues](https://github.com/chaaak6/MasterLion/issues)
+- **Issues & Support**: [GitHub Issues](https://github.com/chaaak6/Masterino/issues)
