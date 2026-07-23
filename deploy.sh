@@ -321,8 +321,13 @@ case "$COMMAND" in
       "the old Masterino deployment must be scaled to zero before final data sync and cutover"
     "${KUBE[@]}" get ingress "$SOURCE_INGRESS_NAME" -n "$SOURCE_NAMESPACE" >/dev/null
     render_manifests "$CUTOVER_OVERLAY_DIR" | \
-      "${KUBE[@]}" apply --server-side --dry-run=server -f - >/dev/null
+      "${KUBE[@]}" apply --dry-run=client -f - >/dev/null
     "${KUBE[@]}" apply -f "$SOURCE_VERIFICATION_INGRESS"
+    if ! render_manifests "$CUTOVER_OVERLAY_DIR" | \
+      "${KUBE[@]}" apply --server-side --dry-run=server -f - >/dev/null; then
+      "${KUBE[@]}" apply -f "$ROLLBACK_INGRESS"
+      fail "cutover preflight failed; the old test Ingress was restored"
+    fi
     if ! render_manifests "$CUTOVER_OVERLAY_DIR" | "${KUBE[@]}" apply --server-side -f -; then
       "${KUBE[@]}" apply -f "$ROLLBACK_INGRESS"
       fail "cutover failed; the old test Ingress was restored"
