@@ -26,7 +26,7 @@ export default {
   'messenger.linkCta': 'Connect',
   'messenger.linkModal.continueIn': 'Continue setup on {{platform}}',
   'messenger.linkModal.instructions':
-    'Open the bot, send /start, then tap "Link Account" to connect your Masterion account.',
+    'Open the bot, send /start, then tap "Link Account" to connect your Masterino account.',
   'messenger.linkModal.notConfigured':
     "This connection isn't available right now. Please try again later.",
   'messenger.linkModal.openCta': 'Open in {{platform}}',
@@ -34,12 +34,12 @@ export default {
   'messenger.noPlatformsConfigured': 'No platforms are available yet. Check back soon.',
   'messenger.slack.connectModal.continueButton': 'Continue on Slack',
   'messenger.slack.connectModal.description':
-    'You will be redirected to Slack to authorize the Masterion workspace install.',
+    'You will be redirected to Slack to authorize the Masterino workspace install.',
   'messenger.slack.connectModal.notConfigured':
     "Slack isn't available right now. Please try again later.",
   'messenger.slack.connectModal.title': 'Continue setup on Slack',
   'messenger.slack.connections.disconnectConfirm':
-    'Disconnect the Masterion bot from this Slack workspace? Existing user links will pause until you re-install.',
+    'Disconnect the Masterino bot from this Slack workspace? Existing user links will pause until you re-install.',
   'messenger.slack.connections.disconnectFailed': 'Failed to disconnect.',
   'messenger.slack.connections.disconnectSuccess': 'Workspace disconnected.',
   'messenger.slack.connections.disconnectTitle': 'Disconnect workspace',
@@ -48,9 +48,9 @@ export default {
     "DM @MasterLion on Slack to link your personal account — you don't need to install again. Or ask the original installer to disconnect this workspace first if you want to take over ownership.",
   'messenger.slack.installBlocked.title': 'Workspace already connected',
   'messenger.slack.installBlocked.withName':
-    '"{{workspace}}" is already connected to Masterion by another user.',
+    '"{{workspace}}" is already connected to Masterino by another user.',
   'messenger.slack.installBlocked.withoutName':
-    'This Slack workspace is already connected to Masterion by another user.',
+    'This Slack workspace is already connected to Masterino by another user.',
   'messenger.slack.installResult.failed':
     'Slack install failed ({{reason}}). Please try again or contact support.',
   'messenger.slack.installResult.reasons.accessDenied': 'authorization was cancelled',
@@ -67,7 +67,7 @@ export default {
     'the workspace connection could not be saved',
   'messenger.slack.installResult.success': 'Slack workspace connected.',
   'messenger.discord.connectModal.description':
-    'Add the Masterion bot to a Discord server you manage.',
+    'Add the Masterino bot to a Discord server you manage.',
   'messenger.discord.connectModal.inviteButton': 'Add to Discord server',
   'messenger.discord.connectModal.notConfigured':
     "Discord isn't available right now. Please try again later.",
@@ -79,12 +79,12 @@ export default {
   'messenger.discord.connections.disconnectTitle': 'Remove server',
   'messenger.discord.installBlocked.dismiss': 'Got it',
   'messenger.discord.installBlocked.suggestion':
-    "DM the Masterion bot on Discord to link your personal account — you don't need to add the bot again. Or ask the original installer to remove this server in Masterion Settings → Messenger before re-adding it.",
+    "DM the Masterino bot on Discord to link your personal account — you don't need to add the bot again. Or ask the original installer to remove this server in Masterino Settings → Messenger before re-adding it.",
   'messenger.discord.installBlocked.title': 'Server already connected',
   'messenger.discord.installBlocked.withName':
-    '"{{workspace}}" is already connected to Masterion by another user.',
+    '"{{workspace}}" is already connected to Masterino by another user.',
   'messenger.discord.installBlocked.withoutName':
-    'This Discord server is already connected to Masterion by another user.',
+    'This Discord server is already connected to Masterino by another user.',
   'messenger.discord.installResult.failed':
     'Discord install failed ({{reason}}). Please try again or contact support.',
   'messenger.discord.installResult.reasons.accessDenied': 'authorization was cancelled',
@@ -106,24 +106,24 @@ export default {
     'Open the bot on Discord and send any message to finish linking your account.',
   'messenger.discord.userPending.name': 'Not linked yet',
   'messenger.list.discord.description':
-    'Chat with your Masterion agents on Discord by DMing the Masterion bot from any server.',
+    'Chat with your Masterino agents on Discord by DMing the Masterino bot from any server.',
   'messenger.list.slack.description':
-    'Chat with your Masterion agents on Slack by DMing or mentioning @MasterLion in any workspace.',
+    'Chat with your Masterino agents on Slack by DMing or mentioning @MasterLion in any workspace.',
   'messenger.list.telegram.description':
-    'Chat with your Masterion agents on Telegram, and choose which agent replies.',
+    'Chat with your Masterino agents on Telegram, and choose which agent replies.',
   'messenger.setActiveFailed': 'Failed to set as active.',
   'messenger.setActiveSuccess': 'Active agent updated.',
   'messenger.subtitle':
-    'Connect your account to the official Masterion bot once. Pick which agent receives messages, switch any time from here or from the bot.',
+    'Connect your account to the official Masterino bot once. Pick which agent receives messages, switch any time from here or from the bot.',
   'messenger.title': 'Messenger',
   'messenger.unlinkConfirm':
-    'Disconnect your {{platform}} account from Masterion? Inbound messages will stop until you /start again.',
+    'Disconnect your {{platform}} account from Masterino? Inbound messages will stop until you /start again.',
   'messenger.unlinkCta': 'Disconnect',
   'messenger.unlinkFailed': 'Failed to disconnect.',
   'messenger.unlinkSuccess': 'Disconnected.',
   'messenger.unlinkTitle': 'Disconnect account',
   'verify.confirm.conflict.description':
-    'This {{platform}} account is already linked to Masterion account {{email}}. Sign in to that account to manage the link, or unlink there before retrying.',
+    'This {{platform}} account is already linked to Masterino account {{email}}. Sign in to that account to manage the link, or unlink there before retrying.',
   'verify.confirm.conflict.switchAccount': 'Sign in with another account',
   'verify.confirm.conflict.title': 'This account is already linked',
   'verify.confirm.cta': 'Confirm linking',
@@ -131,30 +131,30 @@ export default {
   'verify.confirm.defaultAgentHint':
     'Your messages will be routed here first. You can switch any time via /agents in the bot or from Settings → Messenger.',
   'verify.confirm.defaultAgentPlaceholder': 'Select an agent',
-  'verify.confirm.fields.lobeHubAccount': 'Masterion account',
+  'verify.confirm.fields.lobeHubAccount': 'Masterino account',
   'verify.confirm.fields.platformAccount': '{{platform}} account',
   'verify.confirm.fields.workspace': 'Workspace',
   'verify.confirm.noAgents':
-    "You don't have any agents yet. Create one in Masterion, then come back to finish linking.",
+    "You don't have any agents yet. Create one in Masterino, then come back to finish linking.",
   'verify.confirm.relink.description':
-    'This Masterion account is already linked to {{platform}} account {{account}}. To link a different {{platform}} account, disconnect the current one first in Settings → Messenger.',
+    'This Masterino account is already linked to {{platform}} account {{account}}. To link a different {{platform}} account, disconnect the current one first in Settings → Messenger.',
   'verify.confirm.relink.manage': 'Open Messenger settings',
   'verify.confirm.relink.title': 'Another {{platform}} account is already linked',
   'verify.confirm.title': 'Confirm linking',
   'verify.confirm.workspace': 'Workspace: {{workspace}}',
   'verify.error.alreadyConsumed':
-    'This link has already been used to connect an account. Sign in to that Masterion account to manage the connection, or return to the bot and send /start again to issue a new link.',
+    'This link has already been used to connect an account. Sign in to that Masterino account to manage the connection, or return to the bot and send /start again to issue a new link.',
   'verify.error.alreadyConsumedTitle': 'This link is already used',
   'verify.error.alreadyLinkedToOther':
-    'This account is already linked to a different Masterion account. Sign in to that account first.',
+    'This account is already linked to a different Masterino account. Sign in to that account first.',
   'verify.error.expired': 'This link has expired. Please return to the bot and send /start again.',
   'verify.error.generic': 'Something went wrong. Please try again.',
   'verify.error.missingToken': 'Invalid link. Open this page from the bot.',
   'verify.error.title': 'Unable to confirm link',
   'verify.error.unlinkBeforeRelink':
-    'This Masterion account is already linked to another account on this platform. Disconnect it in Settings → Messenger before linking a new one.',
+    'This Masterino account is already linked to another account on this platform. Disconnect it in Settings → Messenger before linking a new one.',
   'verify.signInCta': 'Sign in to continue',
-  'verify.signInRequired': 'Please sign in to Masterion to confirm the link.',
+  'verify.signInRequired': 'Please sign in to Masterino to confirm the link.',
   'verify.success.description':
     'Your account is now connected to {{platform}}. Open {{platform}} and send your first message.',
   'verify.success.openBot': 'Open in {{platform}}',

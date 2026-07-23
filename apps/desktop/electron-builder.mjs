@@ -273,7 +273,7 @@ const config = {
       CFBundleIconName: 'AppIcon',
       CFBundleURLTypes: [
         {
-          CFBundleURLName: 'Masterion Protocol',
+          CFBundleURLName: 'Masterino Protocol',
           CFBundleURLSchemes: [protocolScheme],
         },
       ],
@@ -311,7 +311,7 @@ const config = {
   },
   protocols: [
     {
-      name: 'Masterion Protocol',
+      name: 'Masterino Protocol',
       schemes: [protocolScheme],
     },
   ],
@@ -330,7 +330,7 @@ const config = {
   ],
 
   win: {
-    executableName: 'Masterion',
+    executableName: 'Masterino',
   },
 };
 

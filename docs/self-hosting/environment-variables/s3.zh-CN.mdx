@@ -10,11 +10,11 @@ tags:
 
 # 配置 S3 存储服务
 
-Masterion 支持多模态的 AI 会话，包括将图片、文件等非结构化数据上传给大模型的功能。为了优化存储和性能，我们使用 S3 兼容的文件存储服务来存储图片文件和支持文件上传 / 知识库功能。
+Masterino 支持多模态的 AI 会话，包括将图片、文件等非结构化数据上传给大模型的功能。为了优化存储和性能，我们使用 S3 兼容的文件存储服务来存储图片文件和支持文件上传 / 知识库功能。
 
 ## 阿里云 OSS / 腾讯云 COS
 
-Masterion 使用 AWS S3 兼容 API。阿里云 OSS 和腾讯云 COS 只要配置 S3 兼容端点，就可以复用现有存储适配层，不需要专门新增存储驱动。
+Masterino 使用 AWS S3 兼容 API。阿里云 OSS 和腾讯云 COS 只要配置 S3 兼容端点，就可以复用现有存储适配层，不需要专门新增存储驱动。
 
 推荐部署默认值：
 
@@ -117,7 +117,7 @@ S3_SET_ACL=0
 - 默认值：undefined
 - 示例：`1`
 
-当设置为 `1` 时，Masterion 会将图片转换为 base64 编码后上传到 LLM 模型中，当遇到如下错误时请考虑配置该环境变量为 1
+当设置为 `1` 时，Masterino 会将图片转换为 base64 编码后上传到 LLM 模型中，当遇到如下错误时请考虑配置该环境变量为 1
 
 ```log
 Route: [xai] ProviderBizError: Fetching images over plain http:// is not supported.
@@ -130,4 +130,4 @@ Route: [xai] ProviderBizError: Fetching images over plain http:// is not support
 - 默认值：undefined
 - 示例：`1`
 
-当设置为 `1` 时，Masterion 会将视频转换为 base64 编码后上传到 LLM 模型中。
+当设置为 `1` 时，Masterino 会将视频转换为 base64 编码后上传到 LLM 模型中。

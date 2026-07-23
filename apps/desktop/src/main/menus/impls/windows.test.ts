@@ -12,7 +12,7 @@ vi.mock('electron', () => ({
     setApplicationMenu: vi.fn(),
   },
   app: {
-    getName: vi.fn(() => 'Masterion'),
+    getName: vi.fn(() => 'Masterino'),
   },
   shell: {
     openExternal: vi.fn(),

@@ -60,7 +60,7 @@ const AskAIMenu = memo(() => {
 
   return (
     <Command.Group heading={heading}>
-      <Command.Item value="masterlion-ai" onSelect={handleAskLobeAI}>
+      <Command.Item value="masterino-ai" onSelect={handleAskLobeAI}>
         <Avatar emojiScaleWithBackground avatar={DEFAULT_INBOX_AVATAR} shape="square" size={18} />
         <div className={styles.itemContent}>
           <div className={styles.itemLabel}>{DEFAULT_INBOX_TITLE}</div>

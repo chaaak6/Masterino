@@ -1,6 +1,6 @@
-# Masterion Wiki
+# Masterino Wiki
 
-Masterion 是小宗狮内部 AI Agent 工作台。本 Wiki 用于记录 Masterion 产品、Aihub 对接、企业治理、本地部署和发版运维说明。
+Masterino 是小宗狮内部 AI Agent 工作台。本 Wiki 用于记录 Masterino 产品、Aihub 对接、企业治理、本地部署和发版运维说明。
 
 ## 从这里开始
 
@@ -20,4 +20,4 @@ Masterion 是小宗狮内部 AI Agent 工作台。本 Wiki 用于记录 Masterio
 
 ## 品牌
 
-新文档使用 `public/brand/masterlion/` 下的小宗狮 / Masterion 品牌资产，不再使用上游公开宣传图。
+新文档使用 `public/brand/masterlion/` 下的小宗狮 / Masterino 品牌资产，不再使用上游公开宣传图。

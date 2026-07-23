@@ -1,7 +1,7 @@
 ---
 title: Chat API Client-Server Interaction Logic
 description: >-
-  Explore the client-server interaction logic of Masterion Chat API, including
+  Explore the client-server interaction logic of Masterino Chat API, including
   event sequences and core components.
 tags:
   - Chat API
@@ -14,7 +14,7 @@ tags:
 # Chat API Client-Server Interaction Logic
 
 This document explains the implementation logic of
-Masterion Chat API in client-server interactions,
+Masterino Chat API in client-server interactions,
 including event sequences and core components involved.
 
 ## Interaction Sequence Diagram
@@ -153,7 +153,7 @@ the executor calls ChatService:
 
 When the AI model returns a `tool_calls` field in its
 response, the Agent issues a `call_tool` instruction.
-Masterion supports three types of tools:
+Masterino supports three types of tools:
 
 **Builtin Tools**: Tools built into the application,
 executed directly via local executors.
@@ -338,7 +338,7 @@ depends on the scenario:
 ## Model Runtime
 
 Model Runtime (`packages/model-runtime/`) is the core
-abstraction layer in Masterion for interacting with
+abstraction layer in Masterino for interacting with
 LLM model providers, adapting different provider APIs
 into a unified interface.
 
@@ -396,7 +396,7 @@ in `packages/model-runtime/src/providers/`.
 
 ## Agent Runtime
 
-Agent Runtime (`packages/agent-runtime/`) is Masterion's
+Agent Runtime (`packages/agent-runtime/`) is Masterino's
 agent orchestration engine. As described above, it is the
 core execution engine that drives the entire chat flow.
 

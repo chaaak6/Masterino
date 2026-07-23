@@ -9,9 +9,9 @@ export const buildTaskManagerDefaultsBlock = ({
 
   return [
     '<task_manager_defaults>',
-    `Default Masterion agent id: ${defaultAssigneeAgentId}`,
-    'Use this id as assigneeAgentId when you decide a task should be assigned to the default Masterion assistant.',
-    "Do not use it as a listTasks filter unless the user asks for Masterion's tasks.",
+    `Default Masterino agent id: ${defaultAssigneeAgentId}`,
+    'Use this id as assigneeAgentId when you decide a task should be assigned to the default Masterino assistant.',
+    "Do not use it as a listTasks filter unless the user asks for Masterino's tasks.",
     '</task_manager_defaults>',
     '',
   ];

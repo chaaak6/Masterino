@@ -64,7 +64,7 @@ jobs:
       - name: Commit changes
         run: |-
           git diff
-          git config --global user.name "Masterion Bot"
+          git config --global user.name "Masterino Bot"
           git config --global user.email "ai@bielcrystal.com"
           git add .
           git commit -m "📝 docs(bot): Auto sync agents & plugin to readme" || exit 0

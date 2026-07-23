@@ -55,8 +55,8 @@ async function parseJsonResponse<T>(res: Response, endpoint: string): Promise<T>
 export function registerLoginCommand(program: Command) {
   program
     .command('login')
-    .description('Log in to Masterion via browser (Device Code Flow) or configure API key server')
-    .option('--server <url>', 'Masterion server URL', OFFICIAL_SERVER_URL)
+    .description('Log in to Masterino via browser (Device Code Flow) or configure API key server')
+    .option('--server <url>', 'Masterino server URL', OFFICIAL_SERVER_URL)
     .action(async (options: LoginOptions) => {
       const serverUrl = normalizeUrl(options.server) || OFFICIAL_SERVER_URL;
 

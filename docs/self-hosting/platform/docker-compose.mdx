@@ -1,16 +1,16 @@
 ---
-title: Deploying Masterion with Docker Compose
+title: Deploying Masterino with Docker Compose
 description: >-
-  Learn how to deploy the Masterion service using Docker Compose, including
+  Learn how to deploy the Masterino service using Docker Compose, including
   configuration tutorials for various services.
 tags:
   - Docker Compose
-  - Masterion
+  - Masterino
   - Docker Container
   - Deployment Guide
 ---
 
-# Deploying Masterion Server Database Version with Docker Compose
+# Deploying Masterino Server Database Version with Docker Compose
 
 <div style={{display:"flex", gap: 4}}>
   [![][docker-release-shield]][docker-release-link]
@@ -71,7 +71,7 @@ The script supports the following deployment modes; please choose the appropriat
 
   ```log
   The results of the secure key generation are as follows:
-  Masterion:
+  Masterino:
     - URL: http://localhost:3210
   RustFS:
     - URL: http://localhost:9000
@@ -107,7 +107,7 @@ The script supports the following deployment modes; please choose the appropriat
 
   ### Access Application
 
-  Visit your Masterion service at [http://localhost:3210](http://localhost:3210).
+  Visit your Masterino service at [http://localhost:3210](http://localhost:3210).
 </Steps>
 
 ### Port Mode
@@ -126,7 +126,7 @@ The script supports the following deployment modes; please choose the appropriat
 
   ```log
   The results of the secure key generation are as follows:
-  Masterion:
+  Masterino:
     - URL: http://your_server_ip:3210
   RustFS:
     - URL: http://your_server_ip:9000
@@ -161,7 +161,7 @@ The script supports the following deployment modes; please choose the appropriat
 
   ### Access Application
 
-  You can access your Masterion service at `http://your_server_ip:3210`.
+  You can access your Masterino service at `http://your_server_ip:3210`.
 </Steps>
 
 ### Domain Mode
@@ -181,7 +181,7 @@ The script supports the following deployment modes; please choose the appropriat
 
   In domain mode, you need to complete the following configurations based on script prompts:
 
-  - Domain setup for the Masterion service: `lobe.example.com`
+  - Domain setup for the Masterino service: `lobe.example.com`
   - Domain setup for the S3 service: `s3.example.com`
   - Choose the access protocol: `http` or `https`
   - Regenerate secure keys: We highly recommend regenerating the secure keys; if you lack the key generation library required by the script, we suggest referring to the [Custom Deployment](#custom-deployment) section for key modifications.
@@ -190,7 +190,7 @@ The script supports the following deployment modes; please choose the appropriat
     **Single Domain Deployment**
     If you only have one domain, you can distinguish services by different ports:
 
-    - Domain setup for the Masterion service: `lobe.example.com:${PORT1}`
+    - Domain setup for the Masterino service: `lobe.example.com:${PORT1}`
     - Domain setup for the S3 service: `lobe.example.com:${PORT2}`
       You need to configure forwarding rules for each port in the reverse proxy.
 
@@ -216,7 +216,7 @@ The script supports the following deployment modes; please choose the appropriat
 
   ```log
   The results of the secure key generation are as follows:
-  Masterion:
+  Masterino:
     - URL: https://lobe.example.com
   RustFS:
     - URL: https://s3.example.com
@@ -251,12 +251,12 @@ The script supports the following deployment modes; please choose the appropriat
 
   ### Access Application
 
-  You can access your Masterion service via `https://lobe.example.com`.
+  You can access your Masterino service via `https://lobe.example.com`.
 </Steps>
 
 ## Custom Deployment
 
-This section mainly introduces the configurations that need to be modified to customize the deployment of the Masterion service in different network environments. Before starting, you can download the [Docker Compose configuration file](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/docker-compose.yml) and the [environment variable configuration file](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/.env.example).
+This section mainly introduces the configurations that need to be modified to customize the deployment of the Masterino service in different network environments. Before starting, you can download the [Docker Compose configuration file](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/docker-compose.yml) and the [environment variable configuration file](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/.env.example).
 
 ```sh
 curl -O https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/docker-compose.yml
@@ -266,13 +266,13 @@ mv .env.example .env
 
 ### Prerequisites
 
-Generally, to fully run the Masterion database version, you will need at least the following three services:
+Generally, to fully run the Masterino database version, you will need at least the following three services:
 
-- The Masterion database version itself
+- The Masterino database version itself
 - PostgreSQL database with PGVector plugin
 - Object storage service that supports S3 protocol
 
-These services can be combined through self-hosting or online cloud services to meet various deployment needs. In this article, we provide a Docker Compose configuration entirely based on open-source self-hosted services, which can be used directly to start the Masterion database version or modified to suit your requirements.
+These services can be combined through self-hosting or online cloud services to meet various deployment needs. In this article, we provide a Docker Compose configuration entirely based on open-source self-hosted services, which can be used directly to start the Masterino database version or modified to suit your requirements.
 
 We use [RustFS](https://github.com/rustfs/rustfs) as the local S3 object storage service by default. To configure SSO authentication services, please refer to the [Authentication Services](/docs/self-hosting/auth) documentation.
 
@@ -287,7 +287,7 @@ Now, we will introduce the necessary configurations for running these services:
 
 1. S3 Object Storage
 
-Masterion needs to provide a public access URL for object files for the LLM service provider, so you need to configure the S3 Endpoint:
+Masterino needs to provide a public access URL for object files for the LLM service provider, so you need to configure the S3 Endpoint:
 
 <Callout type="tip">
   Using `S3_ENDPOINT=http://rustfs:9000` directly will prevent conversation image uploads from working (browser cannot resolve container names), but avatar uploads are not affected.
@@ -311,7 +311,7 @@ services:
 3. Internal Communication URL (`INTERNAL_APP_URL`)
 
 <Callout type="warning">
-  `INTERNAL_APP_URL` is **required** for Docker Compose deployments. Masterion's async features (e.g., AI image generation) require the container to make HTTP requests to itself internally. If `INTERNAL_APP_URL` is not set, the system falls back to `APP_URL`. When `APP_URL` is a host IP (e.g., `http://10.1.7.146:8080`), the container cannot reach that address internally, causing async features like image generation to silently fail.
+  `INTERNAL_APP_URL` is **required** for Docker Compose deployments. Masterino's async features (e.g., AI image generation) require the container to make HTTP requests to itself internally. If `INTERNAL_APP_URL` is not set, the system falls back to `APP_URL`. When `APP_URL` is a host IP (e.g., `http://10.1.7.146:8080`), the container cannot reach that address internally, causing async features like image generation to silently fail.
 </Callout>
 
 ```env
@@ -349,7 +349,7 @@ docker compose up -d # Restart
 
 ## Reverse Proxy Configuration
 
-For production deployments with a custom domain and HTTPS, configure a reverse proxy in front of Masterion.
+For production deployments with a custom domain and HTTPS, configure a reverse proxy in front of Masterino.
 
 **Nginx:**
 

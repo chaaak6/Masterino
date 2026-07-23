@@ -13,7 +13,7 @@
   "consent.redirecting": "Ủy quyền thành công, đang chuyển hướng...",
   "consent.scope.email": "Truy cập địa chỉ email của bạn",
   "consent.scope.offline_access": "Cho phép ứng dụng truy cập dữ liệu của bạn",
-  "consent.scope.openid": "Xác thực bằng tài khoản Masterion của bạn",
+  "consent.scope.openid": "Xác thực bằng tài khoản Masterino của bạn",
   "consent.scope.profile": "Truy cập thông tin hồ sơ cơ bản của bạn (tên, ảnh đại diện, v.v.)",
   "consent.scope.sync-read": "Đọc dữ liệu đã đồng bộ của bạn",
   "consent.scope.sync-write": "Ghi và cập nhật dữ liệu đã đồng bộ của bạn",

@@ -37,7 +37,7 @@ export interface GatewayListenerOptions {
    * Override the URL the Gateway listener forwards events to. Defaults to
    * `${appUrl}/api/agent/webhooks/discord/${applicationId}` (the per-agent
    * bot path). Set when the same gateway connection should drive a different
-   * surface — e.g. the Masterion Messenger forwards to
+   * surface — e.g. the Masterino Messenger forwards to
    * `/api/agent/messenger/webhooks/discord`.
    */
   webhookUrl?: string;

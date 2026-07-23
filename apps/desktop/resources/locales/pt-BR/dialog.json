@@ -11,7 +11,7 @@
   "error.detail": "Ocorreu um erro durante a operação, por favor tente novamente mais tarde",
   "error.message": "Ocorreu um erro",
   "error.title": "Erro",
-  "fullDiskAccess.message": "O Masterion precisa de Acesso Completo ao Disco para ler arquivos e ativar os recursos da base de conhecimento. Por favor, conceda acesso nas Configurações do Sistema.",
+  "fullDiskAccess.message": "O Masterino precisa de Acesso Completo ao Disco para ler arquivos e ativar os recursos da base de conhecimento. Por favor, conceda acesso nas Configurações do Sistema.",
   "fullDiskAccess.openSettings": "Abrir Configurações",
   "fullDiskAccess.skip": "Depois",
   "fullDiskAccess.title": "Acesso Completo ao Disco Necessário",

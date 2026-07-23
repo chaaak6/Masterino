@@ -78,7 +78,7 @@ const genInstallCommand = (identifier?: string, platform?: PlatformType) => {
       return `npx -y @lobehub/market-cli skills install ${id} --agent ${agentMap[platform]}`;
     }
     default: {
-      return `# Recommended for Masterion users:
+      return `# Recommended for Masterino users:
 # Open the marketplace page and install with one click:
 # https://aihub.bielcrystal.com/community/skills/${id}`;
     }
@@ -154,7 +154,7 @@ const Platform = memo<PlatformProps>(
       switch (active) {
         case PlatformType.LobeHub: {
           return {
-            platform: 'Masterion',
+            platform: 'Masterino',
             steps: t('skills.details.sidebar.platform.steps.lobehub'),
           };
         }
@@ -193,7 +193,7 @@ const Platform = memo<PlatformProps>(
 
     const command = genInstallCommand(identifier, active);
 
-    const agentPrompt = `Open https://aihub.bielcrystal.com/community/skills/${identifier}, then follow the instructions to set up Masterion Skills Marketplace and install the skill. Once installed, read the SKILL.md file in the installed directory and follow its instructions to complete the task.`;
+    const agentPrompt = `Open https://aihub.bielcrystal.com/community/skills/${identifier}, then follow the instructions to set up Masterino Skills Marketplace and install the skill. Once installed, read the SKILL.md file in the installed directory and follow its instructions to complete the task.`;
 
     const handleUseOnLobeAI = useCallback(() => {
       if (!inboxAgentId) return;

@@ -9,7 +9,7 @@
   "features.fleet.title": "Vista de Fleet",
   "features.groupChat.desc": "Activa la coordinación de chat grupal con múltiples agentes.",
   "features.groupChat.title": "Chat Grupal (Multiagente)",
-  "features.imessage.desc": "Conectar agentes a iMessage a través del puente local Masterion Desktop BlueBubbles.",
+  "features.imessage.desc": "Conectar agentes a iMessage a través del puente local Masterino Desktop BlueBubbles.",
   "features.imessage.title": "Canal de iMessage",
   "features.inputMarkdown.desc": "Renderiza Markdown en el área de entrada en tiempo real (texto en negrita, bloques de código, tablas, etc.).",
   "features.inputMarkdown.title": "Renderizado de Markdown en la Entrada",

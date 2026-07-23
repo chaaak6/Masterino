@@ -50,7 +50,7 @@
   "generation.metadata.count": "{{count}} immagini",
   "generation.status.failed": "Generazione fallita",
   "generation.status.generating": "Generazione in corso...",
-  "notSupportGuide.desc": "La modalità di distribuzione attuale non supporta la generazione di immagini AI. Passa alla <1>modalità di distribuzione con database server</1> oppure utilizza <3>Masterion Cloud</3>.",
+  "notSupportGuide.desc": "La modalità di distribuzione attuale non supporta la generazione di immagini AI. Passa alla <1>modalità di distribuzione con database server</1> oppure utilizza <3>Masterino Cloud</3>.",
   "notSupportGuide.features.fileIntegration.desc": "Integrazione profonda con il sistema di gestione file; le immagini generate vengono salvate automaticamente nel file system per una gestione e organizzazione unificata.",
   "notSupportGuide.features.fileIntegration.title": "Integrazione con il file system",
   "notSupportGuide.features.llmAssisted.desc": "Combina le capacità dei modelli linguistici di grandi dimensioni per ottimizzare e ampliare i prompt in modo intelligente, migliorando la qualità della generazione delle immagini (Prossimamente).",

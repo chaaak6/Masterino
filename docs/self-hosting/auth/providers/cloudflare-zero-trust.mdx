@@ -1,12 +1,12 @@
 ---
-title: Configuring Cloudflare Zero Trust Authentication for Masterion
+title: Configuring Cloudflare Zero Trust Authentication for Masterino
 description: >-
-  Learn how to configure Cloudflare Zero Trust SSO for Masterion, including
+  Learn how to configure Cloudflare Zero Trust SSO for Masterino, including
   creating an Access application.
 tags:
   - Cloudflare Zero Trust
   - Authentication
-  - Masterion
+  - Masterino
   - Single Sign-On
   - OIDC
 ---
@@ -22,7 +22,7 @@ tags:
   2. Go to **Access** > **Applications**
   3. Click **Add an application** and select **SaaS**
   4. Configure the application:
-     - Application name: `Masterion`
+     - Application name: `Masterino`
      - Select OIDC as the authentication protocol
      - Add the callback URL in redirect URIs
 
@@ -34,12 +34,12 @@ tags:
 
   ### Configure Environment Variables
 
-  When deploying Masterion, you need to configure the following environment variables:
+  When deploying Masterino, you need to configure the following environment variables:
 
   | Environment Variable                | Type     | Description                                                                   |
   | ----------------------------------- | -------- | ----------------------------------------------------------------------------- |
   | `AUTH_SECRET`                       | Required | Key used to encrypt session tokens. Generate using: `openssl rand -base64 32` |
-  | `AUTH_SSO_PROVIDERS`                | Required | SSO provider for Masterion. Use `cloudflare-zero-trust`                         |
+  | `AUTH_SSO_PROVIDERS`                | Required | SSO provider for Masterino. Use `cloudflare-zero-trust`                         |
   | `AUTH_CLOUDFLARE_ZERO_TRUST_ID`     | Required | Client ID from Cloudflare Access                                              |
   | `AUTH_CLOUDFLARE_ZERO_TRUST_SECRET` | Required | Client Secret from Cloudflare Access                                          |
   | `AUTH_CLOUDFLARE_ZERO_TRUST_ISSUER` | Required | Issuer URL (e.g., `https://your-team.cloudflareaccess.com`)                   |
@@ -50,7 +50,7 @@ tags:
 </Steps>
 
 <Callout type={'info'}>
-  After successful deployment, users will be able to authenticate with Cloudflare Zero Trust and use Masterion.
+  After successful deployment, users will be able to authenticate with Cloudflare Zero Trust and use Masterino.
 </Callout>
 
 ## Related Resources

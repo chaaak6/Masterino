@@ -77,7 +77,7 @@
   "menu.allFiles": "جميع الملفات",
   "menu.allPages": "جميع الصفحات",
   "networkError": "فشل في استرداد المكتبات. يرجى التحقق من اتصال الشبكة والمحاولة مرة أخرى.",
-  "notSupportGuide.desc": "وضع النشر الحالي لا يدعم إدارة الملفات. قم بالتبديل إلى <1>وضع قاعدة بيانات الخادم</1>، أو استخدم <3>Masterion Cloud</3>.",
+  "notSupportGuide.desc": "وضع النشر الحالي لا يدعم إدارة الملفات. قم بالتبديل إلى <1>وضع قاعدة بيانات الخادم</1>، أو استخدم <3>Masterino Cloud</3>.",
   "notSupportGuide.features.allKind.desc": "يدعم أنواع الملفات الشائعة، بما في ذلك تنسيقات الصفحات مثل Word وPPT وExcel وPDF وTXT، بالإضافة إلى ملفات البرمجة مثل JS وPython.",
   "notSupportGuide.features.allKind.title": "تحليل أنواع ملفات متعددة",
   "notSupportGuide.features.embeddings.desc": "يستخدم نماذج متجهات عالية الأداء لتحويل أجزاء النص إلى متجهات، مما يتيح البحث الدلالي في محتوى الملفات.",

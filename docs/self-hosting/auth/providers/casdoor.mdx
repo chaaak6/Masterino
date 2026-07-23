@@ -1,12 +1,12 @@
 ---
-title: Configuring Casdoor Authentication for Masterion
+title: Configuring Casdoor Authentication for Masterino
 description: >-
-  Learn how to configure Casdoor SSO for Masterion, including creating an
+  Learn how to configure Casdoor SSO for Masterino, including creating an
   application and setting up environment variables.
 tags:
   - Casdoor
   - Authentication
-  - Masterion
+  - Masterino
   - Single Sign-On
   - OIDC
 ---
@@ -21,7 +21,7 @@ tags:
   1. Log in to your Casdoor admin console
   2. Go to **Applications** and click **Add**
   3. Configure the application:
-     - Name: `Masterion`
+     - Name: `Masterino`
      - Organization: Select your organization
      - Redirect URLs: Add your callback URL
 
@@ -37,12 +37,12 @@ tags:
 
   ### Configure Environment Variables
 
-  When deploying Masterion, you need to configure the following environment variables:
+  When deploying Masterino, you need to configure the following environment variables:
 
   | Environment Variable     | Type     | Description                                                                   |
   | ------------------------ | -------- | ----------------------------------------------------------------------------- |
   | `AUTH_SECRET`            | Required | Key used to encrypt session tokens. Generate using: `openssl rand -base64 32` |
-  | `AUTH_SSO_PROVIDERS`     | Required | SSO provider for Masterion. Use `casdoor` for Casdoor                           |
+  | `AUTH_SSO_PROVIDERS`     | Required | SSO provider for Masterino. Use `casdoor` for Casdoor                           |
   | `AUTH_CASDOOR_ID`        | Required | Client ID from Casdoor application                                            |
   | `AUTH_CASDOOR_SECRET`    | Required | Client Secret from Casdoor application                                        |
   | `AUTH_CASDOOR_ISSUER`    | Required | Casdoor server URL (e.g., `https://your-casdoor-domain`)                      |
@@ -56,7 +56,7 @@ tags:
 
   > Available in Casdoor `>=1.843.0`.
 
-  Configure Casdoor [Webhook](https://www.casdoor.org/docs/webhooks/overview#setting-up-a-webhook) to sync user data updates to Masterion.
+  Configure Casdoor [Webhook](https://www.casdoor.org/docs/webhooks/overview#setting-up-a-webhook) to sync user data updates to Masterino.
 
   **Synced data fields**:
 
@@ -78,12 +78,12 @@ tags:
 </Steps>
 
 <Callout type={'info'}>
-  After successful deployment, users will be able to authenticate with Casdoor and use Masterion.
+  After successful deployment, users will be able to authenticate with Casdoor and use Masterino.
 </Callout>
 
 ## Docker Compose Deployment with Casdoor
 
-If you're deploying Masterion using Docker Compose, refer to the following configuration to integrate Casdoor as an authentication service.
+If you're deploying Masterino using Docker Compose, refer to the following configuration to integrate Casdoor as an authentication service.
 
 ### Reverse Proxy Configuration
 
@@ -114,15 +114,15 @@ In domain mode, you need to configure a reverse proxy to ensure Casdoor is acces
 
 ### Required Configuration
 
-1. Masterion needs to communicate with Casdoor, so you need to configure Casdoor's Issuer:
+1. Masterino needs to communicate with Casdoor, so you need to configure Casdoor's Issuer:
 
 ```env
 AUTH_CASDOOR_ISSUER=https://auth.example.com
 ```
 
-This configuration affects Masterion's login authentication service. Ensure the Casdoor service URL is correct.
+This configuration affects Masterino's login authentication service. Ensure the Casdoor service URL is correct.
 
-2. Allow callback URL in Casdoor to point to Masterion:
+2. Allow callback URL in Casdoor to point to Masterino:
 
 In Casdoor's Web panel under `Authentication -> Applications` -> `<Application ID, default is app-built-in>` -> `Redirect URLs`, add:
 
@@ -168,13 +168,13 @@ Solution:
 lobehub      | [auth][error] TypeError: fetch failed
 ```
 
-Cause: Masterion cannot access the authentication service.
+Cause: Masterino cannot access the authentication service.
 
 Solution:
 
-- Check if your authentication service is running properly and if Masterion's network can reach it.
+- Check if your authentication service is running properly and if Masterino's network can reach it.
 
-- Direct troubleshooting: Use `curl` in the Masterion container terminal to access `https://auth.example.com/.well-known/openid-configuration`. If JSON data is returned, your authentication service is working correctly.
+- Direct troubleshooting: Use `curl` in the Masterino container terminal to access `https://auth.example.com/.well-known/openid-configuration`. If JSON data is returned, your authentication service is working correctly.
 
 #### OAuth Token Exchange Failures with Reverse Proxy
 

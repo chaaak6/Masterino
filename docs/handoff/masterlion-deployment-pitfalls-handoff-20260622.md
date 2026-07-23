@@ -1,4 +1,4 @@
-# Masterion 部署踩坑交接文档
+# Masterino 部署踩坑交接文档
 
 更新时间：2026-06-22
 
@@ -6,7 +6,7 @@
 
 ## 概述
 
-本文档汇总 Masterion 从 v0.0.1 到 v0.0.5 部署过程中遇到的所有坑和解决方案，供后续部署和运维参考。每一条都是实际踩过的，不是理论推测。
+本文档汇总 Masterino 从 v0.0.1 到 v0.0.5 部署过程中遇到的所有坑和解决方案，供后续部署和运维参考。每一条都是实际踩过的，不是理论推测。
 
 ---
 
@@ -56,7 +56,7 @@ failed, reason: DNS lookup 169.254.0.47 is not allowed. Because, It is private I
 
 ### 原因
 
-腾讯云 COS 域名在服务器内网解析到 link-local 地址 `169.254.0.47`，被 Masterion 的 SSRF 防护拦截。AI 模型在分析图片时需要从 COS 下载图片，这个请求从服务端发出，经过 SSRF 检查。
+腾讯云 COS 域名在服务器内网解析到 link-local 地址 `169.254.0.47`，被 Masterino 的 SSRF 防护拦截。AI 模型在分析图片时需要从 COS 下载图片，这个请求从服务端发出，经过 SSRF 检查。
 
 ### 解决
 
@@ -87,7 +87,7 @@ extension "pg_search" is not available
 
 ### 原因
 
-Masterion 的数据库迁移依赖 `pgvector`（向量存储）和 `pg_search`（全文搜索），普通 PostgreSQL 镜像不带这些扩展。
+Masterino 的数据库迁移依赖 `pgvector`（向量存储）和 `pg_search`（全文搜索），普通 PostgreSQL 镜像不带这些扩展。
 
 ### 解决
 
@@ -320,11 +320,11 @@ APP_URL_ALLOWED_HOSTS=*
 ```
 服务器 159.75.83.112
 ├── 1Panel 容器 (1panel-network)
-│   ├── PostgreSQL (1Panel-postgresql-bjeC) — 不用于 Masterion
-│   ├── Redis (1Panel-redis-TyNJ) — 不用于 Masterion
-│   └── RustFS (1Panel-rustfs-oROT) — 不用于 Masterion
+│   ├── PostgreSQL (1Panel-postgresql-bjeC) — 不用于 Masterino
+│   ├── Redis (1Panel-redis-TyNJ) — 不用于 Masterino
+│   └── RustFS (1Panel-rustfs-oROT) — 不用于 Masterino
 │
-└── Masterion 容器 (masterlion-net + 1panel-network)
+└── Masterino 容器 (masterlion-net + 1panel-network)
     ├── masterlion (port 3210) — 主应用
     ├── masterlion-postgres (ParadeDB pg17) — 数据库
     ├── masterlion-redis (redis:7-alpine) — 缓存

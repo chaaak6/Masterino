@@ -1,21 +1,21 @@
 ---
-title: Deploy Masterion Database Version on Sealos
+title: Deploy Masterino Database Version on Sealos
 description: >-
-  Learn how to deploy Masterion on Sealos with ease. Follow the provided steps to
-  set up Masterion and start using it efficiently.
+  Learn how to deploy Masterino on Sealos with ease. Follow the provided steps to
+  set up Masterino and start using it efficiently.
 tags:
-  - Deploy Masterion
+  - Deploy Masterino
   - Sealos Deployment
   - OpenAI API Key
   - Custom Domain Binding
 ---
 
-# Deploying Masterion Database Version on Sealos
+# Deploying Masterino Database Version on Sealos
 
 <Callout type="info">
   This article assumes that you are familiar with the basic principles and processes of deploying
-  the Masterion server database version, so it only includes content related to core environment
-  variable configuration. If you are not familiar with the deployment principles of the Masterion
+  the Masterino server database version, so it only includes content related to core environment
+  variable configuration. If you are not familiar with the deployment principles of the Masterino
   server database version, please refer to [Deploying Server
   Database](/docs/self-hosting/server-database) first.
 </Callout>
@@ -25,9 +25,9 @@ The application on Sealos includes 4 services:
 - Logto for authrization(need to deploy separately).
 - PostgreSQL with Vector plugin for data storage and indexing.
 - One object storage Bucket.
-- Masterion database version.
+- Masterino database version.
 
-Here is the process for deploying the Masterion server database version on Sealos:
+Here is the process for deploying the Masterino server database version on Sealos:
 
 ## Pre-Deployment Setup
 
@@ -53,17 +53,17 @@ Select `Next.js (App Router)` as the framework, then click the `Start building` 
 
 ![Logto create application page](https://raw.githubusercontent.com/labring-actions/templates/main/template/lobe-chat-db/images/logto-create-application.png)
 
-**Step 4**：In the pop-up window, fill in the application name as `Masterion`, then click the `Create application` button. Next, do not fill in anything, just click the bottom `Finish and done` button to create it.
+**Step 4**：In the pop-up window, fill in the application name as `Masterino`, then click the `Create application` button. Next, do not fill in anything, just click the bottom `Finish and done` button to create it.
 
 ![Logto create application done page](https://raw.githubusercontent.com/labring-actions/templates/main/template/lobe-chat-db/images/logto-create-application-done.png)
 
-**Step 5**：In the `Masterion` application, find the following three parameters, which will be used later when deploying the Masterion database version.
+**Step 5**：In the `Masterino` application, find the following three parameters, which will be used later when deploying the Masterino database version.
 
 ![Logto application detail page](https://raw.githubusercontent.com/labring-actions/templates/main/template/lobe-chat-db/images/logto-app-detail.png)
 
-## Deploy Masterion Database Version
+## Deploy Masterino Database Version
 
-**Step 1**：Click the button below to visit the Masterion database version application deployment page:
+**Step 1**：Click the button below to visit the Masterino database version application deployment page:
 
 [![](https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg)](https://template.usw.sealos.io/deploy?templateName=lobe-chat-db)
 
@@ -75,13 +75,13 @@ Fill in the following three required parameters:
 
 **Step 2**：Click the `Deploy App` button, after the deployment is complete, wait for all the components of the application to be in the "Running" state, click the application's "Details" button to enter the application details page.
 
-![Masterion database version deployment done page](https://raw.githubusercontent.com/labring-actions/templates/main/template/lobe-chat-db/images/lobe-chat-db-deployment-done-en.png)
+![Masterino database version deployment done page](https://raw.githubusercontent.com/labring-actions/templates/main/template/lobe-chat-db/images/lobe-chat-db-deployment-done-en.png)
 
 **Step 3**：Find the public address, copy it, and use it later.
 
 ## Post-Deployment Configuration
 
-**Step 1**：Enter the `Applications` page of Logto, find the `Masterion` application, click to enter the application details page.
+**Step 1**：Enter the `Applications` page of Logto, find the `Masterino` application, click to enter the application details page.
 
 **Step 2**：In the `Settings` page, find the `Redirect URI` and `Post sign-out redirect URI` parameters, fill in the following values:
 
@@ -90,8 +90,8 @@ Fill in the following three required parameters:
 
 **Step 3**：Click the `Save changes` button to save the configuration.
 
-**Step 4**：Now, access the Masterion database version through `https://<lobehub-db-public-address>`, click the avatar in the upper left corner, and then click the \[Log in / Sign up] button.
+**Step 4**：Now, access the Masterino database version through `https://<lobehub-db-public-address>`, click the avatar in the upper left corner, and then click the \[Log in / Sign up] button.
 
 **Step 5**：Next, you will be redirected to the Logto login page, click the \[Create account] button to register an account.
 
-**Step 6**：After registration, you can use Logto to login to the Masterion database version.
+**Step 6**：After registration, you can use Logto to login to the Masterino database version.

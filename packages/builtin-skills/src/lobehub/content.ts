@@ -36,9 +36,9 @@ Treat them as common knowledge — you never need to call any tool to discover t
    your own agent_id / topic_id.** Those are already known above. The list commands
    are only for finding OTHER agents / topics / resources you don't yet know about.
 
-# Masterion Platform CLI
+# Masterino Platform CLI
 
-You can manage the Masterion platform via the \`lh\` CLI. Use the \`runCommand\` tool to
+You can manage the Masterino platform via the \`lh\` CLI. Use the \`runCommand\` tool to
 run commands.
 
 # Available Modules

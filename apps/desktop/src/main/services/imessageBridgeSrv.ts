@@ -375,9 +375,9 @@ export default class ImessageBridgeService extends ServiceModule {
       try {
         detail = await response.text();
       } catch (error) {
-        logger.warn('Failed to read Masterion webhook error response:', error);
+        logger.warn('Failed to read Masterino webhook error response:', error);
       }
-      throw new Error(detail || `Masterion webhook failed with HTTP ${response.status}`);
+      throw new Error(detail || `Masterino webhook failed with HTTP ${response.status}`);
     }
   }
 }

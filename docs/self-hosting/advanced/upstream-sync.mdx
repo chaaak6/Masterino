@@ -1,7 +1,7 @@
 ---
-title: Masterion Upstream Sync and Docker Deployment Guide
+title: Masterino Upstream Sync and Docker Deployment Guide
 description: >-
-  Learn how to enable automatic updates for Masterion Vercel deployments and
+  Learn how to enable automatic updates for Masterino Vercel deployments and
   upgrade Docker deployment versions easily. Follow step-by-step instructions
   for a seamless deployment process.
 tags:
@@ -42,21 +42,21 @@ If you encounter a sync failure, you need to manually click "Update Branch" once
 
 ## `B` Docker Deployment
 
-Upgrading the Docker deployment version is very simple, you just need to redeploy the latest Masterion image. Here are the commands required to perform these steps:
+Upgrading the Docker deployment version is very simple, you just need to redeploy the latest Masterino image. Here are the commands required to perform these steps:
 
 <Steps>
-  ### Stop and Remove the Current Running Masterion Container
+  ### Stop and Remove the Current Running Masterino Container
 
-  Assuming the Masterion container is named `lobehub`, use the following commands to stop and remove the currently running Masterion container:
+  Assuming the Masterino container is named `lobehub`, use the following commands to stop and remove the currently running Masterino container:
 
   ```fish
   docker stop lobehub
   docker rm lobehub
   ```
 
-  ### Pull the Latest Masterion Image
+  ### Pull the Latest Masterino Image
 
-  Use the following command to pull the latest Docker image for Masterion:
+  Use the following command to pull the latest Docker image for Masterino:
 
   ```fish
   docker pull lobehub/lobehub
@@ -64,7 +64,7 @@ Upgrading the Docker deployment version is very simple, you just need to redeplo
 
   ### Restart the Docker Container
 
-  Redeploy the Masterion container using the newly pulled image:
+  Redeploy the Masterino container using the newly pulled image:
 
   ```fish
   docker run -d -p 3210:3210 \
@@ -80,7 +80,7 @@ Ensure that you have sufficient permissions to stop and remove the container bef
 <Callout type={'tip'}>
   **If I redeploy, will I lose my local chat records?**
 
-  No need to worry, you won't. All of Masterion's chat records are stored in your local browser. Therefore, when redeploying Masterion using Docker, your chat records will not be lost.
+  No need to worry, you won't. All of Masterino's chat records are stored in your local browser. Therefore, when redeploying Masterino using Docker, your chat records will not be lost.
 </Callout>
 
 If you wish to automate the above steps, you can follow the method below and use Crontab scheduling to complete it. The specific steps are as follows.

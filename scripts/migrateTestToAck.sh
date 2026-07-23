@@ -22,11 +22,11 @@ Commands:
   backup [dump-file]            Create a custom-format PostgreSQL dump and sha256 file.
   target-inventory              Show target database size, extensions and key table counts.
   target-url-audit              Count absolute attachment URLs by host on the target database.
-  restore <dump-file>           Restore a dump while the target Masterion deployment is stopped.
+  restore <dump-file>           Restore a dump while the target Masterino deployment is stopped.
   rewrite-target-cos-urls       Convert old COS URLs in files/global_files to relative object keys.
 
 Target commands require KUBECONFIG and the guarded ACK context. Restore requires the
-target Masterion deployment to exist with zero replicas.
+target Masterino deployment to exist with zero replicas.
 
 rewrite-target-cos-urls also requires:
   CONFIRM_REWRITE=masterlion-test
@@ -152,7 +152,7 @@ case "$command" in
     [[ -n "$dump_file" && -s "$dump_file" ]] || fail "a non-empty dump file is required"
     init_target
     replicas="$("${KUBE[@]}" get deployment masterlion -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
-    [[ "$replicas" == "0" ]] || fail "target Masterion must have zero replicas before restore"
+    [[ "$replicas" == "0" ]] || fail "target Masterino must have zero replicas before restore"
     if [[ -f "$dump_file.sha256" ]]; then
       command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is not installed"
       sha256sum -c "$dump_file.sha256"
@@ -164,7 +164,7 @@ case "$command" in
     "${KUBE[@]}" exec -i -n "$NAMESPACE" "$pod" -- sh -c \
       'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --clean --if-exists --exit-on-error --no-owner --no-acl -U "$1" -d "$2"' \
       sh "$DATABASE_USER" "$DATABASE_NAME" <"$dump_file"
-    echo "Restore complete. Run target-inventory and target-url-audit before starting Masterion."
+    echo "Restore complete. Run target-inventory and target-url-audit before starting Masterino."
     ;;
   rewrite-target-cos-urls)
     [[ "${CONFIRM_REWRITE:-}" == "$NAMESPACE" ]] || fail \
@@ -173,7 +173,7 @@ case "$command" in
     [[ "$old_host" =~ ^[A-Za-z0-9.-]+$ ]] || fail "OLD_COS_HOST is not a valid hostname"
     init_target
     replicas="$("${KUBE[@]}" get deployment masterlion -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
-    [[ "$replicas" == "0" ]] || fail "target Masterion must have zero replicas before URL rewrite"
+    [[ "$replicas" == "0" ]] || fail "target Masterino must have zero replicas before URL rewrite"
     cat <<SQL | target_psql
 BEGIN;
 SELECT 'files_before' AS metric, count(*) AS value FROM files

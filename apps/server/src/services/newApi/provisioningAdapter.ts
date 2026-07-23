@@ -221,7 +221,7 @@ export class NewApiProvisioningAdapter {
     let targetUser = await this.findUser(keyword);
 
     // Email fallback: only accept the match when the found user's username
-    // equals the expected Masterion username (employeeNumber). This prevents
+    // equals the expected Masterino username (employeeNumber). This prevents
     // binding to a user that self-registered in Aihub with a different
     // username (e.g. newapi_320) but happens to share the same email.
     if (!targetUser && lookupField !== 'email' && asTrimmedString(input.email)) {

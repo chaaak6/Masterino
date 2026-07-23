@@ -58,13 +58,13 @@ const AskAgentCommands = memo(() => {
   const showInboxAgent =
     !mentionQuery ||
     DEFAULT_INBOX_TITLE.toLowerCase().includes(mentionQuery) ||
-    'masterlion'.includes(mentionQuery);
+    'masterino'.includes(mentionQuery);
 
   return (
     <Command.Group heading={t('cmdk.mentionAgent')}>
       {showInboxAgent && (
         <Command.Item
-          value="@masterlion-ai"
+          value="@masterino-ai"
           onMouseDown={preventDefault}
           onSelect={() => handleAgentSelect(inboxAgentId, DEFAULT_INBOX_TITLE, DEFAULT_INBOX_AVATAR)}
         >

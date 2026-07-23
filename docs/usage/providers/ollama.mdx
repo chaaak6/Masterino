@@ -1,7 +1,7 @@
 ---
-title: Using Ollama in Masterion
+title: Using Ollama in Masterino
 description: >-
-  Learn how to use Ollama in Masterion to run large language models locally and
+  Learn how to use Ollama in Masterino to run large language models locally and
   experience cutting-edge AI capabilities.
 tags:
   - Ollama
@@ -11,15 +11,15 @@ tags:
   - Ollama WebUI
 ---
 
-# Using Ollama in Masterion
+# Using Ollama in Masterino
 
-<Image alt={'Using Ollama in Masterion'} borderless cover src={'/blog/assets17870709/f579b39b-e771-402c-a1d1-620e57a10c75.webp'} />
+<Image alt={'Using Ollama in Masterino'} borderless cover src={'/blog/assets17870709/f579b39b-e771-402c-a1d1-620e57a10c75.webp'} />
 
-Ollama is a powerful framework for running large language models (LLMs) locally. It supports a variety of models, including Llama 2, Mistral, and more. Masterion now integrates seamlessly with Ollama, allowing you to leverage these models directly within your chat interface.
+Ollama is a powerful framework for running large language models (LLMs) locally. It supports a variety of models, including Llama 2, Mistral, and more. Masterino now integrates seamlessly with Ollama, allowing you to leverage these models directly within your chat interface.
 
-This guide will walk you through how to use Ollama in Masterion:
+This guide will walk you through how to use Ollama in Masterino:
 
-<Video alt={'Full demo of using Ollama in Masterion'} height={580} src="/blog/assets28616219/c32b56db-c6a1-4876-9bc3-acbd37ec0c0c.mp4" />
+<Video alt={'Full demo of using Ollama in Masterino'} height={580} src="/blog/assets28616219/c32b56db-c6a1-4876-9bc3-acbd37ec0c0c.mp4" />
 
 ## Using Ollama on macOS
 
@@ -38,11 +38,11 @@ This guide will walk you through how to use Ollama in Masterion:
 
   After setting the variable, restart the Ollama application.
 
-  ### Chat with Local LLMs in Masterion
+  ### Chat with Local LLMs in Masterino
 
-  You can now start chatting with local LLMs in Masterion.
+  You can now start chatting with local LLMs in Masterino.
 
-  <Image alt="Chatting with llama3 in Masterion" height="573" src="/blog/assets28616219/7f9a9a9f-fd91-4f59-aac9-3f26c6d49a1e.webp" />
+  <Image alt="Chatting with llama3 in Masterino" height="573" src="/blog/assets28616219/7f9a9a9f-fd91-4f59-aac9-3f26c6d49a1e.webp" />
 </Steps>
 
 ## Using Ollama on Windows
@@ -64,9 +64,9 @@ This guide will walk you through how to use Ollama in Masterion:
   4. Click `OK/Apply` and restart your system.
   5. Relaunch Ollama.
 
-  ### Chat with Local LLMs in Masterion
+  ### Chat with Local LLMs in Masterino
 
-  You can now start chatting with local LLMs in Masterion.
+  You can now start chatting with local LLMs in Masterino.
 </Steps>
 
 ## Using Ollama on Linux
@@ -108,9 +108,9 @@ This guide will walk you through how to use Ollama in Masterion:
   sudo systemctl restart ollama
   ```
 
-  ### Chat with Local LLMs in Masterion
+  ### Chat with Local LLMs in Masterino
 
-  You can now start chatting with local LLMs in Masterion.
+  You can now start chatting with local LLMs in Masterino.
 </Steps>
 
 ## Using Ollama with Docker
@@ -132,20 +132,20 @@ This guide will walk you through how to use Ollama in Masterion:
   docker run -d --gpus=all -v ollama:/root/.ollama -e OLLAMA_ORIGINS="*" -p 11434:11434 --name ollama ollama/ollama
   ```
 
-  ### Chat with Local LLMs in Masterion
+  ### Chat with Local LLMs in Masterino
 
-  You can now start chatting with local LLMs in Masterion.
+  You can now start chatting with local LLMs in Masterino.
 </Steps>
 
 ## Installing Ollama Models
 
 Ollama supports a wide range of models. You can browse the available models in the [Ollama Library](https://ollama.com/library) and choose the ones that best suit your needs.
 
-### Install via Masterion
+### Install via Masterino
 
-Masterion comes pre-configured with popular LLMs like llama3, Gemma, and Mistral. When you select a model for the first time, Masterion will prompt you to download it.
+Masterino comes pre-configured with popular LLMs like llama3, Gemma, and Mistral. When you select a model for the first time, Masterino will prompt you to download it.
 
-<Image alt="Masterion prompts to install Ollama model" height="460" src="/blog/assets28616219/4e81decc-776c-43b8-9a54-dfb43e9f601a.webp" />
+<Image alt="Masterino prompts to install Ollama model" height="460" src="/blog/assets28616219/4e81decc-776c-43b8-9a54-dfb43e9f601a.webp" />
 
 Once the download is complete, you can start chatting.
 
@@ -161,12 +161,12 @@ ollama pull llama3
 
 ## Custom Configuration
 
-You can configure Ollama settings in Masterion under `Settings` -> `AI Providers`. Here, you can set the proxy, model name, and more.
+You can configure Ollama settings in Masterino under `Settings` -> `AI Providers`. Here, you can set the proxy, model name, and more.
 
 <Image alt={'Ollama provider settings'} height={274} src={'/blog/assets28616219/54b3696b-5b13-4761-8c1b-1e664867b2dd.webp'} />
 
 <Callout type={'info'}>
-  To learn how to deploy Masterion with Ollama integration, visit [Integrating with Ollama](/en/docs/self-hosting/examples/ollama).
+  To learn how to deploy Masterino with Ollama integration, visit [Integrating with Ollama](/en/docs/self-hosting/examples/ollama).
 </Callout>
 
 ```

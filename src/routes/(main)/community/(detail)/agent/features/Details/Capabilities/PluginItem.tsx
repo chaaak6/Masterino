@@ -104,7 +104,7 @@ const PluginItem = memo<PluginItemProps>(({ identifier }) => {
         avatar: '', // Avatar will be rendered by BuiltinToolIcon component
         category: undefined,
         createdAt: '',
-        description: `Masterion MCP Server: ${composioTool.label}`,
+        description: `Masterino MCP Server: ${composioTool.label}`,
         homepage: 'https://composio.dev',
         identifier: composioTool.identifier,
         manifest: undefined,
@@ -138,7 +138,7 @@ const PluginItem = memo<PluginItemProps>(({ identifier }) => {
     // Check builtin tools (like lobe-cloud-sandbox, lobe-memory, etc.)
     if (builtinTool) {
       return {
-        author: 'Masterion',
+        author: 'Masterino',
         avatar: builtinTool.manifest.meta.avatar || '',
         category: undefined,
         createdAt: '',

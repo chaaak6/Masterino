@@ -1,14 +1,14 @@
 ---
-title: 通过 Docker Compose 部署 Masterion
-description: 学习如何使用 Docker Compose 部署 Masterion 服务，包括各种服务的配置教程。
+title: 通过 Docker Compose 部署 Masterino
+description: 学习如何使用 Docker Compose 部署 Masterino 服务，包括各种服务的配置教程。
 tags:
   - Docker Compose
-  - Masterion
+  - Masterino
   - Docker 容器
   - 部署指引
 ---
 
-# 使用 Docker Compose 部署 Masterion
+# 使用 Docker Compose 部署 Masterino
 
 <div style={{display:"flex", gap: 4}}>
   [![][docker-release-shield]][docker-release-link]
@@ -68,7 +68,7 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
 
   ```log
   安全密钥生成结果如下：
-  Masterion:
+  Masterino:
     - URL: http://localhost:3210
   RustFS:
     - URL: http://localhost:9000
@@ -104,7 +104,7 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
 
   ### 访问应用
 
-  通过 [http://localhost:3210](http://localhost:3210) 访问你的 Masterion 服务。
+  通过 [http://localhost:3210](http://localhost:3210) 访问你的 Masterino 服务。
 </Steps>
 
 ### 端口模式
@@ -123,7 +123,7 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
 
   ```log
   安全密钥生成结果如下：
-  Masterion:
+  Masterino:
     - URL: http://your_server_ip:3210
   RustFS:
     - URL: http://your_server_ip:9000
@@ -158,7 +158,7 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
 
   ### 访问应用
 
-  你可以通过 `http://your_server_ip:3210` 访问你的 Masterion 服务。
+  你可以通过 `http://your_server_ip:3210` 访问你的 Masterino 服务。
 </Steps>
 
 ### 域名模式
@@ -178,7 +178,7 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
 
   在域名模式中，你需要根据脚本提示完成：
 
-  - Masterion 服务的域名设置：`lobe.example.com`
+  - Masterino 服务的域名设置：`lobe.example.com`
   - S3 服务的域名设置：`s3.example.com`
   - 选择访问协议：`http` 或 `https`
   - 安全密钥重新生成：我们强烈建议你重新生成安全密钥，如果你缺少脚本所需的密钥生成库，我们建议你参考 [自定义部署](#自定义部署) 章节对密钥进行修改。
@@ -187,7 +187,7 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
     **单域名部署方案**
     如果只有一个域名，可以通过不同端口区分服务：
 
-    - Masterion 服务的域名设置：`lobe.example.com:${PORT1}`
+    - Masterino 服务的域名设置：`lobe.example.com:${PORT1}`
     - S3 服务的域名设置：`lobe.example.com:${PORT2}`
       需在反向代理中配置对应端口的转发规则。
       **端口模式 vs 域名模式：**
@@ -211,7 +211,7 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
 
   ```log
   安全密钥生成结果如下：
-  Masterion:
+  Masterino:
     - URL: https://lobe.example.com
   RustFS:
     - URL: https://s3.example.com
@@ -246,12 +246,12 @@ bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
 
   ### 访问应用
 
-  你可以通过 `https://lobe.example.com` 访问你的 Masterion 服务。
+  你可以通过 `https://lobe.example.com` 访问你的 Masterino 服务。
 </Steps>
 
 ## 自定义部署
 
-该章节主要为你介绍在不同的网络环境下自定义部署 Masterion 服务必须要修改的配置。在开始前，你可以先下载 [Docker Compose 配置文件](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/docker-compose.yml) 以及 [环境变量配置文件](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/.env.zh-CN.example)。
+该章节主要为你介绍在不同的网络环境下自定义部署 Masterino 服务必须要修改的配置。在开始前，你可以先下载 [Docker Compose 配置文件](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/docker-compose.yml) 以及 [环境变量配置文件](https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/.env.zh-CN.example)。
 
 ```sh
 curl -O https://raw.githubusercontent.com/lobehub/lobehub/HEAD/docker-compose/deploy/docker-compose.yml
@@ -261,13 +261,13 @@ mv .env.zh-CN.example .env
 
 ### 预备知识
 
-一般来讲，想要完整的运行 Masterion，你需要至少拥有如下三个服务：
+一般来讲，想要完整的运行 Masterino，你需要至少拥有如下三个服务：
 
-- Masterion 自身
+- Masterino 自身
 - 带有 PGVector 插件的 PostgreSQL 数据库
 - 支持 S3 协议的对象存储服务
 
-这些服务可以通过自建或者在线云服务组合搭配，以满足不同层次的部署需求。本文中，我们提供了完全基于开源自建服务的 Docker Compose 配置，你可以直接使用这份配置文件来启动 Masterion，也可以对之进行修改以适应你的需求。
+这些服务可以通过自建或者在线云服务组合搭配，以满足不同层次的部署需求。本文中，我们提供了完全基于开源自建服务的 Docker Compose 配置，你可以直接使用这份配置文件来启动 Masterino，也可以对之进行修改以适应你的需求。
 
 我们默认使用 [RustFS](https://github.com/rustfs/rustfs) 作为本地 S3 对象存储服务。如需配置 SSO 登录鉴权服务，请参考 [身份验证服务](/zh/docs/self-hosting/auth) 文档。
 
@@ -281,7 +281,7 @@ mv .env.zh-CN.example .env
 
 1. S3 对象存储
 
-Masterion 需要为 LLM 服务提供商提供文件对象的公网访问地址，因此你需要配置 S3 的 Endpoint：
+Masterino 需要为 LLM 服务提供商提供文件对象的公网访问地址，因此你需要配置 S3 的 Endpoint：
 
 <Callout type="warning">
   直接使用 `S3_ENDPOINT=http://rustfs:9000` 会导致对话内上传图片不可用（浏览器无法直接访问容器内网），但是头像上传不受影响
@@ -305,7 +305,7 @@ services:
 3. 内部通信地址 (`INTERNAL_APP_URL`)
 
 <Callout type="warning">
-  Docker Compose 部署时**必须配置** `INTERNAL_APP_URL`。Masterion 的异步功能（如 AI 生图）需要容器内部发起 HTTP 请求调用自身。如果未设置 `INTERNAL_APP_URL`，系统将使用 `APP_URL` 作为回退。当 `APP_URL` 是宿主机 IP（如 `http://10.1.7.146:8080`）时，容器内部无法访问该地址，导致生图等异步功能静默失败。
+  Docker Compose 部署时**必须配置** `INTERNAL_APP_URL`。Masterino 的异步功能（如 AI 生图）需要容器内部发起 HTTP 请求调用自身。如果未设置 `INTERNAL_APP_URL`，系统将使用 `APP_URL` 作为回退。当 `APP_URL` 是宿主机 IP（如 `http://10.1.7.146:8080`）时，容器内部无法访问该地址，导致生图等异步功能静默失败。
 </Callout>
 
 ```env
@@ -343,7 +343,7 @@ docker compose up -d # 重新启动
 
 ## 反向代理配置
 
-在生产环境中，如需使用自定义域名和 HTTPS，需在 Masterion 前面配置反向代理。
+在生产环境中，如需使用自定义域名和 HTTPS，需在 Masterino 前面配置反向代理。
 
 **Nginx：**
 

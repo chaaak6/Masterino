@@ -1,7 +1,7 @@
 ---
-title: Connect Masterion to Lark
+title: Connect Masterino to Lark
 description: >-
-  Learn how to create a Lark custom app and connect it to your Masterion agent as
+  Learn how to create a Lark custom app and connect it to your Masterino agent as
   a message channel, enabling your AI assistant to interact with team members in
   Lark chats.
 tags:
@@ -11,15 +11,15 @@ tags:
   - Integration
 ---
 
-# Connect Masterion to Lark
+# Connect Masterino to Lark
 
-By connecting a Lark channel to your Masterion agent, team members can interact with the AI assistant directly on Lark through private chats and group conversations.
+By connecting a Lark channel to your Masterino agent, team members can interact with the AI assistant directly on Lark through private chats and group conversations.
 
 > If you are using the Chinese version (飞书), please refer to the [Feishu setup guide](/docs/usage/channels/feishu).
 
 ## Prerequisites
 
-- A Masterion account with an active subscription
+- A Masterino account with an active subscription
 - A Lark account with permissions to create enterprise apps
 
 ## Step 1: Create a Lark App
@@ -31,7 +31,7 @@ By connecting a Lark channel to your Masterion agent, team members can interact 
 
   ### Create an Enterprise App
 
-  Click **Create Enterprise App**. Fill in the app name (e.g., "Masterion Assistant"), description, and icon, then submit the form.
+  Click **Create Enterprise App**. Fill in the app name (e.g., "Masterino Assistant"), description, and icon, then submit the form.
 
   ![](/blog/assetsa8003533498461272ea15a19407db9f4.webp)
 
@@ -89,12 +89,12 @@ By connecting a Lark channel to your Masterion agent, team members can interact 
   Go to **App Capability** → **Bot**. Toggle the bot capability on and set your preferred bot name.
 </Steps>
 
-## Step 3: Configure Lark in Masterion
+## Step 3: Configure Lark in Masterino
 
 <Steps>
   ### Open Channel Settings
 
-  In Masterion, navigate to your agent's settings, then select the **Channels** tab. Click **Lark** from the platform list.
+  In Masterino, navigate to your agent's settings, then select the **Channels** tab. Click **Lark** from the platform list.
 
   ### Fill in App Credentials
 
@@ -121,7 +121,7 @@ By connecting a Lark channel to your Masterion agent, team members can interact 
 
   ### Configure the Request URL
 
-  Paste the **Event Subscription URL** you copied from Masterion into the **Request URL** field. The platform will verify the endpoint automatically.
+  Paste the **Event Subscription URL** you copied from Masterino into the **Request URL** field. The platform will verify the endpoint automatically.
 
   ### Add the Message Event
 
@@ -129,7 +129,7 @@ By connecting a Lark channel to your Masterion agent, team members can interact 
 
   - `im.message.receive_v1` — Triggered when a message is received
 
-  This allows your app to receive messages and forward them to Masterion.
+  This allows your app to receive messages and forward them to Masterino.
 
   ![](/blog/assets313dfd5108d6fade542c846a87e2aa5a.webp)
 
@@ -137,7 +137,7 @@ By connecting a Lark channel to your Masterion agent, team members can interact 
 
   After configuring Event Subscription, you can find the **Verification Token** and **Encrypt Key** at the top of the Event Subscription page under **Encryption Strategy**.
 
-  Go back to Masterion's channel settings and fill in:
+  Go back to Masterino's channel settings and fill in:
 
   - **Verification Token** — Used to verify that webhook events originate from Lark
   - **Encrypt Key** (optional) — Used to decrypt encrypted event payloads
@@ -163,7 +163,7 @@ By connecting a Lark channel to your Masterion agent, team members can interact 
 
 ## Step 6: Test the Connection
 
-Back in Masterion's channel settings, click **Test Connection** to verify the credentials. Then find your bot on Lark by searching its name and send it a message to confirm it responds.
+Back in Masterino's channel settings, click **Test Connection** to verify the credentials. Then find your bot on Lark by searching its name and send it a message to confirm it responds.
 
 ## Step 7: Set Your Platform Identity (Recommended)
 
@@ -177,7 +177,7 @@ This is your own Lark `open_id` (the per-app, per-user identifier — **not** th
 - **AI tools push** — lets the agent reach you proactively (reminders, notifications) by mapping its internal user reference to your Lark account.
 - **Anti-lockout** — auto-trusted by **Allowed Users**, so scoping the bot to teammates won't accidentally lock you out.
 
-To get it: DM the bot once and inspect the inbound event payload — the `open_id` field on the sender is yours. The Lark Developer Portal also exposes a **User ID** lookup that maps mobile/email to `open_id`. Paste it into **Your Platform User ID** in Masterion's Advanced Settings.
+To get it: DM the bot once and inspect the inbound event payload — the `open_id` field on the sender is yours. The Lark Developer Portal also exposes a **User ID** lookup that maps mobile/email to `open_id`. Paste it into **Your Platform User ID** in Masterino's Advanced Settings.
 
 > Lark doesn't expose a single "default server" concept that AI tools can pivot on (the bot operates per-tenant via credentials), so the **Default Server** field is not exposed for Lark channels.
 
@@ -222,8 +222,8 @@ See the [Channels overview](/docs/usage/channels/overview#direct-message-policy)
 
 ## Troubleshooting
 
-- **Event Subscription URL verification failed:** Ensure you saved the configuration in Masterion first, and the URL was copied correctly.
+- **Event Subscription URL verification failed:** Ensure you saved the configuration in Masterino first, and the URL was copied correctly.
 - **Bot not responding:** Verify the app is published and approved, the bot capability is enabled, and the `im.message.receive_v1` event is subscribed.
-- **Bot ignores DMs:** Open **Advanced Settings** in Masterion and check **DM Policy**. If it is `Disabled`, switch to `Open` or `Allowlist`. If it is `Allowlist`, confirm the sender's `open_id` is listed in **Allowed User IDs**.
+- **Bot ignores DMs:** Open **Advanced Settings** in Masterino and check **DM Policy**. If it is `Disabled`, switch to `Open` or `Allowlist`. If it is `Allowlist`, confirm the sender's `open_id` is listed in **Allowed User IDs**.
 - **Permission errors:** Confirm all required permissions are added and approved in the Developer Portal.
-- **Test Connection failed:** Double-check the App ID and App Secret. Make sure you selected "Lark" (not "飞书") in Masterion's channel settings.
+- **Test Connection failed:** Double-check the App ID and App Secret. Make sure you selected "Lark" (not "飞书") in Masterino's channel settings.

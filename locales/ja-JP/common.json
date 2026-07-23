@@ -31,7 +31,7 @@
   "botIntegrationBanner.dismiss": "閉じる",
   "botIntegrationBanner.title": "お気に入りのメッセージアプリで Lobe AI と会話",
   "branching": "サブトピックを作成",
-  "branchingDisable": "現在のモードでは「サブトピック」機能は利用できません。この機能を使用するには、Postgres/Pglite DB モードに切り替えるか、Masterion Cloud をご利用ください",
+  "branchingDisable": "現在のモードでは「サブトピック」機能は利用できません。この機能を使用するには、Postgres/Pglite DB モードに切り替えるか、Masterino Cloud をご利用ください",
   "branchingRequiresSavedTopic": "現在のトピックが保存されていません。保存後にサブトピック機能を使用できます",
   "cancel": "キャンセル",
   "changelog": "更新履歴",

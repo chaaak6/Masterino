@@ -4,7 +4,7 @@ exports[`loadFile Integration Tests > PDF Handling > should load content from a 
 {
   "content": "<page pageNumber="1">
 123
-Masterion PDF integration fixture
+Masterino PDF integration fixture
 </page>",
   "fileType": "pdf",
   "filename": "test.pdf",
@@ -12,7 +12,7 @@ Masterion PDF integration fixture
     "loaderSpecific": {
       "pdfInfo": {
         "CreationDate": "D:20260620180709Z",
-        "Creator": "Masterion CI",
+        "Creator": "Masterino CI",
         "EncryptFilterName": null,
         "IsAcroFormPresent": false,
         "IsCollectionPresent": false,
@@ -22,7 +22,7 @@ Masterion PDF integration fixture
         "Language": null,
         "PDFFormatVersion": "1.3",
         "Producer": "PDFKit",
-        "Title": "Masterion PDF integration fixture",
+        "Title": "Masterino PDF integration fixture",
       },
       "pdfMetadata": null,
       "pdfVersion": "5.4.530",
@@ -36,7 +36,7 @@ Masterion PDF integration fixture
         "pageNumber": 1,
       },
       "pageContent": "123
-Masterion PDF integration fixture",
+Masterino PDF integration fixture",
     },
   ],
   "totalCharCount": 38,

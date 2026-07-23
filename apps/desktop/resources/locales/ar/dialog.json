@@ -11,7 +11,7 @@
   "error.detail": "حدث خطأ أثناء العملية، يرجى المحاولة لاحقًا",
   "error.message": "حدث خطأ",
   "error.title": "خطأ",
-  "fullDiskAccess.message": "يحتاج Masterion إلى الوصول الكامل إلى القرص لقراءة الملفات وتمكين ميزات قاعدة المعرفة. يرجى منح الوصول في إعدادات النظام.",
+  "fullDiskAccess.message": "يحتاج Masterino إلى الوصول الكامل إلى القرص لقراءة الملفات وتمكين ميزات قاعدة المعرفة. يرجى منح الوصول في إعدادات النظام.",
   "fullDiskAccess.openSettings": "افتح الإعدادات",
   "fullDiskAccess.skip": "لاحقًا",
   "fullDiskAccess.title": "مطلوب الوصول الكامل إلى القرص",

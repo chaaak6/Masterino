@@ -13,7 +13,7 @@
   "consent.redirecting": "Autorisatie geslaagd, je wordt doorgestuurd...",
   "consent.scope.email": "Toegang tot je e-mailadres",
   "consent.scope.offline_access": "Sta de applicatie toe om toegang te krijgen tot je gegevens",
-  "consent.scope.openid": "Authenticeer met je Masterion-account",
+  "consent.scope.openid": "Authenticeer met je Masterino-account",
   "consent.scope.profile": "Toegang tot je basisprofielinformatie (naam, avatar, enz.)",
   "consent.scope.sync-read": "Lees je gesynchroniseerde gegevens",
   "consent.scope.sync-write": "Schrijf en werk je gesynchroniseerde gegevens bij",

@@ -13,7 +13,7 @@
   "consent.redirecting": "Autorisation réussie, redirection en cours...",
   "consent.scope.email": "Accéder à votre adresse e-mail",
   "consent.scope.offline_access": "Permettre au client d'accéder à vos données",
-  "consent.scope.openid": "S'authentifier avec votre compte Masterion",
+  "consent.scope.openid": "S'authentifier avec votre compte Masterino",
   "consent.scope.profile": "Accéder à vos informations de profil de base (nom, avatar, etc.)",
   "consent.scope.sync-read": "Lire vos données synchronisées",
   "consent.scope.sync-write": "Écrire et mettre à jour vos données synchronisées",

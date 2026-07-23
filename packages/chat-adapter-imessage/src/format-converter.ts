@@ -3,7 +3,7 @@ import { BaseFormatConverter, parseMarkdown, stringifyMarkdown } from 'chat';
 
 /**
  * iMessage ultimately receives plain text through BlueBubbles. Keeping the
- * markdown markers here preserves Chat SDK compatibility; the Masterion platform
+ * markdown markers here preserves Chat SDK compatibility; the Masterino platform
  * client strips markdown before final bot replies are sent.
  */
 export class ImessageFormatConverter extends BaseFormatConverter {

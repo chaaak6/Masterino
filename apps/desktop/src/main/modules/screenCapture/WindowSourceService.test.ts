@@ -6,7 +6,7 @@ const originalPlatform = process.platform;
 
 vi.mock('electron', () => ({
   app: {
-    getName: vi.fn(() => 'Masterion'),
+    getName: vi.fn(() => 'Masterino'),
   },
 }));
 

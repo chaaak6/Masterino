@@ -169,7 +169,7 @@ export function registerProviderCommand(program: Command) {
         // lobehub is a platform-managed provider, users cannot configure its API key or base URL
         if (id === 'lobehub' && (options.apiKey !== undefined || options.baseUrl !== undefined)) {
           log.error(
-            `Provider "lobehub" is managed by the Masterion platform. You cannot set --api-key or --base-url for it.`,
+            `Provider "lobehub" is managed by the Masterino platform. You cannot set --api-key or --base-url for it.`,
           );
           process.exit(1);
         }

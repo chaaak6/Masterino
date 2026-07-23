@@ -26,7 +26,7 @@ jobs:
 
       - name: Set up Git
         run: |
-          git config --global user.name 'Masterion Bot'
+          git config --global user.name 'Masterino Bot'
           git config --global user.email 'ai@bielcrystal.com'
 
       - name: Sync main to canary

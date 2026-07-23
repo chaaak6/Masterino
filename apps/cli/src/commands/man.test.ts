@@ -30,7 +30,7 @@ describe('man command', () => {
       .description('Generate text from a prompt')
       .option('--json', 'Output raw JSON');
 
-    program.command('login').description('Log in to Masterion');
+    program.command('login').description('Log in to Masterino');
 
     registerManCommand(program);
     program.exitOverride();

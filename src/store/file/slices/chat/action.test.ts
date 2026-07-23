@@ -202,7 +202,7 @@ describe('useFileStore:chat', () => {
     mockAgentMode({ enableAgentMode: false, heterogeneous: false });
 
     const { result } = renderHook(() => useStore());
-    const file = new File(['Masterion marker: cobalt-17'], 'note.txt', { type: 'text/plain' });
+    const file = new File(['Masterino marker: cobalt-17'], 'note.txt', { type: 'text/plain' });
     const uploadWithProgress = vi.fn().mockResolvedValue({ id: 'file-3', url: 'http://x/3' });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
@@ -244,7 +244,7 @@ describe('useFileStore:chat', () => {
     mockAgentMode({ enableAgentMode: false, heterogeneous: false });
 
     const { result } = renderHook(() => useStore());
-    const file = new File(['Masterion marker: amber-29'], 'note.txt', { type: 'text/plain' });
+    const file = new File(['Masterino marker: amber-29'], 'note.txt', { type: 'text/plain' });
     const uploadWithProgress = vi.fn().mockImplementation(async ({ onStatusUpdate }) => {
       onStatusUpdate?.({
         id: 'note.txt',

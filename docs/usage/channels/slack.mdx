@@ -1,7 +1,7 @@
 ---
-title: Connect Masterion to Slack
+title: Connect Masterino to Slack
 description: >-
-  Learn how to create a Slack app and connect it to your Masterion agent as a
+  Learn how to create a Slack app and connect it to your Masterino agent as a
   message channel, enabling your AI assistant to interact with users on Slack
   through channels and direct messages.
 tags:
@@ -11,18 +11,18 @@ tags:
   - Integration
 ---
 
-# Connect Masterion to Slack
+# Connect Masterino to Slack
 
-By connecting a Slack channel to your Masterion agent, users can interact with the AI assistant directly through Slack channels and direct messages.
+By connecting a Slack channel to your Masterino agent, users can interact with the AI assistant directly through Slack channels and direct messages.
 
 ## Prerequisites
 
-- A Masterion account with an active subscription
+- A Masterino account with an active subscription
 - A Slack workspace where you have permission to install apps
 
 ## Connection Modes
 
-Masterion supports two connection modes for Slack:
+Masterino supports two connection modes for Slack:
 
 - **Socket Mode / WebSocket (Recommended)** — Real-time event delivery via WebSocket. No public URL required. Ideal for development and private deployments.
 - **Webhook** — Stateless HTTP callbacks via the Events API. Requires a publicly accessible URL. Use this if your Slack app already has Event Subscriptions configured.
@@ -46,15 +46,15 @@ Masterion supports two connection modes for Slack:
 
   ```yaml
   display_information:
-    name: Masterion Assistant
-    description: AI assistant powered by Masterion
+    name: Masterino Assistant
+    description: AI assistant powered by Masterino
   features:
     app_home:
       home_tab_enabled: false
       messages_tab_enabled: true
       messages_tab_read_only_enabled: false
     bot_user:
-      display_name: Masterion Assistant
+      display_name: Masterino Assistant
       always_online: true
     slash_commands:
       - command: /new
@@ -134,12 +134,12 @@ Masterion supports two connection modes for Slack:
   ![](/blog/assetsfd4606a4b5d801a8764bf333cde77d57.webp)
 </Steps>
 
-### Step 3: Configure Slack in Masterion
+### Step 3: Configure Slack in Masterino
 
 <Steps>
   ### Open Channel Settings
 
-  In Masterion, navigate to your agent's settings → **Channels** tab → click **Slack**.
+  In Masterino, navigate to your agent's settings → **Channels** tab → click **Slack**.
 
   ### Enter Credentials
 
@@ -163,7 +163,7 @@ Masterion supports two connection modes for Slack:
 
 ### Step 4: Test the Connection
 
-Click **Test Connection** in Masterion, then go to Slack, invite the bot to a channel, and mention it with `@MasterLion Assistant` to confirm it responds.
+Click **Test Connection** in Masterino, then go to Slack, invite the bot to a channel, and mention it with `@MasterLion Assistant` to confirm it responds.
 
 > **Slash Commands:** If you used the manifest template above, the `/new` and `/stop` commands are automatically configured. Type `/new` on Slack to reset the conversation, or `/stop` to stop the current execution. You can also use these commands via `@bot /new`.
 
@@ -186,9 +186,9 @@ Use this method if your Slack app already has Event Subscriptions configured wit
 
   Click **Install to Workspace** and copy the **Bot User OAuth Token** (`xoxb-...`).
 
-  ### Configure in Masterion
+  ### Configure in Masterino
 
-  Enter **Application ID**, **Bot Token**, and **Signing Secret** in Masterion's Slack channel settings. Set **Connection Mode** to **Webhook** in Advanced Settings. Save and copy the displayed **Webhook URL**.
+  Enter **Application ID**, **Bot Token**, and **Signing Secret** in Masterino's Slack channel settings. Set **Connection Mode** to **Webhook** in Advanced Settings. Save and copy the displayed **Webhook URL**.
 
   ### Enable App Home Messaging
 
@@ -226,13 +226,13 @@ This is your own Slack member ID, used by:
 - **AI tools push** — lets the agent reach you proactively (reminders, notifications) by mapping its internal user reference to your Slack account.
 - **Anti-lockout** — auto-trusted by **Allowed Users**, so scoping the bot to teammates won't accidentally lock you out.
 
-To get it: in Slack, click your avatar → **Profile**, then click the `⋮` overflow menu and choose **Copy member ID**. Member IDs start with `U`. Paste it into **Your Platform User ID** in Masterion's Advanced Settings.
+To get it: in Slack, click your avatar → **Profile**, then click the `⋮` overflow menu and choose **Copy member ID**. Member IDs start with `U`. Paste it into **Your Platform User ID** in Masterino's Advanced Settings.
 
 ### Default Server
 
 The Slack workspace (team) ID the bot's AI tools should default to when you ask it to "list channels", "send to #announcements", or anything else that needs a workspace context without naming one explicitly. Doesn't affect access control — that's **Group Policy**'s job.
 
-To get it: open Slack in the browser; the URL contains the team ID (`https://app.slack.com/client/T01ABCDEF/...`) — copy the part starting with `T`. Paste it into **Default Server** in Masterion's Advanced Settings.
+To get it: open Slack in the browser; the URL contains the team ID (`https://app.slack.com/client/T01ABCDEF/...`) — copy the part starting with `T`. Paste it into **Default Server** in Masterino's Advanced Settings.
 
 ## Access Policies
 
@@ -276,9 +276,9 @@ See the [Channels overview](/docs/usage/channels/overview#direct-message-policy)
 ## Troubleshooting
 
 - **DM shows "Sending messages to this app has been turned off":** In the Slack API Dashboard → **App Home** → **Show Tabs**, make sure **Messages Tab** is enabled and "Allow users to send Slash commands and messages from the messages tab" is checked. This is already enabled if you created the app using the Manifest template.
-- **Bot ignores DMs even though Slack is configured correctly:** Open **Advanced Settings** in Masterion and check **DM Policy**. If it is `Disabled`, switch to `Open` or `Allowlist`. If it is `Allowlist`, confirm the sender's Slack member ID is listed in **Allowed User IDs**.
+- **Bot ignores DMs even though Slack is configured correctly:** Open **Advanced Settings** in Masterino and check **DM Policy**. If it is `Disabled`, switch to `Open` or `Allowlist`. If it is `Allowlist`, confirm the sender's Slack member ID is listed in **Allowed User IDs**.
 - **Bot not responding:** Confirm the bot has been invited to the channel. For Socket Mode, ensure the App-Level Token is correct and Socket Mode is enabled in Slack app settings.
 - **Test Connection failed:** Double-check the Application ID and Bot Token. Ensure the app is installed to the workspace.
 - **Webhook verification failed (Webhook mode):** Make sure the Signing Secret matches and the Webhook URL is correct.
 - **Socket Mode not connecting:** Verify the App-Level Token has the `connections:write` scope. Check that Socket Mode is enabled in your Slack app settings under **Socket Mode**.
-- **`missing_scope` error (e.g., `needed: 'users:read'`) in logs:** Your app is missing a required OAuth scope, or you added a scope but never reinstalled the app. The `users:read` scope is required to resolve `@username` mentions in messages. Go to **OAuth & Permissions** → **Bot Token Scopes**, confirm all scopes listed in the manifest are present, then click **Reinstall to Workspace** at the top of the page and reauthorize. Update the **Bot User OAuth Token** in Masterion if it changes.
+- **`missing_scope` error (e.g., `needed: 'users:read'`) in logs:** Your app is missing a required OAuth scope, or you added a scope but never reinstalled the app. The `users:read` scope is required to resolve `@username` mentions in messages. Go to **OAuth & Permissions** → **Bot Token Scopes**, confirm all scopes listed in the manifest are present, then click **Reinstall to Workspace** at the top of the page and reauthorize. Update the **Bot User OAuth Token** in Masterino if it changes.

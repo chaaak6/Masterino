@@ -9,11 +9,11 @@
   "features.fleet.title": "Fleet 并排视图",
   "features.groupChat.desc": "启用多代理协同群聊功能。",
   "features.groupChat.title": "群聊（多代理）",
-  "features.imessage.desc": "通过本地 Masterion 桌面 BlueBubbles 桥接器将代理连接到 iMessage。",
+  "features.imessage.desc": "通过本地 Masterino 桌面 BlueBubbles 桥接器将代理连接到 iMessage。",
   "features.imessage.title": "iMessage 渠道",
   "features.inputMarkdown.desc": "在输入区域实时渲染 Markdown（粗体、代码块、表格等）",
   "features.inputMarkdown.title": "输入框 Markdown 渲染",
-  "features.platformAgent.desc": "在创建菜单中显示「接入助理」入口。接入的助理（如 OpenClaw、Hermes）运行在你自己的设备上，通过 lh connect 与 Masterion 通信。",
+  "features.platformAgent.desc": "在创建菜单中显示「接入助理」入口。接入的助理（如 OpenClaw、Hermes）运行在你自己的设备上，通过 lh connect 与 Masterino 通信。",
   "features.platformAgent.title": "接入助理",
   "title": "实验室"
 }

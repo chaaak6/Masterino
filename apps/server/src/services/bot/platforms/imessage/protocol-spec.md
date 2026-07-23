@@ -7,15 +7,15 @@ Authoritative references:
 
 ## Architecture
 
-Masterion does not speak to Apple's iMessage service directly. Operators host
-BlueBubbles Server on a Mac signed into Messages. The Masterion Desktop app runs
+Masterino does not speak to Apple's iMessage service directly. Operators host
+BlueBubbles Server on a Mac signed into Messages. The Masterino Desktop app runs
 a loopback webhook bridge on that Mac and keeps the BlueBubbles REST URL and
 password local.
 
 ```text
-iMessage -> macOS Messages -> BlueBubbles -> 127.0.0.1 Masterion Desktop bridge
-Desktop bridge -> /api/agent/webhooks/imessage/:applicationId -> Masterion bot router
-Masterion bot reply -> Device Gateway tool call -> Desktop bridge -> BlueBubbles REST API
+iMessage -> macOS Messages -> BlueBubbles -> 127.0.0.1 Masterino Desktop bridge
+Desktop bridge -> /api/agent/webhooks/imessage/:applicationId -> Masterino bot router
+Masterino bot reply -> Device Gateway tool call -> Desktop bridge -> BlueBubbles REST API
 ```
 
 ## Credentials
@@ -24,9 +24,9 @@ Cloud bot provider:
 
 | Field             | Source                             | Notes                                                                                                    |
 | ----------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `applicationId`   | Operator-chosen Masterion identifier | Shared by the cloud provider and Desktop bridge.                                                         |
-| `desktopDeviceId` | Masterion Desktop Gateway settings   | Identifies the Desktop device that can reach BlueBubbles locally.                                        |
-| `webhookSecret`   | Operator-generated                 | Desktop forwards BlueBubbles events to Masterion with `?secret=<value>` because BlueBubbles does not sign. |
+| `applicationId`   | Operator-chosen Masterino identifier | Shared by the cloud provider and Desktop bridge.                                                         |
+| `desktopDeviceId` | Masterino Desktop Gateway settings   | Identifies the Desktop device that can reach BlueBubbles locally.                                        |
+| `webhookSecret`   | Operator-generated                 | Desktop forwards BlueBubbles events to Masterino with `?secret=<value>` because BlueBubbles does not sign. |
 
 Desktop-only bridge config:
 
@@ -80,11 +80,11 @@ BlueBubbles Private API. Failures are logged and ignored.
 
 ## Limitations
 
-- Masterion Desktop must stay online for inbound forwarding and outbound replies.
+- Masterino Desktop must stay online for inbound forwarding and outbound replies.
 - iMessage has no general bot mention primitive. Group wake behavior relies on
   watch keywords and group policy, not native `@bot` mentions.
 - Message editing, deleting, reactions, pins, polls, and threads are not
-  exposed as Masterion bot capabilities for iMessage.
+  exposed as Masterino bot capabilities for iMessage.
 - BlueBubbles advanced send features may require the Private API / SIP changes
-  on the Mac. Masterion's basic text and attachment path uses AppleScript by
+  on the Mac. Masterino's basic text and attachment path uses AppleScript by
   default.

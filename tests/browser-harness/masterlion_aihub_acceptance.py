@@ -1,4 +1,4 @@
-r"""Browser-harness acceptance flow for Masterion Aihub integration.
+r"""Browser-harness acceptance flow for Masterino Aihub integration.
 
 Run after the local app is available, for example:
 
@@ -249,10 +249,10 @@ def assert_chat_and_file_entrypoints() -> None:
           if (!editor) return false;
           editor.focus();
           if ('value' in editor) {
-            editor.value = '\u8bf7\u7528\u4e00\u53e5\u4e2d\u6587\u56de\u590d\uff1aMasterion Aihub \u9a8c\u6536';
+            editor.value = '\u8bf7\u7528\u4e00\u53e5\u4e2d\u6587\u56de\u590d\uff1aMasterino Aihub \u9a8c\u6536';
             editor.dispatchEvent(new Event('input', { bubbles: true }));
           } else {
-            editor.textContent = '\u8bf7\u7528\u4e00\u53e5\u4e2d\u6587\u56de\u590d\uff1aMasterion Aihub \u9a8c\u6536';
+            editor.textContent = '\u8bf7\u7528\u4e00\u53e5\u4e2d\u6587\u56de\u590d\uff1aMasterino Aihub \u9a8c\u6536';
             editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: editor.textContent }));
           }
           return true;
@@ -263,7 +263,7 @@ def assert_chat_and_file_entrypoints() -> None:
     deadline = time.time() + 90
     while time.time() < deadline:
         text = page_text()
-        if "Masterion" in text and ("\u9a8c\u6536" in text or "Aihub" in text):
+        if "Masterino" in text and ("\u9a8c\u6536" in text or "Aihub" in text):
             break
         wait(2)
     else:
@@ -271,7 +271,7 @@ def assert_chat_and_file_entrypoints() -> None:
 
     sample = Path(tempfile.gettempdir()) / "masterlion-file-analysis.txt"
     sample.write_text(
-        "Masterion \u6587\u4ef6\u5206\u6790\u9a8c\u6536\u53e3\u4ee4\uff1aBLUE-GLM-51",
+        "Masterino \u6587\u4ef6\u5206\u6790\u9a8c\u6536\u53e3\u4ee4\uff1aBLUE-GLM-51",
         encoding="utf-8",
     )
     if not wait_for_element('input[type="file"]', timeout=2):
@@ -300,7 +300,7 @@ def main() -> None:
     assert_provider_usage()
     assert_chat_and_file_entrypoints()
     assert_local_skill_entrypoints()
-    print("Masterion Aihub browser-harness acceptance flow passed.")
+    print("Masterino Aihub browser-harness acceptance flow passed.")
 
 
 if __name__ in {"__main__", "browser_harness.run"}:

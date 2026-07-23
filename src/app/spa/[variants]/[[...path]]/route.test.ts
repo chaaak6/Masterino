@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@lobechat/business-const', () => ({
-  BRANDING_NAME: 'Masterion',
+  BRANDING_NAME: 'Masterino',
 }));
 
 vi.mock('@lobechat/const', () => ({

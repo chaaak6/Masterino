@@ -374,9 +374,9 @@ export class IdentityProvisioningService {
         try {
           adapter = adapter ?? new NewApiProvisioningAdapter();
 
-          // Fetch the Masterion username for token naming (MasterLion_{username}),
+          // Fetch the Masterino username for token naming (MasterLion_{username}),
           // and the email — WeCom profiles often lack an email field, but the user
-          // may have one in the Masterion users table (e.g. self-registered in
+          // may have one in the Masterino users table (e.g. self-registered in
           // Aihub with the same email). Falling back to this email lets the
           // provisioning lookup match an existing Aihub user instead of creating
           // a duplicate.

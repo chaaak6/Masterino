@@ -54,7 +54,7 @@ export const systemPrompt = `You have access to a Skills tool that can activate 
 
 - **runCommand (Default for most commands)**:
   - Use for general shell commands and CLI tools (e.g., \`lh kb list\`, \`npm install\`)
-  - Use for platform tool commands (Masterion CLI, etc.)
+  - Use for platform tool commands (Masterino CLI, etc.)
   - No skill context needed — just provide the command
   - Best for: CLI operations, system commands, tool invocations
 

@@ -96,11 +96,11 @@ export const uvDetector: IToolDetector = createCommandDetector('uv', {
 });
 
 /**
- * Masterion CLI detector
- * Tries lobehub, lobe, lh in order; validates via --help output containing "Masterion"
+ * Masterino CLI detector
+ * Tries lobehub, lobe, lh in order; validates via --help output containing "Masterino"
  */
 export const lobehubDetector: IToolDetector = {
-  description: 'Masterion CLI - manage and connect to Masterion services',
+  description: 'Masterino CLI - manage and connect to Masterino services',
   async detect(): Promise<ToolStatus> {
     const commands = ['lobehub', 'lobe', 'lh'];
     const whichCmd = platform() === 'win32' ? 'where' : 'which';
@@ -110,9 +110,9 @@ export const lobehubDetector: IToolDetector = {
         const { stdout: pathOut } = await execPromise(`${whichCmd} ${cmd}`, { timeout: 3000 });
         const toolPath = pathOut.trim().split('\n')[0];
 
-        // Validate it's actually Masterion CLI by checking help output
+        // Validate it's actually Masterino CLI by checking help output
         const { stdout: helpOut } = await execPromise(`${cmd} --help`, { timeout: 3000 });
-        if (!helpOut.includes('Masterion')) continue;
+        if (!helpOut.includes('Masterino')) continue;
 
         const { stdout: versionOut } = await execPromise(`${cmd} --version`, { timeout: 3000 });
         const version = versionOut.trim().split('\n')[0];

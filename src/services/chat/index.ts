@@ -238,7 +238,7 @@ class ChatService {
           const server = allComposioServers.find((s) => s.identifier === composioType.identifier);
 
           officialTools.push({
-            description: `Masterion MCP Server: ${composioType.label}`,
+            description: `Masterino MCP Server: ${composioType.label}`,
             enabled: enabledPlugins.includes(composioType.identifier),
             identifier: composioType.identifier,
             installed: !!server,
@@ -260,7 +260,7 @@ class ChatService {
           const server = allLobehubSkillServers.find((s) => s.identifier === provider.id);
 
           officialTools.push({
-            description: `Masterion Skill Provider: ${provider.label}`,
+            description: `Masterino Skill Provider: ${provider.label}`,
             enabled: enabledPlugins.includes(provider.id),
             identifier: provider.id,
             installed: !!server,

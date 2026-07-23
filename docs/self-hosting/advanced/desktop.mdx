@@ -1,20 +1,20 @@
 ---
-title: Automatic Synchronization with Masterion Desktop
-description: Configure Masterion Desktop for a synchronized experience
+title: Automatic Synchronization with Masterino Desktop
+description: Configure Masterino Desktop for a synchronized experience
 tags:
-  - Masterion
+  - Masterino
   - Desktop Synchronization
   - Self-Hosted Instance
   - OIDC Configuration
 ---
 
-# Automatic Synchronization with Masterion Desktop
+# Automatic Synchronization with Masterino Desktop
 
-Masterion Desktop provides users with an enhanced experience while also expanding the capabilities of Masterion, allowing users to utilize Masterion in offline environments. This document will guide you on how to configure Masterion Desktop and connect it to your self-hosted instance.
+Masterino Desktop provides users with an enhanced experience while also expanding the capabilities of Masterino, allowing users to utilize Masterino in offline environments. This document will guide you on how to configure Masterino Desktop and connect it to your self-hosted instance.
 
 ## System Requirements
 
-Masterion Desktop is built using Electron and supports the following operating systems:
+Masterino Desktop is built using Electron and supports the following operating systems:
 
 - Windows
 - macOS
@@ -22,16 +22,16 @@ Masterion Desktop is built using Electron and supports the following operating s
 
 ## Desktop Version Information
 
-The version release of Masterion Desktop follows this logic:
+The version release of Masterino Desktop follows this logic:
 
-- **Beta Version**: All merges to the main branch that are automatically released will be created as Beta versions of Masterion Desktop.
+- **Beta Version**: All merges to the main branch that are automatically released will be created as Beta versions of Masterino Desktop.
 - **Stable Version**: The development team will periodically release stable versions through manual tagging.
 
 If you wish to access the latest features, you can use the Beta version; if you prioritize stability, please use the Stable version.
 
 ## Connecting to a Self-Hosted Instance
 
-Masterion Desktop can connect to your self-hosted Masterion instance, allowing you to use your self-hosted configuration on the desktop.
+Masterino Desktop can connect to your self-hosted Masterino instance, allowing you to use your self-hosted configuration on the desktop.
 
 ### Preparations
 
@@ -58,14 +58,14 @@ Add the generated environment variables to your deployment configuration.
 
 <Callout>If you have already configured `OIDC_JWKS_KEY`, no changes are needed. The system will automatically fall back to `OIDC_JWKS_KEY` for backward compatibility.</Callout>
 
-If you are deploying Masterion using one-click deployment methods (such as Vercel, Railway, etc.), you need to:
+If you are deploying Masterino using one-click deployment methods (such as Vercel, Railway, etc.), you need to:
 
 1. Add the above environment variables to the environment variable configuration of your deployment platform.
 2. For Vercel deployments, ensure that the `APP_URL` environment variable is set to your domain URL, which is crucial for correctly handling authentication callbacks.
 
 ### Connection Steps
 
-1. Open Masterion Desktop.
+1. Open Masterino Desktop.
 2. Click the Wi-Fi icon in the upper right corner.
 3. Enter the address of your self-hosted instance (e.g., `https://your-MasterLion-instance.com`).
 4. Click the "Connect" button.

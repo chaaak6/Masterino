@@ -1,4 +1,4 @@
-# Masterion 登录门控与 Aihub 凭证恢复交接
+# Masterino 登录门控与 Aihub 凭证恢复交接
 
 更新时间：2026-07-01
 
@@ -113,7 +113,7 @@ PR #21（`fix/onboarding-lobe-ai-text`，已合并 2026-06-30）声称修复了 
 // packages/business/const/src/branding.ts
 export const BRANDING_NAME = '小宗狮';
 export const ORG_NAME = '小宗狮';
-export const LOBE_CHAT_CLOUD = 'Masterion Cloud';
+export const LOBE_CHAT_CLOUD = 'Masterino Cloud';
 ```
 
 `BRANDING_NAME` 已在 `src/` 中被引用 **89 处**，是品牌文案的统一来源。
@@ -152,7 +152,7 @@ export const LOBE_CHAT_CLOUD = 'Masterion Cloud';
 
 | 文件 | 行 | 原因 |
 |------|-----|------|
-| `src/features/MobileHome/MobileInboxItem.tsx` | 38 | 兼容旧数据：`rawTitle === 'Lobe AI'` 判断，已同时判断 `'Masterion'` |
+| `src/features/MobileHome/MobileInboxItem.tsx` | 38 | 兼容旧数据：`rawTitle === 'Lobe AI'` 判断，已同时判断 `'Masterino'` |
 | `src/features/Electron/ScreenCapture/overlaySnapshot.ts` | 4 | 桌面端内部常量，配合 `rawTitle === 'Lobe AI'` 兼容判断 |
 | `src/features/DevPanel/RenderGallery/fixtures/index.ts` | 54 | DevPanel 测试 fixture，非生产代码 |
 | `src/store/agent/slices/agent/action.ts` | 309 | 代码注释 |
@@ -160,7 +160,7 @@ export const LOBE_CHAT_CLOUD = 'Masterion Cloud';
 | `src/store/session/store.ts` | 47 | Zustand store name（`LobeChat_Session`），内部标识 |
 | `src/store/brief/store.ts` | 31 | Zustand store name（`LobeChat_Brief`），内部标识 |
 | `packages/locales/src/default/setting.ts` | 964-1635 | locale key 名含 `LobeAI`，value 已无品牌露出（描述性文案）|
-| `packages/locales/src/default/common.ts` | 130 | `cmdk.askLobeAI` key 名，value 已是 `'Ask Masterion'` |
+| `packages/locales/src/default/common.ts` | 130 | `cmdk.askLobeAI` key 名，value 已是 `'Ask Masterino'` |
 
 ### 排查命令
 

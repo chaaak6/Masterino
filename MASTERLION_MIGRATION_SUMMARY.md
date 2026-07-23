@@ -1,4 +1,4 @@
-# Masterion / 小宗狮 Aihub 改造迁移记录
+# Masterino / 小宗狮 Aihub 改造迁移记录
 
 更新时间：2026-06-20
 
@@ -28,7 +28,7 @@ E:\MasterLion\lobehub-canary
 ## 品牌替换
 
 - 明显标题、浏览器标题、主要品牌名：`小宗狮`
-- 产品、动画、图标、较弱可见品牌：`Masterion`
+- 产品、动画、图标、较弱可见品牌：`Masterino`
 - Aihub 供应商显示名：`Aihub`
 - VI 资源已接入：`public/brand/masterlion/`
 
@@ -68,9 +68,9 @@ AIHUB_READONLY_DATABASE_URL=mysql://newapi_read:<url-encoded-password>@47.106.93
 
 当前默认使用 `AIHUB_DATA_SOURCE=db`。
 
-用户登录 Masterion 后，服务端会：
+用户登录 Masterino 后，服务端会：
 
-1. 读取当前 Masterion 用户的 `email` / `username`。
+1. 读取当前 Masterino 用户的 `email` / `username`。
 2. 通过 Aihub 只读 MySQL 查询 `users` 表，匹配 Aihub 用户。
 3. 查询该 Aihub 用户可用 token：
    - 优先 token 名称 `masterlion-managed`
@@ -80,7 +80,7 @@ AIHUB_READONLY_DATABASE_URL=mysql://newapi_read:<url-encoded-password>@47.106.93
    - 否则按用户 group 查询 `abilities` 表启用模型
 5. 查询余额、已用额度、请求次数。
 6. 查询 `logs` 表聚合 token 用量、模型分布、请求数和 quota。
-7. 将 Aihub token 加密保存到 Masterion 的 provider keyVault，不暴露给浏览器。
+7. 将 Aihub token 加密保存到 Masterino 的 provider keyVault，不暴露给浏览器。
 
 核心文件：
 
@@ -185,7 +185,7 @@ enabledModels: 23
    http://localhost:3010/settings/provider/newapi
    ```
 
-6. 登录一个 Masterion 用户，确认：
+6. 登录一个 Masterino 用户，确认：
 
    - Aihub 绑定状态正常
    - 可见模型列表来自 Aihub

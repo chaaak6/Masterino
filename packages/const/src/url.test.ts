@@ -10,8 +10,8 @@ import {
   RELEASES_URL,
 } from './url';
 
-describe('Masterion public repository URLs', () => {
-  it('uses the Masterion GitHub repository for product links', () => {
+describe('Masterino public repository URLs', () => {
+  it('uses the Masterino GitHub repository for product links', () => {
     expect(GITHUB).toBe('https://github.com/chaaak6/MasterLion');
     expect(GITHUB_ISSUES).toBe('https://github.com/chaaak6/MasterLion/issues/new/choose');
     expect(FEEDBACK).toBe(GITHUB_ISSUES);

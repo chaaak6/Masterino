@@ -19,7 +19,7 @@
     "type": "git",
     "url": "https://github.com/chaaak6/MasterLion.git"
   },
-  "author": "Masterion <ai@bielcrystal.com>",
+  "author": "Masterino <ai@bielcrystal.com>",
   "sideEffects": false,
   "main": "./src/index.ts",
   "scripts": {

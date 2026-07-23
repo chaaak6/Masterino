@@ -6,16 +6,16 @@ import { TASK_AGENT } from '../../packages/builtin-agents/src/agents/task-agent'
 import { VERIFY_AGENT } from '../../packages/builtin-agents/src/agents/verify-agent';
 import { WEB_ONBOARDING } from '../../packages/builtin-agents/src/agents/web-onboarding';
 
-describe('Masterion builtin agent branding', () => {
-  it('uses the Masterion avatar for default user-facing builtin agents', () => {
+describe('Masterino builtin agent branding', () => {
+  it('uses the Masterino avatar for default user-facing builtin agents', () => {
     expect(INBOX.avatar).toBe('/brand/masterlion/avatar.png');
     expect(TASK_AGENT.avatar).toBe('/brand/masterlion/avatar.png');
     expect(VERIFY_AGENT.avatar).toBe('/brand/masterlion/avatar.png');
     expect(WEB_ONBOARDING.avatar).toBe('/brand/masterlion/avatar.png');
   });
 
-  it('describes the group supervisor as Masterion instead of LobeAI', () => {
-    expect(supervisorSystemRole).toContain('You are Masterion');
+  it('describes the group supervisor as Masterino instead of LobeAI', () => {
+    expect(supervisorSystemRole).toContain('You are Masterino');
     expect(supervisorSystemRole).not.toContain('LobeAI');
     expect(supervisorSystemRole).not.toContain('LobeHub');
   });

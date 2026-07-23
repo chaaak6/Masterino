@@ -41,7 +41,7 @@ describe('LobeVercelAIGatewayAI - custom features', () => {
       expect(params.constructorOptions).toBeDefined();
       expect(params.constructorOptions?.defaultHeaders).toEqual({
         'http-referer': 'https://aihub.bielcrystal.com',
-        'x-title': 'Masterion',
+        'x-title': 'Masterino',
       });
     });
   });

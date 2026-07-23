@@ -453,7 +453,7 @@ const SkillList = memo<SkillListProps>(
         {hasBuiltinTools &&
           renderSection(
             'builtinTools',
-            t('skillGroup.builtinTools', 'Masterion 内置 Tools'),
+            t('skillGroup.builtinTools', 'Masterino 内置 Tools'),
             builtinToolItems.map((item) => {
               if (item.type !== 'builtin') return null;
               const localizedTitle = t(`tools.builtins.${item.builtinTool.identifier}.title`, {
