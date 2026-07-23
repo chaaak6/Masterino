@@ -2,7 +2,7 @@
 
 Guidelines for using AI coding agents in this Masterino repository.
 
-Current product version: `0.0.2`.
+Current product version: `1.0.2`.
 
 Masterino is a company-internal AI Agent workspace for 小宗狮. It is derived from a historical upstream AI chat codebase, but user-facing documentation, release notes, security policy, and product language should describe Masterino and its Aihub integration. Legacy package names such as `@lobehub/*`, `@lobechat/*`, provider ids, database enums, and import paths are implementation details and must not be renamed casually.
 
