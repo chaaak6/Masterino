@@ -11,7 +11,7 @@ NETWORK="${NETWORK:-masterlion_masterlion-net}"
 
 export DOCKER_BUILDKIT=1
 
-echo "==> [1/3] Building Masterion image: $IMAGE_NAME"
+echo "==> [1/3] Building Masterino image: $IMAGE_NAME"
 docker build \
   -t "$IMAGE_NAME" \
   -f "$PROJECT_ROOT/Dockerfile" \
@@ -26,7 +26,7 @@ docker build \
   --build-arg USE_CN_MIRROR=true \
   "$PROJECT_ROOT"
 
-echo "==> [3/3] Restarting Masterion container..."
+echo "==> [3/3] Restarting Masterino container..."
 docker stop masterlion 2>/dev/null && docker rm masterlion 2>/dev/null || true
 
 docker run -d \

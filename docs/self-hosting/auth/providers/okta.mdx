@@ -1,12 +1,12 @@
 ---
-title: Configuring Okta Authentication for Masterion
+title: Configuring Okta Authentication for Masterino
 description: >-
-  Learn how to configure Okta SSO for Masterion, including creating an application
+  Learn how to configure Okta SSO for Masterino, including creating an application
   and setting up environment variables.
 tags:
   - Okta
   - Authentication
-  - Masterion
+  - Masterino
   - Single Sign-On
   - OIDC
 ---
@@ -25,7 +25,7 @@ tags:
      - Sign-in method: **OIDC - OpenID Connect**
      - Application type: **Web Application**
   5. Configure the application:
-     - App integration name: `Masterion`
+     - App integration name: `Masterino`
      - Sign-in redirect URIs: Add your callback URL
 
   <Callout type={'info'}>
@@ -42,12 +42,12 @@ tags:
 
   ### Configure Environment Variables
 
-  When deploying Masterion, you need to configure the following environment variables:
+  When deploying Masterino, you need to configure the following environment variables:
 
   | Environment Variable | Type     | Description                                                                   |
   | -------------------- | -------- | ----------------------------------------------------------------------------- |
   | `AUTH_SECRET`        | Required | Key used to encrypt session tokens. Generate using: `openssl rand -base64 32` |
-  | `AUTH_SSO_PROVIDERS` | Required | SSO provider for Masterion. Use `okta` for Okta                                 |
+  | `AUTH_SSO_PROVIDERS` | Required | SSO provider for Masterino. Use `okta` for Okta                                 |
   | `AUTH_OKTA_ID`       | Required | Client ID from Okta application                                               |
   | `AUTH_OKTA_SECRET`   | Required | Client Secret from Okta application                                           |
   | `AUTH_OKTA_ISSUER`   | Required | Okta issuer URL (e.g., `https://your-okta-domain.okta.com`)                   |
@@ -58,7 +58,7 @@ tags:
 </Steps>
 
 <Callout type={'info'}>
-  After successful deployment, users will be able to authenticate with Okta and use Masterion.
+  After successful deployment, users will be able to authenticate with Okta and use Masterino.
 </Callout>
 
 ## Related Resources

@@ -1,22 +1,22 @@
 ---
-title: Masterion 功能开发完全指南
-description: 了解如何在 Masterion 中开发完整的功能需求，提升开发效率。
+title: Masterino 功能开发完全指南
+description: 了解如何在 Masterino 中开发完整的功能需求，提升开发效率。
 tags:
-  - Masterion
+  - Masterino
   - 功能开发
   - 开发指南
   - 开场设置
 ---
 
-# Masterion 功能开发完全指南
+# Masterino 功能开发完全指南
 
-本文档旨在指导开发者了解如何在 Masterion 中开发一块完整的功能需求。
+本文档旨在指导开发者了解如何在 Masterino 中开发一块完整的功能需求。
 
 我们将以 [RFC 021 - 自定义助手开场引导](https://github.com/biel-cc/MasterLion/discussions/891) 为例，阐述完整的实现流程。
 
 ## 一、更新 Schema
 
-Masterion 使用 PostgreSQL 数据库，项目使用 [Drizzle ORM](https://orm.drizzle.team/) 来操作数据库。
+Masterino 使用 PostgreSQL 数据库，项目使用 [Drizzle ORM](https://orm.drizzle.team/) 来操作数据库。
 
 Schemas 统一放在 `packages/database/src/schemas/` 下，我们需要调整 `agents` 表增加两个配置项对应的字段：
 
@@ -141,7 +141,7 @@ export const sessionRouter = router({
 
 ### 数据流 Store 实现
 
-Masterion 使用 [zustand](https://zustand.docs.pmnd.rs/getting-started/introduction) 作为全局状态管理框架，对于状态管理的详细实践介绍，可以查阅 [📘 状态管理最佳实践](/zh/docs/development/state-management/state-management-intro)。
+Masterino 使用 [zustand](https://zustand.docs.pmnd.rs/getting-started/introduction) 作为全局状态管理框架，对于状态管理的详细实践介绍，可以查阅 [📘 状态管理最佳实践](/zh/docs/development/state-management/state-management-intro)。
 
 和 agent 相关的 store 有两个：
 
@@ -216,7 +216,7 @@ export const agentSelectors = {
 
 ### i18n 处理
 
-Masterion 是国际化项目，使用 [react-i18next](https://github.com/i18next/react-i18next) 作为 i18n 框架。新增的 UI 文案需要：
+Masterino 是国际化项目，使用 [react-i18next](https://github.com/i18next/react-i18next) 作为 i18n 框架。新增的 UI 文案需要：
 
 1. 在 `src/locales/default/` 对应的 namespace 文件中添加 key（默认语言为英文）：
 
@@ -363,4 +363,4 @@ bunx vitest run --silent='passed-only' 'src/store/agent/slices/chat/selectors/ag
 
 ## 总结
 
-以上就是 Masterion 开场设置功能的完整实现流程，涵盖了从数据库 schema → 数据模型 → Service/Model → Store → i18n → UI → 测试的全链路。开发者可以参考本文档进行相关功能的开发。
+以上就是 Masterino 开场设置功能的完整实现流程，涵盖了从数据库 schema → 数据模型 → Service/Model → Store → i18n → UI → 测试的全链路。开发者可以参考本文档进行相关功能的开发。

@@ -17,9 +17,9 @@ const getCanvasFingerprint = (): string => {
     ctx.fillStyle = '#f60';
     ctx.fillRect(40, 0, 62, 20);
     ctx.fillStyle = '#069';
-    ctx.fillText('Masterion fp', 2, 15);
+    ctx.fillText('Masterino fp', 2, 15);
     ctx.fillStyle = 'rgba(102,204,0,0.7)';
-    ctx.fillText('Masterion fp', 4, 17);
+    ctx.fillText('Masterino fp', 4, 17);
     return canvas.toDataURL();
   } catch {
     return '';

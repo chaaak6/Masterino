@@ -46,8 +46,8 @@ const logger = createLogger('controllers:GatewayConnectionCtr');
  */
 function buildNotifyProtocol(lhPath: string, topicId: string): string {
   return (
-    `## Context: This task was dispatched by Masterion\n\n` +
-    `This conversation / task was sent to you by the **Masterion platform** on behalf of a user. You are running as a background agent; the user is waiting for your response inside the Masterion chat interface.\n\n` +
+    `## Context: This task was dispatched by Masterino\n\n` +
+    `This conversation / task was sent to you by the **Masterino platform** on behalf of a user. You are running as a background agent; the user is waiting for your response inside the Masterino chat interface.\n\n` +
     `**When to call notify**: any time you have something meaningful to tell the user — a key finding, a decision you made, a result, a question, or your final answer.\n\n` +
     `**What to hide**: internal work details such as tool call sequences, file reads, intermediate command output, retries, or low-level reasoning steps.\n\n` +
     `## Sending messages back to the user\n\n` +

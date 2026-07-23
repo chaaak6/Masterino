@@ -5,7 +5,7 @@ import type { ModelProviderCard } from '@/types/llm';
 const Aihub: ModelProviderCard = {
   chatModels: [],
   checkModel: DEFAULT_MODEL,
-  description: 'Company-managed Aihub model access for Masterion.',
+  description: 'Company-managed Aihub model access for Masterino.',
   enabled: true,
   id: 'newapi',
   name: 'Aihub',

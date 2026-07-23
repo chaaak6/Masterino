@@ -31,7 +31,7 @@
   "botIntegrationBanner.dismiss": "Закрыть",
   "botIntegrationBanner.title": "Общайтесь с Lobe AI в любимых мессенджерах",
   "branching": "Создать подтему",
-  "branchingDisable": "Функция «Подтема» недоступна в текущем режиме. Чтобы использовать её, переключитесь в режим базы данных Postgres/PGlite или используйте Masterion Cloud.",
+  "branchingDisable": "Функция «Подтема» недоступна в текущем режиме. Чтобы использовать её, переключитесь в режим базы данных Postgres/PGlite или используйте Masterino Cloud.",
   "branchingRequiresSavedTopic": "Текущая тема не сохранена. Сначала сохраните её, чтобы использовать функцию подтем.",
   "cancel": "Отмена",
   "changelog": "История изменений",

@@ -2,18 +2,18 @@
 
 ## Supported Versions
 
-Masterion currently supports security fixes for the **latest 0.0.x release**.
+Masterino currently supports security fixes for the **latest 0.0.x release**.
 
 | Version      | Supported |
 | ------------ | --------- |
 | 0.0.x latest | ✅        |
 | older builds | ❌        |
 
-If you are running an older internal build, upgrade to the latest Masterion `0.0.x` release before reporting security issues.
+If you are running an older internal build, upgrade to the latest Masterino `0.0.x` release before reporting security issues.
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities through the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/chaaak6/MasterLion/security/advisories/new) tab or through the internal Masterion owner channel.
+Please report security vulnerabilities through the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/chaaak6/MasterLion/security/advisories/new) tab or through the internal Masterino owner channel.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
@@ -21,14 +21,14 @@ Please report security vulnerabilities through the GitHub Security Advisory ["Re
 
 - **Acknowledgement**: We aim to respond to all reports within **7 days**.
 - **Fix**: Confirmed vulnerabilities will be addressed within **30 days**.
-- **Urgent issues**: If you believe the vulnerability is critical and actively exploitable, contact the Masterion project owner directly.
+- **Urgent issues**: If you believe the vulnerability is critical and actively exploitable, contact the Masterino project owner directly.
 
 ### What to Include
 
 A good vulnerability report should include:
 
 - A clear description of the issue and its potential impact
-- The affected version (must be the latest supported Masterion `0.0.x` release)
+- The affected version (must be the latest supported Masterino `0.0.x` release)
 - Step-by-step reproduction instructions or a working PoC
 - Any relevant logs, screenshots, or code references
 
@@ -36,7 +36,7 @@ A good vulnerability report should include:
 
 ### In Scope
 
-- Security issues affecting the **latest supported Masterion 0.0.x release**
+- Security issues affecting the **latest supported Masterino 0.0.x release**
 - Vulnerabilities in the **server-side deployment** (internal Docker deployment or self-hosted server mode)
 - Issues that can be exploited **without requiring admin/owner access** to the deployment
 - Server-side Aihub token, Aihub DB bridge, upload proxy, file download, auth, or permission boundary issues
@@ -82,4 +82,4 @@ Reports based on theoretical attack scenarios without a working proof of concept
 ## Contact
 
 - **Primary**: [GitHub Security Advisories](https://github.com/chaaak6/MasterLion/security/advisories/new)
-- **Urgent**: Contact the Masterion project owner directly.
+- **Urgent**: Contact the Masterino project owner directly.

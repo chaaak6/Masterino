@@ -11,7 +11,7 @@ import { formatDescLength, formatTitleLength } from '@/utils/genOG';
 
 export class Meta {
   public generate({
-    description = 'Masterion is the internal AI chat workspace for 小宗狮 teams',
+    description = 'Masterino is the internal AI chat workspace for 小宗狮 teams',
     title,
     image = OG_URL,
     url,

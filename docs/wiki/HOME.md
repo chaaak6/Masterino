@@ -1,6 +1,6 @@
-# Masterion Wiki
+# Masterino Wiki
 
-Masterion is the internal 小宗狮 AI Agent workspace. This wiki should document the Masterion product, Aihub integration, enterprise governance, local deployment, and release operations.
+Masterino is the internal 小宗狮 AI Agent workspace. This wiki should document the Masterino product, Aihub integration, enterprise governance, local deployment, and release operations.
 
 ## Start Here
 
@@ -20,4 +20,4 @@ Masterion is the internal 小宗狮 AI Agent workspace. This wiki should documen
 
 ## Branding
 
-Use the 小宗狮 / Masterion brand assets under `public/brand/masterlion/`. Do not use upstream public marketing graphics for new Masterion docs.
+Use the 小宗狮 / Masterino brand assets under `public/brand/masterlion/`. Do not use upstream public marketing graphics for new Masterino docs.

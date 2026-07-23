@@ -1,6 +1,6 @@
-# E2E Tests for Masterion
+# E2E Tests for Masterino
 
-This directory contains end-to-end (E2E) tests for Masterion using Cucumber (BDD) and Playwright.
+This directory contains end-to-end (E2E) tests for Masterino using Cucumber (BDD) and Playwright.
 
 ## Directory Structure
 

@@ -60,7 +60,7 @@ export async function messengerInstall(c: Context): Promise<Response> {
   if (!config) {
     log('install: %s messenger not configured', platform);
     return new Response(
-      `${definition.name} messenger is not configured on this Masterion deployment. ` +
+      `${definition.name} messenger is not configured on this Masterino deployment. ` +
         `Ask the operator to add a ${definition.name} bot in dc-center → Agent → System Bots ` +
         `and enable it.`,
       { status: 503 },

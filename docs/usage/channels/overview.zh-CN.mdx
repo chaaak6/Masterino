@@ -1,7 +1,7 @@
 ---
 title: 渠道概览
 description: >-
-  将 Masterion 代理连接到外部消息平台，如 Discord、Slack、Telegram、LINE、QQ、微信、飞书和
+  将 Masterino 代理连接到外部消息平台，如 Discord、Slack、Telegram、LINE、QQ、微信、飞书和
   Lark，让用户可以直接在他们喜欢的聊天应用中与 AI 助手互动。
 tags:
   - 渠道
@@ -19,7 +19,7 @@ tags:
 
 # 渠道
 
-渠道功能允许您将 Masterion 代理连接到外部消息平台。一旦连接，用户可以直接在他们已经使用的聊天应用中与您的 AI 助手互动，无需访问 Masterion。
+渠道功能允许您将 Masterino 代理连接到外部消息平台。一旦连接，用户可以直接在他们已经使用的聊天应用中与您的 AI 助手互动，无需访问 Masterino。
 
 > \[!NOTE]
 >
@@ -33,7 +33,7 @@ tags:
 | [Slack](/docs/usage/channels/slack)       | 连接到 Slack，用于频道和私信对话                                   |
 | [Telegram](/docs/usage/channels/telegram) | 连接到 Telegram，用于私人和群组对话                                |
 | [LINE](/docs/usage/channels/line)         | 通过 LINE Messaging API 连接到 LINE，支持私聊和群聊                |
-| [iMessage](/docs/usage/channels/imessage) | 通过 Masterion Desktop 本地 BlueBubbles 桥接连接 iMessage（Labs） |
+| [iMessage](/docs/usage/channels/imessage) | 通过 Masterino Desktop 本地 BlueBubbles 桥接连接 iMessage（Labs） |
 | [QQ](/docs/usage/channels/qq)             | 连接到 QQ，用于群聊和私信                                        |
 | [微信](/docs/usage/channels/wechat)         | 通过 iLink Bot 连接到微信，用于私聊和群聊（需要有效订阅）                    |
 | [飞书](/docs/usage/channels/feishu)         | 连接到飞书，用于团队协作（中国版）                                     |
@@ -41,10 +41,10 @@ tags:
 
 ## 工作原理
 
-每个渠道集成都通过将目标平台上的机器人账户与 Masterion 代理连接来实现。当用户向机器人发送消息时，Masterion 会通过代理处理消息并将响应发送回同一对话。
+每个渠道集成都通过将目标平台上的机器人账户与 Masterino 代理连接来实现。当用户向机器人发送消息时，Masterino 会通过代理处理消息并将响应发送回同一对话。
 
 - **按代理配置** — 每个代理可以拥有自己的一组渠道连接，因此不同的代理可以服务于不同的平台或社区。
-- **同时支持多个渠道** — 单个代理可以同时连接到 Discord、Slack、Telegram、LINE、QQ、微信、飞书和 Lark。Masterion 会自动将消息路由到正确的代理。
+- **同时支持多个渠道** — 单个代理可以同时连接到 Discord、Slack、Telegram、LINE、QQ、微信、飞书和 Lark。Masterino 会自动将消息路由到正确的代理。
 - **安全的凭据存储** — 所有机器人令牌和应用密钥在存储前都会被加密。
 
 ## 快速开始

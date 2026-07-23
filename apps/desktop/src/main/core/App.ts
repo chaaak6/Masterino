@@ -93,7 +93,7 @@ export class App {
     logger.info(` lng: ${app.getLocale()}`);
     logger.info(` bin: ${binDir}`);
     logger.info('----------------------------------------------');
-    logger.info('Starting Masterion...');
+    logger.info('Starting Masterino...');
 
     // Append bundled binaries and CLI wrapper directories to PATH for tool resolution
     const pathSep = process.platform === 'win32' ? ';' : ':';

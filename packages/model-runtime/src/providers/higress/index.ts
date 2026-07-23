@@ -19,7 +19,7 @@ export const params = {
   constructorOptions: {
     defaultHeaders: {
       'HTTP-Referer': 'https://aihub.bielcrystal.com',
-      'X-Title': 'Masterion',
+      'X-Title': 'Masterino',
       'x-Request-Id': uniqueId('lobe-chat-'),
     },
   },

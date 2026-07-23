@@ -8,7 +8,7 @@
 
 #### 🐛 Bug Fixes
 
-- **misc**: correct Masterion brand spelling.
+- **misc**: correct Masterino brand spelling.
 
 <br/>
 
@@ -17,7 +17,7 @@
 
 #### What's fixed
 
-- **misc**: correct Masterion brand spelling, closes [#31](https://github.com/chaaak6/MasterLion/issues/31) ([857d266](https://github.com/chaaak6/MasterLion/commit/857d266))
+- **misc**: correct Masterino brand spelling, closes [#31](https://github.com/chaaak6/MasterLion/issues/31) ([857d266](https://github.com/chaaak6/MasterLion/commit/857d266))
 
 </details>
 
@@ -461,15 +461,15 @@
 
 # Changelog
 
-All notable Masterion changes are recorded here.
+All notable Masterino changes are recorded here.
 
 ## [0.0.1] - 2026-06-20
 
-Initial Masterion release for the 小宗狮 internal AI workspace.
+Initial Masterino release for the 小宗狮 internal AI workspace.
 
 ### Added
 
-- Established Masterion / 小宗狮 branding for the migrated AI Agent workspace.
+- Established Masterino / 小宗狮 branding for the migrated AI Agent workspace.
 - Added the standalone `aihub-db-bridge` service so the main application can consume Aihub read-only account, token, model, quota, and usage data without embedding direct Aihub database access.
 - Added Aihub account binding and provider pages for the real acceptance account `10193226`.
 - Added Aihub model synchronization with user-group ability filtering and token `model_limits` filtering.
@@ -482,7 +482,7 @@ Initial Masterion release for the 小宗狮 internal AI workspace.
 ### Changed
 
 - Set the project version to `0.0.1`.
-- Renamed user-facing repository documentation from the historical upstream identity to Masterion.
+- Renamed user-facing repository documentation from the historical upstream identity to Masterino.
 - Updated GitHub metadata to the private repository `chaaak6/MasterLion`.
 - Changed Docker release builds to use cached dependencies and `USE_CN_MIRROR=true` by default in deploy compose.
 - Set `CI=true` in the Docker build environment to avoid pnpm non-TTY module purge failures.

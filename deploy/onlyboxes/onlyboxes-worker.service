@@ -1,5 +1,5 @@
 [Unit]
-Description=Masterion Onlyboxes Docker Worker
+Description=Masterino Onlyboxes Docker Worker
 Documentation=https://github.com/Coooolfan/onlyboxes
 After=docker.service network-online.target masterlion-onlyboxes-console.service
 Wants=docker.service network-online.target

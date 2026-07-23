@@ -1,22 +1,22 @@
 ---
-title: Masterion 2.0 Breaking Changes
+title: Masterino 2.0 Breaking Changes
 description: >-
-  A comprehensive guide to breaking changes in Masterion 2.0 and how to migrate
+  A comprehensive guide to breaking changes in Masterino 2.0 and how to migrate
   from version 1.x.
 tags:
-  - Masterion 2.0
+  - Masterino 2.0
   - Migration
   - Breaking Changes
   - Authentication
 ---
 
-# Masterion 2.0 Breaking Changes
+# Masterino 2.0 Breaking Changes
 
-This document outlines the breaking changes introduced in Masterion 2.0 and provides migration guidance for users upgrading from version 1.x.
+This document outlines the breaking changes introduced in Masterino 2.0 and provides migration guidance for users upgrading from version 1.x.
 
 ## Removed Environment Variables
 
-The following environment variables have been removed in Masterion 2.0:
+The following environment variables have been removed in Masterino 2.0:
 
 | Environment Variable                | Removal Reason                                               |
 | ----------------------------------- | ------------------------------------------------------------ |
@@ -33,7 +33,7 @@ The following environment variables have been removed in Masterion 2.0:
 
 ## New Required Environment Variables
 
-Masterion 2.0 only supports Better Auth authentication system. The following environment variables are now required:
+Masterino 2.0 only supports Better Auth authentication system. The following environment variables are now required:
 
 - `AUTH_SECRET`: Used to encrypt session tokens
 - `JWKS_KEY`: Used to sign and verify JWTs, including OIDC JWT tokens and internal service call authentication tokens
@@ -54,7 +54,7 @@ For detailed configuration, see [Authentication Environment Variables](/docs/sel
 
 ## Authentication System Changes
 
-Masterion 2.0 only supports Better Auth authentication system. NextAuth and Clerk are no longer supported.
+Masterino 2.0 only supports Better Auth authentication system. NextAuth and Clerk are no longer supported.
 
 ## Migration Guide
 
@@ -68,14 +68,14 @@ See the [Clerk Migration Guide](/docs/self-hosting/migration/v2/auth/clerk-to-be
 
 ## Database Mode Changes
 
-Masterion 2.0 only supports Server DB mode. Client DB (PGlite) is no longer supported. If you were using `NEXT_PUBLIC_SERVICE_MODE=client`, you need to migrate to Server DB deployment.
+Masterino 2.0 only supports Server DB mode. Client DB (PGlite) is no longer supported. If you were using `NEXT_PUBLIC_SERVICE_MODE=client`, you need to migrate to Server DB deployment.
 
 For deployment guides, see [Server Database Deployment](/docs/self-hosting/server-database).
 
 ## PostgreSQL Version Requirements
 
-Masterion 2.0 recommends using **PostgreSQL 17** or higher.
+Masterino 2.0 recommends using **PostgreSQL 17** or higher.
 
-This is because Masterion 2.0 uses the [pg\_search](https://github.com/paradedb/paradedb/tree/main/pg_search) extension for full-text search capabilities. If you use Serverless Postgres services like Neon, the pg\_search extension is only available on PostgreSQL 17.
+This is because Masterino 2.0 uses the [pg\_search](https://github.com/paradedb/paradedb/tree/main/pg_search) extension for full-text search capabilities. If you use Serverless Postgres services like Neon, the pg\_search extension is only available on PostgreSQL 17.
 
 If you self-host your database with Docker, we recommend using the `paradedb/paradedb:latest-pg17` image.

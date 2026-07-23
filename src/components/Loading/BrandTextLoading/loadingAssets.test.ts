@@ -11,7 +11,7 @@ const readAsset = (path: string) => readFileSync(resolve(root, path), 'utf8');
 const getDurations = (source: string) =>
   Array.from(source.matchAll(/dur="([^"]+)"/g), (match) => match[1]);
 
-describe('Masterion loading assets', () => {
+describe('Masterino loading assets', () => {
   it.each([
     'public/brand/masterlion/loading-masterlion-en.svg',
     'public/brand/masterlion/loading-masterlion-zh.svg',

@@ -534,7 +534,7 @@ describe('AiAgentService.execAgent - builtin agent runtime config', () => {
       topicId: 'topic-1',
     });
     expect(callArgs.initialContext.initialContext.taskManager.contextPrompt).toContain(
-      'Default Masterion agent id: agt_inbox',
+      'Default Masterino agent id: agt_inbox',
     );
   });
 

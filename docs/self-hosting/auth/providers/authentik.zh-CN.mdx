@@ -1,10 +1,10 @@
 ---
-title: 在 Masterion 中配置 Authentik 身份验证
-description: 学习如何在 Masterion 中配置 Authentik SSO，包括创建 OAuth2 提供商和应用。
+title: 在 Masterino 中配置 Authentik 身份验证
+description: 学习如何在 Masterino 中配置 Authentik SSO，包括创建 OAuth2 提供商和应用。
 tags:
   - Authentik
   - 身份验证
-  - Masterion
+  - Masterino
   - 单点登录
   - OIDC
 ---
@@ -19,7 +19,7 @@ tags:
   1. 在 Authentik 管理界面，前往 **Applications** > **Providers**
   2. 点击 **Create**，选择 **OAuth2/OpenID Provider**
   3. 配置提供商：
-     - Name: `Masterion`
+     - Name: `Masterino`
      - Authorization flow: 选择授权流程
      - Client type: `Confidential`
      - Redirect URIs: 添加回调 URL
@@ -40,7 +40,7 @@ tags:
 
   ### 配置环境变量
 
-  在部署 Masterion 时，你需要配置以下环境变量：
+  在部署 Masterino 时，你需要配置以下环境变量：
 
   | 环境变量                    | 类型 | 描述                                             |
   | ----------------------- | -- | ---------------------------------------------- |
@@ -55,7 +55,7 @@ tags:
   </Callout>
 </Steps>
 
-<Callout type={'info'}>部署成功后，用户将可以通过 Authentik 身份认证并使用 Masterion。</Callout>
+<Callout type={'info'}>部署成功后，用户将可以通过 Authentik 身份认证并使用 Masterino。</Callout>
 
 ## 相关资源
 

@@ -1652,7 +1652,7 @@ export class BotMessageRouter {
         name: 'approve',
       },
       {
-        description: 'Send feedback directly to the Masterion team (no AI reply)',
+        description: 'Send feedback directly to the Masterino team (no AI reply)',
         // Declaring the argument so Discord/Slack surface a `/feedback <message>`
         // prompt instead of registering the command as zero-arg (see the
         // `options` comment on the BotCommand interface).

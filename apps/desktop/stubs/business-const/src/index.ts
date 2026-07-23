@@ -1,5 +1,5 @@
 export const BRANDING_LOGO_URL = '/brand/masterlion/logo.png';
-export const BRANDING_NAME = 'Masterion';
+export const BRANDING_NAME = 'Masterino';
 // Desktop build stub for @lobechat/business-const. The web/server build reads
 // AIHUB_DEFAULT_MODEL at runtime; Electron cannot, so these mirror the fallback
 // value in packages/business/const/src/llm.ts. Keep both in sync.

@@ -45,7 +45,7 @@ export default {
     "This project will be deleted and can't be recovered. Confirm to continue.",
   'recommendations.heteroAgent.cta': 'Add Agent',
   'recommendations.heteroAgent.description':
-    'Detected the {{name}} CLI on this device — add {{name}} agent to chat with it from Masterion.',
+    'Detected the {{name}} CLI on this device — add {{name}} agent to chat with it from Masterino.',
   'recommendations.heteroAgent.tag': 'Coding Agent',
   'recommendations.heteroAgent.title': 'Add {{name}} agent',
   'recommendations.subtitle': 'Some recommendations for your setup',

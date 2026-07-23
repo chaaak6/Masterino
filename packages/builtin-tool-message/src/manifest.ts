@@ -855,7 +855,7 @@ export const MessageManifest: BuiltinToolManifest = {
     // ==================== System Bot Messenger Management ====================
     {
       description:
-        "List the current user's Masterion System Bot installations across workspaces (Slack workspaces, Discord guilds, Telegram). Each entry returns an `id` to pass back as `installationId` on `getMessengerDetail` / `uninstallMessenger`, or as `messengerInstallationId` on send APIs. Use this when the user asks about their connected workspaces, or as the fallback when `listBots` has no entry for the target platform.",
+        "List the current user's Masterino System Bot installations across workspaces (Slack workspaces, Discord guilds, Telegram). Each entry returns an `id` to pass back as `installationId` on `getMessengerDetail` / `uninstallMessenger`, or as `messengerInstallationId` on send APIs. Use this when the user asks about their connected workspaces, or as the fallback when `listBots` has no entry for the target platform.",
       name: MessageApiName.listMessengers,
       parameters: {
         additionalProperties: false,
@@ -897,7 +897,7 @@ export const MessageManifest: BuiltinToolManifest = {
     },
     {
       description:
-        'List the platforms where the user can install the Masterion System Bot. Returns `appId` / `botUsername` for deep-link install URLs. Use when guiding the user through `Settings → Messenger` install for a new platform — note the actual install flow requires browser OAuth and cannot be initiated from this tool.',
+        'List the platforms where the user can install the Masterino System Bot. Returns `appId` / `botUsername` for deep-link install URLs. Use when guiding the user through `Settings → Messenger` install for a new platform — note the actual install flow requires browser OAuth and cannot be initiated from this tool.',
       name: MessageApiName.listMessengerPlatforms,
       parameters: {
         additionalProperties: false,

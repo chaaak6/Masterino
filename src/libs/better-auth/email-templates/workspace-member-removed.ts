@@ -7,8 +7,8 @@ export const getWorkspaceMemberRemovedEmailTemplate = (params: {
   const isDowngrade = reason === 'downgrade';
 
   const subject = isDowngrade
-    ? `You have been removed from ${workspaceName} on Masterion`
-    : `You have been removed from ${workspaceName} on Masterion`;
+    ? `You have been removed from ${workspaceName} on Masterino`
+    : `You have been removed from ${workspaceName} on Masterino`;
 
   const heading = isDowngrade
     ? `Removed from <strong>${workspaceName}</strong>`
@@ -34,7 +34,7 @@ export const getWorkspaceMemberRemovedEmailTemplate = (params: {
     <div style="text-align: center; margin-bottom: 32px;">
       <div style="display: inline-flex; align-items: center; justify-content: center; background-color: #ffffff; border-radius: 12px; padding: 8px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <span style="font-size: 24px; line-height: 1; margin-right: 10px;">🤯</span>
-        <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">Masterion</span>
+        <span style="font-size: 18px; font-weight: 700; color: #000000; letter-spacing: -0.5px;">Masterino</span>
       </div>
     </div>
 
@@ -68,7 +68,7 @@ export const getWorkspaceMemberRemovedEmailTemplate = (params: {
       <!-- Footer note -->
       <div style="text-align: center;">
         <p style="color: #9ca3af; font-size: 13px; margin: 0;">
-          You can continue using Masterion with your personal workspace.
+          You can continue using Masterino with your personal workspace.
         </p>
       </div>
     </div>
@@ -76,7 +76,7 @@ export const getWorkspaceMemberRemovedEmailTemplate = (params: {
     <!-- Footer -->
     <div style="text-align: center; margin-top: 32px;">
       <p style="color: #a1a1aa; font-size: 13px; margin: 0;">
-        This is an automated message from Masterion.
+        This is an automated message from Masterino.
       </p>
     </div>
   </div>

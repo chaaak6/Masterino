@@ -1,12 +1,12 @@
 ---
-title: Configuring ZITADEL Authentication for Masterion
+title: Configuring ZITADEL Authentication for Masterino
 description: >-
-  Learn how to configure ZITADEL SSO for Masterion, including creating an
+  Learn how to configure ZITADEL SSO for Masterino, including creating an
   application and setting up environment variables.
 tags:
   - ZITADEL
   - Authentication
-  - Masterion
+  - Masterino
   - Single Sign-On
   - OIDC
 ---
@@ -23,7 +23,7 @@ tags:
   3. Click **New** to create a new application
   4. Select **Web** as the application type
   5. Configure:
-     - Name: `Masterion`
+     - Name: `Masterino`
      - Authentication Method: `CODE` (for confidential clients)
   6. Add redirect URI:
 
@@ -42,12 +42,12 @@ tags:
 
   ### Configure Environment Variables
 
-  When deploying Masterion, you need to configure the following environment variables:
+  When deploying Masterino, you need to configure the following environment variables:
 
   | Environment Variable  | Type     | Description                                                                   |
   | --------------------- | -------- | ----------------------------------------------------------------------------- |
   | `AUTH_SECRET`         | Required | Key used to encrypt session tokens. Generate using: `openssl rand -base64 32` |
-  | `AUTH_SSO_PROVIDERS`  | Required | SSO provider for Masterion. Use `zitadel` for ZITADEL                           |
+  | `AUTH_SSO_PROVIDERS`  | Required | SSO provider for Masterino. Use `zitadel` for ZITADEL                           |
   | `AUTH_ZITADEL_ID`     | Required | Client ID from ZITADEL application                                            |
   | `AUTH_ZITADEL_SECRET` | Required | Client Secret from ZITADEL application                                        |
   | `AUTH_ZITADEL_ISSUER` | Required | ZITADEL issuer URL (e.g., `https://your-instance.zitadel.cloud`)              |
@@ -64,7 +64,7 @@ tags:
 </Steps>
 
 <Callout type={'info'}>
-  After successful deployment, users will be able to authenticate with ZITADEL and use Masterion.
+  After successful deployment, users will be able to authenticate with ZITADEL and use Masterino.
 </Callout>
 
 ## Related Resources

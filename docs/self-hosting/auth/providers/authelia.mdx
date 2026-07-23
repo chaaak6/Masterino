@@ -1,12 +1,12 @@
 ---
-title: Configuring Authelia Authentication for Masterion
+title: Configuring Authelia Authentication for Masterino
 description: >-
-  Learn how to configure Authelia SSO for Masterion, including setting up OIDC
+  Learn how to configure Authelia SSO for Masterino, including setting up OIDC
   client and environment variables.
 tags:
   - Authelia
   - Authentication
-  - Masterion
+  - Masterino
   - Single Sign-On
   - OIDC
 ---
@@ -25,7 +25,7 @@ tags:
     oidc:
       clients:
         - client_id: 'lobechat'
-          client_name: 'Masterion'
+          client_name: 'Masterino'
           client_secret: 'your-client-secret'
           redirect_uris:
             - 'https://your-domain.com/api/auth/callback/authelia'
@@ -41,12 +41,12 @@ tags:
 
   ### Configure Environment Variables
 
-  When deploying Masterion, you need to configure the following environment variables:
+  When deploying Masterino, you need to configure the following environment variables:
 
   | Environment Variable   | Type     | Description                                                                   |
   | ---------------------- | -------- | ----------------------------------------------------------------------------- |
   | `AUTH_SECRET`          | Required | Key used to encrypt session tokens. Generate using: `openssl rand -base64 32` |
-  | `AUTH_SSO_PROVIDERS`   | Required | SSO provider for Masterion. Use `authelia` for Authelia                         |
+  | `AUTH_SSO_PROVIDERS`   | Required | SSO provider for Masterino. Use `authelia` for Authelia                         |
   | `AUTH_AUTHELIA_ID`     | Required | Client ID configured in Authelia                                              |
   | `AUTH_AUTHELIA_SECRET` | Required | Client Secret configured in Authelia                                          |
   | `AUTH_AUTHELIA_ISSUER` | Required | Authelia issuer URL (e.g., `https://auth.your-domain.com`)                    |
@@ -57,7 +57,7 @@ tags:
 </Steps>
 
 <Callout type={'info'}>
-  After successful deployment, users will be able to authenticate with Authelia and use Masterion.
+  After successful deployment, users will be able to authenticate with Authelia and use Masterino.
 </Callout>
 
 ## Related Resources

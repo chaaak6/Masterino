@@ -1,35 +1,35 @@
 ---
-title: Use Masterion on Discord
+title: Use Masterino on Discord
 description: >-
-  Add the official Masterion bot to a Discord server, then link your Discord
-  account to Masterion. Pick a default agent and chat with your AI assistants on
+  Add the official Masterino bot to a Discord server, then link your Discord
+  account to Masterino. Pick a default agent and chat with your AI assistants on
   Discord through DMs — no bot setup required.
 tags:
   - Messenger
   - Discord
-  - Masterion Bot
+  - Masterino Bot
   - Account Linking
   - Server Install
 ---
 
-# Use Masterion on Discord
+# Use Masterino on Discord
 
-Discord works in two phases: a **server admin adds** the official Masterion bot to a Discord server once, and then **each member links** their personal Discord account to Masterion. Both phases happen from **Settings → Messenger → Discord**.
+Discord works in two phases: a **server admin adds** the official Masterino bot to a Discord server once, and then **each member links** their personal Discord account to Masterino. Both phases happen from **Settings → Messenger → Discord**.
 
 > The Discord install audit is per-server, but your **personal link is global** to your Discord account — you only link once, and the same link works in every server that has the bot.
 
 ## Prerequisites
 
-- A Masterion account
+- A Masterino account
 - A Discord account
 - For the install step: **Manage Server** permission on the target Discord server
 
-## Phase A — Add the Masterion bot to a server (server admin)
+## Phase A — Add the Masterino bot to a server (server admin)
 
 <Steps>
   ### Open Settings → Messenger → Discord
 
-  In Masterion, open **Settings → Messenger** and click the **Discord** card. Click **Connect** in the top-right.
+  In Masterino, open **Settings → Messenger** and click the **Discord** card. Click **Connect** in the top-right.
 
   {/* TODO: screenshot — Discord detail page with empty Connections list and the Connect button */}
 
@@ -41,19 +41,19 @@ Discord works in two phases: a **server admin adds** the official Masterion bot 
 
   ### Server appears under Connections
 
-  After approval you're redirected back to Masterion. The server appears as a **server** row in **Connections**.
+  After approval you're redirected back to Masterino. The server appears as a **server** row in **Connections**.
 
   {/* TODO: screenshot — Discord detail page showing one connected server row */}
 
-  > **Server already connected by someone else?** Masterion shows a "Server already connected" notice. You don't need to add the bot again — just DM the Masterion bot on Discord to link your personal account.
+  > **Server already connected by someone else?** Masterino shows a "Server already connected" notice. You don't need to add the bot again — just DM the Masterino bot on Discord to link your personal account.
 </Steps>
 
 ## Phase B — Link your personal account (each member)
 
 <Steps>
-  ### Open the Masterion bot on Discord
+  ### Open the Masterino bot on Discord
 
-  Open the Masterion bot on Discord — the **Open in Discord** button on the Discord detail page (or the pending-link row) takes you straight there.
+  Open the Masterino bot on Discord — the **Open in Discord** button on the Discord detail page (or the pending-link row) takes you straight there.
 
   {/* TODO: screenshot — Discord detail page with the pending user row + Open in Discord button */}
 
@@ -65,9 +65,9 @@ Discord works in two phases: a **server admin adds** the official Masterion bot 
 
   ### Confirm the link in your browser
 
-  Tap the link, sign in to Masterion if asked, and choose a **default agent**. Every message you DM the Masterion bot on Discord (across all servers) will route to this agent.
+  Tap the link, sign in to Masterino if asked, and choose a **default agent**. Every message you DM the Masterino bot on Discord (across all servers) will route to this agent.
 
-  {/* TODO: screenshot — confirm-link page in Masterion with the agent picker */}
+  {/* TODO: screenshot — confirm-link page in Masterino with the agent picker */}
 
   Your link appears as a **user** row in **Connections**.
 
@@ -79,7 +79,7 @@ Discord works in two phases: a **server admin adds** the official Masterion bot 
 Two equivalent ways:
 
 - **On Discord** — DM the bot `/agents` and pick a different agent.
-- **In Masterion** — open **Settings → Messenger → Discord** and use the agent picker on your link row.
+- **In Masterino** — open **Settings → Messenger → Discord** and use the agent picker on your link row.
 
 The change takes effect on the next message you send.
 
@@ -89,17 +89,17 @@ Discord has two distinct disconnect actions, with one important difference from 
 
 | Action                           | Effect                                                                                                                                                                  |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Disconnect** on a *user* row   | Unlinks **your** Masterion account from your Discord account. The bot stops accepting your DMs until you message it and link again.                                       |
+| **Disconnect** on a *user* row   | Unlinks **your** Masterino account from your Discord account. The bot stops accepting your DMs until you message it and link again.                                       |
 | **Disconnect** on a *server* row | Removes the install **audit entry only**. **The bot stays in the Discord server** until a server admin manually kicks it. Other people's personal links are unaffected. |
 
 You can re-add the bot to a server (or re-link personally) at any time by repeating the relevant phase.
 
 ## Troubleshooting
 
-- **"Server already connected"** — Another Masterion user already added the bot to this server. DM the Masterion bot on Discord to link your personal account; you do not need to add the bot again.
+- **"Server already connected"** — Another Masterino user already added the bot to this server. DM the Masterino bot on Discord to link your personal account; you do not need to add the bot again.
 - **Discord install failed (`<reason>`)** — Common reasons: authorisation cancelled, install session expired (re-open the modal and try again), Discord returned incomplete data (retry; if persistent, contact support).
 - **Bot is in the server but doesn't reply** — Check that you have a personal link under **Settings → Messenger → Discord**. The bot only answers users with a confirmed personal link.
-- **Removed the audit row but the bot is still in my server** — That's expected. Disconnecting in Masterion only removes the audit entry; a Discord server admin must kick the bot from Discord itself.
+- **Removed the audit row but the bot is still in my server** — That's expected. Disconnecting in Masterino only removes the audit entry; a Discord server admin must kick the bot from Discord itself.
 - **"This link is already used"** — One-time confirmation links expire after one use. DM the bot again to get a new link.
-- **"This account is already linked"** — Your Discord account is bound to a different Masterion account. Sign in to that Masterion account to manage the link, or unlink there before retrying.
-- **"Another Discord account is already linked"** — Your Masterion account already has a Discord link. Disconnect it in **Settings → Messenger → Discord** before linking a new Discord account.
+- **"This account is already linked"** — Your Discord account is bound to a different Masterino account. Sign in to that Masterino account to manage the link, or unlink there before retrying.
+- **"Another Discord account is already linked"** — Your Masterino account already has a Discord link. Disconnect it in **Settings → Messenger → Discord** before linking a new Discord account.

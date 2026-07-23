@@ -37,7 +37,7 @@ tags:
 ### `MARKET_TRUSTED_CLIENT_ID`
 
 - 类型：可选
-- 描述：Market Trusted Client 的客户端 ID，用于让 Masterion 服务端代表当前用户调用 Market 能力。需要由对应 Market 服务登记。
+- 描述：Market Trusted Client 的客户端 ID，用于让 Masterino 服务端代表当前用户调用 Market 能力。需要由对应 Market 服务登记。
 - 默认值：-
 - 示例：`lobechat-com`
 
@@ -72,7 +72,7 @@ tags:
 ### `ONLYBOXES_JIT_TTL_SEC`
 
 - 类型：可选
-- 描述：Masterion 签发的每个 Onlyboxes JIT Token 的有效期。
+- 描述：Masterino 签发的每个 Onlyboxes JIT Token 的有效期。
 - 默认值：`1800`
 - 示例：`900`
 
@@ -98,7 +98,7 @@ SANDBOX_PROVIDER=market
 MARKET_BASE_URL=https://market.example.com
 ```
 
-如果该 Market 服务要求 Masterion 服务端代表当前用户调用沙箱、凭据或技能能力，还需要配置 Trusted Client：
+如果该 Market 服务要求 Masterino 服务端代表当前用户调用沙箱、凭据或技能能力，还需要配置 Trusted Client：
 
 ```bash
 MARKET_TRUSTED_CLIENT_ID=lobechat-com
@@ -109,7 +109,7 @@ MARKET_TRUSTED_CLIENT_SECRET=your-market-trusted-client-secret
 
 ## Onlyboxes 运行时要求
 
-配置的 Onlyboxes worker 需要暴露 `terminalExec` 和 `terminalResource`。Masterion 使用 `terminalExec` 作为 Shell 命令、代码执行和文件操作的兼容层，并使用 `terminalResource` 通过预签名上传 URL 导出文件。
+配置的 Onlyboxes worker 需要暴露 `terminalExec` 和 `terminalResource`。Masterino 使用 `terminalExec` 作为 Shell 命令、代码执行和文件操作的兼容层，并使用 `terminalResource` 通过预签名上传 URL 导出文件。
 
 为了和 Market 沙箱保持能力对等，终端运行镜像应包含：
 
@@ -133,6 +133,6 @@ CONSOLE_JIT_SIGNING_KEY=onlyboxes-jit-signing-secret
 ```
 
 <Callout type={'info'}>
-  文件导出仍会把沙箱内产物写入 Masterion 配置的 S3 存储。如果用户需要下载沙箱生成的文件，请同时配置 S3
+  文件导出仍会把沙箱内产物写入 Masterino 配置的 S3 存储。如果用户需要下载沙箱生成的文件，请同时配置 S3
   相关环境变量。
 </Callout>

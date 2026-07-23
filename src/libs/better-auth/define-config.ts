@@ -333,7 +333,7 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
         },
       }),
       passkey({
-        rpName: 'Masterion',
+        rpName: 'Masterino',
         // Extract rpID from auth URL (e.g., 'aihub.bielcrystal.com' from 'https://aihub.bielcrystal.com')
         // Returns undefined if AUTH_URL is not set (e.g., in e2e tests)
         rpID: getPasskeyRpID(baseURL),

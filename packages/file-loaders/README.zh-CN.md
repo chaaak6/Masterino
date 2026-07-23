@@ -1,8 +1,8 @@
 # @lobechat/file-loaders
 
-`@lobechat/file-loaders` 是 Masterion 项目中的一个工具包，专门用于从本地文件路径加载各种类型的文件，并将其内容转换为标准化的 `Document` 对象数组。
+`@lobechat/file-loaders` 是 Masterino 项目中的一个工具包，专门用于从本地文件路径加载各种类型的文件，并将其内容转换为标准化的 `Document` 对象数组。
 
-它的主要目的是提供一个统一的接口来读取不同的文件格式，提取其核心文本内容，并为后续处理（例如在 Masterion 中进行文件预览、内容提取或将其作为知识库数据源）做好准备。
+它的主要目的是提供一个统一的接口来读取不同的文件格式，提取其核心文本内容，并为后续处理（例如在 Masterino 中进行文件预览、内容提取或将其作为知识库数据源）做好准备。
 
 ## ✨ 功能特性
 
@@ -73,7 +73,7 @@
 
 ### 贡献流程
 
-1. Fork [Masterion 仓库](https://github.com/chaaak6/MasterLion)
+1. Fork [Masterino 仓库](https://github.com/chaaak6/MasterLion)
 2. 添加新格式支持或改进现有解析器
 3. 提交 Pull Request 并描述：
 
@@ -84,6 +84,6 @@
 
 ## 📌 说明
 
-这是 Masterion 的内部模块（`"private": true`），专为 Masterion 设计，不作为独立包发布。
+这是 Masterino 的内部模块（`"private": true`），专为 Masterino 设计，不作为独立包发布。
 
-如果你在维护本项目，请通过私有 [Masterion 仓库](https://github.com/chaaak6/MasterLion) 提交 issue 和 pull request。
+如果你在维护本项目，请通过私有 [Masterino 仓库](https://github.com/chaaak6/MasterLion) 提交 issue 和 pull request。

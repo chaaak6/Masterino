@@ -1,7 +1,7 @@
 ---
 title: Messenger Overview
 description: >-
-  Connect your Masterion account to the official Masterion bot on Telegram, Slack,
+  Connect your Masterino account to the official Masterino bot on Telegram, Slack,
   and Discord. Link once, pick an active agent, and chat with your assistants
   from the chat apps you already use — no bot setup required.
 tags:
@@ -14,19 +14,19 @@ tags:
 
 # Messenger
 
-Messenger lets you talk to your Masterion agents through the **official Masterion bot** on Telegram, Slack, and Discord. Link your Masterion account once, choose which agent should answer, and you're done — every message you send to the bot is routed to your agent and replied to in the same conversation.
+Messenger lets you talk to your Masterino agents through the **official Masterino bot** on Telegram, Slack, and Discord. Link your Masterino account once, choose which agent should answer, and you're done — every message you send to the bot is routed to your agent and replied to in the same conversation.
 
-You manage everything from **Settings → Messenger** in Masterion.
+You manage everything from **Settings → Messenger** in Masterino.
 
 > \[!NOTE]
 >
-> Messenger is for **personal use** of Masterion agents from your favourite chat app. If you want to expose an agent to a public community with your own bot identity, set up a [Channel](/docs/usage/channels/overview) on the agent instead.
+> Messenger is for **personal use** of Masterino agents from your favourite chat app. If you want to expose an agent to a public community with your own bot identity, set up a [Channel](/docs/usage/channels/overview) on the agent instead.
 
 ## Messenger vs. Channels
 
 |               | **Messenger**                                 | **Channels**                                                          |
 | ------------- | --------------------------------------------- | --------------------------------------------------------------------- |
-| Bot identity  | Official **@MasterLion** bot, hosted by Masterion  | Your own bot, you bring the token                                     |
+| Bot identity  | Official **@MasterLion** bot, hosted by Masterino  | Your own bot, you bring the token                                     |
 | Setup effort  | Tap **Connect**, send `/start`, pick an agent | Create the bot on the platform, paste credentials, configure policies |
 | Scope         | Personal — only you talk to the bot           | Public — anyone in the channel/server can talk to it                  |
 | Active agent  | One per platform link, switchable any time    | One agent per channel binding                                         |
@@ -36,9 +36,9 @@ You manage everything from **Settings → Messenger** in Masterion.
 
 | Platform     | Setup model                              | Guide                                                     |
 | ------------ | ---------------------------------------- | --------------------------------------------------------- |
-| **Telegram** | Global bot — any account can DM directly | [Use Masterion on Telegram](/docs/usage/messenger/telegram) |
-| **Slack**    | Per-workspace install + per-member link  | [Use Masterion on Slack](/docs/usage/messenger/slack)       |
-| **Discord**  | Per-server install + per-member link     | [Use Masterion on Discord](/docs/usage/messenger/discord)   |
+| **Telegram** | Global bot — any account can DM directly | [Use Masterino on Telegram](/docs/usage/messenger/telegram) |
+| **Slack**    | Per-workspace install + per-member link  | [Use Masterino on Slack](/docs/usage/messenger/slack)       |
+| **Discord**  | Per-server install + per-member link     | [Use Masterino on Discord](/docs/usage/messenger/discord)   |
 
 If a platform card does not appear at **Settings → Messenger**, it has not been enabled on your deployment yet — check back later or ask your administrator.
 
@@ -46,19 +46,19 @@ If a platform card does not appear at **Settings → Messenger**, it has not bee
 
 ## How It Works
 
-1. You **link** your Masterion account to a platform account through a short OAuth-style flow.
+1. You **link** your Masterino account to a platform account through a short OAuth-style flow.
 2. You pick a **default agent** during linking. Every message you send to the bot from that platform routes to this agent.
-3. To switch agents, send `/agents` inside the bot or open **Settings → Messenger** in Masterion.
+3. To switch agents, send `/agents` inside the bot or open **Settings → Messenger** in Masterino.
 4. **Disconnect** any time from the same screen — inbound messages stop until you `/start` again.
 
-Each Masterion account can hold one link per platform (Slack also tracks one link per workspace).
+Each Masterino account can hold one link per platform (Slack also tracks one link per workspace).
 
 ## Switching the Active Agent
 
 You can switch the agent that answers your messages at any time:
 
 - **From the bot** — send `/agents` and pick a different agent.
-- **From Masterion** — open **Settings → Messenger**, select the platform, and use the agent picker on your link row.
+- **From Masterino** — open **Settings → Messenger**, select the platform, and use the agent picker on your link row.
 
 Changes take effect immediately for the next message you send.
 
@@ -68,7 +68,7 @@ There are two distinct disconnect actions per platform:
 
 | Action                                       | Effect                                                                                                                                                              |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Disconnect** on a *user* row               | Unlinks **your** Masterion account from the platform account. Inbound messages stop until you `/start` again.                                                         |
+| **Disconnect** on a *user* row               | Unlinks **your** Masterino account from the platform account. Inbound messages stop until you `/start` again.                                                         |
 | **Disconnect** on a *workspace / server* row | Removes the install audit entry. On Slack, this also freezes the workspace bot for everyone. On Discord, the bot stays in the server until a server admin kicks it. |
 
 You can re-link at any time by repeating the **Connect** flow.
@@ -78,7 +78,7 @@ You can re-link at any time by repeating the **Connect** flow.
 These messages can appear during linking regardless of platform:
 
 - **"This link is already used"** — The one-time confirm link can only be used once. Return to the bot and send `/start` again to issue a new link.
-- **"This account is already linked"** — The platform account is bound to a different Masterion account. Sign in to that account to manage it, or unlink it there before retrying.
-- **"Another \<platform> account is already linked"** — Your Masterion account already has a link on this platform. Disconnect the existing link in **Settings → Messenger** before linking a new one.
+- **"This account is already linked"** — The platform account is bound to a different Masterino account. Sign in to that account to manage it, or unlink it there before retrying.
+- **"Another \<platform> account is already linked"** — Your Masterino account already has a link on this platform. Disconnect the existing link in **Settings → Messenger** before linking a new one.
 
 For platform-specific issues, see the troubleshooting section on each platform's guide.

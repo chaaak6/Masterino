@@ -1,10 +1,10 @@
 # @lobechat/web-crawler
 
-Masterion's built-in web crawling module for intelligent extraction of web content and conversion to Markdown format.
+Masterino's built-in web crawling module for intelligent extraction of web content and conversion to Markdown format.
 
 ## 📝 Introduction
 
-`@lobechat/web-crawler` is a core component of Masterion responsible for intelligent web content crawling and processing. It extracts valuable content from various webpages, filters out distracting elements, and generates structured Markdown text.
+`@lobechat/web-crawler` is a core component of Masterino responsible for intelligent web content crawling and processing. It extracts valuable content from various webpages, filters out distracting elements, and generates structured Markdown text.
 
 ## 🛠️ Core Features
 
@@ -48,7 +48,7 @@ const url = [
 
 ### Rule Submission Process
 
-1. Fork the [Masterion repository](https://github.com/chaaak6/MasterLion)
+1. Fork the [Masterino repository](https://github.com/chaaak6/MasterLion)
 2. Add or modify URL rules
 3. Submit a Pull Request describing:
 
@@ -58,4 +58,4 @@ const url = [
 
 ## 📌 Note
 
-This is an internal module of Masterion (`"private": true`), designed specifically for Masterion and not published as a standalone package.
+This is an internal module of Masterino (`"private": true`), designed specifically for Masterino and not published as a standalone package.

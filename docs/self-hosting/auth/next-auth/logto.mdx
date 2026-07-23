@@ -1,13 +1,13 @@
 ---
-title: Configuring Logto Authentication Service in Masterion
+title: Configuring Logto Authentication Service in Masterino
 description: >-
-  Learn how to configure Logto authentication service in Masterion, including
+  Learn how to configure Logto authentication service in Masterino, including
   deployment, creation, setting permissions, and environment variables.
 tags:
   - Logto Authentication
   - Environment Variable Configuration
   - Single Sign-On
-  - Masterion
+  - Masterino
 ---
 
 # Configuring Logto Authentication Service
@@ -16,13 +16,13 @@ tags:
 
 <Callout type={'tip'}>
   If you want to deploy Logto privately, we recommend using Docker Compose to deploy it together
-  with the Masterion database version. In this case, Masterion can share the same Postgres instance
+  with the Masterino database version. In this case, Masterino can share the same Postgres instance
   with it.
 </Callout>
 
 ## Logto Configuration Process
 
-The following assumes your Masterion database version domain is `https://lobe.example.com`.
+The following assumes your Masterino database version domain is `https://lobe.example.com`.
 
 If you are using a privately deployed Logto, assume its endpoint domain is `https://lobe-auth-api.example.com`.
 
@@ -45,14 +45,14 @@ If you are using Logto Cloud, assume its endpoint domain is `https://example.log
 
   ### Configure Webhook (Optional)
 
-  Configure the Logto Webhook so that Masterion can receive notifications when user information is updated.
+  Configure the Logto Webhook so that Masterino can receive notifications when user information is updated.
 
   Go to `Webhooks`, create a Webhook, and fill in the following fields:
 
   - Endpoint URL: `https://lobe.example.com/api/webhooks/logto`
   - Events:
-    - `User.Data.Updated`: Allow Masterion to synchronize user profile information updates from Logto.
-    - `User.SuspensionStatus.Updated`: Allow Masterion to remove the active session from suspended users from logging in, only available when database session strategy is `database`.
+    - `User.Data.Updated`: Allow Masterino to synchronize user profile information updates from Logto.
+    - `User.SuspensionStatus.Updated`: Allow Masterino to remove the active session from suspended users from logging in, only available when database session strategy is `database`.
 
   After successful creation, copy the Webhook's `Signing Key` and fill it in the `LOGTO_WEBHOOK_SIGNING_KEY` environment variable.
 
@@ -60,19 +60,19 @@ If you are using Logto Cloud, assume its endpoint domain is `https://example.log
 
   <Image alt="Configure Environment Variables" inStep src="/blog/assetsffb84575674e2bc5dfdd07af8f41e794.webp" />
 
-  Set the obtained `Client ID` and `Client Secret` as `AUTH_LOGTO_ID` and `AUTH_LOGTO_SECRET` in the Masterion environment variables.
+  Set the obtained `Client ID` and `Client Secret` as `AUTH_LOGTO_ID` and `AUTH_LOGTO_SECRET` in the Masterino environment variables.
 
-  Configure `AUTH_LOGTO_ISSUER` in the Masterion environment variables as follows:
+  Configure `AUTH_LOGTO_ISSUER` in the Masterino environment variables as follows:
 
   - `https://lobe-auth-api.example.com/oidc` if you are using a privately deployed Logto
   - `https://example.logto.app/oidc` if you are using Logto Cloud
 
-  When deploying Masterion, you need to configure the following environment variables:
+  When deploying Masterino, you need to configure the following environment variables:
 
   | Environment Variable        | Type     | Description                                                                                                                                                                            |
   | --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
   | `AUTH_SECRET`               | Required | The key used to encrypt Auth.js session tokens. You can generate a key using the command: `openssl rand -base64 32`                                                                    |
-  | `NEXT_AUTH_SSO_PROVIDERS`   | Required | Select the single sign-on provider for Masterion. For Logto, enter `logto`.                                                                                                              |
+  | `NEXT_AUTH_SSO_PROVIDERS`   | Required | Select the single sign-on provider for Masterino. For Logto, enter `logto`.                                                                                                              |
   | `AUTH_LOGTO_ID`             | Required | The Client ID from the Logto App details page                                                                                                                                          |
   | `AUTH_LOGTO_SECRET`         | Required | The Client Secret from the Logto App details page                                                                                                                                      |
   | `AUTH_LOGTO_ISSUER`         | Required | OpenID Connect issuer of the Logto provider                                                                                                                                            |
@@ -101,5 +101,5 @@ If you encounter issues during the Logto deployment process, refer to the follow
 - I am using Docker deployment and want a one-click upgrade: Execute the custom command in the container: `sh -c "npm run cli db seed -- --swe --encrypt-base-role" && npx @logto/cli db alteration deploy $version && npm start`
 
 <Callout type={'info'}>
-  After successful deployment, users will be able to authenticate via Logto and use Masterion.
+  After successful deployment, users will be able to authenticate via Logto and use Masterino.
 </Callout>

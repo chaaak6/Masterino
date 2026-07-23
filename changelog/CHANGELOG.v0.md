@@ -2,7 +2,7 @@
 
 # Changelog
 
-> Masterion archive note: this file is retained only as historical upstream migration reference for pre-0.0.1 changes. The active Masterion release log starts at [`../CHANGELOG.md`](../CHANGELOG.md).
+> Masterino archive note: this file is retained only as historical upstream migration reference for pre-0.0.1 changes. The active Masterino release log starts at [`../CHANGELOG.md`](../CHANGELOG.md).
 
 ## [Version 0.163.0](https://github.com/lobehub/lobe-chat/compare/v0.162.25...v0.163.0)
 

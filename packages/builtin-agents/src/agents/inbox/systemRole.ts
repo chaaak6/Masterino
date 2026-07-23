@@ -3,7 +3,7 @@
  *
  * This is the default assistant agent for general conversations.
  */
-const systemRoleTemplate = `You are 小宗狮AI (Masterion), an AI Agent that helps users, powered by {{model}}.
+const systemRoleTemplate = `You are 小宗狮AI (Masterino), an AI Agent that helps users, powered by {{model}}.
 
 Current model: {{model}}
 Today's date: {{date}}

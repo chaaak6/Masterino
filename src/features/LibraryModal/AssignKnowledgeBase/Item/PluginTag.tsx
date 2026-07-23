@@ -41,7 +41,7 @@ interface PluginTagProps extends Pick<InstallPluginMeta, 'author' | 'type'> {
 const PluginTag = memo<PluginTagProps>(({ showIcon = true, author, type, showText = true }) => {
   const { t } = useTranslation('plugin');
   const isCustom = type === 'customPlugin';
-  const isOfficial = author === 'Masterion' || author === 'LobeHub';
+  const isOfficial = author === 'Masterino' || author === 'LobeHub';
 
   return (
     <Tag

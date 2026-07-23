@@ -64,10 +64,10 @@ import ToolItemDetailPopover from './ToolItemDetailPopover';
 const SKILL_ICON_SIZE = 18;
 const CLOSE_TOOL_DETAIL_POPOVER_EVENT = 'lobe-chat-tool-detail-popover-close';
 
-const isOfficialAuthor = (author?: string) => author === 'Masterion' || author === 'LobeHub';
+const isOfficialAuthor = (author?: string) => author === 'Masterino' || author === 'LobeHub';
 
 const officialTag = (
-  <Tooltip placement={'top'} title={'Masterion'}>
+  <Tooltip placement={'top'} title={'Masterino'}>
     <Tag color={'success'} icon={<Icon icon={BadgeCheck} />} size={'small'} />
   </Tooltip>
 );

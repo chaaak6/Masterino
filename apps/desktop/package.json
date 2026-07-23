@@ -2,13 +2,13 @@
   "name": "lobehub-desktop-dev",
   "version": "0.0.0",
   "private": true,
-  "description": "Masterion Desktop Application",
+  "description": "Masterino Desktop Application",
   "homepage": "https://aihub.bielcrystal.com",
   "repository": {
     "type": "git",
     "url": "https://aihub.bielcrystal.com.git"
   },
-  "author": "Masterion",
+  "author": "Masterino",
   "main": "./dist/main/index.js",
   "scripts": {
     "build:cli": "cd ../cli && cross-env MINIFY=1 bun run build",

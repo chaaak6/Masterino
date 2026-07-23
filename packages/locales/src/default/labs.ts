@@ -12,7 +12,7 @@ export default {
     'Show the Fleet entry in the title bar — a side-by-side dashboard of all running tasks across your agents.',
   'features.fleet.title': 'Fleet View',
   'features.imessage.desc':
-    'Connect agents to iMessage through the local Masterion Desktop BlueBubbles bridge.',
+    'Connect agents to iMessage through the local Masterino Desktop BlueBubbles bridge.',
   'features.imessage.title': 'iMessage Channel',
   'features.groupChat.desc': 'Enable multi-agent group chat coordination.',
   'features.groupChat.title': 'Group Chat (Multi-Agent)',

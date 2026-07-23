@@ -1,10 +1,10 @@
 ---
-title: Masterion Environment Variables - Customizing Guide
+title: Masterino Environment Variables - Customizing Guide
 description: >-
-  Learn how to customize Masterion configuration using environment variables for
+  Learn how to customize Masterino configuration using environment variables for
   additional features and options.
 tags:
-  - Masterion
+  - Masterino
   - Environment Variables
   - Configuration
   - Customization
@@ -12,7 +12,7 @@ tags:
 
 # Environment Variables
 
-Masterion provides some additional configuration options when deployed, which can be customized using environment variables.
+Masterino provides some additional configuration options when deployed, which can be customized using environment variables.
 
 <Cards>
   <Card href={'environment-variables/basic'} title={'Basic Environment Variables'} />
@@ -30,7 +30,7 @@ Masterion provides some additional configuration options when deployed, which ca
 
 ## Building a Custom Image with Overridden `NEXT_PUBLIC` Variables
 
-If you need to override `NEXT_PUBLIC` environment variables, you can build a custom Docker image using GitHub Actions without forking the entire Masterion repository. Here's a guide on how to do this:
+If you need to override `NEXT_PUBLIC` environment variables, you can build a custom Docker image using GitHub Actions without forking the entire Masterino repository. Here's a guide on how to do this:
 
 1. Create a new GitHub repository for your custom build.
 
@@ -91,6 +91,6 @@ jobs:
 
 5. Set "Read and write" permissions for workflows in Repository settings > Actions > General > Workflow permissions.
 
-6. To build your custom image, go to the "Actions" tab in your GitHub repository and manually trigger the "Build Custom Masterion Image" workflow.
+6. To build your custom image, go to the "Actions" tab in your GitHub repository and manually trigger the "Build Custom Masterino Image" workflow.
 
-This approach allows you to create a custom build with your desired `NEXT_PUBLIC` variables without maintaining a full fork of the Masterion repository. You can trigger a new build whenever you need to update your custom image.
+This approach allows you to create a custom build with your desired `NEXT_PUBLIC` variables without maintaining a full fork of the Masterino repository. You can trigger a new build whenever you need to update your custom image.

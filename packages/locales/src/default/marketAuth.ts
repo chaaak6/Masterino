@@ -31,7 +31,7 @@ export default {
     '{{message}} The window will close automatically in {{countdown}} seconds',
   'callback.messages.successWithRedirect': 'Authorization successful! Redirecting...',
   'callback.titles.error': 'Authorization Failed',
-  'callback.titles.loading': 'Masterion Market Authorization',
+  'callback.titles.loading': 'Masterino Market Authorization',
   'callback.titles.success': 'Authorization Successful',
   'errors.authorizationFailed': 'Authorization failed, please try again.',
   'errors.browserOnly': 'The authorization process can only be initiated in a browser.',
@@ -52,7 +52,7 @@ export default {
   'errors.stateMissing': 'Authorization state not found. Please try again.',
   'messages.authorizationFailed':
     'Authorization ran into an issue. Retry, or check if you finished signing in in your browser.',
-  'messages.authorized': 'Masterion service authorized successfully',
+  'messages.authorized': 'Masterino service authorized successfully',
   'messages.handoffTimeout': 'Authorization timed out. Finish it in your browser, then retry.',
   'messages.loading': 'Starting authorization process...',
   'messages.success.cloudMcpInstall':

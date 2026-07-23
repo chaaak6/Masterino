@@ -235,7 +235,7 @@ export class PluginMCPStoreActionImpl {
     let data: any;
     let result: CheckMcpInstallResult | undefined;
     let connection: any;
-    const userAgent = `Masterion Desktop/${CURRENT_VERSION}`;
+    const userAgent = `Masterino Desktop/${CURRENT_VERSION}`;
 
     try {
       // Check if already cancelled

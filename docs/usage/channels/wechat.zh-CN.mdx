@@ -1,6 +1,6 @@
 ---
-title: 将 Masterion 连接到微信
-description: 了解如何通过 iLink Bot API 将微信机器人连接到您的 Masterion 代理，使您的 AI 助手能够在微信私聊和群聊中与用户互动。
+title: 将 Masterino 连接到微信
+description: 了解如何通过 iLink Bot API 将微信机器人连接到您的 Masterino 代理，使您的 AI 助手能够在微信私聊和群聊中与用户互动。
 tags:
   - 微信
   - 消息渠道
@@ -8,18 +8,18 @@ tags:
   - 集成
 ---
 
-# 将 Masterion 连接到微信
+# 将 Masterino 连接到微信
 
-通过将微信渠道连接到您的 Masterion 代理，用户可以通过微信私聊和群聊与 AI 助手互动。
+通过将微信渠道连接到您的 Masterino 代理，用户可以通过微信私聊和群聊与 AI 助手互动。
 
 ## 前置条件
 
-- 一个拥有有效订阅的 Masterion 账户
+- 一个拥有有效订阅的 Masterino 账户
 - 一个微信账户
 
 ## 第一步：打开渠道设置
 
-在 Masterion 中，导航到您的代理设置，然后选择 **渠道** 标签页。从平台列表中点击 **微信**。
+在 Masterino 中，导航到您的代理设置，然后选择 **渠道** 标签页。从平台列表中点击 **微信**。
 
 ## 第二步：扫码连接
 
@@ -30,7 +30,7 @@ tags:
 
   ### 使用微信扫码
 
-  打开手机微信，点击右上角的 **+** 按钮，选择 **扫一扫**，扫描 Masterion 中显示的二维码。
+  打开手机微信，点击右上角的 **+** 按钮，选择 **扫一扫**，扫描 Masterino 中显示的二维码。
 
   ### 确认登录
 
@@ -40,12 +40,12 @@ tags:
 
   ### 连接完成
 
-  确认后，Masterion 将自动保存凭证并连接机器人。您应该会在渠道设置中看到成功消息。
+  确认后，Masterino 将自动保存凭证并连接机器人。您应该会在渠道设置中看到成功消息。
 </Steps>
 
 ## 第三步：测试机器人
 
-打开微信，找到您的机器人联系人，发送一条消息。机器人应通过您的 Masterion 代理进行响应。
+打开微信，找到您的机器人联系人，发送一条消息。机器人应通过您的 Masterino 代理进行响应。
 
 ## 将机器人添加到群聊
 
@@ -67,9 +67,9 @@ tags:
 
 与基于 Webhook 的平台（Telegram、Slack）不同，微信使用 iLink Bot API 的 **长轮询** 机制：
 
-1. 当您扫描二维码时，Masterion 从微信 iLink API 获取 bot token
-2. Masterion 持续轮询 iLink API 获取新消息（约 35 秒间隔）
-3. 当消息到达时，通过 Masterion 代理进行处理
+1. 当您扫描二维码时，Masterino 从微信 iLink API 获取 bot token
+2. Masterino 持续轮询 iLink API 获取新消息（约 35 秒间隔）
+3. 当消息到达时，通过 Masterino 代理进行处理
 4. 代理的响应通过 iLink API 发送回微信
 
 此轮询由后台定时任务管理，连接会自动维护。

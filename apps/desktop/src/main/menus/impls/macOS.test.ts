@@ -17,7 +17,7 @@ vi.mock('electron', () => ({
       setMenu: vi.fn(),
     },
     getAppPath: vi.fn(() => '/mock/app/path'),
-    getName: vi.fn(() => 'Masterion'),
+    getName: vi.fn(() => 'Masterino'),
     getPath: vi.fn((type: string) => {
       if (type === 'logs') return '/path/to/logs';
       if (type === 'userData') return '/path/to/userData';
@@ -486,7 +486,7 @@ describe('MacOSMenu', () => {
       const appMenu = template[0];
 
       expect(app.getName).toHaveBeenCalled();
-      expect(appMenu.label).toBe('Masterion');
+      expect(appMenu.label).toBe('Masterino');
     });
   });
 });

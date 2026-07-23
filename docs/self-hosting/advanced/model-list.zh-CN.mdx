@@ -1,8 +1,8 @@
 ---
-title: Masterion 自定义模型服务商模型列表及扩展能力配置
-description: 了解如何在 Masterion 中自定义模型列表以及扩展能力配置的基本语法和规则。
+title: Masterino 自定义模型服务商模型列表及扩展能力配置
+description: 了解如何在 Masterino 中自定义模型列表以及扩展能力配置的基本语法和规则。
 tags:
-  - Masterion
+  - Masterino
   - 自定义模型列表
   - 扩展能力配置
   - 模型展示名
@@ -11,7 +11,7 @@ tags:
 
 # Model List
 
-Masterion 支持在部署时自定义模型列表，详情请参考 [模型提供商](/zh/docs/self-hosting/environment-variables/model-provider) 。
+Masterino 支持在部署时自定义模型列表，详情请参考 [模型提供商](/zh/docs/self-hosting/environment-variables/model-provider) 。
 
 你可以使用 `+` 增加一个模型，使用 `-` 来隐藏一个模型，使用 `模型名->部署名=展示名<扩展配置>` 来自定义模型的展示名，用英文逗号隔开。通过 `<>` 来添加扩展配置。基本语法如下：
 
@@ -145,5 +145,5 @@ docker run -d -p 3210:3210 \
 **扩展能力不生效**
 
 - `maxToken` 值必须是 `< >` 内的**第一个**值：`<8192:fc:vision>` 而非 `<fc:vision>`
-- 确认该模型在提供商 API 中实际支持该能力（Masterion 无法开启 API 本身不提供的能力）
-- 确认你运行的是足够新的 Masterion 版本
+- 确认该模型在提供商 API 中实际支持该能力（Masterino 无法开启 API 本身不提供的能力）
+- 确认你运行的是足够新的 Masterino 版本

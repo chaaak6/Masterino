@@ -14,7 +14,7 @@ export const defaultClients: ClientMetadata[] = [
   {
     application_type: 'web',
     client_id: 'lobehub-desktop',
-    client_name: 'Masterion Desktop',
+    client_name: 'Masterino Desktop',
     // Only supports authorization code flow
     grant_types: ['authorization_code', 'refresh_token'],
 
@@ -43,7 +43,7 @@ export const defaultClients: ClientMetadata[] = [
   {
     application_type: 'native', // Mobile uses native type
     client_id: 'lobehub-mobile',
-    client_name: 'Masterion Mobile',
+    client_name: 'Masterino Mobile',
     // Supports authorization code flow and refresh token
     grant_types: ['authorization_code', 'refresh_token'],
     logo_uri: masterLionLogoUrl,
@@ -58,7 +58,7 @@ export const defaultClients: ClientMetadata[] = [
   {
     application_type: 'native',
     client_id: 'lobehub-cli',
-    client_name: 'Masterion CLI',
+    client_name: 'Masterino CLI',
     grant_types: ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
     logo_uri: masterLionLogoUrl,
     response_types: [],
@@ -67,7 +67,7 @@ export const defaultClients: ClientMetadata[] = [
   {
     application_type: 'web',
     client_id: 'lobehub-market',
-    client_name: 'Masterion Marketplace',
+    client_name: 'Masterino Marketplace',
     grant_types: ['authorization_code', 'refresh_token'],
     logo_uri: masterLionLogoUrl,
     post_logout_redirect_uris: [

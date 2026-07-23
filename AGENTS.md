@@ -1,10 +1,10 @@
-# Masterion Development Guidelines
+# Masterino Development Guidelines
 
-Guidelines for using AI coding agents in this Masterion repository.
+Guidelines for using AI coding agents in this Masterino repository.
 
 Current product version: `0.0.2`.
 
-Masterion is a company-internal AI Agent workspace for 小宗狮. It is derived from a historical upstream AI chat codebase, but user-facing documentation, release notes, security policy, and product language should describe Masterion and its Aihub integration. Legacy package names such as `@lobehub/*`, `@lobechat/*`, provider ids, database enums, and import paths are implementation details and must not be renamed casually.
+Masterino is a company-internal AI Agent workspace for 小宗狮. It is derived from a historical upstream AI chat codebase, but user-facing documentation, release notes, security policy, and product language should describe Masterino and its Aihub integration. Legacy package names such as `@lobehub/*`, `@lobechat/*`, provider ids, database enums, and import paths are implementation details and must not be renamed casually.
 
 ## Tech Stack
 
@@ -19,10 +19,10 @@ Masterion is a company-internal AI Agent workspace for 小宗狮. It is derived 
 ## Project Structure
 
 ```plaintext
-Masterion/
+MasterLion/
 ├── apps/
 │   ├── desktop/            # Electron desktop app
-│   ├── cli/                # Masterion CLI
+│   ├── cli/                # Masterino CLI
 │   ├── aihub-db-bridge/    # Read-only Aihub DB bridge service
 │   └── server/             # Server service
 ├── packages/               # Shared packages, many retaining legacy @lobechat/* names
@@ -106,7 +106,7 @@ Open this URL to develop locally against the production backend (aihub.bielcryst
 
 ### Aihub and Deployment Boundaries
 
-- The Masterion app must not connect directly to the Aihub database. Use the standalone `aihub-db-bridge` service for read-only Aihub user/token/model/quota data.
+- The Masterino app must not connect directly to the Aihub database. Use the standalone `aihub-db-bridge` service for read-only Aihub user/token/model/quota data.
 - Do not expose Aihub managed token values to the browser.
 - Model choices must be filtered by Aihub user group abilities and token `model_limits`.
 - Aihub quota must be shown as RMB amount plus request/token usage, not as raw quota.
@@ -152,4 +152,4 @@ bun run type-check
 
 Before reviewing a PR / diff / branch change, read the **review-checklist** skill (`.agents/skills/review-checklist/SKILL.md`) — it lists the recurring mistakes specific to this codebase.
 
-When designing or reviewing user-facing flows (empty/loading/error states, confirmations, async feedback, button hierarchy, lists at scale, pickers), follow the **ux** skill (`.agents/skills/ux/SKILL.md`) — Masterion's design values (自然 / 意义感 / 确定性) plus per-aspect execution checklists.
+When designing or reviewing user-facing flows (empty/loading/error states, confirmations, async feedback, button hierarchy, lists at scale, pickers), follow the **ux** skill (`.agents/skills/ux/SKILL.md`) — Masterino's design values (自然 / 意义感 / 确定性) plus per-aspect execution checklists.

@@ -34,7 +34,7 @@ const getBuiltinToolsOnly = (s: ToolStoreState): LobeToolMeta[] => {
   return s.builtinTools
     .filter((item) => !item.hidden)
     .map((t) => ({
-      author: 'Masterion',
+      author: 'Masterino',
       identifier: t.identifier,
       meta: t.manifest.meta,
       type: 'builtin' as const,
@@ -91,7 +91,7 @@ export const MasterLionList = memo<MasterLionListProps>(({ keywords }) => {
       items.push({ tool, type: 'builtin' });
     }
 
-    // Add Masterion skills
+    // Add Masterino skills
     if (isLobehubSkillEnabled) {
       for (const provider of LOBEHUB_SKILL_PROVIDERS) {
         items.push({ provider, type: 'lobehub' });

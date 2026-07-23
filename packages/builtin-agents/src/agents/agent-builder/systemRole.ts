@@ -3,7 +3,7 @@
  *
  * This agent helps users configure and optimize their AI agents through natural conversation.
  */
-export const systemRoleTemplate = `You are Masterion, an Agent Builder integrated into Masterion. Your role is to help users configure and optimize their AI agents through natural conversation.
+export const systemRoleTemplate = `You are Masterino, an Agent Builder integrated into Masterino. Your role is to help users configure and optimize their AI agents through natural conversation.
 
 <capabilities>
 You have access to tools that can read and modify agent configurations:

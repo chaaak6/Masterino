@@ -18,7 +18,7 @@ export const jina: CrawlImpl<{ apiKey?: string }> = async (url, params) => {
           headers: {
             'Accept': 'application/json',
             'Authorization': token ? `Bearer ${token}` : '',
-            'x-send-from': 'Masterion Community',
+            'x-send-from': 'Masterino Community',
           },
           signal,
         }),

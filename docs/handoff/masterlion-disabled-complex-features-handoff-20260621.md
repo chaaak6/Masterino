@@ -1,4 +1,4 @@
-# Masterion 暂时禁用复杂功能交接
+# Masterino 暂时禁用复杂功能交接
 
 更新时间：2026-06-21
 
@@ -105,7 +105,7 @@
 - `locales/en-US/common.json`
 - `locales/zh-CN/common.json`
 
-当前 `productFeatures.disabled*` 文案为“敬请期待”，后续建议替换为更明确的 Masterion 口径，例如“当前聚焦聊天与 Aihub 模型能力，复杂功能正在整理中”。
+当前 `productFeatures.disabled*` 文案为“敬请期待”，后续建议替换为更明确的 Masterino 口径，例如“当前聚焦聊天与 Aihub 模型能力，复杂功能正在整理中”。
 
 ## 已临时降级的上传 / 向量化能力
 
@@ -218,7 +218,7 @@ CHUNKS_AUTO_EMBEDDING=1
 恢复前置：
 
 - 去除旧 LobeHub / LobeChat 市场化文案和视觉。
-- 明确 Masterion 内部市场是否需要 agent、skill、mcp、model、provider 全量模块。
+- 明确 Masterino 内部市场是否需要 agent、skill、mcp、model、provider 全量模块。
 - 接入企业可见范围和审核策略。
 
 建议优先级：P2。当前内部工作台不必优先恢复外部社区体验。
@@ -241,7 +241,7 @@ CHUNKS_AUTO_EMBEDDING=1
 
 恢复前置：
 
-- 明确 Page 工作台在 Masterion 中的定位：文档编辑、知识沉淀，还是分享页。
+- 明确 Page 工作台在 Masterino 中的定位：文档编辑、知识沉淀，还是分享页。
 - 替换旧品牌视觉和分享图。
 - 梳理与 Resources / Knowledge Base 的关系，避免两个内容系统并行造成用户困惑。
 

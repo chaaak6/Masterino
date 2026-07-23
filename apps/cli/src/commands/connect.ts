@@ -234,7 +234,7 @@ async function runConnect(options: ConnectOptions, isDaemonChild: boolean) {
   };
 
   // Print device info
-  info('─── Masterion CLI ───');
+  info('─── Masterino CLI ───');
   info(`  Device ID : ${client.currentDeviceId}`);
   info(`  Hostname  : ${os.hostname()}`);
   info(`  Platform  : ${process.platform}`);

@@ -17,7 +17,7 @@ export const RECOMMENDED_SKILLS: RecommendedSkillItem[] = [
   { id: 'lobe-task', type: RecommendedSkillType.Builtin },
   { id: 'lobe-agent-documents', type: RecommendedSkillType.Builtin },
   { id: 'lobe-message', type: RecommendedSkillType.Builtin },
-  // Masterion skills
+  // Masterino skills
   { id: 'notion', type: RecommendedSkillType.Lobehub },
   { id: 'twitter', type: RecommendedSkillType.Lobehub },
   // Composio skills

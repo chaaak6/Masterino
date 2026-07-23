@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 describe('SkillStoreContent', () => {
-  it('hides the LobeHub market tab and list in Masterion offline mode', () => {
+  it('hides the LobeHub market tab and list in Masterino offline mode', () => {
     process.env.NEXT_PUBLIC_MASTERLION_OFFLINE_MODE = '1';
 
     render(<SkillStoreContent />);

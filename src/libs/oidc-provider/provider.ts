@@ -278,10 +278,10 @@ export const createOIDCProvider = async (db: LobeChatDatabase): Promise<Provider
       ctx.body = `
         <html>
           <head>
-            <title>Masterion OIDC Error</title>
+            <title>Masterino OIDC Error</title>
           </head>
           <body>
-            <h1>Masterion OIDC Error</h1>
+            <h1>Masterino OIDC Error</h1>
             <p>${JSON.stringify(error, null, 2)}</p>
             <p>${JSON.stringify(out, null, 2)}</p>
           </body>

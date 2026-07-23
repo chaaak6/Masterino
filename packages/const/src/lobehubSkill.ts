@@ -37,7 +37,7 @@ export interface LobehubSkillProviderType {
 }
 
 /**
- * Predefined Masterion Skill Provider list
+ * Predefined Masterino Skill Provider list
  *
  * Note:
  * - This list is used for UI display (icons, labels)
@@ -46,7 +46,7 @@ export interface LobehubSkillProviderType {
  */
 export const LOBEHUB_SKILL_PROVIDERS: LobehubSkillProviderType[] = [
   {
-    author: 'Masterion',
+    author: 'Masterino',
     authorUrl: 'https://aihub.bielcrystal.com',
     defaultVisible: true,
     description:
@@ -58,7 +58,7 @@ export const LOBEHUB_SKILL_PROVIDERS: LobehubSkillProviderType[] = [
       'Connect to GitHub to access your repositories, create and manage issues, review pull requests, and collaborate on code—all through natural conversation with your AI assistant.',
   },
   {
-    author: 'Masterion',
+    author: 'Masterino',
     authorUrl: 'https://aihub.bielcrystal.com',
     defaultVisible: true,
     description:
@@ -70,7 +70,7 @@ export const LOBEHUB_SKILL_PROVIDERS: LobehubSkillProviderType[] = [
     label: 'Linear',
   },
   {
-    author: 'Masterion',
+    author: 'Masterino',
     authorUrl: 'https://aihub.bielcrystal.com',
     defaultVisible: true,
     description:
@@ -82,7 +82,7 @@ export const LOBEHUB_SKILL_PROVIDERS: LobehubSkillProviderType[] = [
     label: 'Outlook Calendar',
   },
   {
-    author: 'Masterion',
+    author: 'Masterino',
     authorUrl: 'https://aihub.bielcrystal.com',
     defaultVisible: true,
     description: 'Notion is a collaborative productivity and note-taking application.',
@@ -93,7 +93,7 @@ export const LOBEHUB_SKILL_PROVIDERS: LobehubSkillProviderType[] = [
     label: 'Notion',
   },
   {
-    author: 'Masterion',
+    author: 'Masterino',
     authorUrl: 'https://aihub.bielcrystal.com',
     defaultVisible: true,
     description:
@@ -105,7 +105,7 @@ export const LOBEHUB_SKILL_PROVIDERS: LobehubSkillProviderType[] = [
     label: 'X (Twitter)',
   },
   {
-    author: 'Masterion',
+    author: 'Masterino',
     authorUrl: 'https://aihub.bielcrystal.com',
     defaultVisible: true,
     description:

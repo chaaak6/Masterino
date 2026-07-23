@@ -53,7 +53,7 @@ export const params = {
     chatCompletion: () => process.env.DEBUG_NEWAPI_CHAT_COMPLETION === '1',
   },
   defaultHeaders: {
-    'X-Client': 'Masterion',
+    'X-Client': 'Masterino',
   },
   id: ModelProvider.NewAPI,
   models: async ({ client: openAIClient }) => {

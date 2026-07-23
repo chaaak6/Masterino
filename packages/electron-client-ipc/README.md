@@ -1,6 +1,6 @@
 # @lobechat/electron-client-ipc
 
-This package is a client-side toolkit for handling IPC (Inter-Process Communication) in the Masterion Electron environment.
+This package is a client-side toolkit for handling IPC (Inter-Process Communication) in the Masterino Electron environment.
 
 ## Introduction
 
@@ -59,7 +59,7 @@ IPC communication needs vary across different use cases and platforms. We welcom
 
 ### Contribution Process
 
-1. Fork the [Masterion repository](https://github.com/chaaak6/MasterLion)
+1. Fork the [Masterino repository](https://github.com/chaaak6/MasterLion)
 2. Make your changes to the IPC client package
 3. Submit a Pull Request describing:
 
@@ -70,4 +70,4 @@ IPC communication needs vary across different use cases and platforms. We welcom
 
 ## 📌 Note
 
-This is an internal module of Masterion (`"private": true`), designed specifically for Masterion and not published as a standalone package.
+This is an internal module of Masterino (`"private": true`), designed specifically for Masterino and not published as a standalone package.

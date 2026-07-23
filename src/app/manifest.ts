@@ -5,7 +5,7 @@ const manifest = async (): Promise<MetadataRoute.Manifest> => {
   if (process.env.NODE_ENV === 'development') {
     return {
       background_color: '#000000',
-      description: 'Masterion Development',
+      description: 'Masterino Development',
       display: 'standalone',
       icons: [
         {
@@ -14,8 +14,8 @@ const manifest = async (): Promise<MetadataRoute.Manifest> => {
           type: 'image/png',
         },
       ],
-      name: 'Masterion',
-      short_name: 'Masterion',
+      name: 'Masterino',
+      short_name: 'Masterino',
       start_url: '/',
       theme_color: '#000000',
     };

@@ -70,7 +70,7 @@ describe('buildTaskListPrompt', () => {
     expect(result).not.toContain('ago');
   });
 
-  it('includes default Masterion assignee hint when provided', () => {
+  it('includes default Masterino assignee hint when provided', () => {
     const result = buildTaskListPrompt(
       {
         defaultAssigneeAgentId: 'agt_inbox',
@@ -81,7 +81,7 @@ describe('buildTaskListPrompt', () => {
     );
 
     expect(result).toContain('<task_manager_defaults>');
-    expect(result).toContain('Default Masterion agent id: agt_inbox');
+    expect(result).toContain('Default Masterino agent id: agt_inbox');
     expect(result).toContain('Do not use it as a listTasks filter');
   });
 });
