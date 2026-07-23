@@ -11,8 +11,8 @@ ENV CI="true" \
     DEBIAN_FRONTEND="noninteractive"
 
 # 使用 apt-get + --no-install-recommends，减少非必要包，降低基础层体积。
-RUN --mount=type=cache,id=masterlion-apt-lists,target=/var/lib/apt/lists,sharing=locked \
-    --mount=type=cache,id=masterlion-apt-cache,target=/var/cache/apt,sharing=locked \
+RUN --mount=type=cache,id=masterino-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    --mount=type=cache,id=masterino-apt-cache,target=/var/cache/apt,sharing=locked \
     set -e && \
     if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
         sed -i "s/deb.debian.org/mirrors.ustc.edu.cn/g" "/etc/apt/sources.list.d/debian.sources"; \
@@ -66,9 +66,9 @@ COPY --from=workspace-manifests /manifests/ ./
 # 1. 直接使用 Node 自带 corepack，按 packageManager 固定 pnpm 版本。
 # 2. --frozen-lockfile 保证可复现，--prefer-offline 优先复用缓存。
 # 【新增】corepack-cache 挂载：避免每次构建重新下载 pnpm 本体。
-RUN --mount=type=cache,id=masterlion-npm-cache,target=/root/.npm,sharing=locked \
-    --mount=type=cache,id=masterlion-pnpm-store,target=/pnpm/store,sharing=locked \
-    --mount=type=cache,id=masterlion-corepack-cache,target=/root/.cache/node/corepack,sharing=locked \
+RUN --mount=type=cache,id=masterino-npm-cache,target=/root/.npm,sharing=locked \
+    --mount=type=cache,id=masterino-pnpm-store,target=/pnpm/store,sharing=locked \
+    --mount=type=cache,id=masterino-corepack-cache,target=/root/.cache/node/corepack,sharing=locked \
     set -e && \
     if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
         export SENTRYCLI_CDNURL="https://npmmirror.com/mirrors/sentry-cli"; \
@@ -131,8 +131,8 @@ RUN pnpm exec tsx scripts/dockerPrebuild.mts && \
 
 # 构建：挂载 .next/cache 与 node_modules/.cache，二次构建走增量编译。
 # 【新增】node_modules/.cache 挂载：babel / terser 等构建工具缓存跨构建复用。
-RUN --mount=type=cache,id=masterlion-next-cache,target=/app/.next/cache,sharing=locked \
-    --mount=type=cache,id=masterlion-build-cache,target=/app/node_modules/.cache,sharing=locked \
+RUN --mount=type=cache,id=masterino-next-cache,target=/app/.next/cache,sharing=locked \
+    --mount=type=cache,id=masterino-build-cache,target=/app/node_modules/.cache,sharing=locked \
     npm run build:docker
 
 ## Application image, copy all the files for production

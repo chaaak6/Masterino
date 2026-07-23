@@ -17,9 +17,9 @@
 
 1. 将本目录复制到节点的 `/opt/onlyboxes`，把 Worker 二进制安装为 `/opt/onlyboxes/bin/onlyboxes-worker-docker`。
 2. 创建专用用户和持久化目录：`onlyboxes` 用户、`/var/lib/onlyboxes/console`，目录仅允许 root 和服务用户访问。
-3. 将 `.env.example` 复制到 `/etc/masterlion/onlyboxes-console.env`，替换所有 `CHANGE_ME`，设置权限为 `root:root 0600`。
+3. 将 `.env.example` 复制到 `/etc/masterino/onlyboxes-console.env`，替换所有 `CHANGE_ME`，设置权限为 `root:root 0600`。
 4. `CONSOLE_HASH_KEY` 与 Dashboard 密码分别生成；`CONSOLE_JIT_SIGNING_KEY` 使用至少 32 字节随机值。该 JIT 值必须与 K8s Secret 中的 `ONLYBOXES_JIT_SIGNING_KEY` 完全一致。
-5. 安装 `masterlion-onlyboxes-console.service` 到 `/etc/systemd/system/`，执行 `systemctl daemon-reload && systemctl enable --now masterlion-onlyboxes-console`。
+5. 安装 `masterino-onlyboxes-console.service` 到 `/etc/systemd/system/`，执行 `systemctl daemon-reload && systemctl enable --now masterino-onlyboxes-console`。
 
 Compose 只把 HTTP `8089` 和 gRPC `50051` 映射到宿主机回环地址。`CONSOLE_ENABLE_REGISTRATION=false` 禁止 Onlyboxes 自身注册。SQLite 数据保存在 `/var/lib/onlyboxes/console`。
 
@@ -35,7 +35,7 @@ Dashboard 和 REST/MCP API 共用 HTTPS 入口，模板默认仅允许 Masterino
 ## 4. 注册并启动 Worker
 
 1. 通过受限运维网段登录 Dashboard，创建 `normal` Worker，立即保存只显示一次的 `WORKER_ID` 和 `WORKER_SECRET`。
-2. 将 `onlyboxes-worker.env.example` 复制到 `/etc/masterlion/onlyboxes-worker.env`，填入凭据并设为 `root:root 0600`。
+2. 将 `onlyboxes-worker.env.example` 复制到 `/etc/masterino/onlyboxes-worker.env`，填入凭据并设为 `root:root 0600`。
 3. 预拉取两个内部运行时镜像，确认 Terminal 镜像包含 `python3`、`node`、`npx`/`tsx`、`base64`、`find` 和 `grep`。
 4. 安装 `onlyboxes-worker.service` 到 `/etc/systemd/system/`，执行 `systemctl daemon-reload && systemctl enable --now onlyboxes-worker`。
 5. 在 Dashboard 确认 Worker 状态为 `online`。

@@ -5,7 +5,7 @@ set -euo pipefail
 # Run source commands on the old test server and target commands from a host with ACK access.
 
 EXPECTED_CONTEXT="${ACK_CONTEXT:-ack-c23ea84b-masterlion-test}"
-NAMESPACE="masterlion-test"
+NAMESPACE="masterino-test"
 SOURCE_POSTGRES_CONTAINER="${SOURCE_POSTGRES_CONTAINER:-masterlion-postgres}"
 DATABASE_NAME="${DATABASE_NAME:-lobechat}"
 DATABASE_USER="${DATABASE_USER:-postgres}"
@@ -29,7 +29,7 @@ Target commands require KUBECONFIG and the guarded ACK context. Restore requires
 target Masterino deployment to exist with zero replicas.
 
 rewrite-target-cos-urls also requires:
-  CONFIRM_REWRITE=masterlion-test
+  CONFIRM_REWRITE=masterino-test
   OLD_COS_HOST=<hostname>        Defaults to the historical test COS hostname.
 EOF
 }
@@ -52,7 +52,7 @@ init_target() {
   [[ "$current_context" == "$EXPECTED_CONTEXT" ]] || fail \
     "current context '$current_context' is not '$EXPECTED_CONTEXT'"
   KUBE=(kubectl --kubeconfig "$KUBECONFIG" --context "$EXPECTED_CONTEXT")
-  namespace_cluster="$("${KUBE[@]}" get namespace "$NAMESPACE" -o jsonpath='{.metadata.annotations.masterlion\.io/ack-cluster-id}')"
+  namespace_cluster="$("${KUBE[@]}" get namespace "$NAMESPACE" -o jsonpath='{.metadata.annotations.masterino\.io/ack-cluster-id}')"
   [[ "$namespace_cluster" == "c23ea84b986c446d5b3fa9227962e77f4" ]] || fail \
     "target namespace is not bound to the expected ACK cluster"
 }
@@ -129,7 +129,7 @@ case "$command" in
     command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is not installed"
     mkdir -p "$ARTIFACT_DIR"
     timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-    dump_file="${1:-$ARTIFACT_DIR/masterlion-test-$timestamp.dump}"
+    dump_file="${1:-$ARTIFACT_DIR/masterino-test-$timestamp.dump}"
     [[ ! -e "$dump_file" ]] || fail "refusing to overwrite existing dump: $dump_file"
     echo "Creating PostgreSQL dump: $dump_file"
     docker exec "$SOURCE_POSTGRES_CONTAINER" sh -c \
@@ -151,7 +151,7 @@ case "$command" in
     dump_file="${1:-}"
     [[ -n "$dump_file" && -s "$dump_file" ]] || fail "a non-empty dump file is required"
     init_target
-    replicas="$("${KUBE[@]}" get deployment masterlion -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
+    replicas="$("${KUBE[@]}" get deployment masterino -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
     [[ "$replicas" == "0" ]] || fail "target Masterino must have zero replicas before restore"
     if [[ -f "$dump_file.sha256" ]]; then
       command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is not installed"
@@ -172,7 +172,7 @@ case "$command" in
     old_host="${OLD_COS_HOST:-$DEFAULT_COS_HOST}"
     [[ "$old_host" =~ ^[A-Za-z0-9.-]+$ ]] || fail "OLD_COS_HOST is not a valid hostname"
     init_target
-    replicas="$("${KUBE[@]}" get deployment masterlion -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
+    replicas="$("${KUBE[@]}" get deployment masterino -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
     [[ "$replicas" == "0" ]] || fail "target Masterino must have zero replicas before URL rewrite"
     cat <<SQL | target_psql
 BEGIN;

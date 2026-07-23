@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: masterlion-config
+  name: masterino-config
   labels:
-    app.kubernetes.io/part-of: masterlion
-    masterlion.io/environment: test
+    app.kubernetes.io/part-of: masterino
+    masterino.io/environment: test
 data:
   APP_URL: "https://mlai-test.bielcrystal.com"
   APP_URL_DYNAMIC: "1"
   APP_URL_ALLOWED_HOSTS: "mlai-test.bielcrystal.com"
-  INTERNAL_APP_URL: "http://masterlion:3210"
+  INTERNAL_APP_URL: "http://masterino:3210"
   DATABASE_DRIVER: "node"
   LOBE_DB_NAME: "lobechat"
   S3_ENDPOINT: "https://oss-cn-shenzhen.aliyuncs.com"
@@ -30,7 +30,7 @@ data:
   AIHUB_MANAGED_TOKEN_NAME: "masterlion-managed"
   AIHUB_USAGE_PAGE_SIZE: "100"
   AIHUB_DATA_SOURCE: "bridge"
-  AIHUB_BRIDGE_URL: "http://masterlion-aihub-db-bridge:3218"
+  AIHUB_BRIDGE_URL: "http://masterino-aihub-db-bridge:3218"
   AIHUB_QUERY_TIMEOUT_MS: "15000"
   AIHUB_IAM_PROVIDER_ID: "1"
   REDIS_PREFIX: "lobechat-test"

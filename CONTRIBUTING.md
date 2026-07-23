@@ -5,7 +5,7 @@ Masterino is a private, company-internal AI workspace. Contributions should focu
 ## Repository
 
 ```bash
-git clone https://github.com/chaaak6/MasterLion.git
+git clone https://github.com/chaaak6/Masterino.git
 cd MasterLion
 ```
 

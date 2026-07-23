@@ -1,17 +1,19 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: masterlion-ingress
+  name: masterino-ingress
+  namespace: masterino-test
   labels:
-    app.kubernetes.io/name: masterlion
-    app.kubernetes.io/part-of: masterlion
-    masterlion.io/environment: test
+    app.kubernetes.io/name: masterino
+    app.kubernetes.io/part-of: masterino
+    masterino.io/environment: test
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   tls:
@@ -26,6 +28,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: masterlion
+                name: masterino
                 port:
                   number: 3210

@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: masterlion-config
+  name: masterino-config
   labels:
-    app.kubernetes.io/part-of: masterlion
+    app.kubernetes.io/part-of: masterino
 data:
   APP_URL: 'https://masterlion.bielcrystal.com'
   APP_URL_DYNAMIC: '1'
   APP_URL_ALLOWED_HOSTS: 'masterlion.bielcrystal.com'
-  INTERNAL_APP_URL: 'http://masterlion:3210'
+  INTERNAL_APP_URL: 'http://masterino:3210'
   AUTH_DISABLE_EMAIL_SIGNUP: '1'
   AUTH_DISABLE_EMAIL_PASSWORD: '0'
   DATABASE_DRIVER: 'node'
@@ -28,7 +28,7 @@ data:
   AIHUB_MANAGED_TOKEN_NAME: 'masterlion-managed'
   AIHUB_USAGE_PAGE_SIZE: '100'
   AIHUB_DATA_SOURCE: 'bridge'
-  AIHUB_BRIDGE_URL: 'http://masterlion-aihub-db-bridge:3218'
+  AIHUB_BRIDGE_URL: 'http://masterino-aihub-db-bridge:3218'
   AIHUB_QUERY_TIMEOUT_MS: '15000'
   AIHUB_IAM_PROVIDER_ID: '1'
   SANDBOX_PROVIDER: 'onlyboxes'

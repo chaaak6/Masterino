@@ -1,7 +1,7 @@
-name: masterlion
+name: masterino
 services:
-  masterlion:
-    image: ${MASTERLION_DEV_IMAGE:-masterlion:test-builder}
+  masterino:
+    image: ${MASTERLION_DEV_IMAGE:-masterino:test-builder}
     build: !reset null
     working_dir: /app
     user: root
@@ -28,7 +28,7 @@ services:
       - '../../index.auth.html:/app/index.auth.html'
       - '../../package.json:/app/package.json'
       - '../../pnpm-workspace.yaml:/app/pnpm-workspace.yaml'
-      - 'masterlion_hot_next:/app/.next'
+      - 'masterino_hot_next:/app/.next'
     command:
       - /bin/sh
       - -lc
@@ -40,7 +40,7 @@ services:
         pnpm run dev
 
   aihub-db-bridge:
-    image: ${MASTERLION_DEV_IMAGE:-masterlion:test-builder}
+    image: ${MASTERLION_DEV_IMAGE:-masterino:test-builder}
     build: !reset null
     working_dir: /app
     user: root
@@ -61,5 +61,5 @@ services:
       start_period: 120s
 
 volumes:
-  masterlion_hot_next:
+  masterino_hot_next:
     driver: local

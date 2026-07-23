@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: masterlion-postgres
+  name: masterino-postgres
 spec:
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: masterlion-test-essd-retain
+        storageClassName: masterino-test-essd-retain
         resources:
           requests:
             storage: 20Gi
@@ -16,14 +16,14 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: masterlion-redis
+  name: masterino-redis
 spec:
   volumeClaimTemplates:
     - metadata:
         name: redis-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: masterlion-test-essd-retain
+        storageClassName: masterino-test-essd-retain
         resources:
           requests:
             storage: 20Gi

@@ -1,8 +1,8 @@
-name: masterlion
+name: masterino
 services:
   network-service:
     image: alpine
-    container_name: masterlion-network-service
+    container_name: masterino-network-service
     restart: always
     ports:
       - '${RUSTFS_PORT}:9000' # RustFS API
@@ -10,13 +10,13 @@ services:
       - '${LOBE_PORT}:3210' # Masterino
     command: tail -f /dev/null
     networks:
-      - masterlion-network
+      - masterino-network
     env_file:
       - .env
 
   postgresql:
     image: paradedb/paradedb:latest-pg17
-    container_name: masterlion-postgres
+    container_name: masterino-postgres
     ports:
       - '5432:5432'
     volumes:
@@ -31,13 +31,13 @@ services:
       retries: 5
     restart: always
     networks:
-      - masterlion-network
+      - masterino-network
     env_file:
       - .env
 
   redis:
     image: redis:7-alpine
-    container_name: masterlion-redis
+    container_name: masterino-redis
     ports:
       - '6379:6379'
     command: redis-server --save 60 1000 --appendonly yes
@@ -50,11 +50,11 @@ services:
       retries: 5
     restart: always
     networks:
-      - masterlion-network
+      - masterino-network
 
   rustfs:
     image: rustfs/rustfs:latest
-    container_name: masterlion-rustfs
+    container_name: masterino-rustfs
     network_mode: 'service:network-service'
     environment:
       - RUSTFS_CONSOLE_ENABLE=true
@@ -73,7 +73,7 @@ services:
 
   rustfs-init:
     image: minio/mc:latest
-    container_name: masterlion-rustfs-init
+    container_name: masterino-rustfs-init
     depends_on:
       rustfs:
         condition: service_healthy
@@ -105,13 +105,13 @@ services:
         mc cors set "rustfs/lobe" /tmp/rustfs-cors.json || echo "RustFS CORS API is unavailable; browser uploads use the Masterino same-origin proxy."
     restart: 'no'
     networks:
-      - masterlion-network
+      - masterino-network
     env_file:
       - .env
 
   searxng:
     image: searxng/searxng
-    container_name: masterlion-searxng
+    container_name: masterino-searxng
     ports:
       - '8180:8080'
     volumes:
@@ -120,7 +120,7 @@ services:
       - 'SEARXNG_SETTINGS_FILE=/etc/searxng/settings.yml'
     restart: always
     networks:
-      - masterlion-network
+      - masterino-network
 
 volumes:
   data:
@@ -131,5 +131,5 @@ volumes:
     driver: local
 
 networks:
-  masterlion-network:
+  masterino-network:
     driver: bridge

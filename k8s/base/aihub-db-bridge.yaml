@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: masterlion-aihub-db-bridge
+  name: masterino-aihub-db-bridge
   labels:
     app.kubernetes.io/name: aihub-db-bridge
-    app.kubernetes.io/part-of: masterlion
+    app.kubernetes.io/part-of: masterino
 spec:
   type: ClusterIP
   selector:
@@ -17,10 +17,10 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: masterlion-aihub-db-bridge
+  name: masterino-aihub-db-bridge
   labels:
     app.kubernetes.io/name: aihub-db-bridge
-    app.kubernetes.io/part-of: masterlion
+    app.kubernetes.io/part-of: masterino
 spec:
   replicas: 1
   selector:
@@ -30,37 +30,37 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: aihub-db-bridge
-        app.kubernetes.io/part-of: masterlion
+        app.kubernetes.io/part-of: masterino
     spec:
       containers:
         - name: aihub-db-bridge
-          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion-aihub-db-bridge:v1.0.0
+          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-aihub-db-bridge:v1.0.0
           imagePullPolicy: IfNotPresent
           env:
             - name: AIHUB_BRIDGE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: masterlion-bridge-secret
+                  name: masterino-bridge-secret
                   key: AIHUB_BRIDGE_TOKEN
             - name: AIHUB_READONLY_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: masterlion-bridge-secret
+                  name: masterino-bridge-secret
                   key: AIHUB_READONLY_DATABASE_URL
             - name: AIHUB_MANAGED_TOKEN_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: masterlion-config
+                  name: masterino-config
                   key: AIHUB_MANAGED_TOKEN_NAME
             - name: AIHUB_IAM_PROVIDER_ID
               valueFrom:
                 configMapKeyRef:
-                  name: masterlion-config
+                  name: masterino-config
                   key: AIHUB_IAM_PROVIDER_ID
             - name: AIHUB_QUERY_TIMEOUT_MS
               valueFrom:
                 configMapKeyRef:
-                  name: masterlion-config
+                  name: masterino-config
                   key: AIHUB_QUERY_TIMEOUT_MS
             - name: PORT
               value: "3218"

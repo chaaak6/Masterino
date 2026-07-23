@@ -82,7 +82,7 @@ zh-CN 本就已是无 Lobe 文案（`准备好了就开始吧`），无需改动
 ### ACR 镜像构建状态
 
 - ACR 实例：`cri-8velxg2aueo822e4`（实例名 `boen`，深圳）
-- 仓库：`biel_client/masterlion`（RepoId `crr-7thpo7idrw2qnt3e`）
+- 仓库：`biel_client/masterino`（RepoId `crr-7thpo7idrw2qnt3e`）
 - 构建规则：`main` 分支推送触发 `latest` tag 自动构建
 - 最新构建：基于 `main` commit `8a8b76b`（v0.0.10 release，含 PR #21 + #22），状态 `SUCCESS`
 
@@ -117,12 +117,12 @@ echo "<AuthorizationToken>" | docker login boen-registry.cn-shenzhen.cr.aliyuncs
   -u cr_temp_user --password-stdin
 
 # 3. 拉取镜像（公网端点）
-docker pull boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion:latest
-docker pull boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion-aihub-db-bridge:latest
+docker pull boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino:latest
+docker pull boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-aihub-db-bridge:latest
 
 # 4. retag 为 -local（compose 用 -local tag）
-docker tag boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion:latest masterlion:local
-docker tag boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterlion-aihub-db-bridge:latest masterlion-aihub-db-bridge:local
+docker tag boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino:latest masterlion:local
+docker tag boen-registry.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-aihub-db-bridge:latest masterlion-aihub-db-bridge:local
 
 # 5. 重启容器（显式传 IMAGE 变量，避免 compose 重新拉 VPC 端点）
 cd /root/MasterLion/docker-compose/deploy

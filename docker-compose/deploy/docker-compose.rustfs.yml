@@ -1,6 +1,6 @@
-name: masterlion
+name: masterino
 services:
-  masterlion:
+  masterino:
     depends_on:
       rustfs:
         condition: service_healthy
@@ -18,7 +18,7 @@ services:
 
   rustfs:
     image: rustfs/rustfs:latest
-    container_name: masterlion-rustfs-diagnostic
+    container_name: masterino-rustfs-diagnostic
     environment:
       - 'RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY_ID:-masterlion-diagnostic}'
       - 'RUSTFS_SECRET_KEY=${RUSTFS_SECRET_ACCESS_KEY:-masterlion-diagnostic-secret}'
@@ -40,11 +40,11 @@ services:
       retries: 30
     restart: always
     networks:
-      - masterlion-network
+      - masterino-network
 
   rustfs-init:
     image: minio/mc:latest
-    container_name: masterlion-rustfs-diagnostic-init
+    container_name: masterino-rustfs-diagnostic-init
     depends_on:
       rustfs:
         condition: service_healthy
@@ -65,7 +65,7 @@ services:
       - './rustfs-cors.json:/tmp/rustfs-cors.json:ro'
     restart: 'no'
     networks:
-      - masterlion-network
+      - masterino-network
 
 volumes:
   rustfs_diagnostic_data:

@@ -1,15 +1,15 @@
 [Unit]
 Description=Masterino Onlyboxes Docker Worker
 Documentation=https://github.com/Coooolfan/onlyboxes
-After=docker.service network-online.target masterlion-onlyboxes-console.service
+After=docker.service network-online.target masterino-onlyboxes-console.service
 Wants=docker.service network-online.target
-Requires=masterlion-onlyboxes-console.service
+Requires=masterino-onlyboxes-console.service
 
 [Service]
 Type=simple
 User=onlyboxes
 Group=docker
-EnvironmentFile=/etc/masterlion/onlyboxes-worker.env
+EnvironmentFile=/etc/masterino/onlyboxes-worker.env
 ExecStart=/opt/onlyboxes/bin/onlyboxes-worker-docker
 Restart=always
 RestartSec=5s

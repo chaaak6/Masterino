@@ -4,5 +4,5 @@ resources:
   - ../test
 replicas:
   # The guarded deploy script uses this overlay until the first successful cutover.
-  - name: masterlion
+  - name: masterino
     count: 0
