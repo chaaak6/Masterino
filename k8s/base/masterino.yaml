@@ -57,6 +57,18 @@ spec:
             # The application must never connect directly to the Aihub database.
             - name: AIHUB_READONLY_DATABASE_URL
               value: ''
+            # Application pods use explicit service credentials and must never
+            # inherit the ACK worker node's RAM role through instance metadata.
+            - name: ALIBABA_CLOUD_ECS_METADATA_DISABLED
+              value: 'true'
+            # Keep Alibaba Cloud credential providers from falling back to
+            # tokenless IMDSv1 if a library ignores the stronger disable flag.
+            - name: ALIBABA_CLOUD_IMDSV1_DISABLE
+              value: 'true'
+            # Apply the equivalent fail-closed behavior to AWS SDK credential
+            # provider chains.
+            - name: AWS_EC2_METADATA_DISABLED
+              value: 'true'
           resources:
             requests:
               cpu: 500m
