@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "improve i18n retry resilience."
+      ]
+    },
+    "date": "2026-07-24",
+    "version": "1.0.10"
+  },
+  {
+    "children": {
+      "fixes": [
         "add security monitoring guardrails."
       ]
     },

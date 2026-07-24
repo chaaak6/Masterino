@@ -2,6 +2,33 @@
 
 # Changelog
 
+### [Version 1.0.10](https://github.com/chaaak6/Masterino/compare/v1.0.9...v1.0.10)
+
+<sup>Released on **2026-07-24**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: improve i18n retry resilience.
+- **ci**: allow full i18n retry window.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: improve i18n retry resilience, closes [#51](https://github.com/chaaak6/Masterino/issues/51) ([d1e8473](https://github.com/chaaak6/Masterino/commit/d1e8473))
+- **ci**: allow full i18n retry window, closes [#49](https://github.com/chaaak6/Masterino/issues/49) ([27d4dd2](https://github.com/chaaak6/Masterino/commit/27d4dd2))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.0.9](https://github.com/chaaak6/Masterino/compare/v1.0.8...v1.0.9)
 
 <sup>Released on **2026-07-24**</sup>
