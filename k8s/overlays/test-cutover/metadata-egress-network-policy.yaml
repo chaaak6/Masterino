@@ -16,6 +16,9 @@ spec:
   egress:
     - to:
         - namespaceSelector: {}
+    # Defense in depth only. ACK/Terway may exempt node metadata traffic from
+    # standard NetworkPolicy, so the pod also disables SDK metadata credential
+    # providers and the ECS nodes still need a coordinated IMDSv2 migration.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

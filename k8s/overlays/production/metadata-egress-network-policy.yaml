@@ -15,8 +15,11 @@ spec:
     # Preserve service-to-service traffic inside the cluster.
     - to:
         - namespaceSelector: {}
-    # Permit ordinary IPv4 egress while denying cloud metadata endpoints even
-    # if a future application-level SSRF bypass is introduced.
+    # Permit ordinary IPv4 egress while excluding cloud metadata endpoints.
+    # This is defense in depth only: some CNI implementations exempt traffic
+    # to the node/metadata service from standard Kubernetes NetworkPolicy.
+    # ECS nodes must also require IMDSv2, and the application container disables
+    # SDK metadata credential providers in k8s/base/masterino.yaml.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
