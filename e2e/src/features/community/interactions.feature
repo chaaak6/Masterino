@@ -1,4 +1,5 @@
-@community @interactions
+# The Community product feature is currently disabled in packages/app-config.
+@community @interactions @skip
 Feature: Discover Interactions
   Tests for user interactions within the discover module
 

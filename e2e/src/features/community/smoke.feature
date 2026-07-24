@@ -1,4 +1,5 @@
-@community @smoke
+# The Community product feature is currently disabled in packages/app-config.
+@community @smoke @skip
 Feature: Community Smoke Tests
   Critical path tests to ensure the community/discover module is functional
 

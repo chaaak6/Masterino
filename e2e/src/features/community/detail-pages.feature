@@ -1,4 +1,5 @@
-@community @detail
+# The Community product feature is currently disabled in packages/app-config.
+@community @detail @skip
 Feature: Discover Detail Pages
   Tests for detail pages in the discover module
 

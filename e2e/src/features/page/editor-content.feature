@@ -1,4 +1,5 @@
-@journey @P0 @page
+# The Pages product feature is currently disabled in packages/app-config.
+@journey @P0 @page @skip
 Feature: Page 编辑器富文本编辑
 
   作为用户，我希望能够使用富文本编辑器编写内容，

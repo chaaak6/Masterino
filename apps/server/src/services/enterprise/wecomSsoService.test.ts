@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 
 import {
-  getWecomSsoRuntimeConfig,
   getWecomSsoConfig,
+  getWecomSsoRuntimeConfig,
   redactWecomSecrets,
   upsertWecomSsoConfig,
   validateWecomSsoConfig,
@@ -85,7 +85,7 @@ const defaultEnterpriseWecomBlocks = {
     lookupField: 'employeeNumber',
     managedTokenName: 'masterlion-managed',
     managedTokenQuota: 50_000_000,
-    managedTokenUnlimitedQuota: false,
+    managedTokenUnlimitedQuota: true,
   },
   departmentSync: {
     enabled: false,
@@ -160,12 +160,12 @@ describe('wecomSsoService', () => {
       mode: 'login',
     });
 
-    expect(validateWecomSsoConfig({ departmentSync: { mode: 'scheduled' } }).departmentSync).toEqual(
-      {
-        enabled: false,
-        mode: 'scheduled',
-      },
-    );
+    expect(
+      validateWecomSsoConfig({ departmentSync: { mode: 'scheduled' } }).departmentSync,
+    ).toEqual({
+      enabled: false,
+      mode: 'scheduled',
+    });
   });
 
   it('rejects unsupported department sync modes', () => {
@@ -204,7 +204,7 @@ describe('wecomSsoService', () => {
       lookupField: 'employeeNumber',
       managedTokenName: 'masterlion-managed',
       managedTokenQuota: 50_000_000,
-      managedTokenUnlimitedQuota: false,
+      managedTokenUnlimitedQuota: true,
     });
   });
 
@@ -217,21 +217,26 @@ describe('wecomSsoService', () => {
           userGroup: ' ',
         },
       }).aihubProvisioning,
-    ).toEqual(defaultEnterpriseWecomBlocks.aihubProvisioning);
+    ).toEqual({
+      ...defaultEnterpriseWecomBlocks.aihubProvisioning,
+      userGroup: undefined,
+    });
   });
 
   it('rejects negative aihub provisioning quotas', () => {
-    expect(() =>
-      validateWecomSsoConfig({ aihubProvisioning: { initialQuota: -1 } }),
-    ).toThrow();
+    expect(() => validateWecomSsoConfig({ aihubProvisioning: { initialQuota: -1 } })).toThrow();
     expect(() =>
       validateWecomSsoConfig({ aihubProvisioning: { managedTokenQuota: -1 } }),
     ).toThrow();
   });
 
   it('rejects unsupported aihub provisioning lookup fields', () => {
-    expect(() => validateWecomSsoConfig({ aihubProvisioning: { lookupField: 'mobile' } })).toThrow();
-    expect(() => validateWecomSsoConfig({ aihubProvisioning: { lookupField: 'department' } })).toThrow();
+    expect(() =>
+      validateWecomSsoConfig({ aihubProvisioning: { lookupField: 'mobile' } }),
+    ).toThrow();
+    expect(() =>
+      validateWecomSsoConfig({ aihubProvisioning: { lookupField: 'department' } }),
+    ).toThrow();
   });
 
   it('rejects invalid redirectUri and enabledModes values', () => {

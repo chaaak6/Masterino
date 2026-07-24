@@ -12,7 +12,9 @@ describe('AihubBridgeRepository', () => {
   });
 
   it('resolves a user by email or username', async () => {
-    const client = createClient([{ email: 'ada@example.com', group: 'vip', id: 7, username: 'ada' }]);
+    const client = createClient([
+      { email: 'ada@example.com', group: 'vip', id: 7, username: 'ada' },
+    ]);
     const repo = new AihubBridgeRepository({ client, dialect: 'mysql' });
 
     const user = await repo.findUserByIdentity({ email: 'ada@example.com', username: 'ada' });
@@ -23,8 +25,8 @@ describe('AihubBridgeRepository', () => {
       'ada@example.com',
       'ada',
       'ada',
-      'ada@example.com',
-      'ada@example.com',
+      'ada',
+      'ada',
     ]);
   });
 
@@ -186,12 +188,9 @@ describe('AihubBridgeRepository', () => {
       startTimestamp: 1709990000,
     });
 
-    expect(client.query).toHaveBeenCalledWith(expect.stringContaining('limit ? offset ?'), [
-      7,
-      1709990000,
-      1710003600,
-      10,
-      10,
-    ]);
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('limit ? offset ?'),
+      [7, 1709990000, 1710003600, 10, 10],
+    );
   });
 });

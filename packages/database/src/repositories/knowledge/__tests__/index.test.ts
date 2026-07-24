@@ -28,7 +28,7 @@ const deleteFolderDocChunkId = '66666666-6666-4666-8666-666666666666';
 const deleteNestedFolderFileChunkId = '77777777-7777-4777-8777-777777777777';
 
 let knowledgeRepo: KnowledgeRepo;
-const testEmbedding = Array.from({ length: 1024 }, () => 0.1);
+const testEmbedding = Array.from({ length: 2048 }, () => 0.1);
 
 beforeEach(async () => {
   // Clean up

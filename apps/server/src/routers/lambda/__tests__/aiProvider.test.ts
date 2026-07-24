@@ -102,12 +102,12 @@ describe('aiProviderRouter', () => {
 
       const caller = aiProviderRouter.createCaller(createMockContext());
 
-      await expect(
-        caller.getAiProviderById({ id: mockNonNewApiProviderId }),
-      ).rejects.toMatchObject({
-        code: 'FORBIDDEN',
-        message: 'This deployment only allows the Aihub provider',
-      });
+      await expect(caller.getAiProviderById({ id: mockNonNewApiProviderId })).rejects.toMatchObject(
+        {
+          code: 'FORBIDDEN',
+          message: 'This deployment only allows the Aihub provider',
+        },
+      );
       expect(mockGetDetail).not.toHaveBeenCalled();
     });
   });
@@ -135,13 +135,22 @@ describe('aiProviderRouter', () => {
 
   describe('getAiProviderRuntimeState', () => {
     it('should get AI provider runtime state', async () => {
+      const mockGetProvider = vi.fn().mockResolvedValue({
+        enabled: true,
+        keyVaults: { apiKey: 'test-api-key' },
+      });
       const mockGetState = vi.fn().mockResolvedValue(mockRuntimeState);
+      vi.mocked(AiProviderModel).prototype.getAiProviderById = mockGetProvider;
       vi.mocked(AiInfraRepos).prototype.getAiProviderRuntimeState = mockGetState;
 
       const caller = aiProviderRouter.createCaller(createMockContext());
       const result = await caller.getAiProviderRuntimeState({});
 
       expect(result).toEqual(mockRuntimeState);
+      expect(mockGetProvider).toHaveBeenCalledWith(
+        ModelProvider.NewAPI,
+        KeyVaultsGateKeeper.getUserKeyVaults,
+      );
       expect(mockGetState).toHaveBeenCalledWith(KeyVaultsGateKeeper.getUserKeyVaults);
     });
   });

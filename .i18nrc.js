@@ -27,7 +27,7 @@ module.exports = defineConfig({
   ],
   temperature: 0,
   saveImmediately: true,
-  modelName: 'gpt-4o',
+  modelName: process.env.I18N_MODEL_NAME || 'gpt-4o',
   experimental: {
     jsonMode: true,
   },

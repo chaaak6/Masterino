@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import MobileMainLayout from './index';
+
 vi.mock('react-router-dom', () => ({
   Outlet: () => <div>Protected mobile route</div>,
   useLocation: () => ({ pathname: '/' }),
@@ -41,8 +43,6 @@ vi.mock('./NavBar', () => ({
   default: () => <nav>Mobile nav</nav>,
 }));
 
-import MobileMainLayout from './index';
-
 describe('MobileMainLayout', () => {
   it('routes the mobile home outlet through the mobile auth guard', () => {
     render(<MobileMainLayout />);
@@ -50,6 +50,8 @@ describe('MobileMainLayout', () => {
     expect(screen.getByTestId('mobile-auth-guard')).toContainElement(
       screen.getByText('Protected mobile route'),
     );
-    expect(screen.getByTestId('mobile-auth-guard')).toContainElement(screen.getByText('Mobile nav'));
+    expect(screen.getByTestId('mobile-auth-guard')).toContainElement(
+      screen.getByText('Mobile nav'),
+    );
   });
 });

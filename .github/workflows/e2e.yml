@@ -40,9 +40,9 @@ jobs:
   e2e:
     needs: check-duplicate-run
     if: >-
-      github.ref == 'refs/heads/main' ||
-      github.ref == 'refs/heads/canary' ||
-      needs.check-duplicate-run.outputs.should_skip != 'true'
+      github.ref == 'refs/heads/main' || github.ref == 'refs/heads/canary' || needs.check-duplicate-run.outputs.should_skip != 'true'
+
+
     name: Test Web App
     runs-on: ubuntu-latest
     services:
@@ -51,12 +51,13 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
         options: >-
-          --health-cmd pg_isready --health-interval 10s --health-timeout 5s  --health-retries 5
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+
 
         ports:
           - 5432:5432
 
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -84,8 +85,8 @@ jobs:
       - name: Run E2E tests
         run: bun run e2e
 
-      - name: Upload E2E test artifacts (on failure)
-        if: failure()
+      - name: Upload E2E test artifacts (on failure or timeout)
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v6
         with:
           name: e2e-artifacts

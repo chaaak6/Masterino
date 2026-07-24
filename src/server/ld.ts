@@ -11,7 +11,7 @@ import { getCanonicalUrl } from '@/server/utils/url';
 import pkg from '../../package.json';
 
 const LAST_MODIFIED = new Date().toISOString();
-const BRAND_SITE_URL = SOCIAL_URL.github || OFFICIAL_SITE;
+const BRAND_SITE_URL = OFFICIAL_SITE;
 export const AUTHOR_LIST = {
   arvinxx: {
     avatar: 'https://avatars.githubusercontent.com/u/28616219?v=4',

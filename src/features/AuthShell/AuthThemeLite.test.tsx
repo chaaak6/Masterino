@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import AuthThemeLite from './AuthThemeLite';
+
 vi.mock('@lobehub/ui', () => ({
   ConfigProvider: ({ children }: { children: ReactNode }) => (
     <div data-testid="config-provider">{children}</div>
@@ -39,8 +41,6 @@ vi.mock('@/libs/next/Image', () => ({
 vi.mock('@/libs/next/Link', () => ({
   default: 'a',
 }));
-
-import AuthThemeLite from './AuthThemeLite';
 
 describe('AuthThemeLite', () => {
   it('wraps auth content in LazyMotion so motion-based UI can animate', () => {

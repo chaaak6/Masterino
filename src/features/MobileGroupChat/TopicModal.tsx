@@ -1,7 +1,7 @@
 'use client';
 
 import { Modal } from '@lobehub/ui';
-import { type PropsWithChildren, memo, useState } from 'react';
+import { memo, type PropsWithChildren, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { OverlayContainerContext } from '@/features/NavPanel/OverlayContainer';

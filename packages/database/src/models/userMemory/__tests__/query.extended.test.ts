@@ -58,7 +58,7 @@ const getQueryModel = () =>
     ) => Promise<Array<{ id: string }>>;
   };
 
-const vec = (seed: number) => Array.from({ length: 1024 }, (_, index) => (index === 0 ? seed : 0));
+const vec = (seed: number) => Array.from({ length: 2048 }, (_, index) => (index === 0 ? seed : 0));
 
 beforeEach(async () => {
   await serverDB.delete(userMemoriesActivities);
