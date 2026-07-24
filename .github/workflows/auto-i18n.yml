@@ -56,7 +56,7 @@ jobs:
       - name: Update i18n
         if: steps.credentials.outputs.configured == 'true'
         run: |
-          max_attempts=3
+          max_attempts=6
 
           for attempt in $(seq 1 "$max_attempts"); do
             echo "Starting i18n update attempt ${attempt}/${max_attempts}..."
