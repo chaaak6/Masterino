@@ -65,6 +65,7 @@ const CONVERGED_SETTINGS_TABS = new Set<SettingsTabs>([
   SettingsTabs.Hotkey,
   SettingsTabs.Provider,
   SettingsTabs.ServiceModel,
+  SettingsTabs.Memory,
   SettingsTabs.Proxy,
   SettingsTabs.Security,
   SettingsTabs.About,
@@ -75,7 +76,8 @@ export const useCategory = () => {
   const { t: tAuth } = useTranslation('auth');
   const { t: tSubscription } = useTranslation('subscription');
   const mobile = useServerConfigStore((s) => s.isMobile);
-  const { hideDocs, showApiKeyManage, showProvider } = useServerConfigStore(featureFlagsSelectors);
+  const { enableMemory, hideDocs, showApiKeyManage, showProvider } =
+    useServerConfigStore(featureFlagsSelectors);
   const [avatar, username] = useUserStore((s) => [
     userProfileSelectors.userAvatar(s),
     userProfileSelectors.nickName(s),
@@ -167,7 +169,7 @@ export const useCategory = () => {
         key: SettingsTabs.Skill,
         label: t('tab.skill'),
       },
-      {
+      enableMemory && {
         icon: BrainCircuit,
         key: SettingsTabs.Memory,
         label: t('tab.memory'),
@@ -246,6 +248,7 @@ export const useCategory = () => {
     tAuth,
     tSubscription,
     enableBusinessFeatures,
+    enableMemory,
     hideDocs,
     mobile,
     showApiKeyManage,

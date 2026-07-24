@@ -71,6 +71,7 @@ import {
 import { shouldEnableBuiltinSkill } from '@/helpers/skillFilters';
 import { buildConnectorManifests } from '@/libs/mcp/buildConnectorManifests';
 import { signOperationJwt, signUserJWT } from '@/libs/trpc/utils/internalJwt';
+import { getServerFeatureFlagsStateFromRuntimeConfig } from '@/server/featureFlags';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import type { EvalContext, ServerAgentToolsContext } from '@/server/modules/Mecha';
 import { createServerAgentToolsEngine } from '@/server/modules/Mecha';
@@ -1574,16 +1575,21 @@ export class AiAgentService {
     }
 
     // 4. Fetch user settings (memory config + timezone)
-    // Agent-level memory config takes priority; fallback to user-level setting
+    // Runtime rollout and explicit user consent are hard gates. Agents can opt out only.
     const agentMemoryEnabled = agentConfig.chatConfig?.memory?.enabled;
-    let globalMemoryEnabled = agentMemoryEnabled ?? false;
+    let globalMemoryEnabled = false;
     let userTimezone: string | undefined;
     try {
       const userModel = new UserModel(this.db, this.userId);
       const settings = await userModel.getUserSettings();
       const memorySettings = settings?.memory as { enabled?: boolean } | undefined;
+      const featureFlags = await getServerFeatureFlagsStateFromRuntimeConfig(this.userId);
 
-      globalMemoryEnabled = agentMemoryEnabled ?? memorySettings?.enabled !== false;
+      globalMemoryEnabled =
+        !this.workspaceId &&
+        featureFlags.enableMemory === true &&
+        memorySettings?.enabled === true &&
+        agentMemoryEnabled !== false;
 
       const generalSettings = settings?.general as { timezone?: string } | undefined;
       userTimezone = generalSettings?.timezone;

@@ -41,6 +41,7 @@ import {
   SIDEBAR_ACCORDION_KEYS,
   SIDEBAR_SPACER_ID,
 } from '@/store/global/selectors/systemStatus';
+import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -97,11 +98,20 @@ const ALL_SIDEBAR_ITEMS: SidebarItemConfig[] = [
   },
 ];
 
-export const getAvailableSidebarItems = (isWorkspaceMode: boolean): SidebarItemConfig[] =>
-  ALL_SIDEBAR_ITEMS.filter((item) => !(isWorkspaceMode && item.id === 'memory'));
+export const getAvailableSidebarItems = (
+  isWorkspaceMode: boolean,
+  enableMemory = true,
+): SidebarItemConfig[] =>
+  ALL_SIDEBAR_ITEMS.filter((item) => item.id !== 'memory' || (enableMemory && !isWorkspaceMode));
 
-export const getSortableSidebarItemIds = (isWorkspaceMode: boolean): Set<string> =>
-  new Set([...getAvailableSidebarItems(isWorkspaceMode).map((item) => item.id), SIDEBAR_SPACER_ID]);
+export const getSortableSidebarItemIds = (
+  isWorkspaceMode: boolean,
+  enableMemory = true,
+): Set<string> =>
+  new Set([
+    ...getAvailableSidebarItems(isWorkspaceMode, enableMemory).map((item) => item.id),
+    SIDEBAR_SPACER_ID,
+  ]);
 
 const ITEM_MAP = new Map(ALL_SIDEBAR_ITEMS.map((item) => [item.id, item]));
 
@@ -383,9 +393,10 @@ const CustomizeSidebarContent = memo(() => {
     s.updateSystemStatus,
   ]);
   const isWorkspaceMode = !!useActiveWorkspaceSlug();
+  const { enableMemory } = useServerConfigStore(featureFlagsSelectors);
   const sortableItemIds = useMemo(
-    () => getSortableSidebarItemIds(isWorkspaceMode),
-    [isWorkspaceMode],
+    () => getSortableSidebarItemIds(isWorkspaceMode, enableMemory === true),
+    [enableMemory, isWorkspaceMode],
   );
   const filteredStoreItems = useMemo(
     () => storeItems.filter((id) => sortableItemIds.has(id)),

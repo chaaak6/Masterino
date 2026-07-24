@@ -1,6 +1,6 @@
 // @vitest-environment node
-import { KnowledgeBaseManifest } from '@lobechat/builtin-tool-knowledge-base';
 import { CloudSandboxManifest } from '@lobechat/builtin-tool-cloud-sandbox';
+import { KnowledgeBaseManifest } from '@lobechat/builtin-tool-knowledge-base';
 import { LobeAgentManifest } from '@lobechat/builtin-tool-lobe-agent';
 import { LocalSystemManifest } from '@lobechat/builtin-tool-local-system';
 import { MemoryManifest } from '@lobechat/builtin-tool-memory';
@@ -425,6 +425,24 @@ describe('createServerAgentToolsEngine', () => {
         toolIds: [MemoryManifest.identifier],
         model: 'gpt-4',
         provider: 'openai',
+      });
+
+      expect(result.enabledToolIds).not.toContain(MemoryManifest.identifier);
+    });
+
+    it('should not bypass disabled Memory with explicit activation', () => {
+      const context = createMockContext();
+      const engine = createServerAgentToolsEngine(context, {
+        agentConfig: { plugins: [MemoryManifest.identifier] },
+        model: 'gpt-4',
+        provider: 'openai',
+      });
+
+      const result = engine.generateToolsDetailed({
+        context: { isExplicitActivation: true },
+        model: 'gpt-4',
+        provider: 'openai',
+        toolIds: [MemoryManifest.identifier],
       });
 
       expect(result.enabledToolIds).not.toContain(MemoryManifest.identifier);

@@ -3,10 +3,12 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
+import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { useFetchAgentDocuments } from '@/hooks/useFetchAgentDocuments';
 import { useFetchTopicMemories } from '@/hooks/useFetchMemoryForTopic';
 import { useFetchNotebookDocuments } from '@/hooks/useFetchNotebookDocuments';
 import { useAgentStore } from '@/store/agent';
+import { chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { operationSelectors } from '@/store/chat/selectors';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
@@ -81,7 +83,8 @@ const ChatList = memo<ChatListProps>(
   }) => {
     // Fetch messages (SWR key is null when skipFetch is true)
     const context = useConversationStore((s) => s.context);
-    const enableUserMemories = useUserStore(settingsSelectors.memoryEnabled);
+    const activeWorkspaceId = useActiveWorkspaceId();
+    const userMemoryConsent = useUserStore(settingsSelectors.memoryEnabled);
     const [skipFetch, useFetchMessages] = useConversationStore((s) => [
       dataSelectors.skipFetch(s),
       s.useFetchMessages,
@@ -93,7 +96,17 @@ const ChatList = memo<ChatListProps>(
     // mid-fan-out and clobber the in-memory streamed state with a stale
     // assistant placeholder.
     const isStreaming = useChatStore(operationSelectors.isAgentRuntimeRunningByContext(context));
-    const { enableAgentSelfIteration } = useServerConfigStore(featureFlagsSelectors);
+    const { enableAgentSelfIteration, enableMemory } = useServerConfigStore(featureFlagsSelectors);
+    const agentMemoryEnabled = useAgentStore(
+      (s) =>
+        chatConfigByIdSelectors.getMemoryToolConfigById(context.agentId || activeAgentId || '')(s)
+          ?.enabled,
+    );
+    const enableUserMemories =
+      !activeWorkspaceId &&
+      enableMemory === true &&
+      userMemoryConsent &&
+      agentMemoryEnabled !== false;
     const messagesSWR = useFetchMessages(context, { revalidateOnFocus: !isStreaming, skipFetch });
     const displayMessages = useConversationStore(dataSelectors.displayMessages);
     const displayMessageIds = useConversationStore(dataSelectors.displayMessageIds);

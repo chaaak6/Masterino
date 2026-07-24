@@ -5,6 +5,7 @@ import { AsyncTaskModel } from '@/database/models/asyncTask';
 import { type ListTopicsForMemoryExtractorCursor } from '@/database/models/topic';
 import { getServerDB } from '@/database/server';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import { type MemoryExtractionPayloadInput } from '@/server/services/memory/userMemory/extract';
 import {
   buildWorkflowPayloadInput,
@@ -29,6 +30,9 @@ export const processUserTopicsHandler = async (
   if (!params.sources.includes(MemorySourceType.ChatTopic)) {
     return { message: 'No supported sources requested, skip topic processing.' };
   }
+  if (params.workspaceId) {
+    return { message: 'Workspace memory extraction is disabled.' };
+  }
 
   const executor = await MemoryExtractionExecutor.create();
 
@@ -52,6 +56,15 @@ export const processUserTopicsHandler = async (
   };
 
   for (const userId of params.userIds) {
+    const memoryEnabled = await context.run(
+      `memory:user-memory:extract:users:${userId}:consent-check`,
+      async () => {
+        const db = await getServerDB();
+        return isPersonalMemoryEnabled({ db, userId });
+      },
+    );
+    if (!memoryEnabled) continue;
+
     if (params.asyncTaskId) {
       // NOTICE: Cooperative cascading cancellation for the workflow tree.
       // A cancelled root task should stop at user-topic pagination and avoid enqueuing topic batches.

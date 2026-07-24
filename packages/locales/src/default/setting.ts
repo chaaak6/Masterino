@@ -522,7 +522,7 @@ export default {
   'memory.effort.medium': 'Medium — Balanced behavior',
   'memory.effort.title': 'Aggressiveness',
   'memory.enabled.desc':
-    'Allow Masterino to extract preferences and info from conversations and use them later. You can view, edit, or clear memory anytime.',
+    'Allow the AI assistant to extract identities, preferences, contexts, activities, and experiences from conversations and recall them later. Turning this off stops recall and new extraction but does not delete saved memories; you can view, delete, or clear them anytime.',
   'memory.enabled.title': 'Enable Memory',
   'memory.title': 'Memory Settings',
   'message.success': 'Update successful',
@@ -891,7 +891,8 @@ export default {
   'settingSystemTools.tools.grep.desc': 'GNU grep - standard text search tool',
   'settingSystemTools.tools.kimi.desc': 'Kimi CLI - Moonshot AI agentic coding CLI',
   'settingSystemTools.tools.mdfind.desc': 'macOS Spotlight search (fast indexed search)',
-  'settingSystemTools.tools.lobehub.desc': 'Masterino CLI - manage and connect to Masterino services',
+  'settingSystemTools.tools.lobehub.desc':
+    'Masterino CLI - manage and connect to Masterino services',
   'settingSystemTools.tools.bun.desc': 'Bun - fast JavaScript runtime and package manager',
   'settingSystemTools.tools.bunx.desc': 'bunx - Bun package runner for executing npm packages',
   'settingSystemTools.tools.node.desc': 'Node.js - JavaScript runtime for executing JS/TS',

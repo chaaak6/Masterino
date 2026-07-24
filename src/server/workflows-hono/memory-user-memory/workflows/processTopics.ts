@@ -10,6 +10,7 @@ import { WorkflowAbort } from '@upstash/workflow';
 import { AsyncTaskModel } from '@/database/models/asyncTask';
 import { getServerDB } from '@/database/server';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import { type MemoryExtractionPayloadInput } from '@/server/services/memory/userMemory/extract';
 import {
   MemoryExtractionWorkflowService,
@@ -73,8 +74,32 @@ export const processTopicsHandler = (context: WorkflowContext<MemoryExtractionPa
             processedUsers: 0,
           };
         }
+        if (payload.workspaceId) {
+          span.setStatus({ code: SpanStatusCode.OK });
+          return {
+            message: 'Workspace memory extraction is disabled.',
+            processedTopics: 0,
+            processedUsers: 0,
+          };
+        }
 
         const userId = payload.userIds[0];
+        const memoryEnabled = await context.run(
+          `memory:user-memory:extract:users:${userId}:consent-check:topic-batch`,
+          async () => {
+            const db = await getServerDB();
+            return isPersonalMemoryEnabled({ db, userId });
+          },
+        );
+        if (!memoryEnabled) {
+          span.setStatus({ code: SpanStatusCode.OK });
+          return {
+            message: 'Memory was disabled before topic batch processing.',
+            processedTopics: 0,
+            processedUsers: 0,
+          };
+        }
+
         if (payload.asyncTaskId && userId) {
           // NOTICE: Cooperative cascading cancellation for the workflow tree.
           // If cancelled, stop before fan-out into per-topic child workflows.
@@ -132,11 +157,20 @@ export const processTopicsHandler = (context: WorkflowContext<MemoryExtractionPa
         );
 
         // Trigger user persona update after topic processing using the workflow client.
-        await context.run(`memory:user-memory:users:${userId}`, async () => {
-          await MemoryExtractionWorkflowService.triggerPersonaUpdate(userId, payload.baseUrl, {
-            extraHeaders: upstashWorkflowExtraHeaders,
+        const personaEnabled = await context.run(
+          `memory:user-memory:users:${userId}:consent-check:persona`,
+          async () => {
+            const db = await getServerDB();
+            return isPersonalMemoryEnabled({ db, userId });
+          },
+        );
+        if (personaEnabled) {
+          await context.run(`memory:user-memory:users:${userId}`, async () => {
+            await MemoryExtractionWorkflowService.triggerPersonaUpdate(userId, payload.baseUrl, {
+              extraHeaders: upstashWorkflowExtraHeaders,
+            });
           });
-        });
+        }
 
         span.setStatus({ code: SpanStatusCode.OK });
 

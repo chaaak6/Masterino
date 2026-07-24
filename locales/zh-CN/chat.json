@@ -303,6 +303,7 @@
   "memberSelection.selectedAgents": "已选择（{{count}}）",
   "memberSelection.setInitialMembers": "选择群组成员",
   "members": "成员",
+  "memory.consentRequired": "请先在个人设置中启用记忆",
   "memory.effort.desc": "控制 AI 检索和更新记忆的积极程度。",
   "memory.effort.high.title": "高",
   "memory.effort.low.title": "低",

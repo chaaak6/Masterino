@@ -332,6 +332,16 @@ export const mobileRoutes: RouteObject[] = [
             ),
             path: 'provider',
           },
+          {
+            element: featureGateElement(
+              'memory',
+              dynamicElement(
+                () => import('@/routes/(main)/settings'),
+                'Mobile > Settings > Memory',
+              ),
+            ),
+            path: 'memory',
+          },
           // Other settings tabs (common, agent, memory, tts, about, etc.)
           {
             element: dynamicElement(

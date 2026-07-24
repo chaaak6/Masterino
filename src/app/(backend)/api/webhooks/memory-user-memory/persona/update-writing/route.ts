@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { getServerDB } from '@/database/server';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import { MemoryExtractionWorkflowService } from '@/server/services/memory/userMemory/extract';
 import {
   buildUserPersonaJobInput,
@@ -60,9 +61,25 @@ export const POST = async (req: Request) => {
       return NextResponse.json({ error: 'userId or userIds is required' }, { status: 400 });
     }
 
+    const db = await getServerDB();
+    const enabledChecks = await Promise.all(
+      params.userIds.map(async (userId) => ({
+        enabled: await isPersonalMemoryEnabled({ db, userId }),
+        userId,
+      })),
+    );
+    const enabledUserIds = enabledChecks.filter((item) => item.enabled).map((item) => item.userId);
+
+    if (enabledUserIds.length === 0) {
+      return NextResponse.json(
+        { message: 'No users with Memory enabled; persona update skipped.', results: [] },
+        { status: 200 },
+      );
+    }
+
     if (params.mode === 'workflow') {
       const results = await Promise.all(
-        params.userIds.map(async (userId) => {
+        enabledUserIds.map(async (userId) => {
           const { workflowRunId } = await MemoryExtractionWorkflowService.triggerPersonaUpdate(
             userId,
             params.baseUrl,
@@ -79,12 +96,10 @@ export const POST = async (req: Request) => {
       );
     }
 
-    const db = await getServerDB();
-
     const service = new UserPersonaService(db);
     const results = [];
 
-    for (const userId of params.userIds) {
+    for (const userId of enabledUserIds) {
       const context = await buildUserPersonaJobInput(db, userId);
       const result = await service.composeWriting({ ...context, userId });
       results.push({ userId, ...result });

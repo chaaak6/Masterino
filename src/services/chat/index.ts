@@ -21,6 +21,7 @@ import { ChatErrorType, TraceTagMap } from '@lobechat/types';
 import { merge } from 'es-toolkit/compat';
 import { ModelProvider } from 'model-bank';
 
+import { getActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
 import { getSearchConfig } from '@/helpers/getSearchConfig';
 import { getAgentStoreState } from '@/store/agent';
@@ -31,6 +32,7 @@ import {
 } from '@/store/agent/selectors';
 import { aiProviderSelectors, getAiInfraStoreState } from '@/store/aiInfra';
 import { getChatStoreState } from '@/store/chat';
+import { getServerConfigStoreState } from '@/store/serverConfig';
 import { getToolStoreState } from '@/store/tool';
 import {
   builtinToolSelectors,
@@ -59,7 +61,6 @@ import {
 } from './mecha';
 import { type FetchOptions } from './types';
 
-const defaultProvider = ModelProvider.OpenAI;
 const providersWithDeploymentName = new Set<string>([
   ModelProvider.Azure,
   ModelProvider.AzureAI,
@@ -167,9 +168,12 @@ class ChatService {
     // =================== 1.1 process user memories =================== //
 
     const userLevelMemoryEnabled = settingsSelectors.memoryEnabled(getUserStoreState());
-    // Agent-level memory toggle takes priority over user-level setting,
-    // matching the logic in useMemoryEnabled hook
-    const enableUserMemories = chatConfig.memory?.enabled ?? userLevelMemoryEnabled;
+    const runtimeMemoryEnabled = getServerConfigStoreState()?.featureFlags.enableMemory === true;
+    const enableUserMemories =
+      !getActiveWorkspaceId() &&
+      runtimeMemoryEnabled &&
+      userLevelMemoryEnabled &&
+      chatConfig.memory?.enabled !== false;
     const userMemorySettings = settingsSelectors.currentMemorySettings(getUserStoreState());
     const effectiveMemoryEffort =
       chatConfig.memory?.effort ?? userMemorySettings.effort ?? 'medium';

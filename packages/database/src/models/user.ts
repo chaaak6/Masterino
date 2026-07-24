@@ -411,8 +411,8 @@ export class UserModel {
         ? inArray(users.id, options.whitelist)
         : undefined;
 
-    // User memory defaults to enabled=true when user settings are missing.
-    const memoryEnabledCondition = sql`COALESCE((${userSettings.memory} ->> 'enabled')::boolean, true) = true`;
+    // Scheduled extraction is opt-in: only explicitly enabled users are eligible.
+    const memoryEnabledCondition = sql`COALESCE((${userSettings.memory} ->> 'enabled')::boolean, false) = true`;
     // Eligible users must have at least one topic with at least one user message.
     const hasChattedTopicCondition = sql`
       EXISTS (

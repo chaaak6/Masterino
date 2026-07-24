@@ -16,6 +16,7 @@ import {
 } from '@lobechat/memory-user-memory';
 import type { QueryTaxonomyOptionsResult, SearchMemoryResult } from '@lobechat/types';
 import { LayersEnum, queryTaxonomyOptionsSchema, searchMemorySchema } from '@lobechat/types';
+import { TRPCError } from '@trpc/server';
 import { type SQL } from 'drizzle-orm';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import pMap from 'p-map';
@@ -44,8 +45,10 @@ import {
 } from '@/database/schemas';
 import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
+import { getServerFeatureFlagsStateFromRuntimeConfig } from '@/server/featureFlags';
 import { getServerDefaultFilesConfig } from '@/server/globalConfig';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { hasPersonalMemoryAccess } from '@/server/services/memory/userMemory/access';
 import type { UserMemoryEmbeddingRuntime } from '@/server/services/memory/userMemory/embedding';
 import { embedUserMemoryTexts } from '@/server/services/memory/userMemory/embedding';
 import { normalizeSearchMemoryParams } from '@/server/services/memory/userMemory/searchParams';
@@ -236,13 +239,20 @@ const normalizeEmbeddable = (value?: string | null): string | undefined => {
 
 const memoryProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  if (ctx.workspaceId) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Memory is only available in personal space',
+    });
+  }
+
   const userSettingsRow = await ctx.serverDB.query.userSettings.findFirst({
     columns: { memory: true },
     where: eq(userSettings.id, ctx.userId),
   });
   const memoryConfig =
     typeof userSettingsRow?.memory === 'object' && userSettingsRow?.memory !== null
-      ? (userSettingsRow.memory as { effort?: unknown })
+      ? (userSettingsRow.memory as { effort?: unknown; enabled?: boolean })
       : undefined;
   const memoryEffort = normalizeMemoryEffort(memoryConfig?.effort);
 
@@ -251,12 +261,35 @@ const memoryProcedure = authedProcedure.use(serverDatabase).use(async (opts) => 
       activityModel: new UserMemoryActivityModel(ctx.serverDB, ctx.userId),
       experienceModel: new UserMemoryExperienceModel(ctx.serverDB, ctx.userId),
       identityModel: new UserMemoryIdentityModel(ctx.serverDB, ctx.userId),
+      memoryConsentEnabled: memoryConfig?.enabled === true,
       memoryModel: new UserMemoryModel(ctx.serverDB, ctx.userId),
       memoryEffort,
     },
   });
 });
 const memoryWriteProcedure = memoryProcedure.use(withScopedPermission('message:create'));
+const memoryEnabledProcedure = memoryProcedure.use(async (opts) => {
+  const { ctx } = opts;
+  const featureFlags = await getServerFeatureFlagsStateFromRuntimeConfig(ctx.userId);
+
+  if (
+    !hasPersonalMemoryAccess({
+      runtimeEnabled: featureFlags.enableMemory === true,
+      userEnabled: ctx.memoryConsentEnabled,
+      workspaceId: ctx.workspaceId,
+    })
+  ) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Enable Memory in personal settings before retrieving or writing memory',
+    });
+  }
+
+  return opts.next();
+});
+const memoryEnabledWriteProcedure = memoryEnabledProcedure.use(
+  withScopedPermission('message:create'),
+);
 
 export const userMemoriesRouter = router({
   getMemoryDetail: memoryProcedure
@@ -353,7 +386,7 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  queryIdentitiesForInjection: memoryProcedure
+  queryIdentitiesForInjection: memoryEnabledProcedure
     .input(z.object({ limit: z.coerce.number().int().min(1).max(100).optional() }).optional())
     .query(async ({ ctx, input }) => {
       try {
@@ -455,7 +488,7 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  reEmbedMemories: memoryWriteProcedure
+  reEmbedMemories: memoryEnabledWriteProcedure
     .input(reEmbedInputSchema.optional())
     .mutation(async ({ ctx, input }) => {
       try {
@@ -922,7 +955,7 @@ export const userMemoriesRouter = router({
    * Retrieve memories for a specific topic
    * Uses concatenated user messages (first 7000 chars) as the search query
    */
-  retrieveMemoryForTopic: memoryProcedure
+  retrieveMemoryForTopic: memoryEnabledProcedure
     .input(z.object({ topicId: z.string() }))
     .query(async ({ ctx, input }) => {
       // Dev-only escape hatch: skip the embedding + memory search triggered by topic
@@ -961,7 +994,7 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  searchMemory: memoryProcedure.input(searchMemorySchema).query(async ({ input, ctx }) => {
+  searchMemory: memoryEnabledProcedure.input(searchMemorySchema).query(async ({ input, ctx }) => {
     try {
       return await searchUserMemories(ctx, input);
     } catch (error) {
@@ -970,7 +1003,7 @@ export const userMemoriesRouter = router({
     }
   }),
 
-  toolAddActivityMemory: memoryWriteProcedure
+  toolAddActivityMemory: memoryEnabledWriteProcedure
     .input(ActivityMemoryItemSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -1032,7 +1065,7 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  toolAddContextMemory: memoryWriteProcedure
+  toolAddContextMemory: memoryEnabledWriteProcedure
     .input(ContextMemoryItemSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -1087,7 +1120,7 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  toolAddExperienceMemory: memoryWriteProcedure
+  toolAddExperienceMemory: memoryEnabledWriteProcedure
     .input(ExperienceMemoryItemSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -1143,7 +1176,7 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  toolAddIdentityMemory: memoryWriteProcedure
+  toolAddIdentityMemory: memoryEnabledWriteProcedure
     .input(AddIdentityActionSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -1211,7 +1244,7 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  toolAddPreferenceMemory: memoryWriteProcedure
+  toolAddPreferenceMemory: memoryEnabledWriteProcedure
     .input(PreferenceMemoryItemSchema)
     .mutation(async ({ input, ctx }) => {
       try {
@@ -1299,12 +1332,14 @@ export const userMemoriesRouter = router({
       }
     }),
 
-  toolSearchMemory: memoryProcedure.input(searchMemorySchema).query(async ({ input, ctx }) => {
-    const result = await searchUserMemories(ctx, input);
-    return result;
-  }),
+  toolSearchMemory: memoryEnabledProcedure
+    .input(searchMemorySchema)
+    .query(async ({ input, ctx }) => {
+      const result = await searchUserMemories(ctx, input);
+      return result;
+    }),
 
-  toolUpdateIdentityMemory: memoryWriteProcedure
+  toolUpdateIdentityMemory: memoryEnabledWriteProcedure
     .input(UpdateIdentityActionSchema)
     .mutation(async ({ input, ctx }) => {
       try {

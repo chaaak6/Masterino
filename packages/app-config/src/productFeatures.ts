@@ -38,7 +38,7 @@ export const PRODUCT_FEATURES = {
   fleet: { disabledReasonKey: DISABLED_REASON_KEY, key: 'fleet', status: 'disabled' },
   generation: { key: 'generation', status: 'enabled' },
   groupChat: { key: 'groupChat', status: 'enabled' },
-  memory: { disabledReasonKey: DISABLED_REASON_KEY, key: 'memory', status: 'disabled' },
+  memory: { key: 'memory', status: 'enabled' },
   pages: { disabledReasonKey: DISABLED_REASON_KEY, key: 'pages', status: 'disabled' },
   resources: { disabledReasonKey: DISABLED_REASON_KEY, key: 'resources', status: 'disabled' },
   settings: { key: 'settings', status: 'enabled' },

@@ -616,7 +616,7 @@ export const desktopRoutes: RouteObject[] = [
             path: 'provider',
           },
           {
-            element: <SettingsTabPage />,
+            element: featureGateElement('memory', <SettingsTabPage />),
             handle: { settingsTab: SettingsTabs.Memory },
             path: 'memory',
           },
@@ -657,10 +657,7 @@ export const desktopRoutes: RouteObject[] = [
               // shell (sidebar + outlet) — they own their internal layout.
               { element: <WorkspaceSlugSettingsProviderPage />, path: 'provider' },
               {
-                element: featureGateElement(
-                  'advancedSettings',
-                  <WorkspaceSlugSettingsSkillPage />,
-                ),
+                element: featureGateElement('advancedSettings', <WorkspaceSlugSettingsSkillPage />),
                 path: 'skill',
               },
               // Padded tabs share a centered, max-width container layout.

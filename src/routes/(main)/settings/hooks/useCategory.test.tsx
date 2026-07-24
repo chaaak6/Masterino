@@ -26,7 +26,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-const createWrapper = (showProvider: boolean) => {
+const createWrapper = (showProvider: boolean, enableMemory = false) => {
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <Provider
       createStore={() =>
@@ -36,6 +36,7 @@ const createWrapper = (showProvider: boolean) => {
               provider_settings: true,
             }),
             showProvider,
+            enableMemory,
           },
         })
       }
@@ -90,5 +91,15 @@ describe('settings useCategory', () => {
     expect(keys).not.toContain(SettingsTabs.Messenger);
     expect(keys).not.toContain(SettingsTabs.Storage);
     expect(keys).not.toContain(SettingsTabs.Advanced);
+  });
+
+  it('shows Memory only when the runtime flag is enabled', () => {
+    const { result } = renderHook(() => useCategory(), {
+      wrapper: createWrapper(true, true),
+    });
+
+    const keys = result.current.flatMap((group) => group.items.map((item) => item.key));
+
+    expect(keys).toContain(SettingsTabs.Memory);
   });
 });

@@ -37,6 +37,7 @@ export const FeatureFlagsSchema = z.object({
   cloud_promotion: FeatureFlagValue.optional(),
   storage_overage: FeatureFlagValue.optional(),
   workspace: FeatureFlagValue.optional(),
+  memory: FeatureFlagValue.optional(),
 
   // the flags below can only be used with commercial license
   // if you want to use it in the commercial usage
@@ -88,6 +89,7 @@ export const DEFAULT_FEATURE_FLAGS: IFeatureFlags = {
   cloud_promotion: false,
   storage_overage: true,
   workspace: false,
+  memory: false,
 
   market: true,
   speech_to_text: true,
@@ -125,6 +127,7 @@ export const mapFeatureFlagsEnvToState = (config: IFeatureFlags, userId?: string
 
     showCloudPromotion: evaluateFeatureFlag(config.cloud_promotion, userId),
     enableWorkspace: evaluateFeatureFlag(config.workspace, userId),
+    enableMemory: evaluateFeatureFlag(config.memory, userId),
 
     showMarket: evaluateFeatureFlag(config.market, userId),
     enableSTT: evaluateFeatureFlag(config.speech_to_text, userId),

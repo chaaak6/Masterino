@@ -15,6 +15,7 @@ import { withScopedPermission } from '@/business/server/trpc-middlewares/rbacPer
 import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
 import { AsyncTaskModel, initUserMemoryExtractionMetadata } from '@/database/models/asyncTask';
 import { TopicModel } from '@/database/models/topic';
+import { UserModel } from '@/database/models/user';
 import {
   UserMemoryActivityModel,
   UserMemoryContextModel,
@@ -27,6 +28,7 @@ import { UserPersonaModel } from '@/database/models/userMemory/persona';
 import { appEnv } from '@/envs/app';
 import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
+import { getServerFeatureFlagsStateFromRuntimeConfig } from '@/server/featureFlags';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
 import {
   buildWorkflowPayloadInput,
@@ -36,6 +38,12 @@ import {
 
 const userMemoryProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
+  if (ctx.workspaceId) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Memory is only available in personal space',
+    });
+  }
   const wsId = ctx.workspaceId ?? undefined;
 
   return opts.next({
@@ -223,6 +231,23 @@ export const userMemoryRouter = router({
   requestMemoryFromChatTopic: userMemoryWriteProcedure
     .input(userMemoryExtractionInputSchema)
     .mutation(async ({ ctx, input }) => {
+      const featureFlags = await getServerFeatureFlagsStateFromRuntimeConfig(ctx.userId);
+      if (featureFlags.enableMemory !== true) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Memory is not available for this user',
+        });
+      }
+
+      const settings = await new UserModel(ctx.serverDB, ctx.userId).getUserSettings();
+      const memorySettings = settings?.memory as { enabled?: boolean } | undefined;
+      if (memorySettings?.enabled !== true) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Enable Memory in personal settings before starting extraction',
+        });
+      }
+
       if (input.fromDate && input.toDate && input.fromDate > input.toDate) {
         throw new TRPCError({
           code: 'BAD_REQUEST',

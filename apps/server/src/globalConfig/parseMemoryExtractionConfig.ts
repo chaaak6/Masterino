@@ -142,19 +142,12 @@ const parseLayerExtractorAgent = (fallbackModel: string): MemoryLayerExtractorCo
   };
 };
 
-const parseEmbeddingAgent = (
-  fallbackModel: string,
-  fallbackProvider: string,
-  fallbackApiKey?: string,
-): MemoryAgentConfig => {
+const parseEmbeddingAgent = (fallbackApiKey?: string): MemoryAgentConfig => {
   const { model: defaultModel, provider: defaultProvider } =
     DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM;
-  const model = process.env.MEMORY_USER_MEMORY_EMBEDDING_MODEL || fallbackModel || defaultModel;
+  const model = process.env.MEMORY_USER_MEMORY_EMBEDDING_MODEL || defaultModel;
   const provider =
-    process.env.MEMORY_USER_MEMORY_EMBEDDING_PROVIDER ||
-    fallbackProvider ||
-    defaultProvider ||
-    DEFAULT_MINI_PROVIDER;
+    process.env.MEMORY_USER_MEMORY_EMBEDDING_PROVIDER || defaultProvider || DEFAULT_MINI_PROVIDER;
 
   return {
     apiKey: process.env.MEMORY_USER_MEMORY_EMBEDDING_API_KEY ?? fallbackApiKey,
@@ -234,11 +227,7 @@ export const parseMemoryExtractionConfig = (): MemoryExtractionPrivateConfig => 
   const agentBenchmarkLoCoMo = parseBenchmarkLoCoMoAgent(agentGateKeeper);
   const agentLayerExtractor = parseLayerExtractorAgent(agentGateKeeper.model);
   const agentPersonaWriter = parsePersonaWriterAgent(agentGateKeeper.model);
-  const embedding = parseEmbeddingAgent(
-    agentLayerExtractor.model,
-    agentLayerExtractor.provider || DEFAULT_MINI_PROVIDER,
-    agentGateKeeper.apiKey || agentLayerExtractor.apiKey,
-  );
+  const embedding = parseEmbeddingAgent(agentGateKeeper.apiKey || agentLayerExtractor.apiKey);
   const extractorObservabilityS3 = parseExtractorAgentObservabilityS3();
   const featureFlags = {
     enableBenchmarkLoCoMo: process.env.MEMORY_USER_MEMORY_FEATURE_FLAG_BENCHMARK_LOCOMO === 'true',

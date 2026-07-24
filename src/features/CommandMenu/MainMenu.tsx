@@ -13,11 +13,13 @@ import {
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
 import { openFeedbackModal } from '@/components/FeedbackModal';
 import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { getNavigableRoutes, getRouteById } from '@/config/routes';
 import { FEEDBACK } from '@/const/url';
 import { usePermission } from '@/hooks/usePermission';
+import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 
 import { useCommandMenuContext } from './CommandMenuContext';
 import { CommandItem } from './components';
@@ -28,6 +30,8 @@ const MainMenu = memo(() => {
   const { pathname, menuContext, setPages, pages } = useCommandMenuContext();
   const { t } = useTranslation('common');
   const { allowed: canCreate } = usePermission('create_content');
+  const { enableMemory } = useServerConfigStore(featureFlagsSelectors);
+  const activeWorkspaceSlug = useActiveWorkspaceSlug();
 
   const {
     handleCreateSession,
@@ -128,25 +132,29 @@ const MainMenu = memo(() => {
       </Command.Group>
 
       <Command.Group heading={t('cmdk.navigate')}>
-        {getNavigableRoutes().map((route) => {
-          const RouteIcon = route.icon;
-          const keywords = route.keywordsKey
-            ? t(route.keywordsKey as any).split(' ')
-            : route.keywords;
-          return (
-            !pathname?.startsWith(route.pathPrefix) && (
-              <CommandItem
-                icon={<RouteIcon />}
-                key={route.id}
-                keywords={keywords}
-                value={route.id}
-                onSelect={() => handleNavigate(route.path)}
-              >
-                {t(route.cmdkKey as any)}
-              </CommandItem>
-            )
-          );
-        })}
+        {getNavigableRoutes()
+          .filter(
+            (route) => route.id !== 'memory' || (enableMemory === true && !activeWorkspaceSlug),
+          )
+          .map((route) => {
+            const RouteIcon = route.icon;
+            const keywords = route.keywordsKey
+              ? t(route.keywordsKey as any).split(' ')
+              : route.keywords;
+            return (
+              !pathname?.startsWith(route.pathPrefix) && (
+                <CommandItem
+                  icon={<RouteIcon />}
+                  key={route.id}
+                  keywords={keywords}
+                  value={route.id}
+                  onSelect={() => handleNavigate(route.path)}
+                >
+                  {t(route.cmdkKey as any)}
+                </CommandItem>
+              )
+            );
+          })}
       </Command.Group>
 
       <Command.Group heading={t('cmdk.about')}>

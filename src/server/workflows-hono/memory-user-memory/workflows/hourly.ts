@@ -3,6 +3,7 @@ import { type WorkflowContext } from '@upstash/workflow';
 import { chunk } from 'es-toolkit/compat';
 
 import { appEnv } from '@/envs/app';
+import { getServerFeatureFlagsStateFromRuntimeConfig } from '@/server/featureFlags';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
 import {
   buildWorkflowPayloadInput,
@@ -42,17 +43,44 @@ export const hourlyWorkflowHandler = async (
     () => executor.getUsersForHourlyExtraction(USER_PAGE_SIZE, parsedCursor),
   );
 
-  const userIds = userBatch.ids;
-  if (userIds.length === 0) {
-    return { message: 'No eligible users for hourly memory extraction.', processedUsers: 0 };
-  }
-
   const nextCursor = userBatch.cursor
     ? {
         createdAt: userBatch.cursor.createdAt.toISOString(),
         id: userBatch.cursor.id,
       }
     : undefined;
+
+  const userIds = await context.run(
+    `memory:user-memory:hourly:filter-runtime-rollout:${parsedCursor?.id || 'root'}`,
+    async () => {
+      const checks = await Promise.all(
+        userBatch.ids.map(async (userId) => ({
+          enabled:
+            (await getServerFeatureFlagsStateFromRuntimeConfig(userId)).enableMemory === true,
+          userId,
+        })),
+      );
+
+      return checks.filter((item) => item.enabled).map((item) => item.userId);
+    },
+  );
+
+  if (userIds.length === 0) {
+    if (nextCursor) {
+      await context.run('memory:user-memory:hourly:schedule-next-page', () =>
+        MemoryExtractionWorkflowService.triggerHourly(
+          { baseUrl, cursor: nextCursor, dryRun },
+          { extraHeaders: upstashWorkflowExtraHeaders },
+        ),
+      );
+    }
+
+    return {
+      hasNextPage: !!nextCursor,
+      message: 'No eligible users for hourly memory extraction.',
+      processedUsers: 0,
+    };
+  }
 
   if (!dryRun) {
     const batches = chunk(userIds, USER_BATCH_SIZE);

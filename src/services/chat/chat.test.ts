@@ -22,6 +22,12 @@ import { chatService } from './index';
 import * as mechaModule from './mecha';
 import { type ResolvedAgentConfig } from './mecha';
 
+const mockGetActiveWorkspaceId = vi.hoisted(() => vi.fn<() => string | null>(() => null));
+
+vi.mock('@/business/client/hooks/useActiveWorkspaceId', () => ({
+  getActiveWorkspaceId: mockGetActiveWorkspaceId,
+}));
+
 vi.hoisted(() => {
   const storage = new Map<string, string>();
 
@@ -117,6 +123,11 @@ vi.mock('@lobechat/utils/uriParser', () => ({
   parseDataUri: vi.fn(),
 }));
 
+vi.mock('@/store/serverConfig', async (importOriginal) => ({
+  ...((await importOriginal()) as object),
+  getServerConfigStoreState: () => ({ featureFlags: { enableMemory: true } }),
+}));
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -124,6 +135,7 @@ afterEach(() => {
 beforeEach(async () => {
   // Reset all mocks
   vi.clearAllMocks();
+  mockGetActiveWorkspaceId.mockReturnValue(null);
   // 清除所有模块的缓存
   vi.resetModules();
 
@@ -1533,7 +1545,7 @@ describe('ChatService', () => {
         );
       });
 
-      it('should enable memory when agent-level is on even if user-level memory is disabled', async () => {
+      it('should keep memory disabled when agent-level is on but user consent is off', async () => {
         const contextEngineeringSpy = vi
           .spyOn(mechaModule, 'contextEngineering')
           .mockResolvedValue([]);
@@ -1549,9 +1561,46 @@ describe('ChatService', () => {
           }),
         });
 
-        // agent-level on takes priority over user-level off
+        // agent config cannot bypass the user consent gate
+        expect(contextEngineeringSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ enableUserMemories: false }),
+        );
+      });
+
+      it('should enable memory when user consents and the agent does not opt out', async () => {
+        const contextEngineeringSpy = vi
+          .spyOn(mechaModule, 'contextEngineering')
+          .mockResolvedValue([]);
+        vi.spyOn(settingsSelectors, 'memoryEnabled').mockReturnValue(true);
+
+        await chatService.createAssistantMessage({
+          messages: [{ content: 'Hello', role: 'user' }] as UIChatMessage[],
+          resolvedAgentConfig: createMockResolvedConfig({
+            chatConfig: { memory: { enabled: true } },
+          }),
+        });
+
         expect(contextEngineeringSpy).toHaveBeenCalledWith(
           expect.objectContaining({ enableUserMemories: true }),
+        );
+      });
+
+      it('should keep memory disabled in workspace scope', async () => {
+        const contextEngineeringSpy = vi
+          .spyOn(mechaModule, 'contextEngineering')
+          .mockResolvedValue([]);
+        vi.spyOn(settingsSelectors, 'memoryEnabled').mockReturnValue(true);
+        mockGetActiveWorkspaceId.mockReturnValue('workspace-1');
+
+        await chatService.createAssistantMessage({
+          messages: [{ content: 'Hello', role: 'user' }] as UIChatMessage[],
+          resolvedAgentConfig: createMockResolvedConfig({
+            chatConfig: { memory: { enabled: true } },
+          }),
+        });
+
+        expect(contextEngineeringSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ enableUserMemories: false }),
         );
       });
 

@@ -11,6 +11,7 @@ import { createWorkflow } from '@upstash/workflow/hono';
 
 import { AsyncTaskModel } from '@/database/models/asyncTask';
 import { getServerDB } from '@/database/server';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import { type MemoryExtractionPayloadInput } from '@/server/services/memory/userMemory/extract';
 import {
   MemoryExtractionExecutor,
@@ -54,6 +55,22 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
       if (!payload.sources.includes(MemorySourceType.ChatTopic)) {
         span.setStatus({ code: SpanStatusCode.OK });
         return { message: 'Source not supported in topic workflow.' };
+      }
+      if (payload.workspaceId) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        return { message: 'Workspace memory extraction is disabled.' };
+      }
+
+      const memoryEnabled = await context.run(
+        `memory:user-memory:extract:users:${userId}:topics:${topicId}:consent-check:before`,
+        async () => {
+          const db = await getServerDB();
+          return isPersonalMemoryEnabled({ db, userId });
+        },
+      );
+      if (!memoryEnabled) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        return { message: 'Memory was disabled before topic processing.' };
       }
 
       const executor = await MemoryExtractionExecutor.create();
@@ -105,6 +122,18 @@ const processTopicRoute = async (context: WorkflowContext<MemoryExtractionPayloa
           );
         }
         {
+          const identityMemoryEnabled = await context.run(
+            `memory:user-memory:extract:users:${userId}:topics:${topicId}:consent-check:identity`,
+            async () => {
+              const db = await getServerDB();
+              return isPersonalMemoryEnabled({ db, userId });
+            },
+          );
+          if (!identityMemoryEnabled) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return { message: 'Memory was disabled before identity extraction.' };
+          }
+
           if (payload.asyncTaskId) {
             // NOTICE: Cooperative cascading cancellation for the workflow tree.
             // Re-check before identity extraction to avoid running sequential identity step after cancel.

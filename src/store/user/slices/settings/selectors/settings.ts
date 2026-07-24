@@ -31,7 +31,7 @@ const currentImageSettings = (s: UserStore) => currentSettings(s).image;
 const currentMemorySettings = (s: UserStore) =>
   merge(DEFAULT_MEMORY_SETTINGS, currentSettings(s).memory);
 
-const memoryEnabled = (s: UserStore) => currentMemorySettings(s).enabled !== false;
+const memoryEnabled = (s: UserStore) => currentMemorySettings(s).enabled === true;
 
 const currentTTS = (s: UserStore) => merge(DEFAULT_TTS_CONFIG, currentSettings(s).tts);
 

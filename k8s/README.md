@@ -16,5 +16,33 @@ The guarded deploy script selects `test-migration` until the database is restore
 application up without taking public traffic. `cutover` is a separate, explicit action that installs
 the public Ingress after the old Ingress has been removed.
 
+## Test memory rollout
+
+Personal memory is opt-in at two levels: the test overlay enables the runtime `+memory` flag, and
+each user must then enable Memory in personal settings. Production intentionally has no `+memory`
+flag and remains disabled until a separate production rollout is approved. Workspace memory stays
+hidden.
+
+Before deploying the test rollout:
+
+1. Copy `overlays/test/secret.env.example` to the ignored `secret.env` and set the three dedicated
+   QStash values. Never commit populated secrets or reuse production signing keys.
+2. Confirm the application database migrations have completed and the user-memory tables,
+   2048-dimension vector columns, pgvector, and ParadeDB indexes exist.
+3. Confirm both the target Aihub user group and its `masterlion-managed` token allow `glm-5.2` and
+   `text-embedding-3-large`. Do not enable the rollout if either model is unavailable.
+4. Verify a manual historical extraction end to end before creating a schedule.
+
+After manual extraction succeeds, create an hourly Upstash schedule that sends `POST` to:
+
+```text
+https://mlai-test.bielcrystal.com/api/workflows/memory-user-memory/call-cron-hourly-analysis
+```
+
+Monitor workflow retries, application errors, Aihub requests, and quota usage. Disabling Memory
+stops recall and new extraction but does not delete saved data; users can delete individual items
+or clear all memory. A future production rollout must use the production domain, independent
+QStash credentials, and an explicit production `+memory` flag.
+
 Application image tags in the base are render-time markers. `deploy.sh` requires immutable
 `sha256:` digests and replaces the markers in memory before applying resources.

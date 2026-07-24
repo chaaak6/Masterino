@@ -41,6 +41,7 @@ import {
   UserMemoryModel,
 } from '@/database/models/userMemory';
 import { userSettings } from '@/database/schemas';
+import { getServerFeatureFlagsStateFromRuntimeConfig } from '@/server/featureFlags';
 import { getServerDefaultFilesConfig } from '@/server/globalConfig';
 import {
   initModelRuntimeFromDB,
@@ -860,22 +861,27 @@ export const memoryRuntime: ServerRuntimeRegistration = {
     if (!context.userId) {
       throw new Error('userId is required for Memory execution');
     }
-
-    // Resolve memoryEffort from user settings
-    let memoryEffort: MemoryEffort = 'medium';
-    try {
-      const userSettingsRow = await context.serverDB.query.userSettings.findFirst({
-        columns: { memory: true },
-        where: eq(userSettings.id, context.userId),
-      });
-      const memoryConfig =
-        typeof userSettingsRow?.memory === 'object' && userSettingsRow?.memory !== null
-          ? (userSettingsRow.memory as { effort?: unknown })
-          : undefined;
-      memoryEffort = normalizeMemoryEffort(memoryConfig?.effort);
-    } catch {
-      // fallback to medium
+    if (context.workspaceId) {
+      throw new Error('Memory is only available in personal space');
     }
+
+    const featureFlags = await getServerFeatureFlagsStateFromRuntimeConfig(context.userId);
+    if (featureFlags.enableMemory !== true) {
+      throw new Error('Memory is not available for this user');
+    }
+
+    const userSettingsRow = await context.serverDB.query.userSettings.findFirst({
+      columns: { memory: true },
+      where: eq(userSettings.id, context.userId),
+    });
+    const memoryConfig =
+      typeof userSettingsRow?.memory === 'object' && userSettingsRow?.memory !== null
+        ? (userSettingsRow.memory as { effort?: unknown; enabled?: boolean })
+        : undefined;
+    if (memoryConfig?.enabled !== true) {
+      throw new Error('Enable Memory in personal settings before using the Memory tool');
+    }
+    const memoryEffort = normalizeMemoryEffort(memoryConfig.effort);
 
     const memoryModel = new UserMemoryModel(context.serverDB, context.userId);
 

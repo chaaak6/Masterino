@@ -252,6 +252,13 @@ export const createServerAgentToolsEngine = (
     [WebBrowsingManifest.identifier]: isSearchEnabled,
   };
 
+  const enableChecker = createEnableChecker({
+    // Allow lobe-activator to dynamically enable tools at runtime (e.g., lobe-creds, lobe-cron).
+    // Only in agent mode; chat/custom modes can't let the activator bypass their fixed set.
+    allowExplicitActivation: toolMode === 'agent',
+    rules: isCustomMode ? customModeRules : isChatMode ? chatModeRules : agentModeRules,
+  });
+
   return createServerToolsEngine(context, {
     // Pass additional manifests (e.g., LobeHub Skills)
     additionalManifests,
@@ -273,11 +280,11 @@ export const createServerAgentToolsEngine = (
     // them from the combined `manifestSchemas` so the activator cannot
     // resolve them regardless of which manifest source declared them.
     excludeIdentifiers: canUseDevice ? undefined : DEVICE_TOOL_IDENTIFIERS,
-    enableChecker: createEnableChecker({
-      // Allow lobe-activator to dynamically enable tools at runtime (e.g., lobe-creds, lobe-cron).
-      // Only in agent mode; chat/custom modes can't let the activator bypass their fixed set.
-      allowExplicitActivation: toolMode === 'agent',
-      rules: isCustomMode ? customModeRules : isChatMode ? chatModeRules : agentModeRules,
-    }),
+    // Memory consent is a privacy boundary and cannot be bypassed by explicit
+    // activation, even though other agent-mode tools may use that mechanism.
+    enableChecker: (params) =>
+      params.pluginId === MemoryManifest.identifier && !globalMemoryEnabled
+        ? false
+        : enableChecker(params),
   });
 };

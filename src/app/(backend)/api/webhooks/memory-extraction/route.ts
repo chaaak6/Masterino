@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { getServerDB } from '@/database/server';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import {
   buildWorkflowPayloadInput,
   MemoryExtractionExecutor,
@@ -40,9 +42,39 @@ export const POST = async (req: Request) => {
     }
 
     const params = normalizeMemoryExtractionPayload(payload, origin);
-    if (params.mode === 'workflow') {
+    if (params.workspaceId) {
+      return NextResponse.json(
+        { error: 'Memory extraction is only available in personal space' },
+        { status: 403 },
+      );
+    }
+
+    let enabledParams = params;
+    if (params.userIds.length > 0) {
+      const db = await getServerDB();
+      const enabledChecks = await Promise.all(
+        params.userIds.map(async (userId) => ({
+          enabled: await isPersonalMemoryEnabled({ db, userId }),
+          userId,
+        })),
+      );
+      const enabledUserIds = enabledChecks
+        .filter((item) => item.enabled)
+        .map((item) => item.userId);
+
+      if (enabledUserIds.length === 0) {
+        return NextResponse.json(
+          { error: 'Memory is not enabled for any requested user' },
+          { status: 403 },
+        );
+      }
+
+      enabledParams = { ...params, userIds: enabledUserIds };
+    }
+
+    if (enabledParams.mode === 'workflow') {
       const { workflowRunId } = await MemoryExtractionWorkflowService.triggerProcessUsers(
-        buildWorkflowPayloadInput(params),
+        buildWorkflowPayloadInput(enabledParams),
         { extraHeaders: upstashWorkflowExtraHeaders },
       );
 
@@ -53,7 +85,7 @@ export const POST = async (req: Request) => {
     }
 
     const executor = await MemoryExtractionExecutor.create();
-    const result = await executor.runDirect(params);
+    const result = await executor.runDirect(enabledParams);
 
     return NextResponse.json(
       { message: 'Memory extraction executed via webhook.', result },

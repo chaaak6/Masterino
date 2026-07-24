@@ -20,9 +20,12 @@ describe('product feature convergence config', () => {
     expect(getProductFeatureStatus('desktopApp')).toBe('disabled');
     expect(getProductFeatureStatus('resources')).toBe('disabled');
     expect(getProductFeatureStatus('pages')).toBe('disabled');
-    expect(getProductFeatureStatus('memory')).toBe('disabled');
     expect(getProductFeatureStatus('tasks')).toBe('disabled');
     expect(isProductFeatureDisabled('community')).toBe(true);
+  });
+
+  it('makes memory available for runtime rollout', () => {
+    expect(isProductFeatureEnabled('memory')).toBe(true);
   });
 
   it('hides internal developer and evaluation surfaces', () => {

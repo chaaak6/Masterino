@@ -53,13 +53,15 @@ const CONVERGED_SETTINGS_TABS = new Set<SettingsTabs>([
   SettingsTabs.Appearance,
   SettingsTabs.Provider,
   SettingsTabs.ServiceModel,
+  SettingsTabs.Memory,
   SettingsTabs.About,
 ]);
 
 export const useCategory = (): CategoryGroup[] => {
   const navigate = useWorkspaceAwareNavigate();
   const { t } = useTranslation(['setting', 'auth', 'subscription']);
-  const { hideDocs, showApiKeyManage, showProvider } = useServerConfigStore(featureFlagsSelectors);
+  const { enableMemory, hideDocs, showApiKeyManage, showProvider } =
+    useServerConfigStore(featureFlagsSelectors);
   const enableBusinessFeatures = useServerConfigStore(serverConfigSelectors.enableBusinessFeatures);
   const isDevMode = useUserStore((s) => userGeneralSettingsSelectors.config(s).isDevMode);
 
@@ -119,7 +121,8 @@ export const useCategory = (): CategoryGroup[] => {
         label: t('setting:tab.serviceModel'),
       }),
       makeItem({ icon: SkillsIcon, key: SettingsTabs.Skill, label: t('setting:tab.skill') }),
-      makeItem({ icon: BrainCircuit, key: SettingsTabs.Memory, label: t('setting:tab.memory') }),
+      enableMemory &&
+        makeItem({ icon: BrainCircuit, key: SettingsTabs.Memory, label: t('setting:tab.memory') }),
       makeItem({ icon: KeyRound, key: SettingsTabs.Creds, label: t('setting:tab.creds') }),
       showApiKeyManage &&
         makeItem({ icon: KeyIcon, key: SettingsTabs.APIKey, label: t('auth:tab.apikey') }),
@@ -152,5 +155,14 @@ export const useCategory = (): CategoryGroup[] => {
         items: group.items.filter((item) => CONVERGED_SETTINGS_TABS.has(item.key)),
       }))
       .filter((group) => group.items.length > 0);
-  }, [t, enableBusinessFeatures, hideDocs, showApiKeyManage, showProvider, isDevMode, navigate]);
+  }, [
+    t,
+    enableBusinessFeatures,
+    enableMemory,
+    hideDocs,
+    showApiKeyManage,
+    showProvider,
+    isDevMode,
+    navigate,
+  ]);
 };

@@ -608,7 +608,7 @@ describe('UserModel', () => {
       it('should return only users with memory enabled and at least one chatted topic', async () => {
         await serverDB.delete(users);
         await serverDB.insert(users).values([
-          { id: 'u1', createdAt: new Date('2024-01-01T00:00:00Z') }, // no settings => enabled
+          { id: 'u1', createdAt: new Date('2024-01-01T00:00:00Z') }, // no settings => disabled
           { id: 'u2', createdAt: new Date('2024-01-02T00:00:00Z') }, // memory disabled
           { id: 'u3', createdAt: new Date('2024-01-03T00:00:00Z') }, // no messages
           { id: 'u4', createdAt: new Date('2024-01-04T00:00:00Z') }, // assistant-only messages
@@ -639,7 +639,7 @@ describe('UserModel', () => {
 
         const result = await UserModel.listUsersForHourlyMemoryExtractor(serverDB);
 
-        expect(result.map((u) => u.id)).toEqual(['u1', 'u5']);
+        expect(result.map((u) => u.id)).toEqual(['u5']);
       });
 
       it('should support whitelist and cursor pagination', async () => {
@@ -660,6 +660,12 @@ describe('UserModel', () => {
           { id: 'msg-a', role: 'user', topicId: 'topic-a', userId: 'user-a' },
           { id: 'msg-b', role: 'user', topicId: 'topic-b', userId: 'user-b' },
           { id: 'msg-c', role: 'user', topicId: 'topic-c', userId: 'user-c' },
+        ]);
+
+        await serverDB.insert(userSettings).values([
+          { id: 'user-a', memory: { enabled: true } },
+          { id: 'user-b', memory: { enabled: true } },
+          { id: 'user-c', memory: { enabled: true } },
         ]);
 
         const result = await UserModel.listUsersForHourlyMemoryExtractor(serverDB, {

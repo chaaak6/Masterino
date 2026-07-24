@@ -732,9 +732,12 @@ export const desktopRoutes: RouteObject[] = [
             path: 'provider',
           },
           {
-            element: dynamicElement(
-              () => import('@/routes/(main)/settings'),
-              'Desktop > Settings > Memory',
+            element: featureGateElement(
+              'memory',
+              dynamicElement(
+                () => import('@/routes/(main)/settings'),
+                'Desktop > Settings > Memory',
+              ),
             ),
             handle: { settingsTab: SettingsTabs.Memory },
             path: 'memory',

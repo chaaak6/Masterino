@@ -24,6 +24,9 @@ export const processUsersHandler = async (
   if (params.sources.length === 0) {
     return { message: 'No sources provided, skip memory extraction.' };
   }
+  if (params.workspaceId) {
+    return { message: 'Workspace memory extraction is disabled.' };
+  }
   if (params.asyncTaskId && params.userIds[0]) {
     // NOTICE: Cooperative cascading cancellation for the workflow tree.
     // If root task has cancelRequestedAt, this stage stops scheduling child workflows.

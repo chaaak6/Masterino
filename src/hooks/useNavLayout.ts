@@ -43,7 +43,7 @@ export interface NavLayout {
 export const useNavLayout = (): NavLayout => {
   const { t } = useTranslation('common');
   const toggleCommandMenu = useGlobalStore((s) => s.toggleCommandMenu);
-  const { showMarket, hideGitHub } = useServerConfigStore(featureFlagsSelectors);
+  const { enableMemory, showMarket, hideGitHub } = useServerConfigStore(featureFlagsSelectors);
   const activeWorkspaceSlug = useActiveWorkspaceSlug();
 
   const topNavItems = useMemo(
@@ -112,14 +112,14 @@ export const useNavLayout = (): NavLayout => {
         {
           disabled: isProductFeatureDisabled('memory'),
           disabledReasonKey: getProductFeature('memory').disabledReasonKey,
-          hidden: !!activeWorkspaceSlug,
+          hidden: enableMemory !== true || !!activeWorkspaceSlug,
           icon: getRouteById('memory')!.icon,
           key: SidebarTabKey.Memory,
           title: t('tab.memory'),
           url: '/memory',
         },
       ] as NavItem[],
-    [t, showMarket, activeWorkspaceSlug],
+    [t, showMarket, enableMemory, activeWorkspaceSlug],
   );
 
   const footer = useMemo(

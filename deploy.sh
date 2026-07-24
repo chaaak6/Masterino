@@ -148,7 +148,10 @@ required_secret_keys=(
 )
 
 if [[ "$ENVIRONMENT" == "test" ]]; then
-  required_secret_keys+=(AUTH_SSO_PROVIDERS)
+  required_secret_keys+=(
+    AUTH_SSO_PROVIDERS
+    QSTASH_TOKEN QSTASH_CURRENT_SIGNING_KEY QSTASH_NEXT_SIGNING_KEY
+  )
 fi
 
 if [[ "$ENVIRONMENT" == "production" ]]; then

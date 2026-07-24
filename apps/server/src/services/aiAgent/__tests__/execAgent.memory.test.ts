@@ -2,8 +2,7 @@
 /**
  * Integration tests for memory enabled priority in execAgent.
  *
- * Verifies that agent-level memory config takes priority over user-level setting,
- * and falls back to user setting when agent config is absent.
+ * Verifies that runtime rollout and user consent are hard gates while an agent can opt out.
  */
 import type { LobeChatDatabase } from '@lobechat/database';
 import { agents, userSettings } from '@lobechat/database/schemas';
@@ -36,6 +35,22 @@ vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
     getFullFileUrl: vi.fn().mockImplementation((path: string) => (path ? `/files${path}` : null)),
   })),
+}));
+
+vi.mock('@/server/services/market', () => ({
+  MarketService: vi.fn().mockImplementation(() => ({
+    getLobehubSkillManifests: vi.fn().mockResolvedValue([]),
+  })),
+}));
+
+vi.mock('@/server/services/composio', () => ({
+  ComposioService: vi.fn().mockImplementation(() => ({
+    getComposioManifests: vi.fn().mockResolvedValue([]),
+  })),
+}));
+
+vi.mock('@/server/featureFlags', () => ({
+  getServerFeatureFlagsStateFromRuntimeConfig: vi.fn().mockResolvedValue({ enableMemory: true }),
 }));
 
 let mockResponsesCreate: any;
@@ -73,8 +88,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await cleanupTestUser(serverDB, userId);
+  mockResponsesCreate.mockRestore();
   vi.clearAllMocks();
-  vi.restoreAllMocks();
   inMemoryAgentStateManager.clear();
   inMemoryStreamEventManager.clear();
 });
@@ -107,7 +122,7 @@ describe('execAgent - memory enabled priority', () => {
     expect(hasMemoryTools(callArgs.tools ?? [])).toBe(false);
   });
 
-  it('should enable memory tools when agent config sets memory.enabled = true, even if user disables it', async () => {
+  it('should not let agent config bypass disabled user consent', async () => {
     await setUserMemorySettings(false);
     const agent = await createTestAgent({ memory: { enabled: true } });
 
@@ -116,7 +131,7 @@ describe('execAgent - memory enabled priority', () => {
     await waitForOperationComplete(inMemoryAgentStateManager, result.operationId);
 
     const callArgs = mockResponsesCreate.mock.calls[0][0] as { tools?: any[] };
-    expect(hasMemoryTools(callArgs.tools ?? [])).toBe(true);
+    expect(hasMemoryTools(callArgs.tools ?? [])).toBe(false);
   });
 
   it('should fallback to user setting when agent has no memory config', async () => {
@@ -131,8 +146,20 @@ describe('execAgent - memory enabled priority', () => {
     expect(hasMemoryTools(callArgs.tools ?? [])).toBe(false);
   });
 
-  it('should enable memory by default when neither agent nor user configures it', async () => {
+  it('should disable memory by default when neither agent nor user configures it', async () => {
     const agent = await createTestAgent();
+
+    const caller = aiAgentRouter.createCaller(createTestContext());
+    const result = await caller.execAgent({ agentId: agent.id, prompt: 'Hello' });
+    await waitForOperationComplete(inMemoryAgentStateManager, result.operationId);
+
+    const callArgs = mockResponsesCreate.mock.calls[0][0] as { tools?: any[] };
+    expect(hasMemoryTools(callArgs.tools ?? [])).toBe(false);
+  });
+
+  it('should enable memory after user consent when the agent does not opt out', async () => {
+    await setUserMemorySettings(true);
+    const agent = await createTestAgent({ memory: { enabled: true } });
 
     const caller = aiAgentRouter.createCaller(createTestContext());
     const result = await caller.execAgent({ agentId: agent.id, prompt: 'Hello' });

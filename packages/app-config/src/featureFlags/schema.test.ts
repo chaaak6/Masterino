@@ -101,6 +101,18 @@ describe('evaluateFeatureFlag', () => {
 });
 
 describe('mapFeatureFlagsEnvToState', () => {
+  it('keeps memory disabled by default', () => {
+    expect(mapFeatureFlagsEnvToState(DEFAULT_FEATURE_FLAGS).enableMemory).toBe(false);
+  });
+
+  it('maps memory for global and user allowlist rollouts', () => {
+    expect(mapFeatureFlagsEnvToState({ memory: true }).enableMemory).toBe(true);
+    expect(mapFeatureFlagsEnvToState({ memory: ['user-123'] }, 'user-123').enableMemory).toBe(true);
+    expect(mapFeatureFlagsEnvToState({ memory: ['user-123'] }, 'user-456').enableMemory).toBe(
+      false,
+    );
+  });
+
   it('should enable auth captcha by default', () => {
     const mappedState = mapFeatureFlagsEnvToState(DEFAULT_FEATURE_FLAGS);
 

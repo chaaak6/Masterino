@@ -9,6 +9,10 @@ const mockFindActiveByType = vi.fn();
 const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
 const mockFindById = vi.fn();
+const { mockGetServerFeatureFlags, mockGetUserSettings } = vi.hoisted(() => ({
+  mockGetServerFeatureFlags: vi.fn(),
+  mockGetUserSettings: vi.fn(),
+}));
 
 const mockCountTopicsForMemoryExtractor = vi.fn();
 const mockDeleteAll = vi.fn();
@@ -30,6 +34,14 @@ vi.mock('@/database/models/topic', () => ({
   TopicModel: vi.fn(() => ({
     countTopicsForMemoryExtractor: mockCountTopicsForMemoryExtractor,
   })),
+}));
+
+vi.mock('@/database/models/user', () => ({
+  UserModel: vi.fn(() => ({ getUserSettings: mockGetUserSettings })),
+}));
+
+vi.mock('@/server/featureFlags', () => ({
+  getServerFeatureFlagsStateFromRuntimeConfig: mockGetServerFeatureFlags,
 }));
 
 vi.mock('@/database/models/userMemory', () => ({
@@ -78,7 +90,37 @@ const createCaller = (ctxOverrides: Partial<any> = {}) => {
 describe('userMemoryRouter.requestMemoryFromChatTopic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetServerFeatureFlags.mockResolvedValue({ enableMemory: true });
+    mockGetUserSettings.mockResolvedValue({ memory: { enabled: true } });
     mockTriggerProcessUsers.mockResolvedValue({ workflowRunId: 'workflow-run-1' });
+  });
+
+  it('rejects extraction when the runtime rollout is disabled', async () => {
+    mockGetServerFeatureFlags.mockResolvedValue({ enableMemory: false });
+
+    await expect(createCaller().requestMemoryFromChatTopic({})).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects extraction until the user explicitly enables memory', async () => {
+    mockGetUserSettings.mockResolvedValue({ memory: { enabled: false } });
+
+    await expect(createCaller().requestMemoryFromChatTopic({})).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects extraction from workspace scope', async () => {
+    await expect(
+      createCaller({ workspaceId: 'workspace-1' }).requestMemoryFromChatTopic({}),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      message: 'Memory is only available in personal space',
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it('dedupes when an active task exists', async () => {
@@ -149,6 +191,21 @@ describe('userMemoryRouter.requestMemoryFromChatTopic', () => {
       deduped: false,
       id: 'new-task',
       status: AsyncTaskStatus.Pending,
+    });
+  });
+
+  it('marks the task failed when QStash scheduling is unavailable', async () => {
+    mockFindActiveByType.mockResolvedValue(undefined);
+    mockCreate.mockResolvedValue('failed-task');
+    mockCountTopicsForMemoryExtractor.mockResolvedValue(1);
+    mockTriggerProcessUsers.mockRejectedValue(new Error('QSTASH_TOKEN is not configured'));
+
+    await expect(createCaller().requestMemoryFromChatTopic({})).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+    });
+    expect(mockUpdate).toHaveBeenCalledWith('failed-task', {
+      error: expect.objectContaining({ name: AsyncTaskErrorType.TaskTriggerError }),
+      status: AsyncTaskStatus.Error,
     });
   });
 

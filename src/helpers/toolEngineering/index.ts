@@ -11,11 +11,13 @@ import { createEnableChecker, type PluginEnableChecker } from '@lobechat/context
 import { ToolsEngine } from '@lobechat/context-engine';
 import { type ChatCompletionTool, type ToolManifest, type WorkingModel } from '@lobechat/types';
 
+import { getActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import type { ConnectorToolPermission } from '@/database/schemas';
 import { isToolAvailableInCurrentEnv } from '@/helpers/toolAvailability';
 import { patchManifestWithPermissions } from '@/libs/mcp/patchManifestPermissions';
 import { getAgentStoreState } from '@/store/agent';
 import { agentChatConfigSelectors, agentSelectors } from '@/store/agent/selectors';
+import { getServerConfigStoreState } from '@/store/serverConfig';
 import { getToolStoreState } from '@/store/tool';
 import {
   composioStoreSelectors,
@@ -125,7 +127,9 @@ export const createToolsEngine = (config: ToolsEngineConfig = {}): ToolsEngine =
 
   // Get Composio tool manifests
   const composioTools = composioStoreSelectors.composioAsLobeTools(toolStoreState);
-  const composioManifests = composioTools.map((tool) => tool.manifest as ToolManifest).filter(Boolean);
+  const composioManifests = composioTools
+    .map((tool) => tool.manifest as ToolManifest)
+    .filter(Boolean);
 
   // Get LobeHub Skill tool manifests
   const lobehubSkillTools = lobehubSkillStoreSelectors.lobehubSkillAsLobeTools(toolStoreState);
@@ -169,8 +173,10 @@ export const createAgentToolsEngine = (
   // can't smuggle additional tools in.
   const kbEnabled = agentSelectors.hasEnabledKnowledgeBases(agentState);
   const memoryEnabled =
-    agentChatConfigSelectors.currentChatConfig(agentState).memory?.enabled ??
-    settingsSelectors.memoryEnabled(useUserStore.getState());
+    !getActiveWorkspaceId() &&
+    getServerConfigStoreState()?.featureFlags.enableMemory === true &&
+    settingsSelectors.memoryEnabled(useUserStore.getState()) &&
+    agentChatConfigSelectors.currentChatConfig(agentState).memory?.enabled !== false;
   const webBrowsingEnabled = searchConfig.useApplicationBuiltinSearchTool;
 
   const chatModeRules = {
@@ -195,26 +201,33 @@ export const createAgentToolsEngine = (
     [WebBrowsingManifest.identifier]: webBrowsingEnabled,
   };
 
+  const enableChecker = createEnableChecker({
+    allowExplicitActivation: !isChatMode,
+    platformFilter: ({ pluginId }) => {
+      const toolStoreState = getToolStoreState();
+      const installedPlugin = pluginSelectors.getInstalledPluginById(pluginId)(toolStoreState);
+
+      if (
+        !isToolAvailableInCurrentEnv(pluginId, {
+          installedPlugins: installedPlugin ? [installedPlugin] : toolStoreState.installedPlugins,
+        })
+      ) {
+        return false;
+      }
+
+      return undefined; // fall through to rules
+    },
+    rules: isChatMode ? chatModeRules : agentModeRules,
+  });
+
   return createToolsEngine({
     defaultToolIds: isChatMode ? chatModeAllowedToolIds : defaultToolIds,
-    enableChecker: createEnableChecker({
-      allowExplicitActivation: !isChatMode,
-      platformFilter: ({ pluginId }) => {
-        const toolStoreState = getToolStoreState();
-        const installedPlugin = pluginSelectors.getInstalledPluginById(pluginId)(toolStoreState);
-
-        if (
-          !isToolAvailableInCurrentEnv(pluginId, {
-            installedPlugins: installedPlugin ? [installedPlugin] : toolStoreState.installedPlugins,
-          })
-        ) {
-          return false;
-        }
-
-        return undefined; // fall through to rules
-      },
-      rules: isChatMode ? chatModeRules : agentModeRules,
-    }),
+    // Explicit activation may bypass normal tool rules, but Memory consent is a
+    // privacy boundary and must remain a hard gate.
+    enableChecker: (params) =>
+      params.pluginId === MemoryManifest.identifier && !memoryEnabled
+        ? false
+        : enableChecker(params),
   });
 };
 

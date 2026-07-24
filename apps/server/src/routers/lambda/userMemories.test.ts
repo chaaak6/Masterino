@@ -9,8 +9,16 @@ import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
 
 import { userMemoriesRouter } from './userMemories';
 
+const { mockGetServerFeatureFlags } = vi.hoisted(() => ({
+  mockGetServerFeatureFlags: vi.fn(),
+}));
+
 vi.mock('@/database/core/db-adaptor', () => ({
   getServerDB: vi.fn(),
+}));
+
+vi.mock('@/server/featureFlags', () => ({
+  getServerFeatureFlagsStateFromRuntimeConfig: mockGetServerFeatureFlags,
 }));
 
 vi.mock('@/server/globalConfig', () => ({
@@ -41,7 +49,7 @@ const mockCtx = { userId: 'test-user' };
 const makeServerDBMock = (query: Record<string, any> = {}) => ({
   query: {
     userSettings: {
-      findFirst: vi.fn().mockResolvedValue({ memory: null }),
+      findFirst: vi.fn().mockResolvedValue({ memory: { enabled: true } }),
     },
     ...query,
   },
@@ -49,6 +57,7 @@ const makeServerDBMock = (query: Record<string, any> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetServerFeatureFlags.mockResolvedValue({ enableMemory: true });
 
   embeddingsMock.mockImplementation(async ({ input }: { input: string[] | string }) => {
     const items = Array.isArray(input) ? input : [input];
@@ -62,6 +71,73 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('userMemories access gates', () => {
+  it('rejects retrieval when runtime rollout is disabled', async () => {
+    mockGetServerFeatureFlags.mockResolvedValue({ enableMemory: false });
+    vi.mocked(getServerDB).mockResolvedValue(makeServerDBMock() as any);
+
+    const caller = userMemoriesRouter.createCaller(mockCtx as any);
+
+    await expect(caller.searchMemory({ queries: ['remember me'] })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(initModelRuntimeFromDB).not.toHaveBeenCalled();
+  });
+
+  it('rejects retrieval when the user has not consented', async () => {
+    vi.mocked(getServerDB).mockResolvedValue(
+      makeServerDBMock({
+        userSettings: {
+          findFirst: vi.fn().mockResolvedValue({ memory: { enabled: false } }),
+        },
+      }) as any,
+    );
+
+    const caller = userMemoriesRouter.createCaller(mockCtx as any);
+
+    await expect(caller.toolSearchMemory({ queries: ['remember me'] })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(initModelRuntimeFromDB).not.toHaveBeenCalled();
+  });
+
+  it('rejects all workspace-scoped memory access', async () => {
+    vi.mocked(getServerDB).mockResolvedValue(makeServerDBMock() as any);
+
+    const caller = userMemoriesRouter.createCaller({
+      ...mockCtx,
+      workspaceId: 'workspace-1',
+    } as any);
+
+    await expect(caller.queryMemories()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      message: 'Memory is only available in personal space',
+    });
+  });
+
+  it('still allows deleting saved memory after consent is disabled', async () => {
+    const removeIdentityEntry = vi.fn().mockResolvedValue(true);
+    vi.mocked(UserMemoryModel).mockImplementation(() => ({ removeIdentityEntry }) as any);
+    vi.mocked(getServerDB).mockResolvedValue(
+      makeServerDBMock({
+        userSettings: {
+          findFirst: vi.fn().mockResolvedValue({ memory: { enabled: false } }),
+        },
+      }) as any,
+    );
+
+    const caller = userMemoriesRouter.createCaller(mockCtx as any);
+    const result = await caller.toolRemoveIdentityMemory({
+      id: 'identity-1',
+      reason: 'user requested deletion',
+    });
+
+    expect(result).toMatchObject({ identityId: 'identity-1', success: true });
+    expect(removeIdentityEntry).toHaveBeenCalledWith('identity-1');
+    expect(mockGetServerFeatureFlags).not.toHaveBeenCalled();
+  });
 });
 
 describe('memoryRouter.reEmbedMemories', () => {

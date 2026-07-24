@@ -11,6 +11,11 @@ describe('CustomizeSidebarModal', () => {
     expect(items.some((item) => item.id === 'memory')).toBe(true);
   });
 
+  it('removes Memory when the runtime flag is disabled', () => {
+    expect(getAvailableSidebarItems(false, false).some((item) => item.id === 'memory')).toBe(false);
+    expect(getSortableSidebarItemIds(false, false).has('memory')).toBe(false);
+  });
+
   it('removes Memory from workspace mode customization', () => {
     const items = getAvailableSidebarItems(true);
 

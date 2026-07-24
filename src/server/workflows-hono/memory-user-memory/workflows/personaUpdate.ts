@@ -2,6 +2,7 @@ import { type WorkflowContext } from '@upstash/workflow';
 import { z } from 'zod';
 
 import { getServerDB } from '@/database/server';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import {
   buildUserPersonaJobInput,
   UserPersonaService,
@@ -24,9 +25,13 @@ export const personaUpdateHandler = async (context: WorkflowContext) => {
 
   const service = new UserPersonaService(db);
 
-  await Promise.all(
+  const results = await Promise.all(
     userIds.map(async (userId) =>
       context.run(`memory:pipelines:persona:update-writing:users:${userId}`, async () => {
+        if (!(await isPersonalMemoryEnabled({ db, userId }))) {
+          return { skipped: true, userId };
+        }
+
         const jobInput = await buildUserPersonaJobInput(db, userId);
         const result = await service.composeWriting({ ...jobInput, userId });
         return {
@@ -38,9 +43,11 @@ export const personaUpdateHandler = async (context: WorkflowContext) => {
       }),
     ),
   );
+  const processedUsers = results.filter((result) => !('skipped' in result)).length;
 
   return {
     message: 'User persona processed via workflow.',
-    processedUsers: userIds.length,
+    processedUsers,
+    skippedUsers: userIds.length - processedUsers,
   };
 };

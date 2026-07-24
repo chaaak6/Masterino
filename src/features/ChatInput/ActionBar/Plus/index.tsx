@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
 import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { message } from '@/components/AntdStaticMethods';
 import { openAttachKnowledgeModal } from '@/features/LibraryModal';
 import { useIsDark } from '@/hooks/useIsDark';
@@ -289,12 +290,13 @@ const PlusAction = memo(() => {
   const { t: tEditor } = useTranslation('editor');
   const { t: tSetting } = useTranslation('setting');
   const isDark = useIsDark();
+  const activeWorkspaceId = useActiveWorkspaceId();
   const agentId = useAgentId();
   const { updateAgentChatConfig } = useUpdateAgentConfig();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const upload = useFileStore((s) => s.uploadChatFiles);
-  const { enableKnowledgeBase } = useServerConfigStore(featureFlagsSelectors);
+  const { enableKnowledgeBase, enableMemory } = useServerConfigStore(featureFlagsSelectors);
   const enableGatewayMode = useServerConfigStore(serverConfigSelectors.enableGatewayMode);
   const defaultDisableGatewayMode = useUserStore(
     (s) => settingsSelectors.defaultAgentConfig(s).chatConfig?.disableGatewayMode,
@@ -322,6 +324,7 @@ const PlusAction = memo(() => {
   const isGatewayModeEnabled = (disableGatewayMode ?? defaultDisableGatewayMode) !== true;
 
   const isMemoryEnabled = useMemoryEnabled(agentId);
+  const userMemoryConsent = useUserStore(settingsSelectors.memoryEnabled);
   const [showTypoBar, setShowTypoBar] = useChatInputStore((s) => [s.showTypoBar, s.setShowTypoBar]);
   const editor = useChatInputStore((s) => s.editor);
   const { canUploadImage, canUploadVideo } = useVisualMediaUploadAbility(model, provider);
@@ -363,9 +366,10 @@ const PlusAction = memo(() => {
 
   const handleToggleMemory = useCallback(
     async (enabled: boolean) => {
+      if (!userMemoryConsent) return;
       await updateAgentChatConfig({ memory: { enabled } });
     },
-    [updateAgentChatConfig],
+    [updateAgentChatConfig, userMemoryConsent],
   );
 
   const handleSelectSearch = useCallback(
@@ -536,14 +540,19 @@ const PlusAction = memo(() => {
 
     const capabilityItems: ActionDropdownMenuItems = [
       // Memory toggle — trailing switch; toggle by clicking the switch or the whole row
-      {
-        checked: Boolean(isMemoryEnabled),
-        icon: Brain,
-        key: 'memory',
-        label: t('memory.title'),
-        onCheckedChange: handleToggleMemory,
-        type: 'switch',
-      },
+      ...(enableMemory && !activeWorkspaceId
+        ? [
+            {
+              checked: Boolean(isMemoryEnabled),
+              disabled: !userMemoryConsent,
+              icon: Brain,
+              key: 'memory',
+              label: t(userMemoryConsent ? 'memory.title' : 'memory.consentRequired'),
+              onCheckedChange: handleToggleMemory,
+              type: 'switch' as const,
+            },
+          ]
+        : []),
       // Web search: simple toggle when 2 options, submenu when 3
       ...(showProviderSearch
         ? [
@@ -672,12 +681,15 @@ const PlusAction = memo(() => {
     return [...attachmentsItems, ...capabilityItems];
   }, [
     activeSearchOption,
+    activeWorkspaceId,
+    agentId,
     canUploadImage,
     canUploadVideo,
     editor,
     enableFC,
     enableGatewayMode,
     enableKnowledgeBase,
+    enableMemory,
     handleSelectSearch,
     handleToggleGatewayMode,
     handleToggleMemory,
@@ -703,6 +715,7 @@ const PlusAction = memo(() => {
     skillMarketFooter,
     skillMarketHeader,
     upload,
+    userMemoryConsent,
   ]);
 
   return (

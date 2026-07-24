@@ -86,6 +86,8 @@ import { LayersEnum, MemorySourceType, TypesEnum } from '@/types/userMemory';
 import { trimBasedOnBatchProbe } from '@/utils/chunkers';
 import { encodeAsync } from '@/utils/tokenizer';
 
+import { isPersonalMemoryEnabled } from './access';
+
 const SOURCE_ALIAS_MAP: Record<string, MemorySourceType> = {
   benchmark_locomo: MemorySourceType.BenchmarkLocomo,
   chatTopic: MemorySourceType.ChatTopic,
@@ -271,6 +273,9 @@ export const buildWorkflowPayloadInput = (
 });
 
 const normalizeProvider = (provider: string) => provider.toLowerCase();
+
+export const resolveMemoryProviderBaseURL = (provider: string, baseURL?: string) =>
+  baseURL || (normalizeProvider(provider) === 'newapi' ? process.env.AIHUB_PROXY_URL : undefined);
 
 const extractCredentialsFromVault = (vault?: Record<string, unknown>) => {
   if (!vault || typeof vault !== 'object') return {};
@@ -521,9 +526,10 @@ export const resolveRuntimeAgentConfig = (
       continue;
     }
 
+    const resolvedUserBaseURL = resolveMemoryProviderBaseURL(provider, userBaseURL);
     debugRuntimeInit(agent, {
       apiKey: userApiKey,
-      baseURL: userBaseURL,
+      baseURL: resolvedUserBaseURL,
       provider,
       source: 'user-vault' as const,
     });
@@ -532,21 +538,26 @@ export const resolveRuntimeAgentConfig = (
     // to system config to avoid mixing credentials.
     return ModelRuntime.initializeWithProvider(provider, {
       apiKey: userApiKey,
-      baseURL: userBaseURL,
+      baseURL: resolvedUserBaseURL,
       userId: options?.userId,
     });
   }
 
+  const systemProvider = agent.provider || 'openai';
+  const systemBaseURL = resolveMemoryProviderBaseURL(
+    systemProvider,
+    agent.baseURL || options?.fallback?.baseURL,
+  );
   debugRuntimeInit(agent, {
     apiKey: agent.apiKey || options?.fallback?.apiKey,
-    baseURL: agent.baseURL || options?.fallback?.baseURL,
-    provider: agent.provider || 'openai',
+    baseURL: systemBaseURL,
+    provider: systemProvider,
     source: 'system-config' as const,
   });
 
-  return ModelRuntime.initializeWithProvider(agent.provider || 'openai', {
+  return ModelRuntime.initializeWithProvider(systemProvider, {
     apiKey: agent.apiKey || options?.fallback?.apiKey,
-    baseURL: agent.baseURL || options?.fallback?.baseURL,
+    baseURL: systemBaseURL,
     userId: options?.userId,
   });
 };
@@ -1464,6 +1475,21 @@ export class MemoryExtractionExecutor {
   }
 
   async extractTopic(job: TopicExtractionJob) {
+    const accessDB = await this.db;
+    if (
+      !(await isPersonalMemoryEnabled({
+        db: accessDB,
+        userId: job.userId,
+        workspaceId: job.workspaceId,
+      }))
+    ) {
+      return {
+        extracted: false,
+        layers: {},
+        memoryIds: [],
+      };
+    }
+
     const attributes = {
       source: job.source,
       source_id: job.topicId,
@@ -2350,7 +2376,7 @@ export class MemoryExtractionExecutor {
 
   private async getAiProviderRuntimeState(
     userId: string,
-    workspaceId?: string,
+    _workspaceId?: string,
   ): Promise<AiProviderRuntimeState> {
     const db = await this.db;
     const aiInfraRepos = new AiInfraRepos(db, userId, this.aiProviderConfig);

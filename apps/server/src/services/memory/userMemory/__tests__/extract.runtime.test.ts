@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { type MemoryExtractionPrivateConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
 
-import { makeTaskErrorItem, MemoryExtractionExecutor } from '../extract';
+import {
+  makeTaskErrorItem,
+  MemoryExtractionExecutor,
+  resolveMemoryProviderBaseURL,
+} from '../extract';
 
 const createRuntimeState = (models: EnabledAiModel[], keyVaults: Record<string, any>) =>
   ({
@@ -473,6 +477,32 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
     });
 
     warnSpy.mockRestore();
+  });
+});
+
+describe('resolveMemoryProviderBaseURL', () => {
+  it('uses AIHUB_PROXY_URL for newapi when the user vault has no baseURL', () => {
+    const previous = process.env.AIHUB_PROXY_URL;
+    process.env.AIHUB_PROXY_URL = 'https://aihub.example.com/v1';
+
+    expect(resolveMemoryProviderBaseURL('newapi')).toBe('https://aihub.example.com/v1');
+    expect(resolveMemoryProviderBaseURL('NEWAPI')).toBe('https://aihub.example.com/v1');
+
+    if (previous === undefined) delete process.env.AIHUB_PROXY_URL;
+    else process.env.AIHUB_PROXY_URL = previous;
+  });
+
+  it('does not mix the Aihub endpoint into other providers', () => {
+    const previous = process.env.AIHUB_PROXY_URL;
+    process.env.AIHUB_PROXY_URL = 'https://aihub.example.com/v1';
+
+    expect(resolveMemoryProviderBaseURL('openai')).toBeUndefined();
+    expect(resolveMemoryProviderBaseURL('openai', 'https://api.openai.com/v1')).toBe(
+      'https://api.openai.com/v1',
+    );
+
+    if (previous === undefined) delete process.env.AIHUB_PROXY_URL;
+    else process.env.AIHUB_PROXY_URL = previous;
   });
 });
 

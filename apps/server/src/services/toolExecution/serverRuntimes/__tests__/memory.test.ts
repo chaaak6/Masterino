@@ -1,5 +1,5 @@
 import type { LobeChatDatabase } from '@lobechat/database';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ToolExecutionContext } from '../../types';
 
@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   initModelRuntimeFromDB: vi.fn(),
   initModelRuntimeWithUserPayload: vi.fn(),
   searchMemory: vi.fn(),
+  getServerFeatureFlags: vi.fn(),
 }));
 
 vi.mock('@/database/models/userMemory', () => ({
@@ -26,6 +27,10 @@ vi.mock('@/server/globalConfig', () => ({
   })),
 }));
 
+vi.mock('@/server/featureFlags', () => ({
+  getServerFeatureFlagsStateFromRuntimeConfig: mocks.getServerFeatureFlags,
+}));
+
 vi.mock('@/server/modules/ModelRuntime', () => ({
   initModelRuntimeFromDB: mocks.initModelRuntimeFromDB,
   initModelRuntimeWithUserPayload: mocks.initModelRuntimeWithUserPayload,
@@ -42,6 +47,10 @@ vi.mock('@/server/services/agentSignal/store/adapters/redis/policyStateStore', (
 
 const { memoryRuntime } = await import('../memory');
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 const createContext = (): ToolExecutionContext => ({
   memoryEmbeddingRuntime: {
     model: 'server-embedding-model',
@@ -54,7 +63,7 @@ const createContext = (): ToolExecutionContext => ({
   serverDB: {
     query: {
       userSettings: {
-        findFirst: vi.fn(async () => undefined),
+        findFirst: vi.fn(async () => ({ memory: { enabled: true, effort: 'medium' } })),
       },
     },
   } as unknown as LobeChatDatabase,
@@ -64,6 +73,7 @@ const createContext = (): ToolExecutionContext => ({
 
 describe('memoryRuntime', () => {
   it('uses server-owned embedding runtime for memory search', async () => {
+    mocks.getServerFeatureFlags.mockResolvedValueOnce({ enableMemory: true });
     mocks.embeddings.mockResolvedValueOnce([[0.1, 0.2, 0.3]]);
     mocks.initModelRuntimeWithUserPayload.mockReturnValueOnce({
       embeddings: mocks.embeddings,
@@ -100,5 +110,32 @@ describe('memoryRuntime', () => {
       expect.objectContaining({ queries: ['renewal timeline'] }),
       [[0.1, 0.2, 0.3]],
     );
+  });
+
+  it('rejects direct tool execution when the runtime rollout is disabled', async () => {
+    mocks.getServerFeatureFlags.mockResolvedValueOnce({ enableMemory: false });
+
+    await expect(memoryRuntime.factory(createContext())).rejects.toThrow(
+      'Memory is not available for this user',
+    );
+  });
+
+  it('rejects direct tool execution without explicit user consent', async () => {
+    mocks.getServerFeatureFlags.mockResolvedValueOnce({ enableMemory: true });
+    const context = createContext();
+    vi.mocked(context.serverDB!.query.userSettings.findFirst).mockResolvedValueOnce({
+      memory: { enabled: false },
+    } as never);
+
+    await expect(memoryRuntime.factory(context)).rejects.toThrow('Enable Memory');
+  });
+
+  it('rejects direct tool execution in workspace scope', async () => {
+    const context = { ...createContext(), workspaceId: 'workspace-1' };
+
+    await expect(memoryRuntime.factory(context)).rejects.toThrow(
+      'Memory is only available in personal space',
+    );
+    expect(mocks.getServerFeatureFlags).not.toHaveBeenCalled();
   });
 });

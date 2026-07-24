@@ -12,6 +12,8 @@ import LevelSlider from '@/features/ModelSwitchPanel/components/ControlsForm/Lev
 import { usePermission } from '@/hooks/usePermission';
 import { useAgentStore } from '@/store/agent';
 import { chatConfigByIdSelectors } from '@/store/agent/selectors';
+import { useUserStore } from '@/store/user';
+import { settingsSelectors } from '@/store/user/selectors';
 
 import { useAgentId } from '../../hooks/useAgentId';
 import { useUpdateAgentConfig } from '../../hooks/useUpdateAgentConfig';
@@ -65,6 +67,7 @@ const ToggleItem = memo<ToggleOption>(({ value, description, icon, label }) => {
   const { updateAgentChatConfig } = useUpdateAgentConfig();
   const isEnabled = useMemoryEnabled(agentId);
   const { allowed: canCreate } = usePermission('create_content');
+  const userMemoryConsent = useUserStore(settingsSelectors.memoryEnabled);
 
   const isActive = value === 'on' ? isEnabled : !isEnabled;
 
@@ -79,7 +82,7 @@ const ToggleItem = memo<ToggleOption>(({ value, description, icon, label }) => {
         opacity: canCreate ? undefined : 0.5,
       }}
       onClick={async () => {
-        if (!canCreate) return;
+        if (!canCreate || !userMemoryConsent) return;
         await updateAgentChatConfig({ memory: { enabled: value === 'on' } });
       }}
     >
@@ -100,6 +103,7 @@ const Controls = memo(() => {
   const { updateAgentChatConfig } = useUpdateAgentConfig();
   const isEnabled = useMemoryEnabled(agentId);
   const { allowed: canCreate } = usePermission('create_content');
+  const userMemoryConsent = useUserStore(settingsSelectors.memoryEnabled);
   const effort = useAgentStore((s) => chatConfigByIdSelectors.getMemoryToolEffortById(agentId)(s));
 
   const toggleOptions: ToggleOption[] = [
@@ -147,7 +151,7 @@ const Controls = memo(() => {
                   2: t('memory.effort.high.title'),
                 }}
                 onChange={async (value) => {
-                  if (!canCreate) return;
+                  if (!canCreate || !userMemoryConsent) return;
                   await updateAgentChatConfig({ memory: { effort: value, enabled: true } });
                 }}
               />
