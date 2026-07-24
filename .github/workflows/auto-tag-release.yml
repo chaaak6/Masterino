@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ github.token }}
           # Fetch full history for proper tagging
           fetch-depth: 0
 
@@ -217,7 +217,18 @@ jobs:
             ${{ github.event.pull_request.body }}
           draft: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Run release checks
+        if: env.SHOULD_TAG == 'true' && steps.check-tag.outputs.exists == 'false'
+        run: |
+          gh workflow run release.yml \
+            --ref main \
+            --field release_ref="v${{ env.VERSION }}" \
+            --field publish=true
+          echo "Dispatched Release CI for v${{ env.VERSION }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Sync main to canary
         if: env.SHOULD_TAG == 'true' && steps.check-tag.outputs.exists == 'false'
@@ -225,7 +236,7 @@ jobs:
           gh workflow run sync-main-to-canary.yaml
           echo "✅ Dispatched sync-main-to-canary workflow"
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Output result
         run: |

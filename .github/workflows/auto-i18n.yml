@@ -16,22 +16,45 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Check i18n credentials
+        id: credentials
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          echo "::warning::OPENAI_API_KEY is not configured; skipping the scheduled translation update."
+          {
+            echo "## Daily i18n Update skipped"
+            echo
+            echo "\`OPENAI_API_KEY\` is not configured. Add a newly rotated repository secret to enable Aihub-backed translations."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Configure Git
+        if: steps.credentials.outputs.configured == 'true'
         run: |
           git config --global user.name "Masterino Bot"
           git config --global user.email "ai@bielcrystal.com"
 
       - uses: actions/checkout@v6
+        if: steps.credentials.outputs.configured == 'true'
         with:
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       - name: Setup environment
+        if: steps.credentials.outputs.configured == 'true'
         uses: ./.github/actions/setup-env
 
       - name: Install deps
+        if: steps.credentials.outputs.configured == 'true'
         run: pnpm install
 
       - name: Update i18n
+        if: steps.credentials.outputs.configured == 'true'
         run: bun run i18n
         env:
           I18N_MODEL_NAME: glm-5.2
@@ -40,6 +63,7 @@ jobs:
 
       - name: create pull request
         id: cpr
+        if: steps.credentials.outputs.configured == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ github.token }}

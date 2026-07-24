@@ -1,9 +1,21 @@
 name: Release CI
 
 permissions:
+  actions: write
   contents: read
 
 on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the Docker image after release checks pass
+        required: true
+        type: boolean
+        default: false
+      release_ref:
+        description: Tag or commit to validate
+        required: true
+        type: string
   push:
     tags:
       - 'v*.*.*'
@@ -15,7 +27,7 @@ concurrency:
 jobs:
   release:
     name: Release
-    if: ${{ !contains(github.ref_name, '-') }}
+    if: ${{ !contains(inputs.release_ref || github.ref_name, '-') }}
     runs-on: ubuntu-latest
 
     services:
@@ -33,6 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.release_ref || github.ref }}
           token: ${{ github.token }}
 
       - name: Setup environment
@@ -60,3 +73,10 @@ jobs:
         run: |
           bun run workflow:readme
           git diff --exit-code
+
+      - name: Publish Docker image
+        if: github.event_name == 'push' || inputs.publish
+        run: gh workflow run release-docker.yml --ref "$RELEASE_REF"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REF: ${{ inputs.release_ref || github.ref_name }}
