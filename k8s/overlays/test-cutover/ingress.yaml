@@ -14,11 +14,6 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-buffering: 'off'
     nginx.ingress.kubernetes.io/proxy-request-buffering: 'off'
     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
-    nginx.ingress.kubernetes.io/proxy-hide-headers: >-
-      X-Middleware-Rewrite, X-Middleware-Set-Cookie, X-Nextjs-Cache,
-      X-Nextjs-Matched-Path, X-Nextjs-Prerender, X-Nextjs-Rewritten-Path,
-      X-Nextjs-Rewritten-Query, X-Nextjs-Stale-Time, X-Invoke-Path,
-      X-Invoke-Query, X-Invoke-Output, X-Powered-By
 spec:
   ingressClassName: nginx
   tls:

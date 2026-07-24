@@ -11,11 +11,6 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
     nginx.ingress.kubernetes.io/proxy-buffering: 'off'
     nginx.ingress.kubernetes.io/proxy-request-buffering: 'off'
-    nginx.ingress.kubernetes.io/proxy-hide-headers: >-
-      X-Middleware-Rewrite, X-Middleware-Set-Cookie, X-Nextjs-Cache,
-      X-Nextjs-Matched-Path, X-Nextjs-Prerender, X-Nextjs-Rewritten-Path,
-      X-Nextjs-Rewritten-Query, X-Nextjs-Stale-Time, X-Invoke-Path,
-      X-Invoke-Query, X-Invoke-Output, X-Powered-By
     nginx.ingress.kubernetes.io/server-snippet: |
       location = /WW_verify_uSB5OnVf9BeWJX0U.txt {
         return 200 "uSB5OnVf9BeWJX0U";

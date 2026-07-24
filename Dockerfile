@@ -100,9 +100,11 @@ ARG NEXT_PUBLIC_ANALYTICS_UMAMI
 ARG NEXT_PUBLIC_UMAMI_SCRIPT_URL
 ARG NEXT_PUBLIC_UMAMI_WEBSITE_ID
 ARG FEATURE_FLAGS
+ARG ENABLED_CSP="1"
 
 ENV NEXT_PUBLIC_BASE_PATH="${NEXT_PUBLIC_BASE_PATH}" \
-    FEATURE_FLAGS="${FEATURE_FLAGS}"
+    FEATURE_FLAGS="${FEATURE_FLAGS}" \
+    ENABLED_CSP="${ENABLED_CSP}"
 
 ENV APP_URL="http://app.com" \
     DATABASE_DRIVER="node" \
@@ -171,7 +173,7 @@ COPY --chown=nextjs:nodejs --from=builder /app/scripts/_shared /app/scripts/_sha
 FROM app AS production
 
 ENV NODE_ENV="production" \
-    NODE_OPTIONS="--dns-result-order=ipv4first --use-openssl-ca" \
+    NODE_OPTIONS="--require=/app/scripts/_shared/hardenResponseHeaders.js --dns-result-order=ipv4first --use-openssl-ca" \
     NODE_EXTRA_CA_CERTS="" \
     NODE_TLS_REJECT_UNAUTHORIZED="" \
     SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
