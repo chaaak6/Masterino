@@ -1059,7 +1059,7 @@ describe('UserMemoryModel', () => {
         })
         .returning();
 
-      const vector1024 = Array.from({ length: 1024 }, () => Math.random());
+      const vector1024 = Array.from({ length: 2048 }, () => Math.random());
       await memoryModel.updateUserMemoryVectors(mem.id, {
         detailsVector1024: vector1024,
         summaryVector1024: vector1024,
@@ -1100,7 +1100,7 @@ describe('UserMemoryModel', () => {
   describe('updateContextVectors', () => {
     it('should update description vector', async () => {
       const { context } = await createContextPair({});
-      const vector1024 = Array.from({ length: 1024 }, () => Math.random());
+      const vector1024 = Array.from({ length: 2048 }, () => Math.random());
 
       await memoryModel.updateContextVectors(context.id, { descriptionVector: vector1024 });
 
@@ -1122,7 +1122,7 @@ describe('UserMemoryModel', () => {
   describe('updatePreferenceVectors', () => {
     it('should update conclusion directives vector', async () => {
       const { preference } = await createPreferencePair({});
-      const vector1024 = Array.from({ length: 1024 }, () => Math.random());
+      const vector1024 = Array.from({ length: 2048 }, () => Math.random());
 
       await memoryModel.updatePreferenceVectors(preference.id, {
         conclusionDirectivesVector: vector1024,
@@ -1144,7 +1144,7 @@ describe('UserMemoryModel', () => {
   describe('updateIdentityVectors', () => {
     it('should update description vector', async () => {
       const { identity } = await createIdentityPair({});
-      const vector1024 = Array.from({ length: 1024 }, () => Math.random());
+      const vector1024 = Array.from({ length: 2048 }, () => Math.random());
 
       await memoryModel.updateIdentityVectors(identity.id, { descriptionVector: vector1024 });
 
@@ -1164,7 +1164,7 @@ describe('UserMemoryModel', () => {
   describe('updateExperienceVectors', () => {
     it('should update multiple vectors', async () => {
       const { experience } = await createExperiencePair({});
-      const vector1024 = Array.from({ length: 1024 }, () => Math.random());
+      const vector1024 = Array.from({ length: 2048 }, () => Math.random());
 
       await memoryModel.updateExperienceVectors(experience.id, {
         actionVector: vector1024,
@@ -1190,7 +1190,7 @@ describe('UserMemoryModel', () => {
   describe('updateActivityVectors', () => {
     it('should update narrative and feedback vectors', async () => {
       const { activity } = await createActivityPair({});
-      const vector1024 = Array.from({ length: 1024 }, () => Math.random());
+      const vector1024 = Array.from({ length: 2048 }, () => Math.random());
 
       await memoryModel.updateActivityVectors(activity.id, {
         feedbackVector: vector1024,
@@ -1651,7 +1651,7 @@ describe('UserMemoryModel', () => {
         preference: {
           capturedAt,
           conclusionDirectives: 'Use compact cards',
-          conclusionDirectivesVector: Array.from({ length: 1024 }, (_, index) =>
+          conclusionDirectivesVector: Array.from({ length: 2048 }, (_, index) =>
             index === 0 ? 1 : 0,
           ),
           metadata: { source: 'unit-test' },

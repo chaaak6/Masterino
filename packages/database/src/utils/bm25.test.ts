@@ -36,7 +36,7 @@ describe('sanitizeBm25Query', () => {
     expect(sanitizeBm25Query('(a+b) & c!')).toBe('\\(a\\+b\\) AND \\& AND c\\!');
     expect(sanitizeBm25Query('react-component')).toBe('react AND component');
     expect(sanitizeBm25Query('<https://aihub.bielcrystal.com/skills/openclaw>')).toBe(
-      '\\<https\\:\\/\\/lobehub.com\\/skills\\/openclaw\\>',
+      '\\<https\\:\\/\\/aihub.bielcrystal.com\\/skills\\/openclaw\\>',
     );
   });
 

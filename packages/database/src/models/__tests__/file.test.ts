@@ -1384,8 +1384,8 @@ describe('FileModel', () => {
         { fileId, chunkId: chunkId2, userId },
       ]);
 
-      // Insert embeddings (1024-dimensional vectors)
-      const testEmbedding = Array.from({ length: 1024 }).fill(0.1) as number[];
+      // Insert embeddings (2048-dimensional vectors)
+      const testEmbedding = Array.from({ length: 2048 }).fill(0.1) as number[];
       await serverDB
         .insert(embeddings)
         .values([{ chunkId: chunkId1, embeddings: testEmbedding, model: 'test-model', userId }]);
@@ -1445,7 +1445,7 @@ describe('FileModel', () => {
       await serverDB.insert(fileChunks).values([{ fileId, chunkId, userId }]);
 
       // Insert embeddings
-      const testEmbedding = Array.from({ length: 1024 }).fill(0.1) as number[];
+      const testEmbedding = Array.from({ length: 2048 }).fill(0.1) as number[];
       await serverDB
         .insert(embeddings)
         .values([{ chunkId, embeddings: testEmbedding, model: 'test-model', userId }]);
@@ -1500,8 +1500,8 @@ describe('FileModel', () => {
 
       await serverDB.insert(fileChunks).values([{ fileId, chunkId, userId }]);
 
-      // Insert embeddings (1024-dimensional vectors)
-      const testEmbedding = Array.from({ length: 1024 }).fill(0.1) as number[];
+      // Insert embeddings (2048-dimensional vectors)
+      const testEmbedding = Array.from({ length: 2048 }).fill(0.1) as number[];
       await serverDB
         .insert(embeddings)
         .values([{ chunkId, embeddings: testEmbedding, model: 'test-model', userId }]);
