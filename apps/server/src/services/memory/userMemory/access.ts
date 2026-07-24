@@ -1,3 +1,4 @@
+import { AgentModel } from '@/database/models/agent';
 import { UserModel } from '@/database/models/user';
 import { type LobeChatDatabase } from '@/database/type';
 import { getServerFeatureFlagsStateFromRuntimeConfig } from '@/server/featureFlags';
@@ -37,4 +38,24 @@ export const isPersonalMemoryEnabled = async ({
     userEnabled: memorySettings?.enabled === true,
     workspaceId,
   });
+};
+
+export const isAgentPersonalMemoryEnabled = async ({
+  agentId,
+  db,
+  userId,
+  workspaceId,
+}: {
+  agentId: string;
+  db: LobeChatDatabase;
+  userId: string;
+  workspaceId?: string | null;
+}): Promise<boolean> => {
+  if (!(await isPersonalMemoryEnabled({ db, userId, workspaceId }))) return false;
+
+  const agent = await new AgentModel(db, userId, workspaceId ?? undefined).getAgentConfigById(
+    agentId,
+  );
+
+  return Boolean(agent && agent.chatConfig?.memory?.enabled !== false);
 };

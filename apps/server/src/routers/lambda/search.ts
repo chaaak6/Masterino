@@ -5,6 +5,7 @@ import { SearchRepo } from '@/database/repositories/search';
 import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { DiscoverService } from '@/server/services/discover';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 
 /**
  * Calculate relevance score for marketplace items
@@ -70,6 +71,26 @@ export const searchRouter = router({
       // Early return for empty query
       if (!query || query.trim() === '') return [];
 
+      const maySearchMemory = !type || type === 'memory';
+      let memoryEnabled = false;
+      if (maySearchMemory) {
+        try {
+          memoryEnabled = await isPersonalMemoryEnabled({
+            db: ctx.serverDB,
+            userId: ctx.userId,
+            workspaceId: ctx.workspaceId,
+          });
+        } catch (error) {
+          // General search should remain available when the memory gate cannot
+          // be evaluated, but memory itself must fail closed.
+          console.error('[search] failed to evaluate personal memory access', error);
+        }
+      }
+
+      // A direct memory filter must not query or reveal saved memories unless
+      // the runtime rollout and explicit personal-space consent are both active.
+      if (type === 'memory' && !memoryEnabled) return [];
+
       // Build search promises based on type filter
       const searchPromises: Promise<any>[] = [];
 
@@ -88,7 +109,7 @@ export const searchRouter = router({
           'knowledgeBase',
         ].includes(type)
       ) {
-        searchPromises.push(ctx.searchRepo.search(input));
+        searchPromises.push(ctx.searchRepo.search({ ...input, includeMemory: memoryEnabled }));
       }
 
       // Marketplace searches (mcp, plugin)
@@ -200,6 +221,9 @@ export const searchRouter = router({
       // topics/messages by recency, marketplace types from the discover service).
       // The command palette groups results by type, so we keep each source's order
       // instead of re-sorting the merged list by relevance.
-      return results.flat();
+      // Defense in depth: the repository also skips the memory SQL query when
+      // includeMemory is false, but never trust an alternate search source to
+      // preserve that privacy boundary.
+      return results.flat().filter((result) => memoryEnabled || result?.type !== 'memory');
     }),
 });

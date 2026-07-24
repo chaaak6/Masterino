@@ -38,6 +38,13 @@ describe('parseMemoryExtractionConfig', () => {
     expect(embedding.model).not.toBe('glm-5.2');
   });
 
+  it('uses a default embedding model compatible with the 2048-d memory schema', () => {
+    delete process.env.MEMORY_USER_MEMORY_EMBEDDING_MODEL;
+    delete process.env.MEMORY_USER_MEMORY_EMBEDDING_PROVIDER;
+
+    expect(parseMemoryExtractionConfig().embedding.model).toBe('text-embedding-3-large');
+  });
+
   it('uses the explicitly configured Aihub embedding model', () => {
     process.env.MEMORY_USER_MEMORY_EMBEDDING_MODEL = 'text-embedding-3-large';
     process.env.MEMORY_USER_MEMORY_EMBEDDING_PROVIDER = 'newapi';

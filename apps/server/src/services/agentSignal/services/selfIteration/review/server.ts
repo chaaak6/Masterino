@@ -12,6 +12,7 @@ import { AGENT_SIGNAL_DEFAULTS } from '@/server/services/agentSignal/constants';
 import { isAgentSignalEnabledForUser } from '@/server/services/agentSignal/featureGate';
 import { runMemoryActionAgent } from '@/server/services/agentSignal/policies/analyzeIntent/actions/userMemory';
 import { redisSourceEventStore } from '@/server/services/agentSignal/store/adapters/redis/sourceEventStore';
+import { isAgentPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import { SkillManagementDocumentService } from '@/server/services/skillManagement';
 
 import { projectRun } from '../projection';
@@ -833,7 +834,18 @@ export const createServerSelfReviewPolicyOptions = ({
         briefModel,
         userId,
       }),
-    listRelevantMemories: async ({ limit = 20 }) => {
+    listRelevantMemories: async ({ agentId: targetAgentId, limit = 20 }) => {
+      if (
+        !(await isAgentPersonalMemoryEnabled({
+          agentId: targetAgentId,
+          db,
+          userId,
+          workspaceId,
+        }))
+      ) {
+        return [];
+      }
+
       const rows = await reviewContextModel.listRelevantMemories({ limit });
 
       return rows.map<NightlyReviewRelevantMemorySummary>((row) => ({

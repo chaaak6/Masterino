@@ -1,7 +1,5 @@
 import { DEFAULT_EMBEDDING_PROVIDER } from '@lobechat/business-const';
 
-import { DEFAULT_EMBEDDING_MODEL } from './settings';
-
 export const DEFAULT_SEARCH_USER_MEMORY_TOP_K = {
   activities: 3,
   contexts: 0,
@@ -25,7 +23,10 @@ export interface UserMemoryConfig {
 }
 
 export const DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM: UserMemoryConfigItem = {
-  model: DEFAULT_EMBEDDING_MODEL,
+  // User-memory vectors are stored at 2,048 dimensions. The generic
+  // text-embedding-3-small default tops out below that size, while
+  // text-embedding-3-large supports the requested reduced dimension.
+  model: 'text-embedding-3-large',
   provider: DEFAULT_EMBEDDING_PROVIDER,
 };
 

@@ -1,6 +1,6 @@
 import { type ReactElement } from 'react';
+import { useParams } from 'react-router-dom';
 
-import { useActiveWorkspaceSlug } from '@/business/client/hooks/useActiveWorkspaceSlug';
 import { getProductFeatureStatus, type ProductFeatureKey } from '@/config/productFeatures';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { redirectElement } from '@/utils/router';
@@ -9,9 +9,9 @@ import FeatureDisabledPage from './FeatureDisabledPage';
 
 const RuntimeMemoryFeatureGate = ({ children }: { children: ReactElement }) => {
   const { enableMemory } = useServerConfigStore(featureFlagsSelectors);
-  const activeWorkspaceSlug = useActiveWorkspaceSlug();
+  const { workspaceSlug } = useParams<{ workspaceSlug?: string }>();
 
-  return enableMemory === true && !activeWorkspaceSlug ? children : <FeatureDisabledPage />;
+  return enableMemory === true && !workspaceSlug ? children : <FeatureDisabledPage />;
 };
 
 export const featureGateElement = (featureKey: ProductFeatureKey, element: ReactElement) => {

@@ -181,6 +181,12 @@ export type SearchResult =
 export interface SearchOptions {
   agentId?: string;
   contextType?: 'agent' | 'resource' | 'page';
+  /**
+   * Internal privacy gate for callers that expose the unified search surface.
+   * Defaults to true for backwards compatibility; API routers must set it to
+   * false when personal memory is unavailable or the user has not consented.
+   */
+  includeMemory?: boolean;
   limitPerType?: number;
   offset?: number;
   query: string;
@@ -217,7 +223,7 @@ export class SearchRepo {
    * Search across agents, topics, files, and pages
    */
   async search(options: SearchOptions): Promise<SearchResult[]> {
-    const { query, type, limitPerType = 5, agentId, contextType } = options;
+    const { query, type, limitPerType = 5, agentId, contextType, includeMemory = true } = options;
 
     // Early return for empty query
     if (!query || query.trim() === '') return [];
@@ -251,7 +257,7 @@ export class SearchRepo {
     if ((!type || type === 'page') && limits.page > 0) {
       searchPromises.push(this.searchPages(trimmedQuery, limits.page));
     }
-    if ((!type || type === 'memory') && limits.memory > 0) {
+    if (includeMemory && (!type || type === 'memory') && limits.memory > 0) {
       searchPromises.push(this.searchMemories(trimmedQuery, limits.memory));
     }
     if ((!type || type === 'knowledgeBase') && limits.knowledgeBase > 0) {

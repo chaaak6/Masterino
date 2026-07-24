@@ -28,6 +28,7 @@ import {
 } from '@/server/modules/Mecha';
 import { AgentService } from '@/server/services/agent';
 import type { AgentSignalOperationMarker } from '@/server/services/agentSignal/operationMarker';
+import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 
 import type { RuntimeProcessorContext } from '../../../runtime/context';
 import { defineActionHandler } from '../../../runtime/middleware';
@@ -175,12 +176,32 @@ export const runMemoryActionAgent = async (
     };
   }
 
+  if (
+    !(await isPersonalMemoryEnabled({
+      db: options.db,
+      userId: options.userId,
+      workspaceId: options.workspaceId,
+    }))
+  ) {
+    return {
+      detail: 'Personal Memory is disabled or unavailable for this user.',
+      status: 'skipped',
+    };
+  }
+
   const agentService =
     options.agentService ?? new AgentService(options.db, options.userId, options.workspaceId);
   const pluginModel =
     options.pluginModel ?? new PluginModel(options.db, options.userId, options.workspaceId);
   const agentConfig = await agentService.getAgentConfig(input.agentId);
   const memoryLanguage = input.memoryLanguage ?? 'English';
+
+  if (agentConfig?.chatConfig?.memory?.enabled === false) {
+    return {
+      detail: 'Memory is disabled for this agent.',
+      status: 'skipped',
+    };
+  }
 
   if (!agentConfig?.model || !agentConfig?.provider) {
     return {
