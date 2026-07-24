@@ -6,6 +6,8 @@ import { UserModel } from '@/database/models/user';
 import { createCallerFactory } from '@/libs/trpc/lambda';
 import { type AuthContext } from '@/libs/trpc/lambda/context';
 import { createContextInner } from '@/libs/trpc/lambda/context';
+import type * as DirectorySyncService from '@/server/services/enterprise/directorySyncService';
+import type * as WecomSsoService from '@/server/services/enterprise/wecomSsoService';
 
 import { adminRouter } from './admin';
 
@@ -44,9 +46,9 @@ vi.mock('@/database/models/rbac', () => ({
 }));
 
 vi.mock('@/server/services/enterprise/wecomSsoService', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/server/services/enterprise/wecomSsoService')
-  >('@/server/services/enterprise/wecomSsoService');
+  const actual = await vi.importActual<typeof WecomSsoService>(
+    '@/server/services/enterprise/wecomSsoService',
+  );
 
   return {
     ...actual,
@@ -56,9 +58,9 @@ vi.mock('@/server/services/enterprise/wecomSsoService', async () => {
 });
 
 vi.mock('@/server/services/enterprise/directorySyncService', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/server/services/enterprise/directorySyncService')
-  >('@/server/services/enterprise/directorySyncService');
+  const actual = await vi.importActual<typeof DirectorySyncService>(
+    '@/server/services/enterprise/directorySyncService',
+  );
 
   return {
     ...actual,
@@ -77,7 +79,7 @@ const defaultEnterpriseWecomBlocks = {
     lookupField: 'employeeNumber',
     managedTokenName: 'masterlion-managed',
     managedTokenQuota: 50_000_000,
-    managedTokenUnlimitedQuota: false,
+    managedTokenUnlimitedQuota: true,
   },
   departmentSync: {
     enabled: false,
@@ -145,8 +147,8 @@ const settle = async <T>(promise: Promise<T>) => {
 };
 
 const expectPermissionCheck = (permission: string) => {
-  const permissionChecks = mockHasAnyPermission.mock.calls.map(([requestedPermissions]) =>
-    requestedPermissions,
+  const permissionChecks = mockHasAnyPermission.mock.calls.map(
+    ([requestedPermissions]) => requestedPermissions,
   );
 
   expect(permissionChecks).toContainEqual([permission]);
@@ -578,12 +580,10 @@ const createAdminUserWriteDb = (
 ) => {
   const auditValues: Record<string, unknown>[] = [];
   const insertedUserRoles: Record<string, unknown>[] = [];
-  const roleRows =
-    options.roleRows ??
-    [
-      { id: 'role-enterprise-admin', isActive: true, workspaceId: null },
-      { id: 'role-enterprise-member', isActive: true, workspaceId: null },
-    ];
+  const roleRows = options.roleRows ?? [
+    { id: 'role-enterprise-admin', isActive: true, workspaceId: null },
+    { id: 'role-enterprise-member', isActive: true, workspaceId: null },
+  ];
   const updatedUser = {
     banned: true,
     email: 'ada@example.com',
@@ -683,12 +683,10 @@ const createRolePermissionWriteDb = (
     options.roleRow === undefined
       ? { id: 'role-content-operator', isActive: true, workspaceId: null }
       : options.roleRow;
-  const permissionRows =
-    options.permissionRows ??
-    [
-      { code: 'users:read', id: 'perm-users-read', isActive: true },
-      { code: 'audit:read', id: 'perm-audit-read', isActive: true },
-    ];
+  const permissionRows = options.permissionRows ?? [
+    { code: 'users:read', id: 'perm-users-read', isActive: true },
+    { code: 'audit:read', id: 'perm-audit-read', isActive: true },
+  ];
   const withReturningRows = (rows: Record<string, unknown>[]) =>
     Object.assign(Promise.resolve(rows), {
       returning: vi.fn(async () => rows),
@@ -755,17 +753,15 @@ const createRolePermissionWriteDb = (
 const createRoleLifecycleWriteDb = (
   options: {
     createRoleError?: Error;
-    roleRow?:
-      | {
-          description?: null | string;
-          displayName?: string;
-          id: string;
-          isActive: boolean;
-          isSystem: boolean;
-          name: string;
-          workspaceId: null | string;
-        }
-      | null;
+    roleRow?: {
+      description?: null | string;
+      displayName?: string;
+      id: string;
+      isActive: boolean;
+      isSystem: boolean;
+      name: string;
+      workspaceId: null | string;
+    } | null;
   } = {},
 ) => {
   const auditValues: Record<string, unknown>[] = [];
@@ -830,8 +826,8 @@ const createRoleLifecycleWriteDb = (
 
     return returningRows([
       {
-        ...(roleRow ?? {}),
-        ...updateSetValues[updateSetValues.length - 1],
+        ...roleRow,
+        ...updateSetValues.at(-1),
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
       } as Record<string, unknown>,
     ]);
@@ -904,7 +900,7 @@ const createAdminOrgWriteDb = () => {
   const departmentRow = {
     externalDepartmentId: 'wx-rd',
     id: 'dept-rd',
-    name: '\u7814\u53d1\u4e2d\u5fc3',
+    name: '\u7814\u53D1\u4E2D\u5FC3',
     order: 20,
     parentId: null,
     provider: 'wecom',
@@ -1497,10 +1493,13 @@ describe('adminRouter', () => {
 
   it('returns a stable conflict error when creating a duplicate global custom role', async () => {
     allowOnlyPermissions('role:manage');
-    const duplicateError = Object.assign(new Error('duplicate key value violates unique constraint'), {
-      code: '23505',
-      constraint: 'rbac_roles_name_workspace_unique',
-    });
+    const duplicateError = Object.assign(
+      new Error('duplicate key value violates unique constraint'),
+      {
+        code: '23505',
+        constraint: 'rbac_roles_name_workspace_unique',
+      },
+    );
     const db = createRoleLifecycleWriteDb({ createRoleError: duplicateError });
     vi.mocked(getServerDB).mockResolvedValue(db as never);
     const caller = createCaller(await createAdminContext('user')) as any;
@@ -2179,9 +2178,7 @@ describe('adminRouter', () => {
     expect(db.query.roles.findMany).toHaveBeenCalled();
     const listRolesQuery = (db.query.roles.findMany as any).mock.calls[0]?.[0];
 
-    expect(
-      collectInspectableTokens(listRolesQuery?.where).join(' '),
-    ).not.toContain('is_active');
+    expect(collectInspectableTokens(listRolesQuery?.where).join(' ')).not.toContain('is_active');
     expect(db.query.rolePermissions.findMany).toHaveBeenCalled();
   });
 
@@ -2307,7 +2304,7 @@ describe('adminRouter', () => {
           isPrimary: true,
           name: 'lin@example.com',
           position: 'Support Specialist',
-          status: '\u6b63\u5e38',
+          status: '\u6B63\u5E38',
           userId: 'user-lin',
         },
         {
@@ -2341,7 +2338,7 @@ describe('adminRouter', () => {
     await expect(
       caller.org.departments.upsert({
         externalDepartmentId: 'wx-rd',
-        name: '\u7814\u53d1\u4e2d\u5fc3',
+        name: '\u7814\u53D1\u4E2D\u5FC3',
         order: 20,
         parentId: null,
         provider: 'wecom',
@@ -2350,7 +2347,7 @@ describe('adminRouter', () => {
     ).resolves.toEqual({
       externalDepartmentId: 'wx-rd',
       id: 'dept-rd',
-      name: '\u7814\u53d1\u4e2d\u5fc3',
+      name: '\u7814\u53D1\u4E2D\u5FC3',
       order: 20,
       parentId: null,
       provider: 'wecom',
@@ -2472,7 +2469,7 @@ describe('adminRouter', () => {
     await expect(
       caller.org.departments.upsert({
         externalDepartmentId: 'wx-rd',
-        name: '\u7814\u53d1\u4e2d\u5fc3',
+        name: '\u7814\u53D1\u4E2D\u5FC3',
         provider: 'wecom',
       }),
     ).rejects.toMatchObject({
@@ -2610,7 +2607,7 @@ describe('adminRouter', () => {
       const result = await settle(
         caller.org.departments.upsert({
           externalDepartmentId: 'wx-rd',
-          name: '\u7814\u53d1\u4e2d\u5fc3',
+          name: '\u7814\u53D1\u4E2D\u5FC3',
           order: 20,
           parentId: null,
           provider: 'wecom',
@@ -2624,7 +2621,7 @@ describe('adminRouter', () => {
         value: {
           externalDepartmentId: 'wx-rd',
           id: 'dept-rd',
-          name: '\u7814\u53d1\u4e2d\u5fc3',
+          name: '\u7814\u53D1\u4E2D\u5FC3',
           provider: 'wecom',
         },
       });

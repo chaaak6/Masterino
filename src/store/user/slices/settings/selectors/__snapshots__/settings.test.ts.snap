@@ -51,48 +51,48 @@ exports[`settingsSelectors > currentSettings > should merge DEFAULT_SETTINGS and
 exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AGENT_CONFIG and s.settings.systemAgent correctly 1`] = `
 {
   "agentMeta": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "enableAutoReply": true,
   "followUpAction": {
     "enabled": false,
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "generationTopic": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "historyCompress": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "inputCompletion": {
     "enabled": false,
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "memoryAnalysisAgentConfig": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "promptRewrite": {
     "enabled": true,
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "replyMessage": "Custom auto reply",
   "thread": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "topic": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "translation": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
   "userMemoryEmbedding": {
@@ -100,7 +100,7 @@ exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AG
     "provider": "newapi",
   },
   "userMemoryPersonaWriter": {
-    "model": "glm5.1",
+    "model": "glm-5.2",
     "provider": "newapi",
   },
 }
@@ -130,7 +130,7 @@ exports[`settingsSelectors > defaultAgent > should merge DEFAULT_AGENT and s.set
       "historyCount": 20,
       "reasoningBudgetToken": 1024,
       "searchFCModel": {
-        "model": "glm5.1",
+        "model": "glm-5.2",
         "provider": "newapi",
       },
       "searchMode": "auto",
@@ -177,7 +177,7 @@ exports[`settingsSelectors > defaultAgentConfig > should merge DEFAULT_AGENT_CON
     "historyCount": 20,
     "reasoningBudgetToken": 1024,
     "searchFCModel": {
-      "model": "glm5.1",
+      "model": "glm-5.2",
       "provider": "newapi",
     },
     "searchMode": "auto",

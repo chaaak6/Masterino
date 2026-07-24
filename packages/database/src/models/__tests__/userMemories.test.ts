@@ -37,7 +37,7 @@ const userMemoryModel = new UserMemoryModel(serverDB, userId);
  * @returns Normalized random vector
  */
 function generateRandomEmbedding(dimensions: number = 2048): number[] {
-  const vector = new Array(dimensions).fill(0).map(() => Math.random() * 2 - 1); // Random values between -1 and 1
+  const vector = Array.from({ length: dimensions }, () => Math.random() * 2 - 1);
 
   // Normalize the vector
   const magnitude = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
@@ -51,11 +51,11 @@ function createAxisVector(dimensions: number = 2048, index: number = 0): number[
   return Array.from({ length: dimensions }, (_, i) => (i === index ? 1 : 0));
 }
 
-// Assert that two numeric vectors are equal within a precision tolerance
+// halfvec stores each element with 16-bit precision, so allow its expected quantization error.
 function expectVectorToBeClose(
   actual: number[] | null | undefined,
   expected: number[],
-  precision: number = 5,
+  precision: number = 4,
 ) {
   expect(actual).toBeDefined();
   expect(actual).not.toBeNull();
