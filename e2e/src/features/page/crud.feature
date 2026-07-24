@@ -1,4 +1,5 @@
-@journey @P0 @page
+# The Pages product feature is currently disabled in packages/app-config.
+@journey @P0 @page @skip
 Feature: Page 文稿 CRUD 操作
 
   作为用户，我希望能够创建、编辑和管理文稿页面，

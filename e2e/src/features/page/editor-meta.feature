@@ -1,4 +1,5 @@
-@journey @P0 @page
+# The Pages product feature is currently disabled in packages/app-config.
+@journey @P0 @page @skip
 Feature: Page 编辑器元数据编辑
 
   作为用户，我希望能够编辑文稿的标题和图标，
