@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SignInPasswordStep } from './SignInPasswordStep';
@@ -30,7 +30,13 @@ vi.mock('@lobehub/ui', async () => {
       </button>
     ),
     Icon: () => <span data-testid="icon" />,
-    InputPassword: ({ ref, placeholder }) => {
+    InputPassword: ({
+      ref,
+      placeholder,
+    }: {
+      placeholder?: string;
+      ref?: Ref<{ focus: () => void }>;
+    }) => {
       React.useImperativeHandle(ref, () => ({ focus: vi.fn() }));
 
       return <input placeholder={placeholder} type="password" />;
