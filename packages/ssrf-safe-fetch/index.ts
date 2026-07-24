@@ -37,6 +37,17 @@ export interface SSRFOptions {
  */
 export const CLOUD_METADATA_IP_ADDRESS_DENY_LIST = ['100.100.100.200'];
 
+const logBlockedRequest = () => {
+  console.warn(
+    JSON.stringify({
+      component: 'ssrf-safe-fetch',
+      event: 'security.ssrf_request_blocked',
+      reason: 'destination_not_allowed',
+      severity: 'warning',
+    }),
+  );
+};
+
 /**
  * Consume a node-fetch Response body up to `cap` bytes, then stop. Breaking out
  * of `for await` closes the async iterator, which destroys the underlying stream
@@ -140,9 +151,12 @@ export const ssrfSafeFetch = async (
     const isSSRFBlock = errorMessage.includes('is not allowed');
 
     if (isSSRFBlock) {
-      console.error('SSRF protection blocked request:', error);
+      // Keep the log alertable without recording the requested URL, resolved
+      // address, or the low-level error, any of which may contain sensitive
+      // internal network details.
+      logBlockedRequest();
       throw new Error(
-        `SSRF blocked: ${errorMessage}. ` +
+        'SSRF blocked: destination is not allowed. ' +
           'See: https://aihub.bielcrystal.com/docs/self-hosting/environment-variables/basic#ssrf-allow-private-ip-address',
         { cause: error },
       );

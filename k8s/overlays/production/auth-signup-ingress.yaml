@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: masterino-auth-signup-ingress
+  labels:
+    app.kubernetes.io/name: masterino
+    app.kubernetes.io/part-of: masterino
+  annotations:
+    nginx.ingress.kubernetes.io/limit-rpm: '5'
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: '1'
+    nginx.ingress.kubernetes.io/proxy-body-size: '16k'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - masterion.bielcrystal.com
+      secretName: 20261122bielcrystal.com
+  rules:
+    - host: masterion.bielcrystal.com
+      http:
+        paths:
+          - path: /api/auth/sign-up/email
+            pathType: Exact
+            backend:
+              service:
+                name: masterino
+                port:
+                  number: 3210

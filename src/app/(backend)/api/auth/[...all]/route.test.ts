@@ -39,6 +39,8 @@ const createPostRequest = (body: string, contentType = 'application/json') =>
     method: 'POST',
   }) as NextRequest;
 
+vi.spyOn(console, 'warn').mockImplementation(() => {});
+
 describe('/api/auth/[...all] route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,6 +80,15 @@ describe('/api/auth/[...all] route', () => {
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toEqual({ code: 'NOT_FOUND', message: 'Not found' });
       expect(mocks.post).not.toHaveBeenCalled();
+      expect(console.warn).toHaveBeenCalledWith(
+        JSON.stringify({
+          component: 'auth',
+          event: 'security.email_signup_blocked',
+          reason: 'signup_disabled',
+          severity: 'warning',
+        }),
+      );
+      expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('known@example.com'));
     },
   );
 

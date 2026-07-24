@@ -13,6 +13,7 @@ const mockFetch = fetch as any;
 
 // Mock console.error to avoid noise in test output
 vi.spyOn(console, 'error').mockImplementation(() => {});
+vi.spyOn(console, 'warn').mockImplementation(() => {});
 
 describe('ssrfSafeFetch', () => {
   const createMockResponse = (
@@ -238,9 +239,20 @@ describe('ssrfSafeFetch', () => {
       );
       mockFetch.mockRejectedValue(ssrfError);
 
-      await expect(ssrfSafeFetch('http://10.0.0.1/internal')).rejects.toThrow(/SSRF blocked/);
+      await expect(ssrfSafeFetch('http://10.0.0.1/internal')).rejects.toThrow(
+        'SSRF blocked: destination is not allowed',
+      );
 
-      expect(console.error).toHaveBeenCalledWith('SSRF protection blocked request:', ssrfError);
+      expect(console.warn).toHaveBeenCalledWith(
+        JSON.stringify({
+          component: 'ssrf-safe-fetch',
+          event: 'security.ssrf_request_blocked',
+          reason: 'destination_not_allowed',
+          severity: 'warning',
+        }),
+      );
+      expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('10.0.0.1'));
+      expect(console.error).not.toHaveBeenCalledWith('SSRF protection blocked request:', ssrfError);
     });
 
     it('should handle non-Error thrown values', async () => {

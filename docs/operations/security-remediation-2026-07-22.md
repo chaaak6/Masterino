@@ -7,12 +7,12 @@ the findings in the `masterion.bielcrystal.com` penetration-test report.
 
 | Finding | Repository status                                                            | Evidence / remaining action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| F-01    | Implemented                                                                  | Remote skills require an exact administrator-approved HTTPS origin. The initial request and every redirect use SSRF-filtering agents, private/metadata IPs are denied, response size and timeout are bounded, and network details are not returned.                                                                                                                                                                                                                                                                                  |
-| F-02    | Implemented                                                                  | Production disables email sign-up. The email sign-up route returns a fixed 404 before Better Auth and cannot create a session.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| F-01    | Implemented                                                                  | Remote skills require an exact administrator-approved HTTPS origin. The initial request and every redirect use SSRF-filtering agents, private/metadata IPs are denied, response size and timeout are bounded, and network details are not returned. Blocked destinations emit a structured `security.ssrf_request_blocked` event without the URL, resolved address, or low-level error.                                                                                                                                              |
+| F-02    | Implemented                                                                  | Production disables email sign-up. The email sign-up route returns a fixed 404 before Better Auth and cannot create a session. The exact path is rate-limited at ingress and emits a PII-free `security.email_signup_blocked` event.                                                                                                                                                                                                                                                                                                 |
 | F-03    | Implemented                                                                  | Model-provider endpoints require an approved origin, local implicit endpoints are rejected, errors are sanitized, and model listing cannot borrow server environment credentials.                                                                                                                                                                                                                                                                                                                                                    |
 | F-04    | Application and credential-chain mitigation implemented; node action remains | Application SSRF filtering always denies Alibaba/AWS metadata addresses. The application container disables Alibaba Cloud and AWS SDK metadata credential providers and forbids Alibaba Cloud IMDSv1 fallback. NetworkPolicy excludes the metadata addresses as defense in depth, but it is not treated as an authoritative control because ACK/Terway can exempt node traffic. The shared ECS nodes still require a coordinated IMDSv2 migration.                                                                                   |
 | F-05    | Implemented                                                                  | Provider errors are generic. Production ingress removes middleware, rewrite, cache, prerender, invoke-path, and framework fingerprint headers.                                                                                                                                                                                                                                                                                                                                                                                       |
-| F-06    | Implemented                                                                  | The disabled sign-up endpoint always returns the same fixed response, independent of whether an email exists.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| F-06    | Implemented                                                                  | The disabled sign-up endpoint always returns the same fixed response, independent of whether an email exists. The application does not log submitted email addresses or request bodies.                                                                                                                                                                                                                                                                                                                                              |
 | F-07    | Implemented                                                                  | OpenAPI CORS is an explicit origin allowlist; wildcard origins are rejected.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | F-08    | Protocol-compatible mitigation implemented                                   | Browser CORS is restricted to registered non-loopback origins, native/server responses do not expose wildcard CORS, token bodies are stream-limited, and ingress rate-limits the exact token path. Desktop/mobile/CLI are OAuth public clients, so the token endpoint must remain reachable and cannot safely embed a client secret. The server-side Market web client is registered only when `OIDC_MARKET_CLIENT_SECRET` exists and then requires `client_secret_basic`; without the secret it fails closed and is not registered. |
 | F-09    | Implemented                                                                  | The Better Auth admin plugin and client plugin are removed, so `/api/auth/admin/*` is not registered. Administrative product features continue through authenticated RBAC APIs.                                                                                                                                                                                                                                                                                                                                                      |
@@ -102,6 +102,45 @@ Required node-level closeout:
 - The deployed page emits CSP and HSTS, exposes no Next.js internal routing
   headers, contains no `sourceMappingURL` reference, and publishes no source-map
   file for the discovered JavaScript assets.
+
+### Shared ingress, WAF, OCSP, and logging
+
+- Test, pre-production, and production Masterion hosts currently share ACK
+  ingress class `nginx` and the public NLB
+  `nlb-pkheesf2fnmqr7yil7`. The NLB has only TCP listeners on ports 80 and 443;
+  TLS is terminated by the shared NGINX ingress controller.
+- The Alibaba Cloud account has an active WAF 3.0 Pro instance with Log Service
+  capability. A read-only `DescribeCloudResources` query filtered to the shared
+  NLB returned zero resources, so the NLB is not currently onboarded to WAF.
+- TLS 1.3 negotiation and certificate verification succeeded for both
+  `mlai-test.bielcrystal.com` and `masterion.bielcrystal.com`, but neither
+  endpoint stapled an OCSP response. The shared ingress ConfigMap does not set
+  `enable-ocsp`, whose controller default is disabled.
+- LoongCollector is healthy on all three nodes. The only
+  `AliyunLogConfig` currently collects NGINX ingress stdout into the
+  `nginx-ingress` Logstore; application container stdout is not yet collected
+  centrally.
+- Application security events intentionally contain only a stable event name,
+  component, severity, and reason. They omit submitted credentials, email
+  addresses, cookies, target URLs, resolved addresses, and low-level SSRF
+  errors.
+
+Required shared-ingress closeout:
+
+1. During an approved maintenance window, onboard TCP ports 80 and 443 of the
+   shared NLB to WAF 3.0. This is a shared change and Alibaba Cloud documents a
+   possible brief connection interruption.
+2. Verify WAF core web protection, false-positive behavior, WAF logging, and
+   CloudMonitor notifications on the test host before accepting production
+   traffic through the same protected ports.
+3. Approve the shared NGINX ConfigMap change `enable-ocsp: "true"`, roll the two
+   ingress-controller replicas, and verify both test and production with
+   `openssl s_client -status`.
+4. Approve a dedicated `AliyunLogConfig` and Logstore for Masterion application
+   stdout. Add alerts for `security.ssrf_request_blocked` and
+   `security.email_signup_blocked`, with an appropriate aggregation window and
+   notification owner. Until then, the events remain available only in pod
+   logs.
 
 ## Post-deployment verification
 

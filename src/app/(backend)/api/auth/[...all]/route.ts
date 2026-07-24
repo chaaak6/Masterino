@@ -30,6 +30,17 @@ const getHandler = (request: Request) => {
 const malformedJsonResponse = () =>
   Response.json({ code: 'INVALID_JSON', message: 'Malformed JSON request body' }, { status: 400 });
 
+const logBlockedEmailSignup = () => {
+  console.warn(
+    JSON.stringify({
+      component: 'auth',
+      event: 'security.email_signup_blocked',
+      reason: 'signup_disabled',
+      severity: 'warning',
+    }),
+  );
+};
+
 const clearLegacySessionDataCookies = (request: Request, response: Response) => {
   const requestCookies = request.headers.get('cookie');
   if (!requestCookies) return response;
@@ -84,6 +95,9 @@ export const POST = async (request: NextRequest) => {
     pathname === '/api/auth/sign-up/email' &&
     (authEnv.AUTH_DISABLE_EMAIL_PASSWORD || authEnv.AUTH_DISABLE_EMAIL_SIGNUP)
   ) {
+    // Deliberately omit the submitted body, email address, cookies, and client
+    // address. Ingress logs retain request metadata for operational correlation.
+    logBlockedEmailSignup();
     return clearLegacySessionDataCookies(
       request,
       Response.json({ code: 'NOT_FOUND', message: 'Not found' }, { status: 404 }),

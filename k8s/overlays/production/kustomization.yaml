@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: masterino
 resources:
   - ../../base
+  - auth-signup-ingress.yaml
   - namespace.yaml
   - configmap.yaml
   - ingress.yaml
