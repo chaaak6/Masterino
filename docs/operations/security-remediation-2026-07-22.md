@@ -142,6 +142,97 @@ Required shared-ingress closeout:
    notification owner. Until then, the events remain available only in pod
    logs.
 
+## Production runtime audit (2026-07-24)
+
+The penetration-test target is still served by the legacy `masterlion`
+Deployment rather than the remediated `masterino` Deployment:
+
+- Namespace `masterlion` runs two ready replicas from
+  `masterlion@sha256:bf67c9323b55817d51b3b3fed468e58c13f3d7f22dfc198da8453067b191d70e`.
+  The tested `masterino` image is not deployed there.
+- The public server configuration and the running container both report
+  `disableEmailSignup=false` and `disableEmailPassword=false`.
+- The Alibaba Cloud/AWS metadata credential-disable variables are absent from
+  the production container.
+- A read-only live retest found no CSP, wildcard OpenAPI CORS, exposed
+  `x-middleware-rewrite` and `x-nextjs-cache` headers, HTTP 200 for a malformed
+  nested SPA path, and HTTP 401 rather than 404 for the Better Auth admin route.
+- HSTS, unknown-root 404 handling, authentication-error sanitization, and the
+  absence of source-map references were observed.
+
+This proves that repository and test-environment remediation is not production
+closure. Do not mark F-01 through F-15 fully remediated until the production
+image is upgraded and the post-deployment checks pass.
+
+### Production deployment topology warning
+
+Do not apply `k8s/overlays/production` directly to the current cluster as a
+shortcut. Namespace `masterino` does not exist, and that overlay creates new
+PostgreSQL and Redis StatefulSets/PVCs in addition to a second ingress for
+`masterion.bielcrystal.com`. Applying it without an explicit data migration and
+DNS/ingress cutover plan could start an empty application stack or split
+traffic.
+
+The current production topology is:
+
+- namespace: `masterlion`
+- Deployment/container: `masterlion`
+- Service: `masterlion:3210`
+- ConfigMap/Secret: `masterlion-config` and `masterlion-secret`
+- ingress hosts: `masterion.bielcrystal.com` and
+  `masterlion.bielcrystal.com`
+- replicas: 2, rolling update, no HPA or PodDisruptionBudget
+
+The optional overlay at `k8s/overlays/production-legacy-security` contains only
+exact-path rate/body-limit ingress resources for both production host aliases.
+It is intentionally not referenced by any automatic deployment overlay.
+
+### Approval-gated in-place production upgrade
+
+Run this only during an approved production maintenance window, after recording
+the current Deployment revision and confirming database migration
+compatibility:
+
+```bash
+# Record the rollback target before changing anything.
+kubectl -n masterlion rollout history deployment/masterlion
+
+# 1. Reduce exposure before changing the application image.
+kubectl apply --server-side \
+  --field-manager=masterion-security-remediation \
+  -k k8s/overlays/production-legacy-security
+
+# 2. Explicit values override the legacy secret/config values.
+kubectl -n masterlion set env deployment/masterlion \
+  AUTH_DISABLE_EMAIL_SIGNUP=1 \
+  AUTH_DISABLE_EMAIL_PASSWORD=0 \
+  ENABLED_CSP=1 \
+  OPENAPI_CORS_ALLOWED_ORIGINS=https://aihub.bielcrystal.com \
+  MODEL_PROVIDER_ALLOWED_ORIGINS=https://aihub.bielcrystal.com \
+  SKILL_IMPORT_ALLOWED_ORIGINS=https://masterion.bielcrystal.com,https://github.com,https://raw.githubusercontent.com,https://codeload.github.com,https://pinchwork.dev \
+  ALIBABA_CLOUD_ECS_METADATA_DISABLED=true \
+  ALIBABA_CLOUD_IMDSV1_DISABLE=true \
+  AWS_EC2_METADATA_DISABLED=true
+kubectl -n masterlion rollout status deployment/masterlion --timeout=10m
+
+# 3. Deploy the image already verified in masterino-test.
+kubectl -n masterlion set image deployment/masterlion \
+  masterlion=boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino@sha256:70fbfb8ed20757e477cb2aeabe7edf1f1dd4c5a6f1d96708d6d122051250518e
+kubectl -n masterlion rollout status deployment/masterlion --timeout=10m
+```
+
+If either rollout fails, stop further changes and roll back the Deployment to
+the revision recorded before the maintenance window:
+
+```bash
+kubectl -n masterlion rollout undo deployment/masterlion --to-revision=<revision>
+kubectl -n masterlion rollout status deployment/masterlion --timeout=10m
+```
+
+After the upgrade, repeat every check in the next section against both
+production host aliases. Confirm two ready replicas with zero new restarts
+before ending the maintenance window.
+
 ## Post-deployment verification
 
 Run the checks from a network that reaches the production ingress:

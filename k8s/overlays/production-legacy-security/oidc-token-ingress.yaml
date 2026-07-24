@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: masterlion-oidc-token-security
+  labels:
+    app.kubernetes.io/name: masterlion
+    app.kubernetes.io/part-of: masterlion
+    masterino.io/security-overlay: legacy-production
+  annotations:
+    nginx.ingress.kubernetes.io/limit-rpm: '5'
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: '1'
+    nginx.ingress.kubernetes.io/proxy-body-size: '16k'
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - masterion.bielcrystal.com
+        - masterlion.bielcrystal.com
+      secretName: 20261122bielcrystal.com
+  rules:
+    - host: masterion.bielcrystal.com
+      http:
+        paths:
+          - path: /oidc/token
+            pathType: Exact
+            backend:
+              service:
+                name: masterlion
+                port:
+                  number: 3210
+    - host: masterlion.bielcrystal.com
+      http:
+        paths:
+          - path: /oidc/token
+            pathType: Exact
+            backend:
+              service:
+                name: masterlion
+                port:
+                  number: 3210
