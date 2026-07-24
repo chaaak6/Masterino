@@ -6,6 +6,9 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - ingress.yaml
+  - metadata-egress-network-policy.yaml
+  - oidc-token-ingress.yaml
+  - webapi-trace-ingress.yaml
 replicas:
   - name: masterino
     count: 1

@@ -32,10 +32,19 @@ spec:
         app.kubernetes.io/name: masterino
         app.kubernetes.io/part-of: masterino
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: masterino
           image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino:v1.0.3
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 3210
               name: http
@@ -47,13 +56,13 @@ spec:
           env:
             # The application must never connect directly to the Aihub database.
             - name: AIHUB_READONLY_DATABASE_URL
-              value: ""
+              value: ''
           resources:
             requests:
               cpu: 500m
               memory: 1Gi
             limits:
-              cpu: "1"
+              cpu: '1'
               memory: 2Gi
           readinessProbe:
             tcpSocket:

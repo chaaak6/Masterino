@@ -63,7 +63,6 @@ vi.mock('better-auth/minimal', () => ({
 }));
 
 vi.mock('better-auth/plugins', () => ({
-  admin: vi.fn(() => ({ id: 'admin' })),
   emailOTP: mocks.emailOTP,
   genericOAuth: vi.fn(() => ({ id: 'generic-oauth' })),
   magicLink: mocks.magicLink,
@@ -203,6 +202,18 @@ describe('defineConfig', () => {
         }),
       }),
     );
+  });
+
+  it('keeps session metadata server-side instead of emitting a session_data cookie cache', async () => {
+    const { defineConfig } = await import('./define-config');
+
+    const options = defineConfig({ plugins: [] }) as any;
+
+    expect(options.session).toMatchObject({
+      cookieCache: { enabled: false },
+      storeSessionInDatabase: true,
+    });
+    expect(options.plugins).not.toContainEqual(expect.objectContaining({ id: 'admin' }));
   });
 
   it('uses request base URL overrides for dynamic auth handlers', async () => {

@@ -79,7 +79,7 @@ describe('OIDC HTTP adapter', () => {
       const { urlencoded } = await import('oidc-provider/lib/shared/selective_body.js');
       const nodeRequest = await createNodeRequest(request);
       const ctx: SelectiveBodyContext = {
-        charset: 'utf-8',
+        charset: 'utf8',
         is: (contentType: string) => contentType === 'application/x-www-form-urlencoded',
         oidc: {},
         req: nodeRequest,
@@ -113,6 +113,43 @@ describe('OIDC HTTP adapter', () => {
       expect(arrayBuffer).not.toHaveBeenCalled();
       expect(nodeRequest.readable).toBe(true);
       await expect(readStream(nodeRequest as unknown as Readable)).resolves.toBe('');
+    });
+
+    it('accepts a bounded body without relying on Content-Length', async () => {
+      const body = 'grant_type=refresh_token';
+      const request = new Request('https://example.com/oidc/token', {
+        body,
+        method: 'POST',
+      }) as unknown as NextRequest;
+      request.headers.delete('content-length');
+
+      const { createNodeRequest } = await import('./http-adapter');
+      const nodeRequest = await createNodeRequest(request, { maxBodyBytes: 1024 });
+
+      await expect(readStream(nodeRequest as unknown as Readable)).resolves.toBe(body);
+    });
+
+    it('stops reading an oversized body without relying on Content-Length', async () => {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('12345678'));
+          controller.enqueue(encoder.encode('9'));
+          controller.close();
+        },
+      });
+      const request = {
+        body,
+        headers: new Headers(),
+        method: 'POST',
+        url: 'https://example.com/oidc/token',
+      } as unknown as NextRequest;
+
+      const { createNodeRequest } = await import('./http-adapter');
+
+      await expect(createNodeRequest(request, { maxBodyBytes: 8 })).rejects.toMatchObject({
+        name: 'OIDCRequestBodyTooLargeError',
+      });
     });
   });
 });

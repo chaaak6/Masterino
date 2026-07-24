@@ -12,6 +12,12 @@ vi.mock('@/envs/app', () => ({
   },
 }));
 
+vi.mock('@/envs/auth', () => ({
+  authEnv: {
+    OIDC_MARKET_CLIENT_SECRET: 'test-market-client-secret-at-least-32-bytes',
+  },
+}));
+
 vi.mock('@/config/db', () => ({
   serverDBEnv: {
     KEY_VAULTS_SECRET: 'test-secret-key',
@@ -52,8 +58,34 @@ describe('OIDC Provider - Market Client Integration', () => {
       expect(marketClient).toBeDefined();
       expect(marketClient?.client_id).toBe('lobehub-market');
       expect(marketClient?.client_name).toBe('Masterino Marketplace');
+      expect(marketClient?.token_endpoint_auth_method).toBe('client_secret_basic');
+      expect(marketClient?.client_secret).toBe('test-market-client-secret-at-least-32-bytes');
 
       vi.doUnmock('@/envs/app');
+    });
+
+    it('does not register a public Market web client when its secret is missing', async () => {
+      vi.doMock('@/envs/auth', () => ({
+        authEnv: {
+          OIDC_MARKET_CLIENT_SECRET: undefined,
+        },
+      }));
+
+      const { defaultClients } = await import('./config');
+
+      expect(
+        defaultClients.find((client) => client.client_id === MARKET_CLIENT_ID),
+      ).toBeUndefined();
+      expect(
+        defaultClients.filter((client) => client.application_type === 'web'),
+      ).not.toContainEqual(
+        expect.objectContaining({
+          client_id: MARKET_CLIENT_ID,
+          token_endpoint_auth_method: 'none',
+        }),
+      );
+
+      vi.doUnmock('@/envs/auth');
     });
   });
 

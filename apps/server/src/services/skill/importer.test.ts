@@ -9,6 +9,13 @@ import { SkillImportError } from './errors';
 import { SkillImporter } from './importer';
 
 // Mock external dependencies only (GitHub, S3, parser)
+const { mockSsrfSafeFetch } = vi.hoisted(() => ({
+  mockSsrfSafeFetch: vi.fn(),
+}));
+vi.mock('@lobechat/ssrf-safe-fetch', () => ({
+  ssrfSafeFetch: mockSsrfSafeFetch,
+}));
+
 const normalizeIdentifierPart = (part: string) =>
   part
     .replaceAll(/[^\w-]/g, '-')
@@ -53,10 +60,6 @@ vi.mock('./parser', () => ({
   SkillParser: vi.fn().mockImplementation(() => mockParserInstance),
 }));
 
-// Mock global fetch for URL imports
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
-
 // Mock S3 operations in FileService implementation
 vi.mock('@/server/services/file/impls', () => ({
   createFileServiceModule: vi.fn().mockImplementation(() => ({
@@ -88,6 +91,10 @@ describe('SkillImporter', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.stubEnv(
+      'SKILL_IMPORT_ALLOWED_ORIGINS',
+      'https://example.com,https://pinchwork.dev,https://github.com',
+    );
 
     db = await getTestDB();
     userId = `test-user-${Date.now()}`;
@@ -816,11 +823,11 @@ describe('SkillImporter', () => {
 
   describe('importFromUrl', () => {
     beforeEach(() => {
-      mockFetch.mockReset();
+      mockSsrfSafeFetch.mockReset();
     });
 
     it('should import skill from URL', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: true,
         status: 200,
         text: async () => `---
@@ -848,6 +855,16 @@ This is the skill content.`,
       expect(result.skill.identifier).toBe('url.example.com.skill');
       expect(result.skill.source).toBe('market');
       expect(result.skill.content).toBe('# URL Skill Content\n\nThis is the skill content.');
+      expect(mockSsrfSafeFetch).toHaveBeenCalledWith(
+        'https://example.com/skill.md',
+        { signal: expect.any(AbortSignal) },
+        {
+          allowIPAddressList: [],
+          allowPrivateIPAddress: false,
+          allowedURLOrigins: ['https://example.com', 'https://pinchwork.dev', 'https://github.com'],
+          maxContentLength: 16 * 1024 * 1024,
+        },
+      );
 
       // Verify manifest contains source URL
       const dbSkill = await db.query.agentSkills.findFirst({
@@ -859,7 +876,7 @@ This is the skill content.`,
     });
 
     it('should handle URL with path', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: true,
         status: 200,
         text: async () => `---
@@ -883,7 +900,7 @@ description: A nested skill
     });
 
     it('should update existing skill when re-importing from same URL', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: true,
         status: 200,
         text: async () => 'content',
@@ -921,7 +938,7 @@ description: A nested skill
     });
 
     it('should return unchanged when content is the same', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: true,
         status: 200,
         text: async () => 'content',
@@ -960,8 +977,21 @@ description: A nested skill
       }
     });
 
+    it.each([
+      'http://127.0.0.1:3210/api/auth/get-session',
+      'http://100.100.100.200/latest/meta-data/',
+      'file:///etc/passwd',
+      'https://user:password@example.com/skill.md',
+    ])('should reject unsafe remote skill URL %s before fetching', async (url) => {
+      await expect(importer.importFromUrl({ url })).rejects.toMatchObject({
+        code: 'INVALID_URL',
+      });
+
+      expect(mockSsrfSafeFetch).not.toHaveBeenCalled();
+    });
+
     it('should throw NOT_FOUND error when URL returns 404', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -979,7 +1009,7 @@ description: A nested skill
     });
 
     it('should throw DOWNLOAD_FAILED error when fetch fails', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -997,7 +1027,11 @@ description: A nested skill
     });
 
     it('should throw DOWNLOAD_FAILED error when network error occurs', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
+      mockSsrfSafeFetch.mockRejectedValue(
+        new Error(
+          'SSRF blocked: DNS lookup 127.0.0.1 is not allowed. Because, It is private IP address.',
+        ),
+      );
 
       await expect(
         importer.importFromUrl({ url: 'https://example.com/network-error.md' }),
@@ -1007,6 +1041,7 @@ description: A nested skill
         await importer.importFromUrl({ url: 'https://example.com/network-error.md' });
       } catch (e) {
         expect((e as SkillImportError).code).toBe('DOWNLOAD_FAILED');
+        expect((e as SkillImportError).message).not.toContain('127.0.0.1');
       }
     });
   });

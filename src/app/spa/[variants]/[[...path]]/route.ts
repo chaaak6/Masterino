@@ -1,9 +1,11 @@
 import { BRANDING_NAME } from '@lobechat/business-const';
 import { OG_URL } from '@lobechat/const';
+import { serverDB } from '@lobechat/database';
 
 import { getServerFeatureFlagsValue } from '@/config/featureFlags';
 import { OFFICIAL_URL } from '@/const/url';
 import { isDesktop } from '@/const/version';
+import { WorkspaceModel } from '@/database/models/workspace';
 import { appEnv } from '@/envs/app';
 import { fileEnv } from '@/envs/file';
 import { pythonEnv } from '@/envs/python';
@@ -18,6 +20,8 @@ import {
 import { translation } from '@/server/translation';
 import { type SPAClientEnv, type SPAServerConfig } from '@/types/spaServerConfig';
 import { RouteVariants } from '@/utils/server/routeVariants';
+
+import { classifySpaPath } from './pathPolicy';
 
 export function generateStaticParams() {
   const mobileOptions = isDesktop ? [false] : [true, false];
@@ -40,10 +44,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 async function getTemplate(isMobile: boolean, request: Request): Promise<string> {
   if (isDev) {
-    return fetchViteDevTemplate(
-      isMobile ? '/index.mobile.html' : '/',
-      getViteDevOrigin(request),
-    );
+    return fetchViteDevTemplate(isMobile ? '/index.mobile.html' : '/', getViteDevOrigin(request));
   }
 
   const { desktopHtmlTemplate, mobileHtmlTemplate } = await import('./spaHtmlTemplates');
@@ -79,7 +80,7 @@ async function buildSeoMeta(locale: string): Promise<string> {
     `<meta name="twitter:title" content="${title}" />`,
     `<meta name="twitter:description" content="${description}" />`,
     `<meta name="twitter:image" content="${OG_URL}" />`,
-    `<meta name="twitter:site" content="@MasterLion" />`,
+    `<meta name="twitter:site" content="@Masterino" />`,
   ].join('\n    ');
 }
 
@@ -87,7 +88,42 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ path?: string[]; variants: string }> },
 ) {
-  const { variants } = await params;
+  const { path, variants } = await params;
+  const pathClassification = classifySpaPath(path);
+
+  if (pathClassification === 'unknown') {
+    return new Response('Not Found', {
+      headers: {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+      status: 404,
+    });
+  }
+
+  if (pathClassification === 'workspace') {
+    try {
+      const workspace = await new WorkspaceModel(serverDB, '').findBySlug(path![0]);
+      if (!workspace) {
+        return new Response('Not Found', {
+          headers: {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'text/plain; charset=utf-8',
+          },
+          status: 404,
+        });
+      }
+    } catch {
+      return new Response('Not Found', {
+        headers: {
+          'Cache-Control': 'no-store',
+          'Content-Type': 'text/plain; charset=utf-8',
+        },
+        status: 404,
+      });
+    }
+  }
+
   const { locale, isMobile } = RouteVariants.deserializeVariants(variants);
 
   const spaConfig: SPAServerConfig = {

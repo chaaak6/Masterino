@@ -104,6 +104,11 @@ declare global {
        * Can be generated using `node scripts/generate-oidc-jwk.mjs`.
        */
       JWKS_KEY?: string;
+      /**
+       * Secret for the server-side Market OIDC client. Native desktop/mobile/CLI
+       * clients remain public and use PKCE instead.
+       */
+      OIDC_MARKET_CLIENT_SECRET?: string;
     }
   }
 }
@@ -201,6 +206,7 @@ export const getAuthConfig = () => {
 
       // Generic JWKS key for signing/verifying JWTs
       JWKS_KEY: z.string().optional(),
+      OIDC_MARKET_CLIENT_SECRET: z.string().min(32).optional(),
       ENABLE_OIDC: z.boolean(),
 
       // Internal JWT expiration time (e.g., '10s', '1m', '1h')
@@ -299,6 +305,7 @@ export const getAuthConfig = () => {
       CASDOOR_WEBHOOK_SECRET: process.env.CASDOOR_WEBHOOK_SECRET,
 
       JWKS_KEY: process.env.JWKS_KEY,
+      OIDC_MARKET_CLIENT_SECRET: process.env.OIDC_MARKET_CLIENT_SECRET,
       ENABLE_OIDC: !!process.env.JWKS_KEY,
 
       // Internal JWT expiration time

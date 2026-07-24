@@ -2,7 +2,7 @@
 
 import { SiDiscord } from '@icons-pack/react-simple-icons';
 import { SOCIAL_URL } from '@lobechat/business-const';
-import { Button, Flexbox, Icon, Text } from '@lobehub/ui';
+import { Button, Flexbox, Icon } from '@lobehub/ui';
 import { cssVar } from 'antd-style';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,15 +10,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import AuthCard from '@/features/AuthCard';
 
-const normalizeErrorCode = (code?: string | null) =>
-  (code || 'UNKNOWN').trim().toUpperCase().replaceAll('-', '_');
+import { getPublicAuthErrorCode } from './errorCode';
 
 const AuthErrorPage = memo(() => {
   const { t } = useTranslation('authError');
   const [searchParams] = useSearchParams();
-  const error = searchParams.get('error');
-
-  const code = normalizeErrorCode(error);
+  const code = getPublicAuthErrorCode(searchParams.get('error'));
   const description = t(`codes.${code}`, { defaultValue: t('codes.UNKNOWN') });
 
   return (
@@ -44,11 +41,7 @@ const AuthErrorPage = memo(() => {
           </a>
         </Flexbox>
       }
-    >
-      <Text style={{ fontFamily: cssVar.fontFamilyCode }} type={'secondary'}>
-        ErrorCode: {error || 'UNKNOWN'}
-      </Text>
-    </AuthCard>
+    />
   );
 });
 

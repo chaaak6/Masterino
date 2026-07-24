@@ -107,6 +107,10 @@ export default defineConfig({
     modulePreload: sharedModulePreload,
     outDir: isAuth ? 'dist/auth' : isMobile ? 'dist/mobile' : 'dist/desktop',
     reportCompressedSize: false,
+    // Keep production browser artifacts free of source maps. Public SPA
+    // bundles necessarily expose client routes, but must not publish original
+    // source files or comments through .map assets.
+    sourcemap: false,
     rolldownOptions: {
       ...(enableViteDevTools && { devtools: {} }),
       input: path.resolve(
@@ -358,12 +362,7 @@ export default defineConfig({
       ],
     },
     watch: {
-      ignored: [
-        '**/.codex/**',
-        '**/.tmp*/**',
-        '**/e2e/reports/**',
-        '**/e2e/screenshots/**',
-      ],
+      ignored: ['**/.codex/**', '**/.tmp*/**', '**/e2e/reports/**', '**/e2e/screenshots/**'],
     },
   },
 });

@@ -1,16 +1,17 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: masterino-ingress
+  name: masterino-oidc-token-ingress
+  namespace: masterino-test
   labels:
     app.kubernetes.io/name: masterino
     app.kubernetes.io/part-of: masterino
+    masterino.io/environment: test
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: '100m'
-    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
-    nginx.ingress.kubernetes.io/proxy-send-timeout: '300'
-    nginx.ingress.kubernetes.io/proxy-buffering: 'off'
-    nginx.ingress.kubernetes.io/proxy-request-buffering: 'off'
+    nginx.ingress.kubernetes.io/limit-rpm: '5'
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: '1'
+    nginx.ingress.kubernetes.io/proxy-body-size: '16k'
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
     nginx.ingress.kubernetes.io/configuration-snippet: |
       proxy_set_header X-Forwarded-Proto $scheme;
       proxy_hide_header X-Middleware-Rewrite;
@@ -25,23 +26,18 @@ metadata:
       proxy_hide_header X-Invoke-Query;
       proxy_hide_header X-Invoke-Output;
       proxy_hide_header X-Powered-By;
-    nginx.ingress.kubernetes.io/server-snippet: |
-      location = /WW_verify_uSB5OnVf9BeWJX0U.txt {
-        return 200 "uSB5OnVf9BeWJX0U";
-        add_header Content-Type "text/plain";
-      }
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - masterion.bielcrystal.com
+        - mlai-test.bielcrystal.com
       secretName: 20261122bielcrystal.com
   rules:
-    - host: masterion.bielcrystal.com
+    - host: mlai-test.bielcrystal.com
       http:
         paths:
-          - path: /
-            pathType: Prefix
+          - path: /oidc/token
+            pathType: Exact
             backend:
               service:
                 name: masterino

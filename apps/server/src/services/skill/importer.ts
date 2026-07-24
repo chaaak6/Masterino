@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { type LobeChatDatabase } from '@lobechat/database';
+import { ssrfSafeFetch } from '@lobechat/ssrf-safe-fetch';
 import {
   type CreateSkillInput,
   type ImportGitHubInput,
@@ -19,8 +20,10 @@ import { FileService } from '@/server/services/file';
 import { SkillImportError, SkillManifestError } from './errors';
 import { SkillParser } from './parser';
 import { SkillResourceService } from './resource';
+import { getAllowedRemoteSkillOrigins, isRemoteSkillUrlAllowed } from './urlPolicy';
 
 const log = debug('lobe-chat:service:skill-importer');
+const MAX_REMOTE_SKILL_BYTES = 16 * 1024 * 1024;
 
 export class SkillImporter {
   private skillModel: AgentSkillModel;
@@ -295,6 +298,17 @@ export class SkillImporter {
       throw new SkillImportError('Invalid URL format', 'INVALID_URL');
     }
 
+    if (url.protocol !== 'https:' || url.username || url.password) {
+      throw new SkillImportError(
+        'Remote skills must use an HTTPS URL without embedded credentials',
+        'INVALID_URL',
+      );
+    }
+
+    if (!isRemoteSkillUrlAllowed(url)) {
+      throw new SkillImportError('Remote skill source is not approved', 'INVALID_URL');
+    }
+
     // 1.5. Detect GitHub repo/tree/blob URLs and delegate to importFromGitHub for full directory support
     // Only delegate URLs that parseRepoUrl can handle (owner/repo, tree, blob patterns).
     // Let direct download URLs (e.g. /archive/*.zip, /releases/download/*) fall through
@@ -322,9 +336,25 @@ export class SkillImporter {
 
       let response: Response;
       try {
-        response = await fetch(input.url, { signal: controller.signal });
+        response = await ssrfSafeFetch(
+          url.toString(),
+          { signal: controller.signal },
+          {
+            allowIPAddressList: [],
+            allowPrivateIPAddress: false,
+            allowedURLOrigins: [...getAllowedRemoteSkillOrigins()],
+            maxContentLength: MAX_REMOTE_SKILL_BYTES,
+          },
+        );
       } finally {
         clearTimeout(timeoutId);
+      }
+
+      if (response.url) {
+        const responseUrl = new URL(response.url);
+        if (!isRemoteSkillUrlAllowed(responseUrl)) {
+          throw new SkillImportError('Remote skill redirect target is not approved', 'INVALID_URL');
+        }
       }
 
       if (!response.ok) {
@@ -371,10 +401,7 @@ export class SkillImporter {
       log('importFromUrl: error type: %s', error?.constructor?.name);
       log('importFromUrl: error message: %s', (error as Error).message);
       log('importFromUrl: error stack: %s', (error as Error).stack);
-      throw new SkillImportError(
-        `Failed to process URL: ${(error as Error).message}`,
-        'DOWNLOAD_FAILED',
-      );
+      throw new SkillImportError('Failed to process remote skill', 'DOWNLOAD_FAILED');
     }
 
     log('importFromUrl: parsed manifest=%o', manifest);

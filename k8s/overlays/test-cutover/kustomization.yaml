@@ -3,3 +3,6 @@ kind: Kustomization
 resources:
   - ../test
   - ingress.yaml
+  - metadata-egress-network-policy.yaml
+  - oidc-token-ingress.yaml
+  - webapi-trace-ingress.yaml
