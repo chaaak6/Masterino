@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "add security monitoring guardrails."
+      ]
+    },
+    "date": "2026-07-24",
+    "version": "1.0.9"
+  },
+  {
+    "children": {
+      "fixes": [
         "block runtime metadata credential fallback."
       ]
     },
