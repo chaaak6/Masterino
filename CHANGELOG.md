@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 1.0.7](https://github.com/chaaak6/Masterino/compare/v1.0.6...v1.0.7)
+
+<sup>Released on **2026-07-24**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: enforce runtime response header hardening.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: enforce runtime response header hardening, closes [#44](https://github.com/chaaak6/Masterino/issues/44) ([e7ea9ae](https://github.com/chaaak6/Masterino/commit/e7ea9ae))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.0.6](https://github.com/chaaak6/Masterino/compare/v1.0.5...v1.0.6)
 
 <sup>Released on **2026-07-24**</sup>

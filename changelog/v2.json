@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "enforce runtime response header hardening."
+      ]
+    },
+    "date": "2026-07-24",
+    "version": "1.0.7"
+  },
+  {
+    "children": {
+      "fixes": [
         "support hardened ACK ingress policy."
       ]
     },
