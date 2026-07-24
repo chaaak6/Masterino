@@ -25,8 +25,11 @@ hidden.
 
 Before deploying the test rollout:
 
-1. Copy `overlays/test/secret.env.example` to the ignored `secret.env` and set the three dedicated
-   QStash values. Never commit populated secrets or reuse production signing keys.
+1. For a local deployment, copy `overlays/test/secret.env.example` to the ignored `secret.env` and
+   set the three dedicated QStash values. For Alibaba Cloud CI, inject every secret through a
+   test-only private variable group and run `scripts/ci/deployAckTest.sh`; see
+   `docs/operations/ack-test-ci.md`. Never commit populated secrets or reuse production signing
+   keys.
 2. Confirm the application database migrations have completed, including
    `0117_use_halfvec_for_user_memory_embeddings`, and the user-memory tables, 2048-dimension
    `halfvec` columns, pgvector, and ParadeDB indexes exist.
