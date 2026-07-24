@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       - name: Setup environment
         uses: ./.github/actions/setup-env
@@ -34,6 +34,7 @@ jobs:
       - name: Update i18n
         run: bun run i18n
         env:
+          I18N_MODEL_NAME: glm-5.2
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_PROXY_URL: ${{ secrets.OPENAI_PROXY_URL }}
 
@@ -41,7 +42,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ github.token }}
           add-paths: |
             locales/**/*.json
           labels: |

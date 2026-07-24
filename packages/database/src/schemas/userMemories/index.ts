@@ -1,4 +1,4 @@
-import { bigint, index, jsonb, numeric, pgTable, real, text, vector } from 'drizzle-orm/pg-core';
+import { bigint, halfvec, index, jsonb, numeric, pgTable, real, text } from 'drizzle-orm/pg-core';
 
 import { idGenerator } from '../../utils/idGenerator';
 import { timestamps, timestamptz, varchar255 } from '../_helpers';
@@ -20,9 +20,9 @@ export const userMemories = pgTable(
 
     title: varchar255('title'),
     summary: text('summary'),
-    summaryVector1024: vector('summary_vector_1024', { dimensions: 2048 }),
+    summaryVector1024: halfvec('summary_vector_1024', { dimensions: 2048 }),
     details: text('details'),
-    detailsVector1024: vector('details_vector_1024', { dimensions: 2048 }),
+    detailsVector1024: halfvec('details_vector_1024', { dimensions: 2048 }),
 
     status: varchar255('status'),
 
@@ -35,11 +35,11 @@ export const userMemories = pgTable(
   (table) => [
     index('user_memories_summary_vector_1024_index').using(
       'hnsw',
-      table.summaryVector1024.op('vector_cosine_ops'),
+      table.summaryVector1024.op('halfvec_cosine_ops'),
     ),
     index('user_memories_details_vector_1024_index').using(
       'hnsw',
-      table.detailsVector1024.op('vector_cosine_ops'),
+      table.detailsVector1024.op('halfvec_cosine_ops'),
     ),
     index('user_memories_user_id_index').on(table.userId),
   ],
@@ -69,7 +69,7 @@ export const userMemoriesContexts = pgTable(
 
     title: text('title'),
     description: text('description'),
-    descriptionVector: vector('description_vector', { dimensions: 2048 }),
+    descriptionVector: halfvec('description_vector', { dimensions: 2048 }),
 
     type: varchar255('type'),
     currentStatus: text('current_status'),
@@ -84,7 +84,7 @@ export const userMemoriesContexts = pgTable(
   (table) => [
     index('user_memories_contexts_description_vector_index').using(
       'hnsw',
-      table.descriptionVector.op('vector_cosine_ops'),
+      table.descriptionVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_contexts_type_index').on(table.type),
     index('user_memories_contexts_user_id_index').on(table.userId),
@@ -107,7 +107,7 @@ export const userMemoriesPreferences = pgTable(
     tags: text('tags').array(),
 
     conclusionDirectives: text('conclusion_directives'),
-    conclusionDirectivesVector: vector('conclusion_directives_vector', { dimensions: 2048 }),
+    conclusionDirectivesVector: halfvec('conclusion_directives_vector', { dimensions: 2048 }),
 
     type: varchar255('type'),
     suggestions: text('suggestions'),
@@ -121,7 +121,7 @@ export const userMemoriesPreferences = pgTable(
   (table) => [
     index('user_memories_preferences_conclusion_directives_vector_index').using(
       'hnsw',
-      table.conclusionDirectivesVector.op('vector_cosine_ops'),
+      table.conclusionDirectivesVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_preferences_user_id_index').on(table.userId),
     index('user_memories_preferences_user_memory_id_index').on(table.userMemoryId),
@@ -174,9 +174,9 @@ export const userMemoriesActivities = pgTable(
 
     notes: text('notes'),
     narrative: text('narrative'),
-    narrativeVector: vector('narrative_vector', { dimensions: 2048 }),
+    narrativeVector: halfvec('narrative_vector', { dimensions: 2048 }),
     feedback: text('feedback'),
-    feedbackVector: vector('feedback_vector', { dimensions: 2048 }),
+    feedbackVector: halfvec('feedback_vector', { dimensions: 2048 }),
 
     capturedAt: timestamptz('captured_at').notNull().defaultNow(),
 
@@ -185,11 +185,11 @@ export const userMemoriesActivities = pgTable(
   (table) => [
     index('user_memories_activities_narrative_vector_index').using(
       'hnsw',
-      table.narrativeVector.op('vector_cosine_ops'),
+      table.narrativeVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_activities_feedback_vector_index').using(
       'hnsw',
-      table.feedbackVector.op('vector_cosine_ops'),
+      table.feedbackVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_activities_type_index').on(table.type),
     index('user_memories_activities_user_id_index').on(table.userId),
@@ -215,7 +215,7 @@ export const userMemoriesIdentities = pgTable(
 
     type: varchar255('type'),
     description: text('description'),
-    descriptionVector: vector('description_vector', { dimensions: 2048 }),
+    descriptionVector: halfvec('description_vector', { dimensions: 2048 }),
     episodicDate: timestamptz('episodic_date'),
     relationship: varchar255('relationship'),
     role: text('role'),
@@ -227,7 +227,7 @@ export const userMemoriesIdentities = pgTable(
   (table) => [
     index('user_memories_identities_description_vector_index').using(
       'hnsw',
-      table.descriptionVector.op('vector_cosine_ops'),
+      table.descriptionVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_identities_type_index').on(table.type),
     index('user_memories_identities_user_id_index').on(table.userId),
@@ -252,13 +252,13 @@ export const userMemoriesExperiences = pgTable(
 
     type: varchar255('type'),
     situation: text('situation'),
-    situationVector: vector('situation_vector', { dimensions: 2048 }),
+    situationVector: halfvec('situation_vector', { dimensions: 2048 }),
     reasoning: text('reasoning'),
     possibleOutcome: text('possible_outcome'),
     action: text('action'),
-    actionVector: vector('action_vector', { dimensions: 2048 }),
+    actionVector: halfvec('action_vector', { dimensions: 2048 }),
     keyLearning: text('key_learning'),
-    keyLearningVector: vector('key_learning_vector', { dimensions: 2048 }),
+    keyLearningVector: halfvec('key_learning_vector', { dimensions: 2048 }),
 
     scoreConfidence: real('score_confidence').default(0),
 
@@ -269,15 +269,15 @@ export const userMemoriesExperiences = pgTable(
   (table) => [
     index('user_memories_experiences_situation_vector_index').using(
       'hnsw',
-      table.situationVector.op('vector_cosine_ops'),
+      table.situationVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_experiences_action_vector_index').using(
       'hnsw',
-      table.actionVector.op('vector_cosine_ops'),
+      table.actionVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_experiences_key_learning_vector_index').using(
       'hnsw',
-      table.keyLearningVector.op('vector_cosine_ops'),
+      table.keyLearningVector.op('halfvec_cosine_ops'),
     ),
     index('user_memories_experiences_type_index').on(table.type),
     index('user_memories_experiences_user_id_index').on(table.userId),

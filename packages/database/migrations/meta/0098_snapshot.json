@@ -13217,7 +13217,7 @@
         },
         "summary_vector_1024": {
           "name": "summary_vector_1024",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -13229,7 +13229,7 @@
         },
         "details_vector_1024": {
           "name": "details_vector_1024",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -13444,7 +13444,7 @@
         },
         "narrative_vector": {
           "name": "narrative_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -13456,7 +13456,7 @@
         },
         "feedback_vector": {
           "name": "feedback_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -13669,7 +13669,7 @@
         },
         "description_vector": {
           "name": "description_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -13841,7 +13841,7 @@
         },
         "situation_vector": {
           "name": "situation_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -13865,7 +13865,7 @@
         },
         "action_vector": {
           "name": "action_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -13877,7 +13877,7 @@
         },
         "key_learning_vector": {
           "name": "key_learning_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -14086,7 +14086,7 @@
         },
         "description_vector": {
           "name": "description_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },
@@ -14268,7 +14268,7 @@
         },
         "conclusion_directives_vector": {
           "name": "conclusion_directives_vector",
-          "type": "vector(2048)",
+          "type": "halfvec(2048)",
           "primaryKey": false,
           "notNull": false
         },

@@ -60,3 +60,6 @@ Dockerfile*
 # misc
 # add other ignore file below
 .next
+
+# generated Drizzle schema snapshots
+packages/database/migrations/meta/*_snapshot.json

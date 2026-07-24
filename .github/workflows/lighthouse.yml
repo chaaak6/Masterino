@@ -15,6 +15,9 @@ on:
     - cron: '0 0 * * *' # every day
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   lighthouse-badger-advanced:
     name: ${{ matrix.NAME }}
@@ -45,7 +48,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: ${{ env.REPOSITORY }}
-          token: ${{ secrets[matrix.TOKEN_NAME] || secrets[env.TOKEN_NAME] }}
+          token: ${{ github.token }}
           ref: ${{ env.BRANCH }}
       - uses: actions/checkout@v6
         with:
