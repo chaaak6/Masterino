@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 1.0.4](https://github.com/chaaak6/Masterino/compare/v1.0.3...v1.0.4)
+
+<sup>Released on **2026-07-24**</sup>
+
+#### 🐛 Bug Fixes
+
+- **ci**: repair all failing Actions workflows.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **ci**: repair all failing Actions workflows, closes [#38](https://github.com/chaaak6/Masterino/issues/38) ([0331c2e](https://github.com/chaaak6/Masterino/commit/0331c2e))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.0.1](https://github.com/chaaak6/Masterino/compare/v1.0.0...v1.0.1)
 
 <sup>Released on **2026-07-21**</sup>
