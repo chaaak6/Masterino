@@ -24,23 +24,37 @@ describe('Masterion production security configuration', () => {
     });
   });
 
-  it('removes internal Next.js routing and framework headers at ingress', async () => {
+  it('removes internal Next.js routing and framework headers at the Node response boundary', async () => {
     const ingress = await readYaml('ingress.yaml');
-    const snippet =
-      ingress.metadata.annotations['nginx.ingress.kubernetes.io/configuration-snippet'];
+    const dockerfile = await readFile(path.join(process.cwd(), 'Dockerfile'), 'utf8');
+    const hardeningScript = await readFile(
+      path.join(process.cwd(), 'scripts', '_shared', 'hardenResponseHeaders.js'),
+      'utf8',
+    );
 
-    expect(snippet).toContain('proxy_hide_header X-Middleware-Rewrite;');
-    expect(snippet).toContain('proxy_hide_header X-Middleware-Set-Cookie;');
-    expect(snippet).toContain('proxy_hide_header X-Nextjs-Cache;');
-    expect(snippet).toContain('proxy_hide_header X-Nextjs-Matched-Path;');
-    expect(snippet).toContain('proxy_hide_header X-Nextjs-Prerender;');
-    expect(snippet).toContain('proxy_hide_header X-Nextjs-Rewritten-Path;');
-    expect(snippet).toContain('proxy_hide_header X-Nextjs-Rewritten-Query;');
-    expect(snippet).toContain('proxy_hide_header X-Nextjs-Stale-Time;');
-    expect(snippet).toContain('proxy_hide_header X-Invoke-Path;');
-    expect(snippet).toContain('proxy_hide_header X-Invoke-Query;');
-    expect(snippet).toContain('proxy_hide_header X-Invoke-Output;');
-    expect(snippet).toContain('proxy_hide_header X-Powered-By;');
+    expect(ingress.metadata.annotations).not.toHaveProperty(
+      'nginx.ingress.kubernetes.io/configuration-snippet',
+    );
+    expect(dockerfile).toContain(
+      'NODE_OPTIONS="--require=/app/scripts/_shared/hardenResponseHeaders.js',
+    );
+
+    for (const header of [
+      'X-Middleware-Rewrite',
+      'X-Middleware-Set-Cookie',
+      'X-Nextjs-Cache',
+      'X-Nextjs-Matched-Path',
+      'X-Nextjs-Prerender',
+      'X-Nextjs-Rewritten-Path',
+      'X-Nextjs-Rewritten-Query',
+      'X-Nextjs-Stale-Time',
+      'X-Invoke-Path',
+      'X-Invoke-Query',
+      'X-Invoke-Output',
+      'X-Powered-By',
+    ]) {
+      expect(hardeningScript).toContain(`'${header}'`);
+    }
   });
 
   it('rate limits the public OIDC token protocol endpoint', async () => {
