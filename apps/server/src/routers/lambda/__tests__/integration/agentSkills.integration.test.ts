@@ -96,6 +96,10 @@ describe('Skill Router Integration Tests', () => {
   let userId: string;
 
   beforeEach(async () => {
+    vi.stubEnv(
+      'SKILL_IMPORT_ALLOWED_ORIGINS',
+      'https://example.com,https://market.lobehub.com',
+    );
     serverDB = await getTestDB();
     testDB = serverDB;
     userId = await createTestUser(serverDB);
@@ -104,6 +108,7 @@ describe('Skill Router Integration Tests', () => {
 
   afterEach(async () => {
     await cleanupTestUser(serverDB, userId);
+    vi.unstubAllEnvs();
   });
 
   const getManagedSkillBindingId = async ({
