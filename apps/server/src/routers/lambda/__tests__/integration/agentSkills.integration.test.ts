@@ -86,9 +86,13 @@ vi.mock('@/server/services/market', () => ({
   MarketService: vi.fn().mockImplementation(() => mockMarketServiceInstance),
 }));
 
-// Mock global fetch for URL imports
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
+// Mock the SSRF-safe HTTP client used for URL imports
+const { mockSsrfSafeFetch } = vi.hoisted(() => ({
+  mockSsrfSafeFetch: vi.fn(),
+}));
+vi.mock('@lobechat/ssrf-safe-fetch', () => ({
+  ssrfSafeFetch: mockSsrfSafeFetch,
+}));
 
 describe('Skill Router Integration Tests', () => {
   let serverDB: LobeChatDatabase;
@@ -793,11 +797,11 @@ describe('Skill Router Integration Tests', () => {
 
   describe('importFromUrl', () => {
     beforeEach(() => {
-      mockFetch.mockReset();
+      mockSsrfSafeFetch.mockReset();
     });
 
     it('should import skill from URL', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: true,
         status: 200,
         text: async () => `---
@@ -830,7 +834,7 @@ description: A skill from URL
     });
 
     it('should update existing skill when re-importing from same URL', async () => {
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         ok: true,
         status: 200,
         text: async () => 'content',
@@ -870,7 +874,7 @@ description: A skill from URL
 
   describe('importFromMarket', () => {
     beforeEach(() => {
-      mockFetch.mockReset();
+      mockSsrfSafeFetch.mockReset();
       mockMarketServiceInstance.getSkillDownloadUrl.mockReset();
     });
 
@@ -881,7 +885,7 @@ description: A skill from URL
           'https://market.lobehub.com/api/v1/skills/github.owner.repo/download?version=1.0.0',
         );
 
-      mockFetch.mockResolvedValue({
+      mockSsrfSafeFetch.mockResolvedValue({
         arrayBuffer: async () => new ArrayBuffer(8),
         headers: {
           get: (key: string) => (key === 'content-type' ? 'application/zip' : null),
