@@ -46,10 +46,9 @@ export const getTestDB = async (): Promise<LobeChatDatabase> => {
   const pglite = new PGlite({ extensions: { vector } });
   testClientDB = pgliteDrizzle({ client: pglite, schema });
 
-  // Custom migration that skips index/extension SQL unsupported by PGlite.
-  // PGlite's pgvector HNSW implementation rejects vectors above 2,000 dimensions,
-  // while user memory intentionally uses 2,048 dimensions. Tests do not require
-  // physical indexes, so keep the tables/columns and omit only those index statements.
+  // Apply compatible statements individually so pg_search migrations do not hide
+  // unrelated schema changes. PGlite tests do not rely on production HNSW indexes,
+  // whose extension behavior is covered by deployment migration checks instead.
   const migrations = readMigrationFiles({ migrationsFolder });
 
   await testClientDB.execute(sql`CREATE SCHEMA IF NOT EXISTS "drizzle"`);

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTestDB } from '../../core/getTestDB';
 import { documents } from '../../schemas';
@@ -34,6 +34,17 @@ beforeEach(async () => {
 
 // BM25 search requires pg_search extension (ParadeDB), not available in PGlite
 const isServerDB = process.env.TEST_SERVER_DB === '1';
+
+describe('SearchRepo memory access gate', () => {
+  it('does not execute a memory query when includeMemory is false', async () => {
+    const selectSpy = vi.spyOn(serverDB, 'select');
+
+    await expect(
+      searchRepo.search({ includeMemory: false, query: 'private memory', type: 'memory' }),
+    ).resolves.toEqual([]);
+    expect(selectSpy).not.toHaveBeenCalled();
+  });
+});
 
 describe.skipIf(!isServerDB)('SearchRepo', () => {
   describe('search - empty query', () => {
@@ -1082,9 +1093,7 @@ describe.skipIf(!isServerDB)('SearchRepo', () => {
       });
 
       it('does not surface another user PDF when querying their KB', async () => {
-        const results = await searchRepo.searchKnowledgeBaseDocuments('attention', [
-          'kb-other-1',
-        ]);
+        const results = await searchRepo.searchKnowledgeBaseDocuments('attention', ['kb-other-1']);
         expect(results).toEqual([]);
       });
     });
