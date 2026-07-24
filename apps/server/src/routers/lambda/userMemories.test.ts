@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getServerDB } from '@/database/core/db-adaptor';
 import type * as UserMemoryModule from '@/database/models/userMemory';
 import { UserMemoryModel } from '@/database/models/userMemory';
-import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { resolveAuthorizedUserMemoryEmbeddingRuntime } from '@/server/services/memory/userMemory/authorizedRuntime';
 
 import { userMemoriesRouter } from './userMemories';
 
@@ -21,14 +21,8 @@ vi.mock('@/server/featureFlags', () => ({
   getServerFeatureFlagsStateFromRuntimeConfig: mockGetServerFeatureFlags,
 }));
 
-vi.mock('@/server/globalConfig', () => ({
-  getServerDefaultFilesConfig: vi.fn().mockReturnValue({
-    embeddingModel: { model: 'text-embedding-3-small' },
-  }),
-}));
-
-vi.mock('@/server/modules/ModelRuntime', () => ({
-  initModelRuntimeFromDB: vi.fn(),
+vi.mock('@/server/services/memory/userMemory/authorizedRuntime', () => ({
+  resolveAuthorizedUserMemoryEmbeddingRuntime: vi.fn(),
 }));
 
 vi.mock('@/database/models/userMemory', async (importOriginal) => {
@@ -64,9 +58,11 @@ beforeEach(() => {
     return items.map((_, index) => [index + 1]);
   });
 
-  vi.mocked(initModelRuntimeFromDB).mockResolvedValue({
-    embeddings: embeddingsMock,
-  } as any);
+  vi.mocked(resolveAuthorizedUserMemoryEmbeddingRuntime).mockResolvedValue({
+    model: 'text-embedding-3-large',
+    provider: 'newapi',
+    runtime: { embeddings: embeddingsMock },
+  });
 });
 
 afterEach(() => {
@@ -83,7 +79,7 @@ describe('userMemories access gates', () => {
     await expect(caller.searchMemory({ queries: ['remember me'] })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
-    expect(initModelRuntimeFromDB).not.toHaveBeenCalled();
+    expect(resolveAuthorizedUserMemoryEmbeddingRuntime).not.toHaveBeenCalled();
   });
 
   it('rejects retrieval when the user has not consented', async () => {
@@ -100,7 +96,7 @@ describe('userMemories access gates', () => {
     await expect(caller.toolSearchMemory({ queries: ['remember me'] })).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
-    expect(initModelRuntimeFromDB).not.toHaveBeenCalled();
+    expect(resolveAuthorizedUserMemoryEmbeddingRuntime).not.toHaveBeenCalled();
   });
 
   it('rejects all workspace-scoped memory access', async () => {

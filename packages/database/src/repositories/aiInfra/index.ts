@@ -257,10 +257,7 @@ export class AiInfraRepos {
     // they must not suppress same-id remote models such as glm-5.1.
     const appendedUserModels = allModels
       .filter((item) => {
-        if (
-          item.providerId === BRANDING_PROVIDER &&
-          item.source !== AiModelSourceEnum.Remote
-        )
+        if (item.providerId === BRANDING_PROVIDER && item.source !== AiModelSourceEnum.Remote)
           return false;
         if (visibleBuiltinModelKeys.has(`${item.providerId}:${item.id}`)) return false;
         return filterEnabled ? enabledProviderIds.has(item.providerId) && item.enabled : true;
@@ -313,13 +310,15 @@ export class AiInfraRepos {
    * 1) Build a map of provider -> enabled model ids (disabled models are ignored).
    * 2) Walk providers in priority order: preferred providers (if any) -> explicit fallback provider -> remaining providers that have enabled models.
    * 3) For each provider, look for an exact modelId match or any preferred model alias.
-   * 4) If nothing matches, fall back to the configured provider (with a warning) or throw when no fallback exists.
+   * 4) If nothing matches, either throw when `requireModelMatch` is set or fall back to the
+   *    configured provider (with a warning).
    *
    * Handles:
    * - Preferred provider ordering (case-insensitive).
    * - Preferred model aliases.
+   * - Optional model type filtering.
    * - Disabled models are skipped.
-   * - Missing matches: falls back when possible, otherwise surfaces an error.
+   * - Strict callers can require an enabled model match and disable provider fallback.
    *
    * Edge cases to note:
    * - If preferredProviders are set, non-preferred providers are skipped unless they are also the explicit fallback.
@@ -333,14 +332,25 @@ export class AiInfraRepos {
       modelId: string;
       preferredModels?: string[];
       preferredProviders?: string[];
+      requireModelMatch?: boolean;
+      requiredModelType?: EnabledAiModel['type'];
     },
   ): Promise<string> {
-    const { modelId, fallbackProvider, preferredModels, preferredProviders, label } = options;
+    const {
+      modelId,
+      fallbackProvider,
+      preferredModels,
+      preferredProviders,
+      label,
+      requireModelMatch,
+      requiredModelType,
+    } = options;
 
     // Build a map of provider -> enabled model ids for quick membership checks; skip disabled models entirely
     const providerModels = runtimeState.enabledAiModels.reduce<Record<string, Set<string>>>(
       (acc, model) => {
         if (model.enabled === false) return acc;
+        if (requiredModelType && model.type !== requiredModelType) return acc;
 
         const providerId = normalizeProvider(model.providerId);
         acc[providerId] = acc[providerId] || new Set<string>();
@@ -395,7 +405,7 @@ export class AiInfraRepos {
       }
     }
 
-    if (fallbackProvider) {
+    if (fallbackProvider && !requireModelMatch) {
       console.warn(
         `[ai-infra] no enabled provider found for ${label || 'model'} "${modelId}" (preferred ${preferredProviders}), falling back to server-configured provider "${fallbackProvider}".`,
       );
@@ -403,7 +413,7 @@ export class AiInfraRepos {
     }
 
     throw new Error(
-      `Unable to resolve provider for ${label || 'model'} "${modelId}". Check preferred providers/models configuration.`,
+      `Unable to resolve an enabled ${requiredModelType ? `${requiredModelType} ` : ''}provider for ${label || 'model'} "${modelId}". Check the user's provider and model authorization.`,
     );
   }
 

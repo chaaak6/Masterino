@@ -117,6 +117,22 @@ describe('UserPersonaService', () => {
         username: 'User',
       }),
     );
+    expect(aiInfraMocks.tryMatchingProviderFrom).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        fallbackProvider: 'openai',
+        modelId: 'gpt-mock',
+        preferredProviders: ['openai'],
+        requireModelMatch: true,
+        requiredModelType: 'chat',
+      }),
+    );
+    expect(resolveRuntimeAgentConfig).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.objectContaining({ requireUserVault: true, userId }),
+      undefined,
+    );
     expect(result.document.persona).toBe('# Persona');
 
     const model = new UserPersonaModel(db, userId);

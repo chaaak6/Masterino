@@ -1,27 +1,11 @@
 import type { AiProviderRuntimeState } from '@lobechat/types';
 import type { EnabledAiModel } from 'model-bank';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getTestDB } from '../../../core/getTestDB';
-import type { LobeChatDatabase } from '../../../type';
 import { AiInfraRepos } from '../index';
-
-const userId = 'test-user-id';
-const mockProviderConfigs = {
-  openai: { enabled: true },
-  anthropic: { enabled: false },
-};
-
-let serverDB: LobeChatDatabase;
-let repo: AiInfraRepos;
-
-beforeAll(async () => {
-  serverDB = await getTestDB();
-}, 30000);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  repo = new AiInfraRepos(serverDB, userId, mockProviderConfigs);
 });
 
 describe('AiInfraRepos', () => {
@@ -74,6 +58,48 @@ describe('AiInfraRepos', () => {
 
       expect(providerId).toBe('provider-fallback');
       warnSpy.mockRestore();
+    });
+
+    it('throws instead of falling back when an exact model match is required', async () => {
+      const runtimeState = createRuntimeState([]);
+
+      await expect(
+        AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
+          fallbackProvider: 'provider-fallback',
+          modelId: 'm-1',
+          preferredProviders: ['provider-fallback'],
+          requireModelMatch: true,
+          requiredModelType: 'chat',
+        }),
+      ).rejects.toThrow('provider and model authorization');
+    });
+
+    it('requires the configured model type when matching', async () => {
+      const runtimeState = createRuntimeState([
+        {
+          abilities: {},
+          enabled: true,
+          id: 'shared-model',
+          providerId: 'provider-chat',
+          type: 'chat',
+        },
+        {
+          abilities: {},
+          enabled: true,
+          id: 'shared-model',
+          providerId: 'provider-embedding',
+          type: 'embedding',
+        },
+      ]);
+
+      const providerId = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
+        modelId: 'shared-model',
+        preferredProviders: ['provider-chat', 'provider-embedding'],
+        requireModelMatch: true,
+        requiredModelType: 'embedding',
+      });
+
+      expect(providerId).toBe('provider-embedding');
     });
   });
 });

@@ -8,6 +8,7 @@ import {
   makeTaskErrorItem,
   MemoryExtractionExecutor,
   resolveMemoryProviderBaseURL,
+  resolveRuntimeAgentConfig,
 } from '../extract';
 
 const createRuntimeState = (models: EnabledAiModel[], keyVaults: Record<string, any>) =>
@@ -59,6 +60,22 @@ const createExecutor = (privateOverrides?: Partial<MemoryExtractionPrivateConfig
     ...basePrivateConfig,
     ...privateOverrides,
   });
+};
+
+const defaultAuthorizedModels: EnabledAiModel[] = [
+  { abilities: {}, enabled: true, id: 'gate-2', providerId: 'provider-b', type: 'chat' },
+  { abilities: {}, enabled: true, id: 'embed-1', providerId: 'provider-e', type: 'embedding' },
+  { abilities: {}, enabled: true, id: 'layer-act', providerId: 'provider-l', type: 'chat' },
+  { abilities: {}, enabled: true, id: 'layer-ctx', providerId: 'provider-l', type: 'chat' },
+  { abilities: {}, enabled: true, id: 'layer-exp', providerId: 'provider-l', type: 'chat' },
+  { abilities: {}, enabled: true, id: 'layer-id', providerId: 'provider-l', type: 'chat' },
+  { abilities: {}, enabled: true, id: 'layer-pref', providerId: 'provider-l', type: 'chat' },
+];
+
+const defaultKeyVaults = {
+  'provider-b': { apiKey: 'b-key' },
+  'provider-e': { apiKey: 'e-key' },
+  'provider-l': { apiKey: 'l-key' },
 };
 
 const resolveRuntimeKeyVaults = async (
@@ -257,7 +274,7 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
     expect(keyVaults).not.toHaveProperty('provider-b');
   });
 
-  it('prefers configured providers/models for gatekeeper, embedding, and layer extractors', async () => {
+  it('uses only the exact configured providers and models for every memory runtime', async () => {
     const executor = createExecutor({
       embeddingPreferredProviders: ['provider-c', 'provider-a'],
       agentGateKeeperPreferredModels: ['model-chat-1', 'vendor-prefix/model-chat-1'],
@@ -267,117 +284,20 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
 
     const runtimeState = createRuntimeState(
       [
+        ...defaultAuthorizedModels,
+        { abilities: {}, enabled: true, id: 'gate-2', providerId: 'provider-a', type: 'chat' },
         {
           abilities: {},
           enabled: true,
-          id: 'model-chat-1',
-          type: 'chat',
+          id: 'embed-1',
           providerId: 'provider-a',
-        },
-        {
-          abilities: {},
-          enabled: true,
-          id: 'model-embedding-1',
           type: 'embedding',
-          providerId: 'provider-e',
-        },
-        {
-          abilities: {},
-          enabled: true,
-          id: 'vendor-prefix/model-chat-1',
-          type: 'chat',
-          providerId: 'provider-b',
-        },
-        {
-          abilities: {},
-          enabled: true,
-          id: 'vendor-prefix/model-embedding-1',
-          type: 'embedding',
-          providerId: 'provider-b',
-        },
-        {
-          abilities: {},
-          enabled: false,
-          id: 'model-chat-1',
-          type: 'chat',
-          providerId: 'provider-c',
-        },
-        {
-          abilities: {},
-          enabled: false,
-          id: 'model-embedding-1',
-          type: 'embedding',
-          providerId: 'provider-c',
         },
       ],
       {
+        ...defaultKeyVaults,
         'provider-a': { apiKey: 'a-key' },
-        'provider-b': { apiKey: 'b-key' },
         'provider-c': { apiKey: 'c-key' },
-        'provider-e': { apiKey: 'e-key' },
-      },
-    );
-
-    const keyVaults = await resolveRuntimeKeyVaults(executor, runtimeState);
-
-    expect(keyVaults).toMatchObject({
-      'provider-a': { apiKey: 'a-key' },
-      'provider-e': { apiKey: 'e-key' },
-    });
-  });
-
-  it('warns and falls back to server provider when no enabled provider satisfies embedding model', async () => {
-    const executor = createExecutor();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const runtimeState = createRuntimeState(
-      [
-        {
-          abilities: {},
-          enabled: true,
-          id: 'model-chat-1',
-          type: 'chat',
-          providerId: 'provider-a',
-        },
-        {
-          abilities: {},
-          enabled: true,
-          id: 'model-embedding-1',
-          type: 'embedding',
-          providerId: 'provider-e',
-        },
-        {
-          abilities: {},
-          enabled: true,
-          id: 'vendor-prefix/model-chat-1',
-          type: 'chat',
-          providerId: 'provider-b',
-        },
-        {
-          abilities: {},
-          enabled: true,
-          id: 'vendor-prefix/model-embedding-1',
-          type: 'embedding',
-          providerId: 'provider-b',
-        },
-        {
-          abilities: {},
-          enabled: false,
-          id: 'model-chat-1',
-          type: 'chat',
-          providerId: 'provider-c',
-        },
-        {
-          abilities: {},
-          enabled: false,
-          id: 'model-embedding-1',
-          type: 'embedding',
-          providerId: 'provider-c',
-        },
-      ],
-      {
-        'provider-b': { apiKey: 'b-key' },
-        'provider-l': { apiKey: 'l-key' },
       },
     );
 
@@ -385,27 +305,48 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
 
     expect(keyVaults).toMatchObject({
       'provider-b': { apiKey: 'b-key' },
+      'provider-e': { apiKey: 'e-key' },
       'provider-l': { apiKey: 'l-key' },
     });
-    expect(keyVaults).not.toHaveProperty('provider-e');
-    expect(warnSpy).toHaveBeenCalled();
-
-    warnSpy.mockRestore();
+    expect(keyVaults).not.toHaveProperty('provider-a');
+    expect(keyVaults).not.toHaveProperty('provider-c');
   });
 
-  it('ignores disabled providers when resolving key vaults', async () => {
+  it('blocks extraction when the configured embedding model is not authorized', async () => {
+    const executor = createExecutor();
+    const runtimeState = createRuntimeState(
+      [
+        ...defaultAuthorizedModels.filter((model) => model.id !== 'embed-1'),
+        {
+          abilities: {},
+          enabled: true,
+          id: 'other-embedding',
+          providerId: 'provider-e',
+          type: 'embedding',
+        },
+      ],
+      defaultKeyVaults,
+    );
+
+    await expect(resolveRuntimeKeyVaults(executor, runtimeState)).rejects.toThrow(
+      'provider and model authorization',
+    );
+  });
+
+  it('does not switch to another provider when the configured model is disabled', async () => {
     const executor = createExecutor({
       embeddingPreferredProviders: ['provider-disabled', 'provider-a'],
     });
 
     const runtimeState = createRuntimeState(
       [
+        ...defaultAuthorizedModels.filter((model) => model.id !== 'embed-1'),
         {
           abilities: {},
           enabled: false,
           id: 'embed-1',
           type: 'embedding',
-          providerId: 'provider-disabled',
+          providerId: 'provider-e',
         },
         {
           abilities: {},
@@ -416,24 +357,21 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
         },
       ],
       {
-        'provider-disabled': { apiKey: 'disabled-key' },
+        ...defaultKeyVaults,
         'provider-a': { apiKey: 'a-key' },
       },
     );
 
-    const keyVaults = await resolveRuntimeKeyVaults(executor, runtimeState);
-
-    expect(keyVaults).toMatchObject({
-      'provider-a': { apiKey: 'a-key' },
-    });
-    expect(keyVaults).not.toHaveProperty('provider-disabled');
+    await expect(resolveRuntimeKeyVaults(executor, runtimeState)).rejects.toThrow(
+      'provider and model authorization',
+    );
   });
 
-  it('respects preferred provider order when multiple providers have the model', async () => {
+  it('keeps the configured provider when another preferred provider has the same model', async () => {
     const executor = createExecutor({
       agentGateKeeper: {
         model: 'gate-2',
-        provider: 'provider-a', // fallback provider differs from preferred order
+        provider: 'provider-a',
         apiKey: 'sys-a-key',
         baseURL: 'https://api-a.example.com',
         language: 'English',
@@ -443,25 +381,24 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
 
     const runtimeState = createRuntimeState(
       [
+        ...defaultAuthorizedModels,
         { abilities: {}, enabled: true, id: 'gate-2', type: 'chat', providerId: 'provider-a' },
-        { abilities: {}, enabled: true, id: 'gate-2', type: 'chat', providerId: 'provider-b' },
       ],
       {
+        ...defaultKeyVaults,
         'provider-a': { apiKey: 'a-key' },
-        'provider-b': { apiKey: 'b-key' },
       },
     );
 
     const keyVaults = await resolveRuntimeKeyVaults(executor, runtimeState);
 
     expect(keyVaults).toMatchObject({
-      'provider-b': { apiKey: 'b-key' }, // picks first preferred provider
+      'provider-a': { apiKey: 'a-key' },
     });
-    expect(keyVaults).not.toHaveProperty('provider-a');
+    expect(keyVaults).not.toHaveProperty('provider-b');
   });
 
-  it('falls back to configured provider when no enabled models match', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('blocks extraction instead of falling back when no enabled models match', async () => {
     const executor = createExecutor({
       agentGateKeeper: { model: 'gate-2', provider: 'provider-fallback', apiKey: 'sys-fb-key' },
     });
@@ -470,13 +407,9 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
       'provider-fallback': { apiKey: 'fb-key' },
     });
 
-    const keyVaults = await resolveRuntimeKeyVaults(executor, runtimeState);
-
-    expect(keyVaults).toMatchObject({
-      'provider-fallback': { apiKey: 'fb-key' },
-    });
-
-    warnSpy.mockRestore();
+    await expect(resolveRuntimeKeyVaults(executor, runtimeState)).rejects.toThrow(
+      'provider and model authorization',
+    );
   });
 });
 
@@ -503,6 +436,40 @@ describe('resolveMemoryProviderBaseURL', () => {
 
     if (previous === undefined) delete process.env.AIHUB_PROXY_URL;
     else process.env.AIHUB_PROXY_URL = previous;
+  });
+});
+
+describe('resolveRuntimeAgentConfig', () => {
+  it('blocks memory runtime initialization when the current user has no managed token', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(() =>
+      resolveRuntimeAgentConfig(
+        { model: 'glm-5.2', provider: 'newapi' },
+        {},
+        { requireUserVault: true, userId: 'user-1' },
+      ),
+    ).toThrow('current user');
+
+    warnSpy.mockRestore();
+  });
+
+  it('does not borrow credentials from another provider', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(() =>
+      resolveRuntimeAgentConfig(
+        { model: 'glm-5.2', provider: 'newapi' },
+        { openai: { apiKey: 'other-provider-key' } },
+        {
+          preferred: { providerIds: ['newapi'] },
+          requireUserVault: true,
+          userId: 'user-1',
+        },
+      ),
+    ).toThrow('current user');
+
+    warnSpy.mockRestore();
   });
 });
 

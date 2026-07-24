@@ -36,9 +36,12 @@ beforeEach(async () => {
 const isServerDB = process.env.TEST_SERVER_DB === '1';
 
 describe('SearchRepo memory access gate', () => {
-  it('does not execute a memory query when includeMemory is false', async () => {
+  it('does not execute a memory query by default or when includeMemory is false', async () => {
     const selectSpy = vi.spyOn(serverDB, 'select');
 
+    await expect(searchRepo.search({ query: 'private memory', type: 'memory' })).resolves.toEqual(
+      [],
+    );
     await expect(
       searchRepo.search({ includeMemory: false, query: 'private memory', type: 'memory' }),
     ).resolves.toEqual([]);

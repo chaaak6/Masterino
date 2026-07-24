@@ -103,10 +103,14 @@ export class UserPersonaService {
     const runtimeState = await aiInfraRepos.getAiProviderRuntimeState(
       KeyVaultsGateKeeper.getUserKeyVaults,
     );
+    const configuredProvider = agentConfig.provider || 'openai';
     const providerId = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
-      fallbackProvider: agentConfig.provider,
+      fallbackProvider: configuredProvider,
       label: 'persona writer',
       modelId: agentConfig.model,
+      preferredProviders: [configuredProvider],
+      requireModelMatch: true,
+      requiredModelType: 'chat',
     });
 
     const keyVaults: ProviderKeyVaultMap = Object.entries(runtimeState.runtimeConfig || {}).reduce(
@@ -128,6 +132,7 @@ export class UserPersonaService {
           baseURL: agentConfig.baseURL,
         },
         preferred: { providerIds: [providerId] },
+        requireUserVault: true,
         userId: payload.userId,
       } satisfies RuntimeResolveOptions,
       hooks,

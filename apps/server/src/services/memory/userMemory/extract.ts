@@ -485,6 +485,7 @@ export type RuntimeResolveOptions = {
   preferred?: {
     providerIds?: string[];
   };
+  requireUserVault?: boolean;
   userId?: string;
 };
 
@@ -502,7 +503,7 @@ export const resolveRuntimeAgentConfig = (
     new Set([
       ...normalizedPreferredProviders,
       normalizeProvider(agent.provider || 'openai'),
-      ...Object.keys(keyVaults || {}),
+      ...(options?.requireUserVault ? [] : Object.keys(keyVaults || {})),
     ]),
   );
 
@@ -541,6 +542,12 @@ export const resolveRuntimeAgentConfig = (
       baseURL: resolvedUserBaseURL,
       userId: options?.userId,
     });
+  }
+
+  if (options?.requireUserVault) {
+    throw new Error(
+      `Unable to initialize memory model provider "${agent.provider || 'openai'}" with the current user's managed credentials.`,
+    );
   }
 
   const systemProvider = agent.provider || 'openai';
@@ -616,20 +623,6 @@ interface ResolvedMemoryServiceConfig {
   embeddingContextLimit?: number;
   extractorContextLimit?: number;
   modelConfig: MemoryExtractionModelConfig;
-  overrides: {
-    embedding: {
-      model: boolean;
-      provider: boolean;
-    };
-    gatekeeper: {
-      model: boolean;
-      provider: boolean;
-    };
-    layerExtractor: {
-      model: boolean;
-      provider: boolean;
-    };
-  };
 }
 
 export interface TopicExtractionJob {
@@ -667,12 +660,6 @@ type ServerConfig = Awaited<ReturnType<typeof getServerGlobalConfig>>;
 
 export class MemoryExtractionExecutor {
   private readonly aiProviderConfig: Record<string, ProviderConfig>;
-  private readonly embeddingPreferredModels?: string[];
-  private readonly embeddingPreferredProviders?: string[];
-  private readonly gatekeeperPreferredModels?: string[];
-  private readonly gatekeeperPreferredProviders?: string[];
-  private readonly layerPreferredModels?: string[];
-  private readonly layerPreferredProviders?: string[];
   private readonly privateConfig: MemoryExtractionConfig;
   private readonly modelConfig: MemoryExtractionModelConfig;
   private readonly runtimeCache = new Map<string, RuntimeBundle>();
@@ -681,12 +668,6 @@ export class MemoryExtractionExecutor {
   private constructor(serverConfig: ServerConfig, privateConfig: MemoryExtractionConfig) {
     this.privateConfig = privateConfig;
     this.aiProviderConfig = (serverConfig.aiProvider || {}) as Record<string, ProviderConfig>;
-    this.embeddingPreferredProviders = privateConfig.embeddingPreferredProviders;
-    this.embeddingPreferredModels = privateConfig.embeddingPreferredModels;
-    this.gatekeeperPreferredProviders = privateConfig.agentGateKeeperPreferredProviders;
-    this.gatekeeperPreferredModels = privateConfig.agentGateKeeperPreferredModels;
-    this.layerPreferredProviders = privateConfig.agentLayerExtractorPreferredProviders;
-    this.layerPreferredModels = privateConfig.agentLayerExtractorPreferredModels;
 
     const publicMemoryConfig = serverConfig.memory?.userMemory;
 
@@ -785,20 +766,6 @@ export class MemoryExtractionExecutor {
         gateModel: gatekeeper.model,
         layerModels,
         observabilityS3: this.privateConfig.observabilityS3,
-      },
-      overrides: {
-        embedding: {
-          model: Boolean(systemAgent?.userMemoryEmbedding?.model),
-          provider: Boolean(systemAgent?.userMemoryEmbedding?.provider),
-        },
-        gatekeeper: {
-          model: Boolean(systemAgent?.memoryAnalysisAgentConfig?.model),
-          provider: Boolean(systemAgent?.memoryAnalysisAgentConfig?.provider),
-        },
-        layerExtractor: {
-          model: Boolean(systemAgent?.memoryAnalysisAgentConfig?.model),
-          provider: Boolean(systemAgent?.memoryAnalysisAgentConfig?.provider),
-        },
       },
     };
   }
@@ -2396,51 +2363,45 @@ export class MemoryExtractionExecutor {
     );
 
     const keyVaults: ProviderKeyVaultMap = {};
+    const gatekeeperProviderId = memoryServiceConfig.agents.gatekeeper.provider || 'openai';
 
     const gatekeeperProvider = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
-      fallbackProvider: memoryServiceConfig.agents.gatekeeper.provider,
+      fallbackProvider: gatekeeperProviderId,
       label: 'gatekeeper',
       modelId: memoryServiceConfig.modelConfig.gateModel,
-      preferredModels: memoryServiceConfig.overrides.gatekeeper.model
-        ? undefined
-        : this.gatekeeperPreferredModels,
-      preferredProviders: memoryServiceConfig.overrides.gatekeeper.provider
-        ? undefined
-        : this.gatekeeperPreferredProviders,
+      preferredProviders: [gatekeeperProviderId],
+      requireModelMatch: true,
+      requiredModelType: 'chat',
     });
     const gatekeeperRuntime = normalizedRuntimeConfig[gatekeeperProvider];
     if (gatekeeperRuntime?.keyVaults) {
       keyVaults[gatekeeperProvider] = gatekeeperRuntime.keyVaults;
     }
 
+    const embeddingProviderId = memoryServiceConfig.agents.embedding.provider || 'openai';
     const embeddingProvider = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
-      fallbackProvider: memoryServiceConfig.agents.embedding.provider,
+      fallbackProvider: embeddingProviderId,
       label: 'embedding',
       modelId: memoryServiceConfig.modelConfig.embeddingsModel,
-      preferredModels: memoryServiceConfig.overrides.embedding.model
-        ? undefined
-        : this.embeddingPreferredModels,
-      preferredProviders: memoryServiceConfig.overrides.embedding.provider
-        ? undefined
-        : this.embeddingPreferredProviders,
+      preferredProviders: [embeddingProviderId],
+      requireModelMatch: true,
+      requiredModelType: 'embedding',
     });
     const embeddingRuntime = normalizedRuntimeConfig[embeddingProvider];
     if (embeddingRuntime?.keyVaults) {
       keyVaults[embeddingProvider] = embeddingRuntime.keyVaults;
     }
 
+    const layerProviderId = memoryServiceConfig.agents.layerExtractor.provider || 'openai';
     for (const model of Object.values(memoryServiceConfig.modelConfig.layerModels)) {
       if (!model) continue;
       const providerId = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
-        fallbackProvider: memoryServiceConfig.agents.layerExtractor.provider,
+        fallbackProvider: layerProviderId,
         label: 'layer extractor',
         modelId: model,
-        preferredModels: memoryServiceConfig.overrides.layerExtractor.model
-          ? undefined
-          : this.layerPreferredModels,
-        preferredProviders: memoryServiceConfig.overrides.layerExtractor.provider
-          ? undefined
-          : this.layerPreferredProviders,
+        preferredProviders: [layerProviderId],
+        requireModelMatch: true,
+        requiredModelType: 'chat',
       });
       const runtime = normalizedRuntimeConfig[providerId];
       if (runtime?.keyVaults) {
@@ -2477,10 +2438,9 @@ export class MemoryExtractionExecutor {
         baseURL: memoryServiceConfig.agents.embedding.baseURL,
       },
       preferred: {
-        providerIds: memoryServiceConfig.overrides.embedding.provider
-          ? undefined
-          : this.embeddingPreferredProviders,
+        providerIds: [memoryServiceConfig.agents.embedding.provider || 'openai'],
       },
+      requireUserVault: true,
       userId,
     };
 
@@ -2490,10 +2450,9 @@ export class MemoryExtractionExecutor {
         baseURL: memoryServiceConfig.agents.gatekeeper.baseURL,
       },
       preferred: {
-        providerIds: memoryServiceConfig.overrides.gatekeeper.provider
-          ? undefined
-          : this.gatekeeperPreferredProviders,
+        providerIds: [memoryServiceConfig.agents.gatekeeper.provider || 'openai'],
       },
+      requireUserVault: true,
       userId,
     };
 
@@ -2503,10 +2462,9 @@ export class MemoryExtractionExecutor {
         baseURL: memoryServiceConfig.agents.layerExtractor.baseURL,
       },
       preferred: {
-        providerIds: memoryServiceConfig.overrides.layerExtractor.provider
-          ? undefined
-          : this.layerPreferredProviders,
+        providerIds: [memoryServiceConfig.agents.layerExtractor.provider || 'openai'],
       },
+      requireUserVault: true,
       userId,
     };
 

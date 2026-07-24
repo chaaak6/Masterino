@@ -100,13 +100,13 @@ const ALL_SIDEBAR_ITEMS: SidebarItemConfig[] = [
 
 export const getAvailableSidebarItems = (
   isWorkspaceMode: boolean,
-  enableMemory = true,
+  enableMemory = false,
 ): SidebarItemConfig[] =>
   ALL_SIDEBAR_ITEMS.filter((item) => item.id !== 'memory' || (enableMemory && !isWorkspaceMode));
 
 export const getSortableSidebarItemIds = (
   isWorkspaceMode: boolean,
-  enableMemory = true,
+  enableMemory = false,
 ): Set<string> =>
   new Set([
     ...getAvailableSidebarItems(isWorkspaceMode, enableMemory).map((item) => item.id),
