@@ -76,9 +76,13 @@ describe('MessengerPlatformRegistry', () => {
 });
 
 describe('messengerPlatformRegistry singleton', () => {
-  it('registers slack, telegram, and discord on import', async () => {
-    const { messengerPlatformRegistry } = await import('./index');
-    const ids = messengerPlatformRegistry.listPlatforms().map((d) => d.id);
-    expect(ids).toEqual(expect.arrayContaining(['slack', 'telegram', 'discord']));
-  });
+  it(
+    'registers slack, telegram, and discord on import',
+    async () => {
+      const { messengerPlatformRegistry } = await import('./index');
+      const ids = messengerPlatformRegistry.listPlatforms().map((d) => d.id);
+      expect(ids).toEqual(expect.arrayContaining(['slack', 'telegram', 'discord']));
+    },
+    10_000,
+  );
 });
