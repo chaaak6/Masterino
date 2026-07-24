@@ -13,7 +13,7 @@ permissions:
 jobs:
   update-i18n:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - name: Check i18n credentials
@@ -55,7 +55,25 @@ jobs:
 
       - name: Update i18n
         if: steps.credentials.outputs.configured == 'true'
-        run: bun run i18n
+        run: |
+          max_attempts=3
+
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Starting i18n update attempt ${attempt}/${max_attempts}..."
+
+            if bun run i18n; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "::error::i18n update failed after ${max_attempts} attempts."
+              exit 1
+            fi
+
+            retry_delay=$((attempt * 30))
+            echo "::warning::i18n update attempt ${attempt} failed; retrying in ${retry_delay} seconds."
+            sleep "$retry_delay"
+          done
         env:
           I18N_MODEL_NAME: glm-5.2
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
