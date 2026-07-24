@@ -6,10 +6,18 @@ import { RequestFilteringHttpAgent, RequestFilteringHttpsAgent } from 'request-f
  * Options for per-call SSRF configuration overrides
  */
 export interface SSRFOptions {
+  /**
+   * Optional exact URL origins allowed for the initial request and every
+   * redirect. When provided, the request is rejected before connecting to an
+   * origin outside this list.
+   */
+  allowedURLOrigins?: string[];
   /** List of IP addresses to allow */
   allowIPAddressList?: string[];
   /** Whether to allow private/local IP addresses */
   allowPrivateIPAddress?: boolean;
+  /** Additional IP addresses or CIDR ranges to deny */
+  denyIPAddressList?: string[];
   /**
    * Maximum response body size in bytes. When set, the body is consumed
    * incrementally and reading stops as soon as the cap is reached. The returned
@@ -22,6 +30,12 @@ export interface SSRFOptions {
    */
   maxContentLength?: number;
 }
+
+/**
+ * Cloud metadata endpoints that are routable as ordinary unicast addresses and
+ * therefore are not covered by private/reserved-address checks alone.
+ */
+export const CLOUD_METADATA_IP_ADDRESS_DENY_LIST = ['100.100.100.200'];
 
 /**
  * Consume a node-fetch Response body up to `cap` bytes, then stop. Breaking out
@@ -79,19 +93,31 @@ export const ssrfSafeFetch = async (
         [],
       allowMetaIPAddress: allowPrivate,
       allowPrivateIPAddress: allowPrivate,
-      denyIPAddressList: [],
+      denyIPAddressList: [
+        ...CLOUD_METADATA_IP_ADDRESS_DENY_LIST,
+        ...(ssrfOptions?.denyIPAddressList ?? []),
+      ],
     };
 
     // Create agents for both protocols
     const httpAgent = new RequestFilteringHttpAgent(agentOptions);
     const httpsAgent = new RequestFilteringHttpsAgent(agentOptions);
+    const allowedURLOrigins = ssrfOptions?.allowedURLOrigins
+      ? new Set(ssrfOptions.allowedURLOrigins)
+      : undefined;
 
     // Use node-fetch with SSRF protection agent
     // Pass a function to dynamically select agent based on URL protocol
     // This handles redirects from HTTP to HTTPS correctly
     const response = await fetch(url, {
       ...options,
-      agent: (parsedURL: URL) => (parsedURL.protocol === 'https:' ? httpsAgent : httpAgent),
+      agent: (parsedURL: URL) => {
+        if (allowedURLOrigins && !allowedURLOrigins.has(parsedURL.origin)) {
+          throw new Error('Request URL origin is not allowed');
+        }
+
+        return parsedURL.protocol === 'https:' ? httpsAgent : httpAgent;
+      },
     } as any);
 
     const cap = ssrfOptions?.maxContentLength;

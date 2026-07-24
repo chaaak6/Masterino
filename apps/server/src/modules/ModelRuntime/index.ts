@@ -26,6 +26,7 @@ import { createLLMGenerationTracingHook } from '@/server/services/llmGenerationT
 
 import { KeyVaultsGateKeeper } from '../KeyVaultsEncrypt';
 import apiKeyManager from './apiKeyManager';
+import { assertModelProviderEndpointAllowed } from './endpointPolicy';
 
 export * from './trace';
 
@@ -166,8 +167,17 @@ export const buildPayloadFromKeyVaults = (
  * @param payload - The JWT payload.
  * @returns The options object.
  */
-const getParamsFromPayload = (provider: string, payload: ClientSecretPayload) => {
-  const llmConfig = getLLMConfig() as Record<string, any>;
+type RuntimeInitializationOptions = {
+  allowEnvironmentFallback?: boolean;
+};
+
+const getParamsFromPayload = (
+  provider: string,
+  payload: ClientSecretPayload,
+  options: RuntimeInitializationOptions = {},
+) => {
+  const allowEnvironmentFallback = options.allowEnvironmentFallback !== false;
+  const llmConfig = (allowEnvironmentFallback ? getLLMConfig() : {}) as Record<string, any>;
 
   switch (provider) {
     case ModelProvider.NewAPI: {
@@ -197,13 +207,16 @@ const getParamsFromPayload = (provider: string, payload: ClientSecretPayload) =>
       }
 
       const apiKey = apiKeyManager.pick(payload?.apiKey || llmConfig[`${upperProvider}_API_KEY`]);
-      const baseURL = payload?.baseURL || process.env[`${upperProvider}_PROXY_URL`];
+      const baseURL =
+        payload?.baseURL ||
+        (allowEnvironmentFallback ? process.env[`${upperProvider}_PROXY_URL`] : undefined);
 
       return baseURL ? { apiKey, baseURL } : { apiKey };
     }
 
     case ModelProvider.Ollama: {
-      const baseURL = payload?.baseURL || process.env.OLLAMA_PROXY_URL;
+      const baseURL =
+        payload?.baseURL || (allowEnvironmentFallback ? process.env.OLLAMA_PROXY_URL : undefined);
 
       return { baseURL };
     }
@@ -332,19 +345,24 @@ const getParamsFromPayload = (provider: string, payload: ClientSecretPayload) =>
 const buildVertexOptions = (
   payload: ClientSecretPayload,
   params: Partial<GoogleGenAIOptions> = {},
+  initializationOptions: RuntimeInitializationOptions = {},
 ): GoogleGenAIOptions => {
-  const rawCredentials = payload.apiKey || process.env.VERTEXAI_CREDENTIALS || '';
+  const allowEnvironmentFallback = initializationOptions.allowEnvironmentFallback !== false;
+  const rawCredentials =
+    payload.apiKey ||
+    (allowEnvironmentFallback ? process.env.VERTEXAI_CREDENTIALS : undefined) ||
+    '';
   const credentials = safeParseJSON<Record<string, string>>(rawCredentials);
 
   const projectFromParams = params.project as string | undefined;
   const projectFromCredentials = credentials?.project_id;
-  const projectFromEnv = process.env.VERTEXAI_PROJECT;
+  const projectFromEnv = allowEnvironmentFallback ? process.env.VERTEXAI_PROJECT : undefined;
 
   const project = projectFromParams || projectFromCredentials || projectFromEnv;
   const location =
     (params.location as string | undefined) ||
     payload.vertexAIRegion ||
-    process.env.VERTEXAI_LOCATION ||
+    (allowEnvironmentFallback ? process.env.VERTEXAI_LOCATION : undefined) ||
     undefined;
 
   const googleAuthOptions = params.googleAuthOptions || (credentials ? { credentials } : undefined);
@@ -373,24 +391,36 @@ export const initModelRuntimeWithUserPayload = (
   payload: ClientSecretPayload,
   params: any = {},
   hooks?: ModelRuntimeHooks,
+  options: RuntimeInitializationOptions = {},
 ) => {
   const runtimeProvider = payload.runtimeProvider ?? provider;
 
   if (runtimeProvider === ModelProvider.VertexAI) {
-    const vertexOptions = buildVertexOptions(payload, params);
+    const vertexOptions = buildVertexOptions(payload, params, options);
     const runtime = LobeVertexAI.initFromVertexAI(vertexOptions);
 
     return new ModelRuntime(runtime, hooks);
   }
 
-  return ModelRuntime.initializeWithProvider(
+  const runtimeParams = {
+    ...getParamsFromPayload(runtimeProvider, payload, options),
+    ...params,
+  };
+  const baseURLOrAccountID = runtimeParams.baseURLOrAccountID;
+  const endpoint =
+    runtimeParams.baseURL ||
+    (typeof baseURLOrAccountID === 'string' && /^https?:\/\//i.test(baseURLOrAccountID)
+      ? baseURLOrAccountID
+      : undefined);
+
+  // Validate after environment fallbacks and per-call parameters are merged so
+  // implicit local defaults (for example ComfyUI/Ollama) cannot bypass policy.
+  assertModelProviderEndpointAllowed({
+    baseURL: endpoint,
     runtimeProvider,
-    {
-      ...getParamsFromPayload(runtimeProvider, payload),
-      ...params,
-    },
-    hooks,
-  );
+  });
+
+  return ModelRuntime.initializeWithProvider(runtimeProvider, runtimeParams, hooks);
 };
 
 /**
@@ -416,6 +446,7 @@ export const initModelRuntimeFromDB = async (
   userId: string,
   provider: string,
   workspaceId?: string,
+  options: RuntimeInitializationOptions = {},
 ): Promise<ModelRuntime> => {
   // 1. Get user's provider configuration from database
   // NOTE: workspace-scoped ai_infra is deferred until the ai_infra surrogate-`_id`
@@ -447,5 +478,5 @@ export const initModelRuntimeFromDB = async (
   const hooks = mergeModelRuntimeHooks(businessHooks, tracingHooks);
 
   // 6. Initialize ModelRuntime with the payload and hooks
-  return initModelRuntimeWithUserPayload(provider, payload, { userId }, hooks);
+  return initModelRuntimeWithUserPayload(provider, payload, { userId }, hooks, options);
 };

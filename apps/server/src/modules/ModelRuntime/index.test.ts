@@ -24,9 +24,31 @@ import {
 import { LobeVertexAI } from '@lobechat/model-runtime/vertexai';
 import { type ClientSecretPayload } from '@lobechat/types';
 import { ModelProvider } from 'model-bank';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildPayloadFromKeyVaults, initModelRuntimeWithUserPayload } from './index';
+
+beforeEach(() => {
+  vi.stubEnv(
+    'MODEL_PROVIDER_ALLOWED_ORIGINS',
+    [
+      'https://user-endpoint.example',
+      'https://user-azure.openai.azure.com',
+      'https://test-azure.openai.azure.com',
+      'https://test-ollama-url.local',
+      'http://user-ollama-url',
+      'http://localhost:8188',
+      'http://127.0.0.1:8000',
+      'http://custom-comfyui:8188',
+      'https://unknown-endpoint.example',
+      'https://proxy.example.com',
+    ].join(','),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 // 模拟依赖项
 vi.mock('@/envs/llm', () => ({
@@ -69,7 +91,7 @@ describe('initModelRuntimeWithUserPayload method', () => {
     it('OpenAI provider: with apikey and endpoint', async () => {
       const jwtPayload: ClientSecretPayload = {
         apiKey: 'user-openai-key',
-        baseURL: 'user-endpoint',
+        baseURL: 'https://user-endpoint.example/v1',
       };
       const runtime = await initModelRuntimeWithUserPayload(ModelProvider.OpenAI, jwtPayload);
       expect(runtime).toBeInstanceOf(ModelRuntime);
@@ -296,7 +318,7 @@ describe('initModelRuntimeWithUserPayload method', () => {
     it('Unknown Provider: with apikey and endpoint, should initialize to OpenAi', async () => {
       const jwtPayload: ClientSecretPayload = {
         apiKey: 'user-unknown-key',
-        baseURL: 'user-unknown-endpoint',
+        baseURL: 'https://unknown-endpoint.example/v1',
       };
       const runtime = await initModelRuntimeWithUserPayload('unknown', jwtPayload);
       expect(runtime).toBeInstanceOf(ModelRuntime);
@@ -370,12 +392,11 @@ describe('initModelRuntimeWithUserPayload method', () => {
       expect(runtime['_runtime']).toBeInstanceOf(LobeBedrockAI);
     });
 
-    it('Ollama provider: without endpoint', async () => {
+    it('Ollama provider: rejects its implicit loopback endpoint', async () => {
       const jwtPayload = {};
-      const runtime = await initModelRuntimeWithUserPayload(ModelProvider.Ollama, jwtPayload);
-
-      // 假设 LobeOllamaAI 是 Ollama 提供者的实现类
-      expect(runtime['_runtime']).toBeInstanceOf(LobeOllamaAI);
+      expect(() => initModelRuntimeWithUserPayload(ModelProvider.Ollama, jwtPayload)).toThrow(
+        'Model provider endpoint is not approved',
+      );
     });
 
     it('Perplexity AI provider: without apikey', async () => {
@@ -443,7 +464,7 @@ describe('initModelRuntimeWithUserPayload method', () => {
     });
 
     it('OpenAI provider: without apikey with OPENAI_PROXY_URL', async () => {
-      process.env.OPENAI_PROXY_URL = 'https://proxy.example.com/v1';
+      vi.stubEnv('OPENAI_PROXY_URL', 'https://proxy.example.com/v1');
 
       const jwtPayload: ClientSecretPayload = {};
       const runtime = await initModelRuntimeWithUserPayload(ModelProvider.OpenAI, jwtPayload);
@@ -452,8 +473,21 @@ describe('initModelRuntimeWithUserPayload method', () => {
       expect(runtime['_runtime'].baseURL).toBe('https://proxy.example.com/v1');
     });
 
+    it('does not borrow server credentials when environment fallback is disabled', () => {
+      let caughtError: unknown;
+      try {
+        initModelRuntimeWithUserPayload(ModelProvider.OpenAI, {}, {}, undefined, {
+          allowEnvironmentFallback: false,
+        });
+      } catch (error) {
+        caughtError = error;
+      }
+
+      expect(caughtError).toMatchObject({ errorType: 'InvalidProviderAPIKey' });
+    });
+
     it('Qwen AI provider: without apiKey and endpoint with OPENAI_PROXY_URL', async () => {
-      process.env.OPENAI_PROXY_URL = 'https://proxy.example.com/v1';
+      vi.stubEnv('OPENAI_PROXY_URL', 'https://proxy.example.com/v1');
 
       const jwtPayload: ClientSecretPayload = {};
       const runtime = await initModelRuntimeWithUserPayload(ModelProvider.Qwen, jwtPayload);

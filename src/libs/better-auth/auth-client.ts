@@ -1,5 +1,4 @@
 import {
-  adminClient,
   genericOAuthClient,
   inferAdditionalFields,
   magicLinkClient,
@@ -24,7 +23,6 @@ export const {
   useSession,
 } = createAuthClient({
   plugins: [
-    adminClient(),
     inferAdditionalFields<typeof auth>(),
     genericOAuthClient(),
     // Always include magicLinkClient - server will reject if not enabled

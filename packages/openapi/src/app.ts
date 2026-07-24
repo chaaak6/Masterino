@@ -5,6 +5,7 @@ import { prettyJSON } from 'hono/pretty-json';
 
 // Import user authentication middleware (supports both OIDC and API Key authentication)
 import { userAuthMiddleware } from './middleware/auth';
+import { openApiCorsOptions } from './middleware/cors';
 import { workspaceAuthMiddleware } from './middleware/workspace';
 // Import routes
 import routes from './routes';
@@ -13,7 +14,7 @@ import routes from './routes';
 const app = new Hono().basePath('/api/v1');
 
 // Global middleware
-app.use('*', cors());
+app.use('*', cors(openApiCorsOptions));
 app.use('*', logger());
 app.use('*', prettyJSON());
 app.use('*', userAuthMiddleware); // User authentication middleware

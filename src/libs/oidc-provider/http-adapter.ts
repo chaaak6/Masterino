@@ -12,6 +12,40 @@ const log = debug('lobe-oidc:http-adapter');
 
 const methodsWithBody = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+export class OIDCRequestBodyTooLargeError extends Error {
+  constructor() {
+    super('OIDC request body is too large');
+    this.name = 'OIDCRequestBodyTooLargeError';
+  }
+}
+
+const readBodyWithLimit = async (req: NextRequest, maxBodyBytes?: number): Promise<Buffer> => {
+  if (!req.body || req.headers.get('content-length') === '0') return Buffer.alloc(0);
+  if (!maxBodyBytes) return Buffer.from(await req.arrayBuffer());
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    totalLength += value.byteLength;
+    if (totalLength > maxBodyBytes) {
+      void reader.cancel();
+      throw new OIDCRequestBodyTooLargeError();
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(
+    chunks.map((chunk) => Buffer.from(chunk)),
+    totalLength,
+  );
+};
+
 /**
  * Convert Next.js request headers to standard Node.js HTTP header format
  */
@@ -27,7 +61,10 @@ export const convertHeadersToNodeHeaders = (nextHeaders: Headers): Record<string
  * Create a Node.js HTTP request object for OIDC Provider
  * @param req Next.js request object
  */
-export const createNodeRequest = async (req: NextRequest): Promise<IncomingMessage> => {
+export const createNodeRequest = async (
+  req: NextRequest,
+  options?: { maxBodyBytes?: number },
+): Promise<IncomingMessage> => {
   // Build URL object
   const url = new URL(req.url);
 
@@ -42,10 +79,10 @@ export const createNodeRequest = async (req: NextRequest): Promise<IncomingMessa
   log('Creating Node.js request from Next.js request');
   log('Original path: %s, Provider path: %s', url.pathname, providerPath);
 
-  const bodyStream =
-    methodsWithBody.has(req.method) && req.body && req.headers.get('content-length') !== '0'
-      ? Readable.from([Buffer.from(await req.arrayBuffer())])
-      : Readable.from([]);
+  const body = methodsWithBody.has(req.method)
+    ? await readBodyWithLimit(req, options?.maxBodyBytes)
+    : Buffer.alloc(0);
+  const bodyStream = Readable.from(body.length > 0 ? [body] : []);
 
   /**
    * oidc-provider expects a readable Node request and parses supported body types itself.

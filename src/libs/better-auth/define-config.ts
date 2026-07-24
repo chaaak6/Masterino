@@ -7,7 +7,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { verifyPassword as defaultVerifyPassword } from 'better-auth/crypto';
 import { type BetterAuthOptions } from 'better-auth/minimal';
 import { betterAuth } from 'better-auth/minimal';
-import { admin, emailOTP, genericOAuth, magicLink } from 'better-auth/plugins';
+import { emailOTP, genericOAuth, magicLink } from 'better-auth/plugins';
 import { type BetterAuthPlugin } from 'better-auth/types';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
 
@@ -198,8 +198,10 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
     },
     session: {
       cookieCache: {
-        enabled: true,
-        maxAge: 2 * 60, // Cache duration in seconds
+        // Keep sensitive session metadata (IP, user agent, session id and user
+        // details) server-side. Better Auth's cookie cache serializes this
+        // information into a signed but readable session_data cookie.
+        enabled: false,
       },
       // Keep a DB-backed fallback when Redis secondary storage entries are unexpectedly missing.
       storeSessionInDatabase: true,
@@ -306,7 +308,6 @@ export function defineConfig(customOptions: CustomBetterAuthOptions) {
       ...customOptions.plugins,
       emailWhitelist(),
       expo(),
-      admin(),
       // Email OTP plugin for mobile verification
       emailOTP({
         expiresIn: OTP_EXPIRES_IN,

@@ -13,6 +13,8 @@ export interface SSRFOptions {
   allowIPAddressList?: string[];
   /** Whether to allow private/local IP addresses */
   allowPrivateIPAddress?: boolean;
+  /** Additional IP addresses or CIDR ranges to deny */
+  denyIPAddressList?: string[];
   /** Maximum response body size in bytes (server-only; ignored in browser) */
   maxContentLength?: number;
 }

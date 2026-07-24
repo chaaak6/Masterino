@@ -1,6 +1,6 @@
 // @vitest-environment node
 import type { LobeRuntimeAI } from '@lobechat/model-runtime';
-import { AgentRuntimeErrorType, ModelRuntime } from '@lobechat/model-runtime';
+import { ModelRuntime } from '@lobechat/model-runtime';
 import { ChatErrorType } from '@lobechat/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -48,17 +48,22 @@ afterEach(() => {
 
 describe('GET handler', () => {
   describe('error handling', () => {
-    it('should return the thrown error message without exposing stack trace', async () => {
+    it.each([
+      new Error('request to http://127.0.0.1:1234/v1/models failed, reason: connect ECONNREFUSED'),
+      {
+        error: {
+          cause: { message: 'connect ECONNREFUSED 127.0.0.1:11434' },
+          message: 'Provider request failed',
+        },
+        errorType: 471,
+      },
+    ])('should replace model fetch error details with a generic response', async (error) => {
       const mockParams = Promise.resolve({ provider: 'google' });
-
-      const errorWithStack = new Error('Something went wrong');
-      errorWithStack.stack =
-        'Error: Something went wrong\n    at Object.<anonymous> (/path/to/file.ts:10:15)';
 
       const mockRuntime: LobeRuntimeAI = {
         baseURL: 'abc',
         chat: vi.fn(),
-        models: vi.fn().mockRejectedValue(errorWithStack),
+        models: vi.fn().mockRejectedValue(error),
       };
       vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
 
@@ -67,153 +72,53 @@ describe('GET handler', () => {
 
       expect(response.status).toBe(500);
       expect(responseBody.errorType).toBe(ChatErrorType.InternalServerError);
-      expect(responseBody.body.message).toBe('Something went wrong');
+      expect(responseBody.body).toEqual({
+        message: 'Provider unavailable',
+        provider: 'google',
+      });
 
       const responseText = JSON.stringify(responseBody);
-      expect(responseText).not.toContain('/path/to/file.ts');
-      expect(responseText).not.toContain('at Object');
+      expect(responseText).not.toContain('127.0.0.1');
+      expect(responseText).not.toContain('ECONNREFUSED');
+      expect(responseText).not.toContain('/v1/models');
     });
 
-    it('should return custom error messages', async () => {
-      const mockParams = Promise.resolve({ provider: 'google' });
-
-      class CustomError extends Error {
-        constructor(message: string) {
-          super(message);
-          this.name = 'CustomError';
-        }
-      }
-
-      const customError = new CustomError('Custom error occurred');
-      customError.stack = 'CustomError: Custom error occurred\n    at somewhere';
-
-      const mockRuntime: LobeRuntimeAI = {
-        baseURL: 'abc',
-        chat: vi.fn(),
-        models: vi.fn().mockRejectedValue(customError),
-      };
-      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
-
-      const response = await GET(request, { params: mockParams });
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(responseBody.errorType).toBe(ChatErrorType.InternalServerError);
-      expect(responseBody.body.message).toBe('Custom error occurred');
-    });
-
-    it('should preserve structured model fetch error context', async () => {
-      const mockParams = Promise.resolve({ provider: 'google' });
-
-      const structuredError = {
-        errorType: AgentRuntimeErrorType.ProviderBizError,
-        error: { code: 'PROVIDER_ERROR', message: 'API limit exceeded' },
-      };
-
-      const mockRuntime: LobeRuntimeAI = {
-        baseURL: 'abc',
-        chat: vi.fn(),
-        models: vi.fn().mockRejectedValue(structuredError),
-      };
-      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
-
-      const response = await GET(request, { params: mockParams });
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(471);
-      expect(responseBody.errorType).toBe(AgentRuntimeErrorType.ProviderBizError);
-      expect(responseBody.body.error.code).toBe('PROVIDER_ERROR');
-      expect(responseBody.body.error.message).toBe('API limit exceeded');
-      expect(responseBody.body.message).toBe('API limit exceeded');
-      expect(responseBody.body.provider).toBe('google');
-    });
-
-    it('should return generic status code for model fetch errors', async () => {
-      const mockParams = Promise.resolve({ provider: 'google' });
-
-      const mockRuntime: LobeRuntimeAI = {
-        baseURL: 'abc',
-        chat: vi.fn(),
-        models: vi.fn().mockRejectedValue(new Error('Failed')),
-      };
-      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
-
-      const response = await GET(request, { params: mockParams });
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(responseBody.errorType).toBe(ChatErrorType.InternalServerError);
-      expect(responseBody.body.message).toBe('Failed');
-    });
-
-    it('should prefer wrapped cause message for model fetch errors', async () => {
-      const mockParams = Promise.resolve({ provider: 'openrouter' });
-
-      const cause = new Error('OpenRouter models API request failed with status 401');
-      const wrappedError = new Error('Failed to fetch OpenRouter models', { cause });
-
-      const mockRuntime: LobeRuntimeAI = {
-        baseURL: 'abc',
-        chat: vi.fn(),
-        models: vi.fn().mockRejectedValue(wrappedError),
-      };
-      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
-
-      const response = await GET(request, { params: mockParams });
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(responseBody.errorType).toBe(ChatErrorType.InternalServerError);
-      expect(responseBody.body.message).toBe(
-        'OpenRouter models API request failed with status 401',
-      );
-    });
-
-    it('should return generic status code for setup errors', async () => {
-      const mockParams = Promise.resolve({ provider: 'google' });
-
-      vi.mocked(initModelRuntimeFromDB).mockRejectedValue(new Error('Setup failed'));
-
-      const response = await GET(request, { params: mockParams });
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(responseBody.errorType).toBe(ChatErrorType.InternalServerError);
-      expect(responseBody.body.message).toBe('Setup failed');
-    });
-
-    it('should preserve structured setup error type and message', async () => {
+    it('should also sanitize errors raised while initializing the provider', async () => {
       const mockParams = Promise.resolve({ provider: 'githubcopilot' });
 
       vi.mocked(initModelRuntimeFromDB).mockRejectedValue({
-        error: { message: 'Invalid GitHub Copilot API key' },
-        errorType: AgentRuntimeErrorType.InvalidProviderAPIKey,
+        error: { message: 'Invalid API key at https://internal-provider.example/v1' },
+        errorType: 401,
       });
 
       const response = await GET(request, { params: mockParams });
       const responseBody = await response.json();
 
-      expect(response.status).toBe(401);
-      expect(responseBody.errorType).toBe(AgentRuntimeErrorType.InvalidProviderAPIKey);
-      expect(responseBody.body.message).toBe('Invalid GitHub Copilot API key');
-      expect(responseBody.body.error.message).toBe('Invalid GitHub Copilot API key');
-      expect(responseBody.body.provider).toBe('githubcopilot');
+      expect(response.status).toBe(500);
+      expect(responseBody.errorType).toBe(ChatErrorType.InternalServerError);
+      expect(responseBody.body).toEqual({
+        message: 'Provider unavailable',
+        provider: 'githubcopilot',
+      });
+      expect(JSON.stringify(responseBody)).not.toContain('internal-provider.example');
     });
 
-    it('should include provider in error response', async () => {
+    it('should log only a sanitized error classification', async () => {
       const mockParams = Promise.resolve({ provider: 'openai' });
-
+      const sensitiveError = new Error('connect ECONNREFUSED 127.0.0.1:11434');
       const mockRuntime: LobeRuntimeAI = {
         baseURL: 'abc',
         chat: vi.fn(),
-        models: vi.fn().mockRejectedValue(new Error('Failed')),
+        models: vi.fn().mockRejectedValue(sensitiveError),
       };
       vi.mocked(initModelRuntimeFromDB).mockResolvedValue(new ModelRuntime(mockRuntime));
 
-      const response = await GET(request, { params: mockParams });
-      const responseBody = await response.json();
+      await GET(request, { params: mockParams });
 
-      expect(responseBody.body.provider).toBe('openai');
+      expect(console.error).toHaveBeenCalledWith('[models] Provider model listing failed', {
+        errorName: 'Error',
+        provider: 'openai',
+      });
     });
   });
 
@@ -238,6 +143,13 @@ describe('GET handler', () => {
 
       expect(response.status).toBe(200);
       expect(responseBody).toEqual(mockModelList);
+      expect(initModelRuntimeFromDB).toHaveBeenCalledWith(
+        expect.anything(),
+        'test-user-id',
+        'openai',
+        undefined,
+        { allowEnvironmentFallback: false },
+      );
     });
   });
 });

@@ -273,17 +273,25 @@ export const createOIDCProvider = async (db: LobeChatDatabase): Promise<Provider
     },
 
     // 12. Other configuration
-    renderError: async (ctx, out, error) => {
+    renderError: async (ctx) => {
+      ctx.set('Cache-Control', 'no-store');
+      ctx.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+      ctx.set('X-Content-Type-Options', 'nosniff');
+      ctx.set('X-Frame-Options', 'DENY');
       ctx.type = 'html';
       ctx.body = `
-        <html>
+        <!doctype html>
+        <html lang="en">
           <head>
-            <title>Masterino OIDC Error</title>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>Authorization request failed</title>
           </head>
           <body>
-            <h1>Masterino OIDC Error</h1>
-            <p>${JSON.stringify(error, null, 2)}</p>
-            <p>${JSON.stringify(out, null, 2)}</p>
+            <main>
+              <h1>Authorization request failed</h1>
+              <p>Please return to Masterino and try signing in again.</p>
+            </main>
           </body>
         </html>
       `;

@@ -1,5 +1,4 @@
 import {
-  adminClient,
   genericOAuthClient,
   inferAdditionalFields,
   magicLinkClient,
@@ -18,12 +17,7 @@ function getClient() {
 
     _client = createAuthClient({
       baseURL,
-      plugins: [
-        adminClient(),
-        inferAdditionalFields<typeof auth>(),
-        genericOAuthClient(),
-        magicLinkClient(),
-      ],
+      plugins: [inferAdditionalFields<typeof auth>(), genericOAuthClient(), magicLinkClient()],
     });
   }
   return _client;

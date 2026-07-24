@@ -3,6 +3,22 @@ import { type NextConfig } from 'next';
 import { type Header, type Redirect, type Rewrite } from 'next/dist/lib/load-custom-routes';
 
 const LANDING_SITEMAP_URL = 'https://aihub.bielcrystal.com/sitemap.xml';
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: wss:",
+  "frame-src 'self' https:",
+  "media-src 'self' blob: https:",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+].join('; ');
 
 interface CustomNextConfig {
   experimental?: NextConfig['experimental'];
@@ -119,6 +135,7 @@ export function defineConfig(config: CustomNextConfig) {
       emotion: true,
     },
     compress: isProd,
+    poweredByHeader: false,
     experimental: {
       optimizePackageImports: [
         'emoji-mart',
@@ -142,19 +159,37 @@ export function defineConfig(config: CustomNextConfig) {
           key: 'x-robots-tag',
           value: 'all',
         },
+        {
+          key: 'X-Content-Type-Options',
+          value: 'nosniff',
+        },
+        {
+          key: 'Referrer-Policy',
+          value: 'strict-origin-when-cross-origin',
+        },
+        {
+          key: 'Permissions-Policy',
+          value: 'camera=(), microphone=(), geolocation=()',
+        },
+        {
+          key: 'X-Frame-Options',
+          value: shouldUseCSP ? 'DENY' : 'SAMEORIGIN',
+        },
+        ...(isProd
+          ? [
+              {
+                key: 'Strict-Transport-Security',
+                value: 'max-age=31536000; includeSubDomains',
+              },
+            ]
+          : []),
       ];
 
       if (shouldUseCSP) {
-        securityHeaders.push(
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'none';",
-          },
-        );
+        securityHeaders.push({
+          key: 'Content-Security-Policy',
+          value: CONTENT_SECURITY_POLICY,
+        });
       }
 
       return [
@@ -310,8 +345,10 @@ export function defineConfig(config: CustomNextConfig) {
     },
     logging: {
       fetches: {
-        fullUrl: true,
-        hmrRefreshes: true,
+        // Query strings can contain authorization codes or other sensitive
+        // values. Keep detailed fetch/HMR diagnostics in development only.
+        fullUrl: !isProd,
+        hmrRefreshes: !isProd,
       },
     },
     ...(config.outputFileTracingExcludes && {
@@ -321,6 +358,7 @@ export function defineConfig(config: CustomNextConfig) {
       outputFileTracingIncludes: config.outputFileTracingIncludes,
     }),
     reactStrictMode: true,
+    productionBrowserSourceMaps: false,
     redirects: async () => [
       // Sitemap generation lives on the landing site; keep legacy app sitemap URLs crawlable.
       {
@@ -454,7 +492,7 @@ export function defineConfig(config: CustomNextConfig) {
     },
     turbopack: {
       rules: {
-        ...(isTest
+        ...(isProd || isTest
           ? void 0
           : codeInspectorPlugin({
               bundler: 'turbopack',

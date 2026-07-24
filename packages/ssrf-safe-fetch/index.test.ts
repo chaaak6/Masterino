@@ -146,6 +146,23 @@ describe('ssrfSafeFetch', () => {
       });
     });
 
+    it('should always deny the Alibaba Cloud metadata endpoint', async () => {
+      process.env.SSRF_ALLOW_PRIVATE_IP_ADDRESS = '1';
+      let filteringAgent: any;
+      mockFetch.mockImplementation((_url: string, options: any) => {
+        filteringAgent = options.agent(new URL('https://metadata.example'));
+        throw new Error('stop after capturing agent');
+      });
+
+      await expect(ssrfSafeFetch('https://metadata.example')).rejects.toThrow(
+        'Fetch failed: stop after capturing agent',
+      );
+
+      expect(() => filteringAgent.createConnection({ host: '100.100.100.200', port: 443 })).toThrow(
+        /denyIPAddressList/,
+      );
+    });
+
     const unsupportedSchemeUrls = [
       'file:///etc/passwd', // File protocol
       'ftp://internal.company.com/secrets', // FTP protocol
@@ -159,6 +176,24 @@ describe('ssrfSafeFetch', () => {
 
         await expect(ssrfSafeFetch(url)).rejects.toThrow(/Fetch failed/);
       });
+    });
+
+    it('checks the exact origin again before following redirects', async () => {
+      mockFetch.mockImplementation((_url: string, options: any) => {
+        expect(() => options.agent(new URL('https://skills.example.com/skill.md'))).not.toThrow();
+        expect(() => options.agent(new URL('https://redirect.example.com/skill.md'))).toThrow(
+          'Request URL origin is not allowed',
+        );
+        throw new Error('stop after validating redirect policy');
+      });
+
+      await expect(
+        ssrfSafeFetch(
+          'https://skills.example.com/skill.md',
+          {},
+          { allowedURLOrigins: ['https://skills.example.com'] },
+        ),
+      ).rejects.toThrow('Fetch failed: stop after validating redirect policy');
     });
   });
 

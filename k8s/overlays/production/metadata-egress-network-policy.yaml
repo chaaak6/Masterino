@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: masterino-deny-cloud-metadata
+  labels:
+    app.kubernetes.io/name: masterino
+    app.kubernetes.io/part-of: masterino
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: masterino
+  policyTypes:
+    - Egress
+  egress:
+    # Preserve service-to-service traffic inside the cluster.
+    - to:
+        - namespaceSelector: {}
+    # Permit ordinary IPv4 egress while denying cloud metadata endpoints even
+    # if a future application-level SSRF bypass is introduced.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 100.100.100.200/32
+              - 169.254.169.254/32
