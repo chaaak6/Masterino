@@ -9,20 +9,11 @@ metadata:
     nginx.ingress.kubernetes.io/limit-rpm: '5'
     nginx.ingress.kubernetes.io/limit-burst-multiplier: '1'
     nginx.ingress.kubernetes.io/proxy-body-size: '16k'
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-Forwarded-Proto $scheme;
-      proxy_hide_header X-Middleware-Rewrite;
-      proxy_hide_header X-Middleware-Set-Cookie;
-      proxy_hide_header X-Nextjs-Cache;
-      proxy_hide_header X-Nextjs-Matched-Path;
-      proxy_hide_header X-Nextjs-Prerender;
-      proxy_hide_header X-Nextjs-Rewritten-Path;
-      proxy_hide_header X-Nextjs-Rewritten-Query;
-      proxy_hide_header X-Nextjs-Stale-Time;
-      proxy_hide_header X-Invoke-Path;
-      proxy_hide_header X-Invoke-Query;
-      proxy_hide_header X-Invoke-Output;
-      proxy_hide_header X-Powered-By;
+    nginx.ingress.kubernetes.io/proxy-hide-headers: >-
+      X-Middleware-Rewrite, X-Middleware-Set-Cookie, X-Nextjs-Cache,
+      X-Nextjs-Matched-Path, X-Nextjs-Prerender, X-Nextjs-Rewritten-Path,
+      X-Nextjs-Rewritten-Query, X-Nextjs-Stale-Time, X-Invoke-Path,
+      X-Invoke-Query, X-Invoke-Output, X-Powered-By
 spec:
   ingressClassName: nginx
   tls:
