@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import MobileAgentList from './MobileAgentList';
+
 const homeState = vi.hoisted(() => ({
   agentGroups: [] as any[],
   isAgentListInit: true,
@@ -66,8 +68,6 @@ vi.mock('@/store/home/selectors', () => ({
 vi.mock('./MobileAgentListItem', () => ({
   default: ({ item }: any) => <div data-testid={`mobile-${item.type}`}>{item.title}</div>,
 }));
-
-import MobileAgentList from './MobileAgentList';
 
 describe('MobileAgentList', () => {
   it('keeps the built-in inbox assistant visible when the custom agent list is empty', () => {

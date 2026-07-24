@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  createDefaultWorkspaceAssigner,
   createDefaultWecomUserNamingSyncer,
+  createDefaultWorkspaceAssigner,
   provisionWecomLoginAccount,
 } from './wecom-login-provisioning';
 

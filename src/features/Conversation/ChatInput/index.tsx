@@ -8,12 +8,12 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-import { message as antdMessage } from '@/components/AntdStaticMethods';
 import {
   getBusinessChatInputSendAreaPrefix,
   useBusinessChatInputCostEstimateAlert,
 } from '@/business/client/hooks/useBusinessChatInputSendAreaPrefix';
 import { useBusinessInputCompletionErrorAlert } from '@/business/client/hooks/useBusinessInputCompletionErrorAlert';
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import type { ActionKeys, ChatInputFeature } from '@/features/ChatInput';
 import { ChatInputProvider, DesktopChatInput } from '@/features/ChatInput';
 import { selectors as chatInputSelectors, useChatInputStore } from '@/features/ChatInput/store';

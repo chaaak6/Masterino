@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import NavBar from './NavBar';
+
 const navigate = vi.fn();
 
 vi.mock('@lobehub/ui/mobile', () => ({
@@ -41,8 +43,6 @@ vi.mock('@/store/serverConfig', () => ({
   featureFlagsSelectors: {},
   useServerConfigStore: () => ({ showMarket: true }),
 }));
-
-import NavBar from './NavBar';
 
 describe('mobile NavBar', () => {
   it('shows short community text and routes community plus messages to coming-soon tabs', () => {

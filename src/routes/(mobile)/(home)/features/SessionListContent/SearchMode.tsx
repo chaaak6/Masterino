@@ -4,8 +4,8 @@ import { useServerConfigStore } from '@/store/serverConfig';
 import { serverConfigSelectors } from '@/store/serverConfig/selectors';
 import { useSessionStore } from '@/store/session';
 
-import { filterSessionsForHomeView } from './filters';
 import SkeletonList from '../SkeletonList';
+import { filterSessionsForHomeView } from './filters';
 import SessionList from './List';
 
 const SearchMode = memo(() => {

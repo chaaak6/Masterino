@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import MobileHome from './index';
+
 vi.mock('@/routes/(main)/home/_layout/Body/Agent/List', () => ({
   default: () => <div data-testid="pc-agent-list" />,
 }));
@@ -8,8 +10,6 @@ vi.mock('@/routes/(main)/home/_layout/Body/Agent/List', () => ({
 vi.mock('./MobileAgentList', () => ({
   default: () => <div data-testid="mobile-agent-list" />,
 }));
-
-import MobileHome from './index';
 
 describe('MobileHome', () => {
   it('renders the mobile agent list instead of the desktop sidebar list', () => {

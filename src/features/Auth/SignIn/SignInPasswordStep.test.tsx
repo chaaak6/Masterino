@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SignInPasswordStep } from './SignInPasswordStep';
+
 const translationState = vi.hoisted(() => ({
   language: 'zh-CN',
   title: '同 Agent 团队一起无限进步',
@@ -28,11 +30,11 @@ vi.mock('@lobehub/ui', async () => {
       </button>
     ),
     Icon: () => <span data-testid="icon" />,
-    InputPassword: React.forwardRef(({ placeholder }: any, ref) => {
+    InputPassword: ({ ref, placeholder }) => {
       React.useImperativeHandle(ref, () => ({ focus: vi.fn() }));
 
       return <input placeholder={placeholder} type="password" />;
-    }),
+    },
     Text: ({ children }: { children: ReactNode }) => <span>{children}</span>,
   };
 });
@@ -51,7 +53,7 @@ vi.mock('@lobehub/ui/awesome', async () => {
       const [text] = React.useState(sentences[0]);
 
       return (
-        <span data-text-colors={textColors?.join(',')} data-testid="password-title-typewriter">
+        <span data-testid="password-title-typewriter" data-text-colors={textColors?.join(',')}>
           {text}
         </span>
       );
@@ -94,8 +96,6 @@ vi.mock('react-i18next', () => ({
       })[key] || key,
   }),
 }));
-
-import { SignInPasswordStep } from './SignInPasswordStep';
 
 describe('SignInPasswordStep', () => {
   beforeEach(() => {
