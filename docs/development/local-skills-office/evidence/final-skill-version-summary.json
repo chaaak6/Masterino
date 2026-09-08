@@ -1,0 +1,120 @@
+{
+  "status": "version_refusal_and_reactivation_recovery_pass",
+  "clientSha": "6f3c5bb6",
+  "serverSha": "f0a049ff",
+  "topic": "tpc_QTeMIT0E11Cv",
+  "skillKey": "project:pws_aQplj9bnXRcE:qa-identity",
+  "operations": [
+    {
+      "userMessageId": "msg_vfaTPqKTbvXmuo2w5R",
+      "tools": [
+        {
+          "id": "msg_iHa15lVarRgk",
+          "name": "activateSkill",
+          "stateMetrics": {
+            "hasResources": false
+          },
+          "outputBytes": 680
+        },
+        {
+          "id": "msg_sfdJE5iNDFOF",
+          "name": "readReference",
+          "stateMetrics": {},
+          "outputBytes": 28
+        },
+        {
+          "id": "msg_hu8xaiKEwtAO",
+          "name": "execScript",
+          "stateMetrics": {},
+          "outputBytes": 817
+        },
+        {
+          "id": "msg_ug40zWYP8FUG",
+          "name": "execScript",
+          "stateMetrics": {
+            "success": true,
+            "exitCode": 0
+          },
+          "outputBytes": 107
+        }
+      ],
+      "rounds": 5
+    },
+    {
+      "userMessageId": "msg_fIh8vcbydZxWIOUUqT",
+      "tools": [
+        {
+          "id": "msg_UGG7sKv72vZA",
+          "name": "updateProjectSkill",
+          "stateMetrics": {
+            "result": {
+              "valid": true,
+              "totalBytes": 251
+            }
+          },
+          "outputBytes": 211
+        },
+        {
+          "id": "msg_J5JxVLEJPrXJ",
+          "name": "validateProjectSkill",
+          "stateMetrics": {
+            "result": {
+              "valid": true,
+              "totalBytes": 251
+            }
+          },
+          "outputBytes": 211
+        }
+      ],
+      "rounds": 3
+    },
+    {
+      "userMessageId": "msg_83giZt27zz83yPtOm7",
+      "tools": [
+        {
+          "id": "msg_8T9X4mc6CuKF",
+          "name": "execScript",
+          "stateMetrics": {},
+          "outputBytes": 97
+        }
+      ],
+      "rounds": 2
+    },
+    {
+      "userMessageId": "msg_0wh9ySeR3FfyVI9sfb",
+      "tools": [
+        {
+          "id": "msg_vrhOFMlyNQJ8",
+          "name": "activateSkill",
+          "stateMetrics": {
+            "hasResources": false
+          },
+          "outputBytes": 693
+        },
+        {
+          "id": "msg_2GudpGaUUB6W",
+          "name": "execScript",
+          "stateMetrics": {
+            "success": true,
+            "exitCode": 0
+          },
+          "outputBytes": 107
+        }
+      ],
+      "rounds": 3
+    }
+  ],
+  "modificationMethod": "Real UI chat updateProjectSkill changed description only; no QA shell mutation",
+  "skillMarkdownHashBefore": "70218609fbd59abd80ec5b0e00d45f21bda41e6cb100c288eb3fcbc789865172",
+  "skillMarkdownHashAfter": "27bf746c3247624652e1f54d5894232dada03ab05aaeac3a5c1083a10fd9fece",
+  "rejectedToolMessageId": "msg_8T9X4mc6CuKF",
+  "rejectionToolContent": "SKILL_RESOURCE_VERSION_CHANGED: activate this project skill again before executing its resources.",
+  "rejectionStateKeys": [],
+  "recoveryOutput": "QA-project-agents-SCRIPT",
+  "limitations": [
+    "No dedicated adapter invocation counter available: version refusal observed in actual tool message, but absent adapter metrics alone are not proof of no invocation.",
+    "First activation sequence included an unsuccessful initial exec followed by success; retained in ordered tool records.",
+    "This tests project resource change, not UI disable policy or every skill source."
+  ],
+  "initialExecutionRecovery": "Initial relative scripts/marker.py resolved under project cwd and failed missing file; model corrected to skill directory and succeeded. Original failure retained; version boundary test occurred in later separate operation."
+}

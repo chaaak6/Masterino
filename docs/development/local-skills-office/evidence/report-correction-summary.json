@@ -1,0 +1,47 @@
+{
+  "status": "numeric_correction_pass_via_python_reread",
+  "clientSha": "6f3c5bb6",
+  "serverSha": "6f3c5bb6",
+  "serverDigest": "sha256:62dcaedc077db486feeede841180efbf3434c796710d31259e7fb7bd451f40a9",
+  "topic": "tpc_o1l2omJzJl8l",
+  "rounds": 3,
+  "tools": [
+    {
+      "name": "runCommand",
+      "bytes": 631,
+      "executionMetrics": null
+    },
+    {
+      "name": "writeFile",
+      "bytes": 179,
+      "executionMetrics": {
+        "durationMs": 0.72,
+        "outputBytes": 179
+      }
+    }
+  ],
+  "shellCalls": 1,
+  "dependencyProbe": true,
+  "officeRereadWithPython": true,
+  "originalReportUnchanged": true,
+  "originalReportHash": "a3362fc5060b973f57d71ec82ca13ef1d95f177caaa5dd9b21e84f06bac836d6",
+  "correctedReportHash": "35df3ca92abe44b0d634ed245c44e72f259a7bc28c2543ee47e8c3cb2b331e8d",
+  "sourceHash": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+  "observedAndIndependent": {
+    "units": 33,
+    "simpleUnitPriceMean": 250,
+    "weightedUnitPriceMean": 242.42424242424244
+  },
+  "elapsedPersistedSeconds": 83.579,
+  "usage": {
+    "totalInputTokens": 104383,
+    "inputCachedTokens": 80512,
+    "inputCacheMissTokens": 23871,
+    "totalOutputTokens": 9852
+  },
+  "limitations": [
+    "Follow-up diagnosis does not replace original fixed-group report error.",
+    "Python try-import and openpyxl reread, not native-only analysis.",
+    "Corrected report attributes original error to8000/30; that explanation is model inference, not independently established."
+  ]
+}

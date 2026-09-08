@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sales 收入报告 — sales-12</title>
+<title>Sales 收入报告（修正版）— sales-12</title>
 <style>
   :root{
     --bg:#f4f6fb; --card:#ffffff; --ink:#1f2733; --muted:#6b7688;
     --accent:#3b82f6; --accent2:#8b5cf6; --accent3:#10b981;
-    --line:#e6e9f0; --table-head:#f0f3fa;
+    --line:#e6e9f0; --table-head:#f0f3fa; --warn:#b45309; --warn-bg:#fff7ed;
   }
   *{box-sizing:border-box;}
   body{
@@ -47,23 +47,30 @@
   .chart .legend{display:flex; gap:18px; font-size:12px; color:var(--muted); margin-bottom:6px;}
   .chart .legend span::before{content:""; display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px;}
   .note{font-size:12px; color:var(--muted); margin-top:14px;}
+  .alert{background:var(--warn-bg); border:1px solid #fbdcb6; border-radius:10px; padding:14px 16px; margin-bottom:18px; font-size:13.5px; color:var(--warn);}
+  .alert strong{display:block; font-size:14px; margin-bottom:6px;}
+  .alert code{background:#fff; padding:1px 6px; border-radius:4px; border:1px solid #efd5ae;}
+  .formula{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; background:#f7f9fe; border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin:6px 0 14px;}
   footer{text-align:center; color:var(--muted); font-size:12px; padding:16px 0 4px;}
-  .bar-label{font-size:13px; fill:var(--ink);}
-  .bar-val{font-size:13px; font-weight:600; fill:#1f2733;}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header class="hero">
-    <h1>Sales 收入分析报告</h1>
+    <h1>Sales 收入分析报告（修正版）</h1>
     <p>源文件：sales-12.xlsx · 工作表：Sales · 单位：人民币（CNY）</p>
     <div class="meta">
       <span>数据行数：12 行</span>
       <span>字段：order_id / month / region / product / units / unit_price / revenue</span>
-      <span>生成时间：自动</span>
+      <span>修正：平均单价口径</span>
     </div>
   </header>
+
+  <div class="alert">
+    <strong>复核修正说明</strong>
+    本报告全部指标均通过脚本从原始 <code>sales-12.xlsx</code> 独立重算（非沿用旧值）。经与原始 Excel 逐项核对：总收入、销量、Region 分组、Month 分组、交叉汇总均正确；<b>仅「平均单价」一项有误</b>。原报告显示的 ¥266.67 系以 <code>8000 ÷ 30</code> 计算（除数 30 有误），正确口径见下方「计算口径说明」。
+  </div>
 
   <div class="cards">
     <div class="stat">
@@ -72,19 +79,19 @@
       <div class="sub">12 笔订单</div>
     </div>
     <div class="stat">
-      <div class="label">按 Region 分组</div>
-      <div class="value">3 个区域</div>
-      <div class="sub">East / West / North</div>
+      <div class="label">平均单价（简单均值）</div>
+      <div class="value">¥250.00</div>
+      <div class="sub">单位价格列均值</div>
     </div>
     <div class="stat">
-      <div class="label">按 Month 分组</div>
-      <div class="value">2 个月</div>
-      <div class="sub">2026-01 / 2026-02</div>
+      <div class="label">加权平均价</div>
+      <div class="value">¥242.42</div>
+      <div class="sub">总收入 ÷ 总销量</div>
     </div>
     <div class="stat">
-      <div class="label">平均单价</div>
-      <div class="value">¥266.67</div>
-      <div class="sub">units：共 33 件</div>
+      <div class="label">总销量</div>
+      <div class="value">33 件</div>
+      <div class="sub">3 区域 × 2 月份</div>
     </div>
   </div>
 
@@ -101,6 +108,8 @@
         <tr><td>区域数量（Distinct Regions）</td><td>3</td></tr>
         <tr><td>月份数量（Distinct Months）</td><td>2</td></tr>
         <tr><td>总销量（Total Units）</td><td>33</td></tr>
+        <tr><td>平均单价（单位价格列简单均值）</td><td>¥250.00</td></tr>
+        <tr><td>加权平均价（总收入 ÷ 总销量）</td><td>¥242.42</td></tr>
       </tbody>
     </table>
   </section>
@@ -128,15 +137,12 @@
       </div>
       <svg viewBox="0 0 560 220" width="100%" role="img" aria-label="Region 收入柱状图">
         <line x1="90" y1="20" x2="90" y2="205" stroke="#cbd2e0" stroke-width="1"/>
-        <!-- East -->
         <rect x="90" y="32" width="440" height="36" rx="5" fill="var(--accent)"/>
         <text x="80" y="55" text-anchor="end" class="bar-label">East</text>
         <text x="538" y="55" text-anchor="end" class="bar-val">¥3,300</text>
-        <!-- West -->
         <rect x="90" y="96" width="320" height="36" rx="5" fill="var(--accent2)"/>
         <text x="80" y="119" text-anchor="end" class="bar-label">West</text>
         <text x="418" y="119" text-anchor="end" class="bar-val">¥2,400</text>
-        <!-- North -->
         <rect x="90" y="160" width="307" height="36" rx="5" fill="var(--accent3)"/>
         <text x="80" y="183" text-anchor="end" class="bar-label">North</text>
         <text x="405" y="183" text-anchor="end" class="bar-val">¥2,300</text>
@@ -166,11 +172,9 @@
       </div>
       <svg viewBox="0 0 560 220" width="100%" role="img" aria-label="Month 收入柱状图">
         <line x1="90" y1="20" x2="90" y2="205" stroke="#cbd2e0" stroke-width="1"/>
-        <!-- 2026-01 -->
         <rect x="90" y="32" width="237" height="36" rx="5" fill="var(--accent)"/>
         <text x="80" y="55" text-anchor="end" class="bar-label">2026-01</text>
         <text x="335" y="55" text-anchor="end" class="bar-val">¥2,800</text>
-        <!-- 2026-02 -->
         <rect x="90" y="96" width="440" height="36" rx="5" fill="var(--accent2)"/>
         <text x="80" y="119" text-anchor="end" class="bar-label">2026-02</text>
         <text x="538" y="119" text-anchor="end" class="bar-val">¥5,200</text>
@@ -196,9 +200,31 @@
     </table>
   </section>
 
-  <p class="note">说明：报告仅基于 sales-12.xlsx 中「Sales」工作表共 12 行数据计算；相关指标为整数 CNY，不涉及税务或退款。原文件保持不变。图表为内嵌 SVG，无需联网即可独立打开。</p>
+  <section class="card">
+    <h2>计算口径说明</h2>
+    <div class="desc">每个指标的精确公式与来源（均基于 Sales 工作表 12 行原始数据独立重算）。</div>
+    <table>
+      <thead>
+        <tr><th>指标</th><th>计算口径</th><th>结果</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>总收入</td><td>Σ revenue 列（12 行之和）</td><td>¥8,000</td></tr>
+        <tr><td>数据行数</td><td>Sales 工作表去除表头后的订单行数</td><td>12</td></tr>
+        <tr><td>区域 / 月份数量</td><td>region、month 列去重后的取值数</td><td>3 / 2</td></tr>
+        <tr><td>总销量</td><td>Σ units 列（12 行之和）</td><td>33</td></tr>
+        <tr><td>平均单价（简单均值）</td><td>Σ unit_price ÷ 12（单位价格列的算术平均）</td><td>¥250.00</td></tr>
+        <tr><td>加权平均价</td><td>总收入 ÷ 总销量 = 8000 ÷ 33</td><td>¥242.42</td></tr>
+        <tr><td>Region 收入</td><td>按 region 分组，组内 revenue 求和</td><td>East 3300 / West 2400 / North 2300</td></tr>
+        <tr><td>Month 收入</td><td>按 month 分组，组内 revenue 求和</td><td>2026-01 2800 / 2026-02 5200</td></tr>
+        <tr><td>交叉汇总</td><td>按 (region, month) 二元分组，组内 revenue 求和</td><td>见上表</td></tr>
+        <tr><td>占比</td><td>分组收入 ÷ 总收入（保留一位小数）</td><td>应加总为 100%</td></tr>
+      </tbody>
+    </table>
+    <div class="formula">平均单价（原报告，错误）：8000 ÷ 30 = ¥266.67 ← 除数 30 有误<br>平均单价（简单均值，正确）：Σunit_price ÷ 12 = 3000 ÷ 12 = ¥250.00<br>加权平均价（正确）：8000 ÷ 33 = ¥242.42</div>
+    <div class="note">验证：总收入 8000 = 3300+2400+2300 = 2800+5200；交叉表行合计与列合计均闭合。</div>
+  </section>
 
-  <footer>Generated from sales-12.xlsx · Sales sheet · 数据行数：12</footer>
+  <footer>Generated from sales-12.xlsx · Sales sheet · 数据行数：12 · 修正版</footer>
 </div>
 </body>
 </html>

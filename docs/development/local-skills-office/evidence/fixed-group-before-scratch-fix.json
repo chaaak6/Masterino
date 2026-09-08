@@ -3,7 +3,9 @@
     {
       "label": "final-paperclip-01",
       "topic": "tpc_eoDQaO0mMZK8",
-      "models": ["deepseek-v4-flash-vision-exp"],
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
       "tools": [
         {
           "name": "inspectOfficeDocument",
@@ -107,7 +109,9 @@
     {
       "label": "final-paperclip-02",
       "topic": "tpc_ek4Fw5Z2KuGm",
-      "models": ["deepseek-v4-flash-vision-exp"],
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
       "tools": [
         {
           "name": "inspectOfficeDocument",
@@ -199,7 +203,9 @@
     {
       "label": "final-workspace-01",
       "topic": "tpc_J7cvqgDb7Kmt",
-      "models": ["deepseek-v4-flash-vision-exp"],
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
       "tools": [
         {
           "name": "searchFiles",
@@ -297,7 +303,9 @@
     {
       "label": "final-workspace-02",
       "topic": "tpc_WvPJOKVNuaIt",
-      "models": ["deepseek-v4-flash-vision-exp"],
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
       "tools": [
         {
           "name": "runCommand",
@@ -410,7 +418,9 @@
     {
       "label": "final-workspace-03",
       "topic": "tpc_0breWlE8Eyqy",
-      "models": ["deepseek-v4-flash-vision-exp"],
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
       "tools": [
         {
           "name": "runCommand",
@@ -602,7 +612,9 @@
     {
       "label": "final-workspace-04",
       "topic": "tpc_20wOKcf6RTLE",
-      "models": ["deepseek-v4-flash-vision-exp"],
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
       "tools": [
         {
           "name": "runCommand",
@@ -712,7 +724,9 @@
     {
       "label": "final-workspace-05",
       "topic": "tpc_oS0O9hHzgPUx",
-      "models": ["deepseek-v4-flash-vision-exp"],
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
       "tools": [
         {
           "name": "globFiles",
@@ -842,5 +856,15 @@
     "server": "0fd3a18cc99bc8a48351150d2116d61a7b3a0641",
     "serverDigest": "sha256:25d109e7efcce441d68430f3667d906f1d427254f580a35fe8e7c0ec6861c2cb",
     "difference": "2 test type fixes and creator null topicId normalization; Office and attachments source identical"
+  },
+  "representativeArtifacts": {
+    "workspace": [
+      "before-scratch-fix-workspace-report.html",
+      "before-scratch-fix-workspace-report.png"
+    ],
+    "paperclip": [
+      "before-scratch-fix-paperclip-report.html",
+      "before-scratch-fix-paperclip-report.png"
+    ]
   }
 }

@@ -1,0 +1,54 @@
+{
+  "status": "pass_targeted_mixed_version_diagnostic",
+  "clientSha": "f0a049ff5e2b4ec21c0c03f8e65f30038480ec37",
+  "serverSha": "0fd3a18c",
+  "serverDigest": "sha256:25d109e7efcce441d68430f3667d906f1d427254f580a35fe8e7c0ec6861c2cb",
+  "topic": "tpc_4PJYPtHHvPD1",
+  "rounds": 4,
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 1745,
+      "executionMetrics": {
+        "durationMs": 6.61,
+        "outputBytes": 1745
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 2141,
+      "executionMetrics": {
+        "durationMs": 1.87,
+        "outputBytes": 2141
+      }
+    },
+    {
+      "name": "writeFile",
+      "outputBytes": 166,
+      "executionMetrics": {
+        "durationMs": 0.7,
+        "outputBytes": 166
+      }
+    }
+  ],
+  "shellCalls": 0,
+  "firstWriteUsedAbsolutePath": true,
+  "firstWriteSucceeded": true,
+  "scopeVerdict": "primary",
+  "uiScratchDirectoryLocked": true,
+  "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+  "writtenText": "总收入：8000 CNY",
+  "artifactSha256": "781034b99afa225c9cf50f1b1a9a1e553a667f25027c8a4ce2d43c421c24838c",
+  "usage": {
+    "totalInputTokens": 91855,
+    "inputCachedTokens": 69248,
+    "inputCacheMissTokens": 22607,
+    "totalOutputTokens": 1584
+  },
+  "elapsedPersistedSeconds": 18.581,
+  "limitations": [
+    "Explicit tool/path constraints: targeted regression, not natural final repetition.",
+    "Intermediate model description called13 rows13orders; actual12data rows plusheader. Requested total and file are correct.",
+    "localScratch synchronization verified through visible locked temporary directory UI; not raw renderer store."
+  ]
+}

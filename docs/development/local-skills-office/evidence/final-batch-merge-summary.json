@@ -1,0 +1,94 @@
+{
+  "status": "pass",
+  "clientSha": "6f3c5bb6",
+  "serverSha": "f0a049ff",
+  "officeProductBaseline": "f0a049ff",
+  "topic": "tpc_a0cxhzoGkN6A",
+  "rounds": 6,
+  "tools": [
+    {
+      "name": "globFiles",
+      "outputBytes": 168,
+      "executionMetrics": null
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 1630,
+      "executionMetrics": {
+        "durationMs": 5.23,
+        "outputBytes": 1630
+      }
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 1636,
+      "executionMetrics": {
+        "durationMs": 5.1,
+        "outputBytes": 1636
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 359,
+      "executionMetrics": {
+        "durationMs": 1.7,
+        "outputBytes": 359
+      }
+    },
+    {
+      "name": "batchOfficeDocument",
+      "outputBytes": 236,
+      "executionMetrics": {
+        "durationMs": 17.88,
+        "outputBytes": 236
+      }
+    },
+    {
+      "name": "mergeOfficeTemplate",
+      "outputBytes": 235,
+      "executionMetrics": null
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 1636,
+      "executionMetrics": {
+        "durationMs": 2.8,
+        "outputBytes": 1636
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 355,
+      "executionMetrics": {
+        "durationMs": 1.95,
+        "outputBytes": 355
+      }
+    }
+  ],
+  "shellCalls": 0,
+  "independentReadback": {
+    "sales-edited.xlsx": {
+      "Sales!G2": 777
+    },
+    "sales-merged.xlsx": {
+      "Sales!G2": 100,
+      "Notes!A2": "QA-MERGE-READY",
+      "Notes!B2": "2026-09"
+    }
+  },
+  "verificationMethod": "openpyxl independent workbook readback after real Electron model batchOfficeDocument and mergeOfficeTemplate",
+  "sourceUnchanged": true,
+  "fileHashes": {
+    "sales-12.xlsx": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+    "sales-template.xlsx": "d6c7f4c0bd7a2bf31794b01319abb76b0d57c02e0f25e62e029aefb422269bca",
+    "sales-edited.xlsx": "23b004d80d8b6aae2a0a4a9a3b94ba5ade0d17a45db8f3af53fcedc43fbe242e",
+    "sales-merged.xlsx": "ecf8535581065e298d8e94d49e4e61e6b19639575ebbc2b74454dd4001502e86"
+  },
+  "elapsedPersistedSeconds": 27.547,
+  "usage": {
+    "totalInputTokens": 143282,
+    "inputCachedTokens": 125440,
+    "inputCacheMissTokens": 17842,
+    "totalOutputTokens": 2348
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "status": "core_native_aggregate_pass_extra_statement_incorrect",
+  "clientSha": "6f3c5bb6",
+  "serverSha": "f0a049ff",
+  "officeProductBaseline": "f0a049ff",
+  "topic": "tpc_RUGgWX5DBpJF",
+  "model": "deepseek-v4-flash-vision-exp",
+  "rounds": 3,
+  "shellCalls": 0,
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 1759,
+      "outputMetrics": {
+        "hasMore": true,
+        "next": {
+          "limit": 5,
+          "start": 6
+        },
+        "sheetTotal": 2,
+        "sheetsHasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 6.11,
+        "outputBytes": 1759
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 207,
+      "outputMetrics": {
+        "aggregate": {
+          "count": 100000,
+          "sum": 75000000,
+          "min": 100,
+          "max": 2000
+        },
+        "total": 100001,
+        "hasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 1935,
+        "outputBytes": 207
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 354,
+      "outputMetrics": {
+        "aggregate": {
+          "count": 100000,
+          "sum": 75000000,
+          "min": 100,
+          "max": 2000
+        },
+        "total": 100001,
+        "hasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 1922.12,
+        "outputBytes": 354
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 414,
+      "outputMetrics": {
+        "aggregate": {
+          "count": 100000,
+          "sum": 75000000,
+          "min": 100,
+          "max": 2000
+        },
+        "total": 100001,
+        "hasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 1911.57,
+        "outputBytes": 414
+      }
+    }
+  ],
+  "coreCorrect": true,
+  "firstAttemptNoVersionError": true,
+  "oracle": {
+    "dataRows": 100000,
+    "totalRevenue": 75000000,
+    "region": {
+      "East": 25000600,
+      "West": 24999800,
+      "North": 24999600
+    },
+    "month": {
+      "2026-01": 30000000,
+      "2026-02": 45000000
+    }
+  },
+  "sourceSha256After": "810c35842f94b0384a046511cb02de3a8211ea9ebf644f535903de4d32d885e3",
+  "sourceUnchanged": true,
+  "extraStatementError": {
+    "reported": "2,000,000个数据单位",
+    "independentUnitsSum": 300000
+  },
+  "elapsedPersistedSeconds": 22.007,
+  "usage": {
+    "totalInputTokens": 67538,
+    "inputCachedTokens": 51072,
+    "inputCacheMissTokens": 16466,
+    "totalOutputTokens": 1889
+  },
+  "interpretation": "Real Electron natural prompt with attachment; reader scans entire sheet for aggregate but model receives bounded summaries. No universal speedup claim."
+}
