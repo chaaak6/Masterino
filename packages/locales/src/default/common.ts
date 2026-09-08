@@ -1,4 +1,10 @@
 export default {
+  'desktopDownload.appleSilicon': 'Apple Silicon (M series)',
+  'desktopDownload.chooseMac': 'Choose your Mac chip',
+  'desktopDownload.failed': 'Unable to download. Please try again.',
+  'desktopDownload.unsupported':
+    'Available for Windows and macOS. Please download on your computer.',
+
   'about': 'About',
   'advanceSettings': 'Advanced Settings',
   'alert.cloud.action': 'Try now',

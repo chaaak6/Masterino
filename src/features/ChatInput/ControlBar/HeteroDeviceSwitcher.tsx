@@ -29,7 +29,7 @@ import {
 import { memo, type ReactNode, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { isProductFeatureDisabled } from '@/config/productFeatures';
+import { useDesktopDownload } from '@/features/DesktopDownload';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
 import { lambdaQuery } from '@/libs/trpc/client';
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
@@ -125,7 +125,13 @@ const styles = createStaticStyles(({ css }) => ({
     color: ${cssVar.colorTextQuaternary};
   `,
   downloadCard: css`
+    width: 100%;
+    font: inherit;
+    text-align: start;
     cursor: pointer;
+    border: none;
+    color: inherit;
+    background: transparent;
 
     display: flex;
     gap: 10px;
@@ -259,6 +265,10 @@ const styles = createStaticStyles(({ css }) => ({
     }
   `,
   headerLink: css`
+    border: none;
+    padding: 0;
+    font: inherit;
+    background: transparent;
     display: flex;
     gap: 3px;
     align-items: center;
@@ -367,7 +377,7 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(
   }) => {
     const { t } = useTranslation(['chat', 'common']);
     const [open, setOpen] = useState(false);
-    const desktopAppDisabled = isProductFeatureDisabled('desktopApp');
+    const { download, loading: downloading } = useDesktopDownload();
 
     const agencyConfig = useAgentStore(agentByIdSelectors.getAgencyConfigById(agentId));
     const updateAgentConfigById = useAgentStore((s) => s.updateAgentConfigById);
@@ -537,16 +547,15 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(
             </Tooltip>
           </Flexbox>
           {isDesktop || showWebDownloadCard ? null : (
-            <Tooltip title={t('productFeatures.disabled', { ns: 'common' })}>
-              <span className={cx(styles.headerLink, desktopAppDisabled && styles.optionDisabled)}>
-                <Icon icon={MonitorDownIcon} size={11} />
-                <span>
-                  {desktopAppDisabled
-                    ? t('productFeatures.disabled', { ns: 'common' })
-                    : t('heteroAgent.executionTarget.downloadDesktop')}
-                </span>
-              </span>
-            </Tooltip>
+            <button
+              className={styles.headerLink}
+              disabled={downloading}
+              type="button"
+              onClick={() => void download()}
+            >
+              <Icon icon={MonitorDownIcon} size={11} />
+              <span>{t('heteroAgent.executionTarget.downloadDesktop')}</span>
+            </button>
           )}
         </div>
         {isHetero || isDesktop ? null : (
@@ -604,23 +613,24 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(
           <div className={styles.empty}>{t('heteroAgent.executionTarget.loading')}</div>
         ) : null}
         {showWebDownloadCard ? (
-          <div className={cx(styles.downloadCard, desktopAppDisabled && styles.optionDisabled)}>
+          <button
+            className={styles.downloadCard}
+            disabled={downloading}
+            type="button"
+            onClick={() => void download()}
+          >
             <div className={styles.optionIcon}>
               <Icon icon={MonitorDownIcon} size={14} />
             </div>
             <div className={styles.optionMeta}>
               <div className={styles.optionTitle}>
-                {desktopAppDisabled
-                  ? t('productFeatures.disabled', { ns: 'common' })
-                  : t('heteroAgent.executionTarget.downloadDesktopTitle')}
+                {t('heteroAgent.executionTarget.downloadDesktopTitle')}
               </div>
               <div className={styles.desc}>
-                {desktopAppDisabled
-                  ? t('productFeatures.disabled', { ns: 'common' })
-                  : t('heteroAgent.executionTarget.downloadDesktopDesc')}
+                {t('heteroAgent.executionTarget.downloadDesktopDesc')}
               </div>
             </div>
-          </div>
+          </button>
         ) : null}
         {hasNoDevices && !isLoading && isDesktop ? (
           <div className={styles.empty}>{t('heteroAgent.executionTarget.noDevices')}</div>

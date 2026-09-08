@@ -1,21 +1,19 @@
 import { LOBE_CHAT_CLOUD, UTM_SOURCE } from '@lobechat/business-const';
-import { DOWNLOAD_URL, isDesktop } from '@lobechat/const';
+import { isDesktop } from '@lobechat/const';
 import { Hotkey, Icon } from '@lobehub/ui';
 import { type ItemType } from 'antd/es/menu/interface';
 import { BrainCircuit, Cloudy, Download, HardDriveDownload, LogOut, Settings2 } from 'lucide-react';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import useBusinessMenuItems from '@/business/client/features/User/useBusinessMenuItems';
 import { type MenuProps } from '@/components/Menu';
-import { isProductFeatureDisabled } from '@/config/productFeatures';
 import { DEFAULT_DESKTOP_HOTKEY_CONFIG } from '@/const/desktop';
 import { OFFICIAL_URL } from '@/const/url';
 import DataImporter from '@/features/DataImporter';
+import { useDesktopDownload } from '@/features/DesktopDownload';
 import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
 import { useNavLayout } from '@/hooks/useNavLayout';
-import { usePlatform } from '@/hooks/usePlatform';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';
@@ -29,14 +27,7 @@ export const useMenu = () => {
   ]);
   const { userPanel } = useNavLayout();
   const businessMenuItems = useBusinessMenuItems(isLogin);
-  const { isIOS, isAndroid } = usePlatform();
-  const desktopAppDisabled = isProductFeatureDisabled('desktopApp');
-
-  const downloadUrl = useMemo(() => {
-    if (isIOS) return DOWNLOAD_URL.ios;
-    if (isAndroid) return DOWNLOAD_URL.android;
-    return DOWNLOAD_URL.default;
-  }, [isIOS, isAndroid]);
+  const { download, loading: downloading } = useDesktopDownload();
 
   const settings: MenuProps['items'] = [
     {
@@ -62,28 +53,11 @@ export const useMenu = () => {
 
   const getDesktopApp: MenuProps['items'] = [
     {
-      disabled: desktopAppDisabled,
+      disabled: downloading,
       icon: <Icon icon={Download} />,
       key: 'get-desktop-app',
-      label: desktopAppDisabled ? (
-        <span style={{ alignItems: 'center', display: 'flex', gap: 12, width: '100%' }}>
-          <span>{t('getDesktopApp')}</span>
-          <span
-            style={{
-              fontSize: 12,
-              marginInlineStart: 'auto',
-              opacity: 0.62,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {t('productFeatures.disabled')}
-          </span>
-        </span>
-      ) : (
-        <a href={downloadUrl} rel="noopener noreferrer" target="_blank">
-          {t('getDesktopApp')}
-        </a>
-      ),
+      label: t('getDesktopApp'),
+      onClick: () => void download(),
     },
   ];
 

@@ -20,7 +20,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { isProductFeatureDisabled } from '@/config/productFeatures';
+import { useDesktopDownload } from '@/features/DesktopDownload';
 import { lambdaQuery } from '@/libs/trpc/client';
 import { deviceService } from '@/services/device';
 import { useAgentStore } from '@/store/agent';
@@ -110,7 +110,7 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
     const navigate = useNavigate();
     const storeCreateAgent = useAgentStore((s) => s.createAgent);
     const refreshAgentList = useHomeStore((s) => s.refreshAgentList);
-    const desktopAppDisabled = isProductFeatureDisabled('desktopApp');
+    const { download, loading: downloading } = useDesktopDownload();
 
     const [step, setStep] = useState(0);
     const [platform, setPlatform] = useState<RemoteHeterogeneousAgentType>('openclaw');
@@ -398,15 +398,13 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
                     <Flexbox gap={6}>
                       <span>{t('platformAgent.create.noDevicesDesktopHint')}</span>
                       <Button
-                        disabled={desktopAppDisabled}
                         icon={<Icon icon={Download} size={13} />}
+                        loading={downloading}
                         size="small"
-                        title={t('productFeatures.disabled', { ns: 'common' })}
                         type="primary"
+                        onClick={() => void download()}
                       >
-                        {desktopAppDisabled
-                          ? t('productFeatures.disabled', { ns: 'common' })
-                          : t('platformAgent.create.downloadDesktop')}
+                        {t('platformAgent.create.downloadDesktop')}
                       </Button>
                     </Flexbox>
                     <Flexbox gap={4}>

@@ -32,7 +32,7 @@ export const PRODUCT_FEATURES = {
   },
   chat: { key: 'chat', status: 'enabled' },
   community: { key: 'community', status: 'enabled' },
-  desktopApp: { disabledReasonKey: DISABLED_REASON_KEY, key: 'desktopApp', status: 'disabled' },
+  desktopApp: { disabledReasonKey: DISABLED_REASON_KEY, key: 'desktopApp', status: 'enabled' },
   devtools: { key: 'devtools', status: 'hidden' },
   eval: { key: 'eval', status: 'hidden' },
   fleet: { disabledReasonKey: DISABLED_REASON_KEY, key: 'fleet', status: 'disabled' },
