@@ -8,18 +8,36 @@ import {
 // ref: https://docs.bigmodel.cn/cn/guide/start/model-overview
 
 const zhipuChatModels: AIChatModelCard[] = [
-  // https://huggingface.co/zai-org/GLM-5.3
+  // https://docs.z.ai/guides/llm/glm-5.3
   {
-    abilities: { video: false, vision: false },
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+      structuredOutput: true,
+      video: false,
+      vision: false,
+    },
+    // Reasoning is mandatory; the API does not accept thinking.type=disabled.
+    contextWindowTokens: 1_000_000,
     displayName: 'GLM-5.3',
     id: 'glm-5.3',
+    maxOutput: 131_072,
     type: 'chat',
   },
   // https://docs.z.ai/guides/vlm/glm-5.3-flash
   {
-    abilities: { video: true, vision: true },
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+      structuredOutput: true,
+      video: true,
+      vision: true,
+    },
+    // Reasoning is mandatory; the API does not accept thinking.type=disabled.
+    contextWindowTokens: 1_000_000,
     displayName: 'GLM-5.3-Flash',
     id: 'glm-5.3-flash',
+    maxOutput: 131_072,
     type: 'chat',
   },
   {

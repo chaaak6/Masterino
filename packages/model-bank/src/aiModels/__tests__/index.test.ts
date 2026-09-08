@@ -108,6 +108,9 @@ describe('Aihub visual model catalog', () => {
         ['deepseek', 'zhipu', 'moonshot', 'minimax', 'qwen'].includes(model.providerId),
     );
     expect(model).toBeDefined();
+    expect(model?.abilities.functionCall).toBe(true);
+    expect(model?.abilities.reasoning).toBe(true);
+    expect(model?.contextWindowTokens).toBeGreaterThan(0);
     expect(model?.abilities.vision).toBe(image);
     expect(model?.abilities.video).toBe(video);
   });

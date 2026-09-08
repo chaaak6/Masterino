@@ -9,16 +9,20 @@ import {
 const qwenChatModels: AIChatModelCard[] = [
   // https://docs.qwencloud.com/developer-guides/getting-started/vision-models
   {
-    abilities: { video: true, vision: true },
+    abilities: { functionCall: true, reasoning: true, video: true, vision: true },
+    contextWindowTokens: 1_000_000,
     displayName: 'Qwen3.8 Flash',
     id: 'qwen3.8-flash',
+    maxOutput: 131_072,
     type: 'chat',
   },
   // https://docs.qwencloud.com/developer-guides/getting-started/vision-models
   {
-    abilities: { video: true, vision: true },
+    abilities: { functionCall: true, reasoning: true, video: true, vision: true },
+    contextWindowTokens: 1_000_000,
     displayName: 'Qwen3.8 Max',
     id: 'qwen3.8-max',
+    maxOutput: 131_072,
     type: 'chat',
   },
   {
