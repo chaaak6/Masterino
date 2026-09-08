@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 import { type ModelParamsSchema, type VideoModelParamsSchema } from '../standard-parameters';
+import type { AihubModelPricing } from './aihubPricing';
+
+export type { AihubModelPricing, AihubPriceTier, AihubPriceUnit } from './aihubPricing';
 
 export type ModelPriceCurrency = 'CNY' | 'USD';
 
@@ -61,11 +64,12 @@ export interface ModelAbilities {
 }
 
 const AiModelAbilitiesSchema = z.object({
-  // files: z.boolean().optional(),
+  files: z.boolean().optional(),
   functionCall: z.boolean().optional(),
   imageOutput: z.boolean().optional(),
   reasoning: z.boolean().optional(),
   search: z.boolean().optional(),
+  structuredOutput: z.boolean().optional(),
   video: z.boolean().optional(),
   vision: z.boolean().optional(),
 });
@@ -307,6 +311,7 @@ export type ExtendParamsType =
 export type DisabledParamType = 'temperature' | 'top_p' | 'frequency_penalty' | 'presence_penalty';
 
 export interface AiModelSettings {
+  aihubPricing?: AihubModelPricing;
   /**
    * Chat params that should be hidden from the agent config UI and stripped from
    * outbound requests. Use this for models whose API rejects specific sampling
@@ -539,6 +544,7 @@ export type ToggleAiModelEnableParams = z.infer<typeof ToggleAiModelEnableSchema
 
 export interface AiModelForSelect {
   abilities: ModelAbilities;
+  aihubPricing?: AihubModelPricing;
   /**
    * Approximate per-image price (USD), used when exact calculation is not possible
    */

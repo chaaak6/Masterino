@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useAgentId } from '@/features/ChatInput/hooks/useAgentId';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
-import { aiModelSelectors, aiProviderSelectors, useAiInfraStore } from '@/store/aiInfra';
+import { aiProviderSelectors, useAiInfraStore } from '@/store/aiInfra';
 
 const styles = createStaticStyles(({ css }) => ({
   alert: css`
@@ -40,18 +40,19 @@ const AgentModeNotice = memo(() => {
 
   const [isModelConfigReady, supportToolUse] = useAiInfraStore((s) => [
     aiProviderSelectors.isInitAiProviderRuntimeState(s),
-    aiModelSelectors.isModelSupportToolUse(model, provider)(s),
+    s.enabledAiModels?.find((item) => item.id === model && item.providerId === provider)?.abilities
+      ?.functionCall,
   ]);
 
-  if (!enableAgentMode || !isModelConfigReady || supportToolUse) return null;
+  if (!enableAgentMode || !isModelConfigReady || supportToolUse !== false) return null;
 
   return (
     <Alert
       classNames={{ alert: cx(styles.alert) }}
       style={{ fontSize: 12 }}
-      title={t('input.agentModeUnsupportedModel')}
       type={'warning'}
       variant={'borderless'}
+      title={t('input.agentModeUnsupportedModel')}
     />
   );
 });

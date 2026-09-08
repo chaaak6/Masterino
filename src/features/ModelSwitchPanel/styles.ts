@@ -12,6 +12,12 @@ export const styles = createStaticStyles(({ css, cssVar }) => ({
     overscroll-behavior: contain;
     width: 400px;
   `,
+  chatDetailPopup: css`
+    width: min(400px, var(--available-width));
+    max-height: var(--available-height);
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+  `,
   dropdownMenu: css`
     user-select: none;
 

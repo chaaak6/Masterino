@@ -705,12 +705,12 @@ describe('NewAPI Runtime - 100% Branch Coverage', () => {
       const options = { apiKey: 'test', baseURL: 'https://api.newapi.com/v1' };
       const routers = params.routers(options);
 
-      expect(routers).toHaveLength(5);
+      expect(routers).toHaveLength(9);
       expect(routers[0].apiType).toBe('anthropic');
       expect(routers[1].apiType).toBe('google');
       expect(routers[2].apiType).toBe('xai');
       expect(routers[3].apiType).toBe('deepseek');
-      expect(routers[4].apiType).toBe('openai');
+      expect(routers.at(-1)!.apiType).toBe('openai');
     });
 
     it('should configure deepseek router with /v1 path and openai sdkType', () => {
@@ -756,14 +756,14 @@ describe('NewAPI Runtime - 100% Branch Coverage', () => {
       const options = { apiKey: 'test', baseURL: 'https://custom.com/v1' };
       const routers = params.routers(options);
 
-      expect(routers[4].options.baseURL).toBe('https://custom.com/v1');
+      expect(routers.at(-1)!.options.baseURL).toBe('https://custom.com/v1');
     });
 
     it('should configure openai router with useResponseModels', () => {
       const options = { apiKey: 'test', baseURL: 'https://custom.com/v1' };
       const routers = params.routers(options);
 
-      expect((routers[4].options as any).chatCompletion?.useResponseModels).toBeDefined();
+      expect((routers.at(-1)!.options as any).chatCompletion?.useResponseModels).toBeDefined();
     });
 
     it('should filter anthropic models for anthropic router', () => {
@@ -809,9 +809,9 @@ describe('NewAPI Runtime - 100% Branch Coverage', () => {
       const options = { apiKey: 'test' }; // No baseURL
       const routers = params.routers(options);
 
-      expect(routers).toHaveLength(5);
+      expect(routers).toHaveLength(9);
       expect(routers[0].options.baseURL).toBe('');
-      expect(routers[4].options.baseURL).toBe('v1'); // urlJoin('', '/v1') returns 'v1'
+      expect(routers.at(-1)!.options.baseURL).toBe('v1'); // urlJoin('', '/v1') returns 'v1'
     });
   });
 

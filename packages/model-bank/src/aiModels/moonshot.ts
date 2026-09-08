@@ -14,6 +14,7 @@ const moonshotChatModels: AIChatModelCard[] = [
     contextWindowTokens: 1_048_576,
     displayName: 'Kimi K3',
     id: 'kimi-k3',
+    settings: { disabledParams: ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'] },
     // API parameter ceiling; input and output still share the context window.
     maxOutput: 1_048_576,
     type: 'chat',
@@ -24,6 +25,7 @@ const moonshotChatModels: AIChatModelCard[] = [
     contextWindowTokens: 262_144,
     displayName: 'Kimi K2.7 Code',
     id: 'kimi-k2.7-code',
+    settings: { disabledParams: ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'] },
     type: 'chat',
   },
   {

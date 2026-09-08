@@ -47,6 +47,8 @@ import {
   getTextOutputUnitRate,
 } from '@/utils/index';
 
+import AihubPricing from './AihubPricing';
+
 const styles = createStaticStyles(({ css, cssVar }) => ({
   abilityTag: css`
     min-width: 0;
@@ -368,6 +370,7 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
       () => applyBusinessModelPricing({ model: modelId, pricing, provider }),
       [applyBusinessModelPricing, modelId, pricing, provider],
     );
+    const isAihubChat = provider === BRANDING_PROVIDER && catalog.chatEligible && !pricingMode;
     const isCreditPricing = provider === BRANDING_PROVIDER;
     const hasPricing = !!displayPricing;
     const formatPrice = displayPricing ? getPrice(displayPricing, isCreditPricing) : null;
@@ -444,7 +447,7 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
     return (
       <Flexbox className={styles.container}>
         {/* Sections */}
-        {(hasPricing || hasContext || hasAbilities) && (
+        {(hasPricing || hasContext || hasAbilities || isAihubChat) && (
           <Accordion
             expandedKeys={expandedKeys}
             gap={8}
@@ -584,8 +587,9 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
               </AccordionItem>
             )}
 
+            {isAihubChat && <AihubPricing pricing={model.aihubPricing} />}
             {/* Pricing */}
-            {hasPricing && (formatPrice || approximatePriceLabel) && (
+            {!isAihubChat && hasPricing && (formatPrice || approximatePriceLabel) && (
               <AccordionItem
                 alwaysShowAction
                 itemKey="pricing"

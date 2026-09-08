@@ -7,6 +7,7 @@ import {
 import { uniqBy } from 'es-toolkit/compat';
 import type {
   AiFullModelCard,
+  AihubModelPricing,
   EnabledAiModel,
   LobeDefaultAiModelListItem,
   ModelAbilities,
@@ -36,6 +37,7 @@ import {
 import { AiProviderSourceEnum } from '@/types/aiProvider';
 
 export type ProviderModelListItem = {
+  aihubPricing?: AihubModelPricing;
   abilities: ModelAbilities;
   approximatePricePerImage?: number;
   approximatePricePerVideo?: number;
@@ -90,6 +92,7 @@ export const normalizeChatModel = async (model: EnabledAiModel): Promise<Provide
   ]);
 
   return {
+    aihubPricing: model.settings?.aihubPricing,
     abilities: (model.abilities || {}) as ModelAbilities,
     contextWindowTokens: model.contextWindowTokens,
     displayName: model.displayName ?? '',

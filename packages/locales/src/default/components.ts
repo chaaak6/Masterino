@@ -267,4 +267,13 @@ export default {
   'knowledgeBase.empty.description': 'Create a Library to organize and manage your resources',
   'knowledgeBase.empty.search': 'No matching Library found',
   'knowledgeBase.empty.title': 'No Library available',
+  'ModelSwitchPanel.aihubPricing.currency': 'CNY',
+  'ModelSwitchPanel.aihubPricing.unavailable': 'Price not available yet',
+  'ModelSwitchPanel.aihubPricing.input': 'Input',
+  'ModelSwitchPanel.aihubPricing.output': 'Output',
+  'ModelSwitchPanel.aihubPricing.cacheRead': 'Cache read',
+  'ModelSwitchPanel.aihubPricing.cacheWrite': 'Cache write',
+  'ModelSwitchPanel.aihubPricing.request': 'Request',
+  'ModelSwitchPanel.aihubPricing.perRequest': '/ request',
+  'ModelSwitchPanel.aihubPricing.perMillion': '/ million tokens',
 };

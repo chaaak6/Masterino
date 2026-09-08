@@ -165,7 +165,7 @@ const createEnabledList = (
 ];
 
 describe('ModelDetailPanel pricing', () => {
-  it('renders branding provider token pricing in credits', () => {
+  it('shows an unavailable tariff instead of presenting catalog fallback prices as Aihub credits', () => {
     const { container } = render(
       <ModelDetailPanel
         enabledList={createEnabledList(BRANDING_PROVIDER, textPricing)}
@@ -173,10 +173,67 @@ describe('ModelDetailPanel pricing', () => {
         provider={BRANDING_PROVIDER}
       />,
     );
+    expect(container).toHaveTextContent('ModelSwitchPanel.aihubPricing.unavailable');
+    expect(container).not.toHaveTextContent('credits');
+    expect(container).not.toHaveTextContent('5.00');
+  });
 
-    expect(screen.getByText('5M credits/M tokens')).toBeInTheDocument();
-    expect(screen.getByText('25M credits/M tokens')).toBeInTheDocument();
-    expect(container).not.toHaveTextContent('$5.00');
+  it('shows the persisted Aihub CNY tariff including a zero cache rate', () => {
+    const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
+    enabledList[0].children[0].aihubPricing = {
+      version: 1,
+      source: 'aihub',
+      currency: 'CNY',
+      fetchedAt: new Date().toISOString(),
+      scope: 'public',
+      status: 'available',
+      tiers: [],
+      displayRates: {
+        input: { min: 2, max: 2 },
+        output: { min: 8, max: 8 },
+        cacheRead: { min: 0, max: 0 },
+      },
+    };
+    const { container } = render(
+      <ModelDetailPanel
+        enabledList={enabledList}
+        model="test-model"
+        provider={BRANDING_PROVIDER}
+      />,
+    );
+    expect(container).toHaveTextContent('¥2');
+    expect(container).toHaveTextContent('¥8');
+    expect(container).toHaveTextContent('¥0');
+    expect(container).not.toHaveTextContent('ModelSwitchPanel.aihubPricing.public');
+    expect(container).not.toHaveTextContent('ModelSwitchPanel.aihubPricing.updated');
+    expect(container).not.toHaveTextContent('credits');
+  });
+
+  it('shows at most two decimal places without displaying tiny positive prices as free', () => {
+    const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
+    enabledList[0].children[0].aihubPricing = {
+      version: 1,
+      source: 'aihub',
+      currency: 'CNY',
+      fetchedAt: new Date().toISOString(),
+      scope: 'public',
+      status: 'available',
+      tiers: [],
+      displayRates: {
+        input: { min: 8.999994, max: 8.999994 },
+        output: { min: 0.0000001234, max: 0.0000001234 },
+      },
+    };
+    const { container } = render(
+      <ModelDetailPanel
+        enabledList={enabledList}
+        model="test-model"
+        provider={BRANDING_PROVIDER}
+      />,
+    );
+    expect(container).toHaveTextContent('¥9');
+    expect(container).not.toHaveTextContent('8.999');
+    expect(container).toHaveTextContent('< ¥0.01');
   });
 
   it('keeps dollar pricing for non-branding providers', () => {

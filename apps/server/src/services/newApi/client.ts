@@ -54,6 +54,7 @@ export type NewApiUpdateUserInput = {
 
 export interface NewApiToken {
   expired_time?: number;
+  group?: string;
   id: number;
   key?: string;
   model_limits?: string;
@@ -91,6 +92,25 @@ export interface NewApiModelCard {
   type?: string;
   unsupported_modalities?: string[];
   version?: string;
+}
+
+export interface NewApiPricingResponse {
+  auto_groups?: string[];
+  data: Array<{
+    model_name: string;
+    quota_type: number;
+    model_ratio?: number;
+    model_price?: number;
+    completion_ratio?: number;
+    cache_ratio?: number;
+    create_cache_ratio?: number;
+    enable_groups?: string[];
+    billing_mode?: string;
+    billing_expr?: string;
+    pricing_version?: string;
+  }>;
+  group_ratio?: Record<string, number>;
+  pricing_version?: string;
 }
 
 export interface NewApiLogItem {
@@ -171,7 +191,7 @@ export class NewApiClient {
 
   private managementHeaders(auth: NewApiManagementAuth) {
     return {
-      Authorization: `Bearer ${auth.accessToken}`,
+      'Authorization': `Bearer ${auth.accessToken}`,
       'New-Api-User': String(auth.newApiUserId),
     };
   }
@@ -197,6 +217,7 @@ export class NewApiClient {
     path: string,
     init: RequestInit & {
       auth?: NewApiManagementAuth;
+      preserveEnvelope?: boolean;
       query?: Record<string, number | string | undefined>;
       tokenKey?: string;
     } = {},
@@ -232,7 +253,8 @@ export class NewApiClient {
         );
       }
 
-      return unwrapNewApiBody<T>(body, response.status);
+      const unwrapped = unwrapNewApiBody<T>(body, response.status);
+      return init.preserveEnvelope ? (body as T) : unwrapped;
     } catch (error) {
       if (error instanceof NewApiError) throw error;
       if ((error as Error).name === 'AbortError') {
@@ -248,17 +270,18 @@ export class NewApiClient {
     return this.request<NewApiUserSelf>('/api/user/self', { auth });
   }
 
+  getPricing(auth?: NewApiManagementAuth) {
+    // group_ratio and pricing_version are siblings of data, not inside it.
+    return this.request<NewApiPricingResponse>('/api/pricing', { auth, preserveEnvelope: true });
+  }
+
   getStatus() {
     return this.request<NewApiStatus>('/api/status');
   }
 
   searchUsers(
     auth: NewApiManagementAuth,
-    {
-      keyword,
-      page = 1,
-      pageSize = 100,
-    }: { keyword: string; page?: number; pageSize?: number },
+    { keyword, page = 1, pageSize = 100 }: { keyword: string; page?: number; pageSize?: number },
   ) {
     return this.request<NewApiPage<NewApiUser>>('/api/user/search', {
       auth,

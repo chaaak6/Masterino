@@ -6,6 +6,7 @@ import { createRouterRuntime } from '../../core/RouterRuntime';
 import type { CreateRouterRuntimeOptions } from '../../core/RouterRuntime/createRuntime';
 import { detectModelProvider, processMultiProviderModelList } from '../../utils/modelParse';
 import { resolveProviderRouteModels } from '../utils/resolveProviderRouteModels';
+import { AihubGlmRuntime, AihubKimiRuntime, AihubQwenRuntime } from './chatModels';
 
 export interface NewAPIModelCard {
   created: number;
@@ -205,6 +206,20 @@ export const params = {
           baseURL: urlJoin(userBaseURL, '/v1'),
           sdkType: 'openai',
         },
+      },
+      ...[
+        { models: ['glm-5.2', 'glm-5.3', 'glm-5.3-flash'], runtime: AihubGlmRuntime },
+        { models: ['kimi-k2.7-code', 'kimi-k3'], runtime: AihubKimiRuntime },
+        { models: ['qwen3.7-plus', 'qwen3.8-flash', 'qwen3.8-max'], runtime: AihubQwenRuntime },
+      ].map((route) => ({
+        ...route,
+        apiType: 'openai' as const,
+        options: { ...options, baseURL: urlJoin(userBaseURL, '/v1') },
+      })),
+      {
+        apiType: 'minimax',
+        models: ['minimax-m3'],
+        options: { ...options, baseURL: urlJoin(userBaseURL, '/v1'), sdkType: 'openai' },
       },
       {
         apiType: 'openai',

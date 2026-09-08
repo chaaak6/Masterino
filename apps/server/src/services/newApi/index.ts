@@ -57,6 +57,7 @@ import {
   type NewApiUser,
   type NewApiUserSelf,
 } from './client';
+import { type AihubPricingContext, buildAihubPricing } from './pricing';
 import { createNewApiReadSource, getNewApiDataSource, type NewApiReadSource } from './readSource';
 
 const DEFAULT_MANAGED_TOKEN_NAME = 'masterlion-managed';
@@ -312,6 +313,7 @@ const toAiModelType = (catalog: PersistedModelCatalog, parsedType: AiModelType):
 const materializeNewApiModel = (
   prepared: PreparedNewApiModel,
   existing?: AiProviderModelListItem,
+  pricingContext?: AihubPricingContext,
 ): AiProviderModelListItem => {
   const previousCatalog = getModelCatalogFromSettings(existing?.settings);
   const raw = prepared.raw;
@@ -345,10 +347,48 @@ const materializeNewApiModel = (
   const files = evidenceStateToBoolean(catalog.entry.inputModalities.file);
   const video = evidenceStateToBoolean(catalog.entry.inputModalities.video);
 
+  const previousPricing = existing?.settings?.aihubPricing;
+  const aihubPricing = pricingContext
+    ? buildAihubPricing(raw.id, pricingContext)
+    : previousPricing?.version === 1
+      ? { ...previousPricing, stale: true }
+      : undefined;
+  // Don't turn missing catalog capabilities into unsupported or infer them from names.
+  const verifiedAbilities = Object.fromEntries(
+    ['functionCall', 'reasoning', 'structuredOutput', 'imageOutput', 'search'].map((key) => [
+      key,
+      prepared.catalog?.abilities?.[key as keyof NonNullable<typeof prepared.catalog.abilities>],
+    ]),
+  );
+  const fixedRates =
+    aihubPricing?.status === 'available' &&
+    aihubPricing.tiers.length === 1 &&
+    !aihubPricing.tiers[0].when
+      ? aihubPricing.tiers[0].rates
+      : undefined;
+  const rateNames = {
+    input: 'textInput',
+    output: 'textOutput',
+    cacheRead: 'textInput_cacheRead',
+    cacheWrite: 'textInput_cacheWrite',
+  } as const;
+  const pricing = {
+    currency: 'CNY' as const,
+    units: Object.entries(rateNames).flatMap(([key, name]) => {
+      const rate = fixedRates?.[key as keyof typeof rateNames];
+      return rate === undefined
+        ? []
+        : [{ name, rate, strategy: 'fixed' as const, unit: 'millionTokens' as const }];
+    }),
+  };
+
   return {
     ...prepared.model,
+    pricing: catalog.entry.kind === 'chat' ? pricing : prepared.model.pricing,
     abilities: {
       ...prepared.model.abilities,
+      ...verifiedAbilities,
+      ...(catalog.entry.kind !== 'chat' ? { functionCall: false } : {}),
       ...(files === undefined ? { files: undefined } : { files }),
       ...(image === undefined ? { vision: undefined } : { vision: image }),
       ...(video === undefined ? { video: undefined } : { video }),
@@ -358,6 +398,7 @@ const materializeNewApiModel = (
       ...existing?.settings,
       ...prepared.model.settings,
       modelCatalog: catalog,
+      aihubPricing,
     },
     type: toAiModelType(catalog, prepared.model.type),
   };
@@ -1031,13 +1072,60 @@ export class NewApiService {
     }
   }
 
-  private async reconcileRemoteModels(prepared: PreparedNewApiModel[]) {
+  private async readPricingContext(
+    binding: UsableNewApiBindingItem,
+    group?: string,
+  ): Promise<AihubPricingContext | undefined> {
+    if (typeof this.client.getPricing !== 'function') return undefined;
+    try {
+      // Only a verified user credential can establish account-specific ratios.
+      // Admin credentials must never be treated as the target user's identity.
+      let auth: NewApiManagementAuth | undefined;
+      if (binding.encryptedAccessToken) {
+        try {
+          const candidate = {
+            accessToken: await this.decryptAccessToken(binding),
+            newApiUserId: binding.newApiUserId,
+          };
+          const self = await this.client.getSelf(candidate);
+          if (self.id === binding.newApiUserId) auth = candidate;
+        } catch {
+          /* public baseline remains usable */
+        }
+      }
+      const [response, status] = await Promise.all([
+        this.client.getPricing(auth).catch((error) => {
+          if (auth) {
+            auth = undefined;
+            return this.client.getPricing();
+          }
+          throw error;
+        }),
+        this.client.getStatus(),
+      ]);
+      if (!Array.isArray(response?.data)) return undefined;
+      return {
+        response,
+        status,
+        group,
+        scope: auth ? 'account' : 'public',
+        fetchedAt: new Date().toISOString(),
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async reconcileRemoteModels(
+    prepared: PreparedNewApiModel[],
+    pricingContext?: AihubPricingContext,
+  ) {
     const reconcile = async (database: LobeChatDatabase) => {
       const aiModelModel = new AiModelModel(database, this.userId);
       const existingModels = await aiModelModel.getModelListByProviderId(ModelProvider.NewAPI);
       const existingById = new Map(existingModels.map((model) => [model.id, model]));
       const models = prepared.map((model) =>
-        materializeNewApiModel(model, existingById.get(model.raw.id)),
+        materializeNewApiModel(model, existingById.get(model.raw.id), pricingContext),
       );
       const incomingIds = new Set(models.map((model) => model.id));
       const modelsToInsert: AiProviderModelListItem[] = [];
@@ -1076,12 +1164,14 @@ export class NewApiService {
 
   private async syncModelsForBinding(binding: UsableNewApiBindingItem, key: string) {
     let rawModels: NewApiModelCard[] | undefined;
+    let pricingGroup: string | undefined;
 
     if (this.shouldUseReadOnlyDb()) {
       const [account, token] = await Promise.all([
         this.readOnlyDb.findUserById(binding.newApiUserId),
         this.findManagedTokenFromReadOnlyDb(binding.newApiUserId, binding.managedTokenId),
       ]);
+      pricingGroup = token?.group || account?.group;
       const modelIds = await this.readOnlyDb.listAccessibleModels(account?.group, token);
       if (modelIds.length > 0) {
         const metadata = await this.listModelMetadataBestEffort(key);
@@ -1107,8 +1197,11 @@ export class NewApiService {
     // offered are dropped on the next sync and disappear after refresh.
     rawModels = rawModels.filter((model) => !isAihubModelHidden(model.id));
 
-    const prepared = await prepareNewApiModels(rawModels);
-    const models = await this.reconcileRemoteModels(prepared);
+    const [prepared, pricingContext] = await Promise.all([
+      prepareNewApiModels(rawModels),
+      this.readPricingContext(binding, pricingGroup),
+    ]);
+    const models = await this.reconcileRemoteModels(prepared, pricingContext);
     const defaultModel = getDefaultModel(models);
 
     // The credential is part of core Aihub readiness even when the user's

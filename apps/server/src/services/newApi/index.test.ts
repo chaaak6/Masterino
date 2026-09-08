@@ -1455,4 +1455,93 @@ describe('NewApiService', () => {
       );
     },
   );
+  it('syncs tariffs only for accessible models and retains a marked stale snapshot on pricing failure', async () => {
+    mocks.bindingStore.set('current-user', {
+      errorMessage: null,
+      lastSyncedAt: null,
+      managedTokenId: 44,
+      newApiUserId: 17,
+      status: 'active',
+      userId: 'current-user',
+    });
+    const readOnlyDb = {
+      findManagedToken: vi
+        .fn()
+        .mockResolvedValue({ id: 44, key: 'test-key', name: 'managed-token', group: 'vip' }),
+      findUserById: vi.fn().mockResolvedValue({ group: 'default', id: 17 }),
+      isEnabled: vi.fn(() => true),
+      listAccessibleModels: vi.fn().mockResolvedValue(['glm-5.3']),
+    };
+    const client = {
+      getSelf: vi.fn().mockResolvedValue({ id: 17 }),
+      getPricing: vi.fn().mockResolvedValue({
+        data: [
+          {
+            model_name: 'glm-5.3',
+            quota_type: 0,
+            model_ratio: 1,
+            completion_ratio: 2,
+            cache_ratio: 0,
+            enable_groups: ['vip'],
+          },
+          { model_name: 'not-accessible', quota_type: 0, model_ratio: 2 },
+        ],
+        group_ratio: { vip: 0.5 },
+      }),
+      getStatus: vi.fn().mockResolvedValue({ quota_per_unit: 500000, usd_exchange_rate: 7 }),
+    };
+    mocks.getModelListByProviderId.mockResolvedValueOnce([
+      { id: 'glm-5.3', source: 'remote', type: 'chat', abilities: {} },
+    ]);
+    const service = new NewApiService({
+      client: client as any,
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      readOnlyDb: readOnlyDb as any,
+      userId: 'current-user',
+    });
+    const first = await service.syncModels();
+    expect(first.models.map((model) => model.id)).toEqual(['glm-5.3']);
+    const model = first.models[0];
+    expect(model.settings?.aihubPricing).toMatchObject({
+      currency: 'CNY',
+      scope: 'public',
+      group: 'vip',
+      groupRatio: 0.5,
+      status: 'available',
+      tiers: [{ rates: { input: 7, output: 14, cacheRead: 0 } }],
+    });
+    expect(model.abilities).toMatchObject({
+      functionCall: true,
+      reasoning: true,
+      structuredOutput: true,
+    });
+    expect(client.getPricing).toHaveBeenCalledWith(undefined);
+    mocks.getModelListByProviderId.mockResolvedValueOnce([model]);
+    client.getPricing.mockRejectedValueOnce(new Error('offline'));
+    const second = await service.syncModels();
+    expect(second.models[0].settings?.aihubPricing).toEqual({
+      ...model.settings?.aihubPricing,
+      stale: true,
+    });
+    expect(second.models[0].pricing).toEqual(model.pricing);
+    mocks.bindingStore.set('current-user', {
+      ...mocks.bindingStore.get('current-user'),
+      encryptedAccessToken: 'enc:user-access',
+    });
+    const accountResult = await service.syncModels();
+    expect(client.getPricing).toHaveBeenLastCalledWith({
+      accessToken: 'user-access',
+      newApiUserId: 17,
+    });
+    expect(accountResult.models[0].settings?.aihubPricing?.scope).toBe('account');
+    client.getPricing.mockRejectedValueOnce(new Error('user pricing unavailable'));
+    const fallback = await service.syncModels();
+    expect(client.getPricing).toHaveBeenLastCalledWith();
+    expect(fallback.models[0].settings?.aihubPricing?.scope).toBe('public');
+    client.getSelf.mockResolvedValueOnce({ id: 1 });
+    const wrongIdentity = await service.syncModels();
+    expect(client.getPricing).toHaveBeenLastCalledWith(undefined);
+    expect(wrongIdentity.models[0].settings?.aihubPricing?.scope).toBe('public');
+  });
 });
