@@ -1,0 +1,109 @@
+{
+  "actualSendModel": "deepseek-v4-flash-vision-exp",
+  "attachmentRetainedInMessage": true,
+  "case": "Full Electron restart image then nonvision model",
+  "databaseReadback": {
+    "models": [
+      {
+        "id": "deepseek-v4-flash",
+        "provider_id": "newapi",
+        "vision": false,
+        "input_modalities": {
+          "file": "unknown",
+          "text": "supported",
+          "audio": "unknown",
+          "image": "unsupported",
+          "video": "unsupported"
+        }
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg_QGjPsIoXeI8UwXRy0t",
+        "role": "user",
+        "model": null,
+        "provider": null,
+        "attachmentMimes": ["image/png"],
+        "localImageCount": 1
+      },
+      {
+        "id": "msg_j3xNuPxpOmFT2mMIhH",
+        "role": "assistant",
+        "model": "deepseek-v4-flash",
+        "provider": "newapi",
+        "attachmentMimes": [],
+        "localImageCount": 0
+      }
+    ]
+  },
+  "diagnosticConsole": [
+    {
+      "entry": "contextEngineering",
+      "operationId": null,
+      "model": "glm-5.2",
+      "provider": "newapi",
+      "imageListCount": 0,
+      "localImageMimeCount": 0,
+      "catalogImage": "unsupported"
+    },
+    {
+      "entry": "internal_createAgentState",
+      "operationId": "op_McDrQO0M",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "imageListCount": 0,
+      "localImageMimeCount": 1,
+      "catalogImage": "supported"
+    },
+    {
+      "entry": "getChatCompletion-send",
+      "model": "glm-5.2",
+      "provider": "newapi"
+    },
+    {
+      "entry": "contextEngineering",
+      "operationId": "op_7zEx4vBZ",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "imageListCount": 0,
+      "localImageMimeCount": 1,
+      "catalogImage": "supported"
+    },
+    {
+      "entry": "getChatCompletion-send",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi"
+    }
+  ],
+  "finalAcceptanceRepetition": false,
+  "interpretation": "Guard observed image-supporting Vision Exp and one local image. This run establishes a selected/persisted model versus actual send mismatch, not proof that the guard allowed an unsupported actual model. Prior diagnostic13/14 database model labels do not establish their actual outbound models.",
+  "modelAnsweredImageCorrectly": true,
+  "persistedAssistantModel": "deepseek-v4-flash",
+  "provider": "newapi",
+  "runtimeReadback": {
+    "operations": [],
+    "messages": [
+      {
+        "id": "msg_QGjPsIoXeI8UwXRy0t",
+        "role": "user",
+        "operation_id": null,
+        "execution_mode": null
+      },
+      {
+        "id": "msg_j3xNuPxpOmFT2mMIhH",
+        "role": "assistant",
+        "operation_id": null,
+        "execution_mode": null
+      }
+    ]
+  },
+  "selectedModel": "deepseek-v4-flash",
+  "sendBlocked": false,
+  "status": "selected_model_and_actual_runtime_diverge",
+  "topic": "tpc_nn7MVaSHQN81",
+  "versions": {
+    "server": "d0cd5d22836f31161c03c18963f8ccc2b8fcbf38",
+    "desktopMain": "d0cd5d22+uncommitted canonical resolver/diagnostic changes",
+    "serverDigest": "sha256:268fd22840d0f5821ca26990e876164b515624da830af129724a8363e9213993"
+  }
+}

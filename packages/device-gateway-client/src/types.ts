@@ -1,7 +1,4 @@
-import type {
-  ExecutionAccessRoot,
-  ToolCallExecutionContext,
-} from '@lobechat/types';
+import type { ExecutionAccessRoot, ToolCallExecutionContext } from '@lobechat/types';
 
 // ─── Device Info ───
 
@@ -153,6 +150,15 @@ export interface GatewayToolCallExecutionContext extends Omit<
   'accessRoots'
 > {
   accessRoots?: GatewayExecutionAccessRoot[];
+}
+
+/** The existing desktop IPC call shape, shared with its main-process boundary. */
+export interface LocalToolCallRequest {
+  apiName: string;
+  args: Record<string, unknown>;
+  executionContext?: GatewayToolCallExecutionContext;
+  purpose?: 'skill-command' | 'skill-script';
+  trace?: Pick<ToolCallRequestMessage, 'deviceId' | 'operationId' | 'toolCallId' | 'topicId'>;
 }
 
 export interface ToolCallRequestMessage {

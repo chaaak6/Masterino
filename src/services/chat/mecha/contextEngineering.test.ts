@@ -1,4 +1,5 @@
 import { LobeAgentIdentifier } from '@lobechat/builtin-tool-lobe-agent';
+import { createModelCatalogSnapshot, mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import { type UIChatMessage } from '@lobechat/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -314,6 +315,73 @@ describe('contextEngineering', () => {
       ]);
 
       runtimeFlags.isServerMode = false;
+    });
+
+    it.each(['supported', 'unsupported', 'unknown'] as const)(
+      'keeps frozen image capability %s despite mutable capability drift',
+      async (image) => {
+        vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(image !== 'supported');
+        const snapshot = createModelCatalogSnapshot(
+          mergeModelCatalogEntry({
+            modelId: 'working-model',
+            providerId: 'openai',
+            providerMetadata: { inputModalities: { image } },
+          }).entry,
+          'operation-1',
+        );
+        const messages = [
+          {
+            id: 'user-image',
+            role: 'user',
+            content: 'Inspect image',
+            imageList: [{ id: 'image-1', url: 'http://example.com/image.png', alt: 'image.png' }],
+          },
+        ] as UIChatMessage[];
+        const run = contextEngineering({
+          messages,
+          model: 'working-model',
+          provider: 'openai',
+          modelCatalogSnapshot: snapshot,
+        });
+        if (image === 'supported') {
+          const result = await run;
+          expect(result.find((message) => message.role === 'user')?.content).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                type: 'image_url',
+                image_url: expect.objectContaining({ url: 'http://example.com/image.png' }),
+              }),
+            ]),
+          );
+        } else await expect(run).rejects.toThrow('cannot view images');
+        expect(messages[0].imageList).toHaveLength(1);
+      },
+    );
+
+    it('does not apply a supported snapshot from another model to selected images', async () => {
+      vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(false);
+      const snapshot = createModelCatalogSnapshot(
+        mergeModelCatalogEntry({
+          modelId: 'old-model',
+          providerId: 'openai',
+          catalog: { abilities: { vision: true } },
+        }).entry,
+        'old-operation',
+      );
+      await expect(
+        contextEngineering({
+          messages: [
+            {
+              role: 'user',
+              content: 'Inspect',
+              imageList: [{ id: 'image-1', url: 'http://example.com/image.png', alt: 'image.png' }],
+            },
+          ] as UIChatMessage[],
+          model: 'new-model',
+          provider: 'openai',
+          modelCatalogSnapshot: snapshot,
+        }),
+      ).rejects.toThrow('cannot view images');
     });
 
     it('rejects selected image attachments when the current model has no vision capability', async () => {

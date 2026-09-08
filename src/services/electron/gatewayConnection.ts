@@ -1,3 +1,5 @@
+import type { LocalToolCallRequest } from '@lobechat/device-gateway-client';
+
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
 class GatewayConnectionService {
@@ -18,9 +20,7 @@ class GatewayConnectionService {
   };
 
   executeLocalToolCall = async (
-    params: Parameters<
-      ReturnType<typeof ensureElectronIpc>['gatewayConnection']['executeLocalToolCall']
-    >[0],
+    params: LocalToolCallRequest,
     options?: { signal?: AbortSignal },
   ) => {
     const ipc = ensureElectronIpc().gatewayConnection;

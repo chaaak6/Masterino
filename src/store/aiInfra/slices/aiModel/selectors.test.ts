@@ -1,6 +1,8 @@
+import { mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import { AiModelSourceEnum } from 'model-bank';
 import { describe, expect, it } from 'vitest';
 
+import { resolveChatModelCatalog } from '@/components/ModelSelect/modality';
 import { type AIProviderStoreState } from '@/store/aiInfra/initialState';
 
 import { aiModelSelectors } from './selectors';
@@ -242,6 +244,34 @@ describe('aiModelSelectors', () => {
       expect(aiModelSelectors.isModelSupportVision('model1', 'provider1')(mockState)).toBe(true);
       expect(aiModelSelectors.isModelSupportVision('model4', 'provider2')(mockState)).toBe(false);
     });
+
+    it.each([
+      ['unsupported', true, false],
+      ['supported', false, true],
+      ['unknown', true, false],
+    ] as const)(
+      'matches the UI catalog %s image evidence despite legacy vision=%s',
+      (image, legacyVision, expected) => {
+        const model = {
+          id: 'catalog-image',
+          providerId: 'provider1',
+          type: 'chat' as const,
+          abilities: { vision: legacyVision },
+          settings: {
+            modelCatalog: mergeModelCatalogEntry({
+              modelId: 'catalog-image',
+              providerId: 'provider1',
+              providerMetadata: { inputModalities: { image } },
+            }),
+          },
+        };
+        const state = { ...mockState, enabledAiModels: [model] };
+        expect(resolveChatModelCatalog(model).entry.inputModalities.image).toBe(image);
+        expect(aiModelSelectors.isModelSupportVision(model.id, model.providerId)(state)).toBe(
+          expected,
+        );
+      },
+    );
 
     it('should check reasoning support', () => {
       expect(aiModelSelectors.isModelSupportReasoning('model1', 'provider1')(mockState)).toBe(true);

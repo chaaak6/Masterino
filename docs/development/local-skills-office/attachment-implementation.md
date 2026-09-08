@@ -28,7 +28,7 @@ Use the root-managed `masterino-test` image and the rebuilt Electron main/preloa
 | Different device/account                                   | Old local reference does not resolve; authenticated gateway device IDs are already user-scoped in resolveDeviceIdentity(userId); test account-switch and pre-connection behavior explicitly |
 | Cloud same-name files / later attachment / failed download | ID directories remain distinct; later attachment is downloaded; failed validation neither registers ready nor executes the requested tool                                                   |
 
-Not yet demonstrated by product acceptance: real Electron three-entry flow, real model/proxy bytes, remote migration rollout/backward-client behavior, offline packaged runtime, five-run timing and success rates. Existing QA recorded a startup/loading failure before the restart; it is not a passed attachment scenario.
+Current real Electron results and outstanding cases are tracked in [acceptance-results.md](./acceptance-results.md). Earlier startup failures and mixed-version diagnostic runs are retained there as diagnostics, not final repeated acceptance. Do not infer that every intake entry, proxy payload limit, cross-device case, or offline packaged runtime has passed from one successful paperclip report.
 
 ## Attachment lifecycle follow-up
 

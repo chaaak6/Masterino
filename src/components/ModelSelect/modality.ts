@@ -1,16 +1,16 @@
-import {
-  getModelCatalogFromSettings,
-  isPersistedModelChatEligible,
-  mergeModelCatalogEntry,
-  type PersistedModelCatalog,
-} from '@lobechat/business-model-bank';
 import type {
   ChatInputModalityConclusion,
-  ModelCatalogEntry,
   NonTextInputModality,
 } from '@lobechat/types/src/modelCatalog';
-import { getChatInputModalityConclusion } from '@lobechat/types/src/modelCatalog';
-import type { AiModelType, EnabledAiModel, ModelAbilities } from 'model-bank';
+import type { EnabledAiModel, ModelAbilities } from 'model-bank';
+
+import { type ChatModelCatalogInput, resolveChatModelCatalog } from '@/helpers/modelCatalog';
+
+export {
+  type ChatModelCatalogInput,
+  resolveChatModelCatalog,
+  type ResolvedChatModelCatalog,
+} from '@/helpers/modelCatalog';
 
 /** Display order for the four non-text input modalities. */
 export const NON_TEXT_INPUT_MODALITIES: NonTextInputModality[] = [
@@ -19,25 +19,6 @@ export const NON_TEXT_INPUT_MODALITIES: NonTextInputModality[] = [
   'video',
   'file',
 ];
-
-/** The model shape a select row or detail panel has in hand. */
-export interface ChatModelCatalogInput {
-  abilities?: ModelAbilities;
-  id: string;
-  providerId?: string;
-  settings?: unknown;
-  type?: AiModelType;
-}
-
-export interface ResolvedChatModelCatalog {
-  /**
-   * Mirrors B1 `isAiProviderModelChatEligible`: a denied or non-chat catalog kind never
-   * renders as a chat row and never becomes a fallback/default selection.
-   */
-  chatEligible: boolean;
-  entry: ModelCatalogEntry;
-  inputModality: ChatInputModalityConclusion;
-}
 
 export type EvidenceSourceKind =
   | 'catalog'
@@ -62,39 +43,6 @@ const EVIDENCE_SOURCE_KINDS = new Set<EvidenceSourceKind>([
   'provider-meta',
   'unknown',
 ]);
-
-const matchPersistedCatalog = (model: ChatModelCatalogInput): PersistedModelCatalog | undefined => {
-  const persisted = getModelCatalogFromSettings(model.settings);
-  if (!persisted || persisted.entry.modelId !== model.id) return undefined;
-  if (model.providerId && persisted.entry.providerId !== model.providerId) return undefined;
-
-  return persisted;
-};
-
-/**
- * Resolve the B1 catalog evidence for a UI row.
- *
- * Persisted evidence wins on an exact provider/model match. Otherwise the same fallback
- * merge that B1 uses for chat eligibility runs, with legacy `abilities` booleans acting
- * only as catalog-level modality evidence (never as a chat-kind claim).
- */
-export const resolveChatModelCatalog = (model: ChatModelCatalogInput): ResolvedChatModelCatalog => {
-  const catalog =
-    matchPersistedCatalog(model) ??
-    mergeModelCatalogEntry({
-      catalog: model.abilities ? { abilities: model.abilities } : undefined,
-      modelId: model.id,
-      providerId: model.providerId ?? 'unknown',
-      providerMetadata:
-        model.type && model.type !== 'chat' ? { declaredKind: model.type } : undefined,
-    });
-
-  return {
-    chatEligible: isPersistedModelChatEligible(catalog),
-    entry: catalog.entry,
-    inputModality: getChatInputModalityConclusion(catalog.entry),
-  };
-};
 
 export const findEnabledAiModel = (
   enabledAiModels: readonly EnabledAiModel[] | undefined,

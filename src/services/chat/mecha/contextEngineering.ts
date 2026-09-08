@@ -38,6 +38,7 @@ import type {
   UIChatMessage,
 } from '@lobechat/types';
 import type { ExecutionContext } from '@lobechat/types/src/executionContext';
+import type { ModelCatalogSnapshot } from '@lobechat/types/src/modelCatalog';
 import debug from 'debug';
 
 import { isCanUseFC } from '@/helpers/isCanUseFC';
@@ -97,6 +98,8 @@ interface ContextEngineeringContext {
   memoryContext?: MemoryContext;
   messages: UIChatMessage[];
   model: string;
+  /** Capability evidence frozen with this operation’s WorkingModel. */
+  modelCatalogSnapshot?: ModelCatalogSnapshot;
   /** Operation-frozen registry winners. When present, do not re-read mutable skill stores. */
   operationSkills?: OperationSkillSet['skills'];
   /** Agent's enabled plugin/tool/skill identifiers (from agentConfig.plugins) */
@@ -121,6 +124,7 @@ export const contextEngineering = async ({
   manifests,
   tools,
   model,
+  modelCatalogSnapshot,
   provider,
   systemRole,
   inputTemplate,
@@ -145,7 +149,16 @@ export const contextEngineering = async ({
   const hasSelectedImages =
     !!selectedMessage?.imageList?.length ||
     selectedMessage?.attachments?.items.some((item) => item.mime.startsWith('image/'));
-  if (hasSelectedImages && !isCanUseVision(model, provider)) {
+  const frozenCatalog =
+    modelCatalogSnapshot?.entry.modelId === model &&
+    modelCatalogSnapshot.entry.providerId === provider
+      ? modelCatalogSnapshot.entry
+      : undefined;
+  const canUseWorkingModelVision = (candidateModel: string, candidateProvider: string) =>
+    frozenCatalog && candidateModel === model && candidateProvider === provider
+      ? frozenCatalog.inputModalities.image === 'supported'
+      : isCanUseVision(candidateModel, candidateProvider);
+  if (hasSelectedImages && !canUseWorkingModelVision(model, provider)) {
     throw new Error(
       'This model cannot view images. Keep the attachment and select a vision-capable model.',
     );
@@ -690,7 +703,7 @@ export const contextEngineering = async ({
     capabilities: {
       isCanUseFC,
       isCanUseVideo,
-      isCanUseVision,
+      isCanUseVision: canUseWorkingModelVision,
     },
 
     // Desktop local/static URLs are not fetchable by remote providers or cloud tools.

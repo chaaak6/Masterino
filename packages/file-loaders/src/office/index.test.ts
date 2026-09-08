@@ -310,7 +310,9 @@ it('destroys the active ZIP stream when cancelled between records', async () => 
     controller.abort(new Error('stop active stream'));
     await expect(rows.next()).rejects.toThrow('stop active stream');
     expect(destroy).toHaveBeenCalled();
-    expect(destroy.mock.contexts.some((stream) => stream.destroyed)).toBe(true);
+    expect(
+      destroy.mock.contexts.some((stream) => stream instanceof Readable && stream.destroyed),
+    ).toBe(true);
   } finally {
     destroy.mockRestore();
     zip.close();

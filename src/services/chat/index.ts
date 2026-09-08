@@ -337,6 +337,7 @@ class ChatService {
       manifests: enabledManifests,
       messages,
       model: payload.model,
+      modelCatalogSnapshot: options?.contextBudget?.catalogSnapshot,
       operationSkills,
       executionContext,
       plugins,

@@ -1,0 +1,65 @@
+{
+  "attachmentRetained": true,
+  "capabilitySourceReadback": {
+    "models": [
+      {
+        "id": "deepseek-v4-flash",
+        "provider_id": "newapi",
+        "vision": false,
+        "input_modalities": {
+          "file": "unknown",
+          "text": "supported",
+          "audio": "unknown",
+          "image": "unsupported",
+          "video": "unsupported"
+        }
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg_Z69iN1gzXc1qVNYxZW",
+        "role": "user",
+        "model": null,
+        "provider": null,
+        "attachmentMimes": ["image/png"],
+        "localImageCount": 1
+      },
+      {
+        "id": "msg_WjmPM6PYzo4v2DqOni",
+        "role": "assistant",
+        "model": "deepseek-v4-flash",
+        "provider": "newapi",
+        "attachmentMimes": [],
+        "localImageCount": 0
+      }
+    ]
+  },
+  "case": "image attached then switch to model without visible vision badge",
+  "finalAcceptanceRepetition": false,
+  "followupFinding": "Diagnostic15 after full Electron restart proved selected/persisted Flash could differ from actual send Vision Exp. This historical run did not observe outbound model; its DB label must not be treated as actual provider request model.",
+  "implicitAgentSwitch": false,
+  "limitation": "Scoped database readback agrees: vision=false and catalog image=unsupported. Renderer enabledAiModels/imageList memory at send time was not inspected. No model capabilities were changed for test; send guard root cause remains under investigation.",
+  "modelAnsweredImageCorrectly": true,
+  "observedSelectedModel": "DeepSeek V4 Flash",
+  "persistedActualModel": ["deepseek-v4-flash"],
+  "sendBlocked": false,
+  "status": "capability_boundary_pending_review",
+  "topic": "tpc_HCiNlXBAmuqx",
+  "usage": [
+    {
+      "totalTokens": 22173,
+      "inputTextTokens": 22039,
+      "outputTextTokens": 60,
+      "totalInputTokens": 22039,
+      "totalOutputTokens": 134,
+      "inputCacheMissTokens": 22039,
+      "outputReasoningTokens": 74
+    }
+  ],
+  "versions": {
+    "server": "59eaba45",
+    "desktopMain": "59eaba45",
+    "renderer": "d0cd5d22"
+  },
+  "visionBadgeInPicker": false
+}

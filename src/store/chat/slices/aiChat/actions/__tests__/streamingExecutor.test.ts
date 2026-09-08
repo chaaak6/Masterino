@@ -1,5 +1,6 @@
 import type { AgentState } from '@lobechat/agent-runtime';
 import * as agentRuntime from '@lobechat/agent-runtime';
+import { createModelCatalogSnapshot, mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import type * as LobeChatConst from '@lobechat/const';
 import { type UIChatMessage } from '@lobechat/types';
 import { act, renderHook } from '@testing-library/react';
@@ -160,6 +161,128 @@ afterEach(() => {
 });
 
 describe('StreamingExecutor actions', () => {
+  describe('WorkingModel image evidence', () => {
+    const imageMessage = () =>
+      createMockMessage({
+        role: 'user',
+        attachments: {
+          schemaVersion: 1,
+          items: [
+            {
+              attachmentId: 'image-1',
+              localResourceId: 'resource-1',
+              source: 'local',
+              deviceId: 'device-1',
+              mime: 'image/png',
+              name: 'image.png',
+              size: 4,
+              version: 'v1',
+            },
+          ],
+        },
+      });
+
+    it.each([
+      ['unsupported', true, false],
+      ['supported', false, true],
+      ['unknown', true, false],
+    ] as const)(
+      'uses catalog %s instead of legacy vision=%s for local images',
+      (image, legacyVision, allowed) => {
+        setupMockSelectors({ agentConfig: { model: 'catalog-image', provider: 'openai' } });
+        useAiInfraStore.setState({
+          enabledAiModels: [
+            {
+              id: 'catalog-image',
+              providerId: 'openai',
+              type: 'chat',
+              abilities: { vision: legacyVision },
+              settings: {
+                modelCatalog: mergeModelCatalogEntry({
+                  modelId: 'catalog-image',
+                  providerId: 'openai',
+                  providerMetadata: { inputModalities: { image } },
+                }),
+              },
+            },
+          ],
+        });
+        const message = imageMessage();
+        const before = structuredClone(message);
+        const create = () =>
+          useChatStore.getState().internal_createAgentState({
+            messages: [message],
+            parentMessageId: message.id,
+            agentId: TEST_IDS.SESSION_ID,
+          });
+        if (allowed)
+          expect(create().state.metadata?.modelCatalogSnapshot).toMatchObject({
+            entry: { inputModalities: { image: 'supported' } },
+          });
+        else expect(create).toThrow('当前模型不支持图片');
+        expect(message).toEqual(before);
+      },
+    );
+
+    it.each([false, true])(
+      'uses the submitted model binding after agent config drift (vision=%s)',
+      (vision) => {
+        setupMockSelectors({ agentConfig: { model: 'old-vision', provider: 'openai' } });
+        useAiInfraStore.setState({
+          enabledAiModels: [
+            { id: 'submitted', providerId: 'openai', type: 'chat', abilities: { vision } },
+            { id: 'old-vision', providerId: 'openai', type: 'chat', abilities: { vision: true } },
+          ],
+        });
+        const message = imageMessage();
+        const create = () =>
+          useChatStore.getState().internal_createAgentState({
+            agentId: TEST_IDS.SESSION_ID,
+            messages: [message],
+            parentMessageId: message.id,
+            workingModel: { model: 'submitted', provider: 'openai' },
+          });
+        if (!vision) expect(create).toThrow('当前模型不支持图片');
+        else {
+          const result = create();
+          expect(result.agentConfig.agentConfig.model).toBe('submitted');
+          expect(result.state.metadata?.modelCatalogSnapshot).toMatchObject({
+            entry: { modelId: 'submitted' },
+          });
+        }
+      },
+    );
+
+    it('does not reuse a previous model snapshot after switching the WorkingModel', () => {
+      setupMockSelectors({ agentConfig: { model: 'text-model', provider: 'openai' } });
+      useAiInfraStore.setState({
+        enabledAiModels: [
+          { id: 'text-model', providerId: 'openai', type: 'chat', abilities: { vision: false } },
+        ],
+      });
+      const previous = createModelCatalogSnapshot(
+        mergeModelCatalogEntry({
+          modelId: 'vision-model',
+          providerId: 'openai',
+          catalog: { abilities: { vision: true } },
+        }).entry,
+        'operation-current',
+      );
+      const message = imageMessage();
+      expect(() =>
+        useChatStore.getState().internal_createAgentState({
+          messages: [message],
+          parentMessageId: message.id,
+          agentId: TEST_IDS.SESSION_ID,
+          operationId: 'operation-current',
+          initialState: {
+            ...createMockRuntimeState('operation-current', 'running'),
+            metadata: { modelCatalogSnapshot: previous },
+          },
+        }),
+      ).toThrow('当前模型不支持图片');
+    });
+  });
   describe('executeClientAgent', () => {
     it('carries the finalized scratch cwd into the next runtime step', async () => {
       act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));

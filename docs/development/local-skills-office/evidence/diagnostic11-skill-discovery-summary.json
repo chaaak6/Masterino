@@ -1,0 +1,27 @@
+{
+  "case": "new operation discovers newly created project skill",
+  "finalAcceptanceRepetition": false,
+  "observedAnswer": "QA-CREATED-CHECK-READY",
+  "status": "pass",
+  "toolNames": ["activateSkill"],
+  "topic": "tpc_zEm2tQznLajM",
+  "usage": [
+    {
+      "totalTokens": 26159,
+      "inputTextTokens": 26057,
+      "outputTextTokens": 52,
+      "totalInputTokens": 26057,
+      "totalOutputTokens": 102,
+      "inputCacheMissTokens": 26057,
+      "outputReasoningTokens": 50
+    },
+    {
+      "totalTokens": 26454,
+      "inputTextTokens": 26444,
+      "outputTextTokens": 10,
+      "totalInputTokens": 26444,
+      "totalOutputTokens": 10,
+      "inputCacheMissTokens": 26444
+    }
+  ]
+}

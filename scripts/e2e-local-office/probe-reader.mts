@@ -36,8 +36,20 @@ const name = process.argv[3] ?? 'sales-100000.xlsx';
 const file = path.join(root, name);
 const oracle = JSON.parse(await readFile(path.join(root, 'oracle.json'), 'utf8')).workbooks[name];
 assert.ok(oracle);
-const measurements = [];
-async function measure(label: string, run: () => Promise<any>) {
+type ReadResult = Awaited<ReturnType<typeof readOfficeDocument>>;
+const measurements: {
+  label: string;
+  milliseconds: number;
+  outputBytes: number;
+  records: number;
+  actualRange: number[];
+  hasMore: boolean;
+  aggregate: ReadResult['aggregate'];
+  parts: typeof parts;
+  rssBytes: number;
+  processPeakRssBytes: number;
+}[] = [];
+async function measure(label: string, run: () => Promise<ReadResult>) {
   parts = [];
   const started = performance.now();
   const result = await run();

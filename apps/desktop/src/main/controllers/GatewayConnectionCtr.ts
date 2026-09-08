@@ -13,6 +13,7 @@ import type {
   AgentRunRequestMessage,
   GatewayMcpStdioParams,
   GatewayToolCallExecutionContext,
+  LocalToolCallRequest,
 } from '@lobechat/device-gateway-client';
 import type {
   EditLocalFileParams,
@@ -326,13 +327,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
   }
 
   @IpcMethod()
-  async executeLocalToolCall(params: {
-    apiName: string;
-    args: Record<string, unknown>;
-    executionContext?: GatewayToolCallExecutionContext;
-    purpose?: 'skill-command' | 'skill-script';
-    trace?: ExecutionBoundaryTrace;
-  }): Promise<BuiltinServerRuntimeOutput> {
+  async executeLocalToolCall(params: LocalToolCallRequest): Promise<BuiltinServerRuntimeOutput> {
     const { trace } = params;
     if (!trace?.topicId || !trace.operationId || !trace.toolCallId) {
       return this.executeLocalToolCallOnce(params);

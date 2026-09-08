@@ -40,7 +40,6 @@ Electron 桌面目录不在根 workspace 的安装集合，根 pnpm 安装后仍
 
 内测 Electron 预热实际结果：使用 `corepack pnpm dev:desktop:test` 成功进入既有测试 profile 首页，正常登录状态已存在，无需新的企业微信授权。启动日志 backend 为 `https://mlai-test.bielcrystal.com`，Gateway 为同域 `/device-gateway`，profile 为 `test-server`。从普通小宗狮AI的项目新增按钮打开系统目录选择器，选择 `/tmp/masterino-office-e2e-input`；UI realpath 为 `/private/tmp/masterino-office-e2e-input`，显示本机执行、项目已锁定，文件面板列出全部6个合成文件。未发送模型请求，未测试新Office业务或宣称Gateway执行成功。证据：`/tmp/masterino-office-e2e-evidence/test-profile-workspace-ready.png` 与同名 AX 文本。正式验收等待新镜像及最终freeze版本后重启。
 
-
 ## 真实模型诊断（不是最终五次重复）
 
 1. 项目内 Excel→HTML：服务端599e0713，桌面599e0713加进行中的修改。真实Electron输入自然请求，DeepSeek V4 Flash Vision Exp依次inspect Sales、read Sales、inspect Notes、writeFile。独立回读12条数据：总额8000，East3300/West2400/North2300，2026-01为2800、2026-02为5200。原表哈希不变，HTML无外部资源，实际Chrome打开图表和表格正常。[真实生成报告](evidence/diagnostic1-sales-report.html)已提交候选证据。4个模型轮次累计input96953（cached73344，miss23609）、output5731；用户消息落库到最终回复更新54.814秒。Office工具输出分别1612/3395/429字符，read返回13行含表头、hasMore=false。首版无单工具纯执行耗时字段。
@@ -49,13 +48,11 @@ Electron 桌面目录不在根 workspace 的安装集合，根 pnpm 安装后仍
 
 上述输入均为独立生成的合成数据，oracle未传给模型。完整截图、AX现场、脱敏逐消息metrics保留于本机 `/tmp/masterino-office-e2e-evidence/`，未提交；本目录evidence提供可移植的摘要和真实HTML。源Excel不入Git。模型UI累计tokens不能解释为当前上下文或网络请求字节；实际HTTP字节和完整工具目录数量尚未测得。
 
-
 第三版诊断细化：回形针完整报告已完成，真实Chrome渲染、数字回读与原表/附件副本哈希一致。首次writeFile受旧cwd提示影响，向不存在的legacy测试目录写入被DENIED_SCOPE；模型随后pwd确认实际topic scratch目录并成功生成报告。7轮、7工具请求，104.053秒；Office执行耗时11.94/4.25/6.68ms，输出1749/3395/429字节。writeFile实际写入1.46ms。参见[脱敏汇总](evidence/diagnostic3-summary.json)与[真实报告](evidence/diagnostic3-paperclip-report.html)。此轮包含目录恢复，不能作为稳定一次成功样本。
 
 合成图片诊断：真实Finder复制/粘贴quadrants.png后，模型直接回答左上红、右上蓝、左下绿、右下黄，与独立oracle相符；0个工具、2.151秒。参见[图片汇总](evidence/diagnostic4-image-summary.json)。trace隐私边界仍由实现端核查，暂不宣称图片整项通过。
 
 十万行诊断：精确汇总与独立oracle一致，但模型inspect后runCommand探测openpyxl/pandas，再写Python汇总脚本，未使用Office原生summary，违反预定标准分析无现场依赖探测/解析脚本门槛。记录为数字通过、调度失败；[脱敏汇总](evidence/diagnostic5-large-summary.json)。实现端正在修正本机工具说明，正式版本仍未冻结。
-
 
 PPT页序诊断返回QA-SLIDE-3、QA-SLIDE-1、QA-SLIDE-2，匹配独立OOXML关系顺序；4个Office工具、11.757秒，[汇总](evidence/diagnostic6-ppt-summary.json)。公式诊断明确原公式文本1+2（Excel公式写法=1+2）、保存缓存999、未重算；但inspect后额外shell解包XML，22.436秒，[汇总](evidence/diagnostic7-formula-summary.json)。
 
@@ -63,7 +60,20 @@ PPT页序诊断返回QA-SLIDE-3、QA-SLIDE-1、QA-SLIDE-2，匹配独立OOXML关
 
 补充解析器探针由实现端运行、QA归档：[10000行](evidence/parser-probe-10000.json)、[100000行](evidence/parser-probe-100000.json)。它们是直接引擎测量，不是真实Electron模型验收；RSS含Node/tsx，短输出不替代实际扫描量证据。取消最初仅阻止回写的缺陷正在补接线，旧探针不能证明已取消底层扫描。
 
-
 技能非法编辑真实UI：聊天请求技能管理工具更新合成qa-identity；输入编辑器将原始YAML分隔符转成Markdown，因此实际发送的是缺frontmatter内容。updateProjectSkill返回SKILL_FRONTMATTER_REQUIRED，随后validateProjectSkill仍valid:true，独立原件SHA256前后均70218609fbd59abd80ec5b0e00d45f21bda41e6cb100c288eb3fcbc789865172。[拒绝证据](evidence/diagnostic9-invalid-edit-summary.json)。不宣称此轮精确覆盖缺description情形。
 
 合法创建合成qa-created-check通过createProjectSkill与validateProjectSkill，独立回读129字节文件名称/description/正文正确，原qa-identity未改变。[创建证据](evidence/diagnostic10-create-skill-summary.json)。下一operation发现尚待后续运行；当前未把创建成功等同于发现成功。
+
+下一operation已发现并激活新建qa-created-check，真实activateSkill后返回精确QA-CREATED-CHECK-READY，UI项目技能数更新为2。[发现证据](evidence/diagnostic11-skill-discovery-summary.json)。
+
+有限Office写入诊断：3次createOfficeDocument+3次readOfficeDocument，新建xlsx/docx/pptx分别独立以openpyxl及标准OOXML解析回读，单元格/段落/页序全部匹配；15.933秒。[写入证据](evidence/diagnostic12-office-write-summary.json)。这只证明受支持简易结构/内容，未证明复杂格式视觉保真。
+
+图片后切模型边界待核查：真实选择无图像标记的DeepSeek V4 Flash，图片发送未被阻止，DB实际model为deepseek-v4-flash，仍同一Agent，回复正确识图。[切换证据](evidence/diagnostic13-model-switch-summary.json)。限定本次用户/模型的DB只读进一步确认provider=newapi、abilities.vision=false、catalog inputModalities.image=unsupported，用户附件MIME=image/png且图片数1；因此DB两能力源一致。未读发送时renderer enabledAiModels/imageList内存，guard根因仍待实现端定位，不记保护通过。没有修改模型能力配置。
+
+补充parser-probe JSON已更新为带reader取消测量的新版；其中取消延迟只代表reader，不代表Electron停止按钮E2E。
+
+图像保护热更新后复测仍发送成功：[诊断14](evidence/diagnostic14-model-switch-summary.json)。该轮只有HMR，不能排除旧store动作残留；随后安排CmdR硬重载复测，遇到实现端临时观测日志HMR，尚未发送。两个topic均无agent_operations记录、message metadata无executionMode/operationId，未获取可靠client/gateway路径证据。
+
+完整Electron重启、测试服务d0cd5d22后的[诊断15](evidence/diagnostic15-model-runtime-summary.json)定位到模型选择与执行分叉：UI选择及DB assistant.model均为deepseek-v4-flash，但真实DevTools安全日志中的创建运行、上下文构造、最终发送三处均为deepseek-v4-flash-vision-exp，guard看到1个本机图片、catalog支持。此次不能归因为guard放行不支持的实际模型；此前诊断13/14只读到的DB标签同样不能证明真实出站模型。源码修复与复测待完成。
+
+模型绑定修复后完整重启的[诊断16](evidence/diagnostic16-guard-recovery-summary.json)通过保护及恢复：Flash initial guard记录unsupported、本机图片1，无Flash最终发送；UI明确不支持图片。附件保留在用户消息（输入框已清空），切回VisionExp后点击历史图片“加入输入”再发送，实际出站VisionExp并正确识四色。此轮覆盖历史图片重新加入新消息，不等同于原assistant retry按钮。仍属混合版本诊断。

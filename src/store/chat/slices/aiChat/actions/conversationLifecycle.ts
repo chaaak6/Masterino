@@ -954,9 +954,11 @@ export class ConversationLifecycleActionImpl {
 
     // ── Client mode: send via server API then run agent locally ──
     let data: SendMessageServerResponse | undefined;
+    // Use one binding for the persisted assistant and this run. New-topic hydration
+    // can refresh the mutable agent store while message persistence is in flight.
+    const { model, provider } = agentSelectors.getAgentConfigById(agentId)(getAgentStoreState());
+    const workingModel = { model, provider: provider! };
     try {
-      const { model, provider } = agentSelectors.getAgentConfigById(agentId)(getAgentStoreState());
-
       const topicId = operationContext.topicId;
 
       // Persist selected skill/tool context into user message content so it survives across turns.
@@ -1347,6 +1349,7 @@ export class ConversationLifecycleActionImpl {
             skipCreateFirstMessage: true,
             skillContext: frozenSkillContext,
             workingDirectory: frozenWorkingDirectory,
+            workingModel,
           });
         }
 

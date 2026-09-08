@@ -1,18 +1,35 @@
 {
-  "kind": "supplemental-parser-probe",
+  "cancellation": {
+    "latencyMs": 0.335,
+    "parts": [
+      {
+        "name": "xl/workbook.xml",
+        "expandedBytes": 614,
+        "consumedBytes": 614
+      },
+      {
+        "name": "xl/_rels/workbook.xml.rels",
+        "expandedBytes": 653,
+        "consumedBytes": 653
+      },
+      {
+        "name": "xl/worksheets/sheet1.xml",
+        "expandedBytes": 33375347,
+        "consumedBytes": 344064
+      }
+    ]
+  },
+  "evidenceType": "supplementary direct parser probe; cancellation latency is reader-only, not Electron stop-button E2E",
   "file": "sales-100000.xlsx",
   "inputBytes": 2673213,
-  "node": "v24.19.0",
+  "kind": "supplemental-parser-probe",
   "measurements": [
     {
       "label": "cold-inspect",
-      "milliseconds": 5.847,
+      "milliseconds": 6.771,
       "outputBytes": 1607,
       "records": 5,
-      "actualRange": [
-        1,
-        5
-      ],
+      "actualRange": [1, 5],
       "hasMore": true,
       "parts": [
         {
@@ -41,18 +58,15 @@
           "consumedBytes": 653
         }
       ],
-      "rssBytes": 118734848,
-      "processPeakRssBytes": 118882304
+      "rssBytes": 117260288,
+      "processPeakRssBytes": 120274944
     },
     {
       "label": "repeat-inspect",
-      "milliseconds": 0.691,
+      "milliseconds": 0.575,
       "outputBytes": 1607,
       "records": 5,
-      "actualRange": [
-        1,
-        5
-      ],
+      "actualRange": [1, 5],
       "hasMore": true,
       "parts": [
         {
@@ -66,18 +80,15 @@
           "consumedBytes": 653
         }
       ],
-      "rssBytes": 118865920,
-      "processPeakRssBytes": 118882304
+      "rssBytes": 117293056,
+      "processPeakRssBytes": 120274944
     },
     {
       "label": "last-three-rows",
-      "milliseconds": 94.772,
+      "milliseconds": 102.33,
       "outputBytes": 1006,
       "records": 3,
-      "actualRange": [
-        99999,
-        100001
-      ],
+      "actualRange": [99999, 100001],
       "hasMore": false,
       "parts": [
         {
@@ -96,12 +107,12 @@
           "consumedBytes": 33375347
         }
       ],
-      "rssBytes": 129548288,
-      "processPeakRssBytes": 129548288
+      "rssBytes": 129597440,
+      "processPeakRssBytes": 129597440
     },
     {
       "label": "grouped-aggregate",
-      "milliseconds": 755.901,
+      "milliseconds": 694.156,
       "outputBytes": 414,
       "records": 0,
       "actualRange": [],
@@ -129,9 +140,9 @@
           "consumedBytes": 33375347
         }
       ],
-      "rssBytes": 136626176,
-      "processPeakRssBytes": 148209664
+      "rssBytes": 152649728,
+      "processPeakRssBytes": 152649728
     }
   ],
-  "evidenceType": "supplementary direct parser probe, not Electron E2E"
+  "node": "v24.19.0"
 }
