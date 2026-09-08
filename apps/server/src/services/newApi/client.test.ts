@@ -17,6 +17,29 @@ describe('NewApiClient', () => {
     fetchMock.mockReset();
   });
 
+  it('preserves pricing envelope metadata and uses only the supplied user authentication', async () => {
+    const body = {
+      success: true,
+      data: [{ model_name: 'chat', quota_type: 0 }],
+      group_ratio: { vip: 0.5 },
+      pricing_version: 'v1',
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(body));
+    const client = new NewApiClient({ baseUrl: 'https://aihub.internal', fetchImpl: fetchMock });
+    expect(await client.getPricing({ accessToken: 'user-access-token', newApiUserId: 42 })).toEqual(
+      body,
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://aihub.internal/api/pricing',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'New-Api-User': '42',
+          'Authorization': 'Bearer user-access-token',
+        }),
+      }),
+    );
+  });
+
   it('calls management endpoints with both bearer token and New-Api-User headers', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ data: { id: 42, quota: 100 }, success: true }));
     const client = new NewApiClient({
@@ -31,7 +54,7 @@ describe('NewApiClient', () => {
       'https://aihub.internal/api/user/self',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer user-access-token',
+          'Authorization': 'Bearer user-access-token',
           'New-Api-User': '42',
         }),
         method: 'GET',
@@ -105,7 +128,7 @@ describe('NewApiClient', () => {
       'https://aihub.internal/api/user/search?keyword=ada%40example.com&p=2&size=20',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer admin-access-token',
+          'Authorization': 'Bearer admin-access-token',
           'New-Api-User': '1',
         }),
         method: 'GET',
@@ -143,7 +166,7 @@ describe('NewApiClient', () => {
       expect.objectContaining({
         body: JSON.stringify(input),
         headers: expect.objectContaining({
-          Authorization: 'Bearer admin-access-token',
+          'Authorization': 'Bearer admin-access-token',
           'Content-Type': 'application/json',
           'New-Api-User': '1',
         }),
@@ -176,7 +199,7 @@ describe('NewApiClient', () => {
       expect.objectContaining({
         body: JSON.stringify(input),
         headers: expect.objectContaining({
-          Authorization: 'Bearer admin-access-token',
+          'Authorization': 'Bearer admin-access-token',
           'Content-Type': 'application/json',
           'New-Api-User': '1',
         }),
@@ -210,7 +233,7 @@ describe('NewApiClient', () => {
       'https://aihub.internal/api/token/search?keyword=masterlion-managed&p=3&size=50',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer admin-access-token',
+          'Authorization': 'Bearer admin-access-token',
           'New-Api-User': '9001',
         }),
         method: 'GET',
@@ -247,7 +270,7 @@ describe('NewApiClient', () => {
       expect.objectContaining({
         body: JSON.stringify(input),
         headers: expect.objectContaining({
-          Authorization: 'Bearer admin-access-token',
+          'Authorization': 'Bearer admin-access-token',
           'Content-Type': 'application/json',
           'New-Api-User': '9001',
         }),

@@ -73,6 +73,7 @@ interface ModelInfoTagsProps extends ModelAbilities {
    */
   showAbilityTags?: boolean;
   style?: CSSProperties;
+  visualOnly?: boolean;
 }
 
 interface FeatureTagsProps extends Pick<
@@ -220,6 +221,7 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
     directionReverse,
     disableTooltip,
     inputModality,
+    visualOnly,
     placement = 'top',
     showAbilityTags = true,
     style,
@@ -243,6 +245,7 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
             disableTooltip={disableTooltip}
             placement={placement}
             tagClassName={styles.tag}
+            visualOnly={visualOnly}
           />
         )}
         {showAbilityTags && (
@@ -272,6 +275,7 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
 
 interface ModelItemRenderProps extends ChatModelCard, Partial<Omit<FlexboxProps, 'id' | 'title'>> {
   abilities?: ModelAbilities;
+  disableTooltip?: boolean;
   newBadgeLabel?: string;
   proBadgeLabel?: string;
   /** Provider owning this row, so the catalog lookup matches the exact provider/model pair. */
@@ -282,11 +286,15 @@ interface ModelItemRenderProps extends ChatModelCard, Partial<Omit<FlexboxProps,
    * and developer mode: a chat row always states supported / text-only / unverified.
    */
   showInputModality?: boolean;
+  /** The switch panel already provides a shared detail popup. */
+  visualOnly?: boolean;
 }
 
 export const ModelItemRender = memo<ModelItemRenderProps>(
   ({
     showInfoTag = true,
+    visualOnly,
+    disableTooltip,
     abilities,
     contextWindowTokens,
     files,
@@ -367,6 +375,7 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
         {(showInfoTag || inputModality) && (
           <ModelInfoTags
             contextWindowTokens={contextWindowTokens}
+            disableTooltip={disableTooltip}
             files={files ?? abilities?.files}
             functionCall={functionCall ?? abilities?.functionCall}
             imageOutput={imageOutput ?? abilities?.imageOutput}
@@ -375,6 +384,7 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
             style={{ zoom: 0.9 }}
             video={video ?? abilities?.video}
             vision={vision ?? abilities?.vision}
+            visualOnly={visualOnly}
           />
         )}
       </Flexbox>

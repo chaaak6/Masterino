@@ -95,6 +95,13 @@ describe('AgentModeNotice', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('input.agentModeUnsupportedModel');
   });
 
+  it('does not show a warning when capability data is missing', () => {
+    testState.aiInfra.isInitAiProviderRuntimeState = true;
+    testState.aiInfra.enabledAiModels = [{ abilities: {}, id: 'gpt-4o', providerId: 'openai' }];
+    render(<AgentModeNotice />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('does not render when the ready model supports tool use', () => {
     testState.aiInfra.isInitAiProviderRuntimeState = true;
     testState.aiInfra.enabledAiModels = [

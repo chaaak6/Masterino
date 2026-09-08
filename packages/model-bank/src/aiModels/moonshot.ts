@@ -2,6 +2,32 @@ import type { AIChatModelCard } from '../types/aiModel';
 
 // https://platform.kimi.com/docs/pricing/chat
 const moonshotChatModels: AIChatModelCard[] = [
+  // https://platform.kimi.ai/docs/guide/kimi-k3-quickstart
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+      structuredOutput: true,
+      video: true,
+      vision: true,
+    },
+    contextWindowTokens: 1_048_576,
+    displayName: 'Kimi K3',
+    id: 'kimi-k3',
+    settings: { disabledParams: ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'] },
+    // API parameter ceiling; input and output still share the context window.
+    maxOutput: 1_048_576,
+    type: 'chat',
+  },
+  // https://platform.kimi.com/docs/guide/kimi-k2-7-code-quickstart
+  {
+    abilities: { functionCall: true, reasoning: true, video: true, vision: true },
+    contextWindowTokens: 262_144,
+    displayName: 'Kimi K2.7 Code',
+    id: 'kimi-k2.7-code',
+    settings: { disabledParams: ['temperature', 'top_p', 'frequency_penalty', 'presence_penalty'] },
+    type: 'chat',
+  },
   {
     abilities: {
       functionCall: true,

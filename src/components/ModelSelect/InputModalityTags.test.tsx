@@ -158,3 +158,15 @@ describe('ModelItemRender input modality conclusion', () => {
     expect(document.querySelector('[data-input-modality]')).toBeNull();
   });
 });
+
+describe('visual-only switch panel rows', () => {
+  it('shows supported image capability without a nested tooltip', () => {
+    renderRow('qwen3-vl-plus', { visualOnly: true, disableTooltip: true });
+    expect(screen.getByRole('img', { name: 'Supports image input' })).toBeInTheDocument();
+    expect(screen.queryByTestId('tooltip')).toBeNull();
+  });
+  it.each(['glm-5.1', 'deepseek-v4'])('omits placeholder icons for %s', (id) => {
+    renderRow(id, { visualOnly: true, disableTooltip: true });
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+});

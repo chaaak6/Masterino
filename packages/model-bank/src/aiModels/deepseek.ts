@@ -2,11 +2,24 @@ import type { AIChatModelCard } from '../types/aiModel';
 
 // https://api-docs.deepseek.com/zh-cn/quick_start/pricing
 const deepseekChatModels: AIChatModelCard[] = [
+  // https://api-docs.deepseek.com/guides/vision/
+  // https://api-docs.deepseek.com/quick_start/pricing/
+  {
+    abilities: { functionCall: true, reasoning: true, structuredOutput: true, vision: true },
+    contextWindowTokens: 1_048_576,
+    displayName: 'DeepSeek V4 Flash Vision Exp',
+    id: 'deepseek-v4-flash-vision-exp',
+    maxOutput: 393_216,
+    settings: { extendParams: ['deepseekV4ReasoningEffort'] },
+    type: 'chat',
+  },
   {
     abilities: {
       functionCall: true,
       reasoning: true,
       structuredOutput: true,
+      video: false,
+      vision: false,
     },
     contextWindowTokens: 1_048_576,
     description:
@@ -37,6 +50,8 @@ const deepseekChatModels: AIChatModelCard[] = [
       functionCall: true,
       reasoning: true,
       structuredOutput: true,
+      video: false,
+      vision: false,
     },
     contextWindowTokens: 1_048_576,
     description:

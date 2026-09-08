@@ -165,7 +165,7 @@ const createEnabledList = (
 ];
 
 describe('ModelDetailPanel pricing', () => {
-  it('renders branding provider token pricing in credits', () => {
+  it('shows an unavailable tariff instead of presenting catalog fallback prices as Aihub credits', () => {
     const { container } = render(
       <ModelDetailPanel
         enabledList={createEnabledList(BRANDING_PROVIDER, textPricing)}
@@ -173,10 +173,59 @@ describe('ModelDetailPanel pricing', () => {
         provider={BRANDING_PROVIDER}
       />,
     );
+    expect(container).toHaveTextContent('ModelSwitchPanel.aihubPricing.unavailable');
+    expect(container).not.toHaveTextContent('credits');
+    expect(container).not.toHaveTextContent('5.00');
+  });
 
-    expect(screen.getByText('5M credits/M tokens')).toBeInTheDocument();
-    expect(screen.getByText('25M credits/M tokens')).toBeInTheDocument();
-    expect(container).not.toHaveTextContent('$5.00');
+  it('shows the persisted Aihub CNY tariff including a zero cache rate', () => {
+    const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
+    enabledList[0].children[0].aihubPricing = {
+      version: 1,
+      currency: 'CNY',
+      status: 'available',
+      displayRates: {
+        input: { min: 2, max: 2 },
+        output: { min: 8, max: 8 },
+        cacheRead: { min: 0, max: 0 },
+      },
+    };
+    const { container } = render(
+      <ModelDetailPanel
+        enabledList={enabledList}
+        model="test-model"
+        provider={BRANDING_PROVIDER}
+      />,
+    );
+    expect(container).toHaveTextContent('¥2');
+    expect(container).toHaveTextContent('¥8');
+    expect(container).toHaveTextContent('¥0');
+    expect(container).not.toHaveTextContent('ModelSwitchPanel.aihubPricing.public');
+    expect(container).not.toHaveTextContent('ModelSwitchPanel.aihubPricing.updated');
+    expect(container).not.toHaveTextContent('credits');
+  });
+
+  it('shows at most two decimal places without displaying tiny positive prices as free', () => {
+    const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
+    enabledList[0].children[0].aihubPricing = {
+      version: 1,
+      currency: 'CNY',
+      status: 'available',
+      displayRates: {
+        input: { min: 8.999994, max: 8.999994 },
+        output: { min: 0.0000001234, max: 0.0000001234 },
+      },
+    };
+    const { container } = render(
+      <ModelDetailPanel
+        enabledList={enabledList}
+        model="test-model"
+        provider={BRANDING_PROVIDER}
+      />,
+    );
+    expect(container).toHaveTextContent('¥9');
+    expect(container).not.toHaveTextContent('8.999');
+    expect(container).toHaveTextContent('< ¥0.01');
   });
 
   it('keeps dollar pricing for non-branding providers', () => {
@@ -224,7 +273,7 @@ describe('ModelDetailPanel pricing', () => {
 });
 
 describe('ModelDetailPanel input modality', () => {
-  it('derives image support from abilities as catalog evidence and names the source', () => {
+  it('shows separate image and video states without diagnostic text', () => {
     globalState.status.modelDetailPanelExpandedKeys = ['abilities'];
 
     const { container } = render(
@@ -235,20 +284,14 @@ describe('ModelDetailPanel input modality', () => {
       />,
     );
 
-    expect(container).toHaveTextContent('Input modality');
-    expect(container.querySelector('[data-input-modality]')).toHaveAttribute(
-      'data-input-modality',
-      'supported',
-    );
-    expect(container.querySelector('[data-input-modality]')).toHaveTextContent('Image input');
-
     const evidenceRows = container.querySelectorAll('[data-evidence-state]');
-    expect(evidenceRows).toHaveLength(4);
-    expect(evidenceRows[0]).toHaveTextContent('Supported · Model catalog · Not verified yet');
-    expect(evidenceRows[1]).toHaveTextContent('Unverified · No evidence · Not verified yet');
+    expect(evidenceRows).toHaveLength(2);
+    expect(evidenceRows[0]).toHaveTextContent('Supported');
+    expect(evidenceRows[1]).toHaveAttribute('data-evidence-state', 'unknown');
+    expect(container).not.toHaveTextContent('No evidence');
   });
 
-  it('shows unverified, never text only, when evidence is incomplete', () => {
+  it('omits unverified icons when evidence is incomplete', () => {
     globalState.status.modelDetailPanelExpandedKeys = ['pricing'];
 
     const { container } = render(
@@ -259,10 +302,7 @@ describe('ModelDetailPanel input modality', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Unverified' })).toHaveAttribute(
-      'data-input-modality',
-      'unknown',
-    );
+    expect(screen.queryByRole('img', { name: 'Unverified' })).toBeNull();
     expect(container.querySelector('[data-input-modality="text-only"]')).toBeNull();
     expect(screen.queryByRole('img', { name: 'Text only' })).toBeNull();
   });

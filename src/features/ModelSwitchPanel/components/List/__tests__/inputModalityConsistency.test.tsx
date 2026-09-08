@@ -157,7 +157,7 @@ const cases = [
 describe('ModelSwitchPanel row and detail input modality', () => {
   it.each(cases)(
     '$id: the list row and the detail panel state the same $kind conclusion',
-    ({ detailLabel, id, imageEvidence, kind, rowLabel }) => {
+    ({ id, kind, rowLabel }) => {
       const row = render(
         <SingleProviderModelItem
           newLabel="new"
@@ -169,19 +169,19 @@ describe('ModelSwitchPanel row and detail input modality', () => {
           }}
         />,
       );
-      const rowTag = within(row.container).getByRole('img', { name: rowLabel });
-      expect(rowTag).toHaveAttribute('data-input-modality', kind);
-
+      if (kind === 'supported') {
+        expect(within(row.container).getByRole('img', { name: rowLabel })).toBeInTheDocument();
+      } else {
+        expect(within(row.container).queryByRole('img')).toBeNull();
+      }
+      expect(row.container.querySelector('[data-testid="tooltip"]')).toBeNull();
       const detail = render(<ModelDetailPanel model={id} provider={PROVIDER} />);
-      expect(detail.container).toHaveTextContent('Input modality');
-
-      const conclusion = detail.container.querySelector('[data-input-modality]');
-      expect(conclusion).toHaveAttribute('data-input-modality', kind);
-      expect(conclusion).toHaveTextContent(detailLabel);
-
       const evidenceRows = detail.container.querySelectorAll('[data-evidence-state]');
-      expect(evidenceRows).toHaveLength(4);
-      expect(evidenceRows[0]).toHaveTextContent(imageEvidence);
+      expect(evidenceRows).toHaveLength(2);
+      expect(evidenceRows[0]).toHaveAttribute(
+        'data-evidence-state',
+        kind === 'text-only' ? 'unsupported' : kind,
+      );
     },
   );
 
@@ -201,6 +201,9 @@ describe('ModelSwitchPanel row and detail input modality', () => {
 
     expect(within(row.container).queryByRole('img', { name: 'Text only' })).toBeNull();
     expect(detail.container.querySelector('[data-input-modality="text-only"]')).toBeNull();
-    expect(detail.container).toHaveTextContent('Unverified · No evidence · Not verified yet');
+    expect(detail.container.querySelector('[data-evidence-state]')).toHaveAttribute(
+      'data-evidence-state',
+      'unknown',
+    );
   });
 });

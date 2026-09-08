@@ -9,6 +9,8 @@ import {
 } from '@lobehub/ui';
 import { memo, useCallback, useState } from 'react';
 
+import { useAiInfraStore } from '@/store/aiInfra';
+
 import { PanelContent } from './components/PanelContent';
 import { styles } from './styles';
 import { type ModelSwitchPanelProps } from './types';
@@ -33,9 +35,14 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
     const handleOpenChange = useCallback(
       (nextOpen: boolean) => {
         setInternalOpen(nextOpen);
+        if (nextOpen && !pricingMode)
+          void useAiInfraStore
+            .getState()
+            .refreshAiProviderRuntimeState()
+            .catch(() => {});
         onOpenChange?.(nextOpen);
       },
-      [onOpenChange],
+      [onOpenChange, pricingMode],
     );
 
     return (

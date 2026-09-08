@@ -92,6 +92,8 @@ export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
           }}
         >
           <ModelItemRender
+            disableTooltip
+            visualOnly
             {...data.model}
             {...data.model.abilities}
             newBadgeLabel={newLabel}
@@ -102,7 +104,9 @@ export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
         </DropdownMenuSubmenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuPositioner anchor={null} placement="right" sideOffset={12}>
-            <DropdownMenuPopup className={cx(styles.detailPopup, styles.dropdownMenu)}>
+            <DropdownMenuPopup
+              className={cx(styles.detailPopup, styles.chatDetailPopup, styles.dropdownMenu)}
+            >
               <ModelDetailPanel
                 model={data.model.id}
                 provider={(activeProvider ?? data.providers[0]).id}

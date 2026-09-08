@@ -12,6 +12,7 @@ import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { getServerGlobalConfig } from '@/server/globalConfig';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { resolveAihubDisplayPricing } from '@/server/services/newApi/pricing';
 import { type AiProviderDetailItem, type AiProviderRuntimeState } from '@/types/aiProvider';
 import {
   CreateAiProviderSchema,
@@ -131,7 +132,23 @@ export const aiProviderRouter = router({
     .query(async ({ ctx }): Promise<AiProviderRuntimeState> => {
       // This query is deliberately read-only. Aihub repair is coordinated by
       // AihubReadiness at explicit lifecycle gates, never by SWR polling.
-      return ctx.aiInfraRepos.getAiProviderRuntimeState(KeyVaultsGateKeeper.getUserKeyVaults);
+      const state = await ctx.aiInfraRepos.getAiProviderRuntimeState(
+        KeyVaultsGateKeeper.getUserKeyVaults,
+      );
+      return {
+        ...state,
+        enabledAiModels: state.enabledAiModels.map((model) =>
+          !model.settings?.aihubPricing
+            ? model
+            : {
+                ...model,
+                settings: {
+                  ...model.settings,
+                  aihubPricing: resolveAihubDisplayPricing(model.settings?.aihubPricing),
+                },
+              },
+        ),
+      };
     }),
 
   removeAiProvider: aiProviderProcedure
