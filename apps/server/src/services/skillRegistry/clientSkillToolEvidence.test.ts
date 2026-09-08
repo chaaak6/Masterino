@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 
 import {
-  resolveClientSkillSandboxContext,
+  resolveClientSkillExecutionContext,
   resolveOwnedClientSkillTool,
 } from './clientSkillToolEvidence';
 
@@ -64,21 +64,22 @@ it('rejects a same-name call from another plugin and broken parent association',
 
 it('accepts an explicitly cloud-bound Web context', () => {
   expect(
-    resolveClientSkillSandboxContext({
+    resolveClientSkillExecutionContext({
       isDesktop: false,
       executionTargetByPlatform: { web: 'sandbox' },
     }).plan.kind,
   ).toBe('sandbox');
 });
 it.each(['device', 'none'] as const)(
-  'never downgrades a %s target into cloud package authority',
+  'preserves a %s target instead of forcing cloud package authority',
   (target) => {
-    expect(() =>
-      resolveClientSkillSandboxContext({
-        isDesktop: false,
-        canUseDevice: false,
-        executionTargetByPlatform: { web: target },
-      }),
-    ).toThrow('SKILL_SANDBOX_BINDING_REQUIRED');
+    const context = resolveClientSkillExecutionContext({
+      isDesktop: false,
+      canUseDevice: false,
+      requestedDeviceId: target === 'device' ? 'owned-device' : undefined,
+      executionTargetByPlatform: { web: target },
+    });
+    expect(context.plan.kind).toBe(target);
+    if (context.plan.kind === 'device') expect(context.plan.deviceId).toBe('owned-device');
   },
 );

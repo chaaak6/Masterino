@@ -61,9 +61,15 @@ describe('operation skill identity', () => {
     },
   );
 
-  it('builtin activation returns an ID that reads its bundled reference', async () => {
+  it('allows builtin activation and references with no execution target but refuses scripts', async () => {
+    const backend = service();
     const runtime = new SkillsExecutionRuntime({
-      service: service(),
+      service: backend,
+      executionContext: {
+        operationId: 'none-operation',
+        plan: { kind: 'none', target: 'none' },
+        unresolvedReason: 'target-none',
+      },
       registryResult: {
         skills: [
           {
@@ -91,6 +97,15 @@ describe('operation skill identity', () => {
       id: String(activation.state?.id),
       path: 'ref.md',
     });
+    expect(activation.success).toBe(true);
     expect(result).toMatchObject({ success: true, content: 'bundled' });
+    const execution = await runtime.execScript({
+      command: 'echo forbidden',
+      description: 'test',
+      skillId: 'builtin:report',
+      activatedSkills: [{ id: 'builtin:report', name: 'report' }],
+    });
+    expect(execution).toMatchObject({ success: false, state: { errorCode: 'WORKSPACE_REQUIRED' } });
+    expect(backend.execScript).not.toHaveBeenCalled();
   });
 });

@@ -1,0 +1,61 @@
+{
+  "environment": "https://mlai-test.bielcrystal.com",
+  "deploymentCommitReportedByParent": "d0cd5d22",
+  "topicId": "tpc_lqxlov0ZlrvM",
+  "evidence": "Real Chrome UI invocation and topic-limited read-only persisted messages query",
+  "messages": [
+    {
+      "id": "msg_y7yTgyXkYvC63XhUK2",
+      "role": "user",
+      "parentId": null,
+      "tool": null,
+      "identifier": null,
+      "arguments": null,
+      "toolCallId": null,
+      "state": null,
+      "tools": null
+    },
+    {
+      "id": "msg_VBMtOVwy5ot1qUtLRK",
+      "role": "assistant",
+      "parentId": "msg_y7yTgyXkYvC63XhUK2",
+      "tool": null,
+      "identifier": null,
+      "arguments": null,
+      "toolCallId": null,
+      "state": null,
+      "tools": [
+        {
+          "id": "call_00_9gL8KRaPhaULWqidqhNz3656",
+          "type": "builtin",
+          "apiName": "activateSkill",
+          "arguments": "{\"name\":\"office-documents\"}",
+          "identifier": "lobe-skills"
+        }
+      ]
+    },
+    {
+      "id": "msg_uQ0fHE9UAg35",
+      "role": "tool",
+      "parentId": "msg_VBMtOVwy5ot1qUtLRK",
+      "tool": "activateSkill",
+      "identifier": "lobe-skills",
+      "arguments": "{\"name\":\"office-documents\"}",
+      "toolCallId": "call_00_9gL8KRaPhaULWqidqhNz3656",
+      "state": null,
+      "tools": null,
+      "content": "SKILL_SANDBOX_BINDING_REQUIRED"
+    },
+    {
+      "id": "msg_bbB5QsVrAvp2MrTzu6",
+      "role": "assistant",
+      "parentId": "msg_uQ0fHE9UAg35",
+      "tool": null,
+      "identifier": null,
+      "arguments": null,
+      "toolCallId": null,
+      "state": null,
+      "tools": null
+    }
+  ]
+}

@@ -144,7 +144,7 @@ import {
   SkillRegistryService,
 } from '@/server/services/skillRegistry';
 import {
-  resolveClientSkillSandboxContext,
+  resolveClientSkillExecutionContext,
   resolveOwnedClientSkillTool,
 } from '@/server/services/skillRegistry/clientSkillToolEvidence';
 import { WorkspaceAccessGrantService } from '@/server/services/workspaceAccessGrant';
@@ -641,8 +641,10 @@ export class AiAgentService {
       operationId,
       topicId: topic.id,
     });
-    const executionContext = resolveClientSkillSandboxContext(frozen.input);
+    const executionContext = resolveClientSkillExecutionContext(frozen.input);
     const skillRegistryResult = await this.resolveFrozenSkillRegistry({
+      activeDeviceId:
+        executionContext.plan.kind === 'device' ? executionContext.plan.deviceId : undefined,
       agentConfig,
       agentId,
       executionContext,

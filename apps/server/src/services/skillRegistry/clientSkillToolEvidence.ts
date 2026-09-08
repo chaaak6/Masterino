@@ -3,10 +3,11 @@ import {
   type ResolveExecutionContextInput,
 } from '@/helpers/executionContext';
 
-/** Preserve the configured target: a device binding must never become cloud authority. */
-export const resolveClientSkillSandboxContext = (input: ResolveExecutionContextInput) => {
+/** Reads need registry eligibility, not an execution environment. Preserve the target;
+ * SkillsExecutionRuntime gates script execution without falling back to cloud.
+ */
+export const resolveClientSkillExecutionContext = (input: ResolveExecutionContextInput) => {
   const context = resolveExecutionContext({ ...input, canUseDevice: true });
-  if (context.plan.kind !== 'sandbox') throw new Error('SKILL_SANDBOX_BINDING_REQUIRED');
   return context;
 };
 
