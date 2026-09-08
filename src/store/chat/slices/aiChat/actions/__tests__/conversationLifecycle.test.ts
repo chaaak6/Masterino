@@ -478,6 +478,7 @@ describe('ConversationLifecycle actions', () => {
         });
         const persistence = mockClientMessagePersistence();
         const response = {
+          isCreateNewTopic: true,
           assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
           messages: [createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' })],
           topicId: TEST_IDS.TOPIC_ID,

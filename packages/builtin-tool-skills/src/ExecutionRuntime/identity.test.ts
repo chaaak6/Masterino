@@ -66,6 +66,7 @@ describe('operation skill identity', () => {
     const runtime = new SkillsExecutionRuntime({
       service: backend,
       executionContext: {
+        version: 1,
         operationId: 'none-operation',
         plan: { kind: 'none', target: 'none' },
         unresolvedReason: 'target-none',

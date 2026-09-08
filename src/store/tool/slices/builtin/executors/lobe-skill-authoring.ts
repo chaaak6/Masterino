@@ -36,7 +36,7 @@ export const skillAuthoringExecutor: IBuiltinToolExecutor = {
       trace: {
         deviceId: execution.plan.deviceId,
         operationId: execution.operationId ?? ctx.operationId,
-        topicId: ctx.topicId,
+        topicId: ctx.topicId ?? undefined,
         toolCallId: ctx.toolCallId,
       },
     });
