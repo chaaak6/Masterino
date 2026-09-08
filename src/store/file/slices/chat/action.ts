@@ -10,6 +10,7 @@ import { FileStorageErrorCode } from '@/const/fileUpload';
 import { isDesktop } from '@/const/version';
 import {
   bindLocalAttachmentMessage,
+  getLocalAttachmentErrorKey,
   localAttachmentStatus,
   previewLocalAttachment,
   receiveLocalChatAttachment,
@@ -272,9 +273,10 @@ export class FileActionImpl {
             ],
           });
         } catch (error) {
+          const errorKey = getLocalAttachmentErrorKey(error);
           notification.error({
             message: t('upload.uploadFailed', { ns: 'error' }),
-            description: getErrorMessage(error),
+            description: errorKey ? t(errorKey, { ns: 'chat' }) : getErrorMessage(error),
           });
         }
       }

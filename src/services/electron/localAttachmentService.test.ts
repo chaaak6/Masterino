@@ -1,7 +1,15 @@
 import { type UIChatMessage } from '@lobechat/types';
+import { createInstance } from 'i18next';
 import { describe, expect, it, vi } from 'vitest';
 
-import { resolveLocalMessageAttachments } from './localAttachmentService';
+import enChat from '../../../locales/en-US/chat.json';
+import zhChat from '../../../locales/zh-CN/chat.json';
+import defaultChat from '../../../packages/locales/src/default/chat';
+import {
+  getLocalAttachmentErrorKey,
+  receiveLocalChatAttachment,
+  resolveLocalMessageAttachments,
+} from './localAttachmentService';
 
 const localImage = {
   attachmentId: 'a',
@@ -103,4 +111,58 @@ describe('local attachment model context', () => {
       ] as UIChatMessage[]),
     ).rejects.toThrow('unavailable');
   });
+});
+
+describe('local attachment intake error codes', () => {
+  it.each([
+    ['LOCAL_ATTACHMENT_TOO_LARGE', 'fileTooLarge'],
+    ['LOCAL_IMAGE_TOO_LARGE', 'imageTooLarge'],
+    ['LOCAL_IMAGE_RESOLUTION_EXCEEDED', 'imageResolutionExceeded'],
+    ['LOCAL_IMAGE_INVALID', 'invalidImage'],
+  ])('maps %s through Electron error envelopes', (code, key) => {
+    expect(
+      getLocalAttachmentErrorKey(new Error(`Error invoking remote method: Error: ${code}`)),
+    ).toBe(`localAttachment.errors.${key}`);
+  });
+
+  it.each([
+    ['application/pdf', 100 * 1024 * 1024 + 1, 'LOCAL_ATTACHMENT_TOO_LARGE'],
+    ['image/png', 10 * 1024 * 1024 + 1, 'LOCAL_IMAGE_TOO_LARGE'],
+  ])('rejects oversized %s before reading file bytes', async (type, size, code) => {
+    const file = new File([], 'large', { type });
+    Object.defineProperty(file, 'size', { value: size });
+    await expect(receiveLocalChatAttachment(file, 'draft')).rejects.toThrow(code);
+  });
+
+  it('closes rejected image bitmaps and returns a translatable resolution code', async () => {
+    const close = vi.fn();
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn().mockResolvedValue({ width: 8193, height: 1, close }),
+    );
+    try {
+      await expect(
+        receiveLocalChatAttachment(new File([], 'wide.png', { type: 'image/png' }), 'draft'),
+      ).rejects.toThrow('LOCAL_IMAGE_RESOLUTION_EXCEEDED');
+      expect(close).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+it('resolves local attachment labels and errors using the application flat-key configuration', async () => {
+  const i18n = createInstance();
+  await i18n.init({
+    lng: 'en-US',
+    keySeparator: false,
+    resources: { 'en-US': { chat: enChat }, 'zh-CN': { chat: zhChat } },
+  });
+  const key = getLocalAttachmentErrorKey(new Error('LOCAL_IMAGE_TOO_LARGE'))!;
+  expect(defaultChat[key]).toBe(enChat[key]);
+  expect(i18n.t(key, { ns: 'chat' })).toBe('Image exceeds 10 MiB. Resize it before sending.');
+  expect(i18n.t('localAttachment.preview', { ns: 'chat' })).toBe('Preview');
+  await i18n.changeLanguage('zh-CN');
+  expect(i18n.t(key, { ns: 'chat' })).toBe('图片超过 10 MiB，请缩小后再发送。');
+  expect(i18n.t('localAttachment.preview', { ns: 'chat' })).not.toBe('localAttachment.preview');
 });

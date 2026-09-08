@@ -47,6 +47,8 @@ export interface SkillMeta {
    * loaded on demand via the readFile tool (see `location`).
    */
   source?: SkillSource;
+  /** Internal package version for execution eligibility; excluded from prompt text. */
+  zipFileHash?: string | null;
 }
 
 /**

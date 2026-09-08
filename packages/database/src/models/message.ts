@@ -15,12 +15,11 @@ import type {
   EnsureToolMessageInput,
   EnsureToolMessageResult,
   IThreadType,
-  type MessageAttachments,
+  MessageAttachments,
   MessagePluginItem,
   ModelRankItem,
   ModelUsage,
   NewMessageQueryParams,
-  normalizeMessageAttachments,
   QueryMessageParams,
   TaskDetail,
   ThreadStatus,
@@ -30,7 +29,7 @@ import type {
   UpdateMessageParams,
   UpdateMessageRAGParams,
 } from '@lobechat/types';
-import { MessageGroupType, ThreadType } from '@lobechat/types';
+import { MessageGroupType, normalizeMessageAttachments, ThreadType } from '@lobechat/types';
 import type { TimingSink } from '@lobechat/utils';
 import {
   getDurationMs,
@@ -512,6 +511,7 @@ export class MessageModel {
             role: messages.role,
             content: messages.content,
             editorData: messages.editorData,
+            attachments: messages.attachments,
             reasoning: messages.reasoning,
             search: messages.search,
             metadata: messages.metadata,
@@ -992,6 +992,7 @@ export class MessageModel {
         role: messages.role,
         content: messages.content,
         editorData: messages.editorData,
+        attachments: messages.attachments,
         reasoning: messages.reasoning,
         search: messages.search,
         metadata: messages.metadata,

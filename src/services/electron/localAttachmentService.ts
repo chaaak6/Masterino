@@ -4,6 +4,22 @@ import {
   type UIChatMessage,
 } from '@lobechat/types';
 
+const attachmentErrorKeys = {
+  LOCAL_ATTACHMENT_TOO_LARGE: 'localAttachment.errors.fileTooLarge',
+  LOCAL_IMAGE_TOO_LARGE: 'localAttachment.errors.imageTooLarge',
+  LOCAL_IMAGE_RESOLUTION_EXCEEDED: 'localAttachment.errors.imageResolutionExceeded',
+  LOCAL_IMAGE_INVALID: 'localAttachment.errors.invalidImage',
+} as const;
+
+export const getLocalAttachmentErrorKey = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  // Electron prefixes rejected IPC errors, so recognize the stable code in its envelope.
+  const code = message.match(
+    /\bLOCAL_(?:ATTACHMENT_TOO_LARGE|IMAGE_TOO_LARGE|IMAGE_RESOLUTION_EXCEEDED|IMAGE_INVALID)\b/,
+  )?.[0];
+  return code ? attachmentErrorKeys[code as keyof typeof attachmentErrorKeys] : undefined;
+};
+
 type LocalRef = Extract<AttachmentRef, { source: 'local' }>;
 const invoke = async <T>(method: string, input: unknown): Promise<T> => {
   if (!window.electronAPI?.invoke)
@@ -11,18 +27,18 @@ const invoke = async <T>(method: string, input: unknown): Promise<T> => {
   return window.electronAPI.invoke<T>(`localSystem.${method}`, input);
 };
 export const receiveLocalChatAttachment = async (file: File, draftId: string) => {
-  if (file.size > 100 * 1024 * 1024) throw new Error('Attachment exceeds 100 MiB');
+  if (file.size > 100 * 1024 * 1024) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
   // Capture BEFORE compression/Blob conversion, which would discard Electron's native path.
   const originalPath = window.electronAPI?.getPathForFile?.(file);
   if (file.type.startsWith('image/')) {
-    if (file.size > 10 * 1024 * 1024)
-      throw new Error('Image exceeds 10 MiB; resize it before sending');
-    const bitmap = await createImageBitmap(file);
+    if (file.size > 10 * 1024 * 1024) throw new Error('LOCAL_IMAGE_TOO_LARGE');
+    const bitmap = await createImageBitmap(file).catch(() => {
+      throw new Error('LOCAL_IMAGE_INVALID');
+    });
     const tooLarge =
       bitmap.width > 8192 || bitmap.height > 8192 || bitmap.width * bitmap.height > 40_000_000;
     bitmap.close();
-    if (tooLarge)
-      throw new Error('Image exceeds 8192 pixels or 40 megapixels; resize it before sending');
+    if (tooLarge) throw new Error('LOCAL_IMAGE_RESOLUTION_EXCEEDED');
   }
   return invoke<LocalRef>('receiveAttachment', {
     draftId,

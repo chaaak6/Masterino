@@ -3,10 +3,11 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
 
 import { inspectOfficeDocument, readOfficeDocument } from './index';
+import * as officeZip from './zip';
 
 const dirs: string[] = [];
 const fixture = async (name: string) => {
@@ -91,7 +92,7 @@ it('creates a real offline xlsx and preserves an existing destination', async ()
     ],
   };
   const created = await createOfficeDocument(params);
-  expect(created.cells).toBe(4);
+  expect('cells' in created && created.cells).toBe(4);
   const parsed = await readOfficeDocument({ path: file });
   expect(parsed.records[1]?.cells?.[1]?.value).toBe('42');
   await expect(
@@ -193,4 +194,46 @@ it('preserves untouched formulas and clears cells during batch editing', async (
   const result = await readOfficeDocument({ path: outputPath });
   expect(result.records[0]?.cells?.find((c) => c.address === 'C1')?.formula).toBe('A1+B1');
   expect(result.records[0]?.cells?.find((c) => c.address === 'B1')).toBeUndefined();
+});
+
+it('indexes only needed shared strings and reuses earlier disk entries', async () => {
+  const file = await fixture('lazy-strings.xlsx');
+  await zipFile(file, {
+    'xl/workbook.xml': '<workbook><sheet name="Data" r:id="r1"/></workbook>',
+    'xl/_rels/workbook.xml.rels':
+      '<Relationships><Relationship Id="r1" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/worksheets/sheet1.xml':
+      '<sheetData><row r="1"><c r="A1" t="s"><v>2</v></c><c r="B1" t="s"><v>0</v></c></row><row r="2"><c r="A2" t="s"><v>9999</v></c></row></sheetData>',
+    'xl/sharedStrings.xml':
+      '<sst>' +
+      Array.from({ length: 10000 }, (_, i) => `<si><t>unique-${i}</t></si>`).join('') +
+      '</sst>',
+  });
+  const original = officeZip.openOfficeZip;
+  let scanned = 0;
+  const spy = vi.spyOn(officeZip, 'openOfficeZip').mockImplementation(async (file) => {
+    const zip = await original(file);
+    return {
+      ...zip,
+      records: async function* (name: string, tag: string) {
+        for await (const record of zip.records(name, tag)) {
+          if (name === 'xl/sharedStrings.xml') scanned++;
+          yield record;
+        }
+      },
+    };
+  });
+  try {
+    const first = await inspectOfficeDocument({ path: file, limit: 1 });
+    expect(first.records[0]?.cells?.map((cell) => cell.value)).toEqual(['unique-2', 'unique-0']);
+    expect(first.hasMore).toBe(true);
+    expect(scanned).toBe(3);
+    await inspectOfficeDocument({ path: file, limit: 1 });
+    expect(scanned).toBe(3);
+    expect((await readOfficeDocument(first.next!)).records[0]?.cells?.[0]?.value).toBe(
+      'unique-9999',
+    );
+  } finally {
+    spy.mockRestore();
+  }
 });

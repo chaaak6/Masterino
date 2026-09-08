@@ -156,6 +156,15 @@ const log = debug('lobe-server:agent-runtime:streaming-executors');
 const timing = debug('lobe-server:agent-runtime:timing');
 const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
 
+const recordActivatedSkill = (state: AgentState, key: unknown, content: string) => {
+  const skill = state.metadata?.operationSkillSet?.skills.find((entry) => entry.key === key);
+  if (typeof key !== 'string' || !skill) return;
+  state.activatedStepSkills = [
+    ...(state.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
+    { key, identifier: skill.identifier, content, activatedAtStep: state.stepCount },
+  ];
+};
+
 // Tool pricing configuration (USD per call)
 const TOOL_PRICING: Record<string, number> = {
   'lobe-web-browsing/craw': 0,
@@ -4284,19 +4293,7 @@ export const createRuntimeExecutors = (
           chatToolPayload.identifier === 'lobe-skills' &&
           chatToolPayload.apiName === 'activateSkill'
         ) {
-          const key = executionResult.state?.id;
-          const skill = state.operationSkillSet?.skills.find((entry) => entry.key === key);
-          if (typeof key === 'string' && skill) {
-            newState.activatedStepSkills = [
-              ...(newState.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
-              {
-                key,
-                identifier: skill.identifier,
-                content: executionResult.content,
-                activatedAtStep: state.stepCount,
-              },
-            ];
-          }
+          recordActivatedSkill(newState, executionResult.state?.id, executionResult.content);
         }
 
         // Persist ToolsActivator discovery results to state.activatedStepTools
@@ -5025,19 +5022,7 @@ export const createRuntimeExecutors = (
         result.toolCall?.identifier === 'lobe-skills' &&
         result.toolCall?.apiName === 'activateSkill'
       ) {
-        const key = result.data?.state?.id;
-        const skill = state.operationSkillSet?.skills.find((entry) => entry.key === key);
-        if (typeof key === 'string' && skill) {
-          newState.activatedStepSkills = [
-            ...(newState.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
-            {
-              key,
-              identifier: skill.identifier,
-              content: result.data.content,
-              activatedAtStep: state.stepCount,
-            },
-          ];
-        }
+        recordActivatedSkill(newState, result.data?.state?.id, result.data.content);
       }
       if (result.usageParams) {
         const { usage, cost } = UsageCounter.accumulateTool({

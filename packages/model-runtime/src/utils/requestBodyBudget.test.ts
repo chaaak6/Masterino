@@ -26,4 +26,15 @@ describe('serialized request budget', () => {
     await withRequestBodyBudget(network, 10)('https://model.test', { method: 'POST', body: 'ok' });
     expect(network).toHaveBeenCalledTimes(1);
   });
+  it('leaves a permitted Request readable by the actual transport', async () => {
+    const network = vi.fn(async (input: RequestInfo | URL) => {
+      expect(await (input as Request).text()).toBe('hello');
+      return new Response('ok');
+    });
+    await withRequestBodyBudget(
+      network,
+      10,
+    )(new Request('https://model.test', { method: 'POST', body: 'hello' }));
+    expect(network).toHaveBeenCalledTimes(1);
+  });
 });

@@ -72,6 +72,32 @@ afterEach(async () => {
 });
 
 describe('MessageModel Query Tests', () => {
+  it('returns persisted local attachments in refreshed and ID-selected message payloads', async () => {
+    const attachment = {
+      source: 'local' as const,
+      attachmentId: 'local-a',
+      localResourceId: 'local-r',
+      deviceId: 'device',
+      version: 'v1',
+      name: 'sales12.xlsx',
+      mime: 'application/xlsx',
+      size: 12,
+    };
+    const item = await messageModel.create({
+      role: 'user',
+      content: 'read attachment',
+      attachments: { schemaVersion: 1, items: [attachment] },
+    });
+    const persisted = await messageModel.findById(item.id);
+    const refreshed = (await messageModel.query()).find((message) => message.id === item.id);
+    const selected = (await messageModel.queryByIds([item.id]))[0];
+    expect(persisted?.attachments?.items).toEqual([attachment]);
+    expect(refreshed?.attachments).toEqual(persisted?.attachments);
+    expect(selected.attachments).toEqual(persisted?.attachments);
+    expect(refreshed?.fileList).toEqual([]);
+    expect(selected.fileList).toEqual([]);
+  });
+
   describe('query', () => {
     it('should query messages by user ID', async () => {
       // Create test data

@@ -275,7 +275,7 @@ export class SkillsExecutionRuntime {
     }
 
     if (this.executionContext) {
-      let projectSkill: (typeof this.projectSkills)[number] | undefined;
+      let projectSkill: ProjectSkillRuntimeItem | undefined;
       let skillDir: string | undefined;
       // Activation history contains builtins and document-only skills as well.
       // Resolve the most recently activated executable skill, across both origins.

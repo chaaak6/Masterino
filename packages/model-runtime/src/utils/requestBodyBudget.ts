@@ -2,11 +2,13 @@
 export const MAX_MODEL_REQUEST_BYTES = 20 * 1024 * 1024;
 
 export function withRequestBodyBudget(
-  fetcher: typeof fetch = globalThis.fetch,
+  fetcher: (input: RequestInfo, init?: RequestInit) => Promise<Response> = globalThis.fetch,
   limit = MAX_MODEL_REQUEST_BYTES,
 ): typeof fetch {
   return async (input, init) => {
-    const request = new Request(input, init);
+    // Constructing from a Request transfers its body. Inspect a clone so the
+    // original Request remains readable by the provider's fetch implementation.
+    const request = new Request(input instanceof Request ? input.clone() : input, init);
     if (request.body) {
       const reader = request.clone().body!.getReader();
       let bytes = 0;
@@ -26,6 +28,6 @@ export function withRequestBodyBudget(
         reader.releaseLock();
       }
     }
-    return fetcher(input, init);
+    return fetcher(input instanceof URL ? input.href : input, init);
   };
 }

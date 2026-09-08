@@ -276,11 +276,13 @@ export default class LocalFileCtr extends ControllerModule {
   }) {
     if (input.mime.startsWith('image/')) {
       if (!input.data || input.data.byteLength > 10 * 1024 * 1024)
-        throw new Error('Image exceeds 10 MiB');
+        throw new Error('LOCAL_IMAGE_TOO_LARGE');
       const image = nativeImage.createFromBuffer(Buffer.from(input.data));
       const { width, height } = image.getSize();
       if (image.isEmpty() || width > 8192 || height > 8192 || width * height > 40_000_000)
-        throw new Error('Invalid image or image resolution exceeds the supported limit');
+        throw new Error(
+          image.isEmpty() ? 'LOCAL_IMAGE_INVALID' : 'LOCAL_IMAGE_RESOLUTION_EXCEEDED',
+        );
     }
     return receiveLocalAttachment(
       path.join(this.app.appStoragePath, 'scratch-workspaces'),
@@ -301,8 +303,7 @@ export default class LocalFileCtr extends ControllerModule {
       if (!/^image\/(?:png|jpeg|webp|gif)$/.test(input.ref.mime))
         throw new Error('Unsupported image type');
       const resolved = await resolveLocalAttachment(root, deviceId, input.ref);
-      if (resolved.bytes.byteLength > 10 * 1024 * 1024)
-        throw new Error('Image exceeds 10 MiB; resize it before sending');
+      if (resolved.bytes.byteLength > 10 * 1024 * 1024) throw new Error('LOCAL_IMAGE_TOO_LARGE');
       const key = `${input.ref.localResourceId}:${input.ref.version}`;
       const dataUrl =
         this.attachmentImageCache.get(key) ??

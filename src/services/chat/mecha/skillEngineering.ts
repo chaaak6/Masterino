@@ -69,6 +69,7 @@ export const resolveClientSkills = async (
       name: skill.name,
       scope: skill.scope,
       source: skill.source,
+      zipFileHash: skill.zipFileHash,
     })),
   });
 

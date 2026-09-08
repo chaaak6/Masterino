@@ -43,40 +43,41 @@ async function sheetParts(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
     };
   });
 }
-/** Shared strings are indexed on disk, not retained as an unbounded JS array. */
+/** Index only the requested prefix on disk; backward references reuse that index. */
 async function sharedStrings(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
   if (!zip.entries.has('xl/sharedStrings.xml'))
     return { close: async () => {}, get: async (_: number) => '' };
   const dir = await mkdtemp(path.join(os.tmpdir(), 'masterino-office-'));
   const data = await open(path.join(dir, 'strings'), 'w+');
   const index = await open(path.join(dir, 'index'), 'w+');
+  const source = zip.records('xl/sharedStrings.xml', 'si');
   let offset = 0,
     count = 0;
   const close = async () => {
-    await data.close();
-    await index.close();
-    await rm(dir, { recursive: true, force: true });
-  };
-  try {
-    for await (const xml of zip.records('xl/sharedStrings.xml', 'si')) {
-      const bytes = Buffer.from(textNodes(xml));
-      const record = Buffer.alloc(16);
-      record.writeDoubleLE(offset);
-      record.writeDoubleLE(bytes.length, 8);
-      await data.write(bytes);
-      await index.write(record);
-      offset += bytes.length;
-      count++;
+    try {
+      await source.return(undefined);
+    } finally {
+      await data.close();
+      await index.close();
+      await rm(dir, { recursive: true, force: true });
     }
-  } catch (e) {
-    await close();
-    throw e;
-  }
+  };
   return {
     close,
     get: async (id: number) => {
-      if (!Number.isSafeInteger(id) || id < 0 || id >= count)
-        throw new Error('Invalid shared string reference');
+      if (!Number.isSafeInteger(id) || id < 0) throw new Error('Invalid shared string reference');
+      while (count <= id) {
+        const next = await source.next();
+        if (next.done) throw new Error('Invalid shared string reference');
+        const bytes = Buffer.from(textNodes(next.value));
+        const record = Buffer.alloc(16);
+        record.writeDoubleLE(offset);
+        record.writeDoubleLE(bytes.length, 8);
+        await data.write(bytes);
+        await index.write(record);
+        offset += bytes.length;
+        count++;
+      }
       const record = Buffer.alloc(16);
       await index.read(record, 0, 16, id * 16);
       const bytes = Buffer.alloc(record.readDoubleLE(8));
@@ -167,6 +168,11 @@ async function readOfficeDocumentUncached(params: OfficeReadParams) {
           const row = Number(attr(xml, 'r')) || lastRow + 1;
           lastRow = row;
           if (row < start) continue;
+          // Establish pagination without resolving strings from the first excluded row.
+          if (!params.aggregateColumn && records.length >= limit) {
+            hasMore = true;
+            break;
+          }
           const cells: NonNullable<OfficeRecord['cells']> = [];
           for (const [cell] of xml.matchAll(/<c\s[^>]*>[\s\S]*?<\/c>/g)) {
             const raw = unescapeXml(/<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(cell)?.[1] ?? '');

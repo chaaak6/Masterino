@@ -613,7 +613,21 @@ export class AiAgentService {
   }) {
     const evidence = await resolveOwnedClientSkillTool(input, {
       findTopic: this.topicModel.findById,
-      findMessage: this.messageModel.findById,
+      findMessage: async (id) => {
+        const message = await this.messageModel.findById(id);
+        if (!message || typeof message.id !== 'string' || typeof message.role !== 'string')
+          return undefined;
+        return {
+          id: message.id,
+          role: message.role,
+          topicId: message.topicId,
+          parentId: message.parentId,
+          agentId: message.agentId,
+          groupId: message.groupId,
+          threadId: message.threadId,
+          tools: message.tools,
+        };
+      },
       findPlugin: this.messageModel.findMessagePlugin,
     });
     const { topic, message, agentId, operationId, toolCallId, args } = evidence;

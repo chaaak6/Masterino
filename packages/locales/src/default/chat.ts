@@ -1,12 +1,15 @@
 export default {
-  'localAttachment': {
-    deviceOnly: 'Local attachment · available on the original device',
-    checking: 'Checking local availability…',
-    unavailable: 'Unavailable on this device; select the file again',
-    preview: 'Preview',
-    addToInput: 'Add to input',
-    added: 'Added to input',
-  },
+  'localAttachment.errors.fileTooLarge': 'Attachment exceeds 100 MiB. Select a smaller file.',
+  'localAttachment.errors.imageTooLarge': 'Image exceeds 10 MiB. Resize it before sending.',
+  'localAttachment.errors.imageResolutionExceeded':
+    'Image exceeds 8192 pixels per dimension or 40 megapixels. Resize it before sending.',
+  'localAttachment.errors.invalidImage': 'This image cannot be read. Select a valid image file.',
+  'localAttachment.deviceOnly': 'Local attachment · available on the original device',
+  'localAttachment.checking': 'Checking local availability…',
+  'localAttachment.unavailable': 'Unavailable on this device; select the file again',
+  'localAttachment.preview': 'Preview',
+  'localAttachment.addToInput': 'Add to input',
+  'localAttachment.added': 'Added to input',
   'workspaceRuntime.hetero.gate.webDesc':
     'Create a project topic in the desktop app, then continue it here.',
 

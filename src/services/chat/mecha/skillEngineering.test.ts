@@ -1,6 +1,13 @@
-import type { SkillProvider } from '@lobechat/types/src/projectWorkspace';
+import {
+  type SkillRuntimeService,
+  SkillsExecutionRuntime,
+} from '@lobechat/builtin-tool-skills/executionRuntime';
+import type { SkillItem } from '@lobechat/types';
+import type { SkillProvider, SkillRef } from '@lobechat/types/src/projectWorkspace';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { desktopSkillRuntimeService } from '@/services/electron/desktopSkillRuntime';
+import { localFileService } from '@/services/electron/localFileService';
 import { agentSkillService } from '@/services/skill';
 import { getToolStoreState } from '@/store/tool';
 
@@ -13,7 +20,12 @@ vi.mock('@/store/tool', () => ({
 vi.mock('@/services/skill', () => ({
   agentSkillService: {
     getById: vi.fn(),
+    getZipUrl: vi.fn(),
   },
+}));
+
+vi.mock('@/services/electron/localFileService', () => ({
+  localFileService: { prepareSkillDirectory: vi.fn() },
 }));
 
 // Keep all skills available in the test environment.
@@ -251,9 +263,7 @@ describe('resolveClientSkills', () => {
     });
 
     expect(
-      result.registry?.entries
-        .filter(({ status }) => status === 'available')
-        .map(({ ref }) => ref),
+      result.registry?.entries.filter(({ status }) => status === 'available').map(({ ref }) => ref),
     ).toEqual([
       expect.objectContaining({
         identifier: 'project:deploy',
@@ -267,5 +277,84 @@ describe('resolveClientSkills', () => {
         source: 'agent',
       }),
     ]);
+  });
+});
+
+it('preserves the user ZIP version from client projection through Runtime into the desktop adapter', async () => {
+  const skill: SkillItem = {
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    manifest: { name: 'Zip Demo', description: 'Demo' },
+    source: 'user',
+    id: 'db-zip',
+    identifier: 'zip-demo',
+    name: 'Zip Demo',
+    description: '',
+    content: 'body',
+    zipFileHash: 'hash-current',
+  };
+  setToolState({ agentSkills: [skill] });
+  mockedGetById.mockResolvedValue(skill as never);
+  vi.mocked(agentSkillService.getZipUrl).mockResolvedValue({
+    url: 'https://files.example/demo.zip',
+  } as never);
+  vi.mocked(localFileService.prepareSkillDirectory).mockResolvedValue({
+    success: true,
+    extractedDir: '/prepared/demo',
+  } as never);
+  // This is the actual projection persisted by streamingExecutor as operation.skills.
+  const operation = await resolveClientSkills([]);
+  const projected = operation.skills.find((entry) => entry.identifier === skill.identifier)!;
+  expect(projected.zipFileHash).toBe('hash-current');
+  const execute = vi.fn<NonNullable<SkillRuntimeService['execScript']>>(
+    async (_command, options) => {
+      expect(
+        await desktopSkillRuntimeService.resolveExecutionDirectory(options.activatedSkills),
+      ).toBe('/prepared/demo');
+      return { success: true, exitCode: 0, output: 'adapter reached' };
+    },
+  );
+  const runtime = new SkillsExecutionRuntime({
+    registryResult: { skills: operation.skills as SkillRef[] },
+    service: {
+      findAll: async () => ({ data: [skill], total: 1 }),
+      findById: async () => skill,
+      findByName: async () => undefined,
+      readResource: vi.fn(),
+      execScript: execute,
+    },
+  });
+  const args = { command: 'python scripts/demo.py', description: '', skillId: projected.key! };
+  for (const resourceVersion of [undefined, 'hash-old']) {
+    expect(
+      (
+        await runtime.execScript({
+          ...args,
+          activatedSkills: [{ id: projected.key!, name: skill.name, resourceVersion }],
+        })
+      ).success,
+    ).toBe(false);
+  }
+  expect(localFileService.prepareSkillDirectory).not.toHaveBeenCalled();
+  const activation = await runtime.activateSkill({ name: projected.key! });
+  expect(activation.state).toMatchObject({ id: projected.key, resourceVersion: 'hash-current' });
+  expect(
+    (
+      await runtime.execScript({
+        ...args,
+        activatedSkills: [
+          {
+            id: activation.state!.id,
+            name: skill.name,
+            resourceVersion: activation.state!.resourceVersion,
+          },
+        ],
+      })
+    ).success,
+  ).toBe(true);
+  expect(execute).toHaveBeenCalledOnce();
+  expect(localFileService.prepareSkillDirectory).toHaveBeenCalledWith({
+    url: 'https://files.example/demo.zip',
+    zipHash: 'hash-current',
   });
 });

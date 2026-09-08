@@ -1607,6 +1607,8 @@ describe('local attachment deletion lifecycle', () => {
     async (success) => {
       const message = {
         id: 'local-message',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
         role: 'user',
         content: 'attached',
         attachments: { schemaVersion: 1, items: [] },

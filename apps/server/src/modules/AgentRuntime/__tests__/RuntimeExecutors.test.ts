@@ -3109,6 +3109,67 @@ describe('RuntimeExecutors', () => {
     });
 
     it.each(['call_tool', 'call_tools_batch'] as const)(
+      'records activated Skill keys from operation metadata in %s',
+      async (mode) => {
+        const key = 'project:workspace-a:report';
+        const state = createMockState({
+          metadata: {
+            operationSkillSet: {
+              enabledPluginIds: [],
+              skills: [
+                {
+                  key,
+                  identifier: 'report',
+                  name: 'report',
+                  description: 'Report',
+                  source: 'project',
+                },
+              ],
+            },
+          },
+        });
+        mockToolExecutionService.executeTool.mockResolvedValue({
+          content: 'Pinned instructions',
+          state: { id: key },
+          success: true,
+          executionTime: 1,
+        });
+        const executors = createRuntimeExecutors(ctx);
+        const tool = {
+          apiName: 'activateSkill',
+          arguments: '{"name":"report"}',
+          id: 'activate-report',
+          identifier: 'lobe-skills',
+          type: 'builtin' as const,
+        };
+        const result =
+          mode === 'call_tool'
+            ? await executors.call_tool!(
+                {
+                  type: mode,
+                  payload: { parentMessageId: 'assistant-msg-123', toolCalling: tool },
+                },
+                state,
+              )
+            : await executors.call_tools_batch!(
+                {
+                  type: mode,
+                  payload: { parentMessageId: 'assistant-msg-123', toolsCalling: [tool] },
+                },
+                state,
+              );
+        expect(result.newState.activatedStepSkills).toEqual([
+          {
+            key,
+            identifier: 'report',
+            content: 'Pinned instructions',
+            activatedAtStep: state.stepCount,
+          },
+        ]);
+      },
+    );
+
+    it.each(['call_tool', 'call_tools_batch'] as const)(
       'does not bind a late successful scratch result after cancellation in %s',
       async (mode) => {
         const bindScratchAfterToolSuccess = vi.fn();
