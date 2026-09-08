@@ -55,6 +55,7 @@ describe('isolated development configuration', () => {
     expect(env.QSTASH_URL).toBe('http://127.0.0.1:18080');
     expect(env.UPSTASH_WORKFLOW_URL).toBe(env.INTERNAL_APP_URL);
     expect(env.AUTH_TRUSTED_ORIGINS).toBe(env.APP_URL);
+    expect(env.VITE_DEV_ORIGIN).toBe(env.APP_URL);
     expect(env.ENABLE_MOCK_DEV_USER).toBeUndefined();
     expect(env.FEATURE_FLAGS).toContain('-market');
   });

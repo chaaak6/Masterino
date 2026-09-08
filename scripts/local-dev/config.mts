@@ -171,6 +171,7 @@ export function localEnvironment(config: LocalConfig): NodeJS.ProcessEnv {
     PORT: c.WEB_PORT,
     NEXT_INTERNAL_PORT: c.NEXT_PORT,
     VITE_DEV_PORT: c.VITE_PORT,
+    VITE_DEV_ORIGIN: origin,
     VITE_DEV_INTERNAL_ORIGIN: `http://localhost:${c.VITE_PORT}`,
     VITE_DEV_PUBLIC_SAME_ORIGIN: '1',
     DATABASE_DRIVER: 'node',
