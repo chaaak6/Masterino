@@ -114,7 +114,7 @@ vi.mock('@/server/services/skill/resource', () => ({
 const activation = (id: string, name: string) => ({
   role: 'tool',
   plugin: { identifier: 'lobe-skills', apiName: 'activateSkill' },
-  pluginState: { id, name },
+  pluginState: { id, name, ...(id.startsWith('project:') && { resourceVersion: 'snapshot-v1' }) },
 });
 
 describe('skillsRuntime', () => {
@@ -125,6 +125,7 @@ describe('skillsRuntime', () => {
     mocks.fileService.getFullFileUrl.mockResolvedValue('https://files.example.com/user-skill.zip');
     mocks.executeProjectSkillRpc.mockResolvedValue({
       directory: '/cache/extracted/deploy',
+      hash: 'snapshot-v1',
       content: 'body',
       files: ['SKILL.md'],
     });

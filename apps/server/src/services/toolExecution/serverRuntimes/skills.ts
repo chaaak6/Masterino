@@ -547,6 +547,7 @@ export const skillsRuntime: ServerRuntimeRegistration = {
             const workspaceRoot = execution?.workspace?.rootPath ?? execution?.cwd;
             if (!operationId || !workspaceRoot) throw new Error('SKILL_OPERATION_BINDING_REQUIRED');
             return deviceGateway.executeProjectSkillRpc<{
+              hash: string;
               directory: string;
               content: string;
               files: string[];

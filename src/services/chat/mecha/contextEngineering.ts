@@ -750,6 +750,15 @@ export const contextEngineering = async ({
     // Variable generators
     variableGenerators: {
       ...VARIABLE_GENERATORS,
+      // The operation owns cwd. Global UI/agent defaults may belong to another
+      // topic, and an unbound device run gets its scratch directory on first use.
+      ...(executionContext && {
+        workingDirectory: () =>
+          executionContext.cwd ??
+          (executionContext.plan.kind === 'device'
+            ? 'Not yet bound. Use relative paths; the device prepares this topic’s scratch directory for the first working-directory tool call.'
+            : 'No working directory is available for this execution.'),
+      }),
       // NOTICE: required by builtin-tool-creds/src/systemRole.ts
       CREDS_LIST: () => (credsList ? generateCredsList(credsList) : ''),
       // NOTICE: required by builtin-tool-creds/src/systemRole.ts (Composio integrations)

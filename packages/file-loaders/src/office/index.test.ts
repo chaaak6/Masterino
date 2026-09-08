@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import * as fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 
 import { afterEach, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
@@ -235,5 +237,82 @@ it('indexes only needed shared strings and reuses earlier disk entries', async (
     );
   } finally {
     spy.mockRestore();
+  }
+});
+
+it('cancels an in-progress aggregate, cleans its disk index and never caches the partial read', async () => {
+  const file = await fixture('cancel-aggregate.xlsx');
+  await zipFile(file, {
+    'xl/workbook.xml': '<workbook><sheet name="Data" r:id="r1"/></workbook>',
+    'xl/_rels/workbook.xml.rels':
+      '<Relationships><Relationship Id="r1" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/sharedStrings.xml': '<sst><si><t>group</t></si></sst>',
+    'xl/worksheets/sheet1.xml':
+      '<sheetData>' +
+      Array.from(
+        { length: 1000 },
+        (_, i) =>
+          `<row r="${i + 1}"><c r="A${i + 1}"><v>1</v></c><c r="B${i + 1}" t="s"><v>0</v></c></row>`,
+      ).join('') +
+      '</sheetData>',
+  });
+  const controller = new AbortController();
+  const originalOpen = officeZip.openOfficeZip;
+  const indexRoot = await mkdtemp(path.join(os.tmpdir(), 'office-index-test-'));
+  dirs.push(indexRoot);
+  const tempSpy = vi.spyOn(os, 'tmpdir').mockReturnValue(indexRoot);
+  let rows = 0;
+  const openSpy = vi.spyOn(officeZip, 'openOfficeZip').mockImplementation(async (...args) => {
+    const zip = await originalOpen(...args);
+    return {
+      ...zip,
+      records: async function* (name: string, tag: string) {
+        for await (const record of zip.records(name, tag)) {
+          if (tag === 'row' && ++rows === 3) {
+            expect(
+              (await fs.readdir(indexRoot)).some((name) => name.startsWith('masterino-office-')),
+            ).toBe(true);
+            controller.abort(new Error('cancel during aggregate'));
+          }
+          yield record;
+        }
+      },
+    };
+  });
+  try {
+    const params = { path: file, aggregateColumn: 'A', groupByColumn: 'B' };
+    await expect(readOfficeDocument(params, { signal: controller.signal })).rejects.toThrow(
+      'cancel during aggregate',
+    );
+    expect(rows).toBe(3);
+    expect(await fs.readdir(indexRoot)).toEqual([]);
+    const full = await readOfficeDocument(params);
+    expect(full.aggregate).toMatchObject({ count: 1000, sum: 1000 });
+    expect(rows).toBe(1003);
+    await expect(readOfficeDocument(params, { signal: controller.signal })).rejects.toThrow(
+      'cancel during aggregate',
+    );
+  } finally {
+    openSpy.mockRestore();
+    tempSpy.mockRestore();
+  }
+});
+
+it('destroys the active ZIP stream when cancelled between records', async () => {
+  const file = await fixture('cancel-stream.xlsx');
+  await zipFile(file, { 'rows.xml': '<rows>' + '<row>value</row>'.repeat(10000) + '</rows>' });
+  const controller = new AbortController();
+  const zip = await officeZip.openOfficeZip(file, { signal: controller.signal });
+  const destroy = vi.spyOn(Readable.prototype, 'destroy');
+  try {
+    const rows = zip.records('rows.xml', 'row');
+    expect((await rows.next()).value).toBe('<row>value</row>');
+    controller.abort(new Error('stop active stream'));
+    await expect(rows.next()).rejects.toThrow('stop active stream');
+    expect(destroy).toHaveBeenCalled();
+    expect(destroy.mock.contexts.some((stream) => stream.destroyed)).toBe(true);
+  } finally {
+    destroy.mockRestore();
+    zip.close();
   }
 });

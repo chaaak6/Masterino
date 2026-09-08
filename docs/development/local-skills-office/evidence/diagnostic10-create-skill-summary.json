@@ -1,0 +1,52 @@
+{
+  "case": "valid project skill creation",
+  "topic": "tpc_zEm2tQznLajM",
+  "status": "created_and_validated_next_operation_discovery_pending",
+  "fileBytes": 129,
+  "sha256": "e4fe0fa50eb7406ac9ae25c3019083772b07b10f07f6f7448671291fae45b459",
+  "expectedName": "qa-created-check",
+  "expectedDescription": "Synthetic creation acceptance.",
+  "expectedBody": "When activated, reply exactly QA-CREATED-CHECK-READY.",
+  "originalIdentityHashUnchanged": true,
+  "tools": [
+    {
+      "name": "createProjectSkill",
+      "outputBytes": 150
+    },
+    {
+      "name": "validateProjectSkill",
+      "outputBytes": 150
+    }
+  ],
+  "usage": [
+    {
+      "totalTokens": 25598,
+      "inputTextTokens": 25220,
+      "outputTextTokens": 131,
+      "totalInputTokens": 25220,
+      "inputCachedTokens": 25088,
+      "totalOutputTokens": 378,
+      "inputCacheMissTokens": 132,
+      "outputReasoningTokens": 247
+    },
+    {
+      "totalTokens": 25712,
+      "inputTextTokens": 25649,
+      "outputTextTokens": 63,
+      "totalInputTokens": 25649,
+      "inputCachedTokens": 25472,
+      "totalOutputTokens": 63,
+      "inputCacheMissTokens": 177
+    },
+    {
+      "totalTokens": 25954,
+      "inputTextTokens": 25763,
+      "outputTextTokens": 191,
+      "totalInputTokens": 25763,
+      "inputCachedTokens": 25600,
+      "totalOutputTokens": 191,
+      "inputCacheMissTokens": 163
+    }
+  ],
+  "finalAcceptanceRepetition": false
+}

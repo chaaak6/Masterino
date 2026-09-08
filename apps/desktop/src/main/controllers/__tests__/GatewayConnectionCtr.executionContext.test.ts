@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import * as localFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ExecutionEnvService from '../../services/executionEnvSrv';
@@ -123,7 +124,51 @@ describe('GatewayConnectionCtr execution context boundary', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await rm(tempRoot, { force: true, recursive: true });
+  });
+
+  it('routes exact-trace cancellation into the running Office reader and removes it after completion', async () => {
+    const controller = makeController();
+    const file = path.join(workspace, 'data.xlsx');
+    await writeFile(file, 'fixture');
+    const trace = {
+      deviceId: 'device-1',
+      topicId: 'topic-1',
+      operationId: 'operation-1',
+      toolCallId: 'office-1',
+    };
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const reader = vi
+      .spyOn(localFileShell, 'readOfficeDocument')
+      .mockImplementation(async (_params, options) => {
+        const signal = options!.signal!;
+        expect(signal).toBeInstanceOf(AbortSignal);
+        started();
+        return new Promise((_, reject) =>
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+        );
+      });
+    const request = {
+      apiName: 'readOfficeDocument',
+      args: { path: file, aggregateColumn: 'A' },
+      executionContext: context(),
+      trace,
+    };
+    const execution = controller.executeLocalToolCall(request);
+    await ready;
+    const duplicate = controller.executeLocalToolCall(request);
+    expect(await controller.cancelLocalOfficeRead({ ...trace, topicId: 'another-topic' })).toEqual({
+      cancelled: false,
+    });
+    expect(await controller.cancelLocalOfficeRead(trace)).toEqual({ cancelled: true });
+    expect(await execution).toMatchObject({ success: false, content: 'Office read cancelled' });
+    expect(await duplicate).toMatchObject({ success: false });
+    expect(reader).toHaveBeenCalledTimes(1);
+    expect(await controller.cancelLocalOfficeRead(trace)).toEqual({ cancelled: false });
   });
 
   it('lazily prepares scratch and exposes evidence only after a successful tool', async () => {

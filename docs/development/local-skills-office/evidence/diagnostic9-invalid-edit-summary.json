@@ -1,0 +1,50 @@
+{
+  "case": "invalid project skill replacement",
+  "topic": "tpc_zEm2tQznLajM",
+  "status": "rejected_original_unchanged",
+  "actualInvalidContent": "Missing YAML frontmatter after input editor Markdown conversion",
+  "rejectionCode": "SKILL_FRONTMATTER_REQUIRED",
+  "sha256Before": "70218609fbd59abd80ec5b0e00d45f21bda41e6cb100c288eb3fcbc789865172",
+  "sha256After": "70218609fbd59abd80ec5b0e00d45f21bda41e6cb100c288eb3fcbc789865172",
+  "tools": [
+    {
+      "name": "updateProjectSkill",
+      "outputBytes": 26
+    },
+    {
+      "name": "validateProjectSkill",
+      "outputBytes": 198
+    }
+  ],
+  "usage": [
+    {
+      "totalTokens": 24404,
+      "inputTextTokens": 23633,
+      "outputTextTokens": 145,
+      "totalInputTokens": 23633,
+      "totalOutputTokens": 771,
+      "inputCacheMissTokens": 23633,
+      "outputReasoningTokens": 626
+    },
+    {
+      "totalTokens": 24795,
+      "inputTextTokens": 24426,
+      "outputTextTokens": 72,
+      "totalInputTokens": 24426,
+      "inputCachedTokens": 24320,
+      "totalOutputTokens": 369,
+      "inputCacheMissTokens": 106,
+      "outputReasoningTokens": 297
+    },
+    {
+      "totalTokens": 25150,
+      "inputTextTokens": 24858,
+      "outputTextTokens": 292,
+      "totalInputTokens": 24858,
+      "inputCachedTokens": 24704,
+      "totalOutputTokens": 292,
+      "inputCacheMissTokens": 154
+    }
+  ],
+  "finalAcceptanceRepetition": false
+}

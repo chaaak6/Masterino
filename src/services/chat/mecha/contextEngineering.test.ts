@@ -41,6 +41,7 @@ vi.mock('@/helpers/parserPlaceholder', () => ({
     time: () => '14:30:45',
     username: () => 'TestUser',
     random: () => '12345',
+    workingDirectory: () => '/private/tmp/old-agent-default',
   },
 }));
 
@@ -572,6 +573,29 @@ describe('contextEngineering', () => {
   });
 
   describe('Process placeholder variables', () => {
+    it.each(['/scratch/current-topic', undefined])(
+      'uses the frozen operation cwd instead of global defaults (%s)',
+      async (cwd) => {
+        const result = await contextEngineering({
+          executionContext: {
+            version: 1,
+            cwd,
+            plan: { kind: 'device', target: 'local', deviceId: 'device-current' },
+          },
+          messages: [{ id: 'current-user', role: 'user', content: 'Continue' }] as UIChatMessage[],
+          model: 'gpt-4',
+          provider: 'openai',
+          systemRole: 'Current Working Directory: {{workingDirectory}}',
+        });
+        const prompt = result
+          .filter((message) => message.role === 'system')
+          .map((message) => message.content)
+          .join('\n');
+        expect(prompt).not.toContain('/private/tmp/old-agent-default');
+        expect(prompt).toContain(cwd ?? 'Use relative paths');
+      },
+    );
+
     it('should process placeholder variables in string content', async () => {
       const messages: UIChatMessage[] = [
         {

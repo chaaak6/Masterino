@@ -115,7 +115,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
         operationId: ctx.operationId,
       });
 
-    const output = await gatewayConnectionService.executeLocalToolCall({
+    const request = {
       apiName,
       args,
       executionContext: {
@@ -136,7 +136,10 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
         toolCallId: ctx.toolCallId,
         topicId,
       },
-    });
+    };
+    const output = ['inspectOfficeDocument', 'readOfficeDocument'].includes(apiName)
+      ? await gatewayConnectionService.executeLocalToolCall(request, { signal: ctx.signal })
+      : await gatewayConnectionService.executeLocalToolCall(request);
 
     return this.toResult(output);
   }

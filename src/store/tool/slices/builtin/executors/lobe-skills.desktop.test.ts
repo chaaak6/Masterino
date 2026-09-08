@@ -74,18 +74,32 @@ describe('desktop skills execution', () => {
     const skill = {
       description: 'test',
       identifier: 'demo',
-      key: 'project:demo',
+      key: 'project:workspace-a:demo',
       location: '/workspace/project/.agents/skills/demo/SKILL.md',
       name: 'demo',
       scope: 'project' as const,
       source: 'project' as const,
     };
     const ctx = { ...context, operationSkills: [skill] };
-    executeLocalToolCall.mockImplementation(async ({ apiName }: { apiName: string }) =>
-      apiName === 'globFiles'
-        ? { content: 'Found 1 file', state: { files: ['references/readme.md'] }, success: true }
-        : { content: 'Reference content', success: true },
-    );
+    executeLocalToolCall.mockImplementation(async ({ apiName, args }) => {
+      if (apiName === 'prepareProjectSkillSnapshot') {
+        if (args.resourcePath?.startsWith('../')) throw new Error('DENIED_SCOPE');
+        return {
+          content: 'Prepared',
+          success: true,
+          state: {
+            result: {
+              content: 'Frozen project instructions',
+              hash: 'snapshot-v1',
+              directory: '/managed/project-snapshot',
+              files: ['references/readme.md', 'scripts/probe.sh'],
+              resourceContent: args.resourcePath ? 'Reference content' : undefined,
+            },
+          },
+        };
+      }
+      return { content: 'Script ran', success: true };
+    });
     const activation = await skillsExecutor.activateSkill({ name: 'demo' }, ctx);
     expect(activation.success).toBe(true);
     const activatedSkills = selectActivatedSkillsFromMessages([
@@ -96,12 +110,16 @@ describe('desktop skills execution', () => {
       },
     ]);
     expect(activatedSkills).toEqual([
-      expect.objectContaining({ id: 'project:demo', name: 'demo' }),
+      expect.objectContaining({ id: 'project:workspace-a:demo', name: 'demo' }),
     ]);
     expect(
       (
         await skillsExecutor.execScript(
-          { command: 'sh scripts/probe.sh', description: 'Run the project probe' },
+          {
+            skillId: skill.key,
+            command: 'sh "$SKILL_DIR/scripts/probe.sh"',
+            description: 'Run the project probe',
+          },
           {
             ...ctx,
             stepContext: { activatedSkills },
@@ -113,21 +131,23 @@ describe('desktop skills execution', () => {
       expect.objectContaining({
         apiName: 'runCommand',
         executionContext: expect.objectContaining({
-          cwd: '/workspace/project/.agents/skills/demo',
+          cwd: '/workspace/project',
+          env: expect.objectContaining({ SKILL_DIR: '/managed/project-snapshot' }),
           workspaceRootPath: '/workspace/project',
           envFiles: ['.env'],
         }),
       }),
     );
     expect(
-      (await skillsExecutor.readReference({ id: 'demo', path: 'references/readme.md' }, ctx))
+      (await skillsExecutor.readReference({ id: skill.key, path: 'references/readme.md' }, ctx))
         .success,
     ).toBe(true);
     expect(executeLocalToolCall).toHaveBeenCalledWith(
       expect.objectContaining({
-        apiName: 'readFile',
+        apiName: 'prepareProjectSkillSnapshot',
         args: expect.objectContaining({
-          path: '/workspace/project/.agents/skills/demo/references/readme.md',
+          skillId: skill.key,
+          resourcePath: 'references/readme.md',
         }),
         trace: expect.objectContaining({ deviceId: 'device-a', operationId: 'operation-a' }),
       }),
@@ -159,11 +179,11 @@ describe('desktop skills execution', () => {
     );
   });
 
-  it('runs an activated skill script from its prepared cache directory', async () => {
+  it('runs an activated skill script with its prepared resource and frozen workspace', async () => {
     resolveExecutionDirectory.mockResolvedValue('/managed/skills/hash-a');
 
     await skillsExecutor.execScript(
-      { command: './run.sh', description: 'run it' },
+      { command: 'sh "$SKILL_DIR/run.sh"', description: 'run it' },
       {
         ...context,
         stepContext: {
@@ -176,7 +196,8 @@ describe('desktop skills execution', () => {
       expect.objectContaining({
         apiName: 'runCommand',
         executionContext: expect.objectContaining({
-          cwd: '/managed/skills/hash-a',
+          cwd: '/workspace/project',
+          env: expect.objectContaining({ SKILL_DIR: '/managed/skills/hash-a' }),
           workspaceRootPath: '/workspace/project',
         }),
         purpose: 'skill-script',

@@ -366,14 +366,7 @@ export class StreamingExecutorActionImpl {
       provider: agentConfigData.provider!,
     };
 
-    const topicWorkspace = topicId
-      ? getProjectWorkspaceStoreState().topicStatesById[topicId]?.workspace
-      : undefined;
-    const topicWorkingDirectory = topicId
-      ? topicSelectors.getTopicById(topicId)(this.#get())?.metadata?.workingDirectory
-      : undefined;
-    const workingDirectory =
-      operationWorkingDirectory ?? topicWorkspace?.rootPath ?? topicWorkingDirectory;
+    const workingDirectory = executionContext.cwd;
 
     // Create initial state or use provided state
     const stateBase =
@@ -434,6 +427,7 @@ export class StreamingExecutorActionImpl {
       metadata: {
         ...stateBase.metadata,
         executionContext,
+        workingDirectory,
         compressionModelCatalogSnapshot,
         contextBudget: {
           ...stateBase.metadata?.contextBudget,
@@ -923,6 +917,19 @@ export class StreamingExecutorActionImpl {
       while (state.status !== 'done' && state.status !== 'error') {
         // Check if operation has been cancelled
         const currentOperation = this.#get().operations[operationId];
+        // Successful device execution may finalize this topic's lazy scratch
+        // binding. Carry that operation-owned context into the next model step.
+        const stepExecutionContext = currentOperation?.metadata.executionContext;
+        if (stepExecutionContext && stepExecutionContext !== state.metadata?.executionContext) {
+          state = {
+            ...state,
+            metadata: {
+              ...state.metadata,
+              executionContext: stepExecutionContext,
+              workingDirectory: stepExecutionContext.cwd,
+            },
+          };
+        }
         if (currentOperation?.status === 'cancelled') {
           log('[executeClientAgent] Operation cancelled, marking state as interrupted');
 

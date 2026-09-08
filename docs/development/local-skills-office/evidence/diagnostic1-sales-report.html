@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>诊断销售报告 · Sales 分析</title>
+<style>
+  :root { --brand:#2563eb; --text:#1f2937; --muted:#6b7280; --bg:#f3f6fb; --card:#ffffff; --border:#e5e7eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width:1080px; margin:0 auto; padding:32px 20px 48px; }
+  header { margin-bottom:28px; }
+  header h1 { font-size:26px; margin:0 0 6px; }
+  header p { color:var(--muted); margin:0; font-size:14px; }
+  .badge { display:inline-block; background:var(--brand); color:#fff; padding:4px 10px; border-radius:20px; font-size:12px; margin-left:8px; vertical-align:middle; }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; }
+  .card .label { font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .card .value { font-size:28px; font-weight:700; }
+  .card .value.small { font-size:22px; }
+  .sub { font-size:13px; color:var(--muted); margin-top:6px; }
+  section { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:24px; }
+  section h2 { font-size:18px; margin:0 0 14px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); }
+  th { background:#f9fafb; color:var(--muted); font-weight:600; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tfoot td { font-weight:700; background:#fdfaf3; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  .chart-title { font-size:14px; color:var(--muted); margin-bottom:10px; }
+  .note { font-size:12px; color:var(--muted); margin-top:10px; }
+  @media (max-width:720px){ .cards{grid-template-columns:repeat(2,1fr);} .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>诊断销售报告 <span class="badge">sales-12.xlsx · Sales</span></h1>
+    <p>数据来源：Sales 工作表 · 单位：CNY（人民币）· 生成日期：2026-09-08</p>
+  </header>
+
+  <div class="cards" id="summary"></div>
+
+  <section>
+    <h2>按区域分组收入</h2>
+    <div class="grid">
+      <div>
+        <div class="chart-title">收入占比（CNY）</div>
+        <div id="chartRegion" class="chart"></div>
+      </div>
+      <div>
+        <div id="tableRegion"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>按月份分组收入</h2>
+    <div class="grid">
+      <div>
+        <div class="chart-title">收入对比（CNY）</div>
+        <div id="chartMonth" class="chart"></div>
+      </div>
+      <div>
+        <div id="tableMonth"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>结论</h2>
+    <p id="insight" style="line-height:1.8;"></p>
+    <p class="note">说明：收入为原始数据中的整数 CNY，未包含税费或退款。文件 <code>sales-12.xlsx</code> 原始内容保持不变。</p>
+  </section>
+</div>
+
+<script>
+const ROWS = 12; // 数据行数（不含表头）
+
+const byRegion = [
+  { name:'East',  value:3300 },
+  { name:'West',  value:2400 },
+  { name:'North', value:2300 },
+];
+const byMonth = [
+  { name:'2026-01', value:2800 },
+  { name:'2026-02', value:5200 },
+];
+const total = 8000;
+
+const fmt = n => new Intl.NumberFormat('zh-CN').format(n);
+const pct = n => ((n/total)*100).toFixed(2) + '%';
+
+// 摘要卡片
+const cards = [
+  { label:'数据行数', value:String(ROWS), sub:'Sales 记录数' },
+  { label:'总收入', value:'¥' + fmt(total), sub:'CNY' },
+  { label:'区域数', value:'3', sub:'East / West / North' },
+  { label:'月份数', value:'2', sub:'2026-01 / 2026-02' },
+];
+document.getElementById('summary').innerHTML = cards.map(c =>
+  `<div class="card"><div class="label">${c.label}</div><div class="value ${String(c.value).length>7?'small':''}">${c.value}</div><div class="sub">${c.sub}</div></div>`
+).join('');
+
+// 表格
+function renderTable(el, rows){
+  let html = `<table><thead><tr><th>分组</th><th class="num">收入（CNY）</th><th class="num">占比</th></tr></thead><tbody>`;
+  rows.forEach(r => { html += `<tr><td>${r.name}</td><td class="num">${fmt(r.value)}</td><td class="num">${pct(r.value)}</td></tr>`; });
+  const sum = rows.reduce((a,r)=>a+r.value,0);
+  html += `</tbody><tfoot><tr><td>合计</td><td class="num">${fmt(sum)}</td><td class="num">${pct(sum)}</td></tr></tfoot></table>`;
+  el.innerHTML = html;
+}
+renderTable(document.getElementById('tableRegion'), byRegion);
+renderTable(document.getElementById('tableMonth'), byMonth);
+
+// SVG 柱状图（动态生成，无需网络依赖）
+function barChart(rows, color){
+  const W=430, H=280, padL=60, padB=52, padT=24, padR=16;
+  const max = Math.max(...rows.map(r=>r.value));
+  const cw = (W-padL-padR)/rows.length;
+  const bh = H-padT-padB;
+  const scale = v => padT + (bh - (v/max)*bh);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" role="img">`;
+  // 网格线 + Y 轴刻度
+  const steps = 4;
+  for(let i=0;i<=steps;i++){
+    const val = (max/steps)*i;
+    const y = scale(val);
+    s += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#eef0f3" stroke-width="1"/>`;
+    s += `<text x="${padL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="#9aa0a6">${fmt(Math.round(val))}</text>`;
+  }
+  rows.forEach((r,i)=>{
+    const cx = padL + cw*i + cw/2;
+    const barW = cw*0.5;
+    const y = scale(r.value);
+    const h = bh - (scale(r.value)-padT);
+    // 背景柱
+    s += `<rect x="${cx-barW/2}" y="${padT}" width="${barW}" height="${bh}" fill="#f3f4f6" rx="4"/>`;
+    // 实际柱
+    s += `<rect x="${cx-barW/2}" y="${y}" width="${barW}" height="${h}" fill="${color}" rx="4"/>`;
+    // 数值标签
+    s += `<text x="${cx}" y="${y-8}" text-anchor="middle" font-size="13" font-weight="600" fill="#1f2937">${fmt(r.value)}</text>`;
+    // 分类标签
+    s += `<text x="${cx}" y="${padT+bh+22}" text-anchor="middle" font-size="12" fill="#4b5563">${r.name}</text>`;
+  });
+  s += `</svg>`;
+  return s;
+}
+document.getElementById('chartRegion').innerHTML = barChart(byRegion, '#2563eb');
+document.getElementById('chartMonth').innerHTML = barChart(byMonth, '#16a34a');
+
+// 结论
+const topR = [...byRegion].sort((a,b)=>b.value-a.value)[0];
+const topM = [...byMonth].sort((a,b)=>b.value-a.value)[0];
+document.getElementById('insight').textContent =
+  `Sales 工作表共 ${ROWS} 条数据，累计收入 ¥${fmt(total)}。按区域看，${topR.name} 贡献最高（¥${fmt(topR.value)}，占 ${pct(topR.value)}）；按月份看，${topM.name} 收入最高（¥${fmt(topM.value)}，占 ${pct(topM.value)}）。`;
+</script>
+</body>
+</html>

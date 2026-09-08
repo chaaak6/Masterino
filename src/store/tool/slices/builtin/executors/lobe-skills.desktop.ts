@@ -69,7 +69,13 @@ const createRuntime = (ctx: BuiltinToolContext) => {
       });
       return (
         result.state as {
-          result: { directory: string; content: string; files: string[]; resourceContent?: string };
+          result: {
+            hash: string;
+            directory: string;
+            content: string;
+            files: string[];
+            resourceContent?: string;
+          };
         }
       ).result;
     },

@@ -15,6 +15,9 @@ export interface OfficeReadParams {
   start?: number;
   version?: string;
 }
+export interface OfficeReadOptions {
+  signal?: AbortSignal;
+}
 export interface OfficeRecord {
   cells?: { address: string; value: string; formula?: string }[];
   heading?: string;
@@ -44,7 +47,7 @@ async function sheetParts(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
   });
 }
 /** Index only the requested prefix on disk; backward references reuse that index. */
-async function sharedStrings(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
+async function sharedStrings(zip: Awaited<ReturnType<typeof openOfficeZip>>, signal?: AbortSignal) {
   if (!zip.entries.has('xl/sharedStrings.xml'))
     return { close: async () => {}, get: async (_: number) => '' };
   const dir = await mkdtemp(path.join(os.tmpdir(), 'masterino-office-'));
@@ -65,8 +68,10 @@ async function sharedStrings(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
   return {
     close,
     get: async (id: number) => {
+      signal?.throwIfAborted();
       if (!Number.isSafeInteger(id) || id < 0) throw new Error('Invalid shared string reference');
       while (count <= id) {
+        signal?.throwIfAborted();
         const next = await source.next();
         if (next.done || typeof next.value !== 'string')
           throw new Error('Invalid shared string reference');
@@ -88,7 +93,9 @@ async function sharedStrings(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
   };
 }
 
-async function readOfficeDocumentUncached(params: OfficeReadParams) {
+async function readOfficeDocumentUncached(params: OfficeReadParams, options: OfficeReadOptions) {
+  const { signal } = options;
+  signal?.throwIfAborted();
   const start = integer(params.start, 1, Number.MAX_SAFE_INTEGER);
   const limit = integer(params.limit, 100, 500);
   const maxChars = integer(params.maxChars, 24_000, 64_000);
@@ -107,13 +114,14 @@ async function readOfficeDocumentUncached(params: OfficeReadParams) {
     throw new Error('groupByColumn requires aggregateColumn and a column letter');
   const groups = new Map<string, { count: number; sum: number; min: number; max: number }>();
   const aggregate = { count: 0, sum: 0, min: Infinity, max: -Infinity };
-  const zip = await openOfficeZip(params.path);
+  const zip = await openOfficeZip(params.path, options);
   const records: OfficeRecord[] = [];
   let chars = 0,
     hasMore = false,
     total: number | 'unknown' = 'unknown',
     sheet: string | undefined;
   const accept = (record: OfficeRecord) => {
+    signal?.throwIfAborted();
     if (record.index < start) return true;
     if (params.aggregateColumn && record.cells) {
       const cell = record.cells.find(
@@ -162,10 +170,11 @@ async function readOfficeDocumentUncached(params: OfficeReadParams) {
       const selected = params.sheet ? sheets.find((s) => s.name === params.sheet) : sheets[0];
       if (!selected) throw new Error('Worksheet not found');
       sheet = selected.name;
-      const strings = await sharedStrings(zip);
+      const strings = await sharedStrings(zip, signal);
       try {
         let lastRow = 0;
         for await (const xml of zip.records(selected.part, 'row')) {
+          signal?.throwIfAborted();
           const row = Number(attr(xml, 'r')) || lastRow + 1;
           lastRow = row;
           if (row < start) continue;
@@ -219,6 +228,7 @@ async function readOfficeDocumentUncached(params: OfficeReadParams) {
       const slides = [...presentation.matchAll(/<p:sldId\s[^>]*>/g)];
       total = slides.length;
       for (let i = start - 1; i < slides.length; i++) {
+        signal?.throwIfAborted();
         const id = attr(slides[i]![0], 'r:id');
         const rel = rels.find(([r]) => attr(r, 'Id') === id)?.[0] ?? '';
         const target = attr(rel, 'Target');
@@ -258,23 +268,32 @@ async function readOfficeDocumentUncached(params: OfficeReadParams) {
   }
 }
 const resultCache = new Map<string, Awaited<ReturnType<typeof readOfficeDocumentUncached>>>();
-export async function readOfficeDocument(params: OfficeReadParams) {
+export async function readOfficeDocument(
+  params: OfficeReadParams,
+  options: OfficeReadOptions = {},
+) {
+  options.signal?.throwIfAborted();
   const currentVersion = await versionOf(params.path);
+  options.signal?.throwIfAborted();
   if (params.version && params.version !== currentVersion)
     throw new Error('OFFICE_VERSION_CHANGED');
   const key = JSON.stringify({ ...params, version: currentVersion });
   const cached = resultCache.get(key);
   if (cached) return structuredClone(cached);
-  const result = await readOfficeDocumentUncached({ ...params, version: currentVersion });
+  const result = await readOfficeDocumentUncached({ ...params, version: currentVersion }, options);
+  options.signal?.throwIfAborted();
   // At most sixteen bounded results; version changes cannot hit stale entries.
   if (resultCache.size >= 16) resultCache.delete(resultCache.keys().next().value!);
   resultCache.set(key, structuredClone(result));
   return result;
 }
-export async function inspectOfficeDocument(params: OfficeReadParams) {
-  const result = await readOfficeDocument({ ...params, limit: params.limit ?? 5 });
+export async function inspectOfficeDocument(
+  params: OfficeReadParams,
+  options: OfficeReadOptions = {},
+) {
+  const result = await readOfficeDocument({ ...params, limit: params.limit ?? 5 }, options);
   if (result.format !== 'xlsx') return result;
-  const zip = await openOfficeZip(params.path);
+  const zip = await openOfficeZip(params.path, options);
   try {
     const sheets = await sheetParts(zip);
     if ((await versionOf(params.path)) !== result.version)

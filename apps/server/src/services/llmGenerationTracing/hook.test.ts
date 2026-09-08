@@ -26,6 +26,25 @@ beforeEach(() => {
 });
 
 describe('createLLMGenerationTracingHook', () => {
+  it('omits inline image bytes from persisted messages without changing the request', async () => {
+    const image = 'data:image/png;base64,c3ludGhldGlj';
+    const payload = {
+      messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: image } }] }],
+      model: 'test',
+      schema: { type: 'object' },
+    };
+    const hooks = createLLMGenerationTracingHook('user-1', 'openai');
+    hooks.onGenerateObjectComplete!(
+      { latencyMs: 1, output: { echoedImage: image }, success: true },
+      { payload } as any,
+    );
+    await flushMicrotasks();
+    expect(record).toHaveBeenCalledOnce();
+    expect(JSON.stringify(record.mock.calls)).not.toContain('c3ludGhldGlj');
+    expect(JSON.stringify(record.mock.calls)).toContain('[inline image omitted]');
+    expect(payload.messages[0].content[0].image_url.url).toBe(image);
+  });
+
   it('returns an empty object when the service is disabled', () => {
     isEnabled.mockReturnValue(false);
     const hooks = createLLMGenerationTracingHook('user-1', 'openai');

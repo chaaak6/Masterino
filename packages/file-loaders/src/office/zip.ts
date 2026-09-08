@@ -1,9 +1,12 @@
+import type { Readable } from 'node:stream';
 import { StringDecoder } from 'node:string_decoder';
 
 import * as yauzl from 'yauzl';
 
 /** Opens only requested ZIP members; never expands the whole Office package. */
-export async function openOfficeZip(path: string) {
+export async function openOfficeZip(path: string, options: { signal?: AbortSignal } = {}) {
+  const { signal } = options;
+  signal?.throwIfAborted();
   const zip = await new Promise<yauzl.ZipFile>((resolve, reject) =>
     yauzl.open(path, { autoClose: false, lazyEntries: true }, (e, z) =>
       e ? reject(e) : resolve(z!),
@@ -11,12 +14,20 @@ export async function openOfficeZip(path: string) {
   );
   const entries = new Map<string, yauzl.Entry>();
   try {
+    signal?.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
-      zip.on('error', reject);
-      zip.on('end', resolve);
+      const abort = () => reject(signal?.reason);
+      const finish = (error?: Error) => {
+        signal?.removeEventListener('abort', abort);
+        if (error) reject(error);
+        else resolve();
+      };
+      signal?.addEventListener('abort', abort, { once: true });
+      zip.on('error', finish);
+      zip.on('end', () => finish());
       zip.on('entry', (entry: yauzl.Entry) => {
         if (entries.size >= 20_000) {
-          reject(new Error('Office package has too many parts'));
+          finish(new Error('Office package has too many parts'));
           return;
         }
         entries.set(entry.fileName, entry);
@@ -29,16 +40,32 @@ export async function openOfficeZip(path: string) {
     throw e;
   }
   async function* chunks(name: string) {
+    signal?.throwIfAborted();
     const entry = entries.get(name);
     if (!entry) throw new Error(`Missing Office part: ${name}`);
     if (entry.uncompressedSize > 1024 * 1024 * 1024)
       throw new Error('Office part exceeds 1 GiB scan limit');
-    const stream = await new Promise<NodeJS.ReadableStream>((resolve, reject) =>
+    const stream = await new Promise<Readable>((resolve, reject) =>
       zip.openReadStream(entry, (e, s) => (e ? reject(e) : resolve(s!))),
     );
-    const decoder = new StringDecoder('utf8');
-    for await (const chunk of stream) yield decoder.write(chunk as Buffer);
-    yield decoder.end();
+    const abort = () => stream.destroy();
+    signal?.addEventListener('abort', abort, { once: true });
+    try {
+      signal?.throwIfAborted();
+      const decoder = new StringDecoder('utf8');
+      for await (const chunk of stream) {
+        signal?.throwIfAborted();
+        yield decoder.write(chunk as Buffer);
+      }
+      signal?.throwIfAborted();
+      yield decoder.end();
+    } catch (error) {
+      signal?.throwIfAborted();
+      throw error;
+    } finally {
+      signal?.removeEventListener('abort', abort);
+      stream.destroy();
+    }
   }
   async function text(name: string, limit = 4 * 1024 * 1024) {
     let out = '';
@@ -55,6 +82,7 @@ export async function openOfficeZip(path: string) {
     for await (const chunk of chunks(name)) {
       buffer += chunk;
       while (true) {
+        signal?.throwIfAborted();
         const match = start.exec(buffer);
         if (!match) {
           if (buffer.length > 1_000_000) buffer = buffer.slice(-1000);

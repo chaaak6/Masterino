@@ -109,8 +109,8 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       defaultTimeoutMs: 120_000,
       description:
         name === 'inspectOfficeDocument'
-          ? 'Inspect local xlsx/docx/pptx structure with bounded samples and a resource version. Excel lists worksheet names. Use readOfficeDocument for more rows, paragraphs or slides.'
-          : 'Read bounded local Office rows, paragraphs or slides in actual document order. Returns actualRange, total (or unknown), hasMore and next parameters. Excel returns cached values and formulas without recalculation. Optional aggregateColumn (e.g. B) scans a worksheet locally for numeric count/sum/min/max without injecting rows.',
+          ? 'Inspect local xlsx/docx/pptx structure with bounded samples and a resource version. Excel lists worksheet names. Use readOfficeDocument for selected content or Excel numeric/grouped summaries; no external parser is needed.'
+          : 'Read bounded local Office rows, paragraphs or slides in actual document order. Returns actualRange, total (or unknown), hasMore and next parameters. Excel returns cached values and formulas without recalculation. For Excel totals or grouped summaries, prefer aggregateColumn (numeric column letter) with optional groupByColumn: scans from start to worksheet end for count/sum/min/max without injecting rows or writing a parser.',
       humanIntervention: {
         dynamic: {
           default: 'never' as const,
@@ -141,7 +141,8 @@ export const LocalSystemManifest: BuiltinToolManifest = {
           },
           aggregateColumn: {
             type: 'string' as const,
-            description: 'Excel numeric column letter to aggregate locally',
+            description:
+              'Excel numeric column letter to aggregate from start to sheet end; ignores row limit, returns summaries instead of rows',
           },
         },
       },

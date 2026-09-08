@@ -1,0 +1,114 @@
+{
+  "case": "project .agents versus .claude same-name skill",
+  "topic": "tpc_zEm2tQznLajM",
+  "serverSha": "59eaba45",
+  "desktopMainSha": "59eaba45",
+  "rendererSource": "10824781 plus tool-description/context fixes",
+  "observedMarkers": [
+    "QA-project-agents-BODY",
+    "QA-project-agents-REFERENCE",
+    "QA-project-agents-SCRIPT"
+  ],
+  "matchesIndependentOracle": true,
+  "observedIdentifier": "project:qa-identity",
+  "observedSkillId": "project:pws_aQplj9bnXRcE:qa-identity",
+  "observedExtractedHash": "3411a4a61e7e9c149fe84f8dd3defa855e8904eb90f276a4fbb21942a256da07",
+  "tools": [
+    {
+      "name": "activateSkill",
+      "outputBytes": 680,
+      "stateKeys": [
+        "id",
+        "name",
+        "source",
+        "location",
+        "hasResources"
+      ],
+      "stateMetrics": {
+        "hasResources": false
+      }
+    },
+    {
+      "name": "readReference",
+      "outputBytes": 28,
+      "stateKeys": [
+        "path",
+        "encoding",
+        "fileType",
+        "fullPath"
+      ],
+      "stateMetrics": {}
+    },
+    {
+      "name": "readReference",
+      "outputBytes": 34,
+      "stateKeys": [
+        "path",
+        "encoding",
+        "fileType",
+        "fullPath"
+      ],
+      "stateMetrics": {}
+    },
+    {
+      "name": "execScript",
+      "outputBytes": 107,
+      "stateKeys": [
+        "command",
+        "success",
+        "exitCode"
+      ],
+      "stateMetrics": {
+        "success": true,
+        "exitCode": 0
+      }
+    }
+  ],
+  "usage": [
+    {
+      "totalTokens": 21995,
+      "inputTextTokens": 21772,
+      "outputTextTokens": 51,
+      "totalInputTokens": 21772,
+      "totalOutputTokens": 223,
+      "inputCacheMissTokens": 21772,
+      "outputReasoningTokens": 172
+    },
+    {
+      "totalTokens": 22755,
+      "inputTextTokens": 22293,
+      "outputTextTokens": 164,
+      "totalInputTokens": 22293,
+      "totalOutputTokens": 462,
+      "inputCacheMissTokens": 22293,
+      "outputReasoningTokens": 298
+    },
+    {
+      "totalTokens": 23085,
+      "inputTextTokens": 22792,
+      "outputTextTokens": 123,
+      "totalInputTokens": 22792,
+      "inputCachedTokens": 22656,
+      "totalOutputTokens": 293,
+      "inputCacheMissTokens": 136,
+      "outputReasoningTokens": 170
+    },
+    {
+      "totalTokens": 23651,
+      "inputTextTokens": 23116,
+      "outputTextTokens": 331,
+      "totalInputTokens": 23116,
+      "inputCachedTokens": 23040,
+      "totalOutputTokens": 535,
+      "inputCacheMissTokens": 76,
+      "outputReasoningTokens": 204
+    }
+  ],
+  "e2eSeconds": 18.196,
+  "limitations": [
+    "Only project .agents versus .claude overlap exercised; personal/agent overlap not yet run",
+    "Activation pluginState has id/name/source/location/hasResources but does not expose explicit key/version; snapshot hash observed in visible response",
+    "Cross-step mutation and invalid edit remain untested"
+  ],
+  "finalAcceptanceRepetition": false
+}

@@ -115,7 +115,13 @@ export interface SkillsExecutionRuntimeOptions {
     key: string;
     location: string;
     resourcePath?: string;
-  }) => Promise<{ directory: string; content: string; files: string[]; resourceContent?: string }>;
+  }) => Promise<{
+    hash: string;
+    directory: string;
+    content: string;
+    files: string[];
+    resourceContent?: string;
+  }>;
   /** Registry winners used by prompt assembly for this operation. */
   registryResult?: { skills: SkillRef[] };
   service: SkillRuntimeService;
@@ -210,6 +216,7 @@ export class SkillsExecutionRuntime {
     if (this.executionContext) throw new Error('SKILL_SNAPSHOT_UNAVAILABLE');
     // Compatibility for standalone consumers without a bound device runtime.
     return {
+      hash: undefined,
       directory: getDirname(skill.location),
       content: await this.deviceFileAccess!.readFile(skill.location),
       files: [] as string[],
@@ -269,7 +276,9 @@ export class SkillsExecutionRuntime {
           id: userSkill?.id ?? ref.key,
           name: ref.name,
           description: ref.description,
-          resourceVersion: userSkill?.zipFileHash ?? undefined,
+          resourceVersion:
+            userSkill?.zipFileHash ??
+            selected?.find((skill) => skill.id === ref.key)?.resourceVersion,
         },
       ];
     }
@@ -286,9 +295,18 @@ export class SkillsExecutionRuntime {
               ? skill.key === activated.id
               : !this.registrySkills && skill.name === activated.name,
           );
-          skillDir = projectSkill
-            ? (await this.prepareProject(projectSkill)).directory
-            : await this.skillDirectoryResolver?.([activated]);
+          if (projectSkill) {
+            const snapshot = await this.prepareProject(projectSkill);
+            if (!snapshot.hash || activated.resourceVersion !== snapshot.hash) {
+              return {
+                content:
+                  'SKILL_RESOURCE_VERSION_CHANGED: activate this project skill again before executing its resources.',
+                state: { errorCode: 'SKILL_RESOURCE_VERSION_CHANGED' },
+                success: false,
+              };
+            }
+            skillDir = snapshot.directory;
+          } else skillDir = await this.skillDirectoryResolver?.([activated]);
           if (skillDir) break;
         }
       } catch (error) {
@@ -713,6 +731,7 @@ export class SkillsExecutionRuntime {
             location: joinPath(snapshot.directory, 'SKILL.md'),
             name,
             source: 'project',
+            resourceVersion: snapshot.hash,
           },
           success: true,
         };

@@ -161,6 +161,47 @@ afterEach(() => {
 
 describe('StreamingExecutor actions', () => {
   describe('executeClientAgent', () => {
+    it('carries the finalized scratch cwd into the next runtime step', async () => {
+      act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
+      const step = vi.spyOn(agentRuntime.AgentRuntime.prototype, 'step');
+      step.mockImplementationOnce(async (state, nextContext) => {
+        expect(state.metadata?.workingDirectory).toBeUndefined();
+        const executionContext = state.metadata!.executionContext!;
+        useChatStore.getState().updateOperationMetadata(state.operationId, {
+          executionContext: {
+            ...executionContext,
+            cwd: '/scratch/current-topic',
+            workspace: {
+              kind: 'scratch',
+              rootPath: '/scratch/current-topic',
+              deviceId: 'device-local',
+            },
+          },
+        });
+        return { events: [], newState: state, nextContext };
+      });
+      step.mockImplementationOnce(async (state) => {
+        expect(state.metadata?.executionContext?.cwd).toBe('/scratch/current-topic');
+        expect(state.metadata?.workingDirectory).toBe('/scratch/current-topic');
+        return { events: [], newState: { ...state, status: 'done' } };
+      });
+      await act(async () => {
+        await useChatStore.getState().executeClientAgent({
+          context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+          executionContext: {
+            version: 1,
+            accessRoots: [],
+            plan: { kind: 'device', target: 'local', deviceId: 'device-local' },
+          },
+          workingDirectory: '/private/tmp/old-agent-default',
+          messages: [],
+          parentMessageId: TEST_IDS.USER_MESSAGE_ID,
+          parentMessageType: 'user',
+        });
+      });
+      expect(step).toHaveBeenCalledTimes(2);
+    });
+
     it('projects a preparation failure on the current assistant so the user can retry', async () => {
       const context = { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID };
       const assistant = createMockMessage({

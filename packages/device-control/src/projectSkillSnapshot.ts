@@ -25,6 +25,7 @@ export interface ProjectSkillSnapshot {
   content: string;
   directory: string;
   files: string[];
+  hash: string;
   resourceContent?: string;
 }
 const pending = new Map<string, Promise<ProjectSkillSnapshot>>();
@@ -177,6 +178,7 @@ export async function prepareProjectSkillSnapshot(
     return {
       ...(resource && { resourceContent: resource.bytes.toString('utf8') }),
       directory,
+      hash: binding.hash,
       content: markdown.bytes.toString('utf8'),
       files: snapshot.files.map((file) => file.name),
     };

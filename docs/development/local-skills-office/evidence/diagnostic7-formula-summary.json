@@ -1,0 +1,63 @@
+{
+  "case": "formula expression vs stale cache",
+  "topic": "tpc_eSxBAp5xBn4D",
+  "serverSha": "59eaba45",
+  "desktopMainSha": "59eaba45",
+  "rendererSource": "10824781 plus tool-description/context fixes",
+  "observed": {
+    "formula": "=1+2",
+    "cachedValue": 999,
+    "recalculated": false
+  },
+  "matchesIndependentOracle": true,
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 445,
+      "executionMetrics": {
+        "durationMs": 2.94,
+        "outputBytes": 445
+      }
+    },
+    {
+      "name": "runCommand",
+      "outputBytes": 1691,
+      "executionMetrics": null
+    }
+  ],
+  "usage": [
+    {
+      "totalTokens": 21449,
+      "inputTextTokens": 21174,
+      "outputTextTokens": 139,
+      "totalInputTokens": 21174,
+      "inputCachedTokens": 6784,
+      "totalOutputTokens": 275,
+      "inputCacheMissTokens": 14390,
+      "outputReasoningTokens": 136
+    },
+    {
+      "totalTokens": 22346,
+      "inputTextTokens": 21598,
+      "outputTextTokens": 350,
+      "totalInputTokens": 21598,
+      "inputCachedTokens": 21376,
+      "totalOutputTokens": 748,
+      "inputCacheMissTokens": 222,
+      "outputReasoningTokens": 398
+    },
+    {
+      "totalTokens": 24031,
+      "inputTextTokens": 22920,
+      "outputTextTokens": 611,
+      "totalInputTokens": 22920,
+      "inputCachedTokens": 6784,
+      "totalOutputTokens": 1111,
+      "inputCacheMissTokens": 16136,
+      "outputReasoningTokens": 500
+    }
+  ],
+  "e2eSeconds": 22.436,
+  "limitation": "Model redundantly used shell unzip/XML after native inspect already exposed formula and cache",
+  "finalAcceptanceRepetition": false
+}

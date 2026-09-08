@@ -1,0 +1,137 @@
+{
+  "kind": "supplemental-parser-probe",
+  "file": "sales-100000.xlsx",
+  "inputBytes": 2673213,
+  "node": "v24.19.0",
+  "measurements": [
+    {
+      "label": "cold-inspect",
+      "milliseconds": 5.847,
+      "outputBytes": 1607,
+      "records": 5,
+      "actualRange": [
+        1,
+        5
+      ],
+      "hasMore": true,
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        },
+        {
+          "name": "xl/worksheets/sheet1.xml",
+          "expandedBytes": 33375347,
+          "consumedBytes": 16384
+        },
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        }
+      ],
+      "rssBytes": 118734848,
+      "processPeakRssBytes": 118882304
+    },
+    {
+      "label": "repeat-inspect",
+      "milliseconds": 0.691,
+      "outputBytes": 1607,
+      "records": 5,
+      "actualRange": [
+        1,
+        5
+      ],
+      "hasMore": true,
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        }
+      ],
+      "rssBytes": 118865920,
+      "processPeakRssBytes": 118882304
+    },
+    {
+      "label": "last-three-rows",
+      "milliseconds": 94.772,
+      "outputBytes": 1006,
+      "records": 3,
+      "actualRange": [
+        99999,
+        100001
+      ],
+      "hasMore": false,
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        },
+        {
+          "name": "xl/worksheets/sheet1.xml",
+          "expandedBytes": 33375347,
+          "consumedBytes": 33375347
+        }
+      ],
+      "rssBytes": 129548288,
+      "processPeakRssBytes": 129548288
+    },
+    {
+      "label": "grouped-aggregate",
+      "milliseconds": 755.901,
+      "outputBytes": 414,
+      "records": 0,
+      "actualRange": [],
+      "hasMore": false,
+      "aggregate": {
+        "count": 100000,
+        "sum": 75000000,
+        "min": 100,
+        "max": 2000
+      },
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        },
+        {
+          "name": "xl/worksheets/sheet1.xml",
+          "expandedBytes": 33375347,
+          "consumedBytes": 33375347
+        }
+      ],
+      "rssBytes": 136626176,
+      "processPeakRssBytes": 148209664
+    }
+  ],
+  "evidenceType": "supplementary direct parser probe, not Electron E2E"
+}

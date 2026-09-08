@@ -1,0 +1,30 @@
+{
+  "case": "synthetic image quadrants via real Finder clipboard paste",
+  "topic": "tpc_iSPxP4cQu8xl",
+  "serverSha": "59eaba45",
+  "desktopMainSha": "59eaba45",
+  "rendererSourceSha": "10824781",
+  "observedAnswer": [
+    "red",
+    "blue",
+    "green",
+    "yellow"
+  ],
+  "matchesIndependentOracle": true,
+  "tools": 0,
+  "usage": [
+    {
+      "totalTokens": 21217,
+      "inputTextTokens": 21143,
+      "outputTextTokens": 17,
+      "totalInputTokens": 21143,
+      "inputCachedTokens": 20864,
+      "totalOutputTokens": 74,
+      "inputCacheMissTokens": 279,
+      "outputReasoningTokens": 57
+    }
+  ],
+  "e2eSeconds": 2.151,
+  "tracePrivacyReview": "pending parent review",
+  "finalAcceptanceRepetition": false
+}

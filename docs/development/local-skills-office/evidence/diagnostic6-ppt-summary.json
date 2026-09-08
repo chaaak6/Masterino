@@ -1,0 +1,80 @@
+{
+  "case": "PPT actual presentation order",
+  "topic": "tpc_1ZBkysx4BsJA",
+  "serverSha": "59eaba45",
+  "desktopMainSha": "59eaba45",
+  "rendererSource": "10824781 plus tool-description/context fixes",
+  "observedOrder": [
+    "QA-SLIDE-3",
+    "QA-SLIDE-1",
+    "QA-SLIDE-2"
+  ],
+  "matchesIndependentOracle": true,
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 216,
+      "executionMetrics": {
+        "durationMs": 2.38,
+        "outputBytes": 216
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 426,
+      "executionMetrics": {
+        "durationMs": 1.91,
+        "outputBytes": 426
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 426,
+      "executionMetrics": {
+        "durationMs": 1.91,
+        "outputBytes": 426
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 152,
+      "executionMetrics": {
+        "durationMs": 1.61,
+        "outputBytes": 152
+      }
+    }
+  ],
+  "usage": [
+    {
+      "totalTokens": 21400,
+      "inputTextTokens": 21167,
+      "outputTextTokens": 136,
+      "totalInputTokens": 21167,
+      "inputCachedTokens": 6784,
+      "totalOutputTokens": 233,
+      "inputCacheMissTokens": 14383,
+      "outputReasoningTokens": 97
+    },
+    {
+      "totalTokens": 22055,
+      "inputTextTokens": 21497,
+      "outputTextTokens": 431,
+      "totalInputTokens": 21497,
+      "inputCachedTokens": 21376,
+      "totalOutputTokens": 558,
+      "inputCacheMissTokens": 121,
+      "outputReasoningTokens": 127
+    },
+    {
+      "totalTokens": 22587,
+      "inputTextTokens": 22448,
+      "outputTextTokens": 139,
+      "totalInputTokens": 22448,
+      "inputCachedTokens": 22016,
+      "totalOutputTokens": 139,
+      "inputCacheMissTokens": 432
+    }
+  ],
+  "e2eSeconds": 11.757,
+  "finalAcceptanceRepetition": false
+}

@@ -1,0 +1,108 @@
+{
+  "case": "paperclip Excel to HTML diagnostic",
+  "topic": "tpc_p4431I5uxa9d",
+  "serverSha": "59eaba45",
+  "desktopMainSha": "59eaba45",
+  "rendererSourceSha": "10824781",
+  "status": "completed_with_stale_cwd_recovery",
+  "usageSum": {
+    "totalTokens": 205059,
+    "inputTextTokens": 193884,
+    "outputTextTokens": 8576,
+    "totalInputTokens": 193884,
+    "inputCachedTokens": 190848,
+    "totalOutputTokens": 11175,
+    "inputCacheMissTokens": 3036,
+    "outputReasoningTokens": 2599
+  },
+  "llmRoundsWithUsage": 7,
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputChars": 1749,
+      "outputBytes": 1749,
+      "recordsReturned": 5,
+      "hasMore": true,
+      "executionMetrics": {
+        "durationMs": 11.94,
+        "outputBytes": 1749
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputChars": 3395,
+      "outputBytes": 3395,
+      "recordsReturned": 13,
+      "hasMore": false,
+      "executionMetrics": {
+        "durationMs": 4.25,
+        "outputBytes": 3395
+      }
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputChars": 429,
+      "outputBytes": 429,
+      "recordsReturned": 2,
+      "hasMore": false,
+      "executionMetrics": {
+        "durationMs": 6.68,
+        "outputBytes": 429
+      }
+    },
+    {
+      "name": "writeFile",
+      "outputChars": 12,
+      "outputBytes": 12,
+      "recordsReturned": null,
+      "hasMore": null,
+      "executionMetrics": null
+    },
+    {
+      "name": "runCommand",
+      "outputChars": 376,
+      "outputBytes": 376,
+      "recordsReturned": null,
+      "hasMore": null,
+      "executionMetrics": null
+    },
+    {
+      "name": "writeFile",
+      "outputChars": 177,
+      "outputBytes": 177,
+      "recordsReturned": null,
+      "hasMore": null,
+      "executionMetrics": {
+        "durationMs": 1.46,
+        "outputBytes": 177
+      }
+    },
+    {
+      "name": "runCommand",
+      "outputChars": 343,
+      "outputBytes": 343,
+      "recordsReturned": null,
+      "hasMore": null,
+      "executionMetrics": null
+    }
+  ],
+  "e2eSeconds": 104.053,
+  "oracleChecks": {
+    "rows": 12,
+    "revenue": 8000,
+    "regions": {
+      "East": 3300,
+      "West": 2400,
+      "North": 2300
+    },
+    "months": {
+      "2026-01": 2800,
+      "2026-02": 5200
+    }
+  },
+  "reportBytes": 9401,
+  "reportSha256": "82afabf5a67968527c430440970bf6a2b89c0fce6100236ef370f82c37a3c4b5",
+  "renderedInRealChrome": true,
+  "externalDependencies": false,
+  "finalAcceptanceRepetition": false
+}

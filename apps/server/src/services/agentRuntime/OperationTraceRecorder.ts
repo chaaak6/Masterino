@@ -2,6 +2,8 @@ import type { ISnapshotStore, StepSnapshot } from '@lobechat/agent-tracing';
 import type { ChatMessageErrorAttribution, ChatMessageErrorSeverity } from '@lobechat/types';
 import debug from 'debug';
 
+import { sanitizeTraceData } from '@/server/modules/ModelRuntime/sanitizeTraceData';
+
 import type { StepCompletionReason, StepPresentationData } from './types';
 
 const log = debug('lobe-server:operation-trace-recorder');
@@ -102,11 +104,11 @@ export class OperationTraceRecorder {
       this.initPartialHeader(partial, params.agentState);
 
       if (!partial.steps) partial.steps = [];
-      const newStep = this.buildStepSnapshot(params);
+      const newStep = sanitizeTraceData(this.buildStepSnapshot(params));
       this.deduplicateCeSnapshot(newStep, partial.steps);
       partial.steps.push(newStep);
 
-      await this.store.savePartial(operationId, partial);
+      await this.store.savePartial(operationId, sanitizeTraceData(partial));
     } catch (e) {
       log('[%s] snapshot step recording failed: %O', operationId, e);
     }
@@ -192,7 +194,7 @@ export class OperationTraceRecorder {
         userId: metadata?.userId,
       };
 
-      await this.store.save(snapshot as any);
+      await this.store.save(sanitizeTraceData(snapshot) as any);
       await this.store.removePartial(operationId);
     } catch (e) {
       log('[%s] snapshot finalize failed (reason=%s): %O', operationId, params.completionReason, e);

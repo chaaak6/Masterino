@@ -183,6 +183,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
   >();
 
   private readonly pendingLocalToolCalls = new Map<string, Promise<BuiltinServerRuntimeOutput>>();
+  private readonly localOfficeReads = new Map<string, AbortController>();
 
   private localSystemRuntime: LocalSystemExecutionRuntime | null = null;
 
@@ -309,6 +310,22 @@ export default class GatewayConnectionCtr extends ControllerModule {
    * the renderer cannot bypass frozen-workspace or path-consent checks.
    */
   @IpcMethod()
+  async cancelLocalOfficeRead(trace: ExecutionBoundaryTrace): Promise<{ cancelled: boolean }> {
+    if (
+      !trace.topicId ||
+      !trace.operationId ||
+      !trace.toolCallId ||
+      trace.deviceId !== this.service.getDeviceId()
+    )
+      return { cancelled: false };
+    const controller = this.localOfficeReads.get(
+      JSON.stringify([trace.deviceId, trace.topicId, trace.operationId, trace.toolCallId]),
+    );
+    controller?.abort(new Error('Office read cancelled'));
+    return { cancelled: !!controller };
+  }
+
+  @IpcMethod()
   async executeLocalToolCall(params: {
     apiName: string;
     args: Record<string, unknown>;
@@ -328,17 +345,30 @@ export default class GatewayConnectionCtr extends ControllerModule {
     ]);
     const pending = this.pendingLocalToolCalls.get(key);
     if (pending) return pending;
-    const execution = this.executeLocalToolCallOnce(params);
+    // Local read cancellation does not apply to file publication or remote gateway calls.
+    const cancellable = ['inspectOfficeDocument', 'readOfficeDocument'].includes(params.apiName);
+    const controller = cancellable ? new AbortController() : undefined;
+    if (controller) this.localOfficeReads.set(key, controller);
+    const timer = controller
+      ? setTimeout(
+          () => controller.abort(new Error('Office read timed out after 120 seconds')),
+          120_000,
+        )
+      : undefined;
+    const execution = this.executeLocalToolCallOnce(params, controller?.signal);
     this.pendingLocalToolCalls.set(key, execution);
     try {
       return await execution;
     } finally {
+      if (timer) clearTimeout(timer);
+      this.localOfficeReads.delete(key);
       this.pendingLocalToolCalls.delete(key);
     }
   }
 
   private async executeLocalToolCallOnce(
     params: Parameters<GatewayConnectionCtr['executeLocalToolCall']>[0],
+    signal?: AbortSignal,
   ): Promise<BuiltinServerRuntimeOutput> {
     const { trace } = params;
     let context = params.executionContext;
@@ -394,6 +424,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
       context,
       trace,
       params.purpose,
+      signal,
     );
     const commandFailed =
       result.state &&
@@ -584,6 +615,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
     executionContext?: GatewayToolCallExecutionContext,
     trace?: ExecutionBoundaryTrace,
     purpose?: 'skill-command' | 'skill-script',
+    signal?: AbortSignal,
   ): Promise<BuiltinServerRuntimeOutput> {
     const runtime = this.getLocalSystemRuntime();
     const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
@@ -820,7 +852,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
         try {
           const state = await (
             normalized === 'inspectOfficeDocument' ? inspectOfficeDocument : readOfficeDocument
-          )(args as unknown as OfficeReadParams);
+          )(args as unknown as OfficeReadParams, { signal });
           return finish({ content: JSON.stringify(state), state, success: true });
         } catch (error) {
           return finish({

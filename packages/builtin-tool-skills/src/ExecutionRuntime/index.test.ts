@@ -176,6 +176,7 @@ describe('SkillsExecutionRuntime', () => {
           workspace: { deviceId: 'device-1', kind: 'device', rootPath: '/repo' },
         },
         projectSnapshotResolver: async () => ({
+          hash: 'snapshot-v1',
           directory: '/cache/extracted/prepared',
           content: 'body',
           files: ['SKILL.md'],
@@ -185,7 +186,7 @@ describe('SkillsExecutionRuntime', () => {
       });
 
       const result = await runtime.execScript({
-        activatedSkills: [{ id: 'project:deploy', name: 'deploy' }],
+        activatedSkills: [{ id: 'project:deploy', name: 'deploy', resourceVersion: 'snapshot-v1' }],
         command: 'scripts/deploy.sh',
         description: 'Run deploy script',
       });

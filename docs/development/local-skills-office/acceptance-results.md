@@ -1,6 +1,6 @@
 # 独立验收执行记录
 
-状态：进行中。尚未通过任何真实模型 Electron 业务用例；夹具/健康检查不算产品通过。
+状态：进行中。首个真实模型 Excel→HTML 诊断通过；混版附件诊断发现问题并修复复测中。最终一致版本五次重复尚未执行完毕，不宣称最终验收通过。
 
 ## 已完成准备
 
@@ -39,3 +39,31 @@ Electron 桌面目录不在根 workspace 的安装集合，根 pnpm 安装后仍
 测试 Electron 预热：源码 `599e071335937d1d482caad189b1d3d7d3c4b082`，启动时另有41个 tracked dirty 文件（v2实施进行中）；仅用于登录/环境UI准备。正式业务验收需冻结最新SHA并重启，不能把本次dirty预热当最终版本通过。
 
 内测 Electron 预热实际结果：使用 `corepack pnpm dev:desktop:test` 成功进入既有测试 profile 首页，正常登录状态已存在，无需新的企业微信授权。启动日志 backend 为 `https://mlai-test.bielcrystal.com`，Gateway 为同域 `/device-gateway`，profile 为 `test-server`。从普通小宗狮AI的项目新增按钮打开系统目录选择器，选择 `/tmp/masterino-office-e2e-input`；UI realpath 为 `/private/tmp/masterino-office-e2e-input`，显示本机执行、项目已锁定，文件面板列出全部6个合成文件。未发送模型请求，未测试新Office业务或宣称Gateway执行成功。证据：`/tmp/masterino-office-e2e-evidence/test-profile-workspace-ready.png` 与同名 AX 文本。正式验收等待新镜像及最终freeze版本后重启。
+
+
+## 真实模型诊断（不是最终五次重复）
+
+1. 项目内 Excel→HTML：服务端599e0713，桌面599e0713加进行中的修改。真实Electron输入自然请求，DeepSeek V4 Flash Vision Exp依次inspect Sales、read Sales、inspect Notes、writeFile。独立回读12条数据：总额8000，East3300/West2400/North2300，2026-01为2800、2026-02为5200。原表哈希不变，HTML无外部资源，实际Chrome打开图表和表格正常。[真实生成报告](evidence/diagnostic1-sales-report.html)已提交候选证据。4个模型轮次累计input96953（cached73344，miss23609）、output5731；用户消息落库到最终回复更新54.814秒。Office工具输出分别1612/3395/429字符，read返回13行含表头、hasMore=false。首版无单工具纯执行耗时字段。
+2. 粘贴附件混版诊断：桌面e0f4ff28、服务端599e0713。Finder复制合成xlsx再真实CmdV接收成功；DB保留local附件元数据，但消息回读不显示附件且模型未拿到本机路径。模型寻找文件，QA拒绝绕路读取后停止，未生成报告。11个工具请求含1次拒绝，9个有usage轮次累计input211166（cached167040，miss44126）、output2438。[脱敏汇总](evidence/diagnostic2-summary.json)。这是失败重试累积，不能当正文体积或当前上下文。实现端随后修复messages查询遗漏attachments。
+3. 桌面59eaba45重启后真实上传菜单能弹出原生系统文件选择器；取消返回正常。服务端部署59eaba45后，回形针复测的消息回读保留附件，模型第一步直接inspect本机附件路径，无需搜索/tmp。完整报告结果继续记录。
+
+上述输入均为独立生成的合成数据，oracle未传给模型。完整截图、AX现场、脱敏逐消息metrics保留于本机 `/tmp/masterino-office-e2e-evidence/`，未提交；本目录evidence提供可移植的摘要和真实HTML。源Excel不入Git。模型UI累计tokens不能解释为当前上下文或网络请求字节；实际HTTP字节和完整工具目录数量尚未测得。
+
+
+第三版诊断细化：回形针完整报告已完成，真实Chrome渲染、数字回读与原表/附件副本哈希一致。首次writeFile受旧cwd提示影响，向不存在的legacy测试目录写入被DENIED_SCOPE；模型随后pwd确认实际topic scratch目录并成功生成报告。7轮、7工具请求，104.053秒；Office执行耗时11.94/4.25/6.68ms，输出1749/3395/429字节。writeFile实际写入1.46ms。参见[脱敏汇总](evidence/diagnostic3-summary.json)与[真实报告](evidence/diagnostic3-paperclip-report.html)。此轮包含目录恢复，不能作为稳定一次成功样本。
+
+合成图片诊断：真实Finder复制/粘贴quadrants.png后，模型直接回答左上红、右上蓝、左下绿、右下黄，与独立oracle相符；0个工具、2.151秒。参见[图片汇总](evidence/diagnostic4-image-summary.json)。trace隐私边界仍由实现端核查，暂不宣称图片整项通过。
+
+十万行诊断：精确汇总与独立oracle一致，但模型inspect后runCommand探测openpyxl/pandas，再写Python汇总脚本，未使用Office原生summary，违反预定标准分析无现场依赖探测/解析脚本门槛。记录为数字通过、调度失败；[脱敏汇总](evidence/diagnostic5-large-summary.json)。实现端正在修正本机工具说明，正式版本仍未冻结。
+
+
+PPT页序诊断返回QA-SLIDE-3、QA-SLIDE-1、QA-SLIDE-2，匹配独立OOXML关系顺序；4个Office工具、11.757秒，[汇总](evidence/diagnostic6-ppt-summary.json)。公式诊断明确原公式文本1+2（Excel公式写法=1+2）、保存缓存999、未重算；但inspect后额外shell解包XML，22.436秒，[汇总](evidence/diagnostic7-formula-summary.json)。
+
+项目Skill诊断：真实UI选取只有合成技能的独立目录，.agents与.claude提供同名qa-identity。模型activateSkill、readReference两次、execScript得到全部project-agents标记，脚本退出0，未修改技能。[汇总](evidence/diagnostic8-skill-summary.json)。这是项目双来源优先级的单次诊断；个人/Agent重名、跨轮变更、非法编辑仍未测试，不能据此宣称全身份矩阵通过。
+
+补充解析器探针由实现端运行、QA归档：[10000行](evidence/parser-probe-10000.json)、[100000行](evidence/parser-probe-100000.json)。它们是直接引擎测量，不是真实Electron模型验收；RSS含Node/tsx，短输出不替代实际扫描量证据。取消最初仅阻止回写的缺陷正在补接线，旧探针不能证明已取消底层扫描。
+
+
+技能非法编辑真实UI：聊天请求技能管理工具更新合成qa-identity；输入编辑器将原始YAML分隔符转成Markdown，因此实际发送的是缺frontmatter内容。updateProjectSkill返回SKILL_FRONTMATTER_REQUIRED，随后validateProjectSkill仍valid:true，独立原件SHA256前后均70218609fbd59abd80ec5b0e00d45f21bda41e6cb100c288eb3fcbc789865172。[拒绝证据](evidence/diagnostic9-invalid-edit-summary.json)。不宣称此轮精确覆盖缺description情形。
+
+合法创建合成qa-created-check通过createProjectSkill与validateProjectSkill，独立回读129字节文件名称/description/正文正确，原qa-identity未改变。[创建证据](evidence/diagnostic10-create-skill-summary.json)。下一operation发现尚待后续运行；当前未把创建成功等同于发现成功。

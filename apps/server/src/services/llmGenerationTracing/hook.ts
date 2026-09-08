@@ -6,6 +6,8 @@ import {
 import type { ModelRuntimeHooks } from '@lobechat/model-runtime';
 import debug from 'debug';
 
+import { sanitizeTraceData } from '@/server/modules/ModelRuntime/sanitizeTraceData';
+
 import { getLLMGenerationTracingService } from './index';
 
 const log = debug('lobe-server:llm-generation-tracing:hook');
@@ -114,39 +116,41 @@ export const createLLMGenerationTracingHook = (
       tryScheduleAfter(async () => {
         let persistedTracingId: string | null = null;
         try {
-          const result = await service.record({
-            agentId: tracing.agentId,
-            costUsd: (data.usage as { cost?: number } | undefined)?.cost,
-            errorCode: data.error?.code,
-            errorDetail: data.error?.message ?? data.error?.stack,
-            inputHint: tracing.inputHint,
-            inputTokens: data.usage?.totalInputTokens ?? data.usage?.inputTextTokens,
-            latencyMs: data.latencyMs,
-            // Caller-supplied jsonb context only. `provider` is already a
-            // first-class column on the row — no need to duplicate it here.
-            metadata: tracing.metadata,
-            model: context.payload.model,
-            outputTokens: data.usage?.totalOutputTokens ?? data.usage?.outputTextTokens,
-            parentTracingId: tracing.parentTracingId,
-            payload: {
-              input: context.payload.messages,
-              output: data.output,
-              schema: context.payload.schema,
-              systemPrompt,
-            },
-            promptHash,
-            promptVersion,
-            provider,
-            scenario,
-            schemaName: tracing.schemaName,
-            success: data.success,
-            topicId: tracing.topicId,
-            tracingId: tracing.tracingId,
-            trigger,
-            userId,
-            validationFailed,
-            workspaceId,
-          });
+          const result = await service.record(
+            sanitizeTraceData({
+              agentId: tracing.agentId,
+              costUsd: (data.usage as { cost?: number } | undefined)?.cost,
+              errorCode: data.error?.code,
+              errorDetail: data.error?.message ?? data.error?.stack,
+              inputHint: tracing.inputHint,
+              inputTokens: data.usage?.totalInputTokens ?? data.usage?.inputTextTokens,
+              latencyMs: data.latencyMs,
+              // Caller-supplied jsonb context only. `provider` is already a
+              // first-class column on the row — no need to duplicate it here.
+              metadata: tracing.metadata,
+              model: context.payload.model,
+              outputTokens: data.usage?.totalOutputTokens ?? data.usage?.outputTextTokens,
+              parentTracingId: tracing.parentTracingId,
+              payload: {
+                input: context.payload.messages,
+                output: data.output,
+                schema: context.payload.schema,
+                systemPrompt,
+              },
+              promptHash,
+              promptVersion,
+              provider,
+              scenario,
+              schemaName: tracing.schemaName,
+              success: data.success,
+              topicId: tracing.topicId,
+              tracingId: tracing.tracingId,
+              trigger,
+              userId,
+              validationFailed,
+              workspaceId,
+            }),
+          );
           persistedTracingId = result?.tracingId ?? null;
         } catch (err) {
           log('Tracing service threw: %O', err);
