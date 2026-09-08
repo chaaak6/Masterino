@@ -1,4 +1,3 @@
-import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import Anthropic, { type ClientOptions } from '@anthropic-ai/sdk';
 import type { Stream } from '@anthropic-ai/sdk/streaming';
 import { CURRENT_VERSION } from '@lobechat/const';
@@ -23,6 +22,7 @@ import { debugStream } from '../../utils/debugStream';
 import { desensitizeUrl } from '../../utils/desensitizeUrl';
 import { getModelPricing } from '../../utils/getModelPricing';
 import { MODEL_LIST_CONFIGS, processModelList } from '../../utils/modelParse';
+import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import { StreamingResponse } from '../../utils/response';
 import type { LobeRuntimeAI } from '../BaseAI';
 import {

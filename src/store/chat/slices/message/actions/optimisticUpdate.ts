@@ -14,6 +14,10 @@ import {
 import { ChatErrorType } from '@lobechat/types';
 import { nanoid } from '@lobechat/utils';
 
+import {
+  bindLocalAttachmentMessage,
+  releaseLocalMessageAttachments,
+} from '@/services/electron/localAttachmentService';
 import { messageService } from '@/services/message';
 import { type ChatStore } from '@/store/chat/store';
 import { type StoreSetter } from '@/store/types';
@@ -64,6 +68,12 @@ export class MessageOptimisticUpdateActionImpl {
 
     try {
       const result = await messageService.createMessage(message);
+      if (message.attachments?.items.length)
+        await bindLocalAttachmentMessage(
+          message.attachments.items.map((attachment) => ({ attachment })),
+          result.id,
+          message.topicId ?? 'active',
+        );
 
       // Use the messages returned from createMessage (already grouped)
       const ctx = this.#get().internal_getConversationContext(context);
@@ -106,9 +116,11 @@ export class MessageOptimisticUpdateActionImpl {
     id: string,
     context?: OptimisticUpdateContext,
   ): Promise<void> => {
+    const localMessage = dbMessageSelectors.getDbMessageById(id)(this.#get());
     this.#get().internal_dispatchMessage({ id, type: 'deleteMessage' }, context);
     const ctx = this.#get().internal_getConversationContext(context);
     const result = await messageService.removeMessage(id, ctx);
+    if (result?.success && localMessage) await releaseLocalMessageAttachments([localMessage]);
     if (result?.success && result.messages) {
       this.#get().replaceMessages(result.messages, { context: ctx });
     }
@@ -118,9 +130,14 @@ export class MessageOptimisticUpdateActionImpl {
     ids: string[],
     context?: OptimisticUpdateContext,
   ): Promise<void> => {
+    const localMessages = ids.flatMap((id) => {
+      const message = dbMessageSelectors.getDbMessageById(id)(this.#get());
+      return message ? [message] : [];
+    });
     this.#get().internal_dispatchMessage({ ids, type: 'deleteMessages' }, context);
     const ctx = this.#get().internal_getConversationContext(context);
     const result = await messageService.removeMessages(ids, ctx);
+    if (result?.success) await releaseLocalMessageAttachments(localMessages);
     if (result?.success && result.messages) {
       this.#get().replaceMessages(result.messages, { context: ctx });
     }

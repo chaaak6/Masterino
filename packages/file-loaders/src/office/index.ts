@@ -5,21 +5,21 @@ import path from 'node:path';
 import { attr, openOfficeZip, textNodes, unescapeXml } from './zip';
 
 export interface OfficeReadParams {
-  path: string;
-  sheet?: string;
   aggregateColumn?: string;
   groupByColumn?: string;
-  /** One-based row, paragraph, or slide offset. */
-  start?: number;
   limit?: number;
   maxChars?: number;
+  path: string;
+  sheet?: string;
+  /** One-based row, paragraph, or slide offset. */
+  start?: number;
   version?: string;
 }
 export interface OfficeRecord {
+  cells?: { address: string; value: string; formula?: string }[];
+  heading?: string;
   index: number;
   text?: string;
-  heading?: string;
-  cells?: { address: string; value: string; formula?: string }[];
 }
 const versionOf = async (file: string) => {
   const s = await stat(file);
@@ -33,8 +33,8 @@ const integer = (n: number | undefined, fallback: number, max: number) => {
 async function sheetParts(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
   const workbook = await zip.text('xl/workbook.xml');
   const rels = await zip.text('xl/_rels/workbook.xml.rels');
-  const relationships = [...rels.matchAll(/<Relationship\s[^>]*\/?\s*>/g)];
-  return [...workbook.matchAll(/<sheet\s[^>]*\/?\s*>/g)].map(([xml]) => {
+  const relationships = [...rels.matchAll(/<Relationship\s[^>]*>/g)];
+  return [...workbook.matchAll(/<sheet\s[^>]*>/g)].map(([xml]) => {
     const rel = relationships.find(([r]) => attr(r, 'Id') === attr(xml, 'r:id'))?.[0] ?? '';
     const target = attr(rel, 'Target');
     return {
@@ -115,13 +115,13 @@ async function readOfficeDocumentUncached(params: OfficeReadParams) {
     if (record.index < start) return true;
     if (params.aggregateColumn && record.cells) {
       const cell = record.cells.find(
-        (c) => c.address.replace(/\d+/g, '') === params.aggregateColumn,
+        (c) => c.address.replaceAll(/\d+/g, '') === params.aggregateColumn,
       );
       if (cell && cell.value.trim() !== '' && Number.isFinite(Number(cell.value))) {
         const value = Number(cell.value);
         if (params.groupByColumn) {
           const key =
-            record.cells.find((c) => c.address.replace(/\d+/g, '') === params.groupByColumn)
+            record.cells.find((c) => c.address.replaceAll(/\d+/g, '') === params.groupByColumn)
               ?.value ?? '';
           if (key.length > 1000 || (!groups.has(key) && groups.size >= 500))
             throw new Error(
@@ -207,11 +207,9 @@ async function readOfficeDocumentUncached(params: OfficeReadParams) {
     } else {
       const presentation = await zip.text('ppt/presentation.xml');
       const rels = [
-        ...(await zip.text('ppt/_rels/presentation.xml.rels')).matchAll(
-          /<Relationship\s[^>]*\/?\s*>/g,
-        ),
+        ...(await zip.text('ppt/_rels/presentation.xml.rels')).matchAll(/<Relationship\s[^>]*>/g),
       ];
-      const slides = [...presentation.matchAll(/<p:sldId\s[^>]*\/?\s*>/g)];
+      const slides = [...presentation.matchAll(/<p:sldId\s[^>]*>/g)];
       total = slides.length;
       for (let i = start - 1; i < slides.length; i++) {
         const id = attr(slides[i]![0], 'r:id');
@@ -285,6 +283,5 @@ export async function inspectOfficeDocument(params: OfficeReadParams) {
   }
 }
 
-export * from './write';
-
 export * from './modify';
+export * from './write';

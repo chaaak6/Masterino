@@ -1,9 +1,9 @@
-import { MessageAttachmentsSchema } from '../attachments';
-import type { MessageAttachments } from '../attachments';
 import { z } from 'zod';
 
 import type { GroundingSearch } from '../../search';
 import { GroundingSearchSchema } from '../../search';
+import type { MessageAttachments } from '../attachments';
+import { MessageAttachmentsSchema } from '../attachments';
 import type {
   ChatImageItem,
   ChatMessageError,
@@ -67,8 +67,8 @@ export interface UpdateMessageResult {
 }
 
 export interface NewMessage {
-  attachments?: MessageAttachments | null;
   agentId?: string | null;
+  attachments?: MessageAttachments | null;
   clientId?: string | null;
   content?: string | null;
   createdAt?: Date;

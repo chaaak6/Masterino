@@ -1,16 +1,17 @@
-import {
-  receiveLocalAttachment,
-  resolveLocalAttachment,
-  prepareLocalAttachment,
-  bindLocalAttachment,
-  type LocalAttachmentRecord,
-} from '@lobechat/device-control';
-import GatewayConnectionService from '@/services/gatewayConnectionSrv';
-import { prepareSkillPackage } from '@lobechat/device-control';
 import { constants } from 'node:fs';
-import { access, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { access, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
+import {
+  bindLocalAttachment,
+  type LocalAttachmentLifecycleInput,
+  type LocalAttachmentRecord,
+  manageLocalAttachment,
+  prepareLocalAttachment,
+  receiveLocalAttachment,
+  resolveLocalAttachment,
+} from '@lobechat/device-control';
+import { prepareSkillPackage } from '@lobechat/device-control';
 import {
   type AuditSafePathsParams,
   type AuditSafePathsResult,
@@ -61,11 +62,12 @@ import {
   type SearchOptions,
   writeLocalFile,
 } from '@lobechat/local-file-shell';
-import { dialog, shell, nativeImage } from 'electron';
+import { dialog, nativeImage, shell } from 'electron';
 import { execa } from 'execa';
 
 import ContentSearchService from '@/services/contentSearchSrv';
 import FileSearchService from '@/services/fileSearchSrv';
+import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import { createLogger } from '@/utils/logger';
 import { netFetch } from '@/utils/net-fetch';
 
@@ -251,6 +253,20 @@ export default class LocalFileCtr extends ControllerModule {
   }
 
   @IpcMethod()
+  async manageAttachment(input: LocalAttachmentLifecycleInput) {
+    const result = await manageLocalAttachment(
+      path.join(this.app.appStoragePath, 'scratch-workspaces'),
+      this.app.getService(GatewayConnectionService).getDeviceId(),
+      input,
+    );
+    if (result.removed)
+      for (const key of this.attachmentImageCache.keys()) {
+        if (key.startsWith(`${input.ref.localResourceId}:`)) this.attachmentImageCache.delete(key);
+      }
+    return result;
+  }
+
+  @IpcMethod()
   async receiveAttachment(input: {
     draftId: string;
     name: string;
@@ -282,7 +298,7 @@ export default class LocalFileCtr extends ControllerModule {
     const root = path.join(this.app.appStoragePath, 'scratch-workspaces');
     const deviceId = this.app.getService(GatewayConnectionService).getDeviceId();
     if (input.image) {
-      if (!/^image\/(png|jpeg|webp|gif)$/.test(input.ref.mime))
+      if (!/^image\/(?:png|jpeg|webp|gif)$/.test(input.ref.mime))
         throw new Error('Unsupported image type');
       const resolved = await resolveLocalAttachment(root, deviceId, input.ref);
       if (resolved.bytes.byteLength > 10 * 1024 * 1024)

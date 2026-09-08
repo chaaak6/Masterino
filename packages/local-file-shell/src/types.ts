@@ -90,8 +90,6 @@ export type PathAccessMode = 'exec' | 'read' | 'write';
  * rejects a topic grant when any of this evidence is absent or mismatched.
  */
 export interface DeviceExecutionAccessRoot {
-  /** File grants match one realpath; legacy grants remain directories. */
-  target?: 'file' | 'directory';
   deviceId?: string;
   expiresAt?: string;
   grantId?: string;
@@ -100,6 +98,8 @@ export interface DeviceExecutionAccessRoot {
   rootPath: string;
   scope: 'operation' | 'primary' | 'topic';
   source: 'direct-user-message' | 'user-approval' | 'workspace';
+  /** File grants match one realpath; legacy grants remain directories. */
+  target?: 'file' | 'directory';
   topicId?: string;
 }
 
@@ -169,6 +169,7 @@ export interface ReadFileResult {
   charCount: number;
   content: string;
   createdTime: Date;
+  error?: string;
   filename: string;
   fileType: string;
   lineCount: number;

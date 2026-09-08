@@ -13,6 +13,7 @@ import type { SkillRef } from '@lobechat/types/src/projectWorkspace';
 import type {
   ActivateSkillParams,
   CommandResult,
+  ExecScriptActivatedSkill,
   ExecScriptParams,
   ExportFileParams,
   ReadReferenceParams,
@@ -44,7 +45,7 @@ export interface SkillRuntimeService {
   execScript?: (
     command: string,
     options: {
-      activatedSkills?: Array<{ description?: string; id: string; name: string }>;
+      activatedSkills?: ExecScriptActivatedSkill[];
       description: string;
     },
   ) => Promise<CommandResult>;
@@ -64,9 +65,9 @@ export interface SkillRuntimeService {
  * via `DeviceFileAccess.listFiles` — keeping it out of the op param payload.
  */
 export interface ProjectSkillRuntimeItem {
+  key?: string;
   /** Absolute path to the skill's SKILL.md on the device. */
   location: string;
-  key?: string;
   name: string;
 }
 
@@ -97,7 +98,7 @@ export interface SkillsExecutionRuntimeOptions {
   deviceScriptRunner?: (
     command: string,
     options: {
-      activatedSkills?: Array<{ description?: string; id: string; name: string }>;
+      activatedSkills?: ExecScriptActivatedSkill[];
       cwd: string;
       description: string;
       deviceId: string;
@@ -110,17 +111,17 @@ export interface SkillsExecutionRuntimeOptions {
   executionContext?: ExecutionContext;
   /** Project skills discovered on the device filesystem. */
   projectSkills?: ProjectSkillRuntimeItem[];
-  /** Registry winners used by prompt assembly for this operation. */
-  registryResult?: { skills: SkillRef[] };
   projectSnapshotResolver?: (input: {
     key: string;
     location: string;
     resourcePath?: string;
   }) => Promise<{ directory: string; content: string; files: string[]; resourceContent?: string }>;
+  /** Registry winners used by prompt assembly for this operation. */
+  registryResult?: { skills: SkillRef[] };
   service: SkillRuntimeService;
   /** Resolves a mounted device skill bundle without guessing a host path. */
   skillDirectoryResolver?: (
-    activatedSkills: Array<{ description?: string; id: string; name: string }>,
+    activatedSkills: ExecScriptActivatedSkill[],
   ) => Promise<string | undefined>;
 }
 
@@ -248,8 +249,28 @@ export class SkillsExecutionRuntime {
           content: 'The activated skill resource is no longer available.',
           success: false,
         };
+      if (ref.source === 'user' && userSkill?.zipFileHash) {
+        const activation = selected?.find((skill) => skill.id === ref.key);
+        if (
+          !ref.zipFileHash ||
+          activation?.resourceVersion !== ref.zipFileHash ||
+          userSkill.zipFileHash !== activation.resourceVersion
+        ) {
+          return {
+            content:
+              'SKILL_RESOURCE_VERSION_CHANGED: activate this skill again before executing its ZIP resources.',
+            state: { errorCode: 'SKILL_RESOURCE_VERSION_CHANGED' },
+            success: false,
+          };
+        }
+      }
       activatedSkills = [
-        { id: userSkill?.id ?? ref.key, name: ref.name, description: ref.description },
+        {
+          id: userSkill?.id ?? ref.key,
+          name: ref.name,
+          description: ref.description,
+          resourceVersion: userSkill?.zipFileHash ?? undefined,
+        },
       ];
     }
 
@@ -298,8 +319,7 @@ export class SkillsExecutionRuntime {
         try {
           const result = await this.deviceScriptRunner(command, {
             activatedSkills,
-            cwd:
-              projectSkill && this.projectSnapshotResolver ? this.executionContext.cwd! : route.cwd,
+            cwd: this.executionContext.cwd ?? route.cwd,
             description,
             deviceId: route.deviceId,
             env: route.env,
@@ -731,6 +751,7 @@ export class SkillsExecutionRuntime {
           id: registryRef?.key ?? `user:${skill.identifier}`,
           name: skill.name,
           source: 'user',
+          resourceVersion: skill.zipFileHash ?? undefined,
         },
         success: true,
       };

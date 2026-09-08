@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import {
   SANDBOX_UPLOADED_FILES_DIR,
   sandboxUploadedFilePath,
@@ -12,11 +13,11 @@ export const SANDBOX_INIT_TIMEOUT_MS = 120_000;
 
 export interface SandboxInitDownload {
   id?: string;
-  version?: string;
-  size?: number;
   name: string;
+  size?: number;
   /** A download URL (e.g. presigned) the sandbox can fetch with curl. */
   url: string;
+  version?: string;
 }
 
 const shellQuote = (value: string): string => `'${value.replaceAll("'", String.raw`'\''`)}'`;

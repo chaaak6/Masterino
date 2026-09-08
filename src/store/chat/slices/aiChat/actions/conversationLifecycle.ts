@@ -37,6 +37,7 @@ import { chatService } from '@/services/chat';
 import { resolveClientSkillRegistry } from '@/services/chat/mecha/clientSkillRegistry';
 import { resolveSelectedSkillsWithContent } from '@/services/chat/mecha/skillPreload';
 import { resolveSelectedToolsWithContent } from '@/services/chat/mecha/toolPreload';
+import { bindLocalAttachmentMessage } from '@/services/electron/localAttachmentService';
 import { messageService } from '@/services/message';
 import { type ProjectWorkspaceItem, projectWorkspaceService } from '@/services/projectWorkspace';
 import { getAgentStoreState, useAgentStore } from '@/store/agent';
@@ -405,6 +406,7 @@ export class ConversationLifecycleActionImpl {
       // we drain, chatUploadFileList has long been cleared.
       const filesPreview: QueuedFile[] = (files ?? []).map((f) => ({
         attachment: f.attachment,
+        attachmentDraftId: f.attachmentDraftId,
         id: f.id,
         mimeType: f.file?.type ?? '',
         name: f.file?.name ?? f.id,
@@ -431,7 +433,12 @@ export class ConversationLifecycleActionImpl {
     }
 
     if (onlyAddUserMessage) {
-      await this.#get().addUserMessage({ message, fileList: fileIdList, attachments });
+      await this.#get().addUserMessage({
+        message,
+        fileList: fileIdList,
+        attachments,
+        attachmentDrafts: files,
+      });
 
       return;
     }
@@ -778,6 +785,12 @@ export class ConversationLifecycleActionImpl {
       }
 
       if (!heteroData) return;
+      if (files?.some((file) => file.attachment))
+        await bindLocalAttachmentMessage(
+          files,
+          heteroData.userMessageId,
+          heteroData.topicId ?? operationContext.topicId ?? 'active',
+        );
       if (pendingExecution?.draftKey) {
         getProjectWorkspaceStoreState().clearDraftIntent(pendingExecution.draftKey);
       }
@@ -1023,6 +1036,12 @@ export class ConversationLifecycleActionImpl {
         },
         abortController,
       );
+      if (files?.some((file) => file.attachment))
+        await bindLocalAttachmentMessage(
+          files,
+          data.userMessageId,
+          data.topicId ?? operationContext.topicId ?? 'active',
+        );
       const responseMeta = data as SendMessageServerResponseMeta;
       if (pendingExecution?.draftKey) {
         getProjectWorkspaceStoreState().clearDraftIntent(pendingExecution.draftKey);

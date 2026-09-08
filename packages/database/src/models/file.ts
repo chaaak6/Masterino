@@ -11,8 +11,8 @@ import {
   like,
   notExists,
   or,
-  sum,
   sql,
+  sum,
 } from 'drizzle-orm';
 import type { PgTransaction } from 'drizzle-orm/pg-core';
 
@@ -39,13 +39,13 @@ import { buildWorkspacePayload, buildWorkspaceWhere } from '../utils/workspace';
  * Minimal file descriptor used to bootstrap user-uploaded files into a sandbox.
  */
 export interface SandboxInitFileItem {
-  version?: string;
   fileType: string;
   id: string;
   name: string;
   size: number;
   /** S3 key / storage url, needs to be turned into a download url before use */
   url: string;
+  version?: string;
 }
 
 export class FileModel {

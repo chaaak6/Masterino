@@ -19,6 +19,8 @@ export interface ActivateSkillState {
   hasResources: boolean;
   id: string;
   name: string;
+  /** Internal ZIP content version; never part of the model-facing skill ID. */
+  resourceVersion?: string;
   /** Skill origin — drives the inspector label (e.g. "Activate Agent Skill"). */
   source?: ActivateSkillSource;
   /** Friendly title for UI display; falls back to `name` when unset. */
@@ -32,11 +34,10 @@ export interface ExecScriptActivatedSkill {
   description?: string;
   id: string;
   name: string;
+  resourceVersion?: string;
 }
 
 export interface ExecScriptParams {
-  /** Stable key returned by activateSkill. */
-  skillId?: string;
   /**
    * All activated skills from stepContext
    * Server will resolve zipUrls for all skills
@@ -44,6 +45,8 @@ export interface ExecScriptParams {
   activatedSkills?: ExecScriptActivatedSkill[];
   command: string;
   description: string;
+  /** Stable key returned by activateSkill. */
+  skillId?: string;
 }
 
 export interface ExecScriptState {

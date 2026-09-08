@@ -1,5 +1,10 @@
-import type { AttachmentRef, MessageAttachments } from '@lobechat/types';
-import type { ConversationContext, MessageMetadata, UploadFileItem } from '@lobechat/types';
+import type {
+  AttachmentRef,
+  ConversationContext,
+  MessageAttachments,
+  MessageMetadata,
+  UploadFileItem,
+} from '@lobechat/types';
 
 /**
  * Operation Type Definitions
@@ -196,6 +201,7 @@ export interface Operation {
  */
 export interface QueuedFile {
   attachment?: AttachmentRef;
+  attachmentDraftId?: string;
   id: string;
   /** MIME type, e.g. `image/png`, `video/mp4`, `application/pdf` */
   mimeType: string;
@@ -218,6 +224,7 @@ export interface QueuedFile {
 export const reconstructUploadFilesFromQueue = (files: QueuedFile[]): UploadFileItem[] =>
   files.map((f) => ({
     attachment: f.attachment,
+    attachmentDraftId: f.attachmentDraftId,
     id: f.id,
     file: new File([], f.name, { type: f.mimeType }),
     fileUrl: f.url || undefined,

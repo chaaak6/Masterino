@@ -1,4 +1,5 @@
 import { StringDecoder } from 'node:string_decoder';
+
 import * as yauzl from 'yauzl';
 
 /** Opens only requested ZIP members; never expands the whole Office package. */
@@ -71,7 +72,7 @@ export async function openOfficeZip(path: string) {
   return { close: () => zip.close(), entries, records, text };
 }
 export const unescapeXml = (s: string) =>
-  s.replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_, x: string) => {
+  s.replaceAll(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_, x: string) => {
     if (x.startsWith('#'))
       return String.fromCodePoint(x[1] === 'x' ? parseInt(x.slice(2), 16) : Number(x.slice(1)));
     return ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" } as Record<string, string>)[x] ?? _;

@@ -4,8 +4,6 @@ import debug from 'debug';
 import { z } from 'zod';
 
 import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
-import { AgentSkillModel } from '@/database/models/agentSkill';
-import { FileModel } from '@/database/models/file';
 import { type ToolCallContent } from '@/libs/mcp';
 import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { marketUserInfo, serverDatabase, telemetry } from '@/libs/trpc/lambda/middleware';
@@ -26,6 +24,7 @@ import {
   listOptionalMarketConnectionsWithTimeout,
   MARKET_CONNECTIONS_REQUEST_TIMEOUT_MS,
 } from './_helpers/marketConnections';
+import { assertLegacySandboxSkillBoundary } from './_helpers/skillExecutionBoundary';
 
 const log = debug('lobe-server:tools:market');
 
@@ -218,6 +217,10 @@ const execInSandboxHandler = async ({
   log('execInSandbox: tool=%s, topicId=%s', toolName, topicId);
 
   try {
+    // This legacy endpoint has no authoritative operation registry. Plain
+    // user-authored commands remain supported; ZIP skill preparation belongs
+    // to the operation-bound SkillsExecutionRuntime/server service.
+    assertLegacySandboxSkillBoundary(toolName, params);
     let enhancedParams = params;
 
     // Preprocess lh commands: rewrite to npx @lobehub/cli + inject auth env vars
@@ -237,41 +240,6 @@ const execInSandboxHandler = async ({
 
       if (lhResult.skipSkillLookup) {
         enhancedParams = { ...params, command: lhResult.command };
-      }
-    }
-
-    // For execScript tool, look up skill zipUrls from activatedSkills
-    if (toolName === 'execScript' && enhancedParams.activatedSkills?.length) {
-      const wsId = ctx.workspaceId ?? undefined;
-      const agentSkillModel = new AgentSkillModel(ctx.serverDB, userId, wsId);
-      const fileModel = new FileModel(ctx.serverDB, userId, wsId);
-
-      // Resolve zipUrls for all activated skills
-      const skillZipUrls: Record<string, string> = {};
-
-      for (const activatedSkill of enhancedParams.activatedSkills) {
-        if (!activatedSkill.name) continue;
-
-        const skill = await agentSkillModel.findByName(activatedSkill.name);
-        if (!skill?.zipFileHash) continue;
-
-        const fileInfo = await fileModel.checkHash(skill.zipFileHash);
-        if (!fileInfo.isExist || !fileInfo.url) continue;
-
-        const fullUrl = await ctx.fileService.getFullFileUrl(fileInfo.url);
-        if (fullUrl) {
-          skillZipUrls[activatedSkill.name] = fullUrl;
-          log('Resolved zipUrl for skill %s', activatedSkill.name);
-        }
-      }
-
-      // Add skillZipUrls to params if any were resolved
-      if (Object.keys(skillZipUrls).length > 0) {
-        enhancedParams = {
-          ...enhancedParams,
-          skillZipUrls,
-        };
-        log('Added skillZipUrls to execScript params: %O', Object.keys(skillZipUrls));
       }
     }
 
@@ -423,6 +391,46 @@ export const marketRouter = router({
   callCodeInterpreterTool: sandboxToolProcedure
     .input(execInSandboxSchema)
     .mutation(({ input, ctx }) => execInSandboxHandler({ ctx, input })),
+
+  executeSkillTool: sandboxToolProcedure
+    .input(
+      z.object({
+        apiName: z.enum(['activateSkill', 'readReference', 'execScript']),
+        messageId: z.string().min(1),
+        topicId: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { AiAgentService } = await import('@/server/services/aiAgent');
+      const { skillsRuntime } =
+        await import('@/server/services/toolExecution/serverRuntimes/skills');
+      const service = new AiAgentService(ctx.serverDB, ctx.userId, {
+        workspaceId: ctx.workspaceId ?? undefined,
+      });
+      const binding = await service.resolveClientSkillToolContext(input);
+      const runtime = await skillsRuntime.factory(binding.context);
+      switch (input.apiName) {
+        case 'activateSkill': {
+          return runtime.activateSkill(z.object({ name: z.string().min(1) }).parse(binding.args));
+        }
+        case 'readReference': {
+          return runtime.readReference(
+            z.object({ id: z.string().min(1), path: z.string().min(1) }).parse(binding.args),
+          );
+        }
+        case 'execScript': {
+          return runtime.execScript(
+            z
+              .object({
+                skillId: z.string().optional(),
+                command: z.string().min(1),
+                description: z.string().default(''),
+              })
+              .parse(binding.args),
+          );
+        }
+      }
+    }),
 
   // ============================== Sandbox Execution ==============================
   execInSandbox: sandboxToolProcedure

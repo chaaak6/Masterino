@@ -48,6 +48,7 @@ export interface ExecutionAccessRoot {
   rootPath: string;
   scope: 'operation' | 'primary' | 'topic';
   source: 'direct-user-message' | 'user-approval' | 'workspace';
+  target?: 'file' | 'directory';
   topicId?: string;
 }
 

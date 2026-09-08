@@ -2,9 +2,12 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+
 import { afterEach, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
+
 import { inspectOfficeDocument, readOfficeDocument } from './index';
+
 const dirs: string[] = [];
 const fixture = async (name: string) => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'office-test-'));

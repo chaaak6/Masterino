@@ -37,9 +37,9 @@ export interface OperationSkillSet {
  */
 export interface ActivatedStepSkill {
   activatedAtStep: number;
-  key?: string;
   content?: string;
   identifier: string;
+  key?: string;
 }
 
 /**

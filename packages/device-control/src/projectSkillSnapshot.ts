@@ -16,14 +16,14 @@ import path from 'node:path';
 
 export interface ProjectSkillSnapshotParams {
   operationId: string;
-  skillId: string;
   path: string;
-  workspaceRoot: string;
   resourcePath?: string;
+  skillId: string;
+  workspaceRoot: string;
 }
 export interface ProjectSkillSnapshot {
-  directory: string;
   content: string;
+  directory: string;
   files: string[];
   resourceContent?: string;
 }
@@ -149,7 +149,7 @@ export async function prepareProjectSkillSnapshot(
           // Another host process won this operation binding. Use its complete snapshot.
           binding = JSON.parse(await readFile(bindingFile, 'utf8'));
           if (!binding || binding.source !== source || !/^[a-f0-9]{64}$/.test(binding.hash))
-            throw new Error('SKILL_BINDING_MISMATCH');
+            throw new Error('SKILL_BINDING_MISMATCH', { cause: error });
         } finally {
           await rm(staging, { force: true });
         }

@@ -1,9 +1,12 @@
 // @vitest-environment node
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+
 import { afterEach, expect, it } from 'vitest';
+
 import { prepareProjectSkillSnapshot } from './projectSkillSnapshot';
+
 const folders: string[] = [];
 afterEach(async () => {
   await Promise.all(folders.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));

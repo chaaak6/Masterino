@@ -123,3 +123,59 @@ export const resolveLocalMessageAttachments = async (
   }
   return resolvedMessages;
 };
+
+export const localAttachmentStatus = async (ref: LocalRef): Promise<boolean> => {
+  if (typeof window === 'undefined' || !window.electronAPI?.invoke) return false;
+  return (await invoke<{ available: boolean }>('manageAttachment', { action: 'status', ref }))
+    .available;
+};
+
+export const retainLocalAttachmentDraft = async (ref: LocalRef, draftId: string) =>
+  invoke<{ available: boolean }>('manageAttachment', { action: 'retainDraft', ref, draftId });
+
+export const releaseLocalAttachmentDraft = async (ref: AttachmentRef, draftId?: string) => {
+  if (
+    ref.source !== 'local' ||
+    !draftId ||
+    typeof window === 'undefined' ||
+    !window.electronAPI?.invoke
+  )
+    return;
+  await invoke('manageAttachment', { action: 'releaseDraft', ref, draftId });
+};
+
+export const bindLocalAttachmentMessage = async (
+  refs: { attachment?: AttachmentRef; attachmentDraftId?: string }[],
+  messageId: string,
+  topicId: string,
+) => {
+  if (typeof window === 'undefined' || !window.electronAPI?.invoke) return;
+  for (const item of refs) {
+    if (item.attachment?.source !== 'local') continue;
+    await invoke('manageAttachment', {
+      action: 'bindMessage',
+      ref: item.attachment,
+      messageId,
+      topicId,
+      draftId: item.attachmentDraftId,
+    });
+  }
+};
+
+export const releaseLocalMessageAttachments = async (
+  messages: Pick<UIChatMessage, 'id' | 'attachments'>[],
+) => {
+  if (typeof window === 'undefined' || !window.electronAPI?.invoke) return;
+  for (const message of messages)
+    for (const ref of normalizeMessageAttachments(message)) {
+      if (ref.source === 'local')
+        await invoke('manageAttachment', { action: 'releaseMessage', ref, messageId: message.id });
+    }
+};
+
+export const previewLocalAttachment = (ref: LocalRef, topicId: string) =>
+  invoke<{ path?: string; dataUrl?: string }>('resolveAttachment', {
+    ref,
+    topicId,
+    image: ref.mime.startsWith('image/'),
+  });

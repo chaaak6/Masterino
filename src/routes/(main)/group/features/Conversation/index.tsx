@@ -1,10 +1,10 @@
-import { useChatStore } from '@/store/chat';
 import { Flexbox } from '@lobehub/ui';
 import { memo } from 'react';
 
 import DragUploadZone, { useUploadFiles } from '@/components/DragUploadZone';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import { useChatStore } from '@/store/chat';
 
 import ConversationArea from './ConversationArea';
 import ChatHeader from './Header';

@@ -1,13 +1,17 @@
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
+
 import {
+  manageLocalAttachment,
   prepareLocalAttachment,
   receiveLocalAttachment,
   resolveLocalAttachment,
   validatePreparedLocalAttachment,
 } from './localAttachments';
+
 describe('device attachments', () => {
   it('persists device IDs and prepares a copy without granting parent directories', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-test-'));
@@ -58,5 +62,105 @@ describe('device attachments', () => {
     await expect(
       resolveLocalAttachment(root, 'device', { ...ref, localResourceId: '../secret' }),
     ).rejects.toThrow('identity');
+  });
+});
+
+describe('local attachment lifecycle', () => {
+  it('cancels a pathless draft by deleting only managed data and index', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-cleanup-'));
+    const ref = await receiveLocalAttachment(root, 'device', {
+      draftId: 'draft',
+      name: 'paste.txt',
+      mime: 'text/plain',
+      data: Buffer.from('paste'),
+    });
+    const source = await resolveLocalAttachment(root, 'device', ref);
+    expect(
+      await manageLocalAttachment(root, 'device', {
+        action: 'releaseDraft',
+        ref,
+        draftId: 'draft',
+      }),
+    ).toMatchObject({ removed: true });
+    await expect(readFile(source.path)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await manageLocalAttachment(root, 'device', { action: 'status', ref })).toEqual({
+      available: false,
+    });
+  });
+
+  it('preserves originals and other message/draft references until the last release', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-cleanup-'));
+    const original = path.join(root, 'original.txt');
+    await writeFile(original, 'original');
+    const ref = await receiveLocalAttachment(root, 'device', {
+      draftId: 'draft',
+      name: 'original.txt',
+      mime: 'text/plain',
+      originalPath: original,
+      data: Buffer.from('original'),
+    });
+    await manageLocalAttachment(root, 'device', {
+      action: 'bindMessage',
+      ref,
+      messageId: 'm1',
+      topicId: 'topic1',
+      draftId: 'draft',
+    });
+    await manageLocalAttachment(root, 'device', {
+      action: 'bindMessage',
+      ref,
+      messageId: 'm2',
+      topicId: 'topic2',
+    });
+    const copy = await prepareLocalAttachment(root, 'device', ref, 'topic1');
+    await manageLocalAttachment(root, 'device', { action: 'retainDraft', ref, draftId: 'reuse' });
+    await manageLocalAttachment(root, 'device', { action: 'releaseMessage', ref, messageId: 'm1' });
+    expect((await manageLocalAttachment(root, 'device', { action: 'status', ref })).available).toBe(
+      true,
+    );
+    await manageLocalAttachment(root, 'device', { action: 'releaseMessage', ref, messageId: 'm2' });
+    expect((await manageLocalAttachment(root, 'device', { action: 'status', ref })).available).toBe(
+      true,
+    );
+    await manageLocalAttachment(root, 'device', { action: 'releaseDraft', ref, draftId: 'reuse' });
+    expect(await readFile(original, 'utf8')).toBe('original');
+    await expect(readFile(copy.path)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('serializes simultaneous message bindings so deleting one never removes the other', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-cleanup-'));
+    const ref = await receiveLocalAttachment(root, 'device', {
+      draftId: 'draft',
+      name: 'x.txt',
+      mime: 'text/plain',
+      data: Buffer.from('x'),
+    });
+    await Promise.all(
+      ['m1', 'm2'].map((messageId) =>
+        manageLocalAttachment(root, 'device', {
+          action: 'bindMessage',
+          ref,
+          messageId,
+          topicId: messageId,
+          draftId: 'draft',
+        }),
+      ),
+    );
+    await manageLocalAttachment(root, 'device', { action: 'releaseMessage', ref, messageId: 'm1' });
+    expect((await manageLocalAttachment(root, 'device', { action: 'status', ref })).available).toBe(
+      true,
+    );
+    expect(
+      (
+        await manageLocalAttachment(root, 'other-device', {
+          action: 'releaseMessage',
+          ref,
+          messageId: 'm2',
+        })
+      ).available,
+    ).toBe(false);
+    expect((await manageLocalAttachment(root, 'device', { action: 'status', ref })).available).toBe(
+      true,
+    );
   });
 });

@@ -21,6 +21,9 @@ export function selectActivatedSkillsFromMessages(
     skills.delete(id);
     skills.set(id, {
       id,
+      ...('resourceVersion' in value && typeof value.resourceVersion === 'string'
+        ? { resourceVersion: value.resourceVersion }
+        : {}),
       name: value.name,
       description:
         'description' in value && typeof value.description === 'string'

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+
 import { MessageAttachmentsSchema, normalizeMessageAttachments } from './attachments';
+
 describe('message attachments', () => {
   it('coexists with legacy relations without duplicates or local fake file IDs', () => {
     const local = {

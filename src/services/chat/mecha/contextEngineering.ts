@@ -1,5 +1,3 @@
-import type { ExecutionContext } from '@lobechat/types/src/executionContext';
-import { resolveLocalMessageAttachments } from '@/services/electron/localAttachmentService';
 import { LobeActivatorIdentifier } from '@lobechat/builtin-tool-activator';
 import { AgentBuilderIdentifier } from '@lobechat/builtin-tool-agent-builder';
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
@@ -39,6 +37,7 @@ import type {
   RuntimeStepContext,
   UIChatMessage,
 } from '@lobechat/types';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import debug from 'debug';
 
 import { isCanUseFC } from '@/helpers/isCanUseFC';
@@ -49,6 +48,7 @@ import {
   AVAILABLE_AGENTS_CONTEXT_LIMIT,
   AVAILABLE_AGENTS_CONTEXT_QUERY_LIMIT,
 } from '@/services/agent';
+import { resolveLocalMessageAttachments } from '@/services/electron/localAttachmentService';
 import { notebookService } from '@/services/notebook';
 import { getAgentStoreState } from '@/store/agent';
 import { agentChatConfigSelectors, agentSelectors } from '@/store/agent/selectors';
@@ -73,7 +73,6 @@ import { resolveClientSkills } from './skillEngineering';
 const log = debug('context-engine:contextEngineering');
 
 interface ContextEngineeringContext {
-  executionContext?: ExecutionContext;
   /** Agent Builder context for injecting current agent info */
   agentBuilderContext?: AgentBuilderContext;
   agentDocuments?: AgentContextDocument[];
@@ -81,6 +80,7 @@ interface ContextEngineeringContext {
   agentId?: string;
   enableHistoryCount?: boolean;
   enableUserMemories?: boolean;
+  executionContext?: ExecutionContext;
   /** Group ID for multi-agent scenarios */
   groupId?: string;
   historyCount?: number;

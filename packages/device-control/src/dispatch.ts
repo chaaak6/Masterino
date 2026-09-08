@@ -1,8 +1,4 @@
 import {
-  prepareProjectSkillSnapshot,
-  type ProjectSkillSnapshotParams,
-} from './projectSkillSnapshot';
-import {
   checkoutGitBranch,
   deleteGitBranch,
   getGitAheadBehind,
@@ -31,6 +27,10 @@ import {
   updateProjectSkillOnDevice,
   validateProjectSkillOnDevice,
 } from './projectSkillAuthoring';
+import {
+  prepareProjectSkillSnapshot,
+  type ProjectSkillSnapshotParams,
+} from './projectSkillSnapshot';
 import { type PrepareDeviceSkillPackage, prepareSkillPackage } from './skillPackage';
 import type {
   CleanupScratchWorkspaceParams,
@@ -119,8 +119,9 @@ export const executeDeviceRpc = async (
   deps: DeviceControlDeps,
 ): Promise<unknown> => {
   switch (method) {
-    case 'prepareProjectSkillSnapshot':
+    case 'prepareProjectSkillSnapshot': {
       return prepareProjectSkillSnapshot(params as ProjectSkillSnapshotParams, deps.skillCacheRoot);
+    }
     case 'prepareSkillPackage': {
       return prepareSkillPackage(params as PrepareDeviceSkillPackage, deps.skillCacheRoot);
     }

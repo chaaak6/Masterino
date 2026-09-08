@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { detectRepoType } from '@lobechat/local-file-shell';
-import { recoverProjectSkillEdit } from './projectSkillAuthoring';
 
+import { recoverProjectSkillEdit } from './projectSkillAuthoring';
 import type {
   CleanupScratchWorkspaceParams,
   CleanupScratchWorkspaceResult,

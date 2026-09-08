@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import {
   cp,
   lstat,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   realpath,
   rename,
@@ -11,9 +13,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 
-import fg from 'fast-glob';
 import { type Zippable, zipSync } from 'fflate';
 
 const MAX_FILE_BYTES = 1024 * 1024;
@@ -129,18 +129,37 @@ const assertNoSymlinks = async (workspaceRoot: string, target: string): Promise<
   }
 };
 
-const listFiles = async (skillRoot: string): Promise<string[]> =>
-  (
-    await fg('**/*', {
-      absolute: false,
-      cwd: skillRoot,
-      dot: true,
-      followSymbolicLinks: false,
-      onlyFiles: true,
-    })
-  )
-    .map(normalizeRelativePath)
-    .sort();
+const listFiles = async (skillRoot: string): Promise<string[]> => {
+  const files: string[] = [];
+  const visit = async (directory: string): Promise<void> => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const target = path.join(directory, entry.name);
+      // Globs with onlyFiles silently omit symlinks. Reject every entry before
+      // copying a tree so even unused nested/dangling links cannot be published.
+      const info = await lstat(target);
+      if (info.isSymbolicLink()) throw new Error('SCOPE_DENIED');
+      if (info.isDirectory()) await visit(target);
+      else if (info.isFile()) files.push(normalizeRelativePath(path.relative(skillRoot, target)));
+      else throw new Error('INVALID_SKILL_FILE');
+    }
+  };
+  await visit(skillRoot);
+  return files.sort();
+};
+
+const acquireAuthoringLock = async (skillsRoot: string): Promise<string> => {
+  const lock = path.join(skillsRoot, '.authoring-lock');
+  await mkdir(lock).catch(() => {
+    throw new Error('SKILL_EDIT_IN_PROGRESS');
+  });
+  try {
+    await writeFile(path.join(lock, 'owner.json'), JSON.stringify({ pid: process.pid }));
+    return lock;
+  } catch (error) {
+    await rm(lock, { recursive: true, force: true });
+    throw error;
+  }
+};
 
 /** Recover only our own journal after its owning process has exited. */
 export const recoverProjectSkillEdit = async (scope: string): Promise<void> => {
@@ -166,10 +185,8 @@ export const recoverProjectSkillEdit = async (scope: string): Promise<void> => {
     const original = path.join(skillsRoot, journal.original);
     const destination = path.join(skillsRoot, journal.destination);
     const backup = path.join(lock, 'previous');
-    if (await lstat(backup).catch(() => undefined)) {
-      if (!(await lstat(destination).catch(() => undefined))) await rename(backup, original);
+    if (await lstat(backup).catch(() => undefined) && !(await lstat(destination).catch(() => undefined))) await rename(backup, original);
       // An installed destination means publication completed; retain it.
-    }
     await rm(path.join(skillsRoot, journal.stage), { recursive: true, force: true });
   }
   await rm(lock, { recursive: true, force: true });
@@ -246,11 +263,7 @@ const stageSkill = async (
   await mkdir(roots.skillsRoot, { recursive: true });
   await recoverProjectSkillEdit(input.scope);
   await assertNoSymlinks(roots.workspaceRoot, roots.skillRoot);
-  const lock = path.join(roots.skillsRoot, '.authoring-lock');
-  await mkdir(lock).catch(() => {
-    throw new Error('SKILL_EDIT_IN_PROGRESS');
-  });
-  await writeFile(path.join(lock, 'owner.json'), JSON.stringify({ pid: process.pid }));
+  const lock = await acquireAuthoringLock(roots.skillsRoot);
   const destination = (await getRoots(input.scope, newName)).skillRoot;
   const backup = path.join(lock, 'previous');
   let stage: string | undefined;
@@ -355,17 +368,22 @@ export const deleteProjectSkillOnDevice = async (
   const { skillRoot, skillsRoot, workspaceRoot } = await getRoots(input.scope, input.name);
   await recoverProjectSkillEdit(input.scope);
   await assertNoSymlinks(workspaceRoot, skillRoot);
-  if (!(await stat(skillRoot)).isDirectory()) throw new Error('PROJECT_SKILL_NOT_FOUND');
-  // Remove the directory from discovery with one rename before deleting bytes.
-  // A cleanup failure leaves only an ignored tombstone, never half a skill.
-  const tombstone = await mkdtemp(path.join(skillsRoot, '.deleted-'));
+  const lock = await acquireAuthoringLock(skillsRoot);
   try {
-    await rename(skillRoot, path.join(tombstone, 'skill'));
-  } catch (error) {
-    await rm(tombstone, { recursive: true, force: true });
-    throw error;
+    if (!(await stat(skillRoot)).isDirectory()) throw new Error('PROJECT_SKILL_NOT_FOUND');
+    // The same authoring lock excludes staged edits through removal. No second
+    // transaction: one rename removes the skill from discovery atomically.
+    const tombstone = await mkdtemp(path.join(skillsRoot, '.deleted-'));
+    try {
+      await rename(skillRoot, path.join(tombstone, 'skill'));
+    } catch (error) {
+      await rm(tombstone, { recursive: true, force: true });
+      throw error;
+    }
+    await rm(tombstone, { recursive: true, force: true }).catch(() => undefined);
+  } finally {
+    await rm(lock, { recursive: true, force: true });
   }
-  await rm(tombstone, { recursive: true, force: true }).catch(() => undefined);
 };
 
 export const packProjectSkillOnDevice = async (

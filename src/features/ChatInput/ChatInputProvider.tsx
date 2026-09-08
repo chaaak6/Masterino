@@ -58,7 +58,6 @@ export const ChatInputProvider = memo<ChatInputProviderProps>(
       >
         <StoreUpdater
           agentId={agentId}
-          topicId={topicId}
           allowExpand={allowExpand}
           chatInputEditorRef={chatInputEditorRef}
           contextWindowMessages={contextWindowMessages}
@@ -72,6 +71,7 @@ export const ChatInputProvider = memo<ChatInputProviderProps>(
           sendButtonProps={sendButtonProps}
           sendMenu={sendMenu}
           slashPlacement={slashPlacement}
+          topicId={topicId}
           onMarkdownContentChange={onMarkdownContentChange}
           onSend={onSend}
         />

@@ -24,3 +24,15 @@ describe('project activation history', () => {
     ).toBeUndefined();
   });
 });
+
+it('preserves an internal resource version without changing the stable ID', () => {
+  expect(
+    selectActivatedSkillsFromMessages([
+      {
+        role: 'tool',
+        plugin: { apiName: 'activateSkill', identifier: 'lobe-skills' },
+        pluginState: { id: 'user:demo', name: 'demo', resourceVersion: 'zip-v1' },
+      },
+    ]),
+  ).toEqual([{ id: 'user:demo', name: 'demo', description: undefined, resourceVersion: 'zip-v1' }]);
+});

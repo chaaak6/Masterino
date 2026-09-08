@@ -143,6 +143,10 @@ import {
   createUserSkillProvider,
   SkillRegistryService,
 } from '@/server/services/skillRegistry';
+import {
+  resolveClientSkillSandboxContext,
+  resolveOwnedClientSkillTool,
+} from '@/server/services/skillRegistry/clientSkillToolEvidence';
 import { WorkspaceAccessGrantService } from '@/server/services/workspaceAccessGrant';
 import { markdownToTxt } from '@/utils/markdownToTxt';
 
@@ -595,6 +599,59 @@ export class AiAgentService {
         workspaces,
       },
       runtimeConfig,
+    };
+  }
+
+  /** Revalidate client-originated Skill calls from owned persisted message evidence.
+   * Client operation maps are not server state: authority is rebuilt from the
+   * message chain and current topic/agent/workspace policy on every call.
+   */
+  async resolveClientSkillToolContext(input: {
+    topicId: string;
+    messageId: string;
+    apiName: 'activateSkill' | 'readReference' | 'execScript';
+  }) {
+    const evidence = await resolveOwnedClientSkillTool(input, {
+      findTopic: this.topicModel.findById,
+      findMessage: this.messageModel.findById,
+      findPlugin: this.messageModel.findMessagePlugin,
+    });
+    const { topic, message, agentId, operationId, toolCallId, args } = evidence;
+    const agentConfig = await this.agentService.getAgentConfig(agentId);
+    if (!agentConfig) throw new Error('SKILL_AGENT_UNAVAILABLE');
+    const frozen = await this.resolveFrozenExecutionContextInput({
+      agentConfig,
+      canUseDevice: true,
+      isDesktop: false,
+      isHetero: false,
+      operationId,
+      topicId: topic.id,
+    });
+    const executionContext = resolveClientSkillSandboxContext(frozen.input);
+    const skillRegistryResult = await this.resolveFrozenSkillRegistry({
+      agentConfig,
+      agentId,
+      executionContext,
+      skillPolicy: frozen.runtimeConfig.skillPolicy,
+      topicId: topic.id,
+    });
+    return {
+      args: args as Record<string, unknown>,
+      context: {
+        agentId,
+        groupId: message.groupId ?? undefined,
+        threadId: message.threadId ?? undefined,
+        topicId: topic.id,
+        operationId,
+        toolCallId,
+        messageId: message.id,
+        userId: this.userId,
+        workspaceId: this.workspaceId,
+        serverDB: this.db,
+        executionContext,
+        skillRegistryResult,
+        toolManifestMap: {},
+      },
     };
   }
 

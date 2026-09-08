@@ -2,6 +2,7 @@ import { nanoid } from '@lobechat/utils';
 import debug from 'debug';
 import { produce } from 'immer';
 
+import { releaseLocalAttachmentDraft } from '@/services/electron/localAttachmentService';
 import { type ChatStore } from '@/store/chat/store';
 import { type MessageMapKeyInput } from '@/store/chat/utils/messageMapKey';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
@@ -797,7 +798,20 @@ export class OperationActionsImpl {
     return messages;
   };
 
-  removeQueuedMessage = (contextKey: string, messageId: string): void => {
+  removeQueuedMessage = (
+    contextKey: string,
+    messageId: string,
+    options?: { preserveAttachments?: boolean },
+  ): void => {
+    if (!options?.preserveAttachments)
+      for (const file of this.#get().queuedMessages[contextKey]?.find(
+        (message) => message.id === messageId,
+      )?.filesPreview ?? []) {
+        if (file.attachment)
+          void releaseLocalAttachmentDraft(file.attachment, file.attachmentDraftId).catch(
+            () => undefined,
+          );
+      }
     this.#set(
       produce((state: ChatStore) => {
         const queue = state.queuedMessages[contextKey];
@@ -811,6 +825,13 @@ export class OperationActionsImpl {
   };
 
   clearMessageQueue = (contextKey: string): void => {
+    for (const message of this.#get().queuedMessages[contextKey] ?? [])
+      for (const file of message.filesPreview ?? []) {
+        if (file.attachment)
+          void releaseLocalAttachmentDraft(file.attachment, file.attachmentDraftId).catch(
+            () => undefined,
+          );
+      }
     this.#set(
       produce((state: ChatStore) => {
         delete state.queuedMessages[contextKey];

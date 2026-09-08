@@ -38,6 +38,8 @@ class DesktopSkillRuntimeService {
   ): Promise<string | undefined> {
     for (const activated of [...(activatedSkills ?? [])].reverse()) {
       const skill = await this.resolveSkill({ id: activated.id, name: activated.name });
+      if (skill?.zipFileHash && activated.resourceVersion !== skill.zipFileHash)
+        throw new Error('SKILL_RESOURCE_VERSION_CHANGED: activate this skill again');
       const directory = await this.prepareSkillDirectoryForSkill(skill);
       if (directory) return directory;
     }

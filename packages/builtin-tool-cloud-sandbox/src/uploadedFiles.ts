@@ -49,7 +49,7 @@ export const sanitizeSandboxFileName = (name: string): string => {
   const cleaned = [...base]
     .filter((char) => {
       const code = char.codePointAt(0) ?? 0;
-      return code > 0x1f && code !== 0x7f;
+      return code > 0x1F && code !== 0x7F;
     })
     .join('')
     .trim();

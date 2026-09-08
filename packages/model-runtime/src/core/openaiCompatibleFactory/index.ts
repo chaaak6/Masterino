@@ -1,4 +1,3 @@
-import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import type { ChatModelCard } from '@lobechat/types';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -43,6 +42,7 @@ import { getModelPricing } from '../../utils/getModelPricing';
 import { handleOpenAIError } from '../../utils/handleOpenAIError';
 import { detectModelProvider } from '../../utils/modelParse';
 import { postProcessModelList } from '../../utils/postProcessModelList';
+import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import {
   assertContextWithinWindow,
   type AssertContextWithinWindowOptions,

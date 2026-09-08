@@ -1,4 +1,3 @@
-import { FileModel } from '../../file';
 import type {
   CommitToolResultInput,
   DBMessageItem,
@@ -27,6 +26,7 @@ import {
   users,
 } from '../../../schemas';
 import type { LobeChatDatabase } from '../../../type';
+import { FileModel } from '../../file';
 import {
   MessageModel,
   ToolMessageIntentConflictError,

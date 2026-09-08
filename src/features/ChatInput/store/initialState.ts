@@ -53,7 +53,6 @@ export const DEFAULT_CHAT_INPUT_FEATURE = {
 } as const satisfies Required<ChatInputFeature>;
 
 export interface PublicState {
-  topicId?: string | null;
   agentId?: string;
   allowExpand?: boolean;
   contextWindowMessages?: ContextWindowMessage[];
@@ -74,6 +73,7 @@ export interface PublicState {
    * Slash menu placement: 'bottom' for home page (input in center), 'top' for page input (at bottom)
    */
   slashPlacement?: SlashPlacement;
+  topicId?: string | null;
 }
 
 export interface State extends PublicState {

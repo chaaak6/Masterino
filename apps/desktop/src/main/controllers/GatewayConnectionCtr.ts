@@ -32,23 +32,23 @@ import type {
 } from '@lobechat/electron-client-ipc';
 import {
   batchOfficeDocument,
-  mergeOfficeTemplate,
-  validateOfficeDocument,
-  type OfficeBatchParams,
-  type OfficeTemplateParams,
+  composeChildProcessEnv,
   createOfficeDocument,
   type CreateSpreadsheetParams,
-  inspectOfficeDocument,
-  readOfficeDocument,
-  type OfficeReadParams,
-  composeChildProcessEnv,
-  toolNeedsDefaultCwd,
   ExecutionBoundaryError,
   type ExecutionBoundaryTrace,
+  inspectOfficeDocument,
   loadWorkspaceEnvFiles,
+  mergeOfficeTemplate,
+  type OfficeBatchParams,
+  type OfficeReadParams,
+  type OfficeTemplateParams,
   type PreparedToolCallExecution,
   prepareToolCallExecution,
+  readOfficeDocument,
   resolveLoginShellPath,
+  toolNeedsDefaultCwd,
+  validateOfficeDocument,
 } from '@lobechat/local-file-shell';
 import { type ILocalSystemService, LocalSystemExecutionRuntime } from '@lobechat/tool-runtime';
 
@@ -719,14 +719,24 @@ export default class GatewayConnectionCtr extends ControllerModule {
       throw error;
     }
     args = prepared.args;
+    const executionStartedAt = performance.now();
     const finish = (output: BuiltinServerRuntimeOutput): BuiltinServerRuntimeOutput => {
-      if (prepared.scopeAudit.length === 0 && prepared.warnings.length === 0) return output;
+      const measure = normalized.endsWith('OfficeDocument') || normalized === 'writeFile';
+      if (!measure && prepared.scopeAudit.length === 0 && prepared.warnings.length === 0)
+        return output;
       return {
         ...output,
         state: {
           ...(typeof output.state === 'object' && output.state
             ? output.state
             : { result: output.state }),
+          ...(measure && {
+            executionMetrics: {
+              durationMs: Math.round((performance.now() - executionStartedAt) * 100) / 100,
+              outputBytes: Buffer.byteLength(output.content ?? '', 'utf8'),
+              toolName: normalized,
+            },
+          }),
           scopeAudit: prepared.scopeAudit,
           workspaceWarnings: prepared.warnings,
         },

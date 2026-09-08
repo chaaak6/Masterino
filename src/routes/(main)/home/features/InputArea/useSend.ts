@@ -140,7 +140,7 @@ export const useSend = () => {
         }
       } finally {
         // Clear input and files after send
-        clearChatUploadFileList();
+        clearChatUploadFileList({ preserveAttachments: true });
         clearChatContextSelections();
         mainInputEditor?.clearContent();
       }

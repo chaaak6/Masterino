@@ -1,21 +1,22 @@
-import { readFile, stat, link, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { link, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
 import * as XLSX from 'xlsx';
 
 import { openOfficeZip } from './zip';
 
 export interface OfficeBatchParams {
-  path: string;
-  outputPath: string;
-  version?: string;
   operations: { sheet: string; cell: string; value: string | number | boolean | null }[];
+  outputPath: string;
+  path: string;
+  version?: string;
 }
 export interface OfficeTemplateParams {
-  path: string;
   outputPath: string;
-  version?: string;
+  path: string;
   values: Record<string, string>;
+  version?: string;
 }
 const fileVersion = async (file: string) => {
   const s = await stat(file);
@@ -37,7 +38,7 @@ async function loadWorkbook(file: string, version?: string) {
     // SheetJS rewrites a workbook: explicitly reject features this finite writer cannot preserve.
     if (
       [...zip.entries.keys()].some((p) =>
-        /(?:vbaProject|drawings\/|charts\/|externalLinks\/|pivotTables\/|embeddings\/)/i.test(p),
+        /vbaProject|drawings\/|charts\/|externalLinks\/|pivotTables\/|embeddings\//i.test(p),
       )
     )
       throw new Error(
@@ -126,7 +127,7 @@ export async function mergeOfficeTemplate(params: OfficeTemplateParams) {
   for (const name of book.SheetNames) {
     for (const [address, cell] of Object.entries(book.Sheets[name]!)) {
       if (address.startsWith('!') || cell.t !== 's' || cell.f) continue;
-      cell.v = String(cell.v).replace(/\{\{([\w.-]+)\}\}/g, (match, key: string) => {
+      cell.v = String(cell.v).replaceAll(/\{\{([\w.-]+)\}\}/g, (match, key: string) => {
         if (!Object.hasOwn(params.values, key)) return match;
         replacements++;
         return params.values[key]!;

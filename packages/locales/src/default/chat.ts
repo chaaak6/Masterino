@@ -1,5 +1,12 @@
 export default {
-  'localAttachment': { deviceOnly: 'Local attachment · available on the original device' },
+  'localAttachment': {
+    deviceOnly: 'Local attachment · available on the original device',
+    checking: 'Checking local availability…',
+    unavailable: 'Unavailable on this device; select the file again',
+    preview: 'Preview',
+    addToInput: 'Add to input',
+    added: 'Added to input',
+  },
   'workspaceRuntime.hetero.gate.webDesc':
     'Create a project topic in the desktop app, then continue it here.',
 

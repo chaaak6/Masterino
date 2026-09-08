@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { withRequestBodyBudget } from './requestBodyBudget';
+
 describe('serialized request budget', () => {
   it('rejects SDK serialized base64 before the real fetch on every attempt', async () => {
     const network = vi.fn();

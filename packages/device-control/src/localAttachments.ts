@@ -1,7 +1,8 @@
-import { ensureScratchWorkspace } from './workspace';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
+import { ensureScratchWorkspace } from './workspace';
 
 const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
 export interface LocalAttachmentRecord {
@@ -15,9 +16,13 @@ export interface LocalAttachmentRecord {
   version: string;
 }
 interface StoredAttachment {
-  ref: LocalAttachmentRecord;
-  path: string;
   draftId: string;
+  draftIds?: string[];
+  lifecycleVersion?: 1;
+  messageBindings?: Record<string, string>;
+  path: string;
+  preparedTopicIds?: string[];
+  ref: LocalAttachmentRecord;
   topicId?: string;
   topicIds?: string[];
 }
@@ -69,7 +74,14 @@ export async function receiveLocalAttachment(
   await mkdir(path.join(root, 'attachment-index'), { recursive: true, mode: 0o700 });
   await writeFile(
     recordPath(root, localResourceId),
-    JSON.stringify({ ref, path: await realpath(filePath), draftId: input.draftId }),
+    JSON.stringify({
+      ref,
+      path: await realpath(filePath),
+      draftId: input.draftId,
+      lifecycleVersion: 1,
+      draftIds: [input.draftId],
+      messageBindings: {},
+    }),
     { flag: 'wx', mode: 0o600 },
   );
   return ref;
@@ -139,17 +151,27 @@ export async function bindLocalAttachment(
 ) {
   await resolveLocalAttachment(root, deviceId, ref);
   const filename = recordPath(root, ref.localResourceId);
-  const record: StoredAttachment = JSON.parse(await readFile(filename, 'utf8'));
-  const temporary = `${filename}.${randomUUID()}.tmp`;
-  const topicIds = [
-    ...new Set([
-      ...(record.topicIds ?? []),
-      ...(record.topicId ? [record.topicId] : []),
-      segment(topicId),
-    ]),
-  ];
-  await writeFile(temporary, JSON.stringify({ ...record, topicIds }), { mode: 0o600, flag: 'wx' });
-  await rename(temporary, filename);
+  return serializeAttachmentMutation(filename, async () => {
+    const record: StoredAttachment = JSON.parse(await readFile(filename, 'utf8'));
+    const temporary = `${filename}.${randomUUID()}.tmp`;
+    const topicIds = [
+      ...new Set([
+        ...(record.topicIds ?? []),
+        ...(record.topicId ? [record.topicId] : []),
+        segment(topicId),
+      ]),
+    ];
+    await writeFile(
+      temporary,
+      JSON.stringify({
+        ...record,
+        topicIds,
+        preparedTopicIds: [...new Set([...(record.preparedTopicIds ?? []), topicId])],
+      }),
+      { mode: 0o600, flag: 'wx' },
+    );
+    await rename(temporary, filename);
+  });
 }
 
 /** Main-process guard for a tool requesting a previously prepared exact file. */
@@ -178,4 +200,107 @@ export async function validatePreparedLocalAttachment(
   if (digest(await readFile(actual)) !== record.ref.version)
     throw new Error('Prepared attachment changed');
   return { path: actual, ref: record.ref };
+}
+
+export type LocalAttachmentLifecycleInput =
+  | { action: 'retainDraft' | 'releaseDraft'; ref: LocalAttachmentRecord; draftId: string }
+  | {
+      action: 'bindMessage';
+      ref: LocalAttachmentRecord;
+      messageId: string;
+      topicId: string;
+      draftId?: string;
+    }
+  | { action: 'releaseMessage'; ref: LocalAttachmentRecord; messageId: string }
+  | { action: 'status'; ref: LocalAttachmentRecord };
+
+const attachmentMutations = new Map<string, Promise<unknown>>();
+async function serializeAttachmentMutation<T>(
+  filename: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = attachmentMutations.get(filename) ?? Promise.resolve();
+  const task = previous.catch(() => undefined).then(operation);
+  attachmentMutations.set(filename, task);
+  try {
+    return await task;
+  } finally {
+    if (attachmentMutations.get(filename) === task) attachmentMutations.delete(filename);
+  }
+}
+
+/** Only metadata/stat for status; image/file bytes are loaded after an explicit user action. */
+export async function manageLocalAttachment(
+  root: string,
+  deviceId: string,
+  input: LocalAttachmentLifecycleInput,
+): Promise<{ available: boolean; removed?: boolean }> {
+  const { ref } = input;
+  if (deviceId !== ref.deviceId) return { available: false };
+  const filename = recordPath(root, ref.localResourceId);
+  const perform = async () => {
+    let record: StoredAttachment;
+    try {
+      record = JSON.parse(await readFile(filename, 'utf8'));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { available: false };
+      throw error;
+    }
+    if (
+      record.ref.attachmentId !== ref.attachmentId ||
+      record.ref.version !== ref.version ||
+      record.ref.deviceId !== deviceId
+    )
+      return { available: false };
+    if (input.action === 'status') {
+      try {
+        const actual = await realpath(record.path);
+        const info = await stat(actual);
+        return {
+          available: actual === record.path && info.isFile() && info.size === record.ref.size,
+        };
+      } catch {
+        return { available: false };
+      }
+    }
+    // Pre-lifecycle records can be reused, but unknown older references must never be deleted.
+    const canCollect = record.lifecycleVersion === 1;
+    const drafts = new Set(record.draftIds ?? []);
+    const bindings = { ...record.messageBindings };
+    if (input.action === 'retainDraft') drafts.add(segment(input.draftId));
+    else if (input.action === 'releaseDraft') drafts.delete(segment(input.draftId));
+    else if (input.action === 'bindMessage') {
+      bindings[segment(input.messageId)] = segment(input.topicId);
+      if (input.draftId) drafts.delete(segment(input.draftId));
+    } else if (input.action === 'releaseMessage') delete bindings[segment(input.messageId)];
+    const topicIds = canCollect ? [...new Set(Object.values(bindings))] : record.topicIds;
+    if (canCollect && drafts.size === 0 && Object.keys(bindings).length === 0) {
+      // Never delete record.path: it can be an original selected from outside app storage.
+      await rm(
+        path.join(root, 'attachment-drafts', segment(record.draftId), segment(ref.localResourceId)),
+        { recursive: true, force: true },
+      );
+      for (const topic of new Set([
+        ...(record.preparedTopicIds ?? []),
+        ...(record.topicIds ?? []),
+      ])) {
+        const workspace = await ensureScratchWorkspace(topic, root);
+        await rm(path.join(workspace.root, '.attachments', segment(ref.localResourceId)), {
+          recursive: true,
+          force: true,
+        });
+      }
+      await rm(filename, { force: true });
+      return { available: false, removed: true };
+    }
+    const temporary = `${filename}.${randomUUID()}.tmp`;
+    await writeFile(
+      temporary,
+      JSON.stringify({ ...record, draftIds: [...drafts], messageBindings: bindings, topicIds }),
+      { mode: 0o600, flag: 'wx' },
+    );
+    await rename(temporary, filename);
+    return { available: true };
+  };
+  return serializeAttachmentMutation(filename, perform);
 }

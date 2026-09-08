@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
 import { type UIChatMessage } from '@lobechat/types';
+import { describe, expect, it, vi } from 'vitest';
+
 import { resolveLocalMessageAttachments } from './localAttachmentService';
 
 const localImage = {

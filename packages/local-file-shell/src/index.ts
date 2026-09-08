@@ -4,8 +4,7 @@ export * from './file';
 export * from './fileSearch';
 export * from './git';
 export { createLogger, type Logger, type LoggerFactory, setLoggerFactory } from './logger';
+export * from './office';
 export * from './shell';
 export type { ToolCategory, ToolDetector } from './toolDetector';
 export * from './types';
-
-export * from './office';

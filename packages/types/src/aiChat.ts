@@ -1,7 +1,7 @@
-import { MessageAttachmentsSchema, type MessageAttachments } from './message/attachments';
 import { z } from 'zod';
 
 import type { UIChatMessage } from './message';
+import { type MessageAttachments, MessageAttachmentsSchema } from './message/attachments';
 import type { MessageMetadata } from './message/common';
 import { ChatToolPayloadSchema, MessageMetadataSchema } from './message/common';
 import type { CreateMessageParams, PageSelection } from './message/ui/params';

@@ -1,9 +1,9 @@
-import { MessageAttachmentsSchema, type MessageAttachments } from '../attachments';
 import { z } from 'zod';
 
 import type { ConversationContext } from '../../conversation';
 import type { UploadFileItem } from '../../files';
 import type { MessageSemanticSearchChunk } from '../../rag';
+import { type MessageAttachments, MessageAttachmentsSchema } from '../attachments';
 import type { ChatMessageError } from '../common/base';
 import { ChatMessageErrorSchema } from '../common/base';
 // Import for local use
@@ -48,8 +48,8 @@ export interface CreateMessageParams extends Partial<
  * This type is completely independent from UIChatMessage to ensure clean API contract
  */
 export interface CreateNewMessageParams {
-  attachments?: MessageAttachments | null;
   agentId: string;
+  attachments?: MessageAttachments | null;
   content: string;
   // ========== Error handling ==========
   error?: ChatMessageError | null;

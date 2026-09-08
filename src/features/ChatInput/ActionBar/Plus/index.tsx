@@ -707,6 +707,7 @@ const PlusAction = memo(() => {
     skillActivateMode,
     skillAutoCount,
     skillPinnedCount,
+    topicId,
     knowledgeItems,
     knowledgeFooter,
     t,

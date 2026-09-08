@@ -1,4 +1,3 @@
-import { normalizeMessageAttachments, type MessageAttachments } from '@lobechat/types';
 import { INBOX_SESSION_ID } from '@lobechat/const';
 import { parse } from '@lobechat/conversation-flow';
 import type {
@@ -16,10 +15,12 @@ import type {
   EnsureToolMessageInput,
   EnsureToolMessageResult,
   IThreadType,
+  type MessageAttachments,
   MessagePluginItem,
   ModelRankItem,
   ModelUsage,
   NewMessageQueryParams,
+  normalizeMessageAttachments,
   QueryMessageParams,
   TaskDetail,
   ThreadStatus,

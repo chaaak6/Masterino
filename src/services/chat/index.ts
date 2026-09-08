@@ -1,4 +1,3 @@
-import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { parseExceededContextWindowError, runContextBudgetedCall } from '@lobechat/agent-runtime';
 import { AgentBuilderIdentifier } from '@lobechat/builtin-tool-agent-builder';
 import {
@@ -24,6 +23,7 @@ import type {
   UIChatMessage,
 } from '@lobechat/types';
 import { AgentRuntimeErrorType, ChatErrorType, TraceTagMap } from '@lobechat/types';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { merge } from 'es-toolkit/compat';
 import { ModelProvider } from 'model-bank';
 
@@ -104,11 +104,11 @@ const providersWithDeploymentName = new Set<string>([
 ]);
 interface GetChatCompletionPayload extends Partial<Omit<ChatStreamPayload, 'messages'>> {
   agentId?: string;
+  executionContext?: ExecutionContext;
   groupId?: string;
   messages: UIChatMessage[];
   /** Skill registry winners frozen at the client operation boundary. */
   operationSkills?: OperationSkillSet['skills'];
-  executionContext?: ExecutionContext;
   /**
    * Pre-resolved agent config from AgentRuntime layer.
    * Required to ensure config consistency and proper isSubAgent filtering.

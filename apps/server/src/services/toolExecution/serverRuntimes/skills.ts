@@ -201,6 +201,8 @@ class SkillServerRuntimeService implements SkillRuntimeService {
           }
 
           if (!skill.zipFileHash) continue;
+          if (activatedSkill.resourceVersion !== skill.zipFileHash)
+            throw new Error('SKILL_RESOURCE_VERSION_CHANGED: activate this skill again');
 
           const fileInfo = await this.fileModel.checkHash(skill.zipFileHash);
           if (!fileInfo.isExist || !fileInfo.url) continue;
@@ -558,13 +560,15 @@ export const skillsRuntime: ServerRuntimeRegistration = {
           }
         : undefined,
       projectSkills,
-      registryResult: context.skillRegistryResult,
+      registryResult: context.skillRegistryResult ?? { skills: [] },
       skillDirectoryResolver: frozenDeviceId
         ? async (activated) => {
             const selected = activated?.[0];
             if (!selected) return undefined;
             const skill = await skillModel.findById(selected.id);
             if (!skill || !skill.zipFileHash) return undefined;
+            if (selected.resourceVersion !== skill.zipFileHash)
+              throw new Error('SKILL_RESOURCE_VERSION_CHANGED: activate this skill again');
             if (skill.name !== selected.name)
               throw new Error('Activated skill identity does not match its package');
             const file = await fileModel.checkHash(skill.zipFileHash);

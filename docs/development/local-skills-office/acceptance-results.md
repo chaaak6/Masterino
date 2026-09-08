@@ -33,3 +33,9 @@ Electron 桌面目录不在根 workspace 的安装集合，根 pnpm 安装后仍
 增量部署入口为 `ACK_TEST_ACTION=app-update CONFIRM_ACK_TEST_DEPLOY=masterino-test MASTERINO_IMAGE_DIGEST=sha256:<新实际digest> bash scripts/operations/deployAckTestWithAliyunCli.sh`。此入口只更新 App 与 memory worker 并逐一等待 rollout；不会进入全量 bootstrap/create-secret。App 启动时在 DATABASE_DRIVER 配置下执行 docker.cjs 迁移，须验证新镜像 migration 成功再开始业务用例。
 
 后续 Electron 命令：在当前 worktree 执行 `corepack pnpm dev:desktop:test`，不需要本地后端。应打印 backend `https://mlai-test.bielcrystal.com`、gateway 同域 `/device-gateway`、profile `test-server`，实际 userData 为 `masterino-desktop-test-server`；renderer 使用 5173。正常真实 OIDC/企业登录，不能复制本地 dev 会话或生产凭据。新镜像就绪前暂不启动 Electron。
+
+构建模板核对更正：历史 test 规则仅两个 buildargs 不足以保证当前测试前端正确。Dockerfile 第102行 NEXT_PUBLIC_MARKET_BASE_URL 默认生产地址；本轮必须额外传入 `NEXT_PUBLIC_MARKET_BASE_URL=https://mlai-test.bielcrystal.com/market`，并在产物检查静态配置。此前仅复核历史规则的建议遗漏了该构建时变量，已告知根任务修正。
+
+测试 Electron 预热：源码 `599e071335937d1d482caad189b1d3d7d3c4b082`，启动时另有41个 tracked dirty 文件（v2实施进行中）；仅用于登录/环境UI准备。正式业务验收需冻结最新SHA并重启，不能把本次dirty预热当最终版本通过。
+
+内测 Electron 预热实际结果：使用 `corepack pnpm dev:desktop:test` 成功进入既有测试 profile 首页，正常登录状态已存在，无需新的企业微信授权。启动日志 backend 为 `https://mlai-test.bielcrystal.com`，Gateway 为同域 `/device-gateway`，profile 为 `test-server`。从普通小宗狮AI的项目新增按钮打开系统目录选择器，选择 `/tmp/masterino-office-e2e-input`；UI realpath 为 `/private/tmp/masterino-office-e2e-input`，显示本机执行、项目已锁定，文件面板列出全部6个合成文件。未发送模型请求，未测试新Office业务或宣称Gateway执行成功。证据：`/tmp/masterino-office-e2e-evidence/test-profile-workspace-ready.png` 与同名 AX 文本。正式验收等待新镜像及最终freeze版本后重启。

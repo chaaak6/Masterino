@@ -1,8 +1,12 @@
-import type { MessageAttachments } from '@lobechat/types';
+import type { MessageAttachments, UploadFileItem } from '@lobechat/types';
 import { TraceEventType } from '@lobechat/types';
 import { copyToClipboard } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
 
+import {
+  bindLocalAttachmentMessage,
+  releaseLocalMessageAttachments,
+} from '@/services/electron/localAttachmentService';
 import { messageService } from '@/services/message';
 import { topicService } from '@/services/topic';
 import { type ChatStore } from '@/store/chat/store';
@@ -64,10 +68,12 @@ export class MessagePublicApiActionImpl {
   };
 
   addUserMessage = async ({
+    attachmentDrafts,
     attachments,
     message,
     fileList,
   }: {
+    attachmentDrafts?: UploadFileItem[];
     attachments?: MessageAttachments;
     message: string;
     fileList?: string[];
@@ -97,6 +103,8 @@ export class MessagePublicApiActionImpl {
     });
 
     if (result) {
+      if (attachmentDrafts)
+        await bindLocalAttachmentMessage(attachmentDrafts, result.id, activeTopicId ?? 'active');
       updateMessageInput('');
     }
   };
@@ -152,6 +160,7 @@ export class MessagePublicApiActionImpl {
     const ctx = this.#get().internal_getConversationContext();
     // CRUD operations pass agentId - backend handles sessionId mapping
     const result = await messageService.removeMessages(ids, ctx);
+    if (result?.success) await releaseLocalMessageAttachments([message]);
 
     if (result?.success && result.messages) {
       this.#get().replaceMessages(result.messages, { context: ctx });
@@ -186,6 +195,15 @@ export class MessagePublicApiActionImpl {
   clearMessage = async (): Promise<void> => {
     const { activeAgentId, activeTopicId, activeGroupId, refreshTopic, switchTopic } = this.#get();
 
+    const localMessages = Object.values(this.#get().dbMessagesMap)
+      .flat()
+      .filter((message) =>
+        activeTopicId
+          ? message.topicId === activeTopicId
+          : activeGroupId
+            ? message.groupId === activeGroupId
+            : message.agentId === activeAgentId,
+      );
     // For group sessions, we need to clear group messages using groupId
     // For regular sessions, we clear session messages using agentId
     if (activeGroupId) {
@@ -196,6 +214,7 @@ export class MessagePublicApiActionImpl {
       await messageService.removeMessagesByAssistant(activeAgentId, activeTopicId);
     }
 
+    await releaseLocalMessageAttachments(localMessages);
     if (activeTopicId) {
       await topicService.removeTopic(activeTopicId);
     }

@@ -1,4 +1,3 @@
-import type { BuiltinToolContext } from '@lobechat/types';
 /**
  * Lobe Tools Executor
  *
@@ -16,6 +15,7 @@ import {
   type ToolManifestInfo,
 } from '@lobechat/builtin-tool-activator/executionRuntime';
 import { ActivatorExecutor } from '@lobechat/builtin-tool-activator/executor';
+import type { BuiltinToolContext } from '@lobechat/types';
 
 import { getToolStoreState } from '@/store/tool';
 import { toolSelectors } from '@/store/tool/selectors/tool';

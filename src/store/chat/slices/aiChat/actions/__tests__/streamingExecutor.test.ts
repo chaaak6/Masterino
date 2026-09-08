@@ -7,6 +7,7 @@ import { type EnabledAiModel, ModelProvider } from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as toolEngineering from '@/helpers/toolEngineering';
+import { agentDocumentService } from '@/services/agentDocument';
 import { chatService } from '@/services/chat';
 import * as agentConfigResolver from '@/services/chat/mecha/agentConfigResolver';
 import { messageService } from '@/services/message';
@@ -137,6 +138,7 @@ const mockInternalCreateAgentState = (value: ReturnType<typeof realCreateAgentSt
 
 beforeEach(() => {
   resetTestEnvironment();
+  vi.spyOn(agentDocumentService, 'getSkills').mockResolvedValue([]);
   useProjectWorkspaceStore.setState({ operationConsentByMessage: {} });
   setupMockSelectors();
   spyOnMessageService();
@@ -1441,7 +1443,7 @@ describe('StreamingExecutor actions', () => {
       );
     });
 
-    it('should enable visual understanding when a previous user message has visual media', () => {
+    it('does not delegate historical paperclip images to another agent', () => {
       act(() => {
         useChatStore.setState({ executeClientAgent: realExecAgentRuntime });
       });
@@ -1490,7 +1492,7 @@ describe('StreamingExecutor actions', () => {
 
       expect(generateToolsDetailed).toHaveBeenCalledWith(
         expect.objectContaining({
-          toolIds: ['lobe-agent'],
+          toolIds: undefined,
         }),
       );
     });

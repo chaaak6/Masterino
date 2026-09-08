@@ -1,10 +1,10 @@
-import { link, rm, stat, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { link, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export interface CreateRichDocumentParams {
-  path: string;
   paragraphs?: { text: string; heading?: boolean }[];
+  path: string;
   slides?: { title: string; body: string }[];
 }
 /** Narrow deterministic text-only creation using pinned offline JavaScript engines. */
@@ -94,7 +94,7 @@ export async function createRichDocument(params: CreateRichDocumentParams) {
       start = result.next!.start!;
     }
     // PPT text runs omit the XML paragraph separator; normalize line breaks only.
-    const normalized = (text: string) => text.replace(/[\r\n]/g, '');
+    const normalized = (text: string) => text.replaceAll(/[\r\n]/g, '');
     if (
       actual.length !== expected.length ||
       expected.some((text, i) => normalized(text) !== normalized(actual[i]!))

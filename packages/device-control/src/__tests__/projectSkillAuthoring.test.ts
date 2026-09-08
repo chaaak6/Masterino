@@ -1,19 +1,25 @@
 import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs/promises';
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  recoverProjectSkillEdit,
   createProjectSkillOnDevice,
   deleteProjectSkillOnDevice,
   packProjectSkillOnDevice,
+  recoverProjectSkillEdit,
   renameProjectSkillOnDevice,
   updateProjectSkillOnDevice,
   validateProjectSkillOnDevice,
 } from '../projectSkillAuthoring';
+
+// Native ESM exports cannot be spied on; expose a test wrapper while retaining real I/O.
+vi.mock('node:fs/promises', async (importOriginal) => ({
+  ...(await importOriginal<typeof fs>()),
+}));
 
 const content = (name: string) =>
   `---\nname: ${name}\ndescription: Maintain ${name}\n---\n\n# ${name}\n\nFollow the checklist.`;
@@ -26,6 +32,7 @@ describe('device project skill authoring', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await rm(root, { force: true, recursive: true });
   });
 
@@ -145,5 +152,99 @@ describe('device project skill authoring', () => {
     ).rejects.toThrow('SCOPE_DENIED');
     expect(await readFile(path.join(outside, 'SKILL.md'), 'utf8')).toBe(content('unsafe'));
     await rm(outside, { force: true, recursive: true });
+  });
+
+  it.each(['file', 'directory', 'dangling'])(
+    'rejects a nested %s symlink without changing the published skill',
+    async (kind) => {
+      await createProjectSkillOnDevice({ content: content('safe'), name: 'safe', scope: root });
+      const dir = path.join(root, '.agents/skills/safe');
+      const outside = path.join(root, 'outside');
+      await mkdir(outside);
+      await writeFile(path.join(outside, 'original.md'), 'unchanged');
+      await mkdir(path.join(dir, 'references/nested'), { recursive: true });
+      const target =
+        kind === 'directory'
+          ? outside
+          : path.join(outside, kind === 'file' ? 'original.md' : 'missing');
+      await symlink(target, path.join(dir, 'references/nested/link'));
+      await expect(
+        updateProjectSkillOnDevice({ name: 'safe', scope: root, path: 'new.md', content: 'new' }),
+      ).rejects.toThrow('SCOPE_DENIED');
+      expect(await readFile(path.join(dir, 'SKILL.md'), 'utf8')).toBe(content('safe'));
+      expect(await readFile(path.join(outside, 'original.md'), 'utf8')).toBe('unchanged');
+      await expect(readFile(path.join(dir, 'new.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+      expect((await validateProjectSkillOnDevice({ name: 'safe', scope: root })).valid).toBe(false);
+    },
+  );
+
+  it('refuses delete while a real staged edit holds the authoring lock', async () => {
+    await createProjectSkillOnDevice({ content: content('safe'), name: 'safe', scope: root });
+    const dir = path.join(root, '.agents/skills/safe');
+    const realCopy = fs.cp;
+    let resume!: () => void;
+    let copied!: () => void;
+    const held = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const reachedCopy = new Promise<void>((resolve) => {
+      copied = resolve;
+    });
+    vi.spyOn(fs, 'cp').mockImplementationOnce(async (...args) => {
+      await realCopy(...args);
+      copied();
+      await held;
+    });
+    const edit = updateProjectSkillOnDevice({
+      name: 'safe',
+      scope: root,
+      path: 'new.md',
+      content: 'new',
+    });
+    try {
+      await reachedCopy;
+      await expect(deleteProjectSkillOnDevice({ name: 'safe', scope: root })).rejects.toThrow(
+        'SKILL_EDIT_IN_PROGRESS',
+      );
+      expect(await readFile(path.join(dir, 'SKILL.md'), 'utf8')).toBe(content('safe'));
+    } finally {
+      resume();
+    }
+    await expect(edit).resolves.toMatchObject({ valid: true });
+    expect(await readFile(path.join(dir, 'new.md'), 'utf8')).toBe('new');
+    await deleteProjectSkillOnDevice({ name: 'safe', scope: root });
+    await expect(readFile(path.join(dir, 'SKILL.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('holds the same lock until deletion has removed the published directory', async () => {
+    await createProjectSkillOnDevice({ content: content('safe'), name: 'safe', scope: root });
+    const dir = path.join(root, '.agents/skills/safe');
+    const realRename = fs.rename;
+    let resume!: () => void;
+    let reached!: () => void;
+    const held = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const reachedRename = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    vi.spyOn(fs, 'rename').mockImplementationOnce(async (...args) => {
+      reached();
+      await held;
+      await realRename(...args);
+    });
+    const deletion = deleteProjectSkillOnDevice({ name: 'safe', scope: root });
+    try {
+      await reachedRename;
+      await expect(
+        updateProjectSkillOnDevice({ name: 'safe', scope: root, path: 'new.md', content: 'new' }),
+      ).rejects.toThrow('SKILL_EDIT_IN_PROGRESS');
+      expect(await readFile(path.join(dir, 'SKILL.md'), 'utf8')).toBe(content('safe'));
+    } finally {
+      resume();
+    }
+    await deletion;
+    await expect(readFile(path.join(dir, 'SKILL.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await fs.readdir(path.join(root, '.agents/skills'))).toEqual([]);
   });
 });

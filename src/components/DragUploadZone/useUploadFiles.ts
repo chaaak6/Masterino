@@ -7,9 +7,9 @@ import { useFileStore } from '@/store/file';
 interface UseUploadFilesOptions {
   /** The conversation's agent id. Decides whether the chat-only file-type whitelist applies. */
   agentId: string;
-  topicId?: string | null;
   model?: string;
   provider?: string;
+  topicId?: string | null;
 }
 
 /**

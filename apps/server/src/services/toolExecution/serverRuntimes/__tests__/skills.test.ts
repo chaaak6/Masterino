@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
     deviceExecuteToolCall: vi.fn(),
     deviceVerifySkillPaths: vi.fn(),
     prepareSkillPackage: vi.fn(),
+    executeProjectSkillRpc: vi.fn(),
     fileService: {
       getFullFileUrl: vi.fn(),
     },
@@ -76,6 +77,7 @@ vi.mock('@/server/services/deviceGateway', () => ({
     executeToolCall: mocks.deviceExecuteToolCall,
     verifySkillPaths: mocks.deviceVerifySkillPaths,
     prepareSkillPackage: mocks.prepareSkillPackage,
+    executeProjectSkillRpc: mocks.executeProjectSkillRpc,
   },
 }));
 
@@ -121,6 +123,11 @@ describe('skillsRuntime', () => {
 
     mocks.checkHash.mockResolvedValue({ isExist: true, url: 'skills/user-skill.zip' });
     mocks.fileService.getFullFileUrl.mockResolvedValue('https://files.example.com/user-skill.zip');
+    mocks.executeProjectSkillRpc.mockResolvedValue({
+      directory: '/cache/extracted/deploy',
+      content: 'body',
+      files: ['SKILL.md'],
+    });
     mocks.findAll.mockResolvedValue({ data: [], total: 0 });
     mocks.findById.mockResolvedValue(undefined);
     mocks.findByName.mockImplementation(async (name: string) => {
@@ -158,12 +165,35 @@ describe('skillsRuntime', () => {
   });
 
   it('executes scripts through the sandbox service and only attaches persisted skill zips', async () => {
+    const userSkill = {
+      id: 'user-skill-id',
+      identifier: 'user-skill',
+      name: 'user-skill',
+      zipFileHash: 'zip-hash-1',
+    };
     mocks.queryMessages.mockResolvedValue([
-      activation('user-skill-id', 'user-skill'),
-      activation('builtin-skill-id', 'builtin-skill'),
+      {
+        ...activation('user:user-skill', 'user-skill'),
+        pluginState: { id: 'user:user-skill', name: 'user-skill', resourceVersion: 'zip-hash-1' },
+      },
     ]);
+    mocks.findAll.mockResolvedValue({ data: [userSkill], total: 1 });
+    mocks.findById.mockResolvedValue(userSkill);
     const { skillsRuntime } = await import('../skills');
     const runtime = await skillsRuntime.factory({
+      skillRegistryResult: {
+        skills: [
+          {
+            key: 'user:user-skill',
+            identifier: 'user-skill',
+            name: 'user-skill',
+            description: '',
+            source: 'user',
+            scope: 'personal',
+            zipFileHash: 'zip-hash-1',
+          },
+        ],
+      } as never,
       serverDB: {} as never,
       toolManifestMap: {},
       topicId: 'topic-1',
@@ -182,8 +212,8 @@ describe('skillsRuntime', () => {
     expect(result.success).toBe(true);
     expect(mocks.getUserSettings).not.toHaveBeenCalled();
     expect(mocks.marketServiceConstructor).not.toHaveBeenCalled();
-    expect(mocks.findByName).toHaveBeenCalledWith('user-skill');
-    expect(mocks.findByName).toHaveBeenCalledWith('builtin-skill');
+    expect(mocks.findByName).not.toHaveBeenCalled();
+    expect(mocks.findById).toHaveBeenCalledWith('user-skill-id');
     expect(mocks.checkHash).toHaveBeenCalledWith('zip-hash-1');
     expect(mocks.sandboxService.callTool).toHaveBeenCalledWith(
       'execScript',
@@ -198,6 +228,7 @@ describe('skillsRuntime', () => {
   }, 60_000);
 
   it('injects the frozen device context, verifies paths, and never creates a sandbox', async () => {
+    mocks.queryMessages.mockResolvedValue([activation('project:workspace-1:deploy', 'deploy')]);
     const { skillsRuntime } = await import('../skills');
     const runtime = await skillsRuntime.factory({
       activeDeviceId: 'device-1',
@@ -231,7 +262,7 @@ describe('skillsRuntime', () => {
           {
             description: 'Deploy',
             identifier: 'project:deploy',
-            key: 'project:project:deploy',
+            key: 'project:workspace-1:deploy',
             location: '/repo/.agents/skills/deploy/SKILL.md',
             name: 'deploy',
             scope: 'project',
@@ -254,7 +285,7 @@ describe('skillsRuntime', () => {
     expect(result).toMatchObject({ success: true });
     expect(mocks.deviceVerifySkillPaths).toHaveBeenCalledWith({
       deviceId: 'device-1',
-      skillDir: '/repo/.agents/skills/deploy',
+      skillDir: '/cache/extracted/deploy',
       userId: 'user-1',
       workspaceRoot: '/repo',
     });
@@ -262,9 +293,9 @@ describe('skillsRuntime', () => {
       expect.objectContaining({
         deviceId: 'device-1',
         executionContext: expect.objectContaining({
-          cwd: '/repo/.agents/skills/deploy',
+          cwd: '/repo',
           env: {
-            SKILL_DIR: '/repo/.agents/skills/deploy',
+            SKILL_DIR: '/cache/extracted/deploy',
             TOKEN: 'value',
             WORKSPACE_DIR: '/repo',
           },
@@ -281,13 +312,20 @@ describe('skillsRuntime', () => {
 
   it('prepares a user ZIP from persisted activations on the frozen device before executing its script', async () => {
     mocks.queryMessages.mockResolvedValue([
-      activation('project:old', 'old-project'),
-      activation('skill-1', 'user-skill'),
-      activation('builtin:docs', 'documentation-only'),
+      {
+        ...activation('user:user-skill', 'user-skill'),
+        pluginState: { id: 'user:user-skill', name: 'user-skill', resourceVersion: 'hash-1' },
+      },
     ]);
+    mocks.findAll.mockResolvedValue({
+      data: [{ id: 'skill-1', identifier: 'user-skill' }],
+      total: 1,
+    });
     const { skillsRuntime } = await import('../skills');
     mocks.findById.mockImplementation(async (id: string) =>
-      id === 'skill-1' ? { id, name: 'user-skill', zipFileHash: 'hash-1' } : undefined,
+      id === 'skill-1'
+        ? { id, identifier: 'user-skill', name: 'user-skill', zipFileHash: 'hash-1' }
+        : undefined,
     );
     mocks.prepareSkillPackage.mockResolvedValue({ extractedDir: '/cache/skills/hash-1' });
     mocks.deviceVerifySkillPaths.mockResolvedValue({
@@ -296,6 +334,19 @@ describe('skillsRuntime', () => {
     });
     mocks.deviceExecuteToolCall.mockResolvedValue({ content: 'ok', success: true });
     const runtime = await skillsRuntime.factory({
+      skillRegistryResult: {
+        skills: [
+          {
+            key: 'user:user-skill',
+            identifier: 'user-skill',
+            name: 'user-skill',
+            description: '',
+            source: 'user',
+            scope: 'personal',
+            zipFileHash: 'hash-1',
+          },
+        ],
+      } as never,
       activeDeviceId: 'device-1',
       toolManifestMap: {},
       userId: 'user-1',
@@ -331,7 +382,7 @@ describe('skillsRuntime', () => {
     expect(mocks.deviceExecuteToolCall).toHaveBeenCalledWith(
       expect.objectContaining({
         executionContext: expect.objectContaining({
-          cwd: '/cache/skills/hash-1',
+          cwd: '/repo',
           workspaceRootPath: '/repo',
           envFiles: ['.env'],
         }),
@@ -343,10 +394,13 @@ describe('skillsRuntime', () => {
   });
 
   it('fails closed when device path verification is unavailable', async () => {
+    mocks.queryMessages.mockResolvedValue([activation('project:workspace-1:deploy', 'deploy')]);
     mocks.deviceVerifySkillPaths.mockResolvedValue(undefined);
     const { skillsRuntime } = await import('../skills');
     const runtime = await skillsRuntime.factory({
       activeDeviceId: 'device-1',
+      topicId: 'topic-1',
+      operationId: 'operation-1',
       executionContext: {
         cwd: '/repo',
         plan: { deviceId: 'device-1', kind: 'device', target: 'device' },
@@ -360,12 +414,35 @@ describe('skillsRuntime', () => {
       },
       projectSkills: [{ location: '/repo/.agents/skills/deploy/SKILL.md', name: 'deploy' }],
       serverDB: {} as never,
+      skillRegistryResult: {
+        entries: [],
+        errors: [],
+        policy: {
+          includeAgentSkills: true,
+          includeProjectSkills: true,
+          includeUserSkills: true,
+          materializeForHeteroCli: 'off',
+          pinned: [],
+        },
+        precedence: { agent: 200, builtin: 100, project: 400, user: 300, workspace: 350 },
+        skills: [
+          {
+            description: 'Deploy',
+            identifier: 'project:deploy',
+            key: 'project:workspace-1:deploy',
+            location: '/repo/.agents/skills/deploy/SKILL.md',
+            name: 'deploy',
+            scope: 'project',
+            source: 'project',
+          },
+        ],
+      },
       toolManifestMap: {},
       userId: 'user-1',
     });
 
     const result = await runtime.execScript({
-      activatedSkills: [{ id: 'project:deploy', name: 'deploy' }],
+      activatedSkills: [{ id: 'project:workspace-1:deploy', name: 'deploy' }],
       command: './scripts/deploy.sh',
       description: 'Deploy',
     });
@@ -373,5 +450,92 @@ describe('skillsRuntime', () => {
     expect(result).toMatchObject({ state: { errorCode: 'WORKSPACE_REQUIRED' }, success: false });
     expect(mocks.deviceExecuteToolCall).not.toHaveBeenCalled();
     expect(mocks.createSandboxService).not.toHaveBeenCalled();
+  });
+  it('revalidates the ZIP version at the real sandbox adapter before package preparation', async () => {
+    const skill = {
+      id: 'db-1',
+      identifier: 'demo',
+      name: 'demo',
+      content: 'body',
+      zipFileHash: 'zip-v1',
+    };
+    mocks.queryMessages.mockResolvedValue([
+      {
+        ...activation('user:demo', 'demo'),
+        pluginState: { id: 'user:demo', name: 'demo', resourceVersion: 'zip-v1' },
+      },
+    ]);
+    mocks.findAll.mockResolvedValue({ data: [skill], total: 1 });
+    mocks.findById
+      .mockResolvedValueOnce(skill)
+      .mockResolvedValue({ ...skill, zipFileHash: 'zip-v2' });
+    const { skillsRuntime } = await import('../skills');
+    const runtime = await skillsRuntime.factory({
+      serverDB: {} as never,
+      toolManifestMap: {},
+      topicId: 'topic-1',
+      userId: 'user-1',
+      skillRegistryResult: {
+        skills: [
+          {
+            key: 'user:demo',
+            identifier: 'demo',
+            name: 'demo',
+            description: '',
+            source: 'user',
+            scope: 'personal',
+            zipFileHash: 'zip-v1',
+          },
+        ],
+      } as never,
+    });
+    const result = await runtime.execScript({
+      skillId: 'user:demo',
+      command: 'python script.py',
+      description: '',
+    });
+    expect(result.success).toBe(false);
+    expect(result.content).toContain('SKILL_RESOURCE_VERSION_CHANGED');
+    expect(mocks.checkHash).not.toHaveBeenCalled();
+    expect(mocks.sandboxService.callTool).not.toHaveBeenCalled();
+  });
+
+  it('rejects a disabled user key even when a same-name builtin is available', async () => {
+    mocks.queryMessages.mockResolvedValue([
+      {
+        ...activation('user:demo', 'demo'),
+        pluginState: { id: 'user:demo', name: 'demo', resourceVersion: 'v1' },
+      },
+    ]);
+    const { skillsRuntime } = await import('../skills');
+    const runtime = await skillsRuntime.factory({
+      serverDB: {} as never,
+      toolManifestMap: {},
+      topicId: 'topic-1',
+      userId: 'user-1',
+      skillRegistryResult: {
+        skills: [
+          {
+            key: 'builtin:demo',
+            identifier: 'demo',
+            name: 'demo',
+            description: '',
+            source: 'builtin',
+            scope: 'builtin',
+          },
+        ],
+      } as never,
+    });
+    expect(
+      (
+        await runtime.execScript({
+          skillId: 'user:demo',
+          command: 'python script.py',
+          description: '',
+        })
+      ).success,
+    ).toBe(false);
+    expect(mocks.sandboxService.callTool).not.toHaveBeenCalled();
+    expect(mocks.prepareSkillPackage).not.toHaveBeenCalled();
   });
 });
