@@ -1,4 +1,7 @@
 export default {
+  'ModelSwitchPanel.detail.visualInput.image': 'Image understanding',
+  'ModelSwitchPanel.detail.visualInput.video': 'Video understanding',
+  'ModelSwitchPanel.detail.visualInput.unknown': 'Not confirmed',
   'ArgsInput.addArgument': 'Add Argument',
   'ArgsInput.argumentPlaceholder': 'Argument {{index}}',
   'ArgsInput.enterFirstArgument': 'Enter first argument...',

@@ -89,3 +89,26 @@ describe('knowledgeCutoff backfill', () => {
     expect(lobehubModels.find((m) => m.id === 'gpt-5-mini')?.knowledgeCutoff).toBe('2024-05');
   });
 });
+
+describe('Aihub visual model catalog', () => {
+  it.each([
+    ['deepseek-v4-flash-vision-exp', true, undefined],
+    ['glm-5.3-flash', true, true],
+    ['glm-5.3', false, false],
+    ['kimi-k2.7-code', true, true],
+    ['kimi-k3', true, true],
+    ['minimax-m3', true, true],
+    ['qwen3.7-plus', true, true],
+    ['qwen3.8-flash', true, true],
+    ['qwen3.8-max', true, true],
+  ])('resolves %s in the native catalog', async (id, image, video) => {
+    const model = (await loadModels()).find(
+      (model) =>
+        model.id.toLowerCase() === id &&
+        ['deepseek', 'zhipu', 'moonshot', 'minimax', 'qwen'].includes(model.providerId),
+    );
+    expect(model).toBeDefined();
+    expect(model?.abilities.vision).toBe(image);
+    expect(model?.abilities.video).toBe(video);
+  });
+});

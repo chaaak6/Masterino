@@ -1400,4 +1400,59 @@ describe('NewApiService', () => {
     expect(mocks.deleteAiModel).toHaveBeenCalledWith('stale-chat', 'newapi');
     expect(synced.defaultModel).toBeUndefined();
   });
+  it.each(['glm-5.3-flash', 'minimax-m3'])(
+    'refreshes stale visual abilities for %s using the owning provider catalog',
+    async (modelId) => {
+      mocks.bindingStore.set('current-user', {
+        errorMessage: null,
+        lastSyncedAt: null,
+        managedTokenId: 44,
+        newApiUserId: 17,
+        status: 'active',
+        userId: 'current-user',
+      });
+      mocks.getModelListByProviderId.mockResolvedValueOnce([
+        {
+          abilities: { vision: false, video: false },
+          enabled: true,
+          id: modelId,
+          source: 'remote',
+          type: 'chat',
+        },
+      ]);
+      const readOnlyDb = {
+        findManagedToken: vi
+          .fn()
+          .mockResolvedValue({ id: 44, key: 'test-key', name: 'managed-token' }),
+        findUserById: vi.fn().mockResolvedValue({ group: 'limited', id: 17 }),
+        isEnabled: vi.fn(() => true),
+        listAccessibleModels: vi.fn().mockResolvedValue([modelId]),
+      };
+      const service = new NewApiService({
+        client: {} as any,
+        db: {} as any,
+        gateKeeper: createGateKeeper(),
+        readOnlyDb: readOnlyDb as any,
+        userId: 'current-user',
+      });
+      await service.syncModels();
+      expect(mocks.updateAiModel).toHaveBeenCalledWith(
+        modelId,
+        'newapi',
+        expect.objectContaining({
+          abilities: expect.objectContaining({ vision: true, video: true }),
+          settings: expect.objectContaining({
+            modelCatalog: expect.objectContaining({
+              entry: expect.objectContaining({
+                inputModalities: expect.objectContaining({
+                  image: 'supported',
+                  video: 'supported',
+                }),
+              }),
+            }),
+          }),
+        }),
+      );
+    },
+  );
 });

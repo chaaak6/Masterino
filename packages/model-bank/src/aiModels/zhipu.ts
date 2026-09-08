@@ -8,11 +8,27 @@ import {
 // ref: https://docs.bigmodel.cn/cn/guide/start/model-overview
 
 const zhipuChatModels: AIChatModelCard[] = [
+  // https://huggingface.co/zai-org/GLM-5.3
+  {
+    abilities: { video: false, vision: false },
+    displayName: 'GLM-5.3',
+    id: 'glm-5.3',
+    type: 'chat',
+  },
+  // https://docs.z.ai/guides/vlm/glm-5.3-flash
+  {
+    abilities: { video: true, vision: true },
+    displayName: 'GLM-5.3-Flash',
+    id: 'glm-5.3-flash',
+    type: 'chat',
+  },
   {
     abilities: {
       functionCall: true,
       reasoning: true,
       search: true,
+      video: false,
+      vision: false,
     },
     contextWindowTokens: 1_000_000,
     description:

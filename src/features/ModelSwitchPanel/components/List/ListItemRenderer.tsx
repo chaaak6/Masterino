@@ -166,6 +166,8 @@ export const ListItemRenderer = memo<ListItemRendererProps>(
                 }}
               >
                 <ModelItemRender
+                  disableTooltip
+                  visualOnly
                   {...item.model}
                   {...item.model.abilities}
                   newBadgeLabel={newLabel}

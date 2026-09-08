@@ -92,6 +92,8 @@ export const MultipleProvidersModelItem = memo<MultipleProvidersModelItemProps>(
           }}
         >
           <ModelItemRender
+            disableTooltip
+            visualOnly
             {...data.model}
             {...data.model.abilities}
             newBadgeLabel={newLabel}

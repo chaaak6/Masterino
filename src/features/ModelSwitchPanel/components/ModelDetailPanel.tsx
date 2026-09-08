@@ -12,7 +12,6 @@ import {
   GlobeIcon,
   ImageIcon,
   PaperclipIcon,
-  ScanEye,
   VideoIcon,
   WrenchIcon,
 } from 'lucide-react';
@@ -32,7 +31,6 @@ import { useBusinessModelPricing } from '@/business/client/hooks/useBusinessMode
 import {
   InputModalityTags,
   MODALITY_ICONS,
-  NON_TEXT_INPUT_MODALITIES,
   useChatEligibleModelList,
   useChatModelCatalog,
   useInputModalityLabels,
@@ -498,6 +496,7 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
                       {showInputModality && (
                         <InputModalityTags
                           disableTooltip
+                          visualOnly
                           conclusion={catalog.inputModality}
                           tagClassName={styles.abilityTag}
                         />
@@ -534,28 +533,7 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
                 <Flexbox gap={4}>
                   {showInputModality && (
                     <>
-                      <Flexbox
-                        horizontal
-                        align={'center'}
-                        className={styles.row}
-                        justify={'space-between'}
-                      >
-                        <Flexbox horizontal align={'center'} gap={6}>
-                          <Icon icon={ScanEye} style={{ fontSize: 12 }} />
-                          <span>
-                            {t('ModelSwitchPanel.detail.inputModality' as any, {
-                              defaultValue: 'Input modality',
-                            })}
-                          </span>
-                        </Flexbox>
-                        <span
-                          className={styles.evidenceText}
-                          data-input-modality={catalog.inputModality.kind}
-                        >
-                          {modalityLabels.conclusionLabel(catalog.inputModality)}
-                        </span>
-                      </Flexbox>
-                      {NON_TEXT_INPUT_MODALITIES.map((modality) => {
+                      {(['image', 'video'] as const).map((modality) => {
                         const evidence = catalog.inputModality.evidence[modality];
 
                         return (
@@ -568,17 +546,15 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
                           >
                             <Flexbox horizontal align={'center'} gap={6}>
                               <Icon icon={MODALITY_ICONS[modality]} style={{ fontSize: 12 }} />
-                              <span>{modalityLabels.modalityName(modality)}</span>
+                              <span>{t(`ModelSwitchPanel.detail.visualInput.${modality}`)}</span>
                             </Flexbox>
                             <span
                               className={styles.evidenceText}
                               data-evidence-state={evidence.state}
                             >
-                              {[
-                                modalityLabels.stateLabel(evidence.state),
-                                modalityLabels.sourceLabel(evidence.source),
-                                modalityLabels.verifiedLabel(evidence.verifiedAt),
-                              ].join(' · ')}
+                              {evidence.state === 'unknown'
+                                ? t('ModelSwitchPanel.detail.visualInput.unknown')
+                                : modalityLabels.stateLabel(evidence.state)}
                             </span>
                           </Flexbox>
                         );

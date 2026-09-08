@@ -6,7 +6,7 @@ import {
   mergeModelCatalogEntry,
   type PersistedModelCatalog,
 } from '@lobechat/business-model-bank';
-import { processMultiProviderModelList } from '@lobechat/model-runtime';
+import { detectModelProvider, processMultiProviderModelList } from '@lobechat/model-runtime';
 import type {
   AihubRebindResult,
   ChatModelCard,
@@ -260,7 +260,17 @@ const prepareNewApiModels = async (models: NewApiModelCard[]): Promise<PreparedN
     loadModelCatalog(),
   ]);
   const processedModelMap = new Map(processedModels.map((model) => [model.id, model]));
-  const catalogModelMap = new Map(catalogModels.map((model) => [model.id.toLowerCase(), model]));
+  const catalogModelMap = new Map<string, AiFullModelCard>(
+    catalogModels.map((model) => [model.id.toLowerCase(), model]),
+  );
+  for (const model of catalogModels) {
+    const id = model.id.toLowerCase();
+    // Aggregator entries can omit native capabilities. Prefer the owning provider's
+    // exact model entry; provider metadata/manual evidence still wins during merge.
+    if (model.providerId === detectModelProvider(id)) {
+      catalogModelMap.set(id, model);
+    }
+  }
 
   return models.map((model) => {
     const processedModel = processedModelMap.get(model.id);

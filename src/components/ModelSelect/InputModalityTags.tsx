@@ -241,6 +241,8 @@ export interface InputModalityTagsProps {
   disableTooltip?: boolean;
   placement?: ModalityTagPlacement;
   tagClassName?: string;
+  /** Show only supported image/video icons; omit unknown and text-only markers. */
+  visualOnly?: boolean;
 }
 
 /**
@@ -250,7 +252,7 @@ export interface InputModalityTagsProps {
  * listing the evidence source and verification time.
  */
 export const InputModalityTags = memo<InputModalityTagsProps>(
-  ({ conclusion, disableTooltip, placement = 'top', tagClassName }) => {
+  ({ conclusion, disableTooltip, placement = 'top', tagClassName, visualOnly = false }) => {
     const labels = useInputModalityLabels();
     const verified = labels.verifiedLabel(getConclusionVerifiedAt(conclusion));
     const allLines = NON_TEXT_INPUT_MODALITIES.map((modality) =>
@@ -260,28 +262,32 @@ export const InputModalityTags = memo<InputModalityTagsProps>(
     if (conclusion.kind === 'supported') {
       return (
         <>
-          {sortNonTextModalities(conclusion.modalities).map((modality) => (
-            <ModalityTag
-              ariaLabel={labels.supportedLabel(modality)}
-              className={tagClassName}
-              color={MODALITY_TAG_COLORS[modality]}
-              disableTooltip={disableTooltip}
-              icon={MODALITY_ICONS[modality]}
-              key={modality}
-              kind={'supported'}
-              placement={placement}
-              tooltip={
-                <EvidenceTooltip
-                  headline={labels.supportedLabel(modality)}
-                  lines={[labels.evidenceLine(conclusion.evidence[modality])]}
-                  verified={verified}
-                />
-              }
-            />
-          ))}
+          {sortNonTextModalities(conclusion.modalities)
+            .filter((modality) => !visualOnly || modality === 'image' || modality === 'video')
+            .map((modality) => (
+              <ModalityTag
+                ariaLabel={labels.supportedLabel(modality)}
+                className={tagClassName}
+                color={MODALITY_TAG_COLORS[modality]}
+                disableTooltip={disableTooltip}
+                icon={MODALITY_ICONS[modality]}
+                key={modality}
+                kind={'supported'}
+                placement={placement}
+                tooltip={
+                  <EvidenceTooltip
+                    headline={labels.supportedLabel(modality)}
+                    lines={[labels.evidenceLine(conclusion.evidence[modality])]}
+                    verified={verified}
+                  />
+                }
+              />
+            ))}
         </>
       );
     }
+
+    if (visualOnly) return null;
 
     if (conclusion.kind === 'text-only') {
       return (

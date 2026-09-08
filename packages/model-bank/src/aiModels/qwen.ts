@@ -7,6 +7,20 @@ import {
 // https://help.aliyun.com/zh/model-studio/models?spm=a2c4g.11186623
 
 const qwenChatModels: AIChatModelCard[] = [
+  // https://docs.qwencloud.com/developer-guides/getting-started/vision-models
+  {
+    abilities: { video: true, vision: true },
+    displayName: 'Qwen3.8 Flash',
+    id: 'qwen3.8-flash',
+    type: 'chat',
+  },
+  // https://docs.qwencloud.com/developer-guides/getting-started/vision-models
+  {
+    abilities: { video: true, vision: true },
+    displayName: 'Qwen3.8 Max',
+    id: 'qwen3.8-max',
+    type: 'chat',
+  },
   {
     abilities: {
       functionCall: true,

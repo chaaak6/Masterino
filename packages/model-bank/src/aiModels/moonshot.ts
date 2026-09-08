@@ -2,6 +2,20 @@ import type { AIChatModelCard } from '../types/aiModel';
 
 // https://platform.kimi.com/docs/pricing/chat
 const moonshotChatModels: AIChatModelCard[] = [
+  // https://www.kimi.com/code/docs/kimi-code/models.html
+  {
+    abilities: { video: true, vision: true },
+    displayName: 'Kimi K3',
+    id: 'kimi-k3',
+    type: 'chat',
+  },
+  // https://www.kimi.com/code/docs/kimi-code/models.html
+  {
+    abilities: { video: true, vision: true },
+    displayName: 'Kimi K2.7 Code',
+    id: 'kimi-k2.7-code',
+    type: 'chat',
+  },
   {
     abilities: {
       functionCall: true,

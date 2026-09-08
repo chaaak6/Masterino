@@ -15,6 +15,8 @@ export const SingleProviderModelItem = memo<SingleProviderModelItemProps>(
   ({ data, newLabel, proBadgeLabel, showInfoTag }) => {
     return (
       <ModelItemRender
+        disableTooltip
+        visualOnly
         {...data.model}
         {...data.model.abilities}
         newBadgeLabel={newLabel}

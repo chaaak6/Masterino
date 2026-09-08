@@ -224,7 +224,7 @@ describe('ModelDetailPanel pricing', () => {
 });
 
 describe('ModelDetailPanel input modality', () => {
-  it('derives image support from abilities as catalog evidence and names the source', () => {
+  it('shows separate image and video states without diagnostic text', () => {
     globalState.status.modelDetailPanelExpandedKeys = ['abilities'];
 
     const { container } = render(
@@ -235,20 +235,14 @@ describe('ModelDetailPanel input modality', () => {
       />,
     );
 
-    expect(container).toHaveTextContent('Input modality');
-    expect(container.querySelector('[data-input-modality]')).toHaveAttribute(
-      'data-input-modality',
-      'supported',
-    );
-    expect(container.querySelector('[data-input-modality]')).toHaveTextContent('Image input');
-
     const evidenceRows = container.querySelectorAll('[data-evidence-state]');
-    expect(evidenceRows).toHaveLength(4);
-    expect(evidenceRows[0]).toHaveTextContent('Supported · Model catalog · Not verified yet');
-    expect(evidenceRows[1]).toHaveTextContent('Unverified · No evidence · Not verified yet');
+    expect(evidenceRows).toHaveLength(2);
+    expect(evidenceRows[0]).toHaveTextContent('Supported');
+    expect(evidenceRows[1]).toHaveAttribute('data-evidence-state', 'unknown');
+    expect(container).not.toHaveTextContent('No evidence');
   });
 
-  it('shows unverified, never text only, when evidence is incomplete', () => {
+  it('omits unverified icons when evidence is incomplete', () => {
     globalState.status.modelDetailPanelExpandedKeys = ['pricing'];
 
     const { container } = render(
@@ -259,10 +253,7 @@ describe('ModelDetailPanel input modality', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Unverified' })).toHaveAttribute(
-      'data-input-modality',
-      'unknown',
-    );
+    expect(screen.queryByRole('img', { name: 'Unverified' })).toBeNull();
     expect(container.querySelector('[data-input-modality="text-only"]')).toBeNull();
     expect(screen.queryByRole('img', { name: 'Text only' })).toBeNull();
   });
