@@ -154,7 +154,7 @@ import { ingestAttachment } from './ingestAttachment';
 import { getRuntimePathConsentRequest, validateOperationPathConsent } from './pathConsent';
 import { resolveDeviceWorkingDirectory } from './resolveDeviceWorkingDirectory';
 import { resolveTopicCreationExecutionMetadata } from './topicExecutionIntent';
-import { isWorkspaceCacheFresh, upsertWorkspaceScan } from './workspaceInitCache';
+import { upsertWorkspaceScan } from './workspaceInitCache';
 
 const log = debug('lobe-server:ai-agent-service');
 
@@ -431,12 +431,8 @@ export class AiAgentService {
       if (!boundCwd) return empty;
 
       const workingDirs = device.workingDirs ?? [];
-      const cached = workingDirs.find((dir) => dir.path === boundCwd);
-
-      if (isWorkspaceCacheFresh(cached, Date.now()) && cached?.workspace) {
-        log('execAgent: reusing cached workspace init for %s', boundCwd);
-        return cached.workspace;
-      }
+      // The persisted scan is a UI projection, not execution authority. Scan
+      // the bounded skill roots once per operation to observe local edits.
 
       const scanned = await deviceGateway.initWorkspace({
         deviceId: activeDeviceId,

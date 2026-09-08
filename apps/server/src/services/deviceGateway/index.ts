@@ -1007,6 +1007,7 @@ export class DeviceGateway {
     deviceId: string;
     input: Record<string, unknown>;
     method:
+      | 'prepareProjectSkillSnapshot'
       | 'createProjectSkill'
       | 'deleteProjectSkill'
       | 'packProjectSkill'

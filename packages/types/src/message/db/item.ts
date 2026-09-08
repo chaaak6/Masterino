@@ -1,7 +1,9 @@
+import type { MessageAttachments } from '../attachments';
 import type { GroundingSearch } from '../../search';
 import type { MessageMetadata, ModelReasoning, ModelUsage, ToolIntervention } from '../common';
 
 export interface DBMessageItem {
+  attachments?: MessageAttachments | null;
   agentId: string | null;
 
   clientId: string | null;

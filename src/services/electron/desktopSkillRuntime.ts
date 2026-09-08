@@ -28,8 +28,9 @@ class DesktopSkillRuntimeService {
   }
 
   private async resolveSkill(params: { id?: string; name?: string }) {
-    const skillById = params.id ? await agentSkillService.getById(params.id) : undefined;
-    return skillById ?? (params.name ? await agentSkillService.getByName(params.name) : undefined);
+    // Execution callers translate the operation key to this exact database ID.
+    // Never replace a missing ID with a same-name skill from another source.
+    return params.id ? agentSkillService.getById(params.id) : undefined;
   }
 
   async resolveExecutionDirectory(

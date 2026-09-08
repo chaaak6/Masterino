@@ -38,17 +38,17 @@ export class SkillResolver {
     const stepActivatedMap = new Map<string, { content?: string }>();
 
     for (const activation of accumulatedActivations) {
-      stepActivatedMap.set(activation.identifier, { content: activation.content });
+      if (activation.key) stepActivatedMap.set(activation.key, { content: activation.content });
     }
 
     for (const activation of stepDelta.activatedSkills) {
-      stepActivatedMap.set(activation.identifier, { content: activation.content });
+      if (activation.key) stepActivatedMap.set(activation.key, { content: activation.content });
     }
 
     // Resolve each skill
     const enabledSkills: SkillMeta[] = operationSkillSet.skills.map((skill) => {
       const isOperationActivated = enabledPluginIds.has(skill.identifier);
-      const stepActivation = stepActivatedMap.get(skill.identifier);
+      const stepActivation = skill.key ? stepActivatedMap.get(skill.key) : undefined;
       const isStepActivated = !!stepActivation;
 
       if (isOperationActivated || isStepActivated) {

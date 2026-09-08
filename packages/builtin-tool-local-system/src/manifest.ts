@@ -7,6 +7,146 @@ export const LocalSystemManifest: BuiltinToolManifest = {
   executors: ['client', 'server'],
   api: [
     {
+      name: 'batchOfficeDocument',
+      description:
+        'Edit literal cell values in a simple xlsx and save to a NEW outputPath. Source remains unchanged. Max10000 operations, source10MiB/expanded64MiB. Untouched formulas preserved without recalculation. Rejects complex drawings/charts/macros/pivots/external links. Does not guarantee arbitrary formatting preservation.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        required: ['path', 'outputPath', 'operations'],
+        properties: {
+          path: { type: 'string' },
+          outputPath: { type: 'string' },
+          version: { type: 'string' },
+          operations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['sheet', 'cell', 'value'],
+              properties: { sheet: { type: 'string' }, cell: { type: 'string' }, value: {} },
+            },
+          },
+        },
+      },
+    },
+    {
+      name: 'mergeOfficeTemplate',
+      description:
+        'Replace {{key}} placeholders in simple xlsx literal string cells using values, writing a NEW outputPath. Formulas are untouched. Same finite workbook feature and size limits as batchOfficeDocument.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        required: ['path', 'outputPath', 'values'],
+        properties: {
+          path: { type: 'string' },
+          outputPath: { type: 'string' },
+          version: { type: 'string' },
+          values: { type: 'object', additionalProperties: { type: 'string' } },
+        },
+      },
+    },
+    {
+      name: 'validateOfficeDocument',
+      description:
+        'Validate supported local xlsx package structure and feature/size limits. Does not recalculate formulas or validate visual appearance.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        required: ['path'],
+        properties: { path: { type: 'string' }, version: { type: 'string' } },
+      },
+    },
+    {
+      name: 'createOfficeDocument',
+      description:
+        'Create a NEW local xlsx (sheets with literal values), docx (paragraphs with text and optional heading), or pptx (slides with title/body). Pinned offline engines; docx max1000 paragraphs, pptx max100 slides. XLSX maximum 100000 cells, 20 sheets, 20000 rows per sheet. Existing destination is never overwritten. Text-only docx/pptx creation; no arbitrary template fidelity, images, formula calculation or visual validation.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        required: ['path'],
+        properties: {
+          path: { type: 'string' },
+          paragraphs: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['text'],
+              properties: { text: { type: 'string' }, heading: { type: 'boolean' } },
+            },
+          },
+          slides: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['title', 'body'],
+              properties: { title: { type: 'string' }, body: { type: 'string' } },
+            },
+          },
+          sheets: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['name', 'rows'],
+              properties: {
+                name: { type: 'string' },
+                rows: { type: 'array', items: { type: 'array', items: {} } },
+              },
+            },
+          },
+        },
+      },
+    },
+    ...(['inspectOfficeDocument', 'readOfficeDocument'] as const).map((name) => ({
+      name,
+      defaultTimeoutMs: 120_000,
+      description:
+        name === 'inspectOfficeDocument'
+          ? 'Inspect local xlsx/docx/pptx structure with bounded samples and a resource version. Excel lists worksheet names. Use readOfficeDocument for more rows, paragraphs or slides.'
+          : 'Read bounded local Office rows, paragraphs or slides in actual document order. Returns actualRange, total (or unknown), hasMore and next parameters. Excel returns cached values and formulas without recalculation. Optional aggregateColumn (e.g. B) scans a worksheet locally for numeric count/sum/min/max without injecting rows.',
+      humanIntervention: {
+        dynamic: {
+          default: 'never' as const,
+          policy: 'required' as const,
+          type: 'pathScopeAudit' as const,
+        },
+      },
+      parameters: {
+        type: 'object' as const,
+        required: ['path'],
+        properties: {
+          path: { type: 'string' as const },
+          sheet: { type: 'string' as const },
+          start: {
+            type: 'number' as const,
+            description: 'One-based row, paragraph or slide, defaults to 1',
+          },
+          limit: { type: 'number' as const, description: 'Maximum records, capped at 500' },
+          maxChars: {
+            type: 'number' as const,
+            description: 'JSON record character budget, capped at 64000',
+          },
+          version: { type: 'string' as const },
+          groupByColumn: {
+            type: 'string' as const,
+            description:
+              'Optional Excel column letter to group numeric aggregate results by; max500 groups',
+          },
+          aggregateColumn: {
+            type: 'string' as const,
+            description: 'Excel numeric column letter to aggregate locally',
+          },
+        },
+      },
+    })),
+    {
       defaultTimeoutMs: 30_000,
       description:
         'Read the content of a text or document file (txt/md/json/source code/pdf/docx/etc.). Binary files (.bin/.exe/.zip/.b64/encoded blobs) are rejected with a structured error — use runCommand with file/hexdump/strings to inspect those instead. Output is capped at 500K chars total and 8K chars per line; for larger files, use a narrower line range or grepContent.',

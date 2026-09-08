@@ -11,6 +11,7 @@ export const SANDBOX_INIT_MAX_FILE_SIZE = 100 * 1024 * 1024;
 export const SANDBOX_INIT_MAX_FILES = 50;
 
 export interface SandboxUploadedFileMeta {
+  id?: string;
   name: string;
   size?: number;
 }
@@ -58,8 +59,8 @@ export const sanitizeSandboxFileName = (name: string): string => {
 /**
  * Build the absolute sandbox path for an uploaded file.
  */
-export const sandboxUploadedFilePath = (name: string): string =>
-  `${SANDBOX_UPLOADED_FILES_DIR}/${sanitizeSandboxFileName(name)}`;
+export const sandboxUploadedFilePath = (name: string, id?: string): string =>
+  `${SANDBOX_UPLOADED_FILES_DIR}/${id ? `file-${encodeURIComponent(id)}/` : ''}${sanitizeSandboxFileName(name)}`;
 
 /**
  * Render the dynamic `{{sandbox_uploaded_files}}` section listing the files that
@@ -77,7 +78,7 @@ export const formatUploadedFilesPrompt = (files: SandboxUploadedFileMeta[]): str
 
   for (const file of selectSandboxInitFiles(files)) {
     if (!file?.name) continue;
-    const path = sandboxUploadedFilePath(file.name);
+    const path = sandboxUploadedFilePath(file.name, file.id);
     if (seen.has(path)) continue;
     seen.add(path);
     lines.push(`- ${path}${formatBytes(file.size)}`);

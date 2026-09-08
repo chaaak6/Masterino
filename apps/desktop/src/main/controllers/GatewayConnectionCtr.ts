@@ -7,6 +7,7 @@ import {
   type DeviceControlDeps,
   executeDeviceRpc as runDeviceRpc,
   materializeSkillsForCli,
+  validatePreparedLocalAttachment,
 } from '@lobechat/device-control';
 import type {
   AgentRunRequestMessage,
@@ -30,6 +31,16 @@ import type {
   WriteLocalFileParams,
 } from '@lobechat/electron-client-ipc';
 import {
+  batchOfficeDocument,
+  mergeOfficeTemplate,
+  validateOfficeDocument,
+  type OfficeBatchParams,
+  type OfficeTemplateParams,
+  createOfficeDocument,
+  type CreateSpreadsheetParams,
+  inspectOfficeDocument,
+  readOfficeDocument,
+  type OfficeReadParams,
   composeChildProcessEnv,
   toolNeedsDefaultCwd,
   ExecutionBoundaryError,
@@ -585,19 +596,81 @@ export default class GatewayConnectionCtr extends ControllerModule {
           env: await this.app.getService(ExecutionEnvService).resolve(executionContext.envRef),
         }
       : executionContext;
-    if (resolvedExecutionContext && purpose) {
+    const requestedSkillDir = executionContext?.env?.SKILL_DIR;
+    if (
+      resolvedExecutionContext &&
+      (purpose || (normalized === 'runCommand' && typeof requestedSkillDir === 'string'))
+    ) {
       const workspaceDir =
         resolvedExecutionContext.workspaceRootPath ?? resolvedExecutionContext.cwd;
+      const skillDirectory =
+        typeof requestedSkillDir === 'string'
+          ? requestedSkillDir
+          : purpose === 'skill-script'
+            ? resolvedExecutionContext.cwd
+            : undefined;
+      if (skillDirectory && workspaceDir)
+        await this.executeDeviceRpc('verifySkillPaths', {
+          skillDir: skillDirectory,
+          workspaceRoot: workspaceDir,
+        });
       resolvedExecutionContext = {
         ...resolvedExecutionContext,
         env: {
           ...resolvedExecutionContext.env,
-          ...(purpose === 'skill-script' && resolvedExecutionContext.cwd
-            ? { SKILL_DIR: resolvedExecutionContext.cwd }
-            : {}),
+          ...(skillDirectory ? { SKILL_DIR: skillDirectory } : {}),
           ...(workspaceDir ? { WORKSPACE_DIR: workspaceDir } : {}),
         },
       };
+    }
+    // Only device-owned, version-checked attachment copies receive a precise
+    // read grant. A renderer path or a parent directory is never sufficient.
+    if (
+      resolvedExecutionContext &&
+      trace?.topicId &&
+      trace.operationId &&
+      [
+        'readFile',
+        'readFiles',
+        'inspectOfficeDocument',
+        'readOfficeDocument',
+        'validateOfficeDocument',
+        'batchOfficeDocument',
+        'mergeOfficeTemplate',
+      ].includes(normalized)
+    ) {
+      const input = args as { path?: unknown; paths?: unknown[] };
+      const candidates = normalized === 'readFiles' ? (input.paths ?? []) : [input.path];
+      for (const candidate of candidates) {
+        if (
+          typeof candidate !== 'string' ||
+          !candidate.includes(`${path.sep}.attachments${path.sep}`)
+        )
+          continue;
+        const attachment = await validatePreparedLocalAttachment(
+          path.join(this.app.appStoragePath, 'scratch-workspaces'),
+          this.app.getService(GatewayConnectionService).getDeviceId(),
+          trace.topicId,
+          candidate,
+        ).catch(() => undefined);
+        if (!attachment) continue;
+        resolvedExecutionContext = {
+          ...resolvedExecutionContext,
+          accessRoots: [
+            ...(resolvedExecutionContext.accessRoots ?? []),
+            {
+              target: 'file',
+              rootPath: attachment.path,
+              modes: ['read'],
+              scope: 'operation',
+              source: 'user-approval',
+              operationId: trace.operationId,
+              deviceId: trace.deviceId,
+              topicId: trace.topicId,
+            },
+          ],
+        };
+      }
     }
     let prepared: PreparedToolCallExecution;
     try {
@@ -667,6 +740,30 @@ export default class GatewayConnectionCtr extends ControllerModule {
     // (`limit`, `run_in_background`, etc.), and the same casts exist in the
     // renderer-side `LocalSystemExecutor`.
     switch (normalized) {
+      case 'prepareProjectSkillSnapshot':
+      case 'createProjectSkill':
+      case 'updateProjectSkill':
+      case 'renameProjectSkill':
+      case 'deleteProjectSkill':
+      case 'validateProjectSkill':
+      case 'packProjectSkill': {
+        try {
+          const result = await this.executeDeviceRpc(normalized, args);
+          const valid =
+            normalized !== 'validateProjectSkill' ||
+            (result as { valid?: boolean })?.valid === true;
+          const content =
+            normalized === 'packProjectSkill'
+              ? `Packed project skill (${(result as { size: number }).size} bytes).`
+              : JSON.stringify(result ?? { success: true });
+          return finish({ content, state: { result }, success: valid });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
       case 'listFiles': {
         const p = args as ListLocalFileParams;
         return finish(
@@ -679,6 +776,49 @@ export default class GatewayConnectionCtr extends ControllerModule {
         );
       }
 
+      case 'batchOfficeDocument':
+      case 'mergeOfficeTemplate':
+      case 'validateOfficeDocument': {
+        try {
+          const state =
+            normalized === 'batchOfficeDocument'
+              ? await batchOfficeDocument(args as unknown as OfficeBatchParams)
+              : normalized === 'mergeOfficeTemplate'
+                ? await mergeOfficeTemplate(args as unknown as OfficeTemplateParams)
+                : await validateOfficeDocument(args as unknown as OfficeReadParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+      case 'createOfficeDocument': {
+        try {
+          const state = await createOfficeDocument(args as unknown as CreateSpreadsheetParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+      case 'inspectOfficeDocument':
+      case 'readOfficeDocument': {
+        try {
+          const state = await (
+            normalized === 'inspectOfficeDocument' ? inspectOfficeDocument : readOfficeDocument
+          )(args as unknown as OfficeReadParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
       case 'readFile': {
         const p = args as LocalReadFileParams;
         return finish(

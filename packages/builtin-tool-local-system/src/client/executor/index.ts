@@ -30,6 +30,12 @@ const LocalSystemApiEnum = {
   killCommand: 'killCommand' as const,
   listFiles: 'listFiles' as const,
   moveFiles: 'moveFiles' as const,
+  batchOfficeDocument: 'batchOfficeDocument' as const,
+  mergeOfficeTemplate: 'mergeOfficeTemplate' as const,
+  validateOfficeDocument: 'validateOfficeDocument' as const,
+  createOfficeDocument: 'createOfficeDocument' as const,
+  inspectOfficeDocument: 'inspectOfficeDocument' as const,
+  readOfficeDocument: 'readOfficeDocument' as const,
   readFile: 'readFile' as const,
   readFiles: 'readFiles' as const,
   runCommand: 'runCommand' as const,
@@ -46,6 +52,40 @@ const LocalSystemApiEnum = {
 class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
   readonly identifier = LocalSystemIdentifier;
   protected readonly apiEnum = LocalSystemApiEnum;
+
+  batchOfficeDocument = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('batchOfficeDocument', args, ctx)) ?? {
+      content: 'Office tools require a bound device execution context',
+      success: false,
+    };
+  mergeOfficeTemplate = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('mergeOfficeTemplate', args, ctx)) ?? {
+      content: 'Office tools require a bound device execution context',
+      success: false,
+    };
+  validateOfficeDocument = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('validateOfficeDocument', args, ctx)) ?? {
+      content: 'Office tools require a bound device execution context',
+      success: false,
+    };
+
+  createOfficeDocument = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('createOfficeDocument', args, ctx)) ?? {
+      content: 'Office tools require a bound device execution context',
+      success: false,
+    };
+
+  inspectOfficeDocument = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('inspectOfficeDocument', args, ctx)) ?? {
+      content: 'Office tools require a bound device execution context',
+      success: false,
+    };
+
+  readOfficeDocument = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('readOfficeDocument', args, ctx)) ?? {
+      content: 'Office tools require a bound device execution context',
+      success: false,
+    };
 
   private runtime = new LocalSystemExecutionRuntime(localFileService);
 

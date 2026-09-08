@@ -1,3 +1,4 @@
+import type { AttachmentRef } from '../message/attachments';
 import { z } from 'zod';
 
 import type { FileParsingTask } from '../asyncTask';
@@ -54,6 +55,7 @@ export const UPLOAD_STATUS_SET = new Set(['uploading', 'pending', 'processing'])
 
 // the file that is upload at chat page
 export interface UploadFileItem {
+  attachment?: AttachmentRef;
   /**
    * AbortController to cancel the upload
    */

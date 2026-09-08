@@ -296,6 +296,7 @@ const PlusAction = memo(() => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const upload = useFileStore((s) => s.uploadChatFiles);
+  const topicId = useChatInputStore((s) => s.topicId);
   const { enableKnowledgeBase, enableMemory } = useServerConfigStore(featureFlagsSelectors);
   const enableGatewayMode = useServerConfigStore(serverConfigSelectors.enableGatewayMode);
   const defaultDisableGatewayMode = useUserStore(
@@ -497,7 +498,7 @@ const PlusAction = memo(() => {
               }
               setDropdownOpen(false);
               editor?.focus();
-              await upload([file], agentId);
+              await upload([file], agentId, topicId);
               return false;
             }}
           >

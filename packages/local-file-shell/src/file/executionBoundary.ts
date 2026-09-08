@@ -34,6 +34,15 @@ const PRIVATE_KEY_BASENAMES = new Set(['id_dsa', 'id_ecdsa', 'id_ed25519', 'id_r
 const SENSITIVE_ROOT_SEGMENTS = [['.gnupg'], ['.ssh'], ['Library', 'Keychains']] as const;
 
 const LOCAL_SYSTEM_APIS = new Set([
+  'createProjectSkill',
+  'updateProjectSkill',
+  'renameProjectSkill',
+  'deleteProjectSkill',
+  'validateProjectSkill',
+  'packProjectSkill',
+  'batchOfficeDocument',
+  'mergeOfficeTemplate',
+  'validateOfficeDocument',
   'editFile',
   'editLocalFile',
   'globFiles',
@@ -43,6 +52,10 @@ const LOCAL_SYSTEM_APIS = new Set([
   'listLocalFiles',
   'moveFiles',
   'moveLocalFiles',
+  'createOfficeDocument',
+  'inspectOfficeDocument',
+  'prepareProjectSkillSnapshot',
+  'readOfficeDocument',
   'readFile',
   'readFiles',
   'readLocalFile',
@@ -305,7 +318,10 @@ const authorizePath = async ({
       );
       if (!isHomeDescendant && !isAllowedMountDescendant) continue;
     }
-    if (isSensitiveRoot(realRoot, homeDir) || !isWithin(target, realRoot)) continue;
+    const matches = root.target === 'file' ? target === realRoot : isWithin(target, realRoot);
+    if (isSensitiveRoot(realRoot, homeDir) || !matches) continue;
+    // A selected file never grants shell execution or becomes the workspace root.
+    if (root.target === 'file' && (mode === 'exec' || root.scope === 'primary')) continue;
     if (
       !root.modes.includes(mode) ||
       (root.scope === 'operation' && root.source === 'direct-user-message' && mode !== 'read')
@@ -385,6 +401,10 @@ const collectPathRequests = (
   switch (apiName) {
     case 'listFiles':
     case 'listLocalFiles':
+    case 'inspectOfficeDocument':
+    case 'prepareProjectSkillSnapshot':
+    case 'readOfficeDocument':
+    case 'validateOfficeDocument':
     case 'readFile':
     case 'readLocalFile': {
       return [{ apply: setField('path'), mode: 'read', value: args.path || cwd }];
@@ -440,6 +460,24 @@ const collectPathRequests = (
         },
       ];
     }
+    case 'createProjectSkill':
+    case 'updateProjectSkill':
+    case 'renameProjectSkill':
+    case 'deleteProjectSkill': {
+      return [{ apply: setField('scope'), mode: 'write', value: cwd }];
+    }
+    case 'validateProjectSkill':
+    case 'packProjectSkill': {
+      return [{ apply: setField('scope'), mode: 'read', value: cwd }];
+    }
+    case 'batchOfficeDocument':
+    case 'mergeOfficeTemplate': {
+      return [
+        { apply: setField('path'), mode: 'read', value: args.path },
+        { apply: setField('outputPath'), mode: 'write', value: args.outputPath },
+      ];
+    }
+    case 'createOfficeDocument':
     case 'writeFile':
     case 'writeLocalFile': {
       return [{ apply: setField('path'), mode: 'write', value: args.path }];

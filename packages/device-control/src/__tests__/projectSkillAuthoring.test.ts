@@ -1,10 +1,12 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  recoverProjectSkillEdit,
   createProjectSkillOnDevice,
   deleteProjectSkillOnDevice,
   packProjectSkillOnDevice,
@@ -25,6 +27,53 @@ describe('device project skill authoring', () => {
 
   afterEach(async () => {
     await rm(root, { force: true, recursive: true });
+  });
+
+  it('keeps the published skill unchanged when adding the 257th file fails validation', async () => {
+    await createProjectSkillOnDevice({ content: content('safe'), name: 'safe', scope: root });
+    const dir = path.join(root, '.agents/skills/safe');
+    await Promise.all(
+      Array.from({ length: 255 }, (_, index) => writeFile(path.join(dir, `${index}.md`), 'kept')),
+    );
+    const before = await readFile(path.join(dir, 'SKILL.md'), 'utf8');
+    await expect(
+      updateProjectSkillOnDevice({ name: 'safe', scope: root, path: 'overflow.md', content: 'no' }),
+    ).rejects.toThrow('256');
+    expect(await readFile(path.join(dir, 'SKILL.md'), 'utf8')).toBe(before);
+    await expect(readFile(path.join(dir, 'overflow.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect((await validateProjectSkillOnDevice({ name: 'safe', scope: root })).valid).toBe(true);
+  }, 15000);
+
+  it('does not rename an invalid skill before validating its replacement', async () => {
+    await createProjectSkillOnDevice({ content: content('safe'), name: 'safe', scope: root });
+    const dir = path.join(root, '.agents/skills/safe');
+    await writeFile(path.join(dir, 'too-large.md'), 'x'.repeat(1024 * 1024 + 1));
+    await expect(
+      renameProjectSkillOnDevice({ name: 'safe', newName: 'renamed', scope: root }),
+    ).rejects.toThrow('large');
+    expect(await readFile(path.join(dir, 'SKILL.md'), 'utf8')).toBe(content('safe'));
+    await expect(
+      readFile(path.join(root, '.agents/skills/renamed/SKILL.md')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('recovers the original after a process exits between directory renames', async () => {
+    await createProjectSkillOnDevice({ content: content('safe'), name: 'safe', scope: root });
+    const skills = path.join(root, '.agents/skills');
+    const lock = path.join(skills, '.authoring-lock');
+    await mkdir(lock);
+    const exited = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+    await writeFile(path.join(lock, 'owner.json'), JSON.stringify({ pid: exited.pid }));
+    await writeFile(
+      path.join(lock, 'transaction.json'),
+      JSON.stringify({ original: 'safe', destination: 'renamed', stage: '.stage-recovery' }),
+    );
+    await rename(path.join(skills, 'safe'), path.join(lock, 'previous'));
+    await recoverProjectSkillEdit(root);
+    expect(await readFile(path.join(skills, 'safe/SKILL.md'), 'utf8')).toBe(content('safe'));
+    await expect(readFile(path.join(skills, 'renamed/SKILL.md'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
   });
 
   it('creates, updates, renames, packs, validates, and deletes inside the workspace', async () => {

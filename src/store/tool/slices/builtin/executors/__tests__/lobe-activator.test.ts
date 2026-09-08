@@ -95,7 +95,7 @@ describe('lobe-activator executor discovery allowlist', () => {
       { messageId: 'msg-1', operationId: 'op-1' },
     );
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
 
     const state = result.state as any;
     const activatedIds = state.activatedTools?.map((t: any) => t.identifier) ?? [];

@@ -4279,6 +4279,26 @@ export const createRuntimeExecutors = (
           newState.metadata = metadata;
         }
 
+        if (
+          isSuccess &&
+          chatToolPayload.identifier === 'lobe-skills' &&
+          chatToolPayload.apiName === 'activateSkill'
+        ) {
+          const key = executionResult.state?.id;
+          const skill = state.operationSkillSet?.skills.find((entry) => entry.key === key);
+          if (typeof key === 'string' && skill) {
+            newState.activatedStepSkills = [
+              ...(newState.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
+              {
+                key,
+                identifier: skill.identifier,
+                content: executionResult.content,
+                activatedAtStep: state.stepCount,
+              },
+            ];
+          }
+        }
+
         // Persist ToolsActivator discovery results to state.activatedStepTools
         const discoveredTools = executionResult.state?.activatedTools as
           | Array<{ identifier: string }>
@@ -5000,6 +5020,25 @@ export const createRuntimeExecutors = (
     const newState = structuredClone(state);
     if (scratchSettlement) applyScratchBindSettlement(newState, scratchSettlement);
     for (const result of toolResults) {
+      if (
+        result.isSuccess &&
+        result.toolCall?.identifier === 'lobe-skills' &&
+        result.toolCall?.apiName === 'activateSkill'
+      ) {
+        const key = result.data?.state?.id;
+        const skill = state.operationSkillSet?.skills.find((entry) => entry.key === key);
+        if (typeof key === 'string' && skill) {
+          newState.activatedStepSkills = [
+            ...(newState.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
+            {
+              key,
+              identifier: skill.identifier,
+              content: result.data.content,
+              activatedAtStep: state.stepCount,
+            },
+          ];
+        }
+      }
       if (result.usageParams) {
         const { usage, cost } = UsageCounter.accumulateTool({
           ...result.usageParams,

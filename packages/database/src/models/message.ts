@@ -1,3 +1,4 @@
+import { normalizeMessageAttachments, type MessageAttachments } from '@lobechat/types';
 import { INBOX_SESSION_ID } from '@lobechat/const';
 import { parse } from '@lobechat/conversation-flow';
 import type {
@@ -1970,6 +1971,39 @@ export class MessageModel {
     }
   };
 
+  /** Resolve uploaded IDs under the current owner before either side of the dual write. */
+  private prepareAttachments = async (
+    trx: Transaction,
+    envelope: MessageAttachments | null | undefined,
+    legacyIds: string[] = [],
+  ) => {
+    const items = normalizeMessageAttachments({ attachments: envelope });
+    const ids = [
+      ...new Set([
+        ...legacyIds,
+        ...items.flatMap((item) => (item.source === 'uploaded' ? [item.fileId] : [])),
+      ]),
+    ];
+    const ownedFiles = ids.length
+      ? await trx
+          .select({ id: files.id, name: files.name, mime: files.fileType, size: files.size })
+          .from(files)
+          .where(
+            and(
+              inArray(files.id, ids),
+              buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, files),
+            ),
+          )
+      : [];
+    if (ownedFiles.length !== ids.length)
+      throw new Error('Attachment does not belong to this user');
+    const canonical = normalizeMessageAttachments({
+      attachments: envelope,
+      fileList: ownedFiles.map((file) => ({ ...file, fileType: file.mime })),
+    });
+    return { envelope: { schemaVersion: 1 as const, items: canonical }, ids };
+  };
+
   private createInTransaction = async (
     trx: Transaction,
     params: CreateMessageParams,
@@ -1989,7 +2023,15 @@ export class MessageModel {
           metadata: callerOwnedMetadata(params.metadata) as CreateMessageParams['metadata'],
         }
       : params;
-    const { insert, relations } = this.splitCreateMessageParams(safeParams);
+    const prepared =
+      safeParams.attachments != null || safeParams.files?.length
+        ? await this.prepareAttachments(trx, safeParams.attachments, safeParams.files)
+        : undefined;
+    const { insert, relations } = this.splitCreateMessageParams(
+      prepared
+        ? { ...safeParams, attachments: prepared.envelope, files: prepared.ids }
+        : safeParams,
+    );
 
     const [item] = (await runTimedStage(
       timing,
@@ -2341,8 +2383,17 @@ export class MessageModel {
       'db.message.createUserAndAssistant.transaction',
       () =>
         this.db.transaction(async (trx) => {
-          const userPayload = this.splitCreateMessageParams(userMessageWithTimestamp);
-          const assistantPayload = this.splitCreateMessageParams(assistantMessageWithParent);
+          const prepare = async (params: CreateMessageParams) => {
+            if (params.attachments == null && !params.files?.length) return params;
+            const prepared = await this.prepareAttachments(trx, params.attachments, params.files);
+            return { ...params, attachments: prepared.envelope, files: prepared.ids };
+          };
+          const userPayload = this.splitCreateMessageParams(
+            await prepare(userMessageWithTimestamp),
+          );
+          const assistantPayload = this.splitCreateMessageParams(
+            await prepare(assistantMessageWithParent),
+          );
           const insertedMessages = (await runTimedStage(
             timing,
             'db.message.createUserAndAssistant.messages.insert',
@@ -2402,8 +2453,29 @@ export class MessageModel {
     );
 
     return this.db.transaction(async (trx) => {
-      const result = await trx.insert(messages).values(messagesToInsert);
-
+      const prepared = await Promise.all(
+        messagesToInsert.map(async (message) => ({
+          message,
+          attachments: message.attachments
+            ? await this.prepareAttachments(trx, message.attachments)
+            : undefined,
+        })),
+      );
+      const result = await trx.insert(messages).values(
+        prepared.map(({ message, attachments }) => ({
+          ...message,
+          ...(attachments && { attachments: attachments.envelope }),
+        })),
+      );
+      const links = prepared.flatMap(({ message, attachments }) =>
+        (attachments?.ids ?? []).map((fileId) => ({
+          fileId,
+          messageId: message.id,
+          userId: this.userId,
+          workspaceId: this.workspaceId ?? null,
+        })),
+      );
+      if (links.length) await trx.insert(messagesFiles).values(links);
       return result;
     });
   };
@@ -2420,7 +2492,7 @@ export class MessageModel {
 
   update = async (
     id: string,
-    { imageList, metadata, usage, ...message }: Partial<UpdateMessageParams>,
+    { imageList, attachments, metadata, usage, ...message }: Partial<UpdateMessageParams>,
     timing?: ModelTimingContext,
   ): Promise<{ success: boolean }> => {
     // Promote token usage into the dedicated `usage` column. Prefer a top-level
@@ -2442,34 +2514,42 @@ export class MessageModel {
         'db.message.update.transaction',
         () =>
           this.db.transaction(async (trx) => {
-            // 1. imageList has replace semantics. An explicit [] detaches every
-            // file association; omitting the field preserves existing files.
-            if (imageList !== undefined) {
-              await runTimedStage(
-                timing,
-                'db.message.update.imageFiles.delete',
-                () =>
-                  trx
-                    .delete(messagesFiles)
-                    .where(and(eq(messagesFiles.messageId, id), this.filesOwnership())),
-                { imageCount: imageList.length },
+            let preparedAttachments:
+              | Awaited<ReturnType<typeof this.prepareAttachments>>
+              | undefined;
+            if (attachments !== undefined || imageList !== undefined) {
+              const [existing] = await trx
+                .select({ attachments: messages.attachments })
+                .from(messages)
+                .where(and(eq(messages.id, id), this.ownership()))
+                .for('update');
+              if (!existing) throw new Error('Message not found');
+              const envelope =
+                attachments !== undefined
+                  ? attachments
+                  : {
+                      schemaVersion: 1 as const,
+                      items: normalizeMessageAttachments({
+                        attachments: existing.attachments,
+                      }).filter((item) => item.source === 'local'),
+                    };
+              preparedAttachments = await this.prepareAttachments(
+                trx,
+                envelope,
+                imageList?.map((file) => file.id),
               );
-            }
-            if (imageList && imageList.length > 0) {
-              await runTimedStage(
-                timing,
-                'db.message.update.imageFiles.insert',
-                () =>
-                  trx.insert(messagesFiles).values(
-                    imageList.map((file) => ({
-                      fileId: file.id,
-                      messageId: id,
-                      userId: this.userId,
-                      workspaceId: this.workspaceId ?? null,
-                    })),
-                  ),
-                { imageCount: imageList.length },
-              );
+              await trx
+                .delete(messagesFiles)
+                .where(and(eq(messagesFiles.messageId, id), this.filesOwnership()));
+              if (preparedAttachments.ids.length)
+                await trx.insert(messagesFiles).values(
+                  preparedAttachments.ids.map((fileId) => ({
+                    fileId,
+                    messageId: id,
+                    userId: this.userId,
+                    workspaceId: this.workspaceId ?? null,
+                  })),
+                );
             }
 
             // 2. Handle metadata merge if there's a metadata payload or a
@@ -2492,6 +2572,7 @@ export class MessageModel {
                   .update(messages)
                   .set({
                     ...message,
+                    ...(preparedAttachments && { attachments: preparedAttachments.envelope }),
                     ...(mergedMetadata && { metadata: mergedMetadata }),
                     ...(usageToWrite && { usage: usageToWrite }),
                   })
@@ -3063,14 +3144,37 @@ export class MessageModel {
     if (fileIds.length === 0) return { success: true };
 
     try {
-      await this.db.insert(messagesFiles).values(
-        fileIds.map((fileId) => ({
-          fileId,
-          messageId,
-          userId: this.userId,
-          workspaceId: this.workspaceId ?? null,
-        })),
-      );
+      await this.db.transaction(async (trx) => {
+        const [message] = await trx
+          .select({ attachments: messages.attachments })
+          .from(messages)
+          .where(and(eq(messages.id, messageId), this.ownership()))
+          .for('update');
+        if (!message) throw new Error('Message not found');
+        const oldLinks = await trx
+          .select({ id: messagesFiles.fileId })
+          .from(messagesFiles)
+          .where(and(eq(messagesFiles.messageId, messageId), this.filesOwnership()));
+        const prepared = await this.prepareAttachments(trx, message.attachments, [
+          ...oldLinks.map((link) => link.id),
+          ...fileIds,
+        ]);
+        await trx
+          .insert(messagesFiles)
+          .values(
+            prepared.ids.map((fileId) => ({
+              fileId,
+              messageId,
+              userId: this.userId,
+              workspaceId: this.workspaceId ?? null,
+            })),
+          )
+          .onConflictDoNothing();
+        await trx
+          .update(messages)
+          .set({ attachments: prepared.envelope })
+          .where(and(eq(messages.id, messageId), this.ownership()));
+      });
       return { success: true };
     } catch (error) {
       console.error('Add files to message error:', error);

@@ -12,7 +12,7 @@ export const OfficeDocumentsSkill: BuiltinSkill = {
   avatar: '📄',
   content,
   description:
-    'Create, fill, inspect, validate, preview, and export Word, Excel, and PowerPoint files with Masterino Office tools.',
+    'Read and inspect Office documents, analyze Excel data, and create or modify files with the capabilities available in the current environment.',
   identifier: OfficeDocumentsIdentifier,
   name: 'Office Documents',
   resources: toResourceMeta({

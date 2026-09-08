@@ -175,6 +175,11 @@ describe('SkillsExecutionRuntime', () => {
           version: 1,
           workspace: { deviceId: 'device-1', kind: 'device', rootPath: '/repo' },
         },
+        projectSnapshotResolver: async () => ({
+          directory: '/cache/extracted/prepared',
+          content: 'body',
+          files: ['SKILL.md'],
+        }),
         projectSkills: [{ location: '/repo/.agents/skills/deploy/SKILL.md', name: 'deploy' }],
         service: createMockService(),
       });
@@ -189,10 +194,10 @@ describe('SkillsExecutionRuntime', () => {
       expect(deviceScriptRunner).toHaveBeenCalledWith(
         'scripts/deploy.sh',
         expect.objectContaining({
-          cwd: '/repo/.agents/skills/deploy',
+          cwd: '/repo',
           deviceId: 'device-1',
           env: {
-            SKILL_DIR: '/repo/.agents/skills/deploy',
+            SKILL_DIR: '/cache/extracted/prepared',
             WORKSPACE_DIR: '/repo',
           },
         }),
@@ -269,7 +274,7 @@ describe('SkillsExecutionRuntime', () => {
       // The hint points at the skill's directory and instructs the model to
       // call `local-system.globFiles` itself rather than pre-enumerating here.
       expect(result.content).toContain('/repo/.agents/skills/deploy');
-      expect(result.content).toContain('globFiles');
+      expect(result.content).toContain('id="project:deploy"');
       expect(result.state).toMatchObject({ name: 'deploy', source: 'project' });
     });
 

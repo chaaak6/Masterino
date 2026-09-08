@@ -1,3 +1,4 @@
+import type { MessageAttachments } from '../attachments';
 import type { GroundingSearch } from '../../search';
 import type { ThreadStatus } from '../../topic/thread';
 import type {
@@ -171,6 +172,7 @@ export interface TaskDetail {
 }
 
 export interface UIChatMessage {
+  attachments?: MessageAttachments | null;
   // Group chat fields (alphabetically before other fields)
   agentId?: string | 'supervisor';
   /**

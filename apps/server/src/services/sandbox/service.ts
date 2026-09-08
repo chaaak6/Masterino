@@ -67,8 +67,6 @@ export class SandboxMiddlewareService implements SandboxService {
   readonly capabilities: SandboxProviderCapabilities;
   readonly kind: SandboxProviderKind;
 
-  private filesInitialized = false;
-
   constructor(
     private readonly provider: SandboxProvider,
     private readonly options: SandboxServiceOptions,
@@ -85,22 +83,9 @@ export class SandboxMiddlewareService implements SandboxService {
     return this.provider.callTool(toolName, params);
   }
 
-  /**
-   * Sync the files the user uploaded in this topic/session into the sandbox the
-   * first time this service instance is used. Best-effort: any failure is
-   * swallowed so it never blocks the actual tool call.
-   *
-   * The downloaded command is guarded by an in-sandbox marker file, which is the
-   * single source of truth for idempotency: it is a cheap no-op once synced, and
-   * if the sandbox session is recycled the marker disappears so the next call
-   * re-syncs automatically. We intentionally do NOT cache the "done" state out of
-   * band (e.g. in Redis), because that could skip the re-sync after a recycle and
-   * leave the agent believing files exist when /mnt/data is empty.
-   */
+  /** Reconcile uploaded IDs on each call; sandbox per-file version markers avoid re-downloads.
+   * Failed preparation is visible and retried rather than marking missing files ready. */
   private async ensureFilesInitialized(): Promise<void> {
-    if (this.filesInitialized) return;
-    this.filesInitialized = true;
-
     const { fileService, serverDB, topicId, userId } = this.options;
     if (!serverDB || !fileService || !topicId || !userId) return;
     if (!this.provider.capabilities.shell) return;
@@ -117,12 +102,21 @@ export class SandboxMiddlewareService implements SandboxService {
             const url = await fileService
               .createCachedPreSignedUrlForPreview(file.url)
               .catch(() => '');
-            return url ? { name: file.name, url } : null;
+            return url
+              ? {
+                  id: file.id,
+                  name: file.name,
+                  size: file.size,
+                  version: file.version ?? file.url,
+                  url,
+                }
+              : null;
           }),
         )
       ).filter((item): item is SandboxInitDownload => item !== null);
 
-      if (downloads.length === 0) return;
+      if (downloads.length !== files.length)
+        throw new Error('Could not prepare all uploaded attachments');
 
       const command = buildSandboxFilesInitCommand(downloads);
       const result = await this.provider.callTool('runCommand', {
@@ -130,6 +124,8 @@ export class SandboxMiddlewareService implements SandboxService {
         timeout: SANDBOX_INIT_TIMEOUT_MS,
       });
 
+      if (!normalizeSandboxCommandResult(result).success)
+        throw new Error('Attachment download failed');
       log(
         'Sandbox file init for topic %s: %d files, success=%s',
         topicId,
@@ -138,6 +134,7 @@ export class SandboxMiddlewareService implements SandboxService {
       );
     } catch (error) {
       log('Sandbox file init failed for topic %s: %O', topicId, error);
+      throw error;
     }
   }
 

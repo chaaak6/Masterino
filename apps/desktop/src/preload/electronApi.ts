@@ -1,6 +1,6 @@
 import { electronAPI } from '@electron-toolkit/preload';
 import type { ScreenCaptureSession } from '@lobechat/electron-client-ipc';
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 import { loadDesktopRuntimeConfig } from '../common/desktopRuntimeConfig';
 import { invoke } from './invoke';
@@ -30,6 +30,7 @@ export const setupElectronApi = () => {
   }
 
   contextBridge.exposeInMainWorld('electronAPI', {
+    getPathForFile: (file: File) => webUtils.getPathForFile(file),
     invoke,
     onScreenCaptureSession: (listener: (session: ScreenCaptureSession) => void) => {
       screenCaptureSessionListeners.add(listener);

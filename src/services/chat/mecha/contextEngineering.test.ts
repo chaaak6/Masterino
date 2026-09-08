@@ -315,7 +315,7 @@ describe('contextEngineering', () => {
       runtimeFlags.isServerMode = false;
     });
 
-    it('should include image files in server mode', async () => {
+    it('rejects selected image attachments when the current model has no vision capability', async () => {
       runtimeFlags.isServerMode = true;
 
       vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(false);
@@ -334,47 +334,9 @@ describe('contextEngineering', () => {
         }, // Message with files
         { content: 'Hey', role: 'assistant' }, // Regular user message
       ] as UIChatMessage[];
-      const output = await contextEngineering({
-        messages,
-        provider: 'openai',
-        model: 'gpt-4-vision-preview',
-      });
-
-      expect(output).toEqual([
-        { content: expect.stringContaining(getCurrentDateContent()), role: 'system' },
-        {
-          content: [
-            {
-              // Vision disabled: the image is surfaced in the file-context
-              // block AND appended as a textual placeholder so the target
-              // model still sees that an image was sent (see ).
-              text: `Hello
-
-[image omitted: not supported by this model]
-
-<!-- SYSTEM CONTEXT (NOT PART OF USER QUERY) -->
-<context.instruction>following part contains context information injected by the system. Please follow these instructions:
-
-1. Always prioritize handling user-visible content.
-2. the context is only required when user's queries rely on it.
-</context.instruction>
-<files_info>
-<images>
-<images_docstring>here are user upload images you can refer to</images_docstring>
-<image ref="image_1" name="abc.png" url="http://example.com/image.jpg"></image>
-</images>
-</files_info>
-<!-- END SYSTEM CONTEXT -->`,
-              type: 'text',
-            },
-          ],
-          role: 'user',
-        },
-        {
-          content: 'Hey',
-          role: 'assistant',
-        },
-      ]);
+      await expect(
+        contextEngineering({ messages, provider: 'openai', model: 'gpt-4-vision-preview' }),
+      ).rejects.toThrow('cannot view images');
 
       runtimeFlags.isServerMode = false;
     });

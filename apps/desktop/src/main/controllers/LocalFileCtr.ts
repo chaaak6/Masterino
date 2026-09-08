@@ -1,3 +1,11 @@
+import {
+  receiveLocalAttachment,
+  resolveLocalAttachment,
+  prepareLocalAttachment,
+  bindLocalAttachment,
+  type LocalAttachmentRecord,
+} from '@lobechat/device-control';
+import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import { prepareSkillPackage } from '@lobechat/device-control';
 import { constants } from 'node:fs';
 import { access, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
@@ -53,7 +61,7 @@ import {
   type SearchOptions,
   writeLocalFile,
 } from '@lobechat/local-file-shell';
-import { dialog, shell } from 'electron';
+import { dialog, shell, nativeImage } from 'electron';
 import { execa } from 'execa';
 
 import ContentSearchService from '@/services/contentSearchSrv';
@@ -233,12 +241,72 @@ const areAllPathsSafeOnDisk = async (
 
 export default class LocalFileCtr extends ControllerModule {
   static override readonly groupName = 'localSystem';
+  private readonly attachmentImageCache = new Map<string, string>();
   private get searchService() {
     return this.app.getService(FileSearchService);
   }
 
   private get contentSearchService() {
     return this.app.getService(ContentSearchService);
+  }
+
+  @IpcMethod()
+  async receiveAttachment(input: {
+    draftId: string;
+    name: string;
+    mime: string;
+    originalPath?: string;
+    data?: Uint8Array;
+  }) {
+    if (input.mime.startsWith('image/')) {
+      if (!input.data || input.data.byteLength > 10 * 1024 * 1024)
+        throw new Error('Image exceeds 10 MiB');
+      const image = nativeImage.createFromBuffer(Buffer.from(input.data));
+      const { width, height } = image.getSize();
+      if (image.isEmpty() || width > 8192 || height > 8192 || width * height > 40_000_000)
+        throw new Error('Invalid image or image resolution exceeds the supported limit');
+    }
+    return receiveLocalAttachment(
+      path.join(this.app.appStoragePath, 'scratch-workspaces'),
+      this.app.getService(GatewayConnectionService).getDeviceId(),
+      input,
+    );
+  }
+
+  @IpcMethod()
+  async resolveAttachment(input: {
+    ref: LocalAttachmentRecord;
+    topicId?: string;
+    image?: boolean;
+  }) {
+    const root = path.join(this.app.appStoragePath, 'scratch-workspaces');
+    const deviceId = this.app.getService(GatewayConnectionService).getDeviceId();
+    if (input.image) {
+      if (!/^image\/(png|jpeg|webp|gif)$/.test(input.ref.mime))
+        throw new Error('Unsupported image type');
+      const resolved = await resolveLocalAttachment(root, deviceId, input.ref);
+      if (resolved.bytes.byteLength > 10 * 1024 * 1024)
+        throw new Error('Image exceeds 10 MiB; resize it before sending');
+      const key = `${input.ref.localResourceId}:${input.ref.version}`;
+      const dataUrl =
+        this.attachmentImageCache.get(key) ??
+        `data:${input.ref.mime};base64,${resolved.bytes.toString('base64')}`;
+      if (this.attachmentImageCache.size >= 2)
+        this.attachmentImageCache.delete(this.attachmentImageCache.keys().next().value!);
+      this.attachmentImageCache.set(key, dataUrl);
+      return { dataUrl };
+    }
+    return prepareLocalAttachment(root, deviceId, input.ref, input.topicId ?? 'active');
+  }
+
+  @IpcMethod()
+  async bindAttachment(input: { ref: LocalAttachmentRecord; topicId: string }) {
+    return bindLocalAttachment(
+      path.join(this.app.appStoragePath, 'scratch-workspaces'),
+      this.app.getService(GatewayConnectionService).getDeviceId(),
+      input.ref,
+      input.topicId,
+    );
   }
 
   // ==================== File Operation ====================

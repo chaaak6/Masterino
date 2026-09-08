@@ -1,5 +1,6 @@
 import type {
   GroundingSearch,
+  MessageAttachments,
   ModelReasoning,
   ModelUsage,
   ToolIntervention,
@@ -101,6 +102,7 @@ export const messages = pgTable(
 
     role: varchar255('role').notNull(),
     content: text('content'),
+    attachments: jsonb('attachments').$type<MessageAttachments>(),
     editorData: jsonb('editor_data'),
     summary: text('summary'),
     reasoning: jsonb('reasoning').$type<ModelReasoning>(),

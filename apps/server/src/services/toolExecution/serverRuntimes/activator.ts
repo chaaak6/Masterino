@@ -1,14 +1,10 @@
-import { builtinSkills } from '@lobechat/builtin-skills';
 import { LobeActivatorIdentifier } from '@lobechat/builtin-tool-activator';
 import {
   ActivatorExecutionRuntime,
   type ActivatorRuntimeService,
   type ToolManifestInfo,
 } from '@lobechat/builtin-tool-activator/executionRuntime';
-import { SkillsExecutionRuntime } from '@lobechat/builtin-tool-skills/executionRuntime';
 
-import { AgentSkillModel } from '@/database/models/agentSkill';
-import { filterBuiltinSkills } from '@/helpers/skillFilters';
 import {
   emitToolOutcomeSafely,
   resolveToolOutcomeScope,
@@ -40,9 +36,9 @@ export const activatorRuntime: ServerRuntimeRegistration = {
       });
 
       await emitToolOutcomeSafely({
-        apiName: 'activateSkill',
+        apiName: 'activateTools',
         context: { agentId: context.agentId, userId: context.userId },
-        domainKey: 'skill:builtin-skill',
+        domainKey: 'tool:activation',
         errorReason: input.errorReason,
         identifier: LobeActivatorIdentifier,
         intentClass: 'tool_command',
@@ -51,7 +47,7 @@ export const activatorRuntime: ServerRuntimeRegistration = {
         policyStateStore: redisPolicyStateStore,
         relatedObjects: input.identifiers.map((id) => ({
           objectId: id,
-          objectType: 'skill',
+          objectType: 'tool',
           relation: 'selected',
         })),
         scope,
@@ -64,45 +60,7 @@ export const activatorRuntime: ServerRuntimeRegistration = {
       });
     };
 
-    // Create SkillsExecutionRuntime for activateSkill delegation
-    let skillsRuntime: SkillsExecutionRuntime | undefined;
-    if (context.serverDB && context.userId) {
-      const skillModel = new AgentSkillModel(context.serverDB, context.userId, context.workspaceId);
-      skillsRuntime = new SkillsExecutionRuntime({
-        builtinSkills: filterBuiltinSkills(builtinSkills),
-        service: {
-          findAll: () => skillModel.findAll(),
-          findById: (id) => skillModel.findById(id),
-          findByName: (name) => skillModel.findByName(name),
-          readResource: async () => {
-            throw new Error('readResource not available in tools runtime');
-          },
-        },
-      });
-    }
-
     const service: ActivatorRuntimeService = {
-      activateSkill: skillsRuntime
-        ? async (args) => {
-            try {
-              const result = await skillsRuntime!.activateSkill(args);
-              await emitActivationOutcome({
-                identifiers: [args.name],
-                status: 'succeeded',
-                summary: 'Activator selected a skill.',
-              });
-              return result;
-            } catch (error) {
-              await emitActivationOutcome({
-                errorReason: (error as Error).message,
-                identifiers: [args.name],
-                status: 'failed',
-                summary: 'Activator failed to select a skill.',
-              });
-              throw error;
-            }
-          }
-        : undefined,
       getActivatedToolIds: () => [...activatedIds],
       getToolManifests: async (identifiers: string[]): Promise<ToolManifestInfo[]> => {
         // Note: context.toolManifestMap should only contain discoverable tools.
@@ -110,6 +68,14 @@ export const activatorRuntime: ServerRuntimeRegistration = {
         const results: ToolManifestInfo[] = [];
 
         for (const id of identifiers) {
+          const plan = context.executionContext?.plan;
+          if (plan && id === 'lobe-cloud-sandbox' && plan.kind !== 'sandbox') continue;
+          if (
+            plan &&
+            (id === 'lobe-local-system' || id === 'lobe-skill-authoring') &&
+            plan.kind !== 'device'
+          )
+            continue;
           const manifest = context.toolManifestMap[id];
           if (!manifest) continue;
 
@@ -135,7 +101,7 @@ export const activatorRuntime: ServerRuntimeRegistration = {
         void emitActivationOutcome({
           identifiers,
           status: 'succeeded',
-          summary: 'Activator marked skills as active.',
+          summary: 'Activator marked tools as active.',
         }).catch((error) => {
           console.error('[AgentSignal] Failed to emit activator outcome:', error);
         });

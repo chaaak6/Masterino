@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { selectActivatedSkillsFromMessages } from './activationHistory';
 
 describe('project activation history', () => {
-  it('retains successful legacy project activations without trusting a path as an execution directory', () => {
+  it('rejects legacy project activations without a scoped stable identity', () => {
     const activation = {
       plugin: { apiName: 'activateSkill', identifier: 'lobe-skills' },
       pluginState: {
@@ -13,9 +13,7 @@ describe('project activation history', () => {
       },
       role: 'tool',
     };
-    expect(selectActivatedSkillsFromMessages([activation])).toEqual([
-      { id: 'project:demo', name: 'demo' },
-    ]);
+    expect(selectActivatedSkillsFromMessages([activation])).toBeUndefined();
     expect(
       selectActivatedSkillsFromMessages([{ ...activation, error: { message: 'failed' } }]),
     ).toBeUndefined();

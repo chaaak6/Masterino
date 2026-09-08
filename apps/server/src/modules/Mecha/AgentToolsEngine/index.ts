@@ -204,6 +204,7 @@ export const createServerAgentToolsEngine = (
   // activator can't smuggle anything else in.
   const chatModeRules = {
     [KnowledgeBaseManifest.identifier]: hasEnabledKnowledgeBases,
+    'lobe-skill-authoring': executionPlan?.kind === 'device',
     [MemoryManifest.identifier]: globalMemoryEnabled,
     [WebBrowsingManifest.identifier]: isSearchEnabled,
   };
@@ -288,6 +289,8 @@ export const createServerAgentToolsEngine = (
     // Memory consent is a privacy boundary and cannot be bypassed by explicit
     // activation, even though other agent-mode tools may use that mechanism.
     enableChecker: (params) => {
+      if (params.pluginId === 'lobe-skill-authoring' && executionPlan?.kind !== 'device')
+        return false;
       // Device runtime boundaries are hard gates. Agent-mode explicit
       // activation and a user-declared plugin must never re-enable a device
       // tool when this operation resolved to sandbox/none, or when the

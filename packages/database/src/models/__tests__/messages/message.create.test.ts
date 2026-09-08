@@ -1,3 +1,4 @@
+import { FileModel } from '../../file';
 import type {
   CommitToolResultInput,
   DBMessageItem,
@@ -5,7 +6,7 @@ import type {
   MessageMetadata,
 } from '@lobechat/types';
 import { asc, eq, sql } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { uuid } from '@/utils/uuid';
 
@@ -77,6 +78,134 @@ afterEach(async () => {
 });
 
 describe('MessageModel Create Tests', () => {
+  it('persists local descriptions without fake file foreign keys and dual-writes uploaded IDs once', async () => {
+    const local = {
+      source: 'local' as const,
+      attachmentId: 'a',
+      localResourceId: 'r',
+      deviceId: 'd',
+      name: 'report.xlsx',
+      mime: 'application/xlsx',
+      size: 12,
+      version: 'v',
+    };
+    const item = await messageModel.create({
+      content: 'read this',
+      role: 'user',
+      files: ['f1', 'f1'],
+      attachments: { schemaVersion: 1, items: [local] },
+    });
+    const [row] = await serverDB.select().from(messages).where(eq(messages.id, item.id));
+    expect(row.attachments?.items).toHaveLength(2);
+    expect(row.attachments?.items[0]).toEqual(local);
+    const links = await serverDB
+      .select()
+      .from(messagesFiles)
+      .where(eq(messagesFiles.messageId, item.id));
+    expect(links.map((link) => link.fileId)).toEqual(['f1']);
+  });
+
+  it('rolls back both representations when a transaction is interrupted after relation insertion', async () => {
+    const originalTransaction = serverDB.transaction.bind(serverDB);
+    const fault = vi.spyOn(serverDB, 'transaction').mockImplementation(async (callback: any) =>
+      originalTransaction(async (trx) => {
+        await callback(trx);
+        throw new Error('simulated transaction interruption');
+      }),
+    );
+    try {
+      await expect(
+        messageModel.create(
+          { content: 'read', role: 'user', files: ['f1'] },
+          'attachment-interrupted',
+        ),
+      ).rejects.toThrow('interruption');
+    } finally {
+      fault.mockRestore();
+    }
+    expect(
+      await serverDB.select().from(messages).where(eq(messages.id, 'attachment-interrupted')),
+    ).toEqual([]);
+    expect(
+      await serverDB
+        .select()
+        .from(messagesFiles)
+        .where(eq(messagesFiles.messageId, 'attachment-interrupted')),
+    ).toEqual([]);
+  });
+
+  it('removes uploaded JSON references with deleted files while preserving local references', async () => {
+    const local = {
+      source: 'local' as const,
+      attachmentId: 'a',
+      localResourceId: 'r',
+      deviceId: 'd',
+      name: 'report.xlsx',
+      mime: 'application/xlsx',
+      size: 12,
+      version: 'v',
+    };
+    const item = await messageModel.create({
+      content: 'read',
+      role: 'user',
+      files: ['f1'],
+      attachments: { schemaVersion: 1, items: [local] },
+    });
+    await new FileModel(serverDB, userId).delete('f1');
+    const [row] = await serverDB.select().from(messages).where(eq(messages.id, item.id));
+    expect(row.attachments?.items).toEqual([local]);
+    expect(
+      await serverDB.select().from(messagesFiles).where(eq(messagesFiles.messageId, item.id)),
+    ).toEqual([]);
+  });
+
+  it('rejects unowned uploaded references without leaving a message or association', async () => {
+    await expect(
+      messageModel.create(
+        { content: 'no', role: 'user', files: ['missing-file'] },
+        'attachment-invalid',
+      ),
+    ).rejects.toThrow();
+    expect(
+      await serverDB.select().from(messages).where(eq(messages.id, 'attachment-invalid')),
+    ).toEqual([]);
+    expect(
+      await serverDB
+        .select()
+        .from(messagesFiles)
+        .where(eq(messagesFiles.messageId, 'attachment-invalid')),
+    ).toEqual([]);
+  });
+
+  it('replaces attachment links and JSON in one transaction and preserves both after a failed update', async () => {
+    const item = await messageModel.create({ content: 'read', role: 'user', files: ['f1'] });
+    const bad = await messageModel.update(item.id, {
+      attachments: {
+        schemaVersion: 1,
+        items: [
+          {
+            source: 'uploaded',
+            attachmentId: 'bad',
+            fileId: 'missing',
+            name: 'x',
+            mime: 'image/png',
+            size: 1,
+          },
+        ],
+      },
+    });
+    expect(bad.success).toBe(false);
+    const [row] = await serverDB.select().from(messages).where(eq(messages.id, item.id));
+    expect(row.attachments?.items[0]).toMatchObject({ fileId: 'f1' });
+    expect(
+      await serverDB.select().from(messagesFiles).where(eq(messagesFiles.messageId, item.id)),
+    ).toHaveLength(1);
+    await messageModel.update(item.id, { attachments: { schemaVersion: 1, items: [] } });
+    expect(
+      await serverDB.select().from(messagesFiles).where(eq(messagesFiles.messageId, item.id)),
+    ).toHaveLength(0);
+  });
+
   describe('ensureToolMessage', () => {
     it('creates one canonical tool message from an immutable intent', async () => {
       await serverDB.insert(agents).values({ id: 'agent-ensure', userId });

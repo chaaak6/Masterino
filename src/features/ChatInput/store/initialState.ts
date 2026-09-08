@@ -53,6 +53,7 @@ export const DEFAULT_CHAT_INPUT_FEATURE = {
 } as const satisfies Required<ChatInputFeature>;
 
 export interface PublicState {
+  topicId?: string | null;
   agentId?: string;
   allowExpand?: boolean;
   contextWindowMessages?: ContextWindowMessage[];

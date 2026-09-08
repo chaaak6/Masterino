@@ -1,7 +1,5 @@
-import {
-  parseExceededContextWindowError,
-  runContextBudgetedCall,
-} from '@lobechat/agent-runtime';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
+import { parseExceededContextWindowError, runContextBudgetedCall } from '@lobechat/agent-runtime';
 import { AgentBuilderIdentifier } from '@lobechat/builtin-tool-agent-builder';
 import {
   COMPOSIO_APP_TYPES,
@@ -110,6 +108,7 @@ interface GetChatCompletionPayload extends Partial<Omit<ChatStreamPayload, 'mess
   messages: UIChatMessage[];
   /** Skill registry winners frozen at the client operation boundary. */
   operationSkills?: OperationSkillSet['skills'];
+  executionContext?: ExecutionContext;
   /**
    * Pre-resolved agent config from AgentRuntime layer.
    * Required to ensure config consistency and proper isSubAgent filtering.
@@ -170,6 +169,7 @@ class ChatService {
       topicId,
       resolvedAgentConfig,
       operationSkills,
+      executionContext,
       ...params
     }: GetChatCompletionPayload,
     options?: FetchOptions,
@@ -338,6 +338,7 @@ class ChatService {
       messages,
       model: payload.model,
       operationSkills,
+      executionContext,
       plugins,
       provider: payload.provider!,
       sessionId: options?.trace?.sessionId,

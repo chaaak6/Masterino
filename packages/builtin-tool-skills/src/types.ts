@@ -35,6 +35,8 @@ export interface ExecScriptActivatedSkill {
 }
 
 export interface ExecScriptParams {
+  /** Stable key returned by activateSkill. */
+  skillId?: string;
   /**
    * All activated skills from stepContext
    * Server will resolve zipUrls for all skills

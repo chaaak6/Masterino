@@ -1,3 +1,5 @@
+import { isDesktop } from '@/const/version';
+import { receiveLocalChatAttachment } from '@/services/electron/localAttachmentService';
 import { type ChatContextContent } from '@lobechat/types';
 import { COMPRESSIBLE_IMAGE_TYPES, compressImageFile } from '@lobechat/utils/compressImage';
 import { toast } from '@lobehub/ui/base-ui';
@@ -101,8 +103,9 @@ export class FileActionImpl {
   removeChatUploadFile = async (id: string): Promise<void> => {
     const { dispatchChatUploadFileList } = this.#get();
 
+    const attachment = this.#get().chatUploadFileList.find((file) => file.id === id)?.attachment;
     dispatchChatUploadFileList({ id, type: 'removeFile' });
-    await fileService.removeFile(id);
+    if (!attachment) await fileService.removeFile(id);
   };
 
   startAsyncTask = async (
@@ -143,7 +146,11 @@ export class FileActionImpl {
     }
   };
 
-  uploadChatFiles = async (rawFiles: File[], agentId: string): Promise<void> => {
+  uploadChatFiles = async (
+    rawFiles: File[],
+    agentId: string,
+    topicId?: string | null,
+  ): Promise<void> => {
     const { dispatchChatUploadFileList } = this.#get();
     // 0. skip file in blacklist
     const filteredFiles = rawFiles.filter((file) => !FILE_UPLOAD_BLACKLIST.includes(file.name));
@@ -173,6 +180,39 @@ export class FileActionImpl {
     }
 
     if (supportedFiles.length === 0) return;
+
+    const execution = isDesktop
+      ? await (
+          await import('@/store/projectWorkspace/topicExecutionIntent')
+        ).resolvePendingTopicExecutionIntent({ agentId, topicId, isNewTopic: !topicId })
+      : undefined;
+    if (isDesktop && execution?.intent.target === 'local') {
+      const draftId = crypto.randomUUID();
+      for (const file of supportedFiles) {
+        try {
+          const attachment = await receiveLocalChatAttachment(file, draftId);
+          dispatchChatUploadFileList({
+            type: 'addFiles',
+            files: [
+              {
+                attachment,
+                file,
+                id: attachment.attachmentId,
+                previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+                status: 'success',
+                processStage: 'ready_for_chat',
+              },
+            ],
+          });
+        } catch (error) {
+          notification.error({
+            message: t('upload.uploadFailed', { ns: 'error' }),
+            description: getErrorMessage(error),
+          });
+        }
+      }
+      return;
+    }
 
     // 1. compress images and add files with base64
     const files = await Promise.all(

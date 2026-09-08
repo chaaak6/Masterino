@@ -12,3 +12,7 @@ export {
   statPath,
   verifySkillPaths,
 } from './workspace';
+
+export * from './localAttachments';
+
+export * from './projectSkillSnapshot';

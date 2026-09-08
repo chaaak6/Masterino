@@ -25,7 +25,8 @@ const ChatConversation = memo(() => {
   const isHeterogeneous = useAgentStore(agentSelectors.isCurrentAgentHeterogeneous);
   const isLocalSystemEnabled = useAgentStore(agentChatConfigSelectors.isLocalSystemEnabled);
 
-  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider });
+  const topicId = useChatStore((s) => s.activeTopicId);
+  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider, topicId });
 
   const enableLocalFolderMention = isDesktop && (isHeterogeneous || isLocalSystemEnabled);
 

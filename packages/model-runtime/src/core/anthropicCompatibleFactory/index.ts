@@ -1,3 +1,4 @@
+import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import Anthropic, { type ClientOptions } from '@anthropic-ai/sdk';
 import type { Stream } from '@anthropic-ai/sdk/streaming';
 import { CURRENT_VERSION } from '@lobechat/const';
@@ -275,6 +276,7 @@ export const createDefaultAnthropicClient = <T extends Record<string, any> = any
 
   return new Anthropic({
     ...options,
+    fetch: withRequestBodyBudget(options.fetch),
     ...(baseURL ? { baseURL } : {}),
     defaultHeaders,
     timeout: options.timeout ?? resolveDefaultAnthropicTimeout(),
@@ -486,6 +488,7 @@ export const createAnthropicCompatibleRuntime = <T extends Record<string, any> =
         timeout: rest.timeout ?? constructorOptions?.timeout ?? resolveDefaultAnthropicTimeout(),
       };
 
+      initOptions.fetch = withRequestBodyBudget(initOptions.fetch);
       if (customClient?.createClient) {
         this.client = customClient.createClient(initOptions as ConstructorOptions<T>);
       } else {

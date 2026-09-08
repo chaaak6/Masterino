@@ -7,3 +7,5 @@ export { createLogger, type Logger, type LoggerFactory, setLoggerFactory } from 
 export * from './shell';
 export type { ToolCategory, ToolDetector } from './toolDetector';
 export * from './types';
+
+export * from './office';

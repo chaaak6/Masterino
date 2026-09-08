@@ -1,3 +1,4 @@
+import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import type { ChatModelCard } from '@lobechat/types';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -325,6 +326,8 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
 
       const initOptions = { apiKey, baseURL, ...constructorOptions, ...res };
 
+      initOptions.fetch = withRequestBodyBudget(initOptions.fetch);
+
       // if the custom client is provided, use it as client
       if (customClient?.createClient) {
         this.client = customClient.createClient(initOptions as any);
@@ -558,6 +561,7 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
             ...restOptions,
           } as ConstructorOptions<T> & Record<string, any>;
 
+          initOptions.fetch = withRequestBodyBudget(initOptions.fetch);
           this._options = nextOptions;
 
           if (customClient?.createClient) {

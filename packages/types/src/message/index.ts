@@ -7,3 +7,5 @@ export interface ModelRankItem {
   count: number;
   id: string | null;
 }
+
+export * from './attachments';

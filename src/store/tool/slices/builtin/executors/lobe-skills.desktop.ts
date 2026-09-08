@@ -55,6 +55,24 @@ const createRuntime = (ctx: BuiltinToolContext) => {
     return result;
   };
   return new SkillsExecutionRuntime({
+    projectSnapshotResolver: async ({ key, location, resourcePath }) => {
+      const execution = ctx.executionContext;
+      const operationId = execution?.operationId ?? ctx.operationId;
+      const workspaceRoot = execution?.workspace?.rootPath ?? execution?.cwd;
+      if (!operationId || !workspaceRoot) throw new Error('SKILL_OPERATION_BINDING_REQUIRED');
+      const result = await readFromDevice('prepareProjectSkillSnapshot', {
+        operationId,
+        skillId: key,
+        path: location,
+        workspaceRoot,
+        resourcePath,
+      });
+      return (
+        result.state as {
+          result: { directory: string; content: string; files: string[]; resourceContent?: string };
+        }
+      ).result;
+    },
     deviceFileAccess: {
       readFile: async (path) =>
         (await readFromDevice('readFile', { path, loc: [0, 5000] })).content,
@@ -74,11 +92,11 @@ const createRuntime = (ctx: BuiltinToolContext) => {
       const workspaceRootPath = executionContext.workspace?.rootPath ?? executionContext.cwd;
       const isSkillScript = !!options.activatedSkills?.length;
       const extraRoot =
-        isSkillScript && options.cwd !== workspaceRootPath
+        isSkillScript && (options.env.SKILL_DIR ?? options.cwd) !== workspaceRootPath
           ? {
               modes: ['read' as const, 'exec' as const],
               operationId,
-              rootPath: options.cwd,
+              rootPath: options.env.SKILL_DIR ?? options.cwd,
               scope: 'operation' as const,
               source: 'user-approval' as const,
             }
@@ -89,6 +107,7 @@ const createRuntime = (ctx: BuiltinToolContext) => {
         executionContext: {
           accessRoots: [...(executionContext.accessRoots ?? []), ...(extraRoot ? [extraRoot] : [])],
           cwd: options.cwd,
+          env: options.env,
           envFiles: executionContext.envFiles,
           envRef: {
             agentId: ctx.agentId!,

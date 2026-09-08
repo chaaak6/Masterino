@@ -7,6 +7,7 @@ import { useFileStore } from '@/store/file';
 interface UseUploadFilesOptions {
   /** The conversation's agent id. Decides whether the chat-only file-type whitelist applies. */
   agentId: string;
+  topicId?: string | null;
   model?: string;
   provider?: string;
 }
@@ -19,7 +20,7 @@ interface UseUploadFilesOptions {
  * @returns handleUploadFiles - Callback to handle file uploads
  */
 export const useUploadFiles = (options: UseUploadFilesOptions) => {
-  const { agentId, model = '', provider = '' } = options;
+  const { agentId, topicId, model = '', provider = '' } = options;
 
   const { canUploadImage, canUploadVideo } = useVisualMediaUploadAbility(model, provider);
   const uploadFiles = useFileStore((s) => s.uploadChatFiles);
@@ -37,10 +38,10 @@ export const useUploadFiles = (options: UseUploadFilesOptions) => {
       });
 
       if (filteredFiles.length > 0) {
-        uploadFiles(filteredFiles, agentId);
+        await uploadFiles(filteredFiles, agentId, topicId);
       }
     },
-    [agentId, canUpload, canUploadImage, canUploadVideo, uploadFiles],
+    [agentId, topicId, canUpload, canUploadImage, canUploadVideo, uploadFiles],
   );
 
   return { canUploadImage, canUploadVideo, handleUploadFiles };

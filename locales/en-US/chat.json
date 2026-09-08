@@ -299,6 +299,9 @@
   "knowledgeBase.title": "Library",
   "knowledgeBase.uploadGuide": "Uploaded files can be viewed in the 'Resources' section.",
   "knowledgeBase.viewMore": "View More",
+  "localAttachment": {
+    "deviceOnly": "Local attachment · available on the original device"
+  },
   "memberSelection.addMember": "Add Member",
   "memberSelection.allMembers": "All members",
   "memberSelection.createGroup": "Create Group",

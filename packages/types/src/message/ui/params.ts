@@ -1,3 +1,4 @@
+import { MessageAttachmentsSchema, type MessageAttachments } from '../attachments';
 import { z } from 'zod';
 
 import type { ConversationContext } from '../../conversation';
@@ -47,6 +48,7 @@ export interface CreateMessageParams extends Partial<
  * This type is completely independent from UIChatMessage to ensure clean API contract
  */
 export interface CreateNewMessageParams {
+  attachments?: MessageAttachments | null;
   agentId: string;
   content: string;
   // ========== Error handling ==========
@@ -212,6 +214,7 @@ export const CreateNewMessageParamsSchema = z
     model: z.string().nullable().optional(),
     provider: z.string().nullable().optional(),
     // Content
+    attachments: MessageAttachmentsSchema.nullable().optional(),
     files: z.array(z.string()).optional(),
     // Error handling
     error: ChatMessageErrorSchema.nullable().optional(),

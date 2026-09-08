@@ -1,3 +1,4 @@
+import type { MessageAttachments } from '@lobechat/types';
 import { TraceEventType } from '@lobechat/types';
 import { copyToClipboard } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
@@ -63,9 +64,11 @@ export class MessagePublicApiActionImpl {
   };
 
   addUserMessage = async ({
+    attachments,
     message,
     fileList,
   }: {
+    attachments?: MessageAttachments;
     message: string;
     fileList?: string[];
   }): Promise<void> => {
@@ -82,6 +85,7 @@ export class MessagePublicApiActionImpl {
     const parentId = displayMessageSelectors.lastDisplayMessageId(this.#get());
 
     const result = await optimisticCreateMessage({
+      attachments,
       content: message,
       files: fileList,
       role: 'user',

@@ -84,6 +84,10 @@ export const runCommandApi: LobeChatPluginApi = {
 };
 
 export const execScriptBaseParams = {
+  skillId: {
+    description: 'The exact stable id returned by activateSkill.',
+    type: 'string' as const,
+  },
   command: {
     description:
       'The shell command to execute. Note: Default shell is /bin/sh, not bash. Use `bash -c "..."` for bash-specific features like `source`.',

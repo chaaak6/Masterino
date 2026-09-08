@@ -8,26 +8,33 @@ describe('buildSandboxFilesInitCommand', () => {
     expect(buildSandboxFilesInitCommand([])).toBe(`mkdir -p '${SANDBOX_UPLOADED_FILES_DIR}'`);
   });
 
-  it('wraps downloads in an idempotent marker guard', () => {
+  it('uses per-file version markers and validates size before registering success', () => {
     const command = buildSandboxFilesInitCommand([
-      { name: 'data.csv', url: 'https://files.example.com/a' },
+      { id: 'a', name: 'data.csv', size: 42, version: 'v1', url: 'https://files.example.com/a' },
     ]);
-
-    expect(command).toContain(`if [ ! -f '${SANDBOX_FILES_INIT_MARKER}' ]; then`);
-    expect(command).toContain(
-      `curl -fsSL 'https://files.example.com/a' -o '${SANDBOX_UPLOADED_FILES_DIR}/data.csv' || true`,
-    );
-    expect(command).toContain(`touch '${SANDBOX_FILES_INIT_MARKER}'`);
+    expect(command).not.toContain(SANDBOX_FILES_INIT_MARKER);
+    expect(command).toContain('/mnt/data/file-a/data.csv');
+    expect(command).toContain('wc -c');
+    expect(command).toContain('&& touch');
+    expect(command).toContain('|| exit 1');
+    expect(command).not.toContain('|| true');
   });
 
-  it('de-dupes downloads that resolve to the same sandbox path', () => {
+  it('keeps same-name files in distinct ID directories and reconsiders new versions', () => {
     const command = buildSandboxFilesInitCommand([
-      { name: 'a/data.csv', url: 'https://files.example.com/a' },
-      { name: 'b/data.csv', url: 'https://files.example.com/b' },
+      { id: 'a', name: 'data.csv', url: 'https://files/a' },
+      { id: 'b', name: 'data.csv', url: 'https://files/b' },
     ]);
-
-    const curlCount = command.split('curl ').length - 1;
-    expect(curlCount).toBe(1);
+    expect(command.split('curl ').length - 1).toBe(2);
+    expect(
+      buildSandboxFilesInitCommand([
+        { id: 'a', name: 'data.csv', version: 'v1', url: 'https://files/a' },
+      ]),
+    ).not.toBe(
+      buildSandboxFilesInitCommand([
+        { id: 'a', name: 'data.csv', version: 'v2', url: 'https://files/a' },
+      ]),
+    );
   });
 
   it('skips entries without a download url', () => {

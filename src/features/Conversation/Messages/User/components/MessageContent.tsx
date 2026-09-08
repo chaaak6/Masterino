@@ -1,3 +1,5 @@
+import { normalizeMessageAttachments } from '@lobechat/types';
+import { useTranslation } from 'react-i18next';
 import { Flexbox } from '@lobehub/ui';
 import { memo, useMemo } from 'react';
 
@@ -14,7 +16,13 @@ import RichTextMessage from './RichTextMessage';
 import VideoFileListViewer from './VideoFileListViewer';
 
 const UserMessageContent = memo<UIChatMessage>(
-  ({ id, content, editorData, imageList, videoList, fileList, metadata }) => {
+  ({ id, content, editorData, imageList, videoList, fileList, metadata, attachments }) => {
+    const { t } = useTranslation('chat');
+    const localAttachments = normalizeMessageAttachments({
+      attachments,
+      fileList,
+      imageList,
+    }).filter((item) => item.source === 'local');
     const markdownProps = useMarkdown(id);
     const pageSelections = metadata?.pageSelections;
     const displayContent = useMemo(() => (content ? cleanSpeakerTag(content) : content), [content]);
@@ -36,6 +44,11 @@ const UserMessageContent = memo<UIChatMessage>(
         {textBody && <CollapsibleContent>{textBody}</CollapsibleContent>}
         {imageList && imageList?.length > 0 && <ImageFileListViewer items={imageList} />}
         {videoList && videoList?.length > 0 && <VideoFileListViewer items={videoList} />}
+        {localAttachments.map((item) => (
+          <div key={item.attachmentId} title={item.attachmentId}>
+            {item.name} · {t('localAttachment.deviceOnly')}
+          </div>
+        ))}
         {fileList && fileList?.length > 0 && <FileListViewer items={fileList} />}
       </Flexbox>
     );

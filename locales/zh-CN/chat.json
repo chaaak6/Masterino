@@ -299,6 +299,9 @@
   "knowledgeBase.title": "资源库",
   "knowledgeBase.uploadGuide": "上传的文件可以在「资源」中查看",
   "knowledgeBase.viewMore": "查看更多",
+  "localAttachment": {
+    "deviceOnly": "本机附件 · 仅原设备可用"
+  },
   "memberSelection.addMember": "添加成员",
   "memberSelection.allMembers": "全体成员",
   "memberSelection.createGroup": "创建群组",

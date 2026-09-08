@@ -225,6 +225,10 @@ export const agentDocumentRouter = router({
   /**
    * Get all documents for an agent
    */
+  getSkills: agentDocumentProcedure
+    .input(z.object({ agentId: z.string() }))
+    .query(async ({ ctx, input }) => ctx.agentDocumentService.getAgentSkills(input.agentId)),
+
   getDocuments: agentDocumentProcedure
     .input(z.object({ agentId: z.string() }))
     .query(async ({ ctx, input }) => {

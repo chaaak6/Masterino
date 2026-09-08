@@ -66,6 +66,7 @@ export interface SkillRuntimeService {
 export interface ProjectSkillRuntimeItem {
   /** Absolute path to the skill's SKILL.md on the device. */
   location: string;
+  key?: string;
   name: string;
 }
 
@@ -111,6 +112,11 @@ export interface SkillsExecutionRuntimeOptions {
   projectSkills?: ProjectSkillRuntimeItem[];
   /** Registry winners used by prompt assembly for this operation. */
   registryResult?: { skills: SkillRef[] };
+  projectSnapshotResolver?: (input: {
+    key: string;
+    location: string;
+    resourcePath?: string;
+  }) => Promise<{ directory: string; content: string; files: string[]; resourceContent?: string }>;
   service: SkillRuntimeService;
   /** Resolves a mounted device skill bundle without guessing a host path. */
   skillDirectoryResolver?: (
@@ -153,10 +159,10 @@ const hasHiddenSegment = (rel: string): boolean =>
  * the tree here — the model has `local-system.globFiles` available and can
  * call it on demand, which keeps the op-param payload small.
  */
-const buildProjectDirectoryHint = (skillName: string, skillDir: string): string =>
+const buildProjectDirectoryHint = (skillId: string, skillDir: string): string =>
   `## Skill resources
 
-This project skill lives in \`${skillDir}\`. Use \`local-system.globFiles\` with scope="${skillDir}" and pattern="**/*" to discover reference files, then \`readReference\` with skillName="${skillName}" + the relative path to load any of them.`;
+This project skill lives in \`${skillDir}\`. Use \`readReference\` with id=${JSON.stringify(skillId)} and a relative resource path. Use the same skillId when calling execScript. Scripts run from the task working directory; address skill resources through SKILL_DIR and write outputs in WORKSPACE_DIR.`;
 
 export class SkillsExecutionRuntime {
   private builtinSkills: BuiltinSkill[];
@@ -168,10 +174,12 @@ export class SkillsExecutionRuntime {
   private executionContext?: ExecutionContext;
   private service: SkillRuntimeService;
   private activatedSkillsResolver?: SkillsExecutionRuntimeOptions['activatedSkillsResolver'];
+  private projectSnapshotResolver?: SkillsExecutionRuntimeOptions['projectSnapshotResolver'];
   private skillDirectoryResolver?: SkillsExecutionRuntimeOptions['skillDirectoryResolver'];
 
   constructor(options: SkillsExecutionRuntimeOptions) {
     this.service = options.service;
+    this.projectSnapshotResolver = options.projectSnapshotResolver;
     this.builtinSkills = options.builtinSkills || [];
     this.registrySkills = options.registryResult?.skills;
     const registryProjectSkills = (this.registrySkills ?? [])
@@ -179,7 +187,7 @@ export class SkillsExecutionRuntime {
         (skill): skill is SkillRef & { location: string } =>
           (skill.source === 'project' || skill.source === 'workspace') && !!skill.location,
       )
-      .map((skill) => ({ location: skill.location, name: skill.name }));
+      .map((skill) => ({ location: skill.location, name: skill.name, key: skill.key }));
     this.projectSkills = [...registryProjectSkills, ...(options.projectSkills || [])].filter(
       (skill, index, all) => all.findIndex(({ name }) => name === skill.name) === index,
     );
@@ -191,26 +199,82 @@ export class SkillsExecutionRuntime {
     this.activatedSkillsResolver = options.activatedSkillsResolver;
   }
 
+  private async prepareProject(skill: ProjectSkillRuntimeItem, resourcePath?: string) {
+    if (this.projectSnapshotResolver)
+      return this.projectSnapshotResolver({
+        key: skill.key ?? `project:${skill.name}`,
+        location: skill.location,
+        resourcePath,
+      });
+    if (this.executionContext) throw new Error('SKILL_SNAPSHOT_UNAVAILABLE');
+    // Compatibility for standalone consumers without a bound device runtime.
+    return {
+      directory: getDirname(skill.location),
+      content: await this.deviceFileAccess!.readFile(skill.location),
+      files: [] as string[],
+      resourceContent: undefined as string | undefined,
+    };
+  }
+
   async execScript(args: ExecScriptParams): Promise<BuiltinServerRuntimeOutput> {
     const { command, description } = args;
-    const activatedSkills = this.activatedSkillsResolver
+    let activatedSkills = this.activatedSkillsResolver
       ? await this.activatedSkillsResolver()
       : args.activatedSkills;
+
+    // History is evidence of activation, never authority to select another
+    // source by name. Resolve before any bundle preparation or execution.
+    if (this.registrySkills) {
+      const selected = args.skillId
+        ? activatedSkills?.filter((skill) => skill.id === args.skillId)
+        : activatedSkills;
+      const identities = [...new Set(selected?.map((skill) => skill.id) ?? [])];
+      const ref =
+        identities.length === 1
+          ? this.registrySkills.find((skill) => skill.key === identities[0])
+          : undefined;
+      if (!ref)
+        return {
+          content:
+            'Select and activate one currently available skill, then pass its returned skillId.',
+          state: { errorCode: 'SKILL_ACTIVATION_REQUIRED' },
+          success: false,
+        };
+      // Existing bundle services consume database IDs; translate only after
+      // validating the stable registry identity, never in the history reader.
+      const userSkill = ref.source === 'user' ? await this.loadUserSkill(ref) : undefined;
+      if (ref.source === 'user' && !userSkill)
+        return {
+          content: 'The activated skill resource is no longer available.',
+          success: false,
+        };
+      activatedSkills = [
+        { id: userSkill?.id ?? ref.key, name: ref.name, description: ref.description },
+      ];
+    }
 
     if (this.executionContext) {
       let projectSkill: (typeof this.projectSkills)[number] | undefined;
       let skillDir: string | undefined;
       // Activation history contains builtins and document-only skills as well.
       // Resolve the most recently activated executable skill, across both origins.
-      for (const activated of [...(activatedSkills ?? [])].reverse()) {
-        projectSkill = this.projectSkills.find((skill) => skill.name === activated.name);
-        skillDir = projectSkill
-          ? getDirname(projectSkill.location)
-          : await this.skillDirectoryResolver?.([activated]);
-        if (skillDir) break;
+      try {
+        for (const activated of [...(activatedSkills ?? [])].reverse()) {
+          projectSkill = this.projectSkills.find((skill) =>
+            skill.key
+              ? skill.key === activated.id
+              : !this.registrySkills && skill.name === activated.name,
+          );
+          skillDir = projectSkill
+            ? (await this.prepareProject(projectSkill)).directory
+            : await this.skillDirectoryResolver?.([activated]);
+          if (skillDir) break;
+        }
+      } catch (error) {
+        return { content: error instanceof Error ? error.message : String(error), success: false };
       }
       const route = await resolveSkillScriptExecutionRoute({
-        allowExternalSkillDir: !projectSkill,
+        allowExternalSkillDir: !projectSkill || !!this.projectSnapshotResolver,
         context: this.executionContext,
         skillDir,
         verifyDevicePaths: this.deviceSkillPathVerifier,
@@ -234,7 +298,8 @@ export class SkillsExecutionRuntime {
         try {
           const result = await this.deviceScriptRunner(command, {
             activatedSkills,
-            cwd: route.cwd,
+            cwd:
+              projectSkill && this.projectSnapshotResolver ? this.executionContext.cwd! : route.cwd,
             description,
             deviceId: route.deviceId,
             env: route.env,
@@ -417,10 +482,11 @@ export class SkillsExecutionRuntime {
   }
 
   async readReference(args: ReadReferenceParams): Promise<BuiltinServerRuntimeOutput> {
-    const { id, path } = args;
+    const { path } = args;
 
     try {
-      const registryRef = this.registrySkills?.find((skill) => skill.name === id);
+      const registryRef = this.resolveRegistrySkill(args.id);
+      const id = registryRef?.name ?? args.id;
       if (this.registrySkills && !registryRef) {
         return { content: `Skill not found: "${id}"`, success: false };
       }
@@ -454,6 +520,20 @@ export class SkillsExecutionRuntime {
         // under the skill dir (e.g. `.env`, `node_modules/…`) that was never
         // declared as a skill resource. The device-side enumerator already
         // filters hidden files; we re-check here as defense in depth.
+        if (this.projectSnapshotResolver) {
+          const snapshot = await this.prepareProject(projectSkill, normalized);
+          return {
+            content: snapshot.resourceContent ?? '',
+            state: {
+              encoding: 'utf8',
+              fileType: 'text/plain',
+              fullPath: joinPath(snapshot.directory, normalized),
+              path: normalized,
+            },
+            success: true,
+          };
+        }
+        if (this.executionContext) throw new Error('SKILL_SNAPSHOT_UNAVAILABLE');
         const skillDir = getDirname(projectSkill.location);
         const allowed = new Set(
           (await this.deviceFileAccess.listFiles(skillDir)).map((f) => normalizeRelativePath(f)),
@@ -491,7 +571,9 @@ export class SkillsExecutionRuntime {
       // shadowed builtin's resources.
       const skill =
         !registryRef || registryRef.source === 'user'
-          ? await this.service.findByName(id)
+          ? registryRef
+            ? await this.loadUserSkill(registryRef)
+            : await this.service.findByName(id)
           : undefined;
       if (skill) {
         const resource = await this.service.readResource(skill.id, path);
@@ -549,8 +631,22 @@ export class SkillsExecutionRuntime {
   }
 
   async activateSkill(args: ActivateSkillParams): Promise<BuiltinServerRuntimeOutput> {
-    const { name } = args;
-    const registryRef = this.registrySkills?.find((skill) => skill.name === name);
+    const registryRef = this.resolveRegistrySkill(args.name);
+    const name = registryRef?.name ?? args.name;
+    if (registryRef?.source === 'agent' && registryRef.content !== undefined) {
+      return {
+        content: registryRef.content,
+        state: {
+          id: registryRef.key,
+          name: registryRef.name,
+          identifier: registryRef.identifier,
+          source: 'agent',
+          description: registryRef.description,
+          hasResources: false,
+        },
+        success: true,
+      };
+    }
     if (this.registrySkills && !registryRef) {
       const availableSkills = this.registrySkills.map((skill) => ({
         description: skill.description,
@@ -576,15 +672,17 @@ export class SkillsExecutionRuntime {
       }
 
       try {
-        let content = await this.deviceFileAccess.readFile(projectSkill.location);
+        const snapshot = await this.prepareProject(projectSkill);
+        let content = snapshot.content;
 
         // Don't enumerate the directory here — let the model do it on demand
         // via `local-system.globFiles`. Just point at the skill's directory so
         // it knows where to look. Keeps the op-param payload small and avoids
         // a second deviceGateway round-trip at activation time.
-        const skillDir = getDirname(projectSkill.location);
+        const skillDir = snapshot.directory;
         if (skillDir) {
-          content += '\n\n' + buildProjectDirectoryHint(name, skillDir);
+          content +=
+            '\n\n' + buildProjectDirectoryHint(registryRef?.key ?? `project:${name}`, skillDir);
         }
 
         return {
@@ -592,7 +690,7 @@ export class SkillsExecutionRuntime {
           state: {
             hasResources: false,
             id: registryRef?.key ?? `project:${name}`,
-            location: projectSkill.location,
+            location: joinPath(snapshot.directory, 'SKILL.md'),
             name,
             source: 'project',
           },
@@ -613,7 +711,9 @@ export class SkillsExecutionRuntime {
     // shadowed builtin instead.
     const skill =
       !registryRef || registryRef.source === 'user'
-        ? await this.service.findByName(name)
+        ? registryRef
+          ? await this.loadUserSkill(registryRef)
+          : await this.service.findByName(name)
         : undefined;
     if (skill) {
       const hasResources = !!(skill.resources && Object.keys(skill.resources).length > 0);
@@ -628,7 +728,7 @@ export class SkillsExecutionRuntime {
         state: {
           description: skill.description || undefined,
           hasResources,
-          id: skill.id,
+          id: registryRef?.key ?? `user:${skill.identifier}`,
           name: skill.name,
           source: 'user',
         },
@@ -666,6 +766,8 @@ export class SkillsExecutionRuntime {
           description: builtinSkill.description,
           hasResources,
           identifier: builtinSkill.identifier,
+          id:
+            registryRef?.key ?? `${isAgentSkill ? 'agent' : 'builtin'}:${builtinSkill.identifier}`,
           name: builtinSkill.name,
           source: isAgentSkill ? 'agent' : 'builtin',
           ...(builtinSkill.title && { title: builtinSkill.title }),
@@ -688,6 +790,27 @@ export class SkillsExecutionRuntime {
       content: `Skill not found: "${name}". Available skills: ${JSON.stringify(availableSkills)}`,
       success: false,
     };
+  }
+
+  private resolveRegistrySkill(locator: string): SkillRef | undefined {
+    const exact = this.registrySkills?.find((skill) => skill.key === locator);
+    if (exact) return exact;
+    const matches = this.registrySkills?.filter(
+      (skill) => skill.name === locator || skill.identifier === locator,
+    );
+    return matches?.length === 1 ? matches[0] : undefined;
+  }
+
+  private async loadUserSkill(ref: SkillRef): Promise<SkillItem | undefined> {
+    const entry = (await this.service.findAll()).data.find(
+      (skill) => skill.identifier === ref.identifier,
+    );
+    if (!entry) return undefined;
+    const skill = await this.service.findById(entry.id);
+    return skill?.identifier === ref.identifier &&
+      (ref.zipFileHash === undefined || skill.zipFileHash === ref.zipFileHash)
+      ? skill
+      : undefined;
   }
 
   /**

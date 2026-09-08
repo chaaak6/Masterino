@@ -37,9 +37,10 @@ describe('operation workspace scan', () => {
     ).rejects.toThrow('offline');
     expect(mocks.scan).toHaveBeenCalledWith({ scope: '/repo', deviceId: 'remote' });
   });
-  it('does not discover a project for an unbound or scratch topic', async () => {
+  it('skips an unbound topic and discovers skills created in scratch', async () => {
     await scanOperationWorkspace();
-    await scanOperationWorkspace({ kind: 'scratch', deviceId: 'local', rootPath: '/scratch' });
     expect(mocks.scan).not.toHaveBeenCalled();
+    await scanOperationWorkspace({ kind: 'scratch', deviceId: 'local', rootPath: '/scratch' });
+    expect(mocks.scan).toHaveBeenCalledWith({ deviceId: undefined, scope: '/scratch' });
   });
 });

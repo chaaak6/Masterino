@@ -1,3 +1,5 @@
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
+import { resolveLocalMessageAttachments } from '@/services/electron/localAttachmentService';
 import { LobeActivatorIdentifier } from '@lobechat/builtin-tool-activator';
 import { AgentBuilderIdentifier } from '@lobechat/builtin-tool-agent-builder';
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
@@ -71,6 +73,7 @@ import { resolveClientSkills } from './skillEngineering';
 const log = debug('context-engine:contextEngineering');
 
 interface ContextEngineeringContext {
+  executionContext?: ExecutionContext;
   /** Agent Builder context for injecting current agent info */
   agentBuilderContext?: AgentBuilderContext;
   agentDocuments?: AgentContextDocument[];
@@ -136,7 +139,18 @@ export const contextEngineering = async ({
   topicId,
   memoryContext,
   operationSkills,
+  executionContext,
 }: ContextEngineeringContext): Promise<OpenAIChatMessage[]> => {
+  const selectedMessage = messages.findLast((message) => message.role === 'user');
+  const hasSelectedImages =
+    !!selectedMessage?.imageList?.length ||
+    selectedMessage?.attachments?.items.some((item) => item.mime.startsWith('image/'));
+  if (hasSelectedImages && !isCanUseVision(model, provider)) {
+    throw new Error(
+      'This model cannot view images. Keep the attachment and select a vision-capable model.',
+    );
+  }
+  messages = await resolveLocalMessageAttachments(messages, topicId);
   log('tools: %o', tools);
 
   const modelContextWindowTokens = aiModelSelectors.modelContextWindowTokens(
@@ -447,7 +461,7 @@ export const contextEngineering = async ({
   if (isLobeToolsEnabled) {
     const toolState = getToolStoreState();
     const availableTools = toolSelectors
-      .availableToolsForDiscovery(toolState)
+      .availableToolsForDiscovery(toolState, { executionContext })
       .filter((tool) => !enabledToolSet.has(tool.identifier));
 
     if (availableTools.length > 0) {

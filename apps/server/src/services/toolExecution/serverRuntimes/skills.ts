@@ -193,7 +193,7 @@ class SkillServerRuntimeService implements SkillRuntimeService {
         for (const activatedSkill of activatedSkills) {
           if (!activatedSkill.name) continue;
 
-          const skill = await this.skillModel.findByName(activatedSkill.name);
+          const skill = await this.skillModel.findById(activatedSkill.id);
 
           if (!skill) {
             log('No persisted skill bundle found for activated skill: %s', activatedSkill.name);
@@ -489,7 +489,7 @@ export const skillsRuntime: ServerRuntimeRegistration = {
                     source: 'user-approval' as const,
                   },
                 ],
-                cwd: skillCwd,
+                cwd: options.cwd,
                 env: options.env,
                 workspaceRootPath: gatewayContext.workspaceRootPath ?? gatewayContext.cwd,
               };
@@ -506,7 +506,7 @@ export const skillsRuntime: ServerRuntimeRegistration = {
                 apiName: LocalSystemApiName.runCommand,
                 arguments: JSON.stringify({
                   command,
-                  cwd: skillCwd,
+                  cwd: options.cwd,
                   description: options.description,
                   env: options.env,
                 }),
@@ -538,6 +538,25 @@ export const skillsRuntime: ServerRuntimeRegistration = {
       deviceScriptRunner,
       deviceSkillPathVerifier,
       executionContext: context.executionContext,
+      projectSnapshotResolver: frozenDeviceId
+        ? async ({ key, location, resourcePath }) => {
+            const execution = context.executionContext;
+            const operationId = execution?.operationId ?? context.operationId;
+            const workspaceRoot = execution?.workspace?.rootPath ?? execution?.cwd;
+            if (!operationId || !workspaceRoot) throw new Error('SKILL_OPERATION_BINDING_REQUIRED');
+            return deviceGateway.executeProjectSkillRpc<{
+              directory: string;
+              content: string;
+              files: string[];
+              resourceContent?: string;
+            }>({
+              deviceId: frozenDeviceId,
+              userId: context.userId!,
+              method: 'prepareProjectSkillSnapshot',
+              input: { operationId, skillId: key, path: location, workspaceRoot, resourcePath },
+            });
+          }
+        : undefined,
       projectSkills,
       registryResult: context.skillRegistryResult,
       skillDirectoryResolver: frozenDeviceId

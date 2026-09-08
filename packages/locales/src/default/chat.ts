@@ -1,4 +1,5 @@
 export default {
+  'localAttachment': { deviceOnly: 'Local attachment · available on the original device' },
   'workspaceRuntime.hetero.gate.webDesc':
     'Create a project topic in the desktop app, then continue it here.',
 

@@ -219,6 +219,16 @@ export class StreamingExecutorActionImpl {
       );
     }
 
+    const latestUserMessage = messages.findLast((message) => message.role === 'user');
+    const hasCurrentImages =
+      !!latestUserMessage?.imageList?.length ||
+      !!latestUserMessage?.attachments?.items.some((attachment) =>
+        attachment.mime.startsWith('image/'),
+      );
+    if (hasCurrentImages && !isCanUseVision(agentConfigData.model, agentConfigData.provider!)) {
+      throw new Error('当前模型不支持图片，请切换支持视觉的模型后重试。');
+    }
+
     // Dynamically inject turn-scoped builtin tools.
     const hasTopicReference = messages.some((m) => hasReferTopicNode(m.editorData));
     const visualMediaAvailability = getVisualMediaAvailability(messages);
@@ -227,10 +237,8 @@ export class StreamingExecutorActionImpl {
       !!serverConfigState && serverConfigSelectors.enableVisualUnderstanding(serverConfigState);
     const shouldEnableVisualUnderstanding =
       visualUnderstandingConfigured &&
-      ((visualMediaAvailability.hasImages &&
-        !isCanUseVision(agentConfigData.model, agentConfigData.provider!)) ||
-        (visualMediaAvailability.hasVideos &&
-          !isCanUseVideo(agentConfigData.model, agentConfigData.provider!)));
+      visualMediaAvailability.hasVideos &&
+      !isCanUseVideo(agentConfigData.model, agentConfigData.provider!);
     const runtimePluginIds = [
       ...new Set([
         ...(pluginIds || []),
@@ -252,11 +260,51 @@ export class StreamingExecutorActionImpl {
       hasTopicReference,
     );
 
+    // Resolve the same topic execution evidence before exposing tools to the model.
+    const workspaceState = getProjectWorkspaceStoreState();
+    const topicState = topicId ? workspaceState.topicStatesById[topicId] : undefined;
+    const boundTopic = topicId ? topicSelectors.getTopicById(topicId)(this.#get()) : undefined;
+    const snapshot = topicState?.snapshot ?? boundTopic?.metadata?.executionSnapshot;
+    const workspace = topicState?.workspace;
+    const executionContext =
+      operation?.metadata?.executionContext ??
+      resolveFrozenClientExecutionContext({
+        agencyConfig: agentConfigData.agencyConfig,
+        chatConfig: agentConfigData.chatConfig,
+        isDesktop,
+        isHetero: !!agentConfigData.agencyConfig?.heterogeneousProvider,
+        operationId: operationId ?? 'initial',
+        snapshot,
+        requestedDeviceId:
+          snapshot?.boundDeviceId ??
+          workspace?.deviceId ??
+          agentConfigData.agencyConfig?.boundDeviceId,
+        topic: boundTopic
+          ? {
+              boundDeviceId: boundTopic.metadata?.boundDeviceId,
+              workingDirectory: boundTopic.metadata?.workingDirectory,
+              workspaceId: boundTopic.metadata?.workspaceId,
+            }
+          : undefined,
+        initialTopicMetadata:
+          !topicId && operationWorkingDirectory
+            ? { workingDirectory: operationWorkingDirectory }
+            : undefined,
+        topicId: topicId ?? undefined,
+        topicGrants: Object.values(workspaceState.grantsByTopicDevice).flat(),
+        workspaces: {
+          ...workspaceState.workspacesById,
+          ...(workspace?.id ? { [workspace.id]: workspace } : {}),
+        },
+        envFiles: workspace?.id ? workspaceState.workspacesById[workspace.id]?.envFiles : undefined,
+      });
     // Generate tools using ToolsEngine (centralized here, passed to chatService via agentConfig)
     // When disableTools is true (broadcast mode), skipDefaultTools prevents default tools from being added
     const toolsEngine = createAgentToolsEngine(
       { model: agentConfigData.model, provider: agentConfigData.provider! },
       effectivePluginIds,
+      executionContext,
+      agentConfigData,
     );
     // When skillActivateMode is 'manual':
     // Exclude only discovery tools (activator, skill-store) so runtime-managed defaults
@@ -385,6 +433,7 @@ export class StreamingExecutorActionImpl {
       ...stateBase,
       metadata: {
         ...stateBase.metadata,
+        executionContext,
         compressionModelCatalogSnapshot,
         contextBudget: {
           ...stateBase.metadata?.contextBudget,
@@ -655,6 +704,7 @@ export class StreamingExecutorActionImpl {
         workingDirectory: params.workingDirectory,
       });
 
+      frozenExecutionContext ??= initialAgentState.metadata?.executionContext;
       const projectWorkspaceState = getProjectWorkspaceStoreState();
       const topicWorkspaceState = topicId
         ? projectWorkspaceState.topicStatesById[topicId]

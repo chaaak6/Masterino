@@ -452,6 +452,7 @@ const ChatInput = memo<ChatInputProps>(
     return (
       <ChatInputProvider
         agentId={agentId}
+        topicId={context.topicId}
         allowExpand={allowExpand}
         contextWindowMessages={contextWindowMessages}
         draftKey={draftKey}

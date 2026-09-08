@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { detectRepoType } from '@lobechat/local-file-shell';
+import { recoverProjectSkillEdit } from './projectSkillAuthoring';
 
 import type {
   CleanupScratchWorkspaceParams,
@@ -307,19 +308,26 @@ export const listProjectSkills = async (
   const root = params.scope;
   const scanRoot = await resolveScanRoot(root);
   if (!scanRoot) throw new Error('Workspace scan root is unavailable');
-
+  await recoverProjectSkillEdit(scanRoot);
+  const merged: ProjectSkillItem[] = [];
+  const seen = new Set<string>();
   for (const source of SKILL_SOURCES) {
     const skills = (await scanSkillsInSource(scanRoot, source)).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
 
-    if (skills.length > 0) {
-      await deps.approveProjectRoot?.(root);
-      return { root, skills, source };
-    }
+    for (const skill of skills)
+      if (!seen.has(skill.name)) {
+        merged.push(skill);
+        seen.add(skill.name);
+      }
   }
-
-  return { root, skills: [], source: null };
+  if (merged.length) await deps.approveProjectRoot?.(root);
+  return {
+    root,
+    skills: merged.sort((a, b) => a.name.localeCompare(b.name)),
+    source: merged[0]?.source ?? null,
+  };
 };
 
 /**
@@ -336,6 +344,7 @@ export const initWorkspace = async (
   const root = params.scope;
   const scanRoot = await resolveScanRoot(root);
   if (!scanRoot) throw new Error('Workspace scan root is unavailable');
+  await recoverProjectSkillEdit(scanRoot);
 
   const seen = new Set<string>();
   const skills: ProjectSkillItem[] = [];
