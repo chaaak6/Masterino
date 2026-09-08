@@ -133,7 +133,9 @@ export const buildAihubPricing = (
 ): AihubModelPricing => {
   const { response, status, fetchedAt } = context;
   const row = response.data?.find(
-    (item) => item.model_name.toLowerCase() === modelId.toLowerCase(),
+    (item) =>
+      typeof item.model_name === 'string' &&
+      item.model_name.toLowerCase() === modelId.toLowerCase(),
   );
   const group = context.group && context.group !== 'auto' ? context.group : undefined;
   const ratio = group ? response.group_ratio?.[group] : undefined;

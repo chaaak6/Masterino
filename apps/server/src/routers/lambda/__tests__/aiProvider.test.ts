@@ -134,44 +134,54 @@ describe('aiProviderRouter', () => {
   });
 
   describe('getAiProviderRuntimeState', () => {
-    it('projects stored Aihub tariffs to display fields before returning runtime state', async () => {
-      const snapshot = {
-        version: 1,
-        currency: 'CNY',
-        source: 'aihub',
-        status: 'available',
-        scope: 'account',
-        group: 'vip',
-        groupRatio: 0.5,
-        exchangeRate: 7,
-        fetchedAt: '2026-09-08T00:00:00Z',
-        pricingVersion: 'private',
-        unreachableTier: true,
-        tiers: [{ rates: { input: 2, output: 8 } }],
-      };
-      vi.mocked(AiInfraRepos).prototype.getAiProviderRuntimeState = vi.fn().mockResolvedValue({
-        ...mockRuntimeState,
-        enabledAiModels: [
-          {
-            id: 'chat',
-            providerId: 'newapi',
-            type: 'chat',
-            abilities: {},
-            settings: { aihubPricing: snapshot },
-          },
-        ],
-      });
-      const caller = aiProviderRouter.createCaller(createMockContext());
-      const result = await caller.getAiProviderRuntimeState({});
-      expect(result.enabledAiModels[0].settings?.aihubPricing).toEqual({
-        version: 1,
-        currency: 'CNY',
-        status: 'available',
-        stale: undefined,
-        displayRates: { input: { min: 2, max: 2 }, output: { min: 8, max: 8 } },
-      });
-      expect(snapshot.group).toBe('vip');
-    });
+    it.each([
+      ['newapi', 'chat'],
+      ['newapi', 'embedding'],
+      ['newapi', 'image'],
+      ['newapi', 'video'],
+      ['newapi', 'rerank'],
+      ['custom', 'chat'],
+    ])(
+      'projects stored tariffs for %s/%s before returning runtime state',
+      async (providerId, type) => {
+        const snapshot = {
+          version: 1,
+          currency: 'CNY',
+          source: 'aihub',
+          status: 'available',
+          scope: 'account',
+          group: 'vip',
+          groupRatio: 0.5,
+          exchangeRate: 7,
+          fetchedAt: '2026-09-08T00:00:00Z',
+          pricingVersion: 'private',
+          unreachableTier: true,
+          tiers: [{ rates: { input: 2, output: 8 } }],
+        };
+        vi.mocked(AiInfraRepos).prototype.getAiProviderRuntimeState = vi.fn().mockResolvedValue({
+          ...mockRuntimeState,
+          enabledAiModels: [
+            {
+              id: 'chat',
+              providerId,
+              type,
+              abilities: {},
+              settings: { aihubPricing: snapshot },
+            },
+          ],
+        });
+        const caller = aiProviderRouter.createCaller(createMockContext());
+        const result = await caller.getAiProviderRuntimeState({});
+        expect(result.enabledAiModels[0].settings?.aihubPricing).toEqual({
+          version: 1,
+          currency: 'CNY',
+          status: 'available',
+          stale: undefined,
+          displayRates: { input: { min: 2, max: 2 }, output: { min: 8, max: 8 } },
+        });
+        expect(snapshot.group).toBe('vip');
+      },
+    );
 
     it('should get AI provider runtime state', async () => {
       const mockGetProvider = vi.fn().mockResolvedValue({

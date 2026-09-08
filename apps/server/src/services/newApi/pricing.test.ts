@@ -25,6 +25,16 @@ const row = {
 };
 
 describe('Aihub tariff projection', () => {
+  it.each([undefined, null, 42, {}, []])(
+    'skips malformed upstream model names: %j',
+    (model_name) => {
+      const input = context(row);
+      // Runtime JSON can violate the upstream response declaration.
+      input.response.data = JSON.parse(JSON.stringify([{ ...row, model_name }, row]));
+      expect(buildAihubPricing('CHAT', input).status).toBe('available');
+      expect(buildAihubPricing('missing', input).status).toBe('unavailable');
+    },
+  );
   it('matches model names without changing their suffix or provider identity', () => {
     const mixed = context({ ...row, model_name: 'GLM-5.3' });
     expect(buildAihubPricing('glm-5.3', mixed).status).toBe('available');

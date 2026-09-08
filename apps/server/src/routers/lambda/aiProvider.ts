@@ -138,7 +138,7 @@ export const aiProviderRouter = router({
       return {
         ...state,
         enabledAiModels: state.enabledAiModels.map((model) =>
-          model.providerId !== ModelProvider.NewAPI || model.type !== 'chat'
+          !model.settings?.aihubPricing
             ? model
             : {
                 ...model,
