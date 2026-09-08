@@ -755,11 +755,12 @@ export class SkillsExecutionRuntime {
           : await this.service.findByName(name)
         : undefined;
     if (skill) {
+      const skillId = registryRef?.key ?? `user:${skill.identifier}`;
       const hasResources = !!(skill.resources && Object.keys(skill.resources).length > 0);
       let content = skill.content || '';
 
       if (hasResources && skill.resources) {
-        content += '\n\n' + resourcesTreePrompt(skill.name, skill.resources);
+        content += '\n\n' + resourcesTreePrompt(skillId, skill.resources);
       }
 
       return {
@@ -767,7 +768,7 @@ export class SkillsExecutionRuntime {
         state: {
           description: skill.description || undefined,
           hasResources,
-          id: registryRef?.key ?? `user:${skill.identifier}`,
+          id: skillId,
           name: skill.name,
           source: 'user',
           resourceVersion: skill.zipFileHash ?? undefined,
@@ -785,29 +786,29 @@ export class SkillsExecutionRuntime {
           )
         : undefined;
     if (builtinSkill) {
+      const isAgentSkill = builtinSkill.identifier.startsWith(AGENT_SKILLS_IDENTIFIER_PREFIX);
+      const skillId =
+        registryRef?.key ?? `${isAgentSkill ? 'agent' : 'builtin'}:${builtinSkill.identifier}`;
       let content = builtinSkill.content;
       const hasResources = !!(
         builtinSkill.resources && Object.keys(builtinSkill.resources).length > 0
       );
 
       if (hasResources && builtinSkill.resources) {
-        content += '\n\n' + resourcesTreePrompt(builtinSkill.name, builtinSkill.resources);
+        content += '\n\n' + resourcesTreePrompt(skillId, builtinSkill.resources);
       }
 
       // Agent-document skill bundles flow through the builtin path with the
       // `agent-skills:` prefix on their identifier. Tag the result so the
       // inspector can pick the right label ("Activate Agent Skill") and prefer
       // the friendly `title` over the raw `agent-skills:<filename>` name.
-      const isAgentSkill = builtinSkill.identifier.startsWith(AGENT_SKILLS_IDENTIFIER_PREFIX);
-
       return {
         content,
         state: {
           description: builtinSkill.description,
           hasResources,
           identifier: builtinSkill.identifier,
-          id:
-            registryRef?.key ?? `${isAgentSkill ? 'agent' : 'builtin'}:${builtinSkill.identifier}`,
+          id: skillId,
           name: builtinSkill.name,
           source: isAgentSkill ? 'agent' : 'builtin',
           ...(builtinSkill.title && { title: builtinSkill.title }),

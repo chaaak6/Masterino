@@ -435,10 +435,29 @@ export const verifySkillPaths = async (
   return { skillDir, workspaceRoot };
 };
 
-/**
- * Explicit-only scratch creation. Merely importing the module or handling chat
- * never touches the filesystem; the directory is created only through this RPC.
- */
+/** Read only: resolve this topic's existing directory without accepting topic aliases. */
+export const getExistingScratchWorkspace = async (topicId: string, scratchRoot: string) => {
+  if (!path.isAbsolute(scratchRoot)) throw new Error('SCRATCH_ROOT_REQUIRED');
+  assertSafeScratchRoot(scratchRoot);
+  const realRoot = await realpath(scratchRoot);
+  assertSafeScratchRoot(realRoot);
+  const requested = path.join(realRoot, toSafeTopicSegment(topicId));
+  const info = await lstat(requested);
+  if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('SCOPE_DENIED');
+  const root = await realpath(requested);
+  if (root !== requested) throw new Error('SCOPE_DENIED');
+  const relative = path.relative(realRoot, root);
+  if (
+    !relative ||
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error('SCOPE_DENIED');
+  }
+  return { root };
+};
+
 export const ensureScratchWorkspace = async (
   params: EnsureScratchWorkspaceParams | string,
   scratchRoot: string | undefined,
@@ -458,13 +477,8 @@ export const ensureScratchWorkspace = async (
   assertSafeScratchRoot(realRoot);
   const requested = path.join(realRoot, topicSegment);
   await mkdir(requested, { recursive: true });
-  const realRequested = await realpath(requested);
-  const relative = path.relative(realRoot, realRequested);
-  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-    throw new Error('SCOPE_DENIED');
-  }
-
-  return { root: realRequested, topicSegment };
+  const existing = await getExistingScratchWorkspace(topicId, normalizedRoot);
+  return { root: existing.root, topicSegment };
 };
 
 /**

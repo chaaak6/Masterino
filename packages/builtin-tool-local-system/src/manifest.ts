@@ -310,7 +310,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
     {
       defaultTimeoutMs: 30_000,
       description:
-        'Write content to a specific file. Input should be the file path and content. Overwrites existing file or creates a new one.',
+        'Write content to a specific file. Overwrites existing file or creates a new one. Write a standalone HTML report directly from structured Office results already returned; no intermediate generator script is needed.',
       humanIntervention: {
         dynamic: {
           default: 'never',
@@ -372,7 +372,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
     {
       defaultTimeoutMs: 30_000,
       description:
-        'Start a terminal session to execute a shell command and return console output collected during the wait window (up to 30 seconds by default). If the command is still running after the wait window, the result includes `shell_id` for later observation or termination.',
+        'Start a terminal session to execute a shell command and return console output collected during the wait window (up to 30 seconds by default). If the command is still running after the wait window, the result includes `shell_id` for later observation or termination. For supported Office summaries or plain HTML reports, use returned structured results directly; do not probe parser dependencies, re-read the workbook, or create a script just to repeat a successful aggregate or render the report. Use same-environment code when an Office tool fails or the required operation is unsupported.',
       humanIntervention: 'required',
       name: LocalSystemApiName.runCommand,
       parameters: {

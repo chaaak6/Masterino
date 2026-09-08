@@ -523,13 +523,20 @@ const collectPathRequests = (
  * context-bearing calls never fall back to process.cwd(), home, or Desktop.
  */
 /** Classify before materializing scratch, using the same path fields as the boundary. */
-export const toolNeedsDefaultCwd = (apiName: string, args: Record<string, any>): boolean => {
+export const toolNeedsDefaultCwd = (
+  apiName: string,
+  args: Record<string, any>,
+  existingScratchRoot?: string,
+): boolean => {
   if (!LOCAL_SYSTEM_APIS.has(apiName)) return false;
   if (apiName === 'runCommand' || apiName === 'runHeteroTask') return true;
   const requests = collectPathRequests(apiName, args, '');
   return requests.some(
     ({ value }) =>
       !value ||
+      (existingScratchRoot !== undefined &&
+        path.isAbsolute(value) &&
+        isWithin(value, existingScratchRoot)) ||
       !(
         path.posix.isAbsolute(value) ||
         path.win32.isAbsolute(value) ||

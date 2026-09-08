@@ -9,6 +9,7 @@ export { prepareSkillPackage } from './skillPackage';
 export * from './types';
 export {
   cleanupScratchWorkspace,
+  getExistingScratchWorkspace,
   initWorkspace,
   listProjectSkills,
   statPath,

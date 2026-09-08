@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   type DeviceControlDeps,
   executeDeviceRpc as runDeviceRpc,
+  getExistingScratchWorkspace,
   materializeSkillsForCli,
   validatePreparedLocalAttachment,
 } from '@lobechat/device-control';
@@ -379,11 +380,20 @@ export default class GatewayConnectionCtr extends ControllerModule {
       return previous.output;
     }
     let scratchRoot: string | undefined;
+    // Attachment preparation may already have materialized this topic's scratch.
+    // Discover only that managed root; external absolute paths gain no authority.
+    const existingScratch =
+      context && !context.cwd && !params.purpose && trace?.topicId
+        ? await getExistingScratchWorkspace(
+            trace.topicId,
+            path.join(this.app.appStoragePath, 'scratch-workspaces'),
+          ).catch(() => undefined)
+        : undefined;
     if (
       context &&
       !context.cwd &&
       !params.purpose &&
-      toolNeedsDefaultCwd(params.apiName, params.args)
+      toolNeedsDefaultCwd(params.apiName, params.args, existingScratch?.root)
     ) {
       if (
         !trace?.topicId ||

@@ -78,13 +78,17 @@ PPT页序诊断返回QA-SLIDE-3、QA-SLIDE-1、QA-SLIDE-2，匹配独立OOXML关
 
 模型绑定修复后完整重启的[诊断16](evidence/diagnostic16-guard-recovery-summary.json)通过保护及恢复：Flash initial guard记录unsupported、本机图片1，无Flash最终发送；UI明确不支持图片。附件保留在用户消息（输入框已清空），切回VisionExp后点击历史图片“加入输入”再发送，实际出站VisionExp并正确识四色。此轮覆盖历史图片重新加入新消息，不等同于原assistant retry按钮。仍属混合版本诊断。
 
-
 大表自然复测[诊断17](evidence/diagnostic17-large-native-summary.json)：十万行核心汇总精确，6次Office工具、0shell、5模型轮次、31.304秒。首次inspect传附件内容SHA256遭OFFICE_VERSION_CHANGED，模型validate获取Office版本后恢复；因此不能记无错误首试。另补充文案把收入min/max称为单价，核心要求数字均正确。原文件hash不变。拖入自动化未成功触发附件，源文件不变，明确未验收；不以纸夹/粘贴替代。
 
+## 固定版本重复（修复前样本，已暂停）
+
+客户端289a5990、服务端0fd3a18c固定进行workspace与纸夹各5次，提示、模型及输入SHA一致。工作区5次已完成：核心数值5/5正确，原文件5/5不变；预先登记的无依赖探测/无现场Excel解析脚本门槛3/5通过。第2轮只对Office已读12行用Python求和，单列计算回退；第3、4轮已有原生结构化结果仍探测openpyxl并重读Excel，因此记调度失败。并非事后要求绝对0shell。纸夹完成2次后因确定性scratch权限缺陷暂停，不凑满样本。两次首次write均失败、pwd后写入恢复，数字及原文件hash均正确；7份旧样本完整保留，修复后须新冻结版本重新完整5+5。所有计量见[逐轮汇总](evidence/final-repetitions.json)。
+
+真实生成的[工作区报告](evidence/final-workspace-report.html)、[工作区完整页面截图](evidence/final-workspace-report.png)、[纸夹报告](evidence/final-paperclip-report.html)及[纸夹完整页面截图](evidence/final-paperclip-report.png)可离线审阅。纸夹第1轮首次向实际topic scratch绝对路径writeFile仍SCOPE_DENIED，确认pwd后相对路径成功；记恢复后数字正确，不算无错误首试。累计input/cache token是各模型轮次之和，不代表当前上下文或HTTP字节；耗时为用户消息落库至最后消息更新，人工选择文件/目录不计入。各轮已有自动批准配置，未出现人为审批等待。
 
 ## 当前未覆盖项（正式验收前更新）
 
-- 最终同版本 workspace Excel 与纸夹 Excel 各5次尚未执行；准备了5个仅含相同哈希输入的独立工作区，纸夹各用新topic scratch，避免复用旧报告。最终版十万行自然聚合尚待版本契约修复后复测。
+- 修复前固定版本完成workspace5次、纸夹2次，发现确定性scratch授权缺陷后暂停；新版本完整5+5仍未执行。每次独立目录/topic，避免复用旧报告。最终版十万行自然聚合尚待版本契约修复后复测。
 - 拖入入口未成功由Computer Use触发，不能记通过。纸夹/粘贴已实测可读取；历史图片“加入输入”后发送已实测，原assistant重试按钮、超量图片和连续ReAct图片边界尚未真实UI覆盖。
 - 项目.agents/.claude重名优先级已实测；个人/Agent/内置完整重名矩阵、跨operation修改后的拒绝与重新激活尚未真实UI覆盖。底层隔离测试仅是补充。
 - Skill缺frontmatter非法编辑原件不变、合法创建下轮发现已实测；超限、重命名冲突、校验中断、外部同时修改未真实UI覆盖。

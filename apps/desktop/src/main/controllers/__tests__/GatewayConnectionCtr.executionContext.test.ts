@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { prepareLocalAttachment, receiveLocalAttachment } from '@lobechat/device-control';
 import * as localFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -169,6 +170,88 @@ describe('GatewayConnectionCtr execution context boundary', () => {
     expect(await duplicate).toMatchObject({ success: false });
     expect(reader).toHaveBeenCalledTimes(1);
     expect(await controller.cancelLocalOfficeRead(trace)).toEqual({ cancelled: false });
+  });
+
+  it('authorizes the first absolute write in prepared topic scratch, without sibling grants', async () => {
+    const controller = makeController();
+    const scratch = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    const source = path.join(workspace, 'source.xlsx');
+    await writeFile(source, 'fixture');
+    const ref = await receiveLocalAttachment(scratch, 'device-1', {
+      originalPath: source,
+      data: Buffer.from('fixture'),
+      name: 'source.xlsx',
+      mime: 'application/xlsx',
+      draftId: 'draft',
+    });
+    await prepareLocalAttachment(scratch, 'device-1', ref, 'topic-1');
+    const root = await realpath(path.join(scratch, 'topic-1'));
+    const trace = {
+      deviceId: 'device-1',
+      topicId: 'topic-1',
+      operationId: 'operation-1',
+      toolCallId: 'absolute-write',
+    };
+    vi.mocked(localFileCtr.handleWriteFile).mockResolvedValue({ success: true } as never);
+    const result = await controller.executeLocalToolCall({
+      apiName: 'writeFile',
+      args: { path: path.join(root, 'sales-report.html'), content: '<html>report</html>' },
+      executionContext: { accessRoots: [] },
+      trace,
+    });
+    expect(result).toMatchObject({ success: true, state: { localScratch: { root } } });
+    for (const denied of [
+      path.join(scratch, 'topic-2', 'report.html'),
+      path.join(workspace, 'sibling.html'),
+    ]) {
+      const output = await controller.executeLocalToolCall({
+        apiName: 'writeFile',
+        args: { path: denied, content: 'denied' },
+        executionContext: {
+          accessRoots: [
+            {
+              target: 'file',
+              rootPath: source,
+              modes: ['read'],
+              scope: 'operation',
+              source: 'user-approval',
+            },
+          ],
+        },
+        trace: { ...trace, toolCallId: denied },
+      });
+      expect(output).toMatchObject({ success: false, content: 'SCOPE_DENIED' });
+    }
+    expect(localFileCtr.handleWriteFile).toHaveBeenCalledTimes(1);
+    const nested = await controller.executeLocalToolCall({
+      apiName: 'writeFile',
+      args: { path: path.join(workspace, 'nested', 'report.html'), content: 'allowed' },
+      executionContext: context(),
+      trace: { ...trace, toolCallId: 'existing-workspace' },
+    });
+    expect(nested.success).toBe(true);
+    expect(nested.state).not.toHaveProperty('localScratch');
+  });
+
+  it('rejects scratch topic aliases and symlink escapes', async () => {
+    const controller = makeController();
+    const scratch = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    await mkdir(path.join(scratch, 'topic-b'), { recursive: true });
+    await symlink(path.join(scratch, 'topic-b'), path.join(scratch, 'topic-a'));
+    await symlink(workspace, path.join(scratch, 'topic-external'));
+    for (const topicId of ['topic-a', 'topic-external']) {
+      const result = await controller.executeLocalToolCall({
+        apiName: 'writeFile',
+        args: { path: path.join(scratch, topicId, 'report.html'), content: 'denied' },
+        executionContext: { accessRoots: [] },
+        trace: { deviceId: 'device-1', topicId, operationId: 'op', toolCallId: topicId },
+      });
+      expect(result.success).toBe(false);
+      await expect(
+        (controller as any).executeDeviceRpc('ensureScratchWorkspace', { topicId }),
+      ).rejects.toThrow('SCOPE_DENIED');
+    }
+    expect(localFileCtr.handleWriteFile).not.toHaveBeenCalled();
   });
 
   it('lazily prepares scratch and exposes evidence only after a successful tool', async () => {

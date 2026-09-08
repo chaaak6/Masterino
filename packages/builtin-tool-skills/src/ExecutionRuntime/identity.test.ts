@@ -20,6 +20,54 @@ const project = {
 };
 
 describe('operation skill identity', () => {
+  it.each(['user', 'builtin', 'agent'] as const)(
+    'uses the returned %s identity in resource hints, including fallback',
+    async (source) => {
+      for (const withRegistry of [false, true]) {
+        const identifier = source === 'agent' ? 'agent-skills:report' : 'report';
+        const skill = {
+          id: 'db-id',
+          identifier,
+          name: 'report',
+          description: '',
+          content: '# Guide',
+          source: source === 'user' ? 'user' : 'builtin',
+          resources: { 'ref.md': { content: 'reference', size: 9, fileHash: 'hash' } },
+        };
+        const backend = service();
+        if (source === 'user') {
+          vi.mocked(backend.findAll).mockResolvedValue({ data: [skill as never], total: 1 });
+          vi.mocked(backend.findByName).mockResolvedValue(skill as never);
+          vi.mocked(backend.findById).mockResolvedValue(skill as never);
+        }
+        const runtime = new SkillsExecutionRuntime({
+          service: backend,
+          builtinSkills: source === 'user' ? [] : [skill as never],
+          ...(withRegistry
+            ? {
+                registryResult: {
+                  skills: [
+                    {
+                      key: `${source}:report`,
+                      identifier,
+                      name: 'report',
+                      description: '',
+                      source,
+                      scope: source,
+                    },
+                  ],
+                },
+              }
+            : {}),
+        });
+        const activated = await runtime.activateSkill({ name: 'report' });
+        expect(activated.success).toBe(true);
+        expect(activated.content).toContain(`id=${JSON.stringify(activated.state?.id)}`);
+        expect(activated.content).not.toContain('skillName=');
+      }
+    },
+  );
+
   it('uses the returned project ID to read a reference without a name roundtrip', async () => {
     const readFile = vi.fn(async (path: string) =>
       path.endsWith('SKILL.md') ? '# Report' : 'reference',

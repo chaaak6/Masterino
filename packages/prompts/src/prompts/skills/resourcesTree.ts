@@ -75,14 +75,14 @@ export const buildResourcesTreeText = (resources: Record<string, SkillResourceMe
 };
 
 export const resourcesTreePrompt = (
-  skillName: string,
+  skillId: string,
   resources: Record<string, SkillResourceMeta>,
 ): string => {
   const treeText = buildResourcesTreeText(resources);
 
   return `## Available Resources
 
-Use \`readReference\` with skillName="${skillName}" and the file path to read these files.
+Use \`readReference\` with id=${JSON.stringify(skillId)} and the file path to read these files.
 
 \`\`\`
 ${treeText}
