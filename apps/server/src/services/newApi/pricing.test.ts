@@ -30,7 +30,8 @@ describe('Aihub tariff projection', () => {
     (model_name) => {
       const input = context(row);
       // Runtime JSON can violate the upstream response declaration.
-      input.response.data = JSON.parse(JSON.stringify([{ ...row, model_name }, row]));
+      const upstreamJson = JSON.stringify([{ ...row, model_name }, row]);
+      input.response.data = JSON.parse(upstreamJson);
       expect(buildAihubPricing('CHAT', input).status).toBe('available');
       expect(buildAihubPricing('missing', input).status).toBe('unavailable');
     },
