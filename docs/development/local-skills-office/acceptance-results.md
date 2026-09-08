@@ -77,3 +77,17 @@ PPT页序诊断返回QA-SLIDE-3、QA-SLIDE-1、QA-SLIDE-2，匹配独立OOXML关
 完整Electron重启、测试服务d0cd5d22后的[诊断15](evidence/diagnostic15-model-runtime-summary.json)定位到模型选择与执行分叉：UI选择及DB assistant.model均为deepseek-v4-flash，但真实DevTools安全日志中的创建运行、上下文构造、最终发送三处均为deepseek-v4-flash-vision-exp，guard看到1个本机图片、catalog支持。此次不能归因为guard放行不支持的实际模型；此前诊断13/14只读到的DB标签同样不能证明真实出站模型。源码修复与复测待完成。
 
 模型绑定修复后完整重启的[诊断16](evidence/diagnostic16-guard-recovery-summary.json)通过保护及恢复：Flash initial guard记录unsupported、本机图片1，无Flash最终发送；UI明确不支持图片。附件保留在用户消息（输入框已清空），切回VisionExp后点击历史图片“加入输入”再发送，实际出站VisionExp并正确识四色。此轮覆盖历史图片重新加入新消息，不等同于原assistant retry按钮。仍属混合版本诊断。
+
+
+大表自然复测[诊断17](evidence/diagnostic17-large-native-summary.json)：十万行核心汇总精确，6次Office工具、0shell、5模型轮次、31.304秒。首次inspect传附件内容SHA256遭OFFICE_VERSION_CHANGED，模型validate获取Office版本后恢复；因此不能记无错误首试。另补充文案把收入min/max称为单价，核心要求数字均正确。原文件hash不变。拖入自动化未成功触发附件，源文件不变，明确未验收；不以纸夹/粘贴替代。
+
+
+## 当前未覆盖项（正式验收前更新）
+
+- 最终同版本 workspace Excel 与纸夹 Excel 各5次尚未执行；准备了5个仅含相同哈希输入的独立工作区，纸夹各用新topic scratch，避免复用旧报告。最终版十万行自然聚合尚待版本契约修复后复测。
+- 拖入入口未成功由Computer Use触发，不能记通过。纸夹/粘贴已实测可读取；历史图片“加入输入”后发送已实测，原assistant重试按钮、超量图片和连续ReAct图片边界尚未真实UI覆盖。
+- 项目.agents/.claude重名优先级已实测；个人/Agent/内置完整重名矩阵、跨operation修改后的拒绝与重新激活尚未真实UI覆盖。底层隔离测试仅是补充。
+- Skill缺frontmatter非法编辑原件不变、合法创建下轮发现已实测；超限、重命名冲突、校验中断、外部同时修改未真实UI覆盖。
+- xlsx/docx/pptx简单创建与独立结构回读已实测；批改副本、模板合并、失败写入原件保全、复杂格式视觉保真未真实UI覆盖。
+- 跨设备附件不可用、同名异路径、兄弟文件越权、导出/删除场景未真实UI覆盖。补充parser取消探针不能证明Electron停止按钮中止扫描。
+- 每轮实际HTTP字节、完整工具目录数量尚未获取，不以累计token或缓存命中数替代。Web Skill入口由另一独立验收执行，结果单列；不拓宽到全平台或CLI。

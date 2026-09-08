@@ -47,6 +47,27 @@ describe('local attachment model context', () => {
     expect(JSON.stringify(messages)).not.toContain('base64');
     expect(invoke).toHaveBeenCalledTimes(1);
   });
+  it('keeps attachment hashes internal and explains the first Office version argument', async () => {
+    const ref = {
+      ...localImage,
+      mime: 'application/xlsx',
+      name: 'report.xlsx',
+      version: 'a'.repeat(64),
+    };
+    const invoke = vi.fn().mockResolvedValue({ path: '/managed/report.xlsx' });
+    window.electronAPI = { invoke, onStreamInvoke: vi.fn() };
+    const messages = [
+      { role: 'user', content: 'Inspect report', attachments: { schemaVersion: 1, items: [ref] } },
+    ] as UIChatMessage[];
+    const [result] = await resolveLocalMessageAttachments(messages, 'topic');
+    expect(result.content).not.toContain(ref.version);
+    expect(result.content).not.toContain('"version":');
+    expect(result.content).toContain('Omit version on the first Office call');
+    expect(result.content).toContain('only copy version returned by an Office tool');
+    expect(ref.version).toBe('a'.repeat(64));
+    expect(invoke).toHaveBeenCalledWith('localSystem.resolveAttachment', { ref, topicId: 'topic' });
+  });
+
   it('rejects excess selected images before reading any image bytes', async () => {
     const invoke = vi.fn();
     window.electronAPI = { invoke, onStreamInvoke: vi.fn() };

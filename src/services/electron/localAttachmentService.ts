@@ -115,7 +115,6 @@ export const resolveLocalMessageAttachments = async (
               mime: ref.mime,
               size: ref.size,
               path: result.path,
-              version: ref.version,
             }),
           );
         }
@@ -127,7 +126,7 @@ export const resolveLocalMessageAttachments = async (
         content: [
           message.content,
           manifest.length
-            ? `<local_attachments>\n${manifest.join('\n')}\nUse inspectOfficeDocument/readOfficeDocument for bounded reading. These are managed copies.\n</local_attachments>`
+            ? `<local_attachments>\n${manifest.join('\n')}\nUse inspectOfficeDocument/readOfficeDocument for bounded reading. Omit version on the first Office call; for later calls, only copy version returned by an Office tool. These are managed copies.\n</local_attachments>`
             : '',
         ]
           .filter(Boolean)

@@ -1,0 +1,155 @@
+{
+  "case": "Natural 100000-row summary after Office-first instructions",
+  "topic": "tpc_ivxA90R25Mbu",
+  "status": "correct_aggregates_with_version_recovery",
+  "model": "deepseek-v4-flash-vision-exp",
+  "provider": "newapi",
+  "modelIdentityEvidence": "DB labels after binding fix; temporary outbound marker had been removed for this run.",
+  "expectedAndObserved": {
+    "rows": 100000,
+    "revenue": 75000000,
+    "byRegion": {
+      "East": 25000600,
+      "West": 24999800,
+      "North": 24999600
+    },
+    "byMonth": {
+      "2026-01": 30000000,
+      "2026-02": 45000000
+    }
+  },
+  "sourceSha256": "810c35842f94b0384a046511cb02de3a8211ea9ebf644f535903de4d32d885e3",
+  "sourceUnchanged": true,
+  "shellCalls": 0,
+  "modelRounds": 5,
+  "elapsedPersistedSeconds": 31.304,
+  "usageCumulative": {
+    "totalInputTokens": 111854,
+    "inputCachedTokens": 89088,
+    "inputCacheMissTokens": 22766,
+    "totalOutputTokens": 2482
+  },
+  "firstToolError": {
+    "firstInspectShortError": "OFFICE_VERSION_CHANGED"
+  },
+  "firstToolRequestedVersion": [
+    {
+      "apiName": "inspectOfficeDocument",
+      "argumentsKeys": [
+        "path",
+        "version"
+      ],
+      "requestedVersion": "810c35842f94b0384a046511cb02de3a8211ea9ebf644f535903de4d32d885e3"
+    }
+  ],
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 22,
+      "outputMetrics": {},
+      "executionMetrics": {
+        "durationMs": 0.15,
+        "outputBytes": 22
+      }
+    },
+    {
+      "name": "validateOfficeDocument",
+      "outputBytes": 171,
+      "outputMetrics": {
+        "valid": true
+      },
+      "executionMetrics": {
+        "durationMs": 1235.48,
+        "outputBytes": 171
+      }
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 3003,
+      "outputMetrics": {
+        "hasMore": true,
+        "next": {
+          "limit": 10,
+          "start": 11
+        },
+        "sheetTotal": 2,
+        "sheetsHasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 6.67,
+        "outputBytes": 3003
+      }
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 478,
+      "outputMetrics": {
+        "aggregate": {
+          "count": 100000,
+          "sum": 75000000,
+          "min": 100,
+          "max": 2000
+        },
+        "total": 100001,
+        "hasMore": false,
+        "sheetTotal": 2,
+        "sheetsHasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 1982.48,
+        "outputBytes": 478
+      }
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 271,
+      "outputMetrics": {
+        "aggregate": {
+          "count": 100000,
+          "sum": 75000000,
+          "min": 100,
+          "max": 2000
+        },
+        "total": 100001,
+        "hasMore": false,
+        "sheetTotal": 2,
+        "sheetsHasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 1982.28,
+        "outputBytes": 271
+      }
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputBytes": 418,
+      "outputMetrics": {
+        "aggregate": {
+          "count": 100000,
+          "sum": 75000000,
+          "min": 100,
+          "max": 2000
+        },
+        "total": 100001,
+        "hasMore": false,
+        "sheetTotal": 2,
+        "sheetsHasMore": false
+      },
+      "executionMetrics": {
+        "durationMs": 1982.42,
+        "outputBytes": 418
+      }
+    }
+  ],
+  "versions": {
+    "server": "d0cd5d22",
+    "desktopMain": "d0cd5d22 + model binding fix at last process restart",
+    "renderer": "be0b249b at start; 774600e0 differs only server gate"
+  },
+  "limitations": [
+    "First inspect rejected the exact source SHA256 as OFFICE_VERSION_CHANGED; model recovered with validate then returned aggregates. This is not a clean first-attempt sample.",
+    "Answer supplementary observation labeled per-row revenue minimum/maximum as unit price; core requested aggregate values matched oracle.",
+    "Cumulative tokens are not HTTP bytes or single-step context size.",
+    "Mixed-version diagnostic, not final repetition."
+  ]
+}

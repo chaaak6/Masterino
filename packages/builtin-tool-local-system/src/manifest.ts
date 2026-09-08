@@ -3,6 +3,12 @@ import { type BuiltinToolManifest } from '@lobechat/types';
 import { systemPrompt } from './systemRole';
 import { LocalSystemApiName, LocalSystemIdentifier } from './types';
 
+const officeVersionParameter = {
+  type: 'string' as const,
+  description:
+    'Optional change-detection token: copy exactly from a previous Office tool result for this path. Omit on the first call. Attachment content hashes are not Office versions.',
+};
+
 export const LocalSystemManifest: BuiltinToolManifest = {
   executors: ['client', 'server'],
   api: [
@@ -19,7 +25,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
         properties: {
           path: { type: 'string' },
           outputPath: { type: 'string' },
-          version: { type: 'string' },
+          version: officeVersionParameter,
           operations: {
             type: 'array',
             items: {
@@ -44,7 +50,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
         properties: {
           path: { type: 'string' },
           outputPath: { type: 'string' },
-          version: { type: 'string' },
+          version: officeVersionParameter,
           values: { type: 'object', additionalProperties: { type: 'string' } },
         },
       },
@@ -59,7 +65,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       parameters: {
         type: 'object',
         required: ['path'],
-        properties: { path: { type: 'string' }, version: { type: 'string' } },
+        properties: { path: { type: 'string' }, version: officeVersionParameter },
       },
     },
     {
@@ -133,7 +139,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
             type: 'number' as const,
             description: 'JSON record character budget, capped at 64000',
           },
-          version: { type: 'string' as const },
+          version: officeVersionParameter,
           groupByColumn: {
             type: 'string' as const,
             description:

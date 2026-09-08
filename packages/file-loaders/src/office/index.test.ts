@@ -47,6 +47,9 @@ it('reads XLSX shared strings, pagination, formula cache and aggregate', async (
   const sum = await readOfficeDocument({ path: file, aggregateColumn: 'B' });
   expect(sum.aggregate?.sum).toBe(500500);
   expect(sum.records).toEqual([]);
+  await expect(inspectOfficeDocument({ path: file, version: 'stale' })).rejects.toThrow(
+    'VERSION_CHANGED',
+  );
   await expect(readOfficeDocument({ path: file, version: 'stale' })).rejects.toThrow(
     'VERSION_CHANGED',
   );
