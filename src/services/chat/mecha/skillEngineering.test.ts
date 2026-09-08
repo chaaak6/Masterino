@@ -122,6 +122,9 @@ describe('resolveClientSkills', () => {
     // resourcesTreePrompt output references the resource tree
     expect(skill?.content).toContain('Available Resources');
     expect(skill?.content).toContain('readme.md');
+    expect(skill?.content).toContain('id="user:my-skill"');
+    expect(skill?.content).not.toContain('id="My Skill"');
+    expect(skill?.content).not.toContain('skillName=');
   });
 
   it('does NOT fetch content for non-pinned DB skills (auto mode bulk exposure)', async () => {
