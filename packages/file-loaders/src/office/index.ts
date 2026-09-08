@@ -68,7 +68,8 @@ async function sharedStrings(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
       if (!Number.isSafeInteger(id) || id < 0) throw new Error('Invalid shared string reference');
       while (count <= id) {
         const next = await source.next();
-        if (next.done) throw new Error('Invalid shared string reference');
+        if (next.done || typeof next.value !== 'string')
+          throw new Error('Invalid shared string reference');
         const bytes = Buffer.from(textNodes(next.value));
         const record = Buffer.alloc(16);
         record.writeDoubleLE(offset);

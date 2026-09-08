@@ -81,6 +81,7 @@ describe('operation skill identity', () => {
           name: 'report',
           description: '',
           content: '# Guide',
+          source: 'builtin',
           resources: { 'ref.md': { content: 'bundled', size: 7, fileHash: 'fixture-hash' } },
         },
       ],

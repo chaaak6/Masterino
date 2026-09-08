@@ -36,6 +36,7 @@ import {
   type OnboardingContext,
   type OperationToolSet,
   type ResolvedToolSet,
+  type SkillMeta,
   resolveTopicReferences,
   SkillResolver,
   stripContextMessageIdentity,
@@ -157,7 +158,9 @@ const timing = debug('lobe-server:agent-runtime:timing');
 const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
 
 const recordActivatedSkill = (state: AgentState, key: unknown, content: string) => {
-  const skill = state.metadata?.operationSkillSet?.skills.find((entry) => entry.key === key);
+  const skill = state.metadata?.operationSkillSet?.skills.find(
+    (entry: SkillMeta) => entry.key === key,
+  );
   if (typeof key !== 'string' || !skill) return;
   state.activatedStepSkills = [
     ...(state.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
