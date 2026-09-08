@@ -53,7 +53,7 @@ describe('operation skill identity', () => {
                       name: 'report',
                       description: '',
                       source,
-                      scope: source,
+                      scope: source === 'builtin' ? ('builtin' as const) : ('personal' as const),
                     },
                   ],
                 },
