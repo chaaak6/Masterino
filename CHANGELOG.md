@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 1.2.7](https://github.com/chaaak6/Masterino/compare/test-workspace-fix-20260906-497bd012acd8...v1.2.7)
+
+<sup>Released on **2026-09-08**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: 完善 Aihub 模型能力与人民币价格展示.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: 完善 Aihub 模型能力与人民币价格展示, closes [#119](https://github.com/chaaak6/Masterino/issues/119) ([c2b22f5](https://github.com/chaaak6/Masterino/commit/c2b22f5))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.2.6](https://github.com/chaaak6/Masterino/compare/v1.2.5...v1.2.6)
 
 <sup>Released on **2026-08-31**</sup>

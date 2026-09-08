@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "完善 Aihub 模型能力与人民币价格展示."
+      ]
+    },
+    "date": "2026-09-08",
+    "version": "1.2.7"
+  },
+  {
+    "children": {
+      "fixes": [
         "close Aihub readiness review gaps.",
         "harden Aihub readiness hot path.",
         "unify Aihub readiness lifecycle.",
