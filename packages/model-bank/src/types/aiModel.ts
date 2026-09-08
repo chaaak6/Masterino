@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
 import { type ModelParamsSchema, type VideoModelParamsSchema } from '../standard-parameters';
-import type { AihubModelPricing } from './aihubPricing';
+import type { AihubDisplayPricing, AihubModelPricing } from './aihubPricing';
 
-export type { AihubModelPricing, AihubPriceTier, AihubPriceUnit } from './aihubPricing';
+export type {
+  AihubDisplayPricing,
+  AihubModelPricing,
+  AihubPriceTier,
+  AihubPriceUnit,
+} from './aihubPricing';
 
 export type ModelPriceCurrency = 'CNY' | 'USD';
 
@@ -544,7 +549,7 @@ export type ToggleAiModelEnableParams = z.infer<typeof ToggleAiModelEnableSchema
 
 export interface AiModelForSelect {
   abilities: ModelAbilities;
-  aihubPricing?: AihubModelPricing;
+  aihubPricing?: AihubDisplayPricing;
   /**
    * Approximate per-image price (USD), used when exact calculation is not possible
    */
@@ -586,7 +591,9 @@ export interface EnabledAiModel {
   parameters?: ModelParamsSchema;
   providerId: string;
   releasedAt?: string;
-  settings?: AiModelSettings;
+  settings?: Omit<AiModelSettings, 'aihubPricing'> & {
+    aihubPricing?: AihubModelPricing | AihubDisplayPricing;
+  };
   sort?: number;
   source?: AiModelSourceType;
   type: AiModelType;

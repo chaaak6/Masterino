@@ -182,12 +182,8 @@ describe('ModelDetailPanel pricing', () => {
     const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
     enabledList[0].children[0].aihubPricing = {
       version: 1,
-      source: 'aihub',
       currency: 'CNY',
-      fetchedAt: new Date().toISOString(),
-      scope: 'public',
       status: 'available',
-      tiers: [],
       displayRates: {
         input: { min: 2, max: 2 },
         output: { min: 8, max: 8 },
@@ -213,12 +209,8 @@ describe('ModelDetailPanel pricing', () => {
     const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
     enabledList[0].children[0].aihubPricing = {
       version: 1,
-      source: 'aihub',
       currency: 'CNY',
-      fetchedAt: new Date().toISOString(),
-      scope: 'public',
       status: 'available',
-      tiers: [],
       displayRates: {
         input: { min: 8.999994, max: 8.999994 },
         output: { min: 0.0000001234, max: 0.0000001234 },

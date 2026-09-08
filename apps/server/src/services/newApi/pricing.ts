@@ -1,4 +1,9 @@
-import type { AihubModelPricing, AihubPriceTier, AihubPriceUnit } from 'model-bank';
+import type {
+  AihubDisplayPricing,
+  AihubModelPricing,
+  AihubPriceTier,
+  AihubPriceUnit,
+} from 'model-bank';
 
 import type { NewApiPricingResponse, NewApiStatus } from './client';
 
@@ -127,7 +132,9 @@ export const buildAihubPricing = (
   context: AihubPricingContext,
 ): AihubModelPricing => {
   const { response, status, fetchedAt } = context;
-  const row = response.data?.find((item) => item.model_name === modelId);
+  const row = response.data?.find(
+    (item) => item.model_name.toLowerCase() === modelId.toLowerCase(),
+  );
   const group = context.group && context.group !== 'auto' ? context.group : undefined;
   const ratio = group ? response.group_ratio?.[group] : undefined;
   const knownRatio =
@@ -191,12 +198,19 @@ export const buildAihubPricing = (
 
 /** Resolve time conditions on the server; the picker receives only current price ranges. */
 export const resolveAihubDisplayPricing = (
-  pricing: AihubModelPricing | undefined,
+  pricing: AihubModelPricing | AihubDisplayPricing | undefined,
   now = new Date(),
-): AihubModelPricing | undefined => {
+): AihubDisplayPricing | undefined => {
   if (!pricing) return undefined;
-  const result: AihubModelPricing = { ...pricing, tiers: [], displayRates: undefined };
+  const result: AihubDisplayPricing = {
+    version: pricing.version,
+    currency: pricing.currency,
+    status: pricing.status,
+    stale: pricing.stale,
+    displayRates: undefined,
+  };
   if (pricing.stale || pricing.status !== 'available') return result;
+  if (!('tiers' in pricing)) return { ...result, status: 'unavailable' };
   try {
     const tiers = pricing.tiers.filter(({ when }) => {
       if (!when?.hours) return true;

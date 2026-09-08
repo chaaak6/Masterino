@@ -7,7 +7,7 @@ import {
 import { uniqBy } from 'es-toolkit/compat';
 import type {
   AiFullModelCard,
-  AihubModelPricing,
+  AihubDisplayPricing,
   EnabledAiModel,
   LobeDefaultAiModelListItem,
   ModelAbilities,
@@ -37,7 +37,7 @@ import {
 import { AiProviderSourceEnum } from '@/types/aiProvider';
 
 export type ProviderModelListItem = {
-  aihubPricing?: AihubModelPricing;
+  aihubPricing?: AihubDisplayPricing;
   abilities: ModelAbilities;
   approximatePricePerImage?: number;
   approximatePricePerVideo?: number;

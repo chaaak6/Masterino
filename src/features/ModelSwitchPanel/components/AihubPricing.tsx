@@ -1,5 +1,5 @@
 import { AccordionItem, Flexbox } from '@lobehub/ui';
-import type { AihubModelPricing, AihubPriceUnit } from 'model-bank';
+import type { AihubDisplayPricing, AihubPriceUnit } from 'model-bank';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -14,7 +14,7 @@ const money = (amount: number) => {
   }).format(amount);
 };
 
-const AihubPricing = memo<{ pricing?: AihubModelPricing }>(({ pricing }) => {
+const AihubPricing = memo<{ pricing?: AihubDisplayPricing }>(({ pricing }) => {
   const { t } = useTranslation('components');
   const label = (key: string) => t(`ModelSwitchPanel.aihubPricing.${key}` as any);
   const rates = pricing?.displayRates;

@@ -1,4 +1,4 @@
-/** Non-secret, display-only Aihub tariff snapshot. Never used to settle a bill. */
+/** Aihub tariff data. Never used to settle a bill. */
 export type AihubPriceUnit = 'input' | 'output' | 'cacheRead' | 'cacheWrite' | 'request';
 export interface AihubPriceTier {
   name?: string;
@@ -11,10 +11,16 @@ export interface AihubPriceTier {
     outsideHours?: boolean;
   };
 }
-export interface AihubModelPricing {
+export interface AihubDisplayPricing {
   currency: 'CNY';
-  /** Computed by the server for display; conditions remain backend metadata. */
   displayRates?: Partial<Record<AihubPriceUnit, { min: number; max: number }>>;
+  stale?: boolean;
+  status: 'available' | 'unavailable' | 'unsupported';
+  version: 1;
+}
+
+/** Stored server-side snapshot; project to AihubDisplayPricing before returning to clients. */
+export interface AihubModelPricing extends AihubDisplayPricing {
   exchangeRate?: number;
   fetchedAt: string;
   group?: string;
@@ -22,10 +28,7 @@ export interface AihubModelPricing {
   pricingVersion?: string;
   scope: 'account' | 'public';
   source: 'aihub';
-  stale?: boolean;
-  status: 'available' | 'unavailable' | 'unsupported';
   tiers: AihubPriceTier[];
   /** An upstream context tier is unreachable; do not silently advertise it. */
   unreachableTier?: boolean;
-  version: 1;
 }

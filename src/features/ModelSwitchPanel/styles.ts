@@ -13,8 +13,8 @@ export const styles = createStaticStyles(({ css, cssVar }) => ({
     width: 400px;
   `,
   chatDetailPopup: css`
-    width: min(400px, var(--available-width));
-    max-height: var(--available-height);
+    width: min(400px, var(--available-width, 400px));
+    max-height: var(--available-height, 70vh);
     overflow-y: auto;
     overflow-wrap: anywhere;
   `,

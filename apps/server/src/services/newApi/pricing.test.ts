@@ -25,6 +25,11 @@ const row = {
 };
 
 describe('Aihub tariff projection', () => {
+  it('matches model names without changing their suffix or provider identity', () => {
+    const mixed = context({ ...row, model_name: 'GLM-5.3' });
+    expect(buildAihubPricing('glm-5.3', mixed).status).toBe('available');
+    expect(buildAihubPricing('glm-5.3-flash', mixed).status).toBe('unavailable');
+  });
   it('converts using the site policy and the effective group, retaining zero rates', () => {
     const result = buildAihubPricing('chat', context({ ...row, cache_ratio: 0 }));
     expect(result.scope).toBe('account');
@@ -102,6 +107,27 @@ describe('Aihub tariff projection', () => {
 });
 
 describe('server-side display rates', () => {
+  it.each(['available', 'unavailable', 'unsupported', 'stale'] as const)(
+    'only returns public display fields for %s snapshots',
+    (state) => {
+      const snapshot = {
+        ...buildAihubPricing('chat', context(row)),
+        pricingVersion: 'private-version',
+        unreachableTier: true,
+        ...(state === 'stale' ? { stale: true } : { status: state }),
+      };
+      const display = resolveAihubDisplayPricing(snapshot)!;
+      expect(Object.keys(display).sort()).toEqual([
+        'currency',
+        'displayRates',
+        'stale',
+        'status',
+        'version',
+      ]);
+      expect(snapshot.tiers.length).toBeGreaterThan(0);
+      expect(snapshot.group).toBe('vip');
+    },
+  );
   it('uses Shanghai time and removes all conditions from the displayed rates', () => {
     const snapshot = buildAihubPricing(
       'chat',
@@ -116,7 +142,7 @@ describe('server-side display rates', () => {
     const off = resolveAihubDisplayPricing(snapshot, new Date('2026-09-08T04:00:00Z'))!;
     expect(peak.displayRates?.input).toEqual({ min: 7, max: 7 });
     expect(off.displayRates?.input).toEqual({ min: 3.5, max: 3.5 });
-    expect(peak.tiers).toEqual([]);
+    expect(peak).not.toHaveProperty('tiers');
   });
   it('shows a range when context tiers differ and does not advertise a rate missing in one tier', () => {
     const snapshot = buildAihubPricing(
