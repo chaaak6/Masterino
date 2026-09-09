@@ -669,23 +669,28 @@ export default class GatewayConnectionCtr extends ControllerModule {
         };
       }
     }
+    const attachments = attachment ? [attachment] : [];
     const redact = (value: unknown): unknown => {
-      if (!attachment) return value;
+      if (attachments.length === 0) return value;
       if (typeof value === 'string') {
-        const paths = [
-          attachment.path,
-          path.dirname(attachment.path),
-          path.dirname(path.dirname(attachment.path)),
-        ];
+        // Replace full paths before shared parent directories, so a multi-file
+        // read keeps each attachment's own identity.
+        const paths = attachments
+          .flatMap(({ path: filename, id }) =>
+            [filename, path.dirname(filename), path.dirname(path.dirname(filename))].map(
+              (candidate) => ({ candidate, id }),
+            ),
+          )
+          .sort((a, b) => b.candidate.length - a.candidate.length);
         let result = value;
-        for (const candidate of paths)
+        for (const { candidate, id } of paths)
           for (const variant of new Set([
             candidate,
             JSON.stringify(candidate).slice(1, -1),
             encodeURI(candidate),
             encodeURIComponent(candidate),
           ]))
-            result = result.split(variant).join(`attachment:${attachment.id}`);
+            result = result.split(variant).join(`attachment:${id}`);
         return result;
       }
       if (Array.isArray(value)) return value.map(redact);
@@ -705,13 +710,14 @@ export default class GatewayConnectionCtr extends ControllerModule {
         purpose,
         signal,
         normalized === 'runCommand' ? attachment?.path : undefined,
+        (resolved) => attachments.push(resolved),
       );
       const state = result.state as { commandId?: string } | undefined;
       if (attachment && state?.commandId)
         this.attachmentShellPaths.set(shellKey(state.commandId), attachment);
       return redact(result) as BuiltinServerRuntimeOutput;
     } catch (error) {
-      if (!attachment) throw error;
+      if (attachments.length === 0) throw error;
       return {
         success: false,
         content: String(redact(error instanceof Error ? error.message : String(error))),
@@ -727,6 +733,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
     purpose?: 'skill-command' | 'skill-script',
     signal?: AbortSignal,
     attachmentPath?: string,
+    onAttachmentResolved?: (attachment: { path: string; id: string }) => void,
   ): Promise<BuiltinServerRuntimeOutput> {
     const runtime = this.getLocalSystemRuntime();
     const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
@@ -802,6 +809,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
           candidate,
         ).catch(() => undefined);
         if (!attachment) continue;
+        onAttachmentResolved?.({ path: attachment.path, id: attachment.ref.attachmentId });
         resolvedExecutionContext = {
           ...resolvedExecutionContext,
           accessRoots: [

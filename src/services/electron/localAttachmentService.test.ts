@@ -68,7 +68,7 @@ describe('local attachment model context', () => {
     expect(invoke).not.toHaveBeenCalled();
     expect(result.content).toContain(ref.attachmentId);
     expect(result.content).not.toContain('/managed/');
-    expect(result.content).not.toContain('\"path\":');
+    expect(result.content).not.toContain('"path":');
   });
 
   it('rejects excess selected images before reading any image bytes', async () => {

@@ -358,6 +358,64 @@ describe('GatewayConnectionCtr execution context boundary', () => {
     expect(ambiguous.content).toBe('INVALID_ATTACHMENT_TOOL_REQUEST');
   });
 
+  it.each(['readFile', 'readFiles'])(
+    'redacts legacy attachment paths in %s while preserving workspace paths',
+    async (apiName) => {
+      const root = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+      const attachments = [];
+      for (const name of ['first.txt', 'second.txt']) {
+        const ref = await receiveLocalAttachment(root, 'device-1', {
+          draftId: 'legacy-draft',
+          name,
+          mime: 'text/plain',
+          data: Buffer.from('hello'),
+        });
+        const prepared = await prepareLocalAttachment(root, 'device-1', ref, 'legacy-topic');
+        attachments.push(prepared);
+      }
+      const workspaceFile = path.join(workspace, 'ordinary.txt');
+      await writeFile(workspaceFile, 'ordinary');
+      const paths = [...attachments.map(({ path: filename }) => filename), workspaceFile];
+      if (apiName === 'readFile')
+        readFile.mockResolvedValueOnce({ content: `${paths[0]} ${workspaceFile}` });
+      else
+        vi.spyOn(localFileCtr, 'readFiles').mockResolvedValueOnce(
+          paths.map((filename) => ({
+            filename,
+            content: filename,
+            charCount: filename.length,
+            createdTime: new Date(0),
+            fileType: 'txt',
+            lineCount: 1,
+            loc: [1, 1] as [number, number],
+            modifiedTime: new Date(0),
+            totalCharCount: filename.length,
+            totalLineCount: 1,
+          })),
+        );
+      const result = await makeController().executeLocalToolCall({
+        apiName,
+        args: apiName === 'readFiles' ? { paths } : { path: paths[0] },
+        executionContext: context(),
+        trace: {
+          deviceId: 'device-1',
+          topicId: 'legacy-topic',
+          operationId: 'legacy-op',
+          toolCallId: 'legacy-read',
+        },
+      });
+      expect(result.success).toBe(true);
+      const serialized = JSON.stringify(result);
+      for (const item of apiName === 'readFiles' ? attachments : attachments.slice(0, 1)) {
+        expect(serialized).not.toContain(path.dirname(item.path));
+        expect(result.content).toContain(`attachment:${item.ref.attachmentId}`);
+      }
+      expect(serialized).not.toContain('.attachments');
+      expect(result.content).toContain(workspaceFile);
+      expect(serialized).toContain('consent:legacy-op');
+    },
+  );
+
   it.each([
     { success: false, stdout: 'failed' },
     { success: true, exit_code: 1, stdout: '', stderr: '' },
