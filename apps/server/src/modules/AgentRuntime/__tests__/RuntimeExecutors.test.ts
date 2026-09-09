@@ -3108,6 +3108,108 @@ describe('RuntimeExecutors', () => {
       });
     });
 
+    it.each(
+      (['call_tool', 'call_tools_batch', 'resume'] as const).flatMap((mode) =>
+        [undefined, 'report', 'project:other-workspace:report'].map((key) => ({ mode, key })),
+      ),
+    )(
+      'rejects an unbound Skill activation before persistence ($mode, $key)',
+      async ({ mode, key }) => {
+        const rejectedContent = 'REJECTED_SKILL_BODY_MUST_NOT_BE_PERSISTED';
+        const state = createMockState({
+          metadata: {
+            operationSkillSet: {
+              enabledPluginIds: [],
+              skills: [
+                {
+                  key: 'project:workspace-a:report',
+                  identifier: 'report',
+                  name: 'report',
+                  description: 'Report',
+                  source: 'project',
+                },
+              ],
+            },
+          },
+        });
+        mockToolExecutionService.executeTool.mockResolvedValue({
+          content: rejectedContent,
+          state: { id: key, name: 'report' },
+          success: true,
+          executionTime: 1,
+        });
+        const tool = {
+          apiName: 'activateSkill',
+          arguments: '{"name":"report"}',
+          id: 'activate-report',
+          identifier: 'lobe-skills',
+          type: 'builtin' as const,
+        };
+        const executors = createRuntimeExecutors(ctx);
+        const result =
+          mode === 'call_tools_batch'
+            ? await executors.call_tools_batch!(
+                {
+                  type: 'call_tools_batch',
+                  payload: { parentMessageId: 'assistant-msg-123', toolsCalling: [tool] },
+                },
+                state,
+              )
+            : await executors.call_tool!(
+                {
+                  type: 'call_tool',
+                  payload: {
+                    parentMessageId: 'assistant-msg-123',
+                    toolCalling: tool,
+                    ...(mode === 'resume' && { skipCreateToolMessage: true }),
+                  },
+                },
+                state,
+              );
+        const code = 'SKILL_ACTIVATION_IDENTITY_MISMATCH';
+        const expectedFailure = {
+          content: expect.stringContaining(code),
+          pluginError: { type: code, message: code },
+          pluginState: { errorCode: code },
+        };
+        if (mode === 'resume') {
+          expect(mockMessageModel.create).not.toHaveBeenCalled();
+          expect(mockMessageModel.updateToolMessage).toHaveBeenCalledExactlyOnceWith(
+            'assistant-msg-123',
+            expect.objectContaining(expectedFailure),
+          );
+        } else {
+          expect(mockMessageModel.updateToolMessage).not.toHaveBeenCalled();
+          expect(mockMessageModel.create).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining(expectedFailure),
+          );
+        }
+        const endEvents = mockStreamManager.publishStreamEvent.mock.calls
+          .map((call: any[]) => call[1])
+          .filter((event: any) => event.type === 'tool_end');
+        expect(endEvents).toHaveLength(1);
+        expect(endEvents[0].data).toMatchObject({
+          isSuccess: false,
+          result: { success: false, state: { errorCode: code } },
+        });
+        expect(result.newState.activatedStepSkills ?? []).toEqual([]);
+        expect(result.events).toContainEqual(
+          expect.objectContaining({
+            type: 'tool_result',
+            result: expect.objectContaining({ success: false }),
+          }),
+        );
+        expect(
+          JSON.stringify({
+            create: mockMessageModel.create.mock.calls,
+            update: mockMessageModel.updateToolMessage.mock.calls,
+            stream: mockStreamManager.publishStreamEvent.mock.calls,
+            result,
+          }),
+        ).not.toContain(rejectedContent);
+      },
+    );
+
     it.each(['call_tool', 'call_tools_batch'] as const)(
       'records activated Skill keys from operation metadata in %s',
       async (mode) => {

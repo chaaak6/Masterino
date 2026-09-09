@@ -67,7 +67,7 @@ import {
 } from '@/store/tool/selectors';
 import { ComposioServerStatus } from '@/store/tool/slices/composioStore';
 
-import { isCanUseVideo, isCanUseVision } from '../helper';
+import { isCanUseVideo } from '../helper';
 import { combineUserMemoryData, resolveTopicMemories, resolveUserPersona } from './memoryManager';
 import { resolveClientSkills } from './skillEngineering';
 
@@ -148,6 +148,8 @@ export const contextEngineering = async ({
   const selectedMessage = messages.findLast((message) => message.role === 'user');
   const hasSelectedImages =
     !!selectedMessage?.imageList?.length ||
+    (Array.isArray(selectedMessage?.content) &&
+      selectedMessage.content.some((part) => part?.type === 'image_url')) ||
     selectedMessage?.attachments?.items.some((item) => item.mime.startsWith('image/'));
   const frozenCatalog =
     modelCatalogSnapshot?.entry.modelId === model &&
@@ -157,7 +159,7 @@ export const contextEngineering = async ({
   const canUseWorkingModelVision = (candidateModel: string, candidateProvider: string) =>
     frozenCatalog && candidateModel === model && candidateProvider === provider
       ? frozenCatalog.inputModalities.image === 'supported'
-      : isCanUseVision(candidateModel, candidateProvider);
+      : false;
   if (hasSelectedImages && !canUseWorkingModelVision(model, provider)) {
     throw new Error(
       'This model cannot view images. Keep the attachment and select a vision-capable model.',

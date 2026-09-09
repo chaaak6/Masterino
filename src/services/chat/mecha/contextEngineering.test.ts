@@ -108,7 +108,61 @@ const getCurrentDateContent = () => {
   return `Current date: ${year}-${month}-${day} (${tz})`;
 };
 
+const visionSnapshot = (model: string, provider = 'openai') =>
+  createModelCatalogSnapshot(
+    mergeModelCatalogEntry({
+      modelId: model,
+      providerId: provider,
+      catalog: { abilities: { vision: true } },
+    }).entry,
+    'test-operation',
+  );
+
 describe('contextEngineering', () => {
+  it.each(['missing', 'model', 'provider'] as const)(
+    'rejects current images with %s snapshot despite live vision support',
+    async (mismatch) => {
+      const live = vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(true);
+      const snapshot =
+        mismatch === 'missing'
+          ? undefined
+          : visionSnapshot(
+              mismatch === 'model' ? 'other' : 'current',
+              mismatch === 'provider' ? 'other-provider' : 'openai',
+            );
+      await expect(
+        contextEngineering({
+          model: 'current',
+          provider: 'openai',
+          modelCatalogSnapshot: snapshot,
+          messages: [
+            {
+              role: 'user',
+              content: 'image',
+              imageList: [{ id: 'image', url: 'https://example.com/image.png' }],
+            },
+          ] as UIChatMessage[],
+        }),
+      ).rejects.toThrow('cannot view images');
+      expect(live).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects current serialized image parts when no snapshot is available', async () => {
+    await expect(
+      contextEngineering({
+        model: 'current',
+        provider: 'openai',
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: 'https://example.com/image.png' } }],
+          },
+        ] as any,
+      }),
+    ).rejects.toThrow('cannot view images');
+  });
+
   it('injects full plan content from the dedicated latest plan interface', async () => {
     vi.mocked(notebookService.getLatestPlan).mockResolvedValue({
       associatedAt: new Date('2026-08-27T00:00:00.000Z'),
@@ -269,6 +323,7 @@ describe('contextEngineering', () => {
       ] as UIChatMessage[];
 
       const output = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4o', 'openai'),
         messages,
         model: 'gpt-4o',
         provider: 'openai',
@@ -558,6 +613,7 @@ describe('contextEngineering', () => {
         },
       ];
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4-vision-preview', 'openai'),
         messages,
         model: 'gpt-4-vision-preview',
         provider: 'openai',
@@ -588,6 +644,7 @@ describe('contextEngineering', () => {
         },
       ];
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4-vision-preview', 'openai'),
         messages,
         model: 'gpt-4-vision-preview',
         provider: 'openai',
@@ -719,6 +776,7 @@ describe('contextEngineering', () => {
       ] as any;
 
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4'),
         messages,
         model: 'gpt-4',
         provider: 'openai',
@@ -876,6 +934,7 @@ describe('contextEngineering', () => {
       ];
 
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4o', 'openai'),
         messages,
         model: 'gpt-4o',
         provider: 'openai',

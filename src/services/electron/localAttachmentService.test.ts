@@ -65,7 +65,10 @@ describe('local attachment model context', () => {
     expect(result.content).toContain('Omit version on the first Office call');
     expect(result.content).toContain('only copy version returned by an Office tool');
     expect(ref.version).toBe('a'.repeat(64));
-    expect(invoke).toHaveBeenCalledWith('localSystem.resolveAttachment', { ref, topicId: 'topic' });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(result.content).toContain(ref.attachmentId);
+    expect(result.content).not.toContain('/managed/');
+    expect(result.content).not.toContain('\"path\":');
   });
 
   it('rejects excess selected images before reading any image bytes', async () => {
@@ -91,7 +94,7 @@ describe('local attachment model context', () => {
     expect(invoke).not.toHaveBeenCalled();
   });
 
-  it('prepares document history serially to bound concurrent device reads', async () => {
+  it('keeps document history as IDs without reading files during assembly', async () => {
     let active = 0;
     let peak = 0;
     const invoke = vi.fn(async () => {
@@ -112,8 +115,8 @@ describe('local attachment model context', () => {
       },
     })) as UIChatMessage[];
     await resolveLocalMessageAttachments(messages, 'topic');
-    expect(invoke).toHaveBeenCalledTimes(3);
-    expect(peak).toBe(1);
+    expect(invoke).not.toHaveBeenCalled();
+    expect(peak).toBe(0);
   });
 
   it('fails explicitly on a missing device resource', async () => {

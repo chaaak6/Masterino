@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { ensureScratchWorkspace } from './workspace';
@@ -33,6 +33,46 @@ const segment = (id: string) => {
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const recordPath = (root: string, id: string) =>
   path.join(root, 'attachment-index', `${segment(id)}.json`);
+
+const attachmentLookupPath = (root: string, id: string) =>
+  path.join(root, 'attachment-index', `${segment(id)}.ref`);
+
+/** Resolve an ID inside the device index, then recheck the current topic binding. */
+export async function prepareLocalAttachmentById(
+  root: string,
+  deviceId: string,
+  topicId: string,
+  attachmentId: string,
+) {
+  segment(attachmentId);
+  let resourceId: string | undefined;
+  try {
+    resourceId = await readFile(attachmentLookupPath(root, attachmentId), 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    // One-time compatibility for records created before the ID lookup existed.
+    for (const entry of await readdir(path.join(root, 'attachment-index'))) {
+      if (!entry.endsWith('.json')) continue;
+      const record: StoredAttachment = JSON.parse(
+        await readFile(path.join(root, 'attachment-index', entry), 'utf8'),
+      );
+      if (record.ref.attachmentId === attachmentId) {
+        resourceId = record.ref.localResourceId;
+        break;
+      }
+    }
+  }
+  if (!resourceId) throw new Error('ATTACHMENT_NOT_AVAILABLE');
+  const record: StoredAttachment = JSON.parse(await readFile(recordPath(root, resourceId), 'utf8'));
+  if (
+    record.ref.attachmentId !== attachmentId ||
+    record.ref.deviceId !== deviceId ||
+    !(record.topicIds ?? [record.topicId]).includes(topicId)
+  )
+    throw new Error('ATTACHMENT_NOT_AVAILABLE');
+  await writeFile(attachmentLookupPath(root, attachmentId), resourceId, { mode: 0o600 });
+  return prepareLocalAttachment(root, deviceId, record.ref, topicId);
+}
 
 /** Only this device-side index contains paths. A selected source grants no directory access. */
 export async function receiveLocalAttachment(
@@ -84,6 +124,7 @@ export async function receiveLocalAttachment(
     }),
     { flag: 'wx', mode: 0o600 },
   );
+  await writeFile(attachmentLookupPath(root, ref.attachmentId), localResourceId, { mode: 0o600 });
   return ref;
 }
 
@@ -290,6 +331,7 @@ export async function manageLocalAttachment(
           force: true,
         });
       }
+      await rm(attachmentLookupPath(root, ref.attachmentId), { force: true });
       await rm(filename, { force: true });
       return { available: false, removed: true };
     }

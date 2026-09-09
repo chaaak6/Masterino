@@ -59,7 +59,7 @@ export const bindLocalChatAttachments = async (refs: AttachmentRef[], topicId: s
 /** Resolve only at request time. Neither real paths nor data URLs are written back to messages. */
 export const resolveLocalMessageAttachments = async (
   messages: UIChatMessage[],
-  topicId?: string,
+  _topicId?: string,
 ): Promise<UIChatMessage[]> => {
   const latestUserIndex = messages.findLastIndex((message) => message.role === 'user');
   const resolvedMessages: UIChatMessage[] = [];
@@ -107,14 +107,12 @@ export const resolveLocalMessageAttachments = async (
           });
           imageList.push({ id: ref.attachmentId, alt: ref.name, url: result.dataUrl });
         } else {
-          const result = await invoke<{ path: string }>('resolveAttachment', { ref, topicId });
           manifest.push(
             JSON.stringify({
               attachmentId: ref.attachmentId,
               name: ref.name,
               mime: ref.mime,
               size: ref.size,
-              path: result.path,
             }),
           );
         }
@@ -126,7 +124,7 @@ export const resolveLocalMessageAttachments = async (
         content: [
           message.content,
           manifest.length
-            ? `<local_attachments>\n${manifest.join('\n')}\nUse inspectOfficeDocument/readOfficeDocument for bounded reading. Omit version on the first Office call; for later calls, only copy version returned by an Office tool. These are managed copies.\n</local_attachments>`
+            ? `<local_attachments>\n${manifest.join('\n')}\nUse attachmentId (not a file path) with inspectOfficeDocument/readOfficeDocument or readFile for bounded reading. Device paths are resolved only when executing the tool. For unsupported operations, runCommand accepts attachmentId and exposes its managed copy as ATTACHMENT_FILE in the command environment. Omit version on the first Office call; for later calls, only copy version returned by an Office tool. These are managed copies.\n</local_attachments>`
             : '',
         ]
           .filter(Boolean)

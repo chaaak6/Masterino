@@ -9,6 +9,13 @@ const officeVersionParameter = {
     'Optional change-detection token: copy exactly from a previous Office tool result for this path. Omit on the first call. Attachment content hashes are not Office versions.',
 };
 
+const attachmentIdParameter = {
+  type: 'string' as const,
+  description:
+    'ID from local_attachments in this conversation. Use this instead of path for an attached file; the device resolves its managed copy.',
+};
+const fileSourceChoice = [{ required: ['path'] }, { required: ['attachmentId'] }];
+
 export const LocalSystemManifest: BuiltinToolManifest = {
   executors: ['client', 'server'],
   api: [
@@ -21,8 +28,10 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       },
       parameters: {
         type: 'object',
-        required: ['path', 'outputPath', 'operations'],
+        oneOf: fileSourceChoice,
+        required: ['outputPath', 'operations'],
         properties: {
+          attachmentId: attachmentIdParameter,
           path: { type: 'string' },
           outputPath: { type: 'string' },
           version: officeVersionParameter,
@@ -46,8 +55,10 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       },
       parameters: {
         type: 'object',
-        required: ['path', 'outputPath', 'values'],
+        oneOf: fileSourceChoice,
+        required: ['outputPath', 'values'],
         properties: {
+          attachmentId: attachmentIdParameter,
           path: { type: 'string' },
           outputPath: { type: 'string' },
           version: officeVersionParameter,
@@ -64,8 +75,12 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       },
       parameters: {
         type: 'object',
-        required: ['path'],
-        properties: { path: { type: 'string' }, version: officeVersionParameter },
+        oneOf: fileSourceChoice,
+        properties: {
+          attachmentId: attachmentIdParameter,
+          path: { type: 'string' },
+          version: officeVersionParameter,
+        },
       },
     },
     {
@@ -126,8 +141,9 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       },
       parameters: {
         type: 'object' as const,
-        required: ['path'],
+        oneOf: fileSourceChoice,
         properties: {
+          attachmentId: attachmentIdParameter,
           path: { type: 'string' as const },
           sheet: { type: 'string' as const },
           start: {
@@ -167,6 +183,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       name: LocalSystemApiName.readFile,
       parameters: {
         properties: {
+          attachmentId: attachmentIdParameter,
           loc: {
             description:
               'Optional range of lines to read [startLine, endLine]. Defaults to [0, 200] if not specified.',
@@ -180,7 +197,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
             type: 'string',
           },
         },
-        required: ['path'],
+        oneOf: fileSourceChoice,
         type: 'object',
       },
     },
@@ -377,6 +394,11 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       name: LocalSystemApiName.runCommand,
       parameters: {
         properties: {
+          attachmentId: {
+            ...attachmentIdParameter,
+            description:
+              'Optional attached file for code fallback. Read the managed copy using the ATTACHMENT_FILE environment variable; do not guess an absolute path.',
+          },
           command: {
             description: 'The shell command to execute',
             type: 'string',

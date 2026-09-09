@@ -95,7 +95,14 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
     ctx?: BuiltinToolContext,
   ): Promise<BuiltinToolResult | undefined> {
     const executionContext = ctx?.executionContext;
-    if (!executionContext) return;
+    if (!executionContext) {
+      if (args.attachmentId !== undefined)
+        return {
+          success: false,
+          content: 'Attachment tools require a bound device execution context',
+        };
+      return;
+    }
     if (executionContext.plan.kind !== 'device' || executionContext.plan.target !== 'local') {
       return {
         content: 'DEVICE_UNROUTED',
@@ -212,7 +219,9 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
   };
 
   readFile = async (
-    params: LocalReadFileParams,
+    params:
+      | LocalReadFileParams
+      | (Omit<LocalReadFileParams, 'path'> & { attachmentId: string; path?: never }),
     ctx?: BuiltinToolContext,
   ): Promise<BuiltinToolResult> => {
     const blocked = this.workspaceRequired(ctx);
@@ -220,6 +229,11 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
     try {
       const boundary = await this.executeOnDesktopBoundary('readFile', params as any, ctx);
       if (boundary) return boundary;
+      if (params.path === undefined)
+        return {
+          success: false,
+          content: 'Attachment tools require a bound device execution context',
+        };
       const resolved = resolveArgsWithScope(params, 'path', ctx?.workingDirectory);
       const result = await this.runtime.readFile({
         endLine: resolved.loc?.[1],
@@ -336,7 +350,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
   // ==================== Shell Commands ====================
 
   runCommand = async (
-    params: RunCommandParams,
+    params: RunCommandParams & { attachmentId?: string },
     ctx?: BuiltinToolContext,
   ): Promise<BuiltinToolResult> => {
     const blocked = this.workspaceRequired(ctx);

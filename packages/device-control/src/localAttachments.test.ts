@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   manageLocalAttachment,
   prepareLocalAttachment,
+  prepareLocalAttachmentById,
   receiveLocalAttachment,
   resolveLocalAttachment,
   validatePreparedLocalAttachment,
@@ -46,6 +47,42 @@ describe('device attachments', () => {
     await expect(resolveLocalAttachment(root, 'other-device', ref)).rejects.toThrow('unavailable');
     await writeFile(source, 'other');
     await expect(resolveLocalAttachment(root, 'device', ref)).rejects.toThrow('changed');
+  });
+  it('resolves only IDs bound to this device/topic and removes the lookup on deletion', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-id-test-'));
+    const ref = await receiveLocalAttachment(root, 'device', {
+      draftId: 'draft',
+      name: 'report.txt',
+      mime: 'text/plain',
+      data: Buffer.from('content'),
+    });
+    await expect(
+      prepareLocalAttachmentById(root, 'device', 'topic', ref.attachmentId),
+    ).rejects.toThrow();
+    await manageLocalAttachment(root, 'device', {
+      action: 'bindMessage',
+      ref,
+      messageId: 'message',
+      topicId: 'topic',
+      draftId: 'draft',
+    });
+    const prepared = await prepareLocalAttachmentById(root, 'device', 'topic', ref.attachmentId);
+    expect(await readFile(prepared.path, 'utf8')).toBe('content');
+    await expect(
+      prepareLocalAttachmentById(root, 'device', 'other', ref.attachmentId),
+    ).rejects.toThrow();
+    await expect(
+      prepareLocalAttachmentById(root, 'other', 'topic', ref.attachmentId),
+    ).rejects.toThrow();
+    await expect(prepareLocalAttachmentById(root, 'device', 'topic', '../bad')).rejects.toThrow();
+    await manageLocalAttachment(root, 'device', {
+      action: 'releaseMessage',
+      ref,
+      messageId: 'message',
+    });
+    await expect(
+      prepareLocalAttachmentById(root, 'device', 'topic', ref.attachmentId),
+    ).rejects.toThrow();
   });
   it('accepts pathless pasted bytes with independent IDs', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-test-'));

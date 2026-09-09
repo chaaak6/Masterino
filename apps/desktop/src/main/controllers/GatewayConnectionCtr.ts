@@ -8,6 +8,7 @@ import {
   executeDeviceRpc as runDeviceRpc,
   getExistingScratchWorkspace,
   materializeSkillsForCli,
+  prepareLocalAttachmentById,
   validatePreparedLocalAttachment,
 } from '@lobechat/device-control';
 import type {
@@ -614,6 +615,8 @@ export default class GatewayConnectionCtr extends ControllerModule {
     return runDeviceRpc(method, params, this.deviceControlDeps);
   }
 
+  private attachmentShellPaths = new Map<string, { path: string; id: string }>();
+
   private async executeToolCall(
     apiName: string,
     args: unknown,
@@ -621,6 +624,109 @@ export default class GatewayConnectionCtr extends ControllerModule {
     trace?: ExecutionBoundaryTrace,
     purpose?: 'skill-command' | 'skill-script',
     signal?: AbortSignal,
+  ): Promise<BuiltinServerRuntimeOutput> {
+    const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
+    const input = (args ?? {}) as Record<string, unknown>;
+    const shellKey = (id: unknown) => JSON.stringify([trace?.deviceId, trace?.topicId, id]);
+    let attachment = this.attachmentShellPaths.get(shellKey(input.shell_id));
+    let resolvedArgs = args;
+    if (input.attachmentId !== undefined) {
+      if (
+        typeof input.attachmentId !== 'string' ||
+        input.path !== undefined ||
+        purpose ||
+        !executionContext ||
+        !trace?.topicId ||
+        !trace.operationId ||
+        !trace.toolCallId ||
+        trace.deviceId !== this.service.getDeviceId() ||
+        ![
+          'readFile',
+          'inspectOfficeDocument',
+          'readOfficeDocument',
+          'validateOfficeDocument',
+          'batchOfficeDocument',
+          'mergeOfficeTemplate',
+          'runCommand',
+        ].includes(normalized)
+      )
+        return { success: false, content: 'INVALID_ATTACHMENT_TOOL_REQUEST' };
+      try {
+        const prepared = await prepareLocalAttachmentById(
+          path.join(this.app.appStoragePath, 'scratch-workspaces'),
+          trace.deviceId,
+          trace.topicId,
+          input.attachmentId,
+        );
+        attachment = { path: prepared.path, id: input.attachmentId };
+        const { attachmentId: _id, ...rest } = input;
+        resolvedArgs = normalized === 'runCommand' ? rest : { ...rest, path: prepared.path };
+      } catch {
+        // Never serialize device index/source paths from filesystem errors.
+        return {
+          success: false,
+          content: 'ATTACHMENT_NOT_AVAILABLE: select the file again in this conversation.',
+        };
+      }
+    }
+    const redact = (value: unknown): unknown => {
+      if (!attachment) return value;
+      if (typeof value === 'string') {
+        const paths = [
+          attachment.path,
+          path.dirname(attachment.path),
+          path.dirname(path.dirname(attachment.path)),
+        ];
+        let result = value;
+        for (const candidate of paths)
+          for (const variant of new Set([
+            candidate,
+            JSON.stringify(candidate).slice(1, -1),
+            encodeURI(candidate),
+            encodeURIComponent(candidate),
+          ]))
+            result = result.split(variant).join(`attachment:${attachment.id}`);
+        return result;
+      }
+      if (Array.isArray(value)) return value.map(redact);
+      if (value instanceof Error) return { name: value.name, message: redact(value.message) };
+      if (value && typeof value === 'object')
+        return Object.fromEntries(
+          Object.entries(value).map(([key, entry]) => [key, redact(entry)]),
+        );
+      return value;
+    };
+    try {
+      const result = await this.executeResolvedToolCall(
+        apiName,
+        resolvedArgs,
+        executionContext,
+        trace,
+        purpose,
+        signal,
+        normalized === 'runCommand' ? attachment?.path : undefined,
+      );
+      const state = result.state as { commandId?: string } | undefined;
+      if (attachment && state?.commandId)
+        this.attachmentShellPaths.set(shellKey(state.commandId), attachment);
+      return redact(result) as BuiltinServerRuntimeOutput;
+    } catch (error) {
+      if (!attachment) throw error;
+      return {
+        success: false,
+        content: String(redact(error instanceof Error ? error.message : String(error))),
+      };
+    }
+  }
+
+  private async executeResolvedToolCall(
+    apiName: string,
+    args: unknown,
+    executionContext?: GatewayToolCallExecutionContext,
+    trace?: ExecutionBoundaryTrace,
+    purpose?: 'skill-command' | 'skill-script',
+    signal?: AbortSignal,
+    attachmentPath?: string,
   ): Promise<BuiltinServerRuntimeOutput> {
     const runtime = this.getLocalSystemRuntime();
     const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
@@ -633,6 +739,11 @@ export default class GatewayConnectionCtr extends ControllerModule {
           env: await this.app.getService(ExecutionEnvService).resolve(executionContext.envRef),
         }
       : executionContext;
+    if (attachmentPath && resolvedExecutionContext)
+      resolvedExecutionContext = {
+        ...resolvedExecutionContext,
+        env: { ...resolvedExecutionContext.env, ATTACHMENT_FILE: attachmentPath },
+      };
     const requestedSkillDir = executionContext?.env?.SKILL_DIR;
     if (
       resolvedExecutionContext &&

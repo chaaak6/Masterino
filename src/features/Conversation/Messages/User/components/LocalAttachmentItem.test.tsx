@@ -8,6 +8,19 @@ const actions = vi.hoisted(() => ({
   preview: vi.fn(),
   add: vi.fn(),
   open: vi.fn(),
+  warning: vi.fn(),
+  vision: true,
+}));
+vi.mock('@/components/AntdStaticMethods', () => ({ message: { warning: actions.warning } }));
+vi.mock('@/hooks/useVisualMediaUploadAbility', () => ({
+  useVisualMediaUploadAbility: () => ({ canUploadImage: actions.vision, canUploadVideo: true }),
+}));
+vi.mock('../../../store', () => ({
+  useConversationStore: (selector: any) => selector({ context: { agentId: 'agent' } }),
+}));
+vi.mock('@/store/agent', () => ({
+  useAgentStore: (selector: any) =>
+    selector({ agentMap: { agent: { model: 'selected', provider: 'openai' } } }),
 }));
 vi.mock('@/services/electron/localAttachmentService', () => ({
   localAttachmentStatus: actions.status,
@@ -46,6 +59,7 @@ const attachment = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
+  actions.vision = true;
   actions.status.mockResolvedValue(true);
   actions.add.mockResolvedValue(undefined);
 });
@@ -68,6 +82,40 @@ describe('local attachment message actions', () => {
         'data:image/png;base64,AQID',
       ),
     );
+  });
+
+  it('blocks image reuse after a model switch while preserving normal preview', async () => {
+    actions.preview.mockResolvedValue({ dataUrl: 'preview-image' });
+    const view = render(
+      <LocalAttachmentItem attachment={attachment} messageId="message" topicId="topic" />,
+    );
+    await waitFor(() => expect(screen.getByText('localAttachment.addToInput')).not.toBeDisabled());
+    actions.vision = false;
+    view.rerender(
+      <LocalAttachmentItem attachment={{ ...attachment }} messageId="message" topicId="topic" />,
+    );
+    await waitFor(() => expect(screen.getByText('localAttachment.addToInput')).not.toBeDisabled());
+    fireEvent.click(screen.getByText('localAttachment.addToInput'));
+    expect(actions.add).not.toHaveBeenCalled();
+    expect(actions.warning).toHaveBeenCalledWith('upload.clientMode.visionNotSupported');
+    fireEvent.click(screen.getByText('localAttachment.preview'));
+    await screen.findByText('preview-image');
+    expect(actions.preview).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows document reuse with a nonvision model', async () => {
+    actions.vision = false;
+    render(
+      <LocalAttachmentItem
+        attachment={{ ...attachment, mime: 'application/pdf' }}
+        messageId="message"
+        topicId="topic"
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('localAttachment.addToInput')).not.toBeDisabled());
+    fireEvent.click(screen.getByText('localAttachment.addToInput'));
+    await waitFor(() => expect(actions.add).toHaveBeenCalledTimes(1));
+    expect(actions.warning).not.toHaveBeenCalled();
   });
 
   it('shows a clear unavailable state and never tries to read an unavailable device', async () => {

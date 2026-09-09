@@ -1,3 +1,4 @@
+import { createModelCatalogSnapshot } from '@lobechat/business-model-bank';
 import { ModelProvider } from 'model-bank';
 
 import { resolveChatModelCatalog } from '@/helpers/modelCatalog';
@@ -13,6 +14,21 @@ const getModel = (model: string, provider: string) => {
   if (exactModel || provider !== ModelProvider.LobeHub) return exactModel;
 
   return state.enabledAiModels?.find((item) => item.id === model);
+};
+
+/** Capture exact provider/model evidence at the request entry, before asynchronous work. */
+export const createClientModelCatalogSnapshot = (
+  model: string,
+  provider: string,
+  operationId: string,
+) => {
+  const item = getAiInfraStoreState().enabledAiModels?.find(
+    (entry) => entry.id === model && entry.providerId === provider,
+  );
+  return createModelCatalogSnapshot(
+    resolveChatModelCatalog(item ?? { id: model, providerId: provider, type: 'chat' }).entry,
+    operationId,
+  );
 };
 
 export const isCanUseVision = (model: string, provider: string): boolean => {

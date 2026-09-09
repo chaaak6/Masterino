@@ -36,8 +36,8 @@ import {
   type OnboardingContext,
   type OperationToolSet,
   type ResolvedToolSet,
-  type SkillMeta,
   resolveTopicReferences,
+  type SkillMeta,
   SkillResolver,
   stripContextMessageIdentity,
   ToolNameResolver,
@@ -157,11 +157,47 @@ const log = debug('lobe-server:agent-runtime:streaming-executors');
 const timing = debug('lobe-server:agent-runtime:timing');
 const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
 
-const recordActivatedSkill = (state: AgentState, key: unknown, content: string) => {
-  const skill = state.metadata?.operationSkillSet?.skills.find(
-    (entry: SkillMeta) => entry.key === key,
+const validateSkillActivationResult = (
+  state: AgentState,
+  tool: Pick<ChatToolPayload, 'apiName' | 'identifier' | 'id'>,
+  result: ToolExecutionResultResponse,
+  operationId: string,
+): { result: ToolExecutionResultResponse; skill?: Pick<SkillMeta, 'key' | 'identifier'> } => {
+  if (!result.success || tool.identifier !== 'lobe-skills' || tool.apiName !== 'activateSkill')
+    return { result };
+  const key = result.state?.id;
+  const skill =
+    typeof key === 'string'
+      ? state.metadata?.operationSkillSet?.skills.find((entry: SkillMeta) => entry.key === key)
+      : undefined;
+  if (skill) return { result, skill: { key, identifier: skill.identifier } };
+
+  // Reject before archiving, emitting success, or persisting a successful tool message.
+  // Keep diagnostic identity context, never the rejected Skill instructions.
+  const errorCode = 'SKILL_ACTIVATION_IDENTITY_MISMATCH';
+  log(
+    '[%s] Skill activation rejected: toolCallId=%s reason=%s',
+    operationId,
+    tool.id,
+    typeof key === 'string' ? 'key-not-in-operation' : 'missing-key',
   );
-  if (typeof key !== 'string' || !skill) return;
+  return {
+    result: {
+      content: `${errorCode}: the returned Skill key is not available in this operation.`,
+      error: { type: errorCode, message: errorCode },
+      executionTime: result.executionTime,
+      state: { errorCode },
+      success: false,
+    },
+  };
+};
+
+const recordActivatedSkill = (
+  state: AgentState,
+  skill: Pick<SkillMeta, 'key' | 'identifier'>,
+  content: string,
+) => {
+  const key = skill.key;
   state.activatedStepSkills = [
     ...(state.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
     { key, identifier: skill.identifier, content, activatedAtStep: state.stepCount },
@@ -4121,7 +4157,13 @@ export const createRuntimeExecutors = (
           };
         }
 
-        const executionResult = await archiveRuntimeToolResult(execution.result, {
+        const activation = validateSkillActivationResult(
+          state,
+          chatToolPayload,
+          execution.result,
+          operationId,
+        );
+        const executionResult = await archiveRuntimeToolResult(activation.result, {
           agentId: state.metadata?.agentId,
           identifier: chatToolPayload.identifier,
           limit: toolResultMaxLength,
@@ -4157,7 +4199,14 @@ export const createRuntimeExecutors = (
         }
         log(
           `[${operationLogId}] Executing ${toolName} in ${executionTime}ms, result: %O`,
-          executionResult,
+          chatToolPayload.identifier === 'lobe-skills' &&
+            chatToolPayload.apiName === 'activateSkill'
+            ? {
+                success: isSuccess,
+                skillKey: activation.skill?.key,
+                errorCode: executionResult.state?.errorCode,
+              }
+            : executionResult,
         );
 
         // Publish tool execution result event
@@ -4291,13 +4340,8 @@ export const createRuntimeExecutors = (
           newState.metadata = metadata;
         }
 
-        if (
-          isSuccess &&
-          chatToolPayload.identifier === 'lobe-skills' &&
-          chatToolPayload.apiName === 'activateSkill'
-        ) {
-          recordActivatedSkill(newState, executionResult.state?.id, executionResult.content);
-        }
+        if (activation.skill)
+          recordActivatedSkill(newState, activation.skill, executionResult.content);
 
         // Persist ToolsActivator discovery results to state.activatedStepTools
         const discoveredTools = executionResult.state?.activatedTools as
@@ -4838,7 +4882,13 @@ export const createRuntimeExecutors = (
               return;
             }
 
-            const executionResult = await archiveRuntimeToolResult(execution.result, {
+            const activation = validateSkillActivationResult(
+              state,
+              chatToolPayload,
+              execution.result,
+              operationId,
+            );
+            const executionResult = await archiveRuntimeToolResult(activation.result, {
               agentId: state.metadata?.agentId,
               identifier: chatToolPayload.identifier,
               limit: batchAgentConfig?.chatConfig?.toolResultMaxLength,
@@ -4934,6 +4984,7 @@ export const createRuntimeExecutors = (
 
             // Collect tool result
             toolResults.push({
+              activatedSkill: activation.skill,
               data: executionResult,
               executionTime,
               isSuccess,
@@ -5020,12 +5071,8 @@ export const createRuntimeExecutors = (
     const newState = structuredClone(state);
     if (scratchSettlement) applyScratchBindSettlement(newState, scratchSettlement);
     for (const result of toolResults) {
-      if (
-        result.isSuccess &&
-        result.toolCall?.identifier === 'lobe-skills' &&
-        result.toolCall?.apiName === 'activateSkill'
-      ) {
-        recordActivatedSkill(newState, result.data?.state?.id, result.data.content);
+      if (result.activatedSkill) {
+        recordActivatedSkill(newState, result.activatedSkill, result.data.content);
       }
       if (result.usageParams) {
         const { usage, cost } = UsageCounter.accumulateTool({

@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { prepareLocalAttachment, receiveLocalAttachment } from '@lobechat/device-control';
+import {
+  manageLocalAttachment,
+  prepareLocalAttachment,
+  receiveLocalAttachment,
+} from '@lobechat/device-control';
 import * as localFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -287,6 +291,71 @@ describe('GatewayConnectionCtr execution context boundary', () => {
       trace,
     });
     expect(handleRunCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves an attachment ID on device, hides its path and rejects a foreign topic', async () => {
+    const root = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    const ref = await receiveLocalAttachment(root, 'device-1', {
+      draftId: 'draft-id',
+      name: 'private.txt',
+      mime: 'text/plain',
+      data: Buffer.from('hello'),
+    });
+    await manageLocalAttachment(root, 'device-1', {
+      action: 'bindMessage',
+      ref,
+      messageId: 'message-id',
+      topicId: 'bound-topic',
+    });
+    const prepared = await prepareLocalAttachment(root, 'device-1', ref, 'bound-topic');
+    readFile.mockResolvedValueOnce({ content: prepared.path });
+    const controller = makeController();
+    const request = {
+      apiName: 'readFile',
+      args: { attachmentId: ref.attachmentId },
+      executionContext: context(),
+      trace: {
+        deviceId: 'device-1',
+        topicId: 'bound-topic',
+        operationId: 'op-id',
+        toolCallId: 'read-id',
+      },
+    };
+    const result = await controller.executeLocalToolCall(request);
+    expect(result.success).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(prepared.path);
+    expect(result.content).toContain(`attachment:${ref.attachmentId}`);
+    expect(readFile).toHaveBeenCalledTimes(1);
+    handleRunCommand.mockImplementationOnce(async (args) => {
+      const env = (args as { env?: Record<string, string> }).env;
+      expect(env?.ATTACHMENT_FILE).toBe(prepared.path);
+      return {
+        success: true,
+        stdout: `${prepared.path} ${path.dirname(prepared.path)} ${encodeURI(prepared.path)}`,
+      };
+    });
+    const computed = await controller.executeLocalToolCall({
+      ...request,
+      apiName: 'runCommand',
+      args: { attachmentId: ref.attachmentId, command: 'test-command' },
+      trace: { ...request.trace, toolCallId: 'compute' },
+    });
+    expect(computed.success).toBe(true);
+    expect(JSON.stringify(computed)).not.toContain(path.dirname(prepared.path));
+    expect(computed.content).toContain(`attachment:${ref.attachmentId}`);
+    const denied = await controller.executeLocalToolCall({
+      ...request,
+      trace: { ...request.trace, topicId: 'foreign-topic', toolCallId: 'foreign-call' },
+    });
+    expect(denied.success).toBe(false);
+    expect(denied.content).toContain('ATTACHMENT_NOT_AVAILABLE');
+    expect(readFile).toHaveBeenCalledTimes(1);
+    const ambiguous = await controller.executeLocalToolCall({
+      ...request,
+      args: { ...request.args, path: prepared.path },
+      trace: { ...request.trace, toolCallId: 'ambiguous' },
+    });
+    expect(ambiguous.content).toBe('INVALID_ATTACHMENT_TOOL_REQUEST');
   });
 
   it.each([

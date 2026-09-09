@@ -3,15 +3,21 @@ import { Block, Button, Flexbox, Text } from '@lobehub/ui';
 import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { message } from '@/components/AntdStaticMethods';
 import FileIcon from '@/components/FileIcon';
+import { warnUnsupportedVisualUpload } from '@/features/ChatInput/ActionBar/visualUploadGuard';
+import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
 import {
   localAttachmentStatus,
   previewLocalAttachment,
 } from '@/services/electron/localAttachmentService';
+import { useAgentStore } from '@/store/agent';
+import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { useFileStore } from '@/store/file';
 import { formatSize } from '@/utils/format';
 
+import { useConversationStore } from '../../../store';
 import ImageFileListViewer from './ImageFileListViewer';
 
 type LocalRef = Extract<AttachmentRef, { source: 'local' }>;
@@ -21,6 +27,12 @@ const LocalAttachmentItem = memo<{
   topicId?: string | null;
 }>(({ attachment, messageId, topicId }) => {
   const { t } = useTranslation('chat');
+  const agentId = useConversationStore((s) => s.context.agentId);
+  const [model, provider] = useAgentStore((s) => [
+    agentByIdSelectors.getAgentModelById(agentId)(s),
+    agentByIdSelectors.getAgentModelProviderById(agentId)(s),
+  ]);
+  const ability = useVisualMediaUploadAbility(model, provider);
   const addToInput = useFileStore((s) => s.addLocalAttachmentToInput);
   const openLocalFile = useChatStore((s) => s.openLocalFile);
   const [available, setAvailable] = useState<boolean>();
@@ -46,6 +58,19 @@ const LocalAttachmentItem = memo<{
   }, [attachment]);
 
   const run = async (action: 'preview' | 'add') => {
+    if (
+      action === 'add' &&
+      attachment.mime.startsWith('image/') &&
+      warnUnsupportedVisualUpload(
+        { type: attachment.mime },
+        {
+          ...ability,
+          warning: (content) => message.warning(content),
+          warningText: t('upload.clientMode.visionNotSupported'),
+        },
+      )
+    )
+      return;
     setPending(action);
     try {
       if (action === 'add') {

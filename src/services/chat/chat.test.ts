@@ -212,6 +212,31 @@ describe('ChatService', () => {
       );
     });
 
+    it('does not regenerate missing operation evidence from live catalog state', async () => {
+      useAiInfraStore.setState({
+        enabledAiModels: [
+          { id: 'image-model', providerId: 'openai', type: 'chat', abilities: { vision: true } },
+        ],
+      });
+      const contextSpy = vi
+        .spyOn(mechaModule, 'contextEngineering')
+        .mockRejectedValue(new Error('stop after capture'));
+      await expect(
+        chatService.createAssistantMessage(
+          {
+            model: 'image-model',
+            provider: 'openai',
+            messages: [],
+            resolvedAgentConfig: createMockResolvedConfig(),
+          },
+          {
+            contextBudget: { operationId: 'existing-operation', compress: vi.fn() },
+          },
+        ),
+      ).rejects.toThrow('stop after capture');
+      expect(contextSpy.mock.calls[0][0].modelCatalogSnapshot).toBeUndefined();
+    });
+
     describe('client final context budget', () => {
       const catalogSnapshot = {
         capturedAt: '2026-09-04T00:00:00.000Z',
@@ -2136,6 +2161,33 @@ describe('ChatService', () => {
   });
 
   describe('fetchPresetTaskResult', () => {
+    it('captures the exact preset model catalog before asynchronous context processing', async () => {
+      useAiInfraStore.setState({
+        enabledAiModels: [
+          { id: 'image-model', providerId: 'openai', type: 'chat', abilities: { vision: true } },
+          { id: 'image-model', providerId: 'other', type: 'chat', abilities: { vision: false } },
+        ],
+      });
+      const contextSpy = vi
+        .spyOn(mechaModule, 'contextEngineering')
+        .mockImplementation(async () => {
+          useAiInfraStore.setState({ enabledAiModels: [] });
+          return [];
+        });
+      vi.spyOn(chatService, 'getChatCompletion').mockResolvedValue(new Response(''));
+      await chatService.fetchPresetTaskResult({
+        params: { model: 'image-model', provider: 'openai', messages: [] },
+      });
+      expect(contextSpy).toHaveBeenCalledTimes(1);
+      expect(contextSpy.mock.calls[0][0].modelCatalogSnapshot).toMatchObject({
+        entry: {
+          modelId: 'image-model',
+          providerId: 'openai',
+          inputModalities: { image: 'supported' },
+        },
+      });
+    });
+
     it('should not wait for agent documents on preset task chains', async () => {
       vi.spyOn(chatService, 'getChatCompletion').mockResolvedValue(new Response(''));
       vi.spyOn(agentDocumentService, 'getContextDocuments').mockResolvedValue([]);
