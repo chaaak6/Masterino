@@ -363,7 +363,7 @@ export const createMarketApp = (options: {
   app.get('/api/v1/agents/onboarding-full', async (c) => {
     const result = await repository.list(
       'agent',
-      { pageSize: 100, sort: 'installCount' },
+      { pageSize: 100, publishedOriginalsOnly: true, sort: 'installCount' },
       ...(Object.values(actorScope(c)) as [Account, string | undefined]),
     );
     const grouped: Record<string, unknown[]> = {};

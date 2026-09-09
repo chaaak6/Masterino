@@ -31,3 +31,23 @@ describe('MarketRepository invariants', () => {
     expect(clientQuery).toHaveBeenLastCalledWith('COMMIT');
   });
 });
+
+
+describe('onboarding catalog visibility', () => {
+  it.each([1, 7])('filters originals before pagination for account %s', async (id) => {
+    const query = vi.fn(async (..._args: any[]) => ({ rows: [] }));
+    const repository = new MarketRepository({ query } as any);
+    await repository.list('agent', { pageSize: 100, publishedOriginalsOnly: true }, { ...account, id });
+    const sql = query.mock.calls[0][0];
+    expect(sql).toContain("AND r.status='published' AND r.forked_from_id IS NULL");
+    expect(sql.indexOf('r.forked_from_id IS NULL')).toBeLessThan(sql.indexOf('LIMIT'));
+  });
+
+  it('preserves personal drafts and forks in ordinary lists', async () => {
+    const query = vi.fn(async (..._args: any[]) => ({ rows: [] }));
+    const repository = new MarketRepository({ query } as any);
+    await repository.list('agent', {}, account);
+    expect(query.mock.calls[0][0]).not.toContain('r.forked_from_id IS NULL');
+    expect(query.mock.calls[0][0]).toContain('r.owner_account_id=$2');
+  });
+});

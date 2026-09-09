@@ -353,3 +353,21 @@ describe('Market SDK compatibility', () => {
     expect(storedState).not.toContain('client-secret');
   });
 });
+
+
+it('requests only published original templates for onboarding', async () => {
+  const repository = createRepository();
+  const app = createMarketApp({
+    config,
+    redis: { ping: vi.fn(async () => 'PONG') } as any,
+    repository: repository as any,
+    storage: { ping: vi.fn(async () => undefined) } as any,
+  });
+  const response = await app.request('/api/v1/agents/onboarding-full', {
+    headers: { 'x-lobe-trust-token': token },
+  });
+  expect(response.status).toBe(200);
+  expect(repository.list).toHaveBeenCalledWith('agent', {
+    pageSize: 100, publishedOriginalsOnly: true, sort: 'installCount',
+  }, account, 'workspace-1');
+});
