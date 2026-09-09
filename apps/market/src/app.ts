@@ -3,6 +3,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { type Context, Hono } from 'hono';
 import { Redis } from 'ioredis';
 
+import { getAgentAvatar } from './agentAvatars.js';
 import { type AuthEnv, requireRole, trustedClientAuth } from './auth.js';
 import type { MarketConfig } from './config.js';
 import { splitCsv } from './config.js';
@@ -91,6 +92,15 @@ export const createMarketApp = (options: {
   });
 
   app.get('/', (c) => c.redirect(marketUiUrl));
+  app.get('/assets/agent-avatars/v1/:name', (c) => {
+    const svg = getAgentAvatar(c.req.param('name'));
+    if (!svg) return c.notFound();
+    c.header('Content-Type', 'image/svg+xml');
+    c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    c.header('X-Content-Type-Options', 'nosniff');
+    c.header('Content-Security-Policy', "default-src 'none'; sandbox");
+    return c.body(svg);
+  });
   app.get('/health', (c) => c.json({ service: 'masterino-market', status: 'ok' }));
   app.post('/api/internal/curated-seed', async (c) => {
     const supplied = Buffer.from(c.req.header('x-market-internal-token') || '');

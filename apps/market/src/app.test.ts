@@ -371,3 +371,21 @@ it('requests only published original templates for onboarding', async () => {
     pageSize: 100, publishedOriginalsOnly: true, sort: 'installCount',
   }, account, 'workspace-1');
 });
+
+it('serves only fixed versioned avatar artwork without authentication', async () => {
+  const repository = createRepository();
+  const app = createMarketApp({ config, repository: repository as any,
+    redis: { ping: vi.fn(async () => 'PONG') } as any,
+    storage: { ping: vi.fn(async () => undefined) } as any });
+  for (const name of ['meeting', 'writing', 'translation', 'research', 'project', 'code', 'prompt', 'business']) {
+    const response = await app.request(`/assets/agent-avatars/v1/${name}.svg`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('image/svg+xml');
+    expect(response.headers.get('Cache-Control')).toContain('immutable');
+    expect(await response.text()).toContain('<svg');
+  }
+  for (const name of ['unknown.svg', 'constructor', '__proto__']) {
+    expect((await app.request(`/assets/agent-avatars/v1/${name}`)).status).toBe(404);
+  }
+  expect(repository.syncAccount).not.toHaveBeenCalled();
+});
