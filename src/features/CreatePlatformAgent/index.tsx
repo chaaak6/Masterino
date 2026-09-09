@@ -1,5 +1,7 @@
 'use client';
 
+import { isDesktop } from '@lobechat/const';
+
 import {
   REMOTE_HETEROGENEOUS_AGENT_CONFIGS,
   type RemoteHeterogeneousAgentType,
@@ -395,18 +397,20 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
                 type="info"
                 description={
                   <Flexbox gap={12}>
-                    <Flexbox gap={6}>
-                      <span>{t('platformAgent.create.noDevicesDesktopHint')}</span>
-                      <Button
-                        icon={<Icon icon={Download} size={13} />}
-                        loading={downloading}
-                        size="small"
-                        type="primary"
-                        onClick={() => void download()}
-                      >
-                        {t('platformAgent.create.downloadDesktop')}
-                      </Button>
-                    </Flexbox>
+                    {!isDesktop && (
+                      <Flexbox gap={6}>
+                        <span>{t('platformAgent.create.noDevicesDesktopHint')}</span>
+                        <Button
+                          icon={<Icon icon={Download} size={13} />}
+                          loading={downloading}
+                          size="small"
+                          type="primary"
+                          onClick={() => void download()}
+                        >
+                          {t('platformAgent.create.downloadDesktop')}
+                        </Button>
+                      </Flexbox>
+                    )}
                     <Flexbox gap={4}>
                       <span>{t('platformAgent.create.noDevicesCliHint')}</span>
                       <Typography.Text code copyable>
