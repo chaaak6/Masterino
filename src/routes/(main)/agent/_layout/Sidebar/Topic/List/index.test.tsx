@@ -1,9 +1,12 @@
 /**
  * @vitest-environment happy-dom
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import GroupTopicList from '@/routes/(main)/group/_layout/Sidebar/Topic/List';
+import { useElectronStore } from '@/store/electron';
 
 import TopicList from './index';
 
@@ -13,7 +16,36 @@ const permissionMock = vi.hoisted(() => ({
   create_content: true,
 }));
 
-vi.mock('@lobechat/const', () => ({ isDesktop: true }));
+const environment = vi.hoisted(() => ({ desktop: true }));
+vi.mock('@lobechat/const', () => ({
+  get isDesktop() {
+    return environment.desktop;
+  },
+}));
+vi.mock('@/store/electron', async () => {
+  const { createWithEqualityFn } = await import('zustand/traditional');
+  return { useElectronStore: createWithEqualityFn(() => ({ gatewayDeviceInfo: undefined })) };
+});
+vi.mock('@/hooks/useDeviceTopics', () => ({
+  useDeviceTopics: (selector: (state: { topicLength: number }) => unknown) =>
+    selector({ topicLength: 0 }),
+}));
+vi.mock('@/store/agentGroup', () => ({
+  useAgentGroupStore: (selector: any) => selector({ activeGroupId: 'group-1' }),
+}));
+vi.mock('@/store/user', () => ({ useUserStore: (selector: any) => selector({}) }));
+vi.mock('@/store/user/selectors', () => ({
+  preferenceSelectors: { topicGroupMode: () => 'flat' },
+}));
+vi.mock('@/routes/(main)/group/_layout/Sidebar/Topic/AllTopicsDrawer', () => ({
+  default: () => null,
+}));
+vi.mock('@/routes/(main)/group/_layout/Sidebar/Topic/TopicListContent/ByTimeMode', () => ({
+  default: () => null,
+}));
+vi.mock('@/routes/(main)/group/_layout/Sidebar/Topic/TopicListContent/FlatMode', () => ({
+  default: () => null,
+}));
 
 vi.mock('@/features/NavPanel/components/EmptyNavItem', () => ({
   default: ({
@@ -119,6 +151,8 @@ describe('Agent topic list', () => {
     pushMock.mockReset();
     closeAllTopicsDrawerMock.mockReset();
     permissionMock.create_content = true;
+    environment.desktop = true;
+    useElectronStore.setState({ gatewayDeviceInfo: { deviceId: 'local' } as any });
   });
 
   it('opens the agent chat route from the empty start topic entry', () => {
@@ -143,5 +177,29 @@ describe('Agent topic list', () => {
     fireEvent.click(startButton);
 
     expect(pushMock).not.toHaveBeenCalled();
+  });
+});
+
+// No chat-store change or forced rerender: Electron subscription alone must resolve the loading state.
+describe.each([
+  ['Agent', TopicList],
+  ['Group', GroupTopicList],
+] as const)('%s identity loading', (_name, List) => {
+  it('shows skeleton until device identity arrives, then shows the real empty state', () => {
+    environment.desktop = true;
+    useElectronStore.setState({ gatewayDeviceInfo: undefined });
+    render(<List />);
+    expect(screen.getByTestId('skeleton-list')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'actions.addNewTopic' })).not.toBeInTheDocument();
+    act(() => useElectronStore.setState({ gatewayDeviceInfo: { deviceId: 'local' } as any }));
+    expect(screen.queryByTestId('skeleton-list')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'actions.addNewTopic' })).toBeInTheDocument();
+  });
+  it('does not wait for a local device on Web', () => {
+    environment.desktop = false;
+    useElectronStore.setState({ gatewayDeviceInfo: undefined });
+    render(<List />);
+    expect(screen.queryByTestId('skeleton-list')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'actions.addNewTopic' })).toBeInTheDocument();
   });
 });

@@ -13,6 +13,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useQueryRoute } from '@/hooks/useQueryRoute';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
+import { useElectronStore } from '@/store/electron';
 
 import AllTopicsDrawer from '../AllTopicsDrawer';
 import { useAgentTopicGroupMode } from '../hooks/useAgentTopicGroupMode';
@@ -25,6 +26,7 @@ const TopicList = memo(() => {
   const router = useQueryRoute();
   const { allowed: canCreateTopic } = usePermission('create_content');
   const topicLength = useDeviceTopics((s) => topicSelectors.currentTopicLength(s));
+  const deviceReady = useElectronStore((s) => !isDesktop || !!s.gatewayDeviceInfo?.deviceId);
   const isUndefinedTopics = useChatStore((s) => topicSelectors.isUndefinedTopics(s));
 
   const [agentId, allTopicsDrawerOpen, closeAllTopicsDrawer] = useChatStore((s) => [
@@ -37,8 +39,8 @@ const TopicList = memo(() => {
 
   useFetchChatTopics();
 
-  // Show skeleton when current session's topic data is not yet loaded
-  if (isUndefinedTopics) return <SkeletonList />;
+  // Device identity must be ready before an empty filtered list means no topics.
+  if (!deviceReady || isUndefinedTopics) return <SkeletonList />;
 
   return (
     <>
