@@ -25,3 +25,9 @@
 定向验证：视觉快照/请求入口/历史图片组件94项；服务端RuntimeExecutors 162项（包含缺失key、名称别名、外部key在单调用/批量/恢复三条路径的9项失败例，以及2项合法身份例）；设备附件6项、附件上下文13项、本地执行器12项、桌面边界22项。复跑不累加为新样本。早期CI的两个无用转义lint错误已修正，以上链接对应修正后的产品提交。
 
 验收后只停止本轮QA拥有的Electron进程；未停止其他应用。最终归档提交只改文档和证据，不改变上述产品代码。
+
+## 桌面激活返回校验补齐
+
+后续代码复查发现：桌面虽调用服务端 executeSkillTool RPC，却绕过 Agent RuntimeExecutors 的激活结果校验。本次将已有校验移到共享 skillActivationResult 函数，两入口均按各自已绑定的允许集合核对完整 key。无效成功结果在返回或记录前转为 SKILL_ACTIVATION_IDENTITY_MISMATCH，移除技能正文、身份状态和 deferred 标记；合法结果及原有失败保留。视觉快照实现不变。
+
+本次定向回归：桌面RPC 10/10、服务端RuntimeExecutors 162/162通过，限定ESLint/Prettier检查通过。缺失/空key、名称别名、其他工作区同名key、其他来源key、空注册表、合法key和原失败均覆盖。本次没有重跑真实Electron E2E或重新部署；上文真实E2E证据仍只对应其标注版本。

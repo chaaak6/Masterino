@@ -33,7 +33,7 @@ vi.mock('@/server/services/toolExecution/serverRuntimes/skills', () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.factory.mockResolvedValue({ execScript: mocks.execute });
+  mocks.factory.mockResolvedValue({ execScript: mocks.execute, activateSkill: mocks.execute });
 });
 it('the router runs only persisted server-resolved arguments through the shared runtime', async () => {
   const { marketRouter } = await import('./market');
@@ -75,4 +75,101 @@ it('the router does not reach a script adapter when owned-message verification f
   ).rejects.toThrow('NOT_OWNED');
   expect(mocks.factory).not.toHaveBeenCalled();
   expect(mocks.execute).not.toHaveBeenCalled();
+});
+
+const allowedKey = 'project:workspace-a:demo';
+const activationBinding = () => ({
+  args: { name: 'demo' },
+  context: {
+    operationId: 'operation',
+    toolCallId: 'tool-call',
+    skillRegistryResult: { skills: [{ key: allowedKey, identifier: 'demo' }] },
+  },
+});
+
+it.each([undefined, '', 'demo', 'project:workspace-b:demo', 'user:demo'])(
+  'desktop activation rejects a successful response with invalid key %s before returning it',
+  async (key) => {
+    const { marketRouter } = await import('./market');
+    mocks.resolve.mockResolvedValue(activationBinding());
+    mocks.execute.mockResolvedValue({
+      success: true,
+      content: 'Rejected private Skill instructions',
+      deferred: true,
+      state: { id: key, name: 'demo', resourceVersion: 'private-version' },
+    });
+    const caller = marketRouter.createCaller({ userId: 'user', serverDB: {} } as never);
+    const result = await caller.executeSkillTool({
+      apiName: 'activateSkill',
+      messageId: 'message',
+      topicId: 'topic',
+    });
+    expect(result).toMatchObject({
+      success: false,
+      error: { type: 'SKILL_ACTIVATION_IDENTITY_MISMATCH' },
+      state: { errorCode: 'SKILL_ACTIVATION_IDENTITY_MISMATCH' },
+    });
+    expect(result.deferred).toBeUndefined();
+    expect(result.state.id).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain('private');
+  },
+);
+
+it('desktop activation preserves the exact allowed key and content', async () => {
+  const { marketRouter } = await import('./market');
+  mocks.resolve.mockResolvedValue(activationBinding());
+  const success = {
+    success: true,
+    content: 'instructions',
+    state: { id: allowedKey, name: 'demo' },
+  };
+  mocks.execute.mockResolvedValue(success);
+  const caller = marketRouter.createCaller({ userId: 'user', serverDB: {} } as never);
+  expect(
+    await caller.executeSkillTool({
+      apiName: 'activateSkill',
+      messageId: 'message',
+      topicId: 'topic',
+    }),
+  ).toEqual(success);
+  expect(mocks.execute).toHaveBeenCalledWith({ name: 'demo' });
+});
+
+it('desktop activation rejects a key when the allowed registry is empty', async () => {
+  const { marketRouter } = await import('./market');
+  const binding = activationBinding();
+  binding.context.skillRegistryResult.skills = [];
+  mocks.resolve.mockResolvedValue(binding);
+  mocks.execute.mockResolvedValue({
+    success: true,
+    content: 'instructions',
+    state: { id: allowedKey },
+  });
+  const caller = marketRouter.createCaller({ userId: 'user', serverDB: {} } as never);
+  expect(
+    await caller.executeSkillTool({
+      apiName: 'activateSkill',
+      messageId: 'message',
+      topicId: 'topic',
+    }),
+  ).toMatchObject({ success: false, error: { type: 'SKILL_ACTIVATION_IDENTITY_MISMATCH' } });
+});
+
+it('desktop activation retains the original runtime failure', async () => {
+  const { marketRouter } = await import('./market');
+  mocks.resolve.mockResolvedValue(activationBinding());
+  const failure = {
+    success: false,
+    content: 'resource unavailable',
+    error: { type: 'RESOURCE_ERROR' },
+  };
+  mocks.execute.mockResolvedValue(failure);
+  const caller = marketRouter.createCaller({ userId: 'user', serverDB: {} } as never);
+  expect(
+    await caller.executeSkillTool({
+      apiName: 'activateSkill',
+      messageId: 'message',
+      topicId: 'topic',
+    }),
+  ).toEqual(failure);
 });

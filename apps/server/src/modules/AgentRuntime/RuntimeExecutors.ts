@@ -131,6 +131,7 @@ import {
   type ToolExecutionService,
 } from '@/server/services/toolExecution';
 import { archiveToolResultIfNeeded } from '@/server/services/toolExecution/archiveToolResult';
+import { validateSkillActivationResult } from '@/server/services/toolExecution/skillActivationResult';
 import { toAgentContextDocuments } from '@/utils/agentDocumentContextMapping';
 import { nanoid } from '@/utils/uuid';
 
@@ -156,41 +157,6 @@ import {
 const log = debug('lobe-server:agent-runtime:streaming-executors');
 const timing = debug('lobe-server:agent-runtime:timing');
 const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
-
-const validateSkillActivationResult = (
-  state: AgentState,
-  tool: Pick<ChatToolPayload, 'apiName' | 'identifier' | 'id'>,
-  result: ToolExecutionResultResponse,
-  operationId: string,
-): { result: ToolExecutionResultResponse; skill?: Pick<SkillMeta, 'key' | 'identifier'> } => {
-  if (!result.success || tool.identifier !== 'lobe-skills' || tool.apiName !== 'activateSkill')
-    return { result };
-  const key = result.state?.id;
-  const skill =
-    typeof key === 'string'
-      ? state.metadata?.operationSkillSet?.skills.find((entry: SkillMeta) => entry.key === key)
-      : undefined;
-  if (skill) return { result, skill: { key, identifier: skill.identifier } };
-
-  // Reject before archiving, emitting success, or persisting a successful tool message.
-  // Keep diagnostic identity context, never the rejected Skill instructions.
-  const errorCode = 'SKILL_ACTIVATION_IDENTITY_MISMATCH';
-  log(
-    '[%s] Skill activation rejected: toolCallId=%s reason=%s',
-    operationId,
-    tool.id,
-    typeof key === 'string' ? 'key-not-in-operation' : 'missing-key',
-  );
-  return {
-    result: {
-      content: `${errorCode}: the returned Skill key is not available in this operation.`,
-      error: { type: errorCode, message: errorCode },
-      executionTime: result.executionTime,
-      state: { errorCode },
-      success: false,
-    },
-  };
-};
 
 const recordActivatedSkill = (
   state: AgentState,
@@ -4158,7 +4124,7 @@ export const createRuntimeExecutors = (
         }
 
         const activation = validateSkillActivationResult(
-          state,
+          state.metadata?.operationSkillSet?.skills,
           chatToolPayload,
           execution.result,
           operationId,
@@ -4883,7 +4849,7 @@ export const createRuntimeExecutors = (
             }
 
             const activation = validateSkillActivationResult(
-              state,
+              state.metadata?.operationSkillSet?.skills,
               chatToolPayload,
               execution.result,
               operationId,

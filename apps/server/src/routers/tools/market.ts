@@ -17,6 +17,7 @@ import {
   processContentBlocks,
 } from '@/server/services/mcp/contentProcessor';
 import { createSandboxService, getSandboxProviderKind } from '@/server/services/sandbox';
+import { validateSkillActivationResult } from '@/server/services/toolExecution/skillActivationResult';
 
 import { scheduleToolCallReport } from './_helpers';
 import {
@@ -411,7 +412,19 @@ export const marketRouter = router({
       const runtime = await skillsRuntime.factory(binding.context);
       switch (input.apiName) {
         case 'activateSkill': {
-          return runtime.activateSkill(z.object({ name: z.string().min(1) }).parse(binding.args));
+          const result = await runtime.activateSkill(
+            z.object({ name: z.string().min(1) }).parse(binding.args),
+          );
+          return validateSkillActivationResult(
+            binding.context.skillRegistryResult.skills,
+            {
+              apiName: input.apiName,
+              identifier: 'lobe-skills',
+              id: binding.context.toolCallId,
+            },
+            result,
+            binding.context.operationId,
+          ).result;
         }
         case 'readReference': {
           return runtime.readReference(
