@@ -1,7 +1,6 @@
 'use client';
 
 import { isDesktop } from '@lobechat/const';
-
 import {
   REMOTE_HETEROGENEOUS_AGENT_CONFIGS,
   type RemoteHeterogeneousAgentType,
