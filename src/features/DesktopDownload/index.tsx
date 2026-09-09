@@ -4,11 +4,14 @@ import { t } from 'i18next';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isProductFeatureDisabled } from '@/config/productFeatures';
+
 import { detectDownloadTarget, type DownloadTarget } from './platform';
 
 type Release = { artifacts: { arch: string; platform: string; url: string }[]; version: string };
 
 export async function downloadDesktop(target: DownloadTarget) {
+  if (isProductFeatureDisabled('desktopApp')) return;
   const response = await fetch('/api/desktop/download', { signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error('Download unavailable');
   const release: Release = await response.json();
@@ -61,8 +64,9 @@ function DownloadChoice({ target }: { target: DownloadTarget | 'mac' | 'unsuppor
 export function useDesktopDownload() {
   const [loading, setLoading] = useState(false);
   const busy = useRef(false);
+  const disabled = isProductFeatureDisabled('desktopApp');
   const download = async () => {
-    if (busy.current) return;
+    if (busy.current || isProductFeatureDisabled('desktopApp')) return;
     busy.current = true;
     setLoading(true);
     let target: Awaited<ReturnType<typeof detectDownloadTarget>> = 'unsupported';
@@ -87,5 +91,5 @@ export function useDesktopDownload() {
         width: 420,
       });
   };
-  return { download, loading };
+  return { disabled, download, loading };
 }

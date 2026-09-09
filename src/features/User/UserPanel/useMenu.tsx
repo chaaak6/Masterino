@@ -27,7 +27,7 @@ export const useMenu = () => {
   ]);
   const { userPanel } = useNavLayout();
   const businessMenuItems = useBusinessMenuItems(isLogin);
-  const { download, loading: downloading } = useDesktopDownload();
+  const { disabled: downloadDisabled, download, loading: downloading } = useDesktopDownload();
 
   const settings: MenuProps['items'] = [
     {
@@ -53,10 +53,12 @@ export const useMenu = () => {
 
   const getDesktopApp: MenuProps['items'] = [
     {
-      disabled: downloading,
+      disabled: downloadDisabled || downloading,
       icon: <Icon icon={Download} />,
       key: 'get-desktop-app',
-      label: t('getDesktopApp'),
+      label: downloadDisabled
+        ? `${t('getDesktopApp')} · ${t('productFeatures.disabled')}`
+        : t('getDesktopApp'),
       onClick: () => void download(),
     },
   ];

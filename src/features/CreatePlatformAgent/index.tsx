@@ -111,7 +111,7 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
     const navigate = useNavigate();
     const storeCreateAgent = useAgentStore((s) => s.createAgent);
     const refreshAgentList = useHomeStore((s) => s.refreshAgentList);
-    const { download, loading: downloading } = useDesktopDownload();
+    const { disabled: downloadDisabled, download, loading: downloading } = useDesktopDownload();
 
     const [step, setStep] = useState(0);
     const [platform, setPlatform] = useState<RemoteHeterogeneousAgentType>('openclaw');
@@ -400,13 +400,16 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
                       <Flexbox gap={6}>
                         <span>{t('platformAgent.create.noDevicesDesktopHint')}</span>
                         <Button
+                          disabled={downloadDisabled}
                           icon={<Icon icon={Download} size={13} />}
                           loading={downloading}
                           size="small"
                           type="primary"
                           onClick={() => void download()}
                         >
-                          {t('platformAgent.create.downloadDesktop')}
+                          {downloadDisabled
+                            ? t('productFeatures.disabled', { ns: 'common' })
+                            : t('platformAgent.create.downloadDesktop')}
                         </Button>
                       </Flexbox>
                     )}

@@ -377,7 +377,7 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(
   }) => {
     const { t } = useTranslation(['chat', 'common']);
     const [open, setOpen] = useState(false);
-    const { download, loading: downloading } = useDesktopDownload();
+    const { disabled: downloadDisabled, download, loading: downloading } = useDesktopDownload();
 
     const agencyConfig = useAgentStore(agentByIdSelectors.getAgencyConfigById(agentId));
     const updateAgentConfigById = useAgentStore((s) => s.updateAgentConfigById);
@@ -549,12 +549,16 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(
           {isDesktop || showWebDownloadCard ? null : (
             <button
               className={styles.headerLink}
-              disabled={downloading}
+              disabled={downloadDisabled || downloading}
               type="button"
               onClick={() => void download()}
             >
               <Icon icon={MonitorDownIcon} size={11} />
-              <span>{t('heteroAgent.executionTarget.downloadDesktop')}</span>
+              <span>
+                {downloadDisabled
+                  ? t('productFeatures.disabled', { ns: 'common' })
+                  : t('heteroAgent.executionTarget.downloadDesktop')}
+              </span>
             </button>
           )}
         </div>
@@ -615,7 +619,7 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(
         {showWebDownloadCard ? (
           <button
             className={styles.downloadCard}
-            disabled={downloading}
+            disabled={downloadDisabled || downloading}
             type="button"
             onClick={() => void download()}
           >
@@ -624,10 +628,14 @@ const HeteroDeviceSwitcher = memo<HeteroDeviceSwitcherProps>(
             </div>
             <div className={styles.optionMeta}>
               <div className={styles.optionTitle}>
-                {t('heteroAgent.executionTarget.downloadDesktopTitle')}
+                {downloadDisabled
+                  ? t('productFeatures.disabled', { ns: 'common' })
+                  : t('heteroAgent.executionTarget.downloadDesktopTitle')}
               </div>
               <div className={styles.desc}>
-                {t('heteroAgent.executionTarget.downloadDesktopDesc')}
+                {downloadDisabled
+                  ? t('productFeatures.disabled', { ns: 'common' })
+                  : t('heteroAgent.executionTarget.downloadDesktopDesc')}
               </div>
             </div>
           </button>

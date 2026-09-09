@@ -12,7 +12,8 @@ describe('web desktop download entry wiring', () => {
     const source = readFileSync(path.resolve('src/features', entry), 'utf8');
     expect(source).toContain('useDesktopDownload()');
     expect(source).toContain('void download()');
-    expect(source).not.toContain('desktopAppDisabled');
+    expect(source).toContain('disabled: downloadDisabled');
+    expect(source).toContain('productFeatures.disabled');
     expect(source).not.toContain('DOWNLOAD_URL');
   });
 });

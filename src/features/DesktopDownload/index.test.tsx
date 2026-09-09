@@ -4,6 +4,8 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-li
 import { motion } from 'motion/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import * as features from '@/config/productFeatures';
+
 import { downloadDesktop, useDesktopDownload } from './index';
 import * as platform from './platform';
 
@@ -76,5 +78,20 @@ describe('desktop download interaction', () => {
     expect(await screen.findByRole('alert')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'retry' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('https://example.com/windows.exe'));
+  });
+  it('honors hot-disable before detection, requests or navigation', async () => {
+    vi.spyOn(features, 'isProductFeatureDisabled').mockReturnValue(true);
+    const detect = vi.spyOn(platform, 'detectDownloadTarget');
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    const navigate = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+    const open = vi.spyOn(modal, 'createModal');
+    const { result } = renderHook(() => useDesktopDownload());
+    expect(result.current.disabled).toBe(true);
+    await act(() => result.current.download());
+    await downloadDesktop('win32/x64');
+    expect(detect).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
   });
 });
