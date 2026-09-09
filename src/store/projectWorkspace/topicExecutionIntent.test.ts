@@ -109,6 +109,7 @@ describe('resolvePendingTopicExecutionIntent', () => {
       updatedAt: 1,
       workspaceId: 'workspace-1',
     };
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'draft-device' });
     mocks.workspaceState.workspacesById['workspace-1'] = {
       deviceId: 'draft-device',
       id: 'workspace-1',
@@ -155,5 +156,27 @@ describe('resolvePendingTopicExecutionIntent', () => {
       },
     });
     expect(mocks.getDeviceInfo).not.toHaveBeenCalled();
+  });
+});
+
+describe('foreign project direct-link guard', () => {
+  it.each([true, false])('only rejects a foreign project on desktop=%s', async (desktop) => {
+    mocks.isDesktop = desktop;
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'mac-a' });
+    const call = resolvePendingTopicExecutionIntent({
+      agentId: 'agent-1',
+      isNewTopic: false,
+      topicId: 'foreign',
+      topicSnapshot: {
+        version: 1,
+        target: 'local',
+        targetCapturedAt: '',
+        workspaceId: 'ws',
+        workspaceKind: 'device',
+        boundDeviceId: 'mac-b',
+      },
+    });
+    if (desktop) await expect(call).rejects.toThrow('another device');
+    else await expect(call).resolves.toMatchObject({ intent: { targetDeviceId: 'mac-b' } });
   });
 });

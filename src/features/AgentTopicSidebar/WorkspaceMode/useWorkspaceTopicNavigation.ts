@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
+import { useElectronStore } from '@/store/electron';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import {
@@ -35,8 +36,12 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
   const topicSortBy = useUserStore(preferenceSelectors.topicSortBy);
   const isLogin = useUserStore(authSelectors.isLogin);
 
+  useElectronStore((s) => s.useFetchGatewayDeviceInfo)(isDesktop);
+  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+
   const workspaceRequest = useProjectWorkspaceStore((s) => s.useFetchWorkspaces)(
-    isLogin || isDesktop,
+    isDesktop ? !!currentDeviceId : isLogin,
+    isDesktop ? { deviceId: currentDeviceId } : {},
   );
 
   const topics = useChatStore(
@@ -50,12 +55,13 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
   const navigation = useMemo(
     () =>
       buildWorkspaceTopicNavigation(topics ?? [], {
+        currentDeviceId: isDesktop ? (currentDeviceId ?? null) : undefined,
         allowLegacyPathGroups: !seamAvailable,
         sortBy: topicSortBy,
         topicStatesById,
         workspacesById,
       }),
-    [seamAvailable, topics, topicSortBy, topicStatesById, workspacesById],
+    [currentDeviceId, seamAvailable, topics, topicSortBy, topicStatesById, workspacesById],
   );
 
   const groupIds = useMemo(

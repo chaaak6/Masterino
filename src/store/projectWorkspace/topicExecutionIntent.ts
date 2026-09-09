@@ -71,6 +71,22 @@ export const resolvePendingTopicExecutionIntent = async (params: {
       ? draft.targetDeviceId
       : (workspace?.deviceId ?? (target === 'device' ? agencyConfig?.boundDeviceId : undefined)));
 
+  // Old links and project drafts must not bypass desktop project isolation.
+  const projectId = topicSnapshot?.workspaceId ?? draft?.workspaceId;
+  if (
+    isDesktop &&
+    projectId &&
+    (target === 'local' || target === 'device') &&
+    topicSnapshot?.workspaceKind !== 'scratch'
+  ) {
+    const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
+    if (!currentDeviceId || targetDeviceId !== currentDeviceId) {
+      throw new Error(
+        'This project belongs to another device. Open it on its original device or use Web.',
+      );
+    }
+  }
+
   if (target === 'local' && isDesktop && !targetDeviceId) {
     try {
       targetDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;

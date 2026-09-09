@@ -1,5 +1,6 @@
 'use client';
 
+import { isDesktop } from '@lobechat/const';
 import { groupTopicsByProject, groupTopicsByUpdatedTime } from '@lobechat/utils/client/topic';
 import { Flexbox, Skeleton } from '@lobehub/ui';
 import { memo, useEffect, useMemo, useRef } from 'react';
@@ -8,6 +9,8 @@ import { useTranslation } from 'react-i18next';
 import Loading from '@/components/Loading/BrandTextLoading';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
+import { useElectronStore } from '@/store/electron';
+import { isTopicVisibleOnDevice, useProjectWorkspaceStore } from '@/store/projectWorkspace';
 import { shinyTextStyles } from '@/styles/loading';
 import type { ChatTopic } from '@/types/topic';
 
@@ -88,10 +91,21 @@ const AgentTopicManager = memo(() => {
     { agentId: activeAgentId },
   );
 
+  useElectronStore((s) => s.useFetchGatewayDeviceInfo)(isDesktop);
+  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+  const topicStatesById = useProjectWorkspaceStore((s) => s.topicStatesById);
+  const workspacesById = useProjectWorkspaceStore((s) => s.workspacesById);
+
   const baseTopics: ChatTopic[] = useMemo(() => {
-    if (trimmedSearch.length > 0) return searchResults ?? [];
-    return allTopics ?? [];
-  }, [trimmedSearch, searchResults, allTopics]);
+    const topics = trimmedSearch.length > 0 ? (searchResults ?? []) : (allTopics ?? []);
+    return topics.filter((topic) =>
+      isTopicVisibleOnDevice(topic, {
+        currentDeviceId: isDesktop ? (currentDeviceId ?? null) : undefined,
+        topicStatesById,
+        workspacesById,
+      }),
+    );
+  }, [trimmedSearch, searchResults, allTopics, currentDeviceId, topicStatesById, workspacesById]);
 
   // Pool with every filter EXCEPT status applied. Reused for the final
   // filtered list AND for the per-status count badges so each tab shows

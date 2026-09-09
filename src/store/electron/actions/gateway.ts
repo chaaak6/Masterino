@@ -105,9 +105,9 @@ export class ElectronGatewayActionImpl {
     }
   };
 
-  useFetchGatewayDeviceInfo = (): SWRResponse<GatewayDeviceInfo> => {
+  useFetchGatewayDeviceInfo = (enabled = true): SWRResponse<GatewayDeviceInfo> => {
     return useSWR<GatewayDeviceInfo>(
-      electronKeys.gatewayDeviceInfo(),
+      enabled ? electronKeys.gatewayDeviceInfo() : null,
       async () => gatewayConnectionService.getDeviceInfo() as Promise<GatewayDeviceInfo>,
       {
         onSuccess: (data) => {

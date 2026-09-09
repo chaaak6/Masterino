@@ -46,6 +46,8 @@ export type TopicNavigationPlacement =
 export interface TopicNavigationContext {
   /** Restore pre-A1 path grouping only after the new router is proven absent. */
   allowLegacyPathGroups?: boolean;
+  /** undefined: shared web view; null: desktop identity is still loading. */
+  currentDeviceId?: string | null;
   sortBy?: TopicSortBy;
   topicStatesById: Record<string, TopicWorkspaceState | undefined>;
   workspacesById: Record<string, ProjectWorkspaceItem | undefined>;
@@ -182,6 +184,27 @@ export const resolveTopicPlacementEvidence = (
   return { snapshot, workspace: undefined };
 };
 
+/** Hide foreign or unidentified projects, while retaining ordinary chat history. */
+export const isTopicVisibleOnDevice = (
+  topic: ChatTopic,
+  context: TopicNavigationContext,
+  scopeIndex?: Map<string, ProjectWorkspaceItem>,
+): boolean => {
+  if (context.currentDeviceId === undefined) return true;
+  const { snapshot, workspace } = resolveTopicPlacementEvidence(topic, context, scopeIndex);
+  const metadata = readTransitionalMetadata(topic);
+  const kind = snapshot?.workspaceKind ?? workspace?.kind ?? metadata.workspaceKind;
+  if (kind === 'scratch') return true;
+  const hasProject = !!(snapshot?.workspaceId ?? metadata.workspaceId ?? metadata.workingDirectory);
+  if (!hasProject) return true;
+  const deviceId = snapshot?.boundDeviceId ?? workspace?.deviceId ?? metadata.boundDeviceId;
+  return (
+    !!context.currentDeviceId &&
+    deviceId === context.currentDeviceId &&
+    (!workspace?.deviceId || workspace.deviceId === context.currentDeviceId)
+  );
+};
+
 export const classifyTopicForNavigation = (
   topic: ChatTopic,
   context: TopicNavigationContext,
@@ -229,7 +252,7 @@ export const assertDisjointTopicNavigation = (navigation: WorkspaceTopicNavigati
 
 /**
  * Derives the fixed Topic sidebar navigation: formal workspace groups on top,
- * one flat recent list at the bottom. Every topic lands in exactly one set.
+ * one flat recent list at the bottom. Every visible topic lands in exactly one set.
  * Input is expected to already be page-sliced and completed-filtered by the
  * topic fetch; this function only classifies and orders.
  */
@@ -245,6 +268,7 @@ export const buildWorkspaceTopicNavigation = (
   const recent: TopicNavigationRecentEntry[] = [];
 
   for (const topic of topics) {
+    if (!isTopicVisibleOnDevice(topic, context, scopeIndex)) continue;
     const { placement, workspace } = classifyTopicForNavigation(topic, context, scopeIndex);
     placementById[topic.id] = placement;
 

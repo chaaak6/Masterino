@@ -248,3 +248,55 @@ describe('buildWorkspaceTopicNavigation', () => {
     ).toBeUndefined();
   });
 });
+
+describe('desktop project isolation', () => {
+  const local = workspace('local', { deviceId: 'mac-a', rootPath: '/same/path' });
+  const remote = workspace('remote', { deviceId: 'mac-b', rootPath: '/same/path' });
+  const project = (id: string, deviceId: string) =>
+    topic(id, {
+      metadata: {
+        executionSnapshot: {
+          ...snapshotMeta(id, 'device').executionSnapshot,
+          boundDeviceId: deviceId,
+        },
+      },
+    });
+  const topics = [project('local', 'mac-a'), project('remote', 'mac-b'), topic('plain')];
+  const context = { topicStatesById: {}, workspacesById: { local, remote } };
+
+  it('keeps only this device project even when another Mac has the same path', () => {
+    const result = buildWorkspaceTopicNavigation(topics, { ...context, currentDeviceId: 'mac-a' });
+    expect(result.workspaceGroups.map((g) => g.workspaceId)).toEqual(['local']);
+    expect(result.recent.map((e) => e.topic.id)).toEqual(['plain']);
+    expect(result.placementById.remote).toBeUndefined();
+  });
+
+  it('does not leak projects while device identity is loading; web remains shared', () => {
+    expect(
+      buildWorkspaceTopicNavigation(topics, { ...context, currentDeviceId: null }).workspaceGroups,
+    ).toEqual([]);
+    expect(buildWorkspaceTopicNavigation(topics, context).workspaceGroups).toHaveLength(2);
+  });
+
+  it('hides foreign projects even without a loaded workspace row', () => {
+    const result = buildWorkspaceTopicNavigation(topics, {
+      topicStatesById: {},
+      workspacesById: {},
+      currentDeviceId: 'mac-a',
+    });
+    expect(result.placementById.remote).toBeUndefined();
+  });
+
+  it('hides legacy unidentified paths but keeps scratch and ordinary chat history', () => {
+    const result = buildWorkspaceTopicNavigation(
+      [
+        topic('legacy', { metadata: { workingDirectory: '/same/path' } }),
+        topic('scratch', { metadata: snapshotMeta('scratch', 'scratch') }),
+        topic('plain'),
+      ],
+      { ...context, currentDeviceId: 'mac-a', allowLegacyPathGroups: true },
+    );
+    expect(result.placementById.legacy).toBeUndefined();
+    expect(Object.keys(result.placementById)).toEqual(['scratch', 'plain']);
+  });
+});

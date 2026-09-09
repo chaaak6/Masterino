@@ -133,6 +133,26 @@ describe('GatewayConnectionCtr execution context boundary', () => {
     await rm(tempRoot, { force: true, recursive: true });
   });
 
+  it('rejects foreign-device local IPC before file, shell or env access', async () => {
+    const result = await makeController().executeLocalToolCall({
+      apiName: 'runCommand',
+      args: { command: 'echo must-not-run', cwd: workspace },
+      trace: {
+        deviceId: 'other-device',
+        topicId: 'foreign-topic',
+        operationId: 'op',
+        toolCallId: 'call',
+      },
+    });
+    expect(result).toMatchObject({
+      success: false,
+      content: expect.stringContaining('DEVICE_MISMATCH'),
+    });
+    expect(handleRunCommand).not.toHaveBeenCalled();
+    expect(readFile).not.toHaveBeenCalled();
+    expect(resolveExecutionEnv).not.toHaveBeenCalled();
+  });
+
   it('routes exact-trace cancellation into the running Office reader and removes it after completion', async () => {
     const controller = makeController();
     const file = path.join(workspace, 'data.xlsx');
@@ -529,6 +549,7 @@ describe('GatewayConnectionCtr execution context boundary', () => {
       apiName: 'readFile',
       args: { path: file },
       trace: {
+        deviceId: 'device-1',
         operationId: 'op-1',
         toolCallId: 'call-1',
         topicId: 'topic-1',
