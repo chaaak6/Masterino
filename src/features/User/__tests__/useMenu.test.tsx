@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { isValidElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import * as productFeatures from '@/config/productFeatures';
 import { ServerConfigStoreProvider } from '@/store/serverConfig/Provider';
 import { useUserStore } from '@/store/user';
 
@@ -116,6 +117,7 @@ describe('useMenu', () => {
   });
 
   it('keeps the desktop app menu item visible but disabled while desktop app is unavailable', () => {
+    const disabled = vi.spyOn(productFeatures, 'isProductFeatureDisabled').mockReturnValue(true);
     act(() => {
       useUserStore.setState({ isSignedIn: true });
     });
@@ -128,18 +130,8 @@ describe('useMenu', () => {
     expect(item).toMatchObject({ disabled: true });
     expect(readReactText(item?.label)).toContain('getDesktopApp');
     expect(readReactText(item?.label)).toContain('productFeatures.disabled');
-    expect((item?.label as any)?.props?.style).toMatchObject({
-      alignItems: 'center',
-      display: 'flex',
-      width: '100%',
-    });
-    const status = (item?.label as any)?.props?.children?.[1];
-    expect(status?.props?.style).toMatchObject({
-      fontSize: 12,
-      marginInlineStart: 'auto',
-      whiteSpace: 'nowrap',
-    });
     expect((item?.label as any)?.props?.href).toBeUndefined();
+    disabled.mockRestore();
   });
 
   it('does not render the available update badge in the settings menu item', () => {

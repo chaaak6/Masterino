@@ -16,7 +16,7 @@ describe('product feature convergence config', () => {
   });
 
   it('keeps complex non-core user features visible but disabled', () => {
-    expect(getProductFeatureStatus('desktopApp')).toBe('disabled');
+    expect(getProductFeatureStatus('desktopApp')).toBe('enabled');
     expect(getProductFeatureStatus('resources')).toBe('disabled');
     expect(getProductFeatureStatus('pages')).toBe('disabled');
     expect(getProductFeatureStatus('tasks')).toBe('disabled');

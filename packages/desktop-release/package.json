@@ -1,0 +1,15 @@
+{
+  "name": "@lobechat/desktop-release",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/signedManifest.ts"
+  },
+  "dependencies": {
+    "semver": "^7.7.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/semver": "^7.7.1"
+  }
+}

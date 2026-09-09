@@ -1,5 +1,6 @@
 'use client';
 
+import { isDesktop } from '@lobechat/const';
 import {
   REMOTE_HETEROGENEOUS_AGENT_CONFIGS,
   type RemoteHeterogeneousAgentType,
@@ -20,7 +21,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { isProductFeatureDisabled } from '@/config/productFeatures';
+import { useDesktopDownload } from '@/features/DesktopDownload';
 import { lambdaQuery } from '@/libs/trpc/client';
 import { deviceService } from '@/services/device';
 import { useAgentStore } from '@/store/agent';
@@ -110,7 +111,7 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
     const navigate = useNavigate();
     const storeCreateAgent = useAgentStore((s) => s.createAgent);
     const refreshAgentList = useHomeStore((s) => s.refreshAgentList);
-    const desktopAppDisabled = isProductFeatureDisabled('desktopApp');
+    const { disabled: downloadDisabled, download, loading: downloading } = useDesktopDownload();
 
     const [step, setStep] = useState(0);
     const [platform, setPlatform] = useState<RemoteHeterogeneousAgentType>('openclaw');
@@ -395,20 +396,23 @@ const CreatePlatformAgentModal = memo<CreatePlatformAgentModalProps>(
                 type="info"
                 description={
                   <Flexbox gap={12}>
-                    <Flexbox gap={6}>
-                      <span>{t('platformAgent.create.noDevicesDesktopHint')}</span>
-                      <Button
-                        disabled={desktopAppDisabled}
-                        icon={<Icon icon={Download} size={13} />}
-                        size="small"
-                        title={t('productFeatures.disabled', { ns: 'common' })}
-                        type="primary"
-                      >
-                        {desktopAppDisabled
-                          ? t('productFeatures.disabled', { ns: 'common' })
-                          : t('platformAgent.create.downloadDesktop')}
-                      </Button>
-                    </Flexbox>
+                    {!isDesktop && (
+                      <Flexbox gap={6}>
+                        <span>{t('platformAgent.create.noDevicesDesktopHint')}</span>
+                        <Button
+                          disabled={downloadDisabled}
+                          icon={<Icon icon={Download} size={13} />}
+                          loading={downloading}
+                          size="small"
+                          type="primary"
+                          onClick={() => void download()}
+                        >
+                          {downloadDisabled
+                            ? t('productFeatures.disabled', { ns: 'common' })
+                            : t('platformAgent.create.downloadDesktop')}
+                        </Button>
+                      </Flexbox>
+                    )}
                     <Flexbox gap={4}>
                       <span>{t('platformAgent.create.noDevicesCliHint')}</span>
                       <Typography.Text code copyable>
