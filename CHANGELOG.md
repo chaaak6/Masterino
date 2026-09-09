@@ -2,6 +2,31 @@
 
 # Changelog
 
+## [Version 1.2.8](https://github.com/chaaak6/Masterino/compare/v1.2.7...v1.2.8)
+
+<sup>Released on **2026-09-09**</sup>
+
+#### ✨ Features
+
+- **misc**: 开放 Web 最新客户端下载入口.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's improved
+
+- **misc**: 开放 Web 最新客户端下载入口, closes [#121](https://github.com/chaaak6/Masterino/issues/121) ([be53c11](https://github.com/chaaak6/Masterino/commit/be53c11))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.2.7](https://github.com/chaaak6/Masterino/compare/test-workspace-fix-20260906-497bd012acd8...v1.2.7)
 
 <sup>Released on **2026-09-08**</sup>
