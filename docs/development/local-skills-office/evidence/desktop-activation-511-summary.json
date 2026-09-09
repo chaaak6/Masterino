@@ -1,0 +1,33 @@
+{
+  "commit": "511c9b5e3d0530f59eeaaf6ef183341e8c33bb2f",
+  "serverImageDigest": "sha256:486adddc0c40ab36381ce7c9ba73ae462a7cffdc3d685efaefcf2a6bdbbca6ea",
+  "topic": "tpc_SWyZ4kf7TB4p",
+  "selection": "Electron attachment menu -> native macOS Open panel -> sales-12.xlsx -> attachment chip",
+  "model": "deepseek-v4-flash-vision-exp",
+  "elapsedSeconds": 40.159,
+  "modelRounds": 7,
+  "toolCalls": 8,
+  "shellCalls": 0,
+  "activatedSkillKey": "builtin:office-documents",
+  "expected": {
+    "rows": 12,
+    "total": 8000.0,
+    "groups": {
+      "region": {
+        "East": 3300.0,
+        "West": 2400.0,
+        "North": 2300.0
+      },
+      "month": {
+        "2026-01": 2800.0,
+        "2026-02": 5200.0
+      }
+    }
+  },
+  "reportCoreNumbersVerified": true,
+  "sourceUnchanged": true,
+  "sourceSha256": "fd74bb1f87b62d926968778efb8cf35dea2bdadb887e24ec607c16b4da669c15",
+  "reportSha256": "650e28c537fb3c1c21bc0c02ebac1322382dcc606f5d5c5cd7fac6bf0bda9db2",
+  "officeCallsUseAttachmentIdWithoutPath": true,
+  "limitation": "Single small-file regression smoke, not a performance comparison or large-file test. HTML content independently checked; no completed browser visual inspection."
+}

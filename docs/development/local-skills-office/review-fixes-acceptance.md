@@ -30,4 +30,18 @@
 
 后续代码复查发现：桌面虽调用服务端 executeSkillTool RPC，却绕过 Agent RuntimeExecutors 的激活结果校验。本次将已有校验移到共享 skillActivationResult 函数，两入口均按各自已绑定的允许集合核对完整 key。无效成功结果在返回或记录前转为 SKILL_ACTIVATION_IDENTITY_MISMATCH，移除技能正文、身份状态和 deferred 标记；合法结果及原有失败保留。视觉快照实现不变。
 
-本次定向回归：桌面RPC 10/10、服务端RuntimeExecutors 162/162通过，限定ESLint/Prettier检查通过。缺失/空key、名称别名、其他工作区同名key、其他来源key、空注册表、合法key和原失败均覆盖。本次没有重跑真实Electron E2E或重新部署；上文真实E2E证据仍只对应其标注版本。
+本次定向回归：桌面RPC 10/10、服务端RuntimeExecutors 162/162通过，限定ESLint/Prettier检查通过。缺失/空key、名称别名、其他工作区同名key、其他来源key、空注册表、合法key和原失败均覆盖。当时尚未重跑真实Electron E2E或重新部署；后续补测见下节，上文三个实机场景仍只对应其标注版本。
+
+## 桌面激活校验后的真实文件选择回归（511c9b5e）
+
+客户端和测试服务端均为 `511c9b5e`。远端 ACR 构建成功，镜像 `sha256:486adddc0c40ab36381ce7c9ba73ae462a7cffdc3d685efaefcf2a6bdbbca6ea` 已部署到 masterino-test 主服务和 worker，两者 rollout 均成功。未启动本地后端；验收后停止本次测试 Electron。
+
+真实操作：新无项目会话 → 附件菜单 → macOS 原生文件选择框 → 选择合成 `sales-12.xlsx` → 确认输入框出现附件 → 发送“先激活 Office Documents，再读取并生成简洁 HTML”。未用粘贴、历史附件或内部 store 注入替代文件选择。
+
+结果通过：`activateSkill` 返回 `builtin:office-documents`；inspect 和 5 次 read/聚合均使用同一 attachmentId、无 path；writeFile 生成独立 HTML。共 7 模型轮、8 工具调用、0 shell，消息创建至最终回复完成 40.159 秒。完整工具回执未命中合成源目录/受管附件路径。新校验未阻断合法技能，文件读取和报告生成主流程正常。
+
+独立读取原始 OOXML 与 HTML 核对：12 行、总额 8000；East 3300、West 2400、North 2300；1月2800、2月5200；报告额外显示的地区各4行、月份各6行也正确。原件 SHA256 不变。Notes 确实包含 no tax or refunds，模型读取该表后引用的说明有来源。
+
+这是一次小文件回归，不是性能对照、大文件或全量来源矩阵验收。实际 HTML 内容已核对，无外部资源依赖；本次未完成浏览器视觉验收。证据：[汇总](evidence/desktop-activation-511-summary.json)、[脱敏调用指标](evidence/desktop-activation-511-metrics.json)、[原始HTML](evidence/desktop-activation-511-report.html)。
+
+同一产品提交的 [Test CI](https://github.com/chaaak6/Masterino/actions/runs/34307864239)、[E2E CI](https://github.com/chaaak6/Masterino/actions/runs/34307864233)、[测试桌面构建](https://github.com/chaaak6/Masterino/actions/runs/34307864223) 均通过。本节及证据为后续归档，不改变上述产品代码。
