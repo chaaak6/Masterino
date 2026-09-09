@@ -284,6 +284,123 @@ describe('StreamingExecutor actions', () => {
     });
   });
   describe('executeClientAgent', () => {
+    it.each(['scratch', 'device'] as const)(
+      'keeps the resolved %s workspace authority when a local tool turn resumes',
+      async (workspaceKind) => {
+        act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
+        const workspaceId = `workspace-${workspaceKind}`;
+        const rootPath =
+          workspaceKind === 'scratch' ? '/app/scratch/topic-resume' : '/projects/device-workspace';
+        const workspace = {
+          deviceId: 'device-local',
+          id: workspaceId,
+          kind: workspaceKind,
+          rootPath,
+        };
+        useProjectWorkspaceStore.setState({
+          grantsByTopicDevice: {
+            [`${TEST_IDS.TOPIC_ID}::device-local`]: [
+              {
+                createdAt: '2026-09-09T00:00:00.000Z',
+                deviceId: 'device-local',
+                id: 'grant-private-tmp',
+                modes: ['read'],
+                requestedVia: { messageId: 'approved-tool-message' },
+                rootPath: '/private/tmp/work.html',
+                scope: 'topic',
+                topicId: TEST_IDS.TOPIC_ID,
+                userId: 'test-user',
+              },
+            ],
+          },
+          topicStatesById: {
+            [TEST_IDS.TOPIC_ID]: {
+              snapshot: {
+                boundDeviceId: 'device-local',
+                target: 'local',
+                targetCapturedAt: '2026-09-09T00:00:00.000Z',
+                version: 1,
+                workspaceId,
+                workspaceKind,
+              },
+              workspace,
+            },
+          },
+          workspacesById: { [workspaceId]: workspace },
+        });
+        vi.spyOn(chatService, 'createAssistantMessageStream').mockImplementation(
+          async ({ onFinish }) => {
+            await onFinish?.(TEST_CONTENT.AI_RESPONSE, {} as any);
+          },
+        );
+
+        const parent = useChatStore.getState().startOperation({
+          context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+          type: 'approveToolCalling',
+        });
+        await act(async () => {
+          await useChatStore.getState().executeClientAgent({
+            context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+            messages: [],
+            operationSkills: [],
+            parentMessageId: 'approved-tool-message',
+            parentMessageType: 'tool',
+            parentOperationId: parent.operationId,
+            skipCreateFirstMessage: true,
+          });
+        });
+
+        const operation = Object.values(useChatStore.getState().operations).find(
+          (op) => op.type === 'execAgentRuntime' && op.parentOperationId === parent.operationId,
+        );
+        expect(operation?.metadata.executionContext).toMatchObject({
+          cwd: rootPath,
+          plan: { deviceId: 'device-local', kind: 'device', target: 'local' },
+          workspace: { id: workspaceId, kind: workspaceKind, rootPath },
+        });
+        expect(operation?.metadata.executionContext?.accessRoots).toContainEqual(
+          expect.objectContaining({
+            grantId: 'grant-private-tmp',
+            rootPath: '/private/tmp/work.html',
+            scope: 'topic',
+          }),
+        );
+      },
+    );
+
+    it('keeps an existing thread resume out of the main-window running state', async () => {
+      act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
+      vi.spyOn(chatService, 'createAssistantMessageStream').mockImplementation(
+        async ({ onFinish }) => {
+          await onFinish?.(TEST_CONTENT.AI_RESPONSE, {} as any);
+        },
+      );
+      await act(async () => {
+        await useChatStore.getState().executeClientAgent({
+          context: {
+            agentId: TEST_IDS.SESSION_ID,
+            threadId: 'thread-resume',
+            topicId: TEST_IDS.TOPIC_ID,
+          },
+          executionContext: {
+            version: 1,
+            accessRoots: [],
+            plan: { kind: 'device', target: 'local', deviceId: 'device-local' },
+          },
+          messages: [],
+          operationSkills: [],
+          parentMessageId: 'approved-thread-tool',
+          parentMessageType: 'tool',
+          skipCreateFirstMessage: true,
+        });
+      });
+
+      const operation = Object.values(useChatStore.getState().operations).find(
+        (op) => op.type === 'execAgentRuntime' && op.context.threadId === 'thread-resume',
+      );
+      expect(operation?.metadata.inThread).toBe(true);
+    });
+
     it('carries the finalized scratch cwd into the next runtime step', async () => {
       act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
       const step = vi.spyOn(agentRuntime.AgentRuntime.prototype, 'step');

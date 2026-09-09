@@ -1,3 +1,5 @@
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
+
 import { type Operation, type OperationType, type QueuedMessage } from './types';
 
 /**
@@ -35,6 +37,13 @@ export interface ChatOperationState {
   operationsByType: Record<OperationType, string[]>;
 
   /**
+   * Immutable client-runtime authority captured when a tool pauses for human input.
+   * This is deliberately renderer-memory-only: ExecutionContext may contain resolved
+   * environment values and must never be serialized into message metadata.
+   */
+  pausedExecutionContextByMessage: Record<string, ExecutionContext>;
+
+  /**
    * Message queue per conversation context.
    * key: contextKey (messageMapKey), value: queued messages
    * Messages are consumed either by the running step loop (injection)
@@ -62,6 +71,7 @@ export const initialOperationState: ChatOperationState = {
   operationsByContext: {},
   operationsByMessage: {},
   operationsByType: {} as Record<OperationType, string[]>,
+  pausedExecutionContextByMessage: {},
   queuedMessages: {},
   unreadCompletedTopicsByAgent: {},
 };

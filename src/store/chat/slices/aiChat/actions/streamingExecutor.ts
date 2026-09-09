@@ -632,7 +632,7 @@ export class StreamingExecutorActionImpl {
           executionContext: frozenExecutionContext,
           // Mark if this operation is in thread context
           // Thread operations should not affect main window UI state
-          inThread: params.inPortalThread || false,
+          inThread: params.inPortalThread ?? Boolean(threadId),
         },
       });
       operationId = newOperationId;
@@ -759,10 +759,13 @@ export class StreamingExecutorActionImpl {
           topicId: topicId ?? undefined,
           workspaces,
         });
-        this.#get().updateOperationMetadata(operationId, {
-          executionContext: frozenExecutionContext,
-        });
       }
+      // Agent state reconstruction may already have resolved the workspace authority.
+      // Always publish that frozen value to the new runtime operation because builtin
+      // tool dispatch reads operation metadata, not AgentState metadata.
+      this.#get().updateOperationMetadata(operationId, {
+        executionContext: frozenExecutionContext,
+      });
 
       // A path approval resumes under a new operation. Rebind only the exact
       // device-authored request selected by the user, never a model-provided path.

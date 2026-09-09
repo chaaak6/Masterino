@@ -1,3 +1,4 @@
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { nanoid } from '@lobechat/utils';
 import debug from 'debug';
 import { produce } from 'immer';
@@ -659,6 +660,30 @@ export class OperationActionsImpl {
       }),
       false,
       n(`associateMessageWithOperation/${messageId}/${operationId}`),
+    );
+  };
+
+  preservePausedExecutionContext = (
+    messageId: string,
+    executionContext: ExecutionContext,
+  ): void => {
+    this.#set(
+      produce((state: ChatStore) => {
+        state.pausedExecutionContextByMessage[messageId] = executionContext;
+      }),
+      false,
+      n(`preservePausedExecutionContext/${messageId}`),
+    );
+  };
+
+  clearPausedExecutionContext = (messageId: string): void => {
+    if (!this.#get().pausedExecutionContextByMessage[messageId]) return;
+    this.#set(
+      produce((state: ChatStore) => {
+        delete state.pausedExecutionContextByMessage[messageId];
+      }),
+      false,
+      n(`clearPausedExecutionContext/${messageId}`),
     );
   };
 
