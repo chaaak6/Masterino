@@ -9,9 +9,11 @@ import { normalizeNewTopicIntent } from '@/helpers/workspacePlatform';
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import type { ChatTopicMetadata } from '@/types/topic';
 
 import { buildDraftConversationKey } from './draftKey';
 import { getProjectWorkspaceStoreState } from './store';
+import { isTopicVisibleOnDevice } from './topicNavigation';
 
 export interface PendingTopicExecutionIntent {
   /** Present only for a new-topic draft; clear it after the server succeeds. */
@@ -30,6 +32,7 @@ export const resolvePendingTopicExecutionIntent = async (params: {
   groupId?: string | null;
   isNewTopic: boolean;
   topicSnapshot?: TopicExecutionSnapshot;
+  topicMetadata?: ChatTopicMetadata;
   topicId?: string | null;
 }): Promise<PendingTopicExecutionIntent | undefined> => {
   const { agentId, groupId, isNewTopic, topicId } = params;
@@ -45,7 +48,8 @@ export const resolvePendingTopicExecutionIntent = async (params: {
   const platform = isDesktop ? 'desktop' : 'web';
   const topicSnapshot =
     params.topicSnapshot ??
-    (topicId ? workspaceState.topicStatesById[topicId]?.snapshot : undefined);
+    (topicId ? workspaceState.topicStatesById[topicId]?.snapshot : undefined) ??
+    params.topicMetadata?.executionSnapshot;
   const newTopicTarget = draft?.target ?? (isNewTopic && isDesktop ? 'local' : undefined);
   const configuredTarget = resolveExecutionTarget(agencyConfig, {
     executionTargetByPlatform: newTopicTarget
@@ -64,7 +68,9 @@ export const resolvePendingTopicExecutionIntent = async (params: {
 
   const workspace = draft?.workspaceId
     ? workspaceState.workspacesById[draft.workspaceId]
-    : undefined;
+    : topicId
+      ? workspaceState.topicStatesById[topicId]?.workspace
+      : undefined;
   let targetDeviceId =
     topicSnapshot?.boundDeviceId ??
     (draft?.targetDeviceId && (draft.target === 'device' || draft.target === 'local')
@@ -72,7 +78,21 @@ export const resolvePendingTopicExecutionIntent = async (params: {
       : (workspace?.deviceId ?? (target === 'device' ? agencyConfig?.boundDeviceId : undefined)));
 
   // Old links and project drafts must not bypass desktop project isolation.
-  const projectId = topicSnapshot?.workspaceId ?? draft?.workspaceId;
+  const metadata = {
+    ...params.topicMetadata,
+    ...(topicSnapshot ? { executionSnapshot: topicSnapshot } : {}),
+    ...(draft?.workspaceId ? { workspaceId: draft.workspaceId } : {}),
+    ...(draft?.legacyWorkingDirectory ? { workingDirectory: draft.legacyWorkingDirectory } : {}),
+    ...(draft?.targetDeviceId ? { boundDeviceId: draft.targetDeviceId } : {}),
+  };
+  const projectId =
+    topicSnapshot?.workspaceId ??
+    metadata.workspaceId ??
+    metadata.workingDirectory ??
+    (workspace?.kind === 'device' ? workspace.rootPath : undefined) ??
+    (topicId && workspaceState.topicStatesById[topicId]?.unresolvedProject
+      ? 'unresolved'
+      : undefined);
   if (
     isDesktop &&
     projectId &&
@@ -80,12 +100,23 @@ export const resolvePendingTopicExecutionIntent = async (params: {
     topicSnapshot?.workspaceKind !== 'scratch'
   ) {
     const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
-    if (!currentDeviceId || targetDeviceId !== currentDeviceId) {
+    if (
+      !isTopicVisibleOnDevice(
+        { id: topicId ?? '', metadata },
+        {
+          currentDeviceId: currentDeviceId ?? null,
+          topicStatesById: workspaceState.topicStatesById,
+          workspacesById: workspaceState.workspacesById,
+        },
+      )
+    ) {
       throw new Error(
         'This project belongs to another device. Open it on its original device or use Web.',
       );
     }
   }
+
+  targetDeviceId ??= params.topicMetadata?.boundDeviceId;
 
   if (target === 'local' && isDesktop && !targetDeviceId) {
     try {

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { DatabaseTopicWorkspaceBindingStore } from '@/server/services/projectWorkspace/bindingStore';
+
 import { getTestDB } from '../../../core/getTestDB';
 import {
   agents,
@@ -34,6 +36,80 @@ describe('TopicModel - Query', () => {
   });
 
   describe('query', () => {
+    it('preserves unowned legacy-project evidence when the topic is absent from a desktop list', async () => {
+      await serverDB.insert(topics).values({
+        id: 'unowned-link',
+        userId,
+        sessionId,
+        metadata: { workingDirectory: '/unknown-machine' },
+      });
+      const binding = new DatabaseTopicWorkspaceBindingStore(serverDB, userId);
+      expect(await binding.getState('unowned-link')).toMatchObject({ unresolvedProject: true });
+    });
+
+    it('filters desktop projects before pagination and total counts', async () => {
+      const metadata = (deviceId: string) => ({
+        workspaceId: `ws-${deviceId}`,
+        boundDeviceId: deviceId,
+        workspaceKind: 'device' as const,
+      });
+      await serverDB.insert(topics).values([
+        ...Array.from({ length: 35 }, (_, i) => ({
+          id: `foreign-${i}`,
+          userId,
+          sessionId,
+          metadata: metadata('mac-b'),
+          updatedAt: new Date('2026-09-10'),
+        })),
+        ...Array.from({ length: 3 }, (_, i) => ({
+          id: `local-${i}`,
+          userId,
+          sessionId,
+          metadata: metadata('mac-a'),
+          updatedAt: new Date(`2026-09-0${i + 1}`),
+        })),
+        { id: 'plain', userId, sessionId },
+        {
+          id: 'scratch',
+          userId,
+          sessionId,
+          metadata: { workspaceId: 'scratch', workspaceKind: 'scratch', boundDeviceId: 'mac-b' },
+        },
+        { id: 'unknown-path', userId, sessionId, metadata: { workingDirectory: '/same/path' } },
+      ]);
+      const first = await topicModel.query({
+        containerId: sessionId,
+        localDeviceId: 'mac-a',
+        pageSize: 2,
+      });
+      const second = await topicModel.query({
+        containerId: sessionId,
+        localDeviceId: 'mac-a',
+        pageSize: 2,
+        current: 1,
+      });
+      const third = await topicModel.query({
+        containerId: sessionId,
+        localDeviceId: 'mac-a',
+        pageSize: 2,
+        current: 2,
+      });
+      expect(first.total).toBe(5);
+      expect([...first.items, ...second.items, ...third.items].map((t) => t.id).sort()).toEqual([
+        'local-0',
+        'local-1',
+        'local-2',
+        'plain',
+        'scratch',
+      ]);
+      expect((await topicModel.query({ containerId: sessionId })).total).toBe(41);
+      expect(
+        (await topicModel.queryTopics({ localDeviceId: 'mac-a', pageSize: 50 }))
+          .map((t) => t.id)
+          .sort(),
+      ).toEqual(['local-0', 'local-1', 'local-2', 'plain', 'scratch']);
+    });
+
     it('should query topics by user ID', async () => {
       await serverDB.transaction(async (tx) => {
         await tx.insert(users).values([{ id: '456' }]);

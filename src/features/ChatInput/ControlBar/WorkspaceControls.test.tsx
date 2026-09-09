@@ -86,6 +86,23 @@ describe('WorkspaceControls topic ownership', () => {
     };
   });
 
+  it('labels an unavailable project without exposing local directory controls', () => {
+    mocks.effective = {
+      ...mocks.effective,
+      projectUnavailable: true,
+      cwd: undefined,
+      workspace: undefined,
+      state: 'unrouted',
+      target: 'device',
+      targetDeviceId: 'other-device',
+    };
+    render(<WorkspaceControls agentId="agent-1" />);
+    expect(screen.getByText('workspaceRuntime.otherDeviceProject')).toBeDefined();
+    expect(screen.queryByTestId('workspace-chip')).toBeNull();
+    expect(mocks.deviceSwitcherProps.executionTarget).toBe('device');
+    expect(mocks.deviceSwitcherProps.boundDeviceId).toBe('other-device');
+  });
+
   it('Web projects retain their device identity without directory or Git controls', () => {
     mocks.desktop = false;
     mocks.effective.isDraft = false;

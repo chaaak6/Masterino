@@ -77,12 +77,12 @@ const isSnapshot = (value: unknown): value is TopicExecutionSnapshot => {
   );
 };
 
-const readTransitionalMetadata = (topic: ChatTopic): TransitionalTopicMetadata =>
+const readTransitionalMetadata = (topic: Pick<ChatTopic, 'metadata'>): TransitionalTopicMetadata =>
   (topic.metadata ?? {}) as TransitionalTopicMetadata;
 
 /** Authoritative server snapshot for a topic, if any. Never synthesized. */
 export const readTopicExecutionSnapshot = (
-  topic: ChatTopic,
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
   topicState?: TopicWorkspaceState,
 ): TopicExecutionSnapshot | undefined => {
   if (topicState?.snapshot) return topicState.snapshot;
@@ -128,7 +128,7 @@ const buildScopeIndex = (workspacesById: TopicNavigationContext['workspacesById'
  * resolves to an existing `project_workspaces` id.
  */
 export const resolveTopicPlacementEvidence = (
-  topic: ChatTopic,
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
   context: TopicNavigationContext,
   scopeIndex: Map<string, ProjectWorkspaceItem> = buildScopeIndex(context.workspacesById),
 ): PlacementEvidence => {
@@ -181,21 +181,27 @@ export const resolveTopicPlacementEvidence = (
     }
   }
 
-  return { snapshot, workspace: undefined };
+  return { snapshot, workspace: topicState?.workspace };
 };
 
 /** Hide foreign or unidentified projects, while retaining ordinary chat history. */
 export const isTopicVisibleOnDevice = (
-  topic: ChatTopic,
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
   context: TopicNavigationContext,
   scopeIndex?: Map<string, ProjectWorkspaceItem>,
 ): boolean => {
   if (context.currentDeviceId === undefined) return true;
+  if (context.topicStatesById[topic.id]?.unresolvedProject) return false;
   const { snapshot, workspace } = resolveTopicPlacementEvidence(topic, context, scopeIndex);
   const metadata = readTransitionalMetadata(topic);
   const kind = snapshot?.workspaceKind ?? workspace?.kind ?? metadata.workspaceKind;
   if (kind === 'scratch') return true;
-  const hasProject = !!(snapshot?.workspaceId ?? metadata.workspaceId ?? metadata.workingDirectory);
+  const hasProject = !!(
+    snapshot?.workspaceId ||
+    metadata.workspaceId ||
+    metadata.workingDirectory ||
+    (workspace?.kind === 'device' ? workspace.rootPath : undefined)
+  );
   if (!hasProject) return true;
   const deviceId = snapshot?.boundDeviceId ?? workspace?.deviceId ?? metadata.boundDeviceId;
   return (
@@ -206,7 +212,7 @@ export const isTopicVisibleOnDevice = (
 };
 
 export const classifyTopicForNavigation = (
-  topic: ChatTopic,
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
   context: TopicNavigationContext,
   scopeIndex?: Map<string, ProjectWorkspaceItem>,
 ): { placement: TopicPlacement; workspace?: ProjectWorkspaceItem | WorkspaceRef } => {
@@ -217,7 +223,10 @@ export const classifyTopicForNavigation = (
   };
 };
 
-const timestampOf = (topic: ChatTopic, field: 'createdAt' | 'updatedAt'): number => {
+const timestampOf = (
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
+  field: 'createdAt' | 'updatedAt',
+): number => {
   const value = topic[field] as unknown;
   if (typeof value === 'number') return value;
   if (value instanceof Date) return value.getTime();

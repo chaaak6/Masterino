@@ -34,6 +34,8 @@ export interface ProjectWorkspaceItem {
 
 export interface TopicWorkspaceState {
   snapshot?: TopicExecutionSnapshot;
+  /** A historical project exists, but its directory/device evidence cannot be resolved. */
+  unresolvedProject?: boolean;
   workspace?: WorkspaceRef;
 }
 

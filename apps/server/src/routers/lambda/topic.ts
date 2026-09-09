@@ -311,13 +311,18 @@ export const topicRouter = router({
     .input(
       z
         .object({
+          localDeviceId: z.string().min(1).optional(),
           pageSize: z.number().max(500).optional(),
           statuses: z.array(z.string()).optional(),
         })
         .optional(),
     )
     .query(async ({ input, ctx }) => {
-      return ctx.topicModel.queryTopics({ pageSize: input?.pageSize, statuses: input?.statuses });
+      return ctx.topicModel.queryTopics({
+        localDeviceId: input?.localDeviceId,
+        pageSize: input?.pageSize,
+        statuses: input?.statuses,
+      });
     }),
 
   getShareInfo: topicProcedure
@@ -329,6 +334,7 @@ export const topicRouter = router({
   getTopics: topicProcedure
     .input(
       z.object({
+        localDeviceId: z.string().min(1).optional(),
         agentId: z.string().nullable().optional(),
         current: z.number().optional(),
         excludeStatuses: z.array(z.string()).optional(),
@@ -606,6 +612,7 @@ export const topicRouter = router({
   searchTopics: topicProcedure
     .input(
       z.object({
+        localDeviceId: z.string().min(1).optional(),
         agentId: z.string().optional(),
         groupId: z.string().nullable().optional(),
         keywords: z.string(),
@@ -627,6 +634,7 @@ export const topicRouter = router({
       // `containerId` is only the fallback for legacy callers that pass no
       // agentId/groupId.
       return ctx.topicModel.queryByKeyword(input.keywords, {
+        localDeviceId: input.localDeviceId,
         agentId: input.agentId,
         containerId: resolved.sessionId,
         groupId: input.groupId,

@@ -1176,6 +1176,7 @@
   "workspaceRuntime.intent.confirmDescription": "将 {{path}} 作为本话题的项目？本话题之后会固定使用这个文件夹。",
   "workspaceRuntime.intent.confirmTitle": "将此文件夹作为当前项目？",
   "workspaceRuntime.intent.keepUnbound": "不绑定，继续发送",
+  "workspaceRuntime.otherDeviceProject": "此项目不可在本机使用",
   "workspaceRuntime.picker.addPath": "添加目录路径",
   "workspaceRuntime.picker.alreadyBound": "本话题已关联项目。若要使用其他项目，请新建一个引用话题。",
   "workspaceRuntime.picker.bindFailed": "无法选择此项目，请重试。",

@@ -490,6 +490,7 @@ export class ConversationLifecycleActionImpl {
       isNewTopic: !context.topicId,
       topicId: context.topicId,
       topicSnapshot: existingTopic?.metadata?.executionSnapshot ?? topicWorkspaceState?.snapshot,
+      topicMetadata: existingTopic?.metadata,
     });
     let runtimeType = selectRuntimeType({
       boundDeviceId:

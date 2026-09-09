@@ -1114,6 +1114,7 @@ export class ChatTopicActionImpl {
           agentId: this.#get().activeAgentId,
           groupId: params.groupId ?? this.#get().activeGroupId,
           isNewTopic: true,
+          topicMetadata: params.metadata,
         });
     const topicId = await topicService.createTopic({
       ...params,

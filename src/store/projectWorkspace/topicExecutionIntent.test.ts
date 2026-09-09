@@ -180,3 +180,59 @@ describe('foreign project direct-link guard', () => {
     else await expect(call).resolves.toMatchObject({ intent: { targetDeviceId: 'mac-b' } });
   });
 });
+
+describe('legacy path project ownership', () => {
+  it.each([undefined, 'mac-b'])('rejects path-only project with owner %s', async (owner) => {
+    mocks.isDesktop = true;
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'mac-a' });
+    await expect(
+      resolvePendingTopicExecutionIntent({
+        isNewTopic: false,
+        topicId: 'legacy',
+        topicMetadata: { workingDirectory: '/same/path', boundDeviceId: owner },
+      }),
+    ).rejects.toThrow('another device');
+  });
+  it('keeps a proven local legacy project usable and retains its device identity', async () => {
+    mocks.isDesktop = true;
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'mac-a' });
+    await expect(
+      resolvePendingTopicExecutionIntent({
+        isNewTopic: false,
+        topicId: 'legacy',
+        topicMetadata: { workingDirectory: '/same/path', boundDeviceId: 'mac-a' },
+      }),
+    ).resolves.toMatchObject({ intent: { targetDeviceId: 'mac-a' } });
+  });
+});
+
+it('blocks a direct URL when only the server knows the unresolved legacy project', async () => {
+  mocks.isDesktop = true;
+  mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'mac-a' });
+  mocks.workspaceState = {
+    draftByConversationKey: {},
+    workspacesById: {},
+    topicStatesById: { hidden: { unresolvedProject: true } },
+  };
+  await expect(
+    resolvePendingTopicExecutionIntent({ isNewTopic: false, topicId: 'hidden' }),
+  ).rejects.toThrow('another device');
+});
+
+it('still allows a new non-project desktop topic to target another gateway device', async () => {
+  mocks.isDesktop = true;
+  mocks.agentConfig = undefined;
+  mocks.workspaceState = {
+    draftByConversationKey: {
+      [buildDraftConversationKey({ agentId: 'agent-1' })]: {
+        target: 'device',
+        targetDeviceId: 'other-device',
+      },
+    },
+    workspacesById: {},
+    topicStatesById: {},
+  };
+  await expect(
+    resolvePendingTopicExecutionIntent({ agentId: 'agent-1', isNewTopic: true }),
+  ).resolves.toMatchObject({ intent: { target: 'device', targetDeviceId: 'other-device' } });
+});

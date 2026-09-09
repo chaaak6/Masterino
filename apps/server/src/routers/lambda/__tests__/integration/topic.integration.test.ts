@@ -110,6 +110,45 @@ describe('Topic Router Integration Tests', () => {
     await cleanupTestUser(serverDB, userId);
   });
 
+  it('applies desktop device scope before pagination through the real tRPC router', async () => {
+    const caller = topicRouter.createCaller(createTestContext(userId));
+    await serverDB
+      .insert(topics)
+      .values([
+        ...Array.from({ length: 35 }, (_, i) => ({
+          id: `${userId}-remote-${i}`,
+          userId,
+          agentId: testAgentId,
+          title: 'remote',
+          favorite: true,
+          metadata: { workingDirectory: '/same/path', boundDeviceId: 'mac-b' },
+        })),
+        {
+          id: `${userId}-local`,
+          userId,
+          agentId: testAgentId,
+          title: 'local',
+          metadata: { workingDirectory: '/same/path', boundDeviceId: 'mac-a' },
+        },
+        { id: `${userId}-plain`, userId, agentId: testAgentId, title: 'plain' },
+      ]);
+    const first = await caller.getTopics({
+      agentId: testAgentId,
+      localDeviceId: 'mac-a',
+      current: 0,
+      pageSize: 1,
+    });
+    const next = await caller.getTopics({
+      agentId: testAgentId,
+      localDeviceId: 'mac-a',
+      current: 1,
+      pageSize: 1,
+    });
+    expect(first.total).toBe(2);
+    expect([...first.items, ...next.items].map((t) => t.title).sort()).toEqual(['local', 'plain']);
+    expect((await caller.getTopics({ agentId: testAgentId })).total).toBe(37);
+  });
+
   describe('createTopic', () => {
     it('should create topic with sessionId', async () => {
       const caller = topicRouter.createCaller(createTestContext(userId));
