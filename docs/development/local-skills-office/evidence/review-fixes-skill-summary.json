@@ -1,0 +1,156 @@
+{
+  "versions": {
+    "client": "5d1b2cc3ccfce7ff802e3ca39e69945fcd718f9c",
+    "server": "b3cf909d114c77551efd16e0cf38e0fa3a0f47bf",
+    "imageDigest": "sha256:3c69e3188021b599e007f7c68ea023fdf3fd08c79be4dfa76f2ee61089d5b5d8",
+    "profile": "test-server",
+    "electronSession": 60107
+  },
+  "topic": "tpc_Kl741OarmtwD",
+  "observations": {
+    "passed": true,
+    "activationStateId": "project:pws_gNKi2pf9k62d:qa-identity",
+    "readReferenceArgumentId": "project:pws_gNKi2pf9k62d:qa-identity",
+    "referenceMarker": "QA-project-agents-REFERENCE",
+    "markerVerifiedInActualToolContent": true,
+    "toolCount": 2,
+    "modelRounds": 3,
+    "negativeKeysOrWrongSnapshot": "Not injected through UI; automated test evidence owned by root."
+  },
+  "messages": [
+    {
+      "id": "msg_CZhsmEwv8599s3a1im",
+      "role": "user",
+      "model": null,
+      "provider": null,
+      "tool": null,
+      "contentBytes": 194,
+      "stateKeys": [],
+      "referenceMarkerPresent": false,
+      "usage": null,
+      "createdAt": "2026-09-09T02:34:46.337Z",
+      "updatedAt": "2026-09-09T02:34:46.337Z"
+    },
+    {
+      "id": "msg_56MGsaH4FrW2XimFOV",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 0,
+      "stateKeys": [],
+      "referenceMarkerPresent": false,
+      "usage": {
+        "totalTokens": 22629,
+        "inputTextTokens": 22445,
+        "outputTextTokens": 51,
+        "totalInputTokens": 22445,
+        "totalOutputTokens": 184,
+        "inputCacheMissTokens": 22445,
+        "outputReasoningTokens": 133
+      },
+      "createdAt": "2026-09-09T02:34:46.338Z",
+      "updatedAt": "2026-09-09T02:34:50.278Z",
+      "calls": [
+        {
+          "name": "activateSkill",
+          "skillName": "qa-identity",
+          "pathPresent": false,
+          "argumentsManagedPathLeak": false
+        }
+      ]
+    },
+    {
+      "id": "msg_oSqbvViqICOo",
+      "role": "tool",
+      "model": null,
+      "provider": null,
+      "tool": "activateSkill",
+      "contentBytes": 680,
+      "receiptManagedPathLeak": false,
+      "stateKeys": [
+        "id",
+        "name",
+        "source",
+        "location",
+        "hasResources",
+        "resourceVersion"
+      ],
+      "skillKey": "project:pws_gNKi2pf9k62d:qa-identity",
+      "referenceMarkerPresent": false,
+      "usage": null,
+      "createdAt": "2026-09-09T02:34:50.382Z",
+      "updatedAt": "2026-09-09T02:34:50.630Z"
+    },
+    {
+      "id": "msg_0jmsgt6lEX2iNtZyuj",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 201,
+      "stateKeys": [],
+      "referenceMarkerPresent": false,
+      "usage": {
+        "totalTokens": 23204,
+        "inputTextTokens": 22928,
+        "outputTextTokens": 137,
+        "totalInputTokens": 22928,
+        "totalOutputTokens": 276,
+        "inputCacheMissTokens": 22928,
+        "outputReasoningTokens": 139
+      },
+      "createdAt": "2026-09-09T02:34:50.700Z",
+      "updatedAt": "2026-09-09T02:34:54.257Z",
+      "calls": [
+        {
+          "name": "readReference",
+          "id": "project:pws_gNKi2pf9k62d:qa-identity",
+          "pathPresent": true,
+          "pathKind": "relative",
+          "argumentsManagedPathLeak": false
+        }
+      ]
+    },
+    {
+      "id": "msg_ZhFNmSNm6VZZ",
+      "role": "tool",
+      "model": null,
+      "provider": null,
+      "tool": "readReference",
+      "contentBytes": 28,
+      "receiptManagedPathLeak": false,
+      "stateKeys": [
+        "path",
+        "encoding",
+        "fileType",
+        "fullPath"
+      ],
+      "referenceMarkerPresent": true,
+      "usage": null,
+      "createdAt": "2026-09-09T02:34:54.368Z",
+      "updatedAt": "2026-09-09T02:34:54.494Z"
+    },
+    {
+      "id": "msg_u7Hv5h4wRh29FTqD1W",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 334,
+      "stateKeys": [],
+      "referenceMarkerPresent": true,
+      "usage": {
+        "totalTokens": 23317,
+        "inputTextTokens": 23224,
+        "outputTextTokens": 93,
+        "totalInputTokens": 23224,
+        "inputCachedTokens": 23168,
+        "totalOutputTokens": 93,
+        "inputCacheMissTokens": 56
+      },
+      "createdAt": "2026-09-09T02:34:54.863Z",
+      "updatedAt": "2026-09-09T02:34:57.784Z"
+    }
+  ]
+}

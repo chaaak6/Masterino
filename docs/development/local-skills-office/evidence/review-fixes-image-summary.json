@@ -1,0 +1,66 @@
+{
+  "versions": {
+    "client": "5d1b2cc3ccfce7ff802e3ca39e69945fcd718f9c",
+    "server": "b3cf909d114c77551efd16e0cf38e0fa3a0f47bf",
+    "imageDigest": "sha256:3c69e3188021b599e007f7c68ea023fdf3fd08c79be4dfa76f2ee61089d5b5d8",
+    "profile": "test-server",
+    "electronSession": 60107
+  },
+  "topic": "tpc_8qoso7wuXtGK",
+  "observations": {
+    "passed": true,
+    "visionBaseline": "DeepSeek V4 Flash Vision Exp correctly answered red/blue/green/yellow.",
+    "unsupportedModelSelected": "DeepSeek V4 Flash",
+    "historyAddWarning": "当前模型不支持视觉识别。请切换模型后使用",
+    "unsupportedInputAttachmentCount": 0,
+    "ordinaryPreview": "Clicked preview under Flash; inline four-quadrant image rendered, visually inspected.",
+    "visionReAdd": "After selecting Vision Exp, history action changed to 已加入输入 and one quadrants.png composer attachment appeared.",
+    "noAdditionalModelRequest": true,
+    "sourceSha256": "6b0f9b2e21d1db7e8f904226b29c4cf2cb366edafc3623c5c53c8b7e3e8a09c6",
+    "evidenceLimit": "UI model menu and warning observed; no internal store inspection. DB has only initial user/vision assistant pair."
+  },
+  "messages": [
+    {
+      "id": "msg_8x3aqrYmS1LIYxdjZG",
+      "role": "user",
+      "model": null,
+      "provider": null,
+      "tool": null,
+      "contentBytes": 96,
+      "stateKeys": [],
+      "referenceMarkerPresent": false,
+      "usage": null,
+      "createdAt": "2026-09-09T02:32:37.710Z",
+      "updatedAt": "2026-09-09T02:32:37.710Z",
+      "attachments": [
+        {
+          "attachmentId": "2627c9fe-af96-4d6e-b7cc-29fd9f5baf19",
+          "mime": "image/png",
+          "source": "local"
+        }
+      ]
+    },
+    {
+      "id": "msg_1UiJzmI8s2mpIcfpM2",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 72,
+      "stateKeys": [],
+      "referenceMarkerPresent": false,
+      "usage": {
+        "totalTokens": 21952,
+        "inputTextTokens": 21883,
+        "outputTextTokens": 17,
+        "totalInputTokens": 21883,
+        "inputCachedTokens": 15488,
+        "totalOutputTokens": 69,
+        "inputCacheMissTokens": 6395,
+        "outputReasoningTokens": 52
+      },
+      "createdAt": "2026-09-09T02:32:37.711Z",
+      "updatedAt": "2026-09-09T02:32:40.225Z"
+    }
+  ]
+}

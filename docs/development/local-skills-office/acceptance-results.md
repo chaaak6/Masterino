@@ -1,5 +1,7 @@
 # 本机 Skills / Office 真实验收结果
 
+Review 后的附件 ID、视觉入口和 Skill 回归单独记录在 [Review 修复定向验收](review-fixes-acceptance.md)。下述 5+5 为原版本证据，不代替新协议验收。
+
 固定5+5已完成：核心收入汇总10/10正确，源文件10/10不变，首次保存10/10成功，无依赖探测或Excel解析脚本10/10。**不等同于整份报告全部正确**：纸夹1自加平均单价266.67错误，简单均值应250、加权均值242.42；原始错误报告保留。纸夹4用Python校验已读12行，属于计算回退，不是Excel解析器。
 
 客户端HEAD `0db77b3e`，产品基线与服务端均 `f0a049ff`；HEAD只多测试类型修正。镜像digest `sha256:16dae8f6403ba7bcb467d95d4266604f6d45ef631a4d4ae004ed94a6298b7a46`。真实Electron连接masterino-test，模型DeepSeek V4 Flash Vision Exp，新目录/topic、同提示、同输入hash；oracle未提供给模型。完整版本、逐轮工具输出长度/耗时、usage和报告hash见[脱敏JSON](evidence/final-repetitions.json)。
