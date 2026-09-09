@@ -2443,6 +2443,18 @@
   },
   {
     "children": {
+      "fixes": [
+        "wait for desktop identity before showing empty topics.",
+        "refresh device topic views and preserve rejected drafts.",
+        "complete desktop project filtering and legacy ownership guards.",
+        "isolate desktop projects by device identity."
+      ]
+    },
+    "date": "2026-09-09",
+    "version": "1.3.1"
+  },
+  {
+    "children": {
       "features": [
         "开放 Web 最新客户端下载入口."
       ]

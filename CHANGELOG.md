@@ -2,6 +2,37 @@
 
 # Changelog
 
+### [Version 1.3.1](https://github.com/chaaak6/Masterino/compare/v1.3.0...v1.3.1)
+
+<sup>Released on **2026-09-09**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: wait for desktop identity before showing empty topics.
+- **misc**: refresh device topic views and preserve rejected drafts.
+- **misc**: complete desktop project filtering and legacy ownership guards.
+- **misc**: isolate desktop projects by device identity.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: wait for desktop identity before showing empty topics ([8c58cd3](https://github.com/chaaak6/Masterino/commit/8c58cd3))
+- **misc**: refresh device topic views and preserve rejected drafts ([6c31940](https://github.com/chaaak6/Masterino/commit/6c31940))
+- **misc**: complete desktop project filtering and legacy ownership guards ([99c0c35](https://github.com/chaaak6/Masterino/commit/99c0c35))
+- **misc**: isolate desktop projects by device identity ([3ee7fa3](https://github.com/chaaak6/Masterino/commit/3ee7fa3))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.2.8](https://github.com/chaaak6/Masterino/compare/v1.2.7...v1.2.8)
 
 <sup>Released on **2026-09-09**</sup>
