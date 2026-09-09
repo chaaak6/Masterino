@@ -4,6 +4,7 @@ import { memo } from 'react';
 import DragUploadZone, { useUploadFiles } from '@/components/DragUploadZone';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import { useChatStore } from '@/store/chat';
 
 import ConversationArea from './ConversationArea';
 import ChatHeader from './Header';
@@ -13,7 +14,8 @@ const ChatConversation = memo(() => {
   const agentId = useAgentStore((s) => s.activeAgentId || '');
   const model = useAgentStore(agentSelectors.currentAgentModel);
   const provider = useAgentStore(agentSelectors.currentAgentModelProvider);
-  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider });
+  const topicId = useChatStore((s) => s.activeTopicId);
+  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider, topicId });
 
   return (
     <DragUploadZone style={{ height: '100%', width: '100%' }} onUploadFiles={handleUploadFiles}>

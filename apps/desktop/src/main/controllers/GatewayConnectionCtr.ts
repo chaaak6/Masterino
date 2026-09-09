@@ -6,12 +6,16 @@ import path from 'node:path';
 import {
   type DeviceControlDeps,
   executeDeviceRpc as runDeviceRpc,
+  getExistingScratchWorkspace,
   materializeSkillsForCli,
+  prepareLocalAttachmentById,
+  validatePreparedLocalAttachment,
 } from '@lobechat/device-control';
 import type {
   AgentRunRequestMessage,
   GatewayMcpStdioParams,
   GatewayToolCallExecutionContext,
+  LocalToolCallRequest,
 } from '@lobechat/device-gateway-client';
 import type {
   EditLocalFileParams,
@@ -30,14 +34,24 @@ import type {
   WriteLocalFileParams,
 } from '@lobechat/electron-client-ipc';
 import {
+  batchOfficeDocument,
   composeChildProcessEnv,
-  toolNeedsDefaultCwd,
+  createOfficeDocument,
+  type CreateSpreadsheetParams,
   ExecutionBoundaryError,
   type ExecutionBoundaryTrace,
+  inspectOfficeDocument,
   loadWorkspaceEnvFiles,
+  mergeOfficeTemplate,
+  type OfficeBatchParams,
+  type OfficeReadParams,
+  type OfficeTemplateParams,
   type PreparedToolCallExecution,
   prepareToolCallExecution,
+  readOfficeDocument,
   resolveLoginShellPath,
+  toolNeedsDefaultCwd,
+  validateOfficeDocument,
 } from '@lobechat/local-file-shell';
 import { type ILocalSystemService, LocalSystemExecutionRuntime } from '@lobechat/tool-runtime';
 
@@ -172,6 +186,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
   >();
 
   private readonly pendingLocalToolCalls = new Map<string, Promise<BuiltinServerRuntimeOutput>>();
+  private readonly localOfficeReads = new Map<string, AbortController>();
 
   private localSystemRuntime: LocalSystemExecutionRuntime | null = null;
 
@@ -298,13 +313,23 @@ export default class GatewayConnectionCtr extends ControllerModule {
    * the renderer cannot bypass frozen-workspace or path-consent checks.
    */
   @IpcMethod()
-  async executeLocalToolCall(params: {
-    apiName: string;
-    args: Record<string, unknown>;
-    executionContext?: GatewayToolCallExecutionContext;
-    purpose?: 'skill-command' | 'skill-script';
-    trace?: ExecutionBoundaryTrace;
-  }): Promise<BuiltinServerRuntimeOutput> {
+  async cancelLocalOfficeRead(trace: ExecutionBoundaryTrace): Promise<{ cancelled: boolean }> {
+    if (
+      !trace.topicId ||
+      !trace.operationId ||
+      !trace.toolCallId ||
+      trace.deviceId !== this.service.getDeviceId()
+    )
+      return { cancelled: false };
+    const controller = this.localOfficeReads.get(
+      JSON.stringify([trace.deviceId, trace.topicId, trace.operationId, trace.toolCallId]),
+    );
+    controller?.abort(new Error('Office read cancelled'));
+    return { cancelled: !!controller };
+  }
+
+  @IpcMethod()
+  async executeLocalToolCall(params: LocalToolCallRequest): Promise<BuiltinServerRuntimeOutput> {
     const { trace } = params;
     if (!trace?.topicId || !trace.operationId || !trace.toolCallId) {
       return this.executeLocalToolCallOnce(params);
@@ -317,17 +342,30 @@ export default class GatewayConnectionCtr extends ControllerModule {
     ]);
     const pending = this.pendingLocalToolCalls.get(key);
     if (pending) return pending;
-    const execution = this.executeLocalToolCallOnce(params);
+    // Local read cancellation does not apply to file publication or remote gateway calls.
+    const cancellable = ['inspectOfficeDocument', 'readOfficeDocument'].includes(params.apiName);
+    const controller = cancellable ? new AbortController() : undefined;
+    if (controller) this.localOfficeReads.set(key, controller);
+    const timer = controller
+      ? setTimeout(
+          () => controller.abort(new Error('Office read timed out after 120 seconds')),
+          120_000,
+        )
+      : undefined;
+    const execution = this.executeLocalToolCallOnce(params, controller?.signal);
     this.pendingLocalToolCalls.set(key, execution);
     try {
       return await execution;
     } finally {
+      if (timer) clearTimeout(timer);
+      this.localOfficeReads.delete(key);
       this.pendingLocalToolCalls.delete(key);
     }
   }
 
   private async executeLocalToolCallOnce(
     params: Parameters<GatewayConnectionCtr['executeLocalToolCall']>[0],
+    signal?: AbortSignal,
   ): Promise<BuiltinServerRuntimeOutput> {
     const { trace } = params;
     let context = params.executionContext;
@@ -343,11 +381,20 @@ export default class GatewayConnectionCtr extends ControllerModule {
       return previous.output;
     }
     let scratchRoot: string | undefined;
+    // Attachment preparation may already have materialized this topic's scratch.
+    // Discover only that managed root; external absolute paths gain no authority.
+    const existingScratch =
+      context && !context.cwd && !params.purpose && trace?.topicId
+        ? await getExistingScratchWorkspace(
+            trace.topicId,
+            path.join(this.app.appStoragePath, 'scratch-workspaces'),
+          ).catch(() => undefined)
+        : undefined;
     if (
       context &&
       !context.cwd &&
       !params.purpose &&
-      toolNeedsDefaultCwd(params.apiName, params.args)
+      toolNeedsDefaultCwd(params.apiName, params.args, existingScratch?.root)
     ) {
       if (
         !trace?.topicId ||
@@ -383,6 +430,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
       context,
       trace,
       params.purpose,
+      signal,
     );
     const commandFailed =
       result.state &&
@@ -567,12 +615,125 @@ export default class GatewayConnectionCtr extends ControllerModule {
     return runDeviceRpc(method, params, this.deviceControlDeps);
   }
 
+  private attachmentShellPaths = new Map<string, { path: string; id: string }>();
+
   private async executeToolCall(
     apiName: string,
     args: unknown,
     executionContext?: GatewayToolCallExecutionContext,
     trace?: ExecutionBoundaryTrace,
     purpose?: 'skill-command' | 'skill-script',
+    signal?: AbortSignal,
+  ): Promise<BuiltinServerRuntimeOutput> {
+    const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
+    const input = (args ?? {}) as Record<string, unknown>;
+    const shellKey = (id: unknown) => JSON.stringify([trace?.deviceId, trace?.topicId, id]);
+    let attachment = this.attachmentShellPaths.get(shellKey(input.shell_id));
+    let resolvedArgs = args;
+    if (input.attachmentId !== undefined) {
+      if (
+        typeof input.attachmentId !== 'string' ||
+        input.path !== undefined ||
+        purpose ||
+        !executionContext ||
+        !trace?.topicId ||
+        !trace.operationId ||
+        !trace.toolCallId ||
+        trace.deviceId !== this.service.getDeviceId() ||
+        ![
+          'readFile',
+          'inspectOfficeDocument',
+          'readOfficeDocument',
+          'validateOfficeDocument',
+          'batchOfficeDocument',
+          'mergeOfficeTemplate',
+          'runCommand',
+        ].includes(normalized)
+      )
+        return { success: false, content: 'INVALID_ATTACHMENT_TOOL_REQUEST' };
+      try {
+        const prepared = await prepareLocalAttachmentById(
+          path.join(this.app.appStoragePath, 'scratch-workspaces'),
+          trace.deviceId,
+          trace.topicId,
+          input.attachmentId,
+        );
+        attachment = { path: prepared.path, id: input.attachmentId };
+        const { attachmentId: _id, ...rest } = input;
+        resolvedArgs = normalized === 'runCommand' ? rest : { ...rest, path: prepared.path };
+      } catch {
+        // Never serialize device index/source paths from filesystem errors.
+        return {
+          success: false,
+          content: 'ATTACHMENT_NOT_AVAILABLE: select the file again in this conversation.',
+        };
+      }
+    }
+    const attachments = attachment ? [attachment] : [];
+    const redact = (value: unknown): unknown => {
+      if (attachments.length === 0) return value;
+      if (typeof value === 'string') {
+        // Replace full paths before shared parent directories, so a multi-file
+        // read keeps each attachment's own identity.
+        const paths = attachments
+          .flatMap(({ path: filename, id }) =>
+            [filename, path.dirname(filename), path.dirname(path.dirname(filename))].map(
+              (candidate) => ({ candidate, id }),
+            ),
+          )
+          .sort((a, b) => b.candidate.length - a.candidate.length);
+        let result = value;
+        for (const { candidate, id } of paths)
+          for (const variant of new Set([
+            candidate,
+            JSON.stringify(candidate).slice(1, -1),
+            encodeURI(candidate),
+            encodeURIComponent(candidate),
+          ]))
+            result = result.split(variant).join(`attachment:${id}`);
+        return result;
+      }
+      if (Array.isArray(value)) return value.map(redact);
+      if (value instanceof Error) return { name: value.name, message: redact(value.message) };
+      if (value && typeof value === 'object')
+        return Object.fromEntries(
+          Object.entries(value).map(([key, entry]) => [key, redact(entry)]),
+        );
+      return value;
+    };
+    try {
+      const result = await this.executeResolvedToolCall(
+        apiName,
+        resolvedArgs,
+        executionContext,
+        trace,
+        purpose,
+        signal,
+        normalized === 'runCommand' ? attachment?.path : undefined,
+        (resolved) => attachments.push(resolved),
+      );
+      const state = result.state as { commandId?: string } | undefined;
+      if (attachment && state?.commandId)
+        this.attachmentShellPaths.set(shellKey(state.commandId), attachment);
+      return redact(result) as BuiltinServerRuntimeOutput;
+    } catch (error) {
+      if (attachments.length === 0) throw error;
+      return {
+        success: false,
+        content: String(redact(error instanceof Error ? error.message : String(error))),
+      };
+    }
+  }
+
+  private async executeResolvedToolCall(
+    apiName: string,
+    args: unknown,
+    executionContext?: GatewayToolCallExecutionContext,
+    trace?: ExecutionBoundaryTrace,
+    purpose?: 'skill-command' | 'skill-script',
+    signal?: AbortSignal,
+    attachmentPath?: string,
+    onAttachmentResolved?: (attachment: { path: string; id: string }) => void,
   ): Promise<BuiltinServerRuntimeOutput> {
     const runtime = this.getLocalSystemRuntime();
     const normalized = LEGACY_API_ALIASES[apiName] ?? apiName;
@@ -585,19 +746,87 @@ export default class GatewayConnectionCtr extends ControllerModule {
           env: await this.app.getService(ExecutionEnvService).resolve(executionContext.envRef),
         }
       : executionContext;
-    if (resolvedExecutionContext && purpose) {
+    if (attachmentPath && resolvedExecutionContext)
+      resolvedExecutionContext = {
+        ...resolvedExecutionContext,
+        env: { ...resolvedExecutionContext.env, ATTACHMENT_FILE: attachmentPath },
+      };
+    const requestedSkillDir = executionContext?.env?.SKILL_DIR;
+    if (
+      resolvedExecutionContext &&
+      (purpose || (normalized === 'runCommand' && typeof requestedSkillDir === 'string'))
+    ) {
       const workspaceDir =
         resolvedExecutionContext.workspaceRootPath ?? resolvedExecutionContext.cwd;
+      const skillDirectory =
+        typeof requestedSkillDir === 'string'
+          ? requestedSkillDir
+          : purpose === 'skill-script'
+            ? resolvedExecutionContext.cwd
+            : undefined;
+      if (skillDirectory && workspaceDir)
+        await this.executeDeviceRpc('verifySkillPaths', {
+          skillDir: skillDirectory,
+          workspaceRoot: workspaceDir,
+        });
       resolvedExecutionContext = {
         ...resolvedExecutionContext,
         env: {
           ...resolvedExecutionContext.env,
-          ...(purpose === 'skill-script' && resolvedExecutionContext.cwd
-            ? { SKILL_DIR: resolvedExecutionContext.cwd }
-            : {}),
+          ...(skillDirectory ? { SKILL_DIR: skillDirectory } : {}),
           ...(workspaceDir ? { WORKSPACE_DIR: workspaceDir } : {}),
         },
       };
+    }
+    // Only device-owned, version-checked attachment copies receive a precise
+    // read grant. A renderer path or a parent directory is never sufficient.
+    if (
+      resolvedExecutionContext &&
+      trace?.topicId &&
+      trace.operationId &&
+      [
+        'readFile',
+        'readFiles',
+        'inspectOfficeDocument',
+        'readOfficeDocument',
+        'validateOfficeDocument',
+        'batchOfficeDocument',
+        'mergeOfficeTemplate',
+      ].includes(normalized)
+    ) {
+      const input = args as { path?: unknown; paths?: unknown[] };
+      const candidates = normalized === 'readFiles' ? (input.paths ?? []) : [input.path];
+      for (const candidate of candidates) {
+        if (
+          typeof candidate !== 'string' ||
+          !candidate.includes(`${path.sep}.attachments${path.sep}`)
+        )
+          continue;
+        const attachment = await validatePreparedLocalAttachment(
+          path.join(this.app.appStoragePath, 'scratch-workspaces'),
+          this.app.getService(GatewayConnectionService).getDeviceId(),
+          trace.topicId,
+          candidate,
+        ).catch(() => undefined);
+        if (!attachment) continue;
+        onAttachmentResolved?.({ path: attachment.path, id: attachment.ref.attachmentId });
+        resolvedExecutionContext = {
+          ...resolvedExecutionContext,
+          accessRoots: [
+            ...(resolvedExecutionContext.accessRoots ?? []),
+            {
+              target: 'file',
+              rootPath: attachment.path,
+              modes: ['read'],
+              scope: 'operation',
+              source: 'user-approval',
+              operationId: trace.operationId,
+              deviceId: trace.deviceId,
+              topicId: trace.topicId,
+            },
+          ],
+        };
+      }
     }
     let prepared: PreparedToolCallExecution;
     try {
@@ -646,14 +875,24 @@ export default class GatewayConnectionCtr extends ControllerModule {
       throw error;
     }
     args = prepared.args;
+    const executionStartedAt = performance.now();
     const finish = (output: BuiltinServerRuntimeOutput): BuiltinServerRuntimeOutput => {
-      if (prepared.scopeAudit.length === 0 && prepared.warnings.length === 0) return output;
+      const measure = normalized.endsWith('OfficeDocument') || normalized === 'writeFile';
+      if (!measure && prepared.scopeAudit.length === 0 && prepared.warnings.length === 0)
+        return output;
       return {
         ...output,
         state: {
           ...(typeof output.state === 'object' && output.state
             ? output.state
             : { result: output.state }),
+          ...(measure && {
+            executionMetrics: {
+              durationMs: Math.round((performance.now() - executionStartedAt) * 100) / 100,
+              outputBytes: Buffer.byteLength(output.content ?? '', 'utf8'),
+              toolName: normalized,
+            },
+          }),
           scopeAudit: prepared.scopeAudit,
           workspaceWarnings: prepared.warnings,
         },
@@ -667,6 +906,30 @@ export default class GatewayConnectionCtr extends ControllerModule {
     // (`limit`, `run_in_background`, etc.), and the same casts exist in the
     // renderer-side `LocalSystemExecutor`.
     switch (normalized) {
+      case 'prepareProjectSkillSnapshot':
+      case 'createProjectSkill':
+      case 'updateProjectSkill':
+      case 'renameProjectSkill':
+      case 'deleteProjectSkill':
+      case 'validateProjectSkill':
+      case 'packProjectSkill': {
+        try {
+          const result = await this.executeDeviceRpc(normalized, args);
+          const valid =
+            normalized !== 'validateProjectSkill' ||
+            (result as { valid?: boolean })?.valid === true;
+          const content =
+            normalized === 'packProjectSkill'
+              ? `Packed project skill (${(result as { size: number }).size} bytes).`
+              : JSON.stringify(result ?? { success: true });
+          return finish({ content, state: { result }, success: valid });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
       case 'listFiles': {
         const p = args as ListLocalFileParams;
         return finish(
@@ -679,6 +942,49 @@ export default class GatewayConnectionCtr extends ControllerModule {
         );
       }
 
+      case 'batchOfficeDocument':
+      case 'mergeOfficeTemplate':
+      case 'validateOfficeDocument': {
+        try {
+          const state =
+            normalized === 'batchOfficeDocument'
+              ? await batchOfficeDocument(args as unknown as OfficeBatchParams)
+              : normalized === 'mergeOfficeTemplate'
+                ? await mergeOfficeTemplate(args as unknown as OfficeTemplateParams)
+                : await validateOfficeDocument(args as unknown as OfficeReadParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+      case 'createOfficeDocument': {
+        try {
+          const state = await createOfficeDocument(args as unknown as CreateSpreadsheetParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+      case 'inspectOfficeDocument':
+      case 'readOfficeDocument': {
+        try {
+          const state = await (
+            normalized === 'inspectOfficeDocument' ? inspectOfficeDocument : readOfficeDocument
+          )(args as unknown as OfficeReadParams, { signal });
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
       case 'readFile': {
         const p = args as LocalReadFileParams;
         return finish(

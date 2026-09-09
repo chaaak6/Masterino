@@ -4,7 +4,6 @@ import { validateVideoFileSize } from '@lobechat/utils/client';
 import type { IconProps } from '@lobehub/ui';
 import { Icon, Popover, Tag } from '@lobehub/ui';
 import { GlobeOffIcon, SkillsIcon } from '@lobehub/ui/icons';
-import { Upload } from 'antd';
 import { css, cssVar, cx } from 'antd-style';
 import {
   Brain,
@@ -57,15 +56,6 @@ import { useControls as useKnowledgeControls } from '../Knowledge/useControls';
 import { useMemoryEnabled } from '../Memory/useMemoryEnabled';
 import { useControls as useToolsControls } from '../Tools/useControls';
 import { warnUnsupportedVisualUpload } from '../visualUploadGuard';
-
-const hotArea = css`
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-color: transparent;
-  }
-`;
 
 const activeLabel = css`
   display: flex;
@@ -294,8 +284,10 @@ const PlusAction = memo(() => {
   const agentId = useAgentId();
   const { updateAgentChatConfig } = useUpdateAgentConfig();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const upload = useFileStore((s) => s.uploadChatFiles);
+  const topicId = useChatInputStore((s) => s.topicId);
   const { enableKnowledgeBase, enableMemory } = useServerConfigStore(featureFlagsSelectors);
   const enableGatewayMode = useServerConfigStore(serverConfigSelectors.enableGatewayMode);
   const defaultDisableGatewayMode = useUserStore(
@@ -465,45 +457,12 @@ const PlusAction = memo(() => {
 
     const skillMenuItems = stripPopoverContent(skillItems as ActionDropdownMenuItems);
 
-    const warnIfUnsupportedVisualUpload = (file: File) =>
-      warnUnsupportedVisualUpload(file, {
-        canUploadImage,
-        canUploadVideo,
-        warning: (content) => message.warning(content),
-        warningText: t('upload.clientMode.visionNotSupported'),
-      });
-
     const uploadItems: ActionDropdownMenuItems = [
       {
-        closeOnClick: false,
-        // Match the 20px file/library icons below so the label lines up with those rows.
         icon: <Icon icon={FileUp} size={20} />,
         key: 'upload-file-or-image',
-        label: (
-          <Upload
-            multiple
-            showUploadList={false}
-            beforeUpload={async (file) => {
-              if (warnIfUnsupportedVisualUpload(file)) return false;
-              const validation = validateVideoFileSize(file);
-              if (!validation.isValid) {
-                message.error(
-                  t('upload.validation.videoSizeExceeded', {
-                    actualSize: validation.actualSize,
-                    maxSize: validation.maxSize,
-                  }),
-                );
-                return false;
-              }
-              setDropdownOpen(false);
-              editor?.focus();
-              await upload([file], agentId);
-              return false;
-            }}
-          >
-            <div className={cx(hotArea)}>{t('upload.action.fileOrImageUpload')}</div>
-          </Upload>
-        ),
+        label: t('upload.action.fileOrImageUpload'),
+        onClick: () => fileInputRef.current?.click(),
       },
     ];
 
@@ -682,10 +641,6 @@ const PlusAction = memo(() => {
   }, [
     activeSearchOption,
     activeWorkspaceId,
-    agentId,
-    canUploadImage,
-    canUploadVideo,
-    editor,
     enableFC,
     enableGatewayMode,
     enableKnowledgeBase,
@@ -714,7 +669,6 @@ const PlusAction = memo(() => {
     skillItems,
     skillMarketFooter,
     skillMarketHeader,
-    upload,
     userMemoryConsent,
   ]);
 
@@ -732,6 +686,41 @@ const PlusAction = memo(() => {
           placement: 'topLeft',
         }}
         onOpenChange={setDropdownOpen}
+      />
+      <input
+        hidden
+        multiple
+        aria-label={t('upload.action.fileOrImageUpload')}
+        ref={fileInputRef}
+        type="file"
+        onChange={async (event) => {
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = '';
+          setDropdownOpen(false);
+          editor?.focus();
+          for (const file of files) {
+            if (
+              warnUnsupportedVisualUpload(file, {
+                canUploadImage,
+                canUploadVideo,
+                warning: (content) => message.warning(content),
+                warningText: t('upload.clientMode.visionNotSupported'),
+              })
+            )
+              continue;
+            const validation = validateVideoFileSize(file);
+            if (!validation.isValid) {
+              message.error(
+                t('upload.validation.videoSizeExceeded', {
+                  actualSize: validation.actualSize,
+                  maxSize: validation.maxSize,
+                }),
+              );
+              continue;
+            }
+            await upload([file], agentId, topicId);
+          }
+        }}
       />
       {skillEditPluginDrawer}
     </>

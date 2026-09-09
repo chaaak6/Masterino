@@ -10,17 +10,20 @@ describe('SkillResolver', () => {
     {
       content: '<artifacts_guide>...</artifacts_guide>',
       description: 'Generate artifacts',
+      key: 'builtin:artifacts',
       identifier: 'artifacts',
       name: 'Artifacts',
     },
     {
       content: '<agent_browser_guides>...</agent_browser_guides>',
       description: 'Browser automation',
+      key: 'builtin:agent-browser',
       identifier: 'agent-browser',
       name: 'Agent Browser',
     },
     {
       description: 'Masterino management',
+      key: 'builtin:lobehub-cli',
       identifier: 'lobehub-cli',
       name: 'Masterino CLI',
     },
@@ -60,7 +63,13 @@ describe('SkillResolver', () => {
       skills: baseSkills,
     };
     const delta: StepSkillDelta = {
-      activatedSkills: [{ content: 'step-injected content', identifier: 'agent-browser' }],
+      activatedSkills: [
+        {
+          content: 'step-injected content',
+          key: 'builtin:agent-browser',
+          identifier: 'agent-browser',
+        },
+      ],
     };
 
     const resolved = resolver.resolve(operationSkillSet, delta);
@@ -76,7 +85,12 @@ describe('SkillResolver', () => {
       skills: baseSkills,
     };
     const accumulated: ActivatedStepSkill[] = [
-      { activatedAtStep: 1, content: 'accumulated content', identifier: 'lobehub-cli' },
+      {
+        activatedAtStep: 1,
+        content: 'accumulated content',
+        key: 'builtin:lobehub-cli',
+        identifier: 'lobehub-cli',
+      },
     ];
 
     const resolved = resolver.resolve(operationSkillSet, emptyDelta, accumulated);
@@ -92,9 +106,11 @@ describe('SkillResolver', () => {
       skills: baseSkills,
     };
     const delta: StepSkillDelta = {
-      activatedSkills: [{ identifier: 'agent-browser' }],
+      activatedSkills: [{ key: 'builtin:agent-browser', identifier: 'agent-browser' }],
     };
-    const accumulated: ActivatedStepSkill[] = [{ activatedAtStep: 0, identifier: 'lobehub-cli' }];
+    const accumulated: ActivatedStepSkill[] = [
+      { activatedAtStep: 0, key: 'builtin:lobehub-cli', identifier: 'lobehub-cli' },
+    ];
 
     const resolved = resolver.resolve(operationSkillSet, delta, accumulated);
 
@@ -107,7 +123,9 @@ describe('SkillResolver', () => {
       skills: baseSkills,
     };
     const delta: StepSkillDelta = {
-      activatedSkills: [{ content: 'overridden', identifier: 'artifacts' }],
+      activatedSkills: [
+        { content: 'overridden', key: 'builtin:artifacts', identifier: 'artifacts' },
+      ],
     };
 
     const resolved = resolver.resolve(operationSkillSet, delta);
@@ -123,10 +141,17 @@ describe('SkillResolver', () => {
       skills: baseSkills,
     };
     const accumulated: ActivatedStepSkill[] = [
-      { activatedAtStep: 0, content: 'from-accumulated', identifier: 'artifacts' },
+      {
+        activatedAtStep: 0,
+        content: 'from-accumulated',
+        key: 'builtin:artifacts',
+        identifier: 'artifacts',
+      },
     ];
     const delta: StepSkillDelta = {
-      activatedSkills: [{ content: 'from-delta', identifier: 'artifacts' }],
+      activatedSkills: [
+        { content: 'from-delta', key: 'builtin:artifacts', identifier: 'artifacts' },
+      ],
     };
 
     const resolved = resolver.resolve(operationSkillSet, delta, accumulated);

@@ -29,14 +29,8 @@ export class ActivatorExecutionRuntime {
   }
 
   async activateSkill(args: ActivateSkillParams): Promise<BuiltinServerRuntimeOutput> {
-    if (!this.service.activateSkill) {
-      return {
-        content: 'Skill activation is not available.',
-        success: false,
-      };
-    }
-
-    return this.service.activateSkill(args);
+    void args;
+    return { content: 'Use lobe-skills.activateSkill to activate a skill.', success: false };
   }
 
   async activateTools(args: ActivateToolsParams): Promise<BuiltinServerRuntimeOutput> {
@@ -68,26 +62,7 @@ export class ActivatorExecutionRuntime {
       const foundIdentifiers = new Set(manifests.map((m) => m.identifier));
       const notFoundAsTools = toActivate.filter((id) => !foundIdentifiers.has(id));
 
-      // Fallback: try activating not-found identifiers as skills
-      const activatedSkillResults: BuiltinServerRuntimeOutput[] = [];
-      const notFound: string[] = [];
-
-      if (notFoundAsTools.length > 0 && this.service.activateSkill) {
-        for (const id of notFoundAsTools) {
-          try {
-            const skillResult = await this.service.activateSkill({ name: id });
-            if (skillResult.success) {
-              activatedSkillResults.push(skillResult);
-            } else {
-              notFound.push(id);
-            }
-          } catch {
-            notFound.push(id);
-          }
-        }
-      } else {
-        notFound.push(...notFoundAsTools);
-      }
+      const notFound = notFoundAsTools;
 
       const activatedTools: ActivatedToolInfo[] = manifests.map((m) => ({
         apiCount: m.apiDescriptions.length,
@@ -120,12 +95,6 @@ export class ActivatorExecutionRuntime {
         }
       }
 
-      if (activatedSkillResults.length > 0) {
-        for (const skillResult of activatedSkillResults) {
-          parts.push(skillResult.content);
-        }
-      }
-
       if (alreadyActiveList.length > 0) {
         parts.push(`\nAlready active: ${alreadyActiveList.join(', ')}`);
       }
@@ -137,12 +106,11 @@ export class ActivatorExecutionRuntime {
       return {
         content: parts.join('\n'),
         state: {
-          activatedSkills: activatedSkillResults.map((r) => r.state),
           activatedTools,
           alreadyActive: alreadyActiveList,
           notFound,
         },
-        success: true,
+        success: activatedTools.length > 0 || alreadyActiveList.length > 0,
       };
     } catch (e) {
       return {

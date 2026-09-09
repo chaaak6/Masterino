@@ -1,3 +1,4 @@
+import type { BuiltinToolContext } from '@lobechat/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { localSystemExecutor } from './index';
@@ -22,6 +23,38 @@ vi.mock('@/services/electron/gatewayConnection', () => ({
 describe('LocalSystemExecutor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('passes the Runtime signal only for cancellable Office reads', async () => {
+    executeLocalToolCallMock.mockResolvedValue({ content: 'ok', success: true });
+    const signal = new AbortController().signal;
+    const ctx: BuiltinToolContext = {
+      agentId: 'agent-1',
+      messageId: 'message-1',
+      topicId: 'topic-1',
+      operationId: 'operation-1',
+      toolCallId: 'call-1',
+      signal,
+      executionContext: {
+        version: 1,
+        plan: { kind: 'device', target: 'local', deviceId: 'device-1' },
+        cwd: '/workspace',
+      },
+    };
+    await localSystemExecutor.readOfficeDocument({ path: 'data.xlsx' }, ctx);
+    expect(executeLocalToolCallMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ apiName: 'readOfficeDocument' }),
+      { signal },
+    );
+    await localSystemExecutor.inspectOfficeDocument({ path: 'data.xlsx' }, ctx);
+    expect(executeLocalToolCallMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ apiName: 'inspectOfficeDocument' }),
+      { signal },
+    );
+    await localSystemExecutor.batchOfficeDocument({ path: 'data.xlsx' }, ctx);
+    expect(executeLocalToolCallMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ apiName: 'batchOfficeDocument' }),
+    );
   });
 
   describe('globFiles', () => {

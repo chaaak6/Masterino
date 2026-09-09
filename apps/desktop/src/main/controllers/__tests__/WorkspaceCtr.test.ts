@@ -114,14 +114,14 @@ describe('WorkspaceCtr', () => {
   });
 
   describe('listProjectSkills', () => {
-    it('returns the first source with skills (.agents/skills wins) and ignores .claude', async () => {
+    it('merges both sources while keeping .agents first', async () => {
       await createSkill('.agents/skills', 'alpha', 'A');
       await createSkill('.claude/skills', 'ignored', 'Ignored');
 
       const result = await workspaceCtr.listProjectSkills({ scope: projectRoot });
 
       expect(result.source).toBe('.agents/skills');
-      expect(result.skills.map((s) => s.name)).toEqual(['alpha']);
+      expect(result.skills.map((s) => s.name)).toEqual(['alpha', 'ignored']);
     });
 
     it('returns empty + null source when no skills exist', async () => {

@@ -53,7 +53,7 @@ describe('desktopSkillRuntimeService', () => {
     });
 
     const result = await desktopSkillRuntimeService.resolveExecutionDirectory([
-      { id: 'skill-1', name: 'demo-skill' },
+      { id: 'skill-1', name: 'demo-skill', resourceVersion: 'zip-hash-1' },
     ]);
 
     expect(getByIdMock).toHaveBeenCalledWith('skill-1');
@@ -65,7 +65,7 @@ describe('desktopSkillRuntimeService', () => {
     expect(result).toBe('/tmp/demo-skill');
   });
 
-  it('should fall back to skill name when config id is not a persisted skill id', async () => {
+  it('does not fall back to a same-name skill when the persisted ID is missing', async () => {
     getByIdMock.mockResolvedValue(undefined);
     getByNameMock.mockResolvedValue({
       id: 'skill-1',
@@ -87,9 +87,9 @@ describe('desktopSkillRuntimeService', () => {
     ]);
 
     expect(getByIdMock).toHaveBeenCalledWith('lobe-skills-run-0');
-    expect(getByNameMock).toHaveBeenCalledWith('demo-skill');
-    expect(getZipUrlMock).toHaveBeenCalledWith('skill-1');
-    expect(result).toBe('/tmp/demo-skill');
+    expect(getByNameMock).not.toHaveBeenCalled();
+    expect(getZipUrlMock).not.toHaveBeenCalled();
+    expect(result).toBeUndefined();
   });
 
   it('should return undefined when the skill has no packaged zip', async () => {
@@ -109,7 +109,7 @@ describe('desktopSkillRuntimeService', () => {
   });
 
   it('should resolve the full local path for a referenced skill resource', async () => {
-    getByNameMock.mockResolvedValue({
+    getByIdMock.mockResolvedValue({
       id: 'skill-1',
       name: 'demo-skill',
       zipFileHash: 'zip-hash-1',
@@ -126,7 +126,7 @@ describe('desktopSkillRuntimeService', () => {
 
     const result = await desktopSkillRuntimeService.resolveReferenceFullPath({
       path: 'docs/bazi.py',
-      skillName: 'demo-skill',
+      skillId: 'skill-1',
     });
 
     expect(resolveSkillResourcePathMock).toHaveBeenCalledWith({
@@ -137,3 +137,18 @@ describe('desktopSkillRuntimeService', () => {
     expect(result).toBe('/tmp/demo-skill/docs/bazi.py');
   });
 });
+
+it.each([undefined, 'old-hash'])(
+  'rejects stale or unversioned activation before preparing a ZIP: %s',
+  async (resourceVersion) => {
+    vi.clearAllMocks();
+    getByIdMock.mockResolvedValue({ id: 'skill-1', name: 'demo-skill', zipFileHash: 'new-hash' });
+    await expect(
+      desktopSkillRuntimeService.resolveExecutionDirectory([
+        { id: 'skill-1', name: 'demo-skill', resourceVersion },
+      ]),
+    ).rejects.toThrow('SKILL_RESOURCE_VERSION_CHANGED');
+    expect(getZipUrlMock).not.toHaveBeenCalled();
+    expect(prepareSkillDirectoryMock).not.toHaveBeenCalled();
+  },
+);

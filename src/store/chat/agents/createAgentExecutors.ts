@@ -679,7 +679,11 @@ export const createAgentExecutors = (context: {
           groupId,
           messages,
           model: llmPayload.model,
-          operationSkills: context.operationSkills,
+          operationSkills: context.operationSkills?.map((skill) => {
+            const activation = state.activatedStepSkills?.find((item) => item.key === skill.key);
+            return activation ? { ...skill, activated: true, content: activation.content } : skill;
+          }),
+          executionContext: state.metadata?.executionContext,
           provider: llmPayload.provider,
           resolvedAgentConfig,
           topicId: topicId ?? undefined,
@@ -1081,6 +1085,27 @@ export const createAgentExecutors = (context: {
         const updatedMessages = context.get().dbMessagesMap[context.messageKey] || [];
 
         const newState = { ...state, messages: updatedMessages };
+        if (
+          result.success &&
+          chatToolPayload.identifier === 'lobe-skills' &&
+          chatToolPayload.apiName === 'activateSkill'
+        ) {
+          const activation = result.state as { id?: string; content?: string } | undefined;
+          const skill = context.operationSkills?.find(
+            (candidate) => candidate.key === activation?.id,
+          );
+          if (skill) {
+            newState.activatedStepSkills = [
+              ...(state.activatedStepSkills ?? []).filter((item) => item.key !== skill.key),
+              {
+                key: skill.key,
+                identifier: skill.identifier,
+                content: result.content,
+                activatedAtStep: state.stepCount,
+              },
+            ];
+          }
+        }
 
         // Get tool unit price
         const toolCost = TOOL_PRICING[toolName] || 0;

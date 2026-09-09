@@ -29,6 +29,7 @@ import {
   type RunSubAgentResult,
   type RuntimeInitialContext,
   type UIChatMessage,
+  type WorkingModel,
 } from '@lobechat/types';
 import type { ModelCatalogSnapshot } from '@lobechat/types/src/modelCatalog';
 import type { SkillProviderContext, WorkspaceRef } from '@lobechat/types/src/projectWorkspace';
@@ -42,7 +43,7 @@ import {
 } from '@/helpers/executionContext/pathConsent';
 import { createAgentToolsEngine } from '@/helpers/toolEngineering';
 import { aiAgentService } from '@/services/aiAgent';
-import { isCanUseVideo, isCanUseVision } from '@/services/chat/helper';
+import { isCanUseVideo } from '@/services/chat/helper';
 import { type ResolvedAgentConfig } from '@/services/chat/mecha';
 import { composeEnabledTools, resolveAgentConfig } from '@/services/chat/mecha';
 import { resolveClientSkills } from '@/services/chat/mecha/skillEngineering';
@@ -155,6 +156,7 @@ export class StreamingExecutorActionImpl {
     subAgentId: paramSubAgentId,
     isSubAgent,
     workingDirectory: operationWorkingDirectory,
+    workingModel,
   }: {
     messages: UIChatMessage[];
     parentMessageId: string;
@@ -172,6 +174,8 @@ export class StreamingExecutorActionImpl {
      */
     subAgentId?: string;
     isSubAgent?: boolean;
+    /** Model selected when the user submitted, before persistence or route hydration. */
+    workingModel?: WorkingModel;
     /** Operation-frozen cwd; agent defaults are recommendations, never authority. */
     workingDirectory?: string;
   }): {
@@ -200,7 +204,7 @@ export class StreamingExecutorActionImpl {
     // This ensures runtime plugins (e.g., 'lobe-agent-builder' for Agent Builder) are included
     // - isSubAgent: filters out lobe-agent tool to prevent nested sub-agent creation
     // - disableTools: clears all plugins for broadcast scenarios
-    const agentConfig = resolveAgentConfig({
+    const resolvedAgentConfig = resolveAgentConfig({
       agentId: effectiveAgentId || '',
       disableTools, // Clear plugins for broadcast scenarios
       groupId, // Pass groupId for supervisor detection
@@ -208,6 +212,12 @@ export class StreamingExecutorActionImpl {
       scope, // Pass scope from operation context
     });
 
+    const agentConfig = workingModel
+      ? {
+          ...resolvedAgentConfig,
+          agentConfig: { ...resolvedAgentConfig.agentConfig, ...workingModel },
+        }
+      : resolvedAgentConfig;
     const { agentConfig: agentConfigData, plugins: pluginIds } = agentConfig;
     const selectedToolIds = initialContext?.initialContext?.selectedTools?.map(
       (tool) => tool.identifier,
@@ -219,6 +229,32 @@ export class StreamingExecutorActionImpl {
       );
     }
 
+    const stateOperationId = operationId ?? agentId;
+    const existingSnapshot = initialState?.metadata?.modelCatalogSnapshot as
+      | ModelCatalogSnapshot
+      | undefined;
+    const modelCatalogSnapshot =
+      existingSnapshot?.operationId === stateOperationId &&
+      existingSnapshot.entry.modelId === agentConfigData.model &&
+      existingSnapshot.entry.providerId === agentConfigData.provider!
+        ? existingSnapshot
+        : resolveClientModelCatalogSnapshot(
+            agentConfigData.model,
+            agentConfigData.provider!,
+            stateOperationId,
+          );
+
+    const latestUserMessage = messages.findLast((message) => message.role === 'user');
+    const hasCurrentImages =
+      !!latestUserMessage?.imageList?.length ||
+      !!latestUserMessage?.attachments?.items.some((attachment) =>
+        attachment.mime.startsWith('image/'),
+      );
+
+    if (hasCurrentImages && modelCatalogSnapshot.entry.inputModalities.image !== 'supported') {
+      throw new Error('当前模型不支持图片，请切换支持视觉的模型后重试。');
+    }
+
     // Dynamically inject turn-scoped builtin tools.
     const hasTopicReference = messages.some((m) => hasReferTopicNode(m.editorData));
     const visualMediaAvailability = getVisualMediaAvailability(messages);
@@ -227,10 +263,8 @@ export class StreamingExecutorActionImpl {
       !!serverConfigState && serverConfigSelectors.enableVisualUnderstanding(serverConfigState);
     const shouldEnableVisualUnderstanding =
       visualUnderstandingConfigured &&
-      ((visualMediaAvailability.hasImages &&
-        !isCanUseVision(agentConfigData.model, agentConfigData.provider!)) ||
-        (visualMediaAvailability.hasVideos &&
-          !isCanUseVideo(agentConfigData.model, agentConfigData.provider!)));
+      visualMediaAvailability.hasVideos &&
+      !isCanUseVideo(agentConfigData.model, agentConfigData.provider!);
     const runtimePluginIds = [
       ...new Set([
         ...(pluginIds || []),
@@ -252,11 +286,51 @@ export class StreamingExecutorActionImpl {
       hasTopicReference,
     );
 
+    // Resolve the same topic execution evidence before exposing tools to the model.
+    const workspaceState = getProjectWorkspaceStoreState();
+    const topicState = topicId ? workspaceState.topicStatesById[topicId] : undefined;
+    const boundTopic = topicId ? topicSelectors.getTopicById(topicId)(this.#get()) : undefined;
+    const snapshot = topicState?.snapshot ?? boundTopic?.metadata?.executionSnapshot;
+    const workspace = topicState?.workspace;
+    const executionContext =
+      operation?.metadata?.executionContext ??
+      resolveFrozenClientExecutionContext({
+        agencyConfig: agentConfigData.agencyConfig,
+        chatConfig: agentConfigData.chatConfig,
+        isDesktop,
+        isHetero: !!agentConfigData.agencyConfig?.heterogeneousProvider,
+        operationId: operationId ?? 'initial',
+        snapshot,
+        requestedDeviceId:
+          snapshot?.boundDeviceId ??
+          workspace?.deviceId ??
+          agentConfigData.agencyConfig?.boundDeviceId,
+        topic: boundTopic
+          ? {
+              boundDeviceId: boundTopic.metadata?.boundDeviceId,
+              workingDirectory: boundTopic.metadata?.workingDirectory,
+              workspaceId: boundTopic.metadata?.workspaceId,
+            }
+          : undefined,
+        initialTopicMetadata:
+          !topicId && operationWorkingDirectory
+            ? { workingDirectory: operationWorkingDirectory }
+            : undefined,
+        topicId: topicId ?? undefined,
+        topicGrants: Object.values(workspaceState.grantsByTopicDevice).flat(),
+        workspaces: {
+          ...workspaceState.workspacesById,
+          ...(workspace?.id ? { [workspace.id]: workspace } : {}),
+        },
+        envFiles: workspace?.id ? workspaceState.workspacesById[workspace.id]?.envFiles : undefined,
+      });
     // Generate tools using ToolsEngine (centralized here, passed to chatService via agentConfig)
     // When disableTools is true (broadcast mode), skipDefaultTools prevents default tools from being added
     const toolsEngine = createAgentToolsEngine(
       { model: agentConfigData.model, provider: agentConfigData.provider! },
       effectivePluginIds,
+      executionContext,
+      agentConfigData,
     );
     // When skillActivateMode is 'manual':
     // Exclude only discovery tools (activator, skill-store) so runtime-managed defaults
@@ -318,14 +392,7 @@ export class StreamingExecutorActionImpl {
       provider: agentConfigData.provider!,
     };
 
-    const topicWorkspace = topicId
-      ? getProjectWorkspaceStoreState().topicStatesById[topicId]?.workspace
-      : undefined;
-    const topicWorkingDirectory = topicId
-      ? topicSelectors.getTopicById(topicId)(this.#get())?.metadata?.workingDirectory
-      : undefined;
-    const workingDirectory =
-      operationWorkingDirectory ?? topicWorkspace?.rootPath ?? topicWorkingDirectory;
+    const workingDirectory = executionContext.cwd;
 
     // Create initial state or use provided state
     const stateBase =
@@ -350,20 +417,6 @@ export class StreamingExecutorActionImpl {
         toolManifestMap,
         userInterventionConfig,
       });
-    const stateOperationId = operationId ?? agentId;
-    const existingSnapshot = stateBase.metadata?.modelCatalogSnapshot as
-      | ModelCatalogSnapshot
-      | undefined;
-    const modelCatalogSnapshot =
-      existingSnapshot?.operationId === stateOperationId &&
-      existingSnapshot.entry.modelId === modelRuntimeConfig.model &&
-      existingSnapshot.entry.providerId === modelRuntimeConfig.provider
-        ? existingSnapshot
-        : resolveClientModelCatalogSnapshot(
-            modelRuntimeConfig.model,
-            modelRuntimeConfig.provider,
-            stateOperationId,
-          );
     const existingCompressionSnapshot = stateBase.metadata?.compressionModelCatalogSnapshot as
       | ModelCatalogSnapshot
       | undefined;
@@ -385,6 +438,8 @@ export class StreamingExecutorActionImpl {
       ...stateBase,
       metadata: {
         ...stateBase.metadata,
+        executionContext,
+        workingDirectory,
         compressionModelCatalogSnapshot,
         contextBudget: {
           ...stateBase.metadata?.contextBudget,
@@ -525,6 +580,8 @@ export class StreamingExecutorActionImpl {
     skipCreateFirstMessage?: boolean;
     skillContext?: SkillProviderContext;
     isSubAgent?: boolean;
+    /** Model binding captured by the submitting conversation. */
+    workingModel?: WorkingModel;
     /** Cwd captured before persistence/runtime dispatch for this operation. */
     workingDirectory?: string;
   }): Promise<{ cost?: Cost; model?: string; provider?: string; usage?: Usage } | void> => {
@@ -653,8 +710,10 @@ export class StreamingExecutorActionImpl {
         subAgentId, // Pass subAgentId for agent config retrieval (behavior depends on scope)
         isSubAgent, // Pass isSubAgent to filter out lobe-agent tool in sub-agent context
         workingDirectory: params.workingDirectory,
+        workingModel: params.workingModel,
       });
 
+      frozenExecutionContext ??= initialAgentState.metadata?.executionContext;
       const projectWorkspaceState = getProjectWorkspaceStoreState();
       const topicWorkspaceState = topicId
         ? projectWorkspaceState.topicStatesById[topicId]
@@ -873,6 +932,19 @@ export class StreamingExecutorActionImpl {
       while (state.status !== 'done' && state.status !== 'error') {
         // Check if operation has been cancelled
         const currentOperation = this.#get().operations[operationId];
+        // Successful device execution may finalize this topic's lazy scratch
+        // binding. Carry that operation-owned context into the next model step.
+        const stepExecutionContext = currentOperation?.metadata.executionContext;
+        if (stepExecutionContext && stepExecutionContext !== state.metadata?.executionContext) {
+          state = {
+            ...state,
+            metadata: {
+              ...state.metadata,
+              executionContext: stepExecutionContext,
+              workingDirectory: stepExecutionContext.cwd,
+            },
+          };
+        }
         if (currentOperation?.status === 'cancelled') {
           log('[executeClientAgent] Operation cancelled, marking state as interrupted');
 

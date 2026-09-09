@@ -17,6 +17,7 @@ export interface StoreUpdaterProps extends Partial<PublicState> {
 const StoreUpdater = memo<StoreUpdaterProps>(
   ({
     agentId,
+    topicId,
     chatInputEditorRef,
     contextWindowMessages,
     draftKey,
@@ -38,6 +39,9 @@ const StoreUpdater = memo<StoreUpdaterProps>(
     const editor = useChatInputEditor();
 
     useStoreUpdater('agentId', agentId);
+    useEffect(() => {
+      storeApi.setState({ topicId });
+    }, [topicId, storeApi]);
     useStoreUpdater('contextWindowMessages', contextWindowMessages);
     useStoreUpdater('draftKey', draftKey);
     useStoreUpdater('mobile', mobile!);

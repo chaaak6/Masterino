@@ -1,0 +1,70 @@
+{
+  "attachmentRetained": true,
+  "capabilitySourceReadback": {
+    "models": [
+      {
+        "id": "deepseek-v4-flash",
+        "provider_id": "newapi",
+        "vision": false,
+        "input_modalities": {
+          "file": "unknown",
+          "text": "supported",
+          "audio": "unknown",
+          "image": "unsupported",
+          "video": "unsupported"
+        }
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg_Km9Hjz7sBjaMcW7sQj",
+        "role": "user",
+        "model": null,
+        "provider": null,
+        "attachmentMimes": ["image/png"],
+        "localImageCount": 1
+      },
+      {
+        "id": "msg_kgShTb5GJ5eXikDwTF",
+        "role": "assistant",
+        "model": "deepseek-v4-flash",
+        "provider": "newapi",
+        "attachmentMimes": [],
+        "localImageCount": 0
+      }
+    ]
+  },
+  "case": "HMR-only retest image then nonvision model",
+  "finalAcceptanceRepetition": false,
+  "followupFinding": "Diagnostic15 after full Electron restart proved selected/persisted Flash could differ from actual send Vision Exp. This historical run did not observe outbound model; its DB label must not be treated as actual provider request model.",
+  "implicitAgentSwitch": false,
+  "limitation": "Retest after HMR only; persisted client store actions might retain previous implementation. Hard reload retest pending. No reliable client versus gateway runtime evidence was available.",
+  "model": "deepseek-v4-flash",
+  "modelAnsweredImageCorrectly": true,
+  "provider": "newapi",
+  "runtimeReadback": {
+    "operations": [],
+    "messages": [
+      {
+        "id": "msg_Km9Hjz7sBjaMcW7sQj",
+        "role": "user",
+        "operation_id": null,
+        "execution_mode": null
+      },
+      {
+        "id": "msg_kgShTb5GJ5eXikDwTF",
+        "role": "assistant",
+        "operation_id": null,
+        "execution_mode": null
+      }
+    ]
+  },
+  "sendBlocked": false,
+  "status": "send_not_blocked",
+  "topic": "tpc_Fuw41gfP8Cke",
+  "versions": {
+    "server": "59eaba45",
+    "desktopMain": "59eaba45",
+    "renderer": "d0cd5d22+uncommitted canonical resolver changes"
+  }
+}

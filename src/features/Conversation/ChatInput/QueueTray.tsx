@@ -149,7 +149,7 @@ const QueueTray = memo(() => {
   // when the user clicks the pencil.
   const handleEdit = useCallback(
     (msg: QueuedMessage) => {
-      removeQueuedMessage(contextKey, msg.id);
+      removeQueuedMessage(contextKey, msg.id, { preserveAttachments: true });
       editor?.setDocument('markdown', msg.content);
       editor?.focus();
       if (msg.filesPreview?.length) {
@@ -173,7 +173,7 @@ const QueueTray = memo(() => {
         return op && AI_RUNTIME_OPERATION_TYPES.includes(op.type) && op.status === 'running';
       });
       if (runningOpId) chat.cancelOperation(runningOpId, 'send_now');
-      removeQueuedMessage(contextKey, msg.id);
+      removeQueuedMessage(contextKey, msg.id, { preserveAttachments: true });
 
       // Reconstruct UploadFileItem-shaped objects so the optimistic temp message
       // can rebuild imageList/videoList from the snapshotted preview metadata.

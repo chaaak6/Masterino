@@ -1,0 +1,24 @@
+{
+  "status": "pass",
+  "clientSha": "6f3c5bb6",
+  "serverSha": "6f3c5bb6",
+  "serverDigest": "sha256:62dcaedc077db486feeede841180efbf3434c796710d31259e7fb7bd451f40a9",
+  "electronSession": 28632,
+  "topic": "tpc_ebNNrWAPEVfO",
+  "skillKey": "project:pws_aQplj9bnXRcE:qa-identity",
+  "calls": [
+    {
+      "tool": "activateSkill",
+      "name": "project:pws_aQplj9bnXRcE:qa-identity"
+    },
+    {
+      "tool": "readReference",
+      "id": "project:pws_aQplj9bnXRcE:qa-identity",
+      "path": "references/marker.txt"
+    }
+  ],
+  "expectedAndObserved": "QA-project-agents-REFERENCE",
+  "rounds": 3,
+  "elapsedPersistedSeconds": 8.467,
+  "limits": "Project identity smoke, not a personal non-ZIP preselection UI fixture."
+}

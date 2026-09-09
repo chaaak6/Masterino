@@ -148,7 +148,12 @@ const rootCovers = (
   mode: PathAccessMode,
   credentialRead: boolean,
 ): boolean => {
-  if (!root.modes.includes(mode) || !isWithin(target, root.rootPath)) return false;
+  const matches =
+    root.target === 'file'
+      ? resolveAgainstCwd(target, undefined) === resolveAgainstCwd(root.rootPath, undefined)
+      : isWithin(target, root.rootPath);
+  if (!root.modes.includes(mode) || !matches || (root.target === 'file' && mode === 'exec'))
+    return false;
   if (root.scope === 'operation' && root.source === 'direct-user-message' && mode !== 'read') {
     return false;
   }

@@ -20,10 +20,10 @@ import { getToolStoreState } from '@/store/tool';
 
 const log = debug('context-engine:client-skill-registry');
 
-const buildDbSkillContent = (detail: SkillItem): string | undefined => {
+const buildDbSkillContent = (detail: SkillItem, skillKey: string): string | undefined => {
   if (!detail.content) return undefined;
   if (!detail.resources || Object.keys(detail.resources).length === 0) return detail.content;
-  return detail.content + '\n\n' + resourcesTreePrompt(detail.name, detail.resources);
+  return detail.content + '\n\n' + resourcesTreePrompt(skillKey, detail.resources);
 };
 
 const buildCredsContext = (userCreds?: UserCredSummary[]): UserCredsContext => ({
@@ -90,13 +90,14 @@ export const resolveClientSkillRegistry = async (
 
       const refs: SkillRef[] = [];
       for (const item of listItems) {
+        const key = `user:${item.identifier}`;
         let content: string | undefined;
         if (requested.has(item.identifier) && !item.zipFileHash) {
           try {
             const detail =
               toolState.agentSkillDetailMap?.[item.id] ??
               (await agentSkillService.getById(item.id));
-            if (detail) content = buildDbSkillContent(detail);
+            if (detail) content = buildDbSkillContent(detail, key);
           } catch (error) {
             log('Failed to load selected skill content %s: %O', item.identifier, error);
           }
@@ -106,7 +107,7 @@ export const resolveClientSkillRegistry = async (
           content,
           description: item.description ?? '',
           identifier: item.identifier,
-          key: `user:${item.identifier}`,
+          key,
           name: item.name,
           ownerId: context.userId,
           scope: 'personal',
@@ -117,11 +118,12 @@ export const resolveClientSkillRegistry = async (
 
       for (const detail of extraDetails) {
         if (!detail) continue;
+        const key = `user:${detail.identifier}`;
         refs.push({
-          content: detail.zipFileHash ? undefined : buildDbSkillContent(detail),
+          content: detail.zipFileHash ? undefined : buildDbSkillContent(detail, key),
           description: detail.description ?? '',
           identifier: detail.identifier,
-          key: `user:${detail.identifier}`,
+          key,
           name: detail.name,
           ownerId: context.userId,
           scope: 'personal',

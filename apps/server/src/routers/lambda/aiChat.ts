@@ -372,6 +372,7 @@ export const aiChatRouter = router({
             content: input.newUserMessage.content,
             editorData: input.newUserMessage.editorData,
             files: input.newUserMessage.files,
+            attachments: input.newUserMessage.attachments,
             groupId: input.groupId,
             metadata: userMessageMetadata,
             parentId,

@@ -74,6 +74,16 @@ describe('file operations', () => {
       expect(result.content).toContain('Error');
       expect(result.lineCount).toBe(0);
       expect(result.totalLineCount).toBe(0);
+      expect(result.error).toContain('Error');
+    });
+
+    it('reports the actual range for a tail read and an oversized end', async () => {
+      const filePath = path.join(tmpDir, 'tail.txt');
+      await writeFile(filePath, 'a\nb\nc\nd');
+      const result = await readLocalFile({ path: filePath, loc: [-2, 200] });
+      expect(result.content).toBe('c\nd');
+      expect(result.loc).toEqual([2, 4]);
+      expect(result.lineCount).toBe(2);
     });
 
     it('should detect file type from extension', async () => {

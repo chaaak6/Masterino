@@ -1,0 +1,110 @@
+{
+  "attachmentPreservation": "Retained in persisted user message, re-added with visible 加入输入 button; not retained in cleared composer.",
+  "case": "Image after model switch rejected, historical image re-added after supported-model switch",
+  "diagnosticConsole": [
+    {
+      "entry": "contextEngineering",
+      "operationId": null,
+      "model": "glm-5.2",
+      "provider": "newapi",
+      "imageListCount": 0,
+      "localImageMimeCount": 0,
+      "catalogImage": "unsupported"
+    },
+    {
+      "entry": "internal_createAgentState",
+      "operationId": "op_YHXvzCAV",
+      "model": "deepseek-v4-flash",
+      "provider": "newapi",
+      "imageListCount": 0,
+      "localImageMimeCount": 1,
+      "catalogImage": "unsupported"
+    },
+    {
+      "entry": "getChatCompletion-send",
+      "model": "glm-5.2",
+      "provider": "newapi"
+    },
+    {
+      "entry": "internal_createAgentState",
+      "operationId": "op_soRbi9zE",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "imageListCount": 0,
+      "localImageMimeCount": 1,
+      "catalogImage": "supported"
+    },
+    {
+      "entry": "contextEngineering",
+      "operationId": "op_7JYFMlrC",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "imageListCount": 0,
+      "localImageMimeCount": 1,
+      "catalogImage": "supported"
+    },
+    {
+      "entry": "getChatCompletion-send",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi"
+    }
+  ],
+  "limitations": [
+    "Historical 加入输入 then new send was tested; original assistant retry button not exercised.",
+    "This is mixed-version diagnostic, not final acceptance repetition."
+  ],
+  "messageSummaries": [
+    {
+      "role": "user",
+      "model": null,
+      "provider": null,
+      "outputChars": 11,
+      "attachmentPresent": true,
+      "usage": {}
+    },
+    {
+      "role": "assistant",
+      "model": "deepseek-v4-flash",
+      "provider": "newapi",
+      "outputChars": 3,
+      "attachmentPresent": false,
+      "usage": {}
+    },
+    {
+      "role": "user",
+      "model": null,
+      "provider": null,
+      "outputChars": 11,
+      "attachmentPresent": true,
+      "usage": {}
+    },
+    {
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "outputChars": 138,
+      "attachmentPresent": false,
+      "usage": {
+        "totalTokens": 21384,
+        "inputTextTokens": 21259,
+        "outputTextTokens": 91,
+        "totalInputTokens": 21259,
+        "totalOutputTokens": 125,
+        "inputCacheMissTokens": 21259,
+        "outputReasoningTokens": 34
+      }
+    }
+  ],
+  "nonVisionActualSendObserved": false,
+  "nonVisionGuardMessage": "当前模型不支持图片，请切换支持视觉的模型后重试。",
+  "provider": "newapi",
+  "recovery": "Selected Vision Exp, re-added same history image, resent same natural prompt, correct red/blue/green/yellow positions.",
+  "recoveryActualModel": "deepseek-v4-flash-vision-exp",
+  "sourceSha256": "6b0f9b2e21d1db7e8f904226b29c4cf2cb366edafc3623c5c53c8b7e3e8a09c6",
+  "status": "diagnostic_pass",
+  "topic": "tpc_MWXTfgELfUWx",
+  "versions": {
+    "server": "d0cd5d22",
+    "desktop": "d0cd5d22 + uncommitted selected-model binding, canonical resolver and diagnostic markers; full process restart"
+  }
+}

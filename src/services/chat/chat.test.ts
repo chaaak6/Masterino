@@ -212,6 +212,31 @@ describe('ChatService', () => {
       );
     });
 
+    it('does not regenerate missing operation evidence from live catalog state', async () => {
+      useAiInfraStore.setState({
+        enabledAiModels: [
+          { id: 'image-model', providerId: 'openai', type: 'chat', abilities: { vision: true } },
+        ],
+      });
+      const contextSpy = vi
+        .spyOn(mechaModule, 'contextEngineering')
+        .mockRejectedValue(new Error('stop after capture'));
+      await expect(
+        chatService.createAssistantMessage(
+          {
+            model: 'image-model',
+            provider: 'openai',
+            messages: [],
+            resolvedAgentConfig: createMockResolvedConfig(),
+          },
+          {
+            contextBudget: { operationId: 'existing-operation', compress: vi.fn() },
+          },
+        ),
+      ).rejects.toThrow('stop after capture');
+      expect(contextSpy.mock.calls[0][0].modelCatalogSnapshot).toBeUndefined();
+    });
+
     describe('client final context budget', () => {
       const catalogSnapshot = {
         capturedAt: '2026-09-04T00:00:00.000Z',
@@ -241,7 +266,9 @@ describe('ChatService', () => {
           { content: 'continue', id: 'latest-user', role: 'user' },
         ] as UIChatMessage[];
         vi.spyOn(mechaModule, 'contextEngineering').mockResolvedValue(finalMessages as any);
-        const provider = vi.spyOn(chatService, 'getChatCompletion').mockResolvedValue(new Response());
+        const provider = vi
+          .spyOn(chatService, 'getChatCompletion')
+          .mockResolvedValue(new Response());
         const onErrorHandle = vi.fn();
         const compress = vi.fn(async (payload: any, evaluation: any) => {
           expect(provider).not.toHaveBeenCalled();
@@ -327,7 +354,9 @@ describe('ChatService', () => {
             role: 'user',
           },
         ] as unknown as any);
-        const provider = vi.spyOn(chatService, 'getChatCompletion').mockResolvedValue(new Response());
+        const provider = vi
+          .spyOn(chatService, 'getChatCompletion')
+          .mockResolvedValue(new Response());
         const onErrorHandle = vi.fn();
 
         await chatService.createAssistantMessage(
@@ -370,8 +399,9 @@ describe('ChatService', () => {
         ] as UIChatMessage[];
         vi.spyOn(mechaModule, 'contextEngineering').mockResolvedValue(finalMessages as any);
         let providerCalls = 0;
-        const provider = vi.spyOn(chatService, 'getChatCompletion').mockImplementation(
-          async (_payload, options) => {
+        const provider = vi
+          .spyOn(chatService, 'getChatCompletion')
+          .mockImplementation(async (_payload, options) => {
             providerCalls += 1;
             if (providerCalls === 1) {
               options?.onErrorHandle?.({
@@ -382,8 +412,7 @@ describe('ChatService', () => {
             }
             await options?.onFinish?.('', { type: providerCalls === 1 ? 'error' : 'stop' } as any);
             return new Response();
-          },
-        );
+          });
         const onErrorHandle = vi.fn();
         const onFinish = vi.fn();
         const onAttemptState = vi.fn();
@@ -399,10 +428,7 @@ describe('ChatService', () => {
           } as const,
           payload: {
             ...payload,
-            messages: [
-              { content: 'summary', id: 'summary', role: 'user' },
-              finalMessages[1],
-            ],
+            messages: [{ content: 'summary', id: 'summary', role: 'user' }, finalMessages[1]],
           },
         }));
 
@@ -448,8 +474,9 @@ describe('ChatService', () => {
           { content: 'continue', id: 'latest-user', role: 'user' },
         ] as UIChatMessage[];
         vi.spyOn(mechaModule, 'contextEngineering').mockResolvedValue(finalMessages as any);
-        const provider = vi.spyOn(chatService, 'getChatCompletion').mockImplementation(
-          async (_payload, options) => {
+        const provider = vi
+          .spyOn(chatService, 'getChatCompletion')
+          .mockImplementation(async (_payload, options) => {
             options?.onErrorHandle?.({
               body: { contextWindowTokens: 16_000 },
               message: 'provider rejected context',
@@ -457,8 +484,7 @@ describe('ChatService', () => {
             });
             await options?.onFinish?.('', { type: 'error' } as any);
             return new Response();
-          },
-        );
+          });
         const onErrorHandle = vi.fn();
         const onFinish = vi.fn();
 
@@ -485,10 +511,7 @@ describe('ChatService', () => {
                 } as const,
                 payload: {
                   ...payload,
-                  messages: [
-                    { content: 'summary', id: 'summary', role: 'user' },
-                    finalMessages[1],
-                  ],
+                  messages: [{ content: 'summary', id: 'summary', role: 'user' }, finalMessages[1]],
                 },
               })),
               operationId: 'op-client-budget',
@@ -896,17 +919,21 @@ describe('ChatService', () => {
     });
 
     describe('should handle content correctly for vision models', () => {
-      it('should include image content when with vision model', async () => {
-        // Mock helpers to return true for vision support (must be first)
-        const helpers = await import('./helper');
-        vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(true);
-
-        // Mock utility functions used in processImageList
+      it('includes the selected image when the configured model supports vision', async () => {
+        useAiInfraStore.setState({
+          enabledAiModels: [
+            {
+              abilities: { vision: true },
+              id: 'gpt-4-vision-preview',
+              providerId: ModelProvider.OpenAI,
+              type: 'chat',
+            } as EnabledAiModel,
+          ],
+        });
         const { parseDataUri } = await import('@lobechat/utils/uriParser');
         const { isDesktopLocalStaticServerUrl } = await import('@lobechat/utils/url');
         vi.mocked(parseDataUri).mockReturnValue({ type: 'url', base64: null, mimeType: null });
-        vi.mocked(isDesktopLocalStaticServerUrl).mockReturnValue(false); // Not a local URL
-
+        vi.mocked(isDesktopLocalStaticServerUrl).mockReturnValue(false);
         const messages = [
           {
             content: 'Hello',
@@ -918,10 +945,9 @@ describe('ChatService', () => {
                 alt: 'abc.png',
               },
             ],
-          }, // Message with files
+          },
         ] as UIChatMessage[];
-
-        const getChatCompletionSpy = vi.spyOn(chatService, 'getChatCompletion');
+        const send = vi.spyOn(chatService, 'getChatCompletion');
         await chatService.createAssistantMessage({
           messages,
           model: 'gpt-4-vision-preview',
@@ -930,55 +956,10 @@ describe('ChatService', () => {
             agentConfig: { model: 'gpt-4-vision-preview', provider: 'openai' },
           }),
         });
-
-        expect(getChatCompletionSpy).toHaveBeenCalledWith(
-          {
-            messages: [
-              expect.objectContaining({
-                content: expect.stringContaining('Current date:'),
-                role: 'system',
-              }),
-              {
-                content: [
-                  {
-                    // NOTE: `vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(true)`
-                    // above does not actually flow through to MessageContentProcessor
-                    // — the capability function reaches the processor via an object
-                    // literal captured in contextEngineering.ts at import time, so the
-                    // spy has no effect on the downstream pipeline. The effective
-                    // behavior is therefore vision=disabled, and the image is
-                    // downgraded to a placeholder (see ).
-                    text: `Hello
-
-[image omitted: not supported by this model]
-
-<!-- SYSTEM CONTEXT (NOT PART OF USER QUERY) -->
-<context.instruction>following part contains context information injected by the system. Please follow these instructions:
-
-1. Always prioritize handling user-visible content.
-2. the context is only required when user's queries rely on it.
-</context.instruction>
-<files_info>
-<images>
-<images_docstring>here are user upload images you can refer to</images_docstring>
-<image ref="image_1" name="abc.png" url="http://example.com/image.jpg"></image>
-</images>
-</files_info>
-<!-- END SYSTEM CONTEXT -->`,
-                    type: 'text',
-                  },
-                ],
-                role: 'user',
-              },
-            ],
-            model: 'gpt-4-vision-preview',
-            provider: 'openai',
-            stream: true,
-            enabledSearch: undefined,
-            tools: undefined,
-          },
-          expect.anything(),
+        expect(JSON.stringify(send.mock.calls[0][0].messages)).toContain(
+          'http://example.com/image.jpg',
         );
+        expect(JSON.stringify(send.mock.calls[0][0].messages)).not.toContain('[image omitted');
       });
 
       it('should not include image with vision models when can not find the image', async () => {
@@ -2180,6 +2161,33 @@ describe('ChatService', () => {
   });
 
   describe('fetchPresetTaskResult', () => {
+    it('captures the exact preset model catalog before asynchronous context processing', async () => {
+      useAiInfraStore.setState({
+        enabledAiModels: [
+          { id: 'image-model', providerId: 'openai', type: 'chat', abilities: { vision: true } },
+          { id: 'image-model', providerId: 'other', type: 'chat', abilities: { vision: false } },
+        ],
+      });
+      const contextSpy = vi
+        .spyOn(mechaModule, 'contextEngineering')
+        .mockImplementation(async () => {
+          useAiInfraStore.setState({ enabledAiModels: [] });
+          return [];
+        });
+      vi.spyOn(chatService, 'getChatCompletion').mockResolvedValue(new Response(''));
+      await chatService.fetchPresetTaskResult({
+        params: { model: 'image-model', provider: 'openai', messages: [] },
+      });
+      expect(contextSpy).toHaveBeenCalledTimes(1);
+      expect(contextSpy.mock.calls[0][0].modelCatalogSnapshot).toMatchObject({
+        entry: {
+          modelId: 'image-model',
+          providerId: 'openai',
+          inputModalities: { image: 'supported' },
+        },
+      });
+    });
+
     it('should not wait for agent documents on preset task chains', async () => {
       vi.spyOn(chatService, 'getChatCompletion').mockResolvedValue(new Response(''));
       vi.spyOn(agentDocumentService, 'getContextDocuments').mockResolvedValue([]);

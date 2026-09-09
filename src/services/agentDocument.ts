@@ -37,6 +37,8 @@ interface AgentDocumentToolTriggerInput {
 }
 
 class AgentDocumentService {
+  getSkills = async (params: { agentId: string }) =>
+    lambdaClient.agentDocument.getSkills.query(params);
   getTemplates = async () => {
     return lambdaClient.agentDocument.getTemplates.query();
   };

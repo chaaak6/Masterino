@@ -25,6 +25,7 @@ import { agentDocumentsExecutor } from './lobe-agent-documents';
 import { messageExecutor } from './lobe-message';
 import { notebookExecutor } from './lobe-notebook';
 import { pageAgentExecutor } from './lobe-page-agent';
+import { skillAuthoringExecutor } from './lobe-skill-authoring';
 import { skillStoreExecutor } from './lobe-skill-store';
 import { skillsExecutor } from './lobe-skills';
 import { topicReferenceExecutor } from './lobe-topic-reference';
@@ -141,6 +142,7 @@ export const registerBuiltinToolExecutors = (): void => {
     agentDocumentsExecutor,
     agentManagementExecutor,
     calculatorExecutor,
+    skillAuthoringExecutor,
     cloudSandboxExecutor,
     credsExecutor,
     groupAgentBuilderExecutor,

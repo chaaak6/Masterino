@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { FileParsingTask } from '../asyncTask';
+import type { AttachmentRef } from '../message/attachments';
 
 export interface FileUploadState {
   progress: number;
@@ -58,6 +59,8 @@ export interface UploadFileItem {
    * AbortController to cancel the upload
    */
   abortController?: AbortController;
+  attachment?: AttachmentRef;
+  attachmentDraftId?: string;
   /**
    * base64 data, it will use in other data
    */

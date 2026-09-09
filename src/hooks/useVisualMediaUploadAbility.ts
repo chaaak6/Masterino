@@ -19,12 +19,11 @@ export const useVisualMediaUploadAbility = (model: string, provider: string) => 
     ),
   );
   const fallbackConfigured = !!(visualUnderstanding?.model && visualUnderstanding.provider);
-  const fallbackSupportVision = fallbackConfigured && fallbackModel?.abilities?.vision !== false;
   const fallbackSupportVideo = fallbackConfigured && fallbackModel?.abilities?.video !== false;
   const canUseVisualUnderstanding = enableVisualUnderstanding && supportToolUse;
 
   return {
-    canUploadImage: supportVision || (canUseVisualUnderstanding && fallbackSupportVision),
+    canUploadImage: supportVision,
     canUploadVideo: supportVideo || (canUseVisualUnderstanding && fallbackSupportVideo),
   };
 };

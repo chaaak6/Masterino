@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { ConversationContext } from '../../conversation';
 import type { UploadFileItem } from '../../files';
 import type { MessageSemanticSearchChunk } from '../../rag';
+import { type MessageAttachments, MessageAttachmentsSchema } from '../attachments';
 import type { ChatMessageError } from '../common/base';
 import { ChatMessageErrorSchema } from '../common/base';
 // Import for local use
@@ -48,6 +49,7 @@ export interface CreateMessageParams extends Partial<
  */
 export interface CreateNewMessageParams {
   agentId: string;
+  attachments?: MessageAttachments | null;
   content: string;
   // ========== Error handling ==========
   error?: ChatMessageError | null;
@@ -212,6 +214,7 @@ export const CreateNewMessageParamsSchema = z
     model: z.string().nullable().optional(),
     provider: z.string().nullable().optional(),
     // Content
+    attachments: MessageAttachmentsSchema.nullable().optional(),
     files: z.array(z.string()).optional(),
     // Error handling
     error: ChatMessageErrorSchema.nullable().optional(),

@@ -22,6 +22,7 @@ const inferFileType = (filePath: string): string =>
   path.extname(filePath).toLowerCase().replace('.', '') || 'unknown';
 
 const buildErrorResult = (filePath: string, message: string): ReadFileResult => ({
+  error: message,
   charCount: 0,
   content: message,
   createdTime: new Date(),
@@ -99,6 +100,7 @@ export async function readLocalFile({
 
     if (fileDocument.metadata?.error) {
       return {
+        error: String(fileDocument.metadata.error),
         charCount: 0,
         content: `Error accessing or processing file: ${fileDocument.metadata.error}`,
         createdTime: fileDocument.createdTime,
@@ -124,7 +126,9 @@ export async function readLocalFile({
     } else {
       const [startLine, endLine] = effectiveLoc;
       workingLines = lines.slice(startLine, endLine);
-      actualLoc = effectiveLoc;
+      const normalize = (index: number) =>
+        Math.min(totalLineCount, Math.max(0, index < 0 ? totalLineCount + index : index));
+      actualLoc = [normalize(startLine), Math.max(normalize(startLine), normalize(endLine))];
     }
 
     let linesTruncated = 0;
@@ -138,7 +142,9 @@ export async function readLocalFile({
     let truncated = false;
     if (content.length > MAX_OUTPUT_CHARS) {
       const originalLength = content.length;
-      content = `${content.slice(0, MAX_OUTPUT_CHARS)}\n[content truncated: response was ${originalLength} chars, kept first ${MAX_OUTPUT_CHARS}. Use a smaller line range or grep to narrow down.]`;
+      const prefix = content.slice(0, MAX_OUTPUT_CHARS);
+      actualLoc[1] = actualLoc[0] + prefix.split('\n').length;
+      content = `${prefix}\n[content truncated: response was ${originalLength} chars, kept first ${MAX_OUTPUT_CHARS}. Use a smaller line range or grep to narrow down.]`;
       truncated = true;
     }
 
@@ -148,7 +154,7 @@ export async function readLocalFile({
       createdTime: fileDocument.createdTime,
       fileType: fileDocument.fileType || 'unknown',
       filename: fileDocument.filename,
-      lineCount: workingLines.length,
+      lineCount: actualLoc[1] - actualLoc[0],
       loc: actualLoc,
       modifiedTime: fileDocument.modifiedTime,
       totalCharCount,

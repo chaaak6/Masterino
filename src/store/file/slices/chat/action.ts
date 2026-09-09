@@ -1,4 +1,4 @@
-import { type ChatContextContent } from '@lobechat/types';
+import { type AttachmentRef, type ChatContextContent } from '@lobechat/types';
 import { COMPRESSIBLE_IMAGE_TYPES, compressImageFile } from '@lobechat/utils/compressImage';
 import { toast } from '@lobehub/ui/base-ui';
 import { Buffer } from 'buffer.js';
@@ -7,6 +7,16 @@ import { t } from 'i18next';
 import { notification } from '@/components/AntdStaticMethods';
 import { FILE_UPLOAD_BLACKLIST } from '@/const/file';
 import { FileStorageErrorCode } from '@/const/fileUpload';
+import { isDesktop } from '@/const/version';
+import {
+  bindLocalAttachmentMessage,
+  getLocalAttachmentErrorKey,
+  localAttachmentStatus,
+  previewLocalAttachment,
+  receiveLocalChatAttachment,
+  releaseLocalAttachmentDraft,
+  retainLocalAttachmentDraft,
+} from '@/services/electron/localAttachmentService';
 import { fileService } from '@/services/file';
 import { ragService } from '@/services/rag';
 import { UPLOAD_NETWORK_ERROR } from '@/services/upload';
@@ -64,6 +74,7 @@ const getUploadErrorDescription = (error: unknown): string => {
 export class FileActionImpl {
   readonly #get: () => FileStore;
   readonly #set: Setter;
+  #localIntakeGeneration = 0;
 
   constructor(set: Setter, get: () => FileStore, _api?: unknown) {
     void _api;
@@ -82,7 +93,15 @@ export class FileActionImpl {
     this.#set({ chatContextSelections: [] }, false, n('clearChatContextSelections'));
   };
 
-  clearChatUploadFileList = (): void => {
+  clearChatUploadFileList = (options?: { preserveAttachments?: boolean }): void => {
+    this.#localIntakeGeneration += 1;
+    if (!options?.preserveAttachments)
+      for (const file of this.#get().chatUploadFileList) {
+        if (file.attachment)
+          void releaseLocalAttachmentDraft(file.attachment, file.attachmentDraftId).catch(
+            () => undefined,
+          );
+      }
     this.#set({ chatUploadFileList: [] }, false, n('clearChatUploadFileList'));
   };
 
@@ -101,8 +120,53 @@ export class FileActionImpl {
   removeChatUploadFile = async (id: string): Promise<void> => {
     const { dispatchChatUploadFileList } = this.#get();
 
+    const current = this.#get().chatUploadFileList.find((file) => file.id === id);
+    const attachment = current?.attachment;
     dispatchChatUploadFileList({ id, type: 'removeFile' });
-    await fileService.removeFile(id);
+    if (!attachment) await fileService.removeFile(id);
+    else await releaseLocalAttachmentDraft(attachment, current?.attachmentDraftId);
+  };
+
+  addLocalAttachmentToInput = async (
+    ref: Extract<AttachmentRef, { source: 'local' }>,
+    messageId: string,
+    topicId: string,
+    previewUrl?: string,
+  ): Promise<void> => {
+    const intakeGeneration = this.#localIntakeGeneration;
+    if (
+      this.#get().chatUploadFileList.some(
+        (file) => file.attachment?.attachmentId === ref.attachmentId,
+      )
+    )
+      return;
+    if (!(await localAttachmentStatus(ref)))
+      throw new Error('Attachment is unavailable on this device; select it again');
+    await bindLocalAttachmentMessage([{ attachment: ref }], messageId, topicId);
+    if (!previewUrl && ref.mime.startsWith('image/'))
+      previewUrl = (await previewLocalAttachment(ref, topicId)).dataUrl;
+    const draftId = crypto.randomUUID();
+    const retained = await retainLocalAttachmentDraft(ref, draftId);
+    if (!retained.available)
+      throw new Error('Attachment is unavailable on this device; select it again');
+    if (intakeGeneration !== this.#localIntakeGeneration) {
+      await releaseLocalAttachmentDraft(ref, draftId);
+      return;
+    }
+    this.#get().dispatchChatUploadFileList({
+      type: 'addFiles',
+      files: [
+        {
+          attachment: ref,
+          attachmentDraftId: draftId,
+          id: ref.attachmentId,
+          file: new File([], ref.name, { type: ref.mime }),
+          previewUrl,
+          status: 'success',
+          processStage: 'ready_for_chat',
+        },
+      ],
+    });
   };
 
   startAsyncTask = async (
@@ -143,8 +207,13 @@ export class FileActionImpl {
     }
   };
 
-  uploadChatFiles = async (rawFiles: File[], agentId: string): Promise<void> => {
+  uploadChatFiles = async (
+    rawFiles: File[],
+    agentId: string,
+    topicId?: string | null,
+  ): Promise<void> => {
     const { dispatchChatUploadFileList } = this.#get();
+    const intakeGeneration = this.#localIntakeGeneration;
     // 0. skip file in blacklist
     const filteredFiles = rawFiles.filter((file) => !FILE_UPLOAD_BLACKLIST.includes(file.name));
 
@@ -173,6 +242,46 @@ export class FileActionImpl {
     }
 
     if (supportedFiles.length === 0) return;
+
+    const execution = isDesktop
+      ? await (
+          await import('@/store/projectWorkspace/topicExecutionIntent')
+        ).resolvePendingTopicExecutionIntent({ agentId, topicId, isNewTopic: !topicId })
+      : undefined;
+    if (isDesktop && execution?.intent.target === 'local') {
+      const draftId = crypto.randomUUID();
+      for (const file of supportedFiles) {
+        if (intakeGeneration !== this.#localIntakeGeneration) break;
+        try {
+          const attachment = await receiveLocalChatAttachment(file, draftId);
+          if (intakeGeneration !== this.#localIntakeGeneration) {
+            await releaseLocalAttachmentDraft(attachment, draftId);
+            break;
+          }
+          dispatchChatUploadFileList({
+            type: 'addFiles',
+            files: [
+              {
+                attachment,
+                attachmentDraftId: draftId,
+                file,
+                id: attachment.attachmentId,
+                previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+                status: 'success',
+                processStage: 'ready_for_chat',
+              },
+            ],
+          });
+        } catch (error) {
+          const errorKey = getLocalAttachmentErrorKey(error);
+          notification.error({
+            message: t('upload.uploadFailed', { ns: 'error' }),
+            description: errorKey ? t(errorKey, { ns: 'chat' }) : getErrorMessage(error),
+          });
+        }
+      }
+      return;
+    }
 
     // 1. compress images and add files with base64
     const files = await Promise.all(

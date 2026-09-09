@@ -8,7 +8,8 @@ import { useElectronStore } from '@/store/electron';
 export async function scanOperationWorkspace(
   workspace?: WorkspaceRef,
 ): Promise<WorkspaceInitResult | undefined> {
-  if (!workspace || workspace.kind !== 'device' || !workspace.deviceId) return undefined;
+  if (!workspace || !['device', 'scratch'].includes(workspace.kind) || !workspace.deviceId)
+    return undefined;
   const localDeviceId = useElectronStore.getState().gatewayDeviceInfo?.deviceId;
   return projectSkillService.scanWorkspace({
     deviceId: isDesktop && localDeviceId === workspace.deviceId ? undefined : workspace.deviceId,

@@ -1,0 +1,2 @@
+																184 row content : "请读取附件 sales-12.xlsx 的 Sales 工作表，计算总收入、按 region 和 month 分组的收入（单位 CNY），生成可独立打开的 HTML 报告，包含摘要、两个分组表和图表，注明数据行数。保留原始文件不变。使用当前本机环境。\n<local_attachments>\n{\"attachmentId\":\"f2303fd7-778f-4738-8d26-c18477421383\",\"name\":\"sales-12.xlsx\",\"mime\":\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\"size\":5874}\nUse attachmentId (not a file path) with inspectOfficeDocument/readOfficeDocument or readFile for bounded reading. Device paths are resolved only when executing the tool. Fo
+																189 row role : "user"

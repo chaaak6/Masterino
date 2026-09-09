@@ -1,4 +1,5 @@
 import { isDesktop } from '@lobechat/const';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 
 import { shouldEnableBuiltinSkill } from './skillFilters';
 import { shouldEnableTool } from './toolFilters';
@@ -13,6 +14,7 @@ export interface ToolAvailabilityInstalledPlugin {
 }
 
 export interface ToolAvailabilityContext {
+  executionContext?: ExecutionContext;
   installedPlugins?: ToolAvailabilityInstalledPlugin[];
   isDesktop?: boolean;
 }
@@ -38,7 +40,26 @@ export const isInstalledPluginAvailableInCurrentEnv = (
 ) => (context.isDesktop ?? isDesktop) || plugin.customParams?.mcp?.type !== 'stdio';
 
 export const isToolAvailableInCurrentEnv = (id: string, context: ToolAvailabilityContext = {}) => {
-  if (!isBuiltinToolAvailableInCurrentEnv(id)) return false;
+  const execution = context.executionContext;
+  if (execution) {
+    if (id === 'lobe-cloud-sandbox' && execution.plan.kind !== 'sandbox') return false;
+    if (
+      (id === 'lobe-local-system' || id === 'lobe-skill-authoring') &&
+      execution.plan.kind !== 'device'
+    )
+      return false;
+    context = {
+      ...context,
+      isDesktop: execution.plan.kind === 'device' && execution.plan.target === 'local',
+    };
+  }
+  // A routed device is authoritative even when this assembler runs in Web.
+  // The global desktop flag remains the fallback for unbound UI discovery.
+  if (
+    !(id === 'lobe-local-system' && execution?.plan.kind === 'device') &&
+    !isBuiltinToolAvailableInCurrentEnv(id)
+  )
+    return false;
   if (!isBuiltinSkillAvailableInCurrentEnv(id, context)) return false;
 
   const plugin = context.installedPlugins?.find((item) => item.identifier === id);

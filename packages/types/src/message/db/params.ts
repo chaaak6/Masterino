@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import type { GroundingSearch } from '../../search';
 import { GroundingSearchSchema } from '../../search';
+import type { MessageAttachments } from '../attachments';
+import { MessageAttachmentsSchema } from '../attachments';
 import type {
   ChatImageItem,
   ChatMessageError,
@@ -66,6 +68,7 @@ export interface UpdateMessageResult {
 
 export interface NewMessage {
   agentId?: string | null;
+  attachments?: MessageAttachments | null;
   clientId?: string | null;
   content?: string | null;
   createdAt?: Date;
@@ -92,6 +95,7 @@ export interface NewMessage {
 }
 
 export interface UpdateMessageParams {
+  attachments?: MessageAttachments | null;
   content?: string;
   editorData?: Record<string, any> | null;
   error?: ChatMessageError | null;
@@ -125,6 +129,7 @@ export interface NewMessageQueryParams {
 
 export const UpdateMessageParamsSchema = z
   .object({
+    attachments: MessageAttachmentsSchema.nullable().optional(),
     content: z.string().optional(),
     editorData: z.record(z.any()).nullable().optional(),
     error: ChatMessageErrorSchema.nullable().optional(),

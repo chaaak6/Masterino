@@ -1,0 +1,122 @@
+{
+  "case": "limited native Office write then independent readback",
+  "desktopMainSha": "59eaba45",
+  "e2eSeconds": 15.933,
+  "finalAcceptanceRepetition": false,
+  "limitation": "Structural/content readback only; no rich formatting fidelity claim",
+  "readback": {
+    "xlsx": {
+      "exists": true,
+      "bytes": 8618,
+      "sha256": "7f5ed75934e4a85f17c7a48acde6afbc98f8efef4e327f386b9fa0125cfcdb46",
+      "sheets": ["Data"],
+      "rows": [
+        ["item", "amount"],
+        ["A", 10],
+        ["B", 20]
+      ],
+      "matchesOracle": true
+    },
+    "docx": {
+      "exists": true,
+      "bytes": 8539,
+      "sha256": "38366ebad8b49f11cc66fe89c76e95bd6e76d500acc1e98ebee416ce9be0cf6b",
+      "paragraphs": ["Write acceptance", "QA-DOCX-CREATED"],
+      "matchesOracle": true
+    },
+    "pptx": {
+      "exists": true,
+      "bytes": 50960,
+      "sha256": "47fa63c16e451050dabd916723c00a8f3bf7558700dc2a769d4f45c9c0027c49",
+      "slides": [
+        ["QA-PPT-ONE", "Alpha"],
+        ["QA-PPT-TWO", "Beta"]
+      ],
+      "matchesOracle": true
+    }
+  },
+  "rendererSourceSha": "d0cd5d22",
+  "serverSha": "59eaba45",
+  "status": "pass_supported_subset",
+  "tools": [
+    {
+      "name": "createOfficeDocument",
+      "outputBytes": 155,
+      "executionMetrics": {
+        "durationMs": 10.89,
+        "outputBytes": 155
+      }
+    },
+    {
+      "name": "createOfficeDocument",
+      "outputBytes": 218,
+      "executionMetrics": {
+        "durationMs": 60.39,
+        "outputBytes": 218
+      }
+    },
+    {
+      "name": "createOfficeDocument",
+      "outputBytes": 220,
+      "executionMetrics": {
+        "durationMs": 28.36,
+        "outputBytes": 220
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 215,
+      "executionMetrics": {
+        "durationMs": 2.29,
+        "outputBytes": 215
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 384,
+      "executionMetrics": {
+        "durationMs": 1.77,
+        "outputBytes": 384
+      }
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputBytes": 194,
+      "executionMetrics": {
+        "durationMs": 3.2,
+        "outputBytes": 194
+      }
+    }
+  ],
+  "topic": "tpc_6BfR47R63Sb2",
+  "usage": [
+    {
+      "totalTokens": 22625,
+      "inputTextTokens": 21896,
+      "outputTextTokens": 326,
+      "totalInputTokens": 21896,
+      "totalOutputTokens": 729,
+      "inputCacheMissTokens": 21896,
+      "outputReasoningTokens": 403
+    },
+    {
+      "totalTokens": 23027,
+      "inputTextTokens": 22827,
+      "outputTextTokens": 200,
+      "totalInputTokens": 22827,
+      "inputCachedTokens": 22528,
+      "totalOutputTokens": 200,
+      "inputCacheMissTokens": 299
+    },
+    {
+      "totalTokens": 23765,
+      "inputTextTokens": 23330,
+      "outputTextTokens": 326,
+      "totalInputTokens": 23330,
+      "inputCachedTokens": 22912,
+      "totalOutputTokens": 435,
+      "inputCacheMissTokens": 418,
+      "outputReasoningTokens": 109
+    }
+  ]
+}

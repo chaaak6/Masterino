@@ -42,6 +42,7 @@ import { getModelPricing } from '../../utils/getModelPricing';
 import { handleOpenAIError } from '../../utils/handleOpenAIError';
 import { detectModelProvider } from '../../utils/modelParse';
 import { postProcessModelList } from '../../utils/postProcessModelList';
+import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import {
   assertContextWithinWindow,
   type AssertContextWithinWindowOptions,
@@ -325,6 +326,8 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
 
       const initOptions = { apiKey, baseURL, ...constructorOptions, ...res };
 
+      initOptions.fetch = withRequestBodyBudget(initOptions.fetch);
+
       // if the custom client is provided, use it as client
       if (customClient?.createClient) {
         this.client = customClient.createClient(initOptions as any);
@@ -558,6 +561,7 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
             ...restOptions,
           } as ConstructorOptions<T> & Record<string, any>;
 
+          initOptions.fetch = withRequestBodyBudget(initOptions.fetch);
           this._options = nextOptions;
 
           if (customClient?.createClient) {

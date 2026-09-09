@@ -60,7 +60,8 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn(),
 }));
 
-vi.mock('node:fs', () => ({
+vi.mock('node:fs', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   Stats: class Stats {},
   constants: {
     F_OK: 0,

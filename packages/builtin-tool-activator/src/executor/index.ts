@@ -12,9 +12,13 @@ class ActivatorExecutor extends BaseExecutor<typeof ActivatorApiName> {
   readonly identifier = LobeActivatorIdentifier;
   protected readonly apiEnum = ActivatorApiName;
 
-  private runtime: ActivatorExecutionRuntime;
+  private runtime:
+    | ActivatorExecutionRuntime
+    | ((ctx: BuiltinToolContext) => ActivatorExecutionRuntime);
 
-  constructor(runtime: ActivatorExecutionRuntime) {
+  constructor(
+    runtime: ActivatorExecutionRuntime | ((ctx: BuiltinToolContext) => ActivatorExecutionRuntime),
+  ) {
     super();
     this.runtime = runtime;
   }
@@ -28,7 +32,9 @@ class ActivatorExecutor extends BaseExecutor<typeof ActivatorApiName> {
         return { stop: true, success: false };
       }
 
-      const result = await this.runtime.activateSkill(params);
+      const result = await (
+        typeof this.runtime === 'function' ? this.runtime(ctx) : this.runtime
+      ).activateSkill(params);
 
       if (result.success) {
         return { content: result.content, state: result.state, success: true };
@@ -36,6 +42,7 @@ class ActivatorExecutor extends BaseExecutor<typeof ActivatorApiName> {
 
       return {
         content: result.content,
+        state: result.state,
         error: { message: result.content, type: 'PluginServerError' },
         success: false,
       };
@@ -57,7 +64,9 @@ class ActivatorExecutor extends BaseExecutor<typeof ActivatorApiName> {
         return { stop: true, success: false };
       }
 
-      const result = await this.runtime.activateTools(params);
+      const result = await (
+        typeof this.runtime === 'function' ? this.runtime(ctx) : this.runtime
+      ).activateTools(params);
 
       if (result.success) {
         return { content: result.content, state: result.state, success: true };
@@ -65,6 +74,7 @@ class ActivatorExecutor extends BaseExecutor<typeof ActivatorApiName> {
 
       return {
         content: result.content,
+        state: result.state,
         error: { message: result.content, type: 'PluginServerError' },
         success: false,
       };

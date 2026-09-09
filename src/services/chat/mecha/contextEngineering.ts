@@ -37,6 +37,8 @@ import type {
   RuntimeStepContext,
   UIChatMessage,
 } from '@lobechat/types';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
+import type { ModelCatalogSnapshot } from '@lobechat/types/src/modelCatalog';
 import debug from 'debug';
 
 import { isCanUseFC } from '@/helpers/isCanUseFC';
@@ -47,6 +49,7 @@ import {
   AVAILABLE_AGENTS_CONTEXT_LIMIT,
   AVAILABLE_AGENTS_CONTEXT_QUERY_LIMIT,
 } from '@/services/agent';
+import { resolveLocalMessageAttachments } from '@/services/electron/localAttachmentService';
 import { notebookService } from '@/services/notebook';
 import { getAgentStoreState } from '@/store/agent';
 import { agentChatConfigSelectors, agentSelectors } from '@/store/agent/selectors';
@@ -64,7 +67,7 @@ import {
 } from '@/store/tool/selectors';
 import { ComposioServerStatus } from '@/store/tool/slices/composioStore';
 
-import { isCanUseVideo, isCanUseVision } from '../helper';
+import { isCanUseVideo } from '../helper';
 import { combineUserMemoryData, resolveTopicMemories, resolveUserPersona } from './memoryManager';
 import { resolveClientSkills } from './skillEngineering';
 
@@ -78,6 +81,7 @@ interface ContextEngineeringContext {
   agentId?: string;
   enableHistoryCount?: boolean;
   enableUserMemories?: boolean;
+  executionContext?: ExecutionContext;
   /** Group ID for multi-agent scenarios */
   groupId?: string;
   historyCount?: number;
@@ -94,6 +98,8 @@ interface ContextEngineeringContext {
   memoryContext?: MemoryContext;
   messages: UIChatMessage[];
   model: string;
+  /** Capability evidence frozen with this operation’s WorkingModel. */
+  modelCatalogSnapshot?: ModelCatalogSnapshot;
   /** Operation-frozen registry winners. When present, do not re-read mutable skill stores. */
   operationSkills?: OperationSkillSet['skills'];
   /** Agent's enabled plugin/tool/skill identifiers (from agentConfig.plugins) */
@@ -118,6 +124,7 @@ export const contextEngineering = async ({
   manifests,
   tools,
   model,
+  modelCatalogSnapshot,
   provider,
   systemRole,
   inputTemplate,
@@ -136,7 +143,29 @@ export const contextEngineering = async ({
   topicId,
   memoryContext,
   operationSkills,
+  executionContext,
 }: ContextEngineeringContext): Promise<OpenAIChatMessage[]> => {
+  const selectedMessage = messages.findLast((message) => message.role === 'user');
+  const hasSelectedImages =
+    !!selectedMessage?.imageList?.length ||
+    (Array.isArray(selectedMessage?.content) &&
+      selectedMessage.content.some((part) => part?.type === 'image_url')) ||
+    selectedMessage?.attachments?.items.some((item) => item.mime.startsWith('image/'));
+  const frozenCatalog =
+    modelCatalogSnapshot?.entry.modelId === model &&
+    modelCatalogSnapshot.entry.providerId === provider
+      ? modelCatalogSnapshot.entry
+      : undefined;
+  const canUseWorkingModelVision = (candidateModel: string, candidateProvider: string) =>
+    frozenCatalog && candidateModel === model && candidateProvider === provider
+      ? frozenCatalog.inputModalities.image === 'supported'
+      : false;
+  if (hasSelectedImages && !canUseWorkingModelVision(model, provider)) {
+    throw new Error(
+      'This model cannot view images. Keep the attachment and select a vision-capable model.',
+    );
+  }
+  messages = await resolveLocalMessageAttachments(messages, topicId);
   log('tools: %o', tools);
 
   const modelContextWindowTokens = aiModelSelectors.modelContextWindowTokens(
@@ -447,7 +476,7 @@ export const contextEngineering = async ({
   if (isLobeToolsEnabled) {
     const toolState = getToolStoreState();
     const availableTools = toolSelectors
-      .availableToolsForDiscovery(toolState)
+      .availableToolsForDiscovery(toolState, { executionContext })
       .filter((tool) => !enabledToolSet.has(tool.identifier));
 
     if (availableTools.length > 0) {
@@ -676,7 +705,7 @@ export const contextEngineering = async ({
     capabilities: {
       isCanUseFC,
       isCanUseVideo,
-      isCanUseVision,
+      isCanUseVision: canUseWorkingModelVision,
     },
 
     // Desktop local/static URLs are not fetchable by remote providers or cloud tools.
@@ -736,6 +765,15 @@ export const contextEngineering = async ({
     // Variable generators
     variableGenerators: {
       ...VARIABLE_GENERATORS,
+      // The operation owns cwd. Global UI/agent defaults may belong to another
+      // topic, and an unbound device run gets its scratch directory on first use.
+      ...(executionContext && {
+        workingDirectory: () =>
+          executionContext.cwd ??
+          (executionContext.plan.kind === 'device'
+            ? 'Not yet bound. Use relative paths; the device prepares this topic’s scratch directory for the first working-directory tool call.'
+            : 'No working directory is available for this execution.'),
+      }),
       // NOTICE: required by builtin-tool-creds/src/systemRole.ts
       CREDS_LIST: () => (credsList ? generateCredsList(credsList) : ''),
       // NOTICE: required by builtin-tool-creds/src/systemRole.ts (Composio integrations)

@@ -6,6 +6,8 @@ import { after } from 'next/server';
 
 import { TraceClient } from '@/libs/traces';
 
+import { sanitizeTraceData } from './sanitizeTraceData';
+
 export interface AgentChatOptions {
   enableTrace?: boolean;
   includeInput?: boolean;
@@ -56,7 +58,7 @@ export const createTraceOptions = (
     shutdownMode = 'deferred',
   }: AgentChatOptions,
 ) => {
-  const { messages, model, tools, ...parameters } = payload;
+  const { messages, model, tools, ...parameters } = sanitizeTraceData(payload);
   // create a trace to monitor the completion
   const traceClient = new TraceClient();
   const messageLength = messages.length;
@@ -66,7 +68,7 @@ export const createTraceOptions = (
     id: tracePayload?.traceId,
     input: includeInput ? messages : undefined,
     metadata: {
-      ...metadata,
+      ...sanitizeTraceData(metadata),
       messageLength,
       model,
       provider,
@@ -95,7 +97,7 @@ export const createTraceOptions = (
   const finishGeneration = (update: Parameters<NonNullable<typeof generation>['update']>[0]) => {
     if (generationFinished) return;
     generationFinished = true;
-    generation?.update({ endTime: new Date(), ...update });
+    generation?.update(sanitizeTraceData({ endTime: new Date(), ...update }));
   };
 
   const getTimeoutMetadata = (error: unknown) => {
@@ -156,7 +158,7 @@ export const createTraceOptions = (
             : undefined,
         });
 
-        trace?.update({ output });
+        trace?.update(sanitizeTraceData({ output }));
       },
 
       onError: async (error) => {
@@ -173,7 +175,9 @@ export const createTraceOptions = (
           output,
           statusMessage: message,
         });
-        trace?.update({ ...(timeoutMetadata ? { metadata: timeoutMetadata } : {}), output });
+        trace?.update(
+          sanitizeTraceData({ ...(timeoutMetadata ? { metadata: timeoutMetadata } : {}), output }),
+        );
       },
 
       onFinal: trace

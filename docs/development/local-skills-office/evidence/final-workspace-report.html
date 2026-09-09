@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales-12 销售报告</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1f2933; --muted:#697787;
+    --brand:#2f6fed; --brand2:#7a4bf5; --line:#e4e9f2;
+    --east:#2f6fed; --west:#f0a202; --north:#7a4bf5;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif; line-height:1.55; padding:32px 20px;}
+  .wrap{max-width:960px; margin:0 auto;}
+  header.report{background:linear-gradient(135deg,#2f6fed 0%,#7a4bf5 100%); color:#fff; border-radius:16px; padding:28px 32px; margin-bottom:24px;}
+  header.report h1{font-size:22px; font-weight:700; letter-spacing:.3px;}
+  header.report p{opacity:.9; margin-top:6px; font-size:13.5px;}
+  h2{font-size:17px; margin:26px 0 12px; display:flex; align-items:center; gap:8px;}
+  h2 .badge{font-size:11px; font-weight:600; color:#fff; background:var(--brand); padding:2px 8px; border-radius:999px;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px;}
+  .card .label{font-size:12.5px; color:var(--muted); letter-spacing:.3px;}
+  .card .value{font-size:26px; font-weight:700; margin-top:6px; color:var(--ink);}
+  .card .sub{font-size:12px; color:var(--muted); margin-top:4px;}
+  .tables{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:720px){.tables{grid-template-columns:1fr;}}
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 16px;}
+  .panel h3{font-size:14px; margin-bottom:12px; font-weight:600; color:var(--ink);}
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--line);}
+  th{color:var(--muted); font-weight:600; font-size:12px; letter-spacing:.3px;}
+  td.num, th.num{text-align:right; font-variant-numeric:tabular-nums;}
+  tbody tr:last-child td{border-bottom:none;}
+  tfoot td{font-weight:700; border-top:2px solid var(--line); border-bottom:none;}
+  .pct{color:var(--muted); font-size:12px;}
+  .charts{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:720px){.charts{grid-template-columns:1fr;}}
+  .chart{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px 14px;}
+  .chart h3{font-size:14px; font-weight:600; margin-bottom:16px;}
+  .bars{display:flex; align-items:flex-end; gap:22px; height:230px; padding:0 8px; border-bottom:2px solid var(--line);}
+  .barcol{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; position:relative;}
+  .bar{width:100%; max-width:64px; border-radius:8px 8px 0 0; transition:height .4s ease; position:relative;}
+  .bar .v{position:absolute; top:-24px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:700; color:var(--ink); white-space:nowrap;}
+  .barlabel{margin-top:10px; font-size:12.5px; color:var(--muted); text-align:center;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; font-size:12px; color:var(--muted);}
+  .dot{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle;}
+  footer{margin-top:26px; font-size:12px; color:var(--muted); text-align:center;}
+  .src{font-size:11.5px; color:var(--muted); margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="report">
+    <h1>Sales-12 销售数据报告</h1>
+    <p>数据来源：sales-12.xlsx · Sales 工作表 · 单位：CNY（整数，不含税与退款）</p>
+  </header>
+
+  <h2><span class="badge">摘要</span> Summary</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="label">数据行数</div>
+      <div class="value">12</div>
+      <div class="sub">不含表头</div>
+    </div>
+    <div class="card">
+      <div class="label">总收入</div>
+      <div class="value">¥8,000</div>
+      <div class="sub">CNY</div>
+    </div>
+    <div class="card">
+      <div class="label">地区数</div>
+      <div class="value">3</div>
+      <div class="sub">East / West / North</div>
+    </div>
+    <div class="card">
+      <div class="label">月份数</div>
+      <div class="value">2</div>
+      <div class="sub">2026-01 / 2026-02</div>
+    </div>
+  </div>
+
+  <h2><span class="badge">表 1</span> 按 Region 分组的收入</h2>
+  <div class="tables">
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>Region</th><th class="num">收入 (CNY)</th><th class="num">占比</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>East</td><td class="num">3,300</td><td class="num pct">41.25%</td></tr>
+          <tr><td>West</td><td class="num">2,400</td><td class="num pct">30.00%</td></tr>
+          <tr><td>North</td><td class="num">2,300</td><td class="num pct">28.75%</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>合计</td><td class="num">8,000</td><td class="num">100%</td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="chart" style="border:none;padding:0;">
+        <h3>Region 收入分布</h3>
+        <div class="bars">
+          <div class="barcol">
+            <div class="bar" style="height:100%;background:var(--east);"><span class="v">¥3,300</span></div>
+            <div class="barlabel">East</div>
+          </div>
+          <div class="barcol">
+            <div class="bar" style="height:72.73%;background:var(--west);"><span class="v">¥2,400</span></div>
+            <div class="barlabel">West</div>
+          </div>
+          <div class="barcol">
+            <div class="bar" style="height:69.7%;background:var(--north);"><span class="v">¥2,300</span></div>
+            <div class="barlabel">North</div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--east);"></i>East</span>
+          <span><i class="dot" style="background:var(--west);"></i>West</span>
+          <span><i class="dot" style="background:var(--north);"></i>North</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2><span class="badge">表 2</span> 按 Month 分组的收入</h2>
+  <div class="tables">
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>Month</th><th class="num">收入 (CNY)</th><th class="num">占比</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2026-01</td><td class="num">2,800</td><td class="num pct">35.00%</td></tr>
+          <tr><td>2026-02</td><td class="num">5,200</td><td class="num pct">65.00%</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>合计</td><td class="num">8,000</td><td class="num">100%</td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="chart" style="border:none;padding:0;">
+        <h3>Month 收入分布</h3>
+        <div class="bars">
+          <div class="barcol">
+            <div class="bar" style="height:53.85%;background:var(--east);"><span class="v">¥2,800</span></div>
+            <div class="barlabel">2026-01</div>
+          </div>
+          <div class="barcol">
+            <div class="bar" style="height:100%;background:var(--brand2);"><span class="v">¥5,200</span></div>
+            <div class="barlabel">2026-02</div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--east);"></i>2026-01</span>
+          <span><i class="dot" style="background:var(--brand2);"></i>2026-02</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    报告由本地环境自动生成 · 数据行数：12 · 原始文件 sales-12.xlsx 未做任何修改
+    <div class="src">Revenue 为整数 CNY（无税、无退款），所有金额单位为人民币元。</div>
+  </footer>
+
+</div>
+</body>
+</html>

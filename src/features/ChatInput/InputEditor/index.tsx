@@ -160,7 +160,8 @@ const InputEditor = memo<{
     isMentionEnabled &&
     !heterogeneousName &&
     categories.some((category) => category.id === 'agent');
-  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider });
+  const topicId = useChatInputStore((s) => s.topicId);
+  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider, topicId });
 
   // Listen to editor's paste event for file uploads
   usePasteFile(editor, handleUploadFiles);

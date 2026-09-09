@@ -9,6 +9,8 @@ import { aiChatService } from '@/services/aiChat';
 import { chatService } from '@/services/chat';
 import { messageService } from '@/services/message';
 import { projectWorkspaceService } from '@/services/projectWorkspace';
+import { useAgentStore } from '@/store/agent';
+import { agentSelectors } from '@/store/agent/selectors';
 import * as agentGroupStore from '@/store/agentGroup';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
@@ -462,6 +464,52 @@ describe('ConversationLifecycle actions', () => {
         });
 
         expect(result.current.executeClientAgent).toHaveBeenCalled();
+      });
+
+      it('keeps the submitted model when persistence hydrates an older agent config', async () => {
+        vi.mocked(agentSelectors.getAgentConfigById).mockRestore();
+        useAgentStore.setState({
+          agentMap: {
+            [TEST_IDS.SESSION_ID]: createMockAgentConfig({
+              model: 'selected-text',
+              provider: 'openai',
+            }),
+          },
+        });
+        const persistence = mockClientMessagePersistence();
+        const response = {
+          isCreateNewTopic: true,
+          assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+          messages: [createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' })],
+          topicId: TEST_IDS.TOPIC_ID,
+          topics: { items: [], total: 0 },
+          userMessageId: TEST_IDS.USER_MESSAGE_ID,
+        };
+        persistence.mockImplementation(async () => {
+          useAgentStore.setState({
+            agentMap: {
+              [TEST_IDS.SESSION_ID]: createMockAgentConfig({
+                model: 'old-vision',
+                provider: 'openai',
+              }),
+            },
+          });
+          return response;
+        });
+        await useChatStore.getState().sendMessage({
+          message: TEST_CONTENT.USER_MESSAGE,
+          context: createTestContext(),
+        });
+        expect(persistence).toHaveBeenCalledWith(
+          expect.objectContaining({
+            newAssistantMessage: expect.objectContaining({ model: 'selected-text' }),
+          }),
+          expect.anything(),
+        );
+        expect(useChatStore.getState().executeClientAgent).toHaveBeenCalledWith(
+          expect.objectContaining({ workingModel: { model: 'selected-text', provider: 'openai' } }),
+        );
+        expect(useAgentStore.getState().agentMap[TEST_IDS.SESSION_ID].model).toBe('old-vision');
       });
 
       it('should persist selected slash skills into user message content before sending', async () => {

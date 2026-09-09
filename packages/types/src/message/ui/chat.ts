@@ -1,5 +1,6 @@
 import type { GroundingSearch } from '../../search';
 import type { ThreadStatus } from '../../topic/thread';
+import type { MessageAttachments } from '../attachments';
 import type {
   ChatImageItem,
   ChatMessageError,
@@ -173,6 +174,7 @@ export interface TaskDetail {
 export interface UIChatMessage {
   // Group chat fields (alphabetically before other fields)
   agentId?: string | 'supervisor';
+  attachments?: MessageAttachments | null;
   /**
    * Branch information for user messages with multiple children
    */

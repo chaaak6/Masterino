@@ -3,8 +3,8 @@ import { getComposioAppByIdentifier, getLobehubSkillProviderById } from '@lobech
 import { type RenderDisplayControl, type ToolManifest } from '@lobechat/types';
 
 import {
-  isInstalledPluginAvailableInCurrentEnv,
   isToolAvailableInCurrentEnv,
+  type ToolAvailabilityContext,
 } from '@/helpers/toolAvailability';
 import { type MetaData } from '@/types/meta';
 import { type LobeToolMeta } from '@/types/tool/tool';
@@ -121,7 +121,10 @@ export interface AvailableToolForDiscovery {
  * 3. Composio MCP servers (connected) — description from COMPOSIO_APP_TYPES
  * 4. LobeHub Skill servers (connected) — description from LOBEHUB_SKILL_PROVIDERS
  */
-const availableToolsForDiscovery = (s: ToolStoreState): AvailableToolForDiscovery[] => {
+const availableToolsForDiscovery = (
+  s: ToolStoreState,
+  context: ToolAvailabilityContext = {},
+): AvailableToolForDiscovery[] => {
   // Build exclusion sets for deduplication
   const builtinSkillIds = new Set((s.builtinSkills || []).map((skill) => skill.identifier));
   const agentSkillIds = new Set((s.agentSkills || []).map((skill) => skill.identifier));
@@ -132,7 +135,7 @@ const availableToolsForDiscovery = (s: ToolStoreState): AvailableToolForDiscover
   const builtinItems = s.builtinTools
     .filter((tool) => tool.discoverable !== false)
     .filter((tool) => !builtinSkillIds.has(tool.identifier))
-    .filter((tool) => isToolAvailableInCurrentEnv(tool.identifier))
+    .filter((tool) => isToolAvailableInCurrentEnv(tool.identifier, context))
     .map((tool) => ({
       description: tool.manifest.meta?.description || '',
       identifier: tool.identifier,
@@ -146,7 +149,9 @@ const availableToolsForDiscovery = (s: ToolStoreState): AvailableToolForDiscover
     .filter((p) => !lobehubSkillIds.has(p.identifier))
     .filter((p) => !agentSkillIds.has(p.identifier))
     .filter((p) => !p.customParams?.composio) // extra safety for Composio plugins
-    .filter((plugin) => isInstalledPluginAvailableInCurrentEnv(plugin))
+    .filter((plugin) =>
+      isToolAvailableInCurrentEnv(plugin.identifier, { ...context, installedPlugins: [plugin] }),
+    )
     .map((plugin) => {
       const meta = plugin.manifest?.meta;
       return {

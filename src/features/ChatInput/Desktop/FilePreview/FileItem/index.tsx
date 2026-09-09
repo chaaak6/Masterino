@@ -68,7 +68,7 @@ const FileItem = memo<FileItemProps>((props) => {
         <UploadDetail
           errorReason={errorReason}
           processStage={processStage}
-          size={file.size}
+          size={props.attachment?.size ?? file.size}
           status={status}
           tasks={tasks}
           uploadState={uploadState}

@@ -1,7 +1,4 @@
-import {
-  parseExceededContextWindowError,
-  runContextBudgetedCall,
-} from '@lobechat/agent-runtime';
+import { parseExceededContextWindowError, runContextBudgetedCall } from '@lobechat/agent-runtime';
 import { AgentBuilderIdentifier } from '@lobechat/builtin-tool-agent-builder';
 import {
   COMPOSIO_APP_TYPES,
@@ -26,6 +23,7 @@ import type {
   UIChatMessage,
 } from '@lobechat/types';
 import { AgentRuntimeErrorType, ChatErrorType, TraceTagMap } from '@lobechat/types';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { merge } from 'es-toolkit/compat';
 import { ModelProvider } from 'model-bank';
 
@@ -59,7 +57,12 @@ import { createTraceHeader } from '@/utils/trace';
 
 import { createHeaderWithAuth } from '../_auth';
 import { API_ENDPOINTS } from '../_url';
-import { findDeploymentName, isEnableFetchOnClient, resolveRuntimeProvider } from './helper';
+import {
+  createClientModelCatalogSnapshot,
+  findDeploymentName,
+  isEnableFetchOnClient,
+  resolveRuntimeProvider,
+} from './helper';
 import { type ResolvedAgentConfig } from './mecha';
 import {
   contextEngineering,
@@ -106,6 +109,7 @@ const providersWithDeploymentName = new Set<string>([
 ]);
 interface GetChatCompletionPayload extends Partial<Omit<ChatStreamPayload, 'messages'>> {
   agentId?: string;
+  executionContext?: ExecutionContext;
   groupId?: string;
   messages: UIChatMessage[];
   /** Skill registry winners frozen at the client operation boundary. */
@@ -170,6 +174,7 @@ class ChatService {
       topicId,
       resolvedAgentConfig,
       operationSkills,
+      executionContext,
       ...params
     }: GetChatCompletionPayload,
     options?: FetchOptions,
@@ -182,6 +187,14 @@ class ChatService {
       },
       params,
     );
+
+    const modelCatalogSnapshot = options?.contextBudget
+      ? options.contextBudget.catalogSnapshot
+      : createClientModelCatalogSnapshot(
+          payload.model,
+          payload.provider!,
+          options?.trace?.traceId ?? 'assistant-request',
+        );
 
     // =================== 1. use pre-resolved agent config =================== //
     // Config is resolved in AgentRuntime layer (internal_createAgentState)
@@ -337,7 +350,9 @@ class ChatService {
       manifests: enabledManifests,
       messages,
       model: payload.model,
+      modelCatalogSnapshot,
       operationSkills,
+      executionContext,
       plugins,
       provider: payload.provider!,
       sessionId: options?.trace?.sessionId,
@@ -618,6 +633,11 @@ class ChatService {
     abortController,
     trace,
   }: FetchAITaskResultParams) => {
+    const modelCatalogSnapshot = createClientModelCatalogSnapshot(
+      params.model!,
+      params.provider!,
+      trace?.traceId ?? 'preset-task',
+    );
     const errorHandle = (error: Error, errorContent?: any) => {
       onLoadingChange?.(false);
       if (abortController?.signal.aborted) {
@@ -634,6 +654,7 @@ class ChatService {
         messages: params.messages as any,
         model: params.model!,
         provider: params.provider!,
+        modelCatalogSnapshot,
       });
 
       await this.getChatCompletion(

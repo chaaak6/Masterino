@@ -37,6 +37,7 @@ import {
   type OperationToolSet,
   type ResolvedToolSet,
   resolveTopicReferences,
+  type SkillMeta,
   SkillResolver,
   stripContextMessageIdentity,
   ToolNameResolver,
@@ -130,6 +131,7 @@ import {
   type ToolExecutionService,
 } from '@/server/services/toolExecution';
 import { archiveToolResultIfNeeded } from '@/server/services/toolExecution/archiveToolResult';
+import { validateSkillActivationResult } from '@/server/services/toolExecution/skillActivationResult';
 import { toAgentContextDocuments } from '@/utils/agentDocumentContextMapping';
 import { nanoid } from '@/utils/uuid';
 
@@ -155,6 +157,18 @@ import {
 const log = debug('lobe-server:agent-runtime:streaming-executors');
 const timing = debug('lobe-server:agent-runtime:timing');
 const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
+
+const recordActivatedSkill = (
+  state: AgentState,
+  skill: Pick<SkillMeta, 'key' | 'identifier'>,
+  content: string,
+) => {
+  const key = skill.key;
+  state.activatedStepSkills = [
+    ...(state.activatedStepSkills ?? []).filter((entry) => entry.key !== key),
+    { key, identifier: skill.identifier, content, activatedAtStep: state.stepCount },
+  ];
+};
 
 // Tool pricing configuration (USD per call)
 const TOOL_PRICING: Record<string, number> = {
@@ -4109,7 +4123,13 @@ export const createRuntimeExecutors = (
           };
         }
 
-        const executionResult = await archiveRuntimeToolResult(execution.result, {
+        const activation = validateSkillActivationResult(
+          state.metadata?.operationSkillSet?.skills,
+          chatToolPayload,
+          execution.result,
+          operationId,
+        );
+        const executionResult = await archiveRuntimeToolResult(activation.result, {
           agentId: state.metadata?.agentId,
           identifier: chatToolPayload.identifier,
           limit: toolResultMaxLength,
@@ -4145,7 +4165,14 @@ export const createRuntimeExecutors = (
         }
         log(
           `[${operationLogId}] Executing ${toolName} in ${executionTime}ms, result: %O`,
-          executionResult,
+          chatToolPayload.identifier === 'lobe-skills' &&
+            chatToolPayload.apiName === 'activateSkill'
+            ? {
+                success: isSuccess,
+                skillKey: activation.skill?.key,
+                errorCode: executionResult.state?.errorCode,
+              }
+            : executionResult,
         );
 
         // Publish tool execution result event
@@ -4278,6 +4305,9 @@ export const createRuntimeExecutors = (
           const { deterministicToolFailure: _failure, ...metadata } = newState.metadata;
           newState.metadata = metadata;
         }
+
+        if (activation.skill)
+          recordActivatedSkill(newState, activation.skill, executionResult.content);
 
         // Persist ToolsActivator discovery results to state.activatedStepTools
         const discoveredTools = executionResult.state?.activatedTools as
@@ -4818,7 +4848,13 @@ export const createRuntimeExecutors = (
               return;
             }
 
-            const executionResult = await archiveRuntimeToolResult(execution.result, {
+            const activation = validateSkillActivationResult(
+              state.metadata?.operationSkillSet?.skills,
+              chatToolPayload,
+              execution.result,
+              operationId,
+            );
+            const executionResult = await archiveRuntimeToolResult(activation.result, {
               agentId: state.metadata?.agentId,
               identifier: chatToolPayload.identifier,
               limit: batchAgentConfig?.chatConfig?.toolResultMaxLength,
@@ -4914,6 +4950,7 @@ export const createRuntimeExecutors = (
 
             // Collect tool result
             toolResults.push({
+              activatedSkill: activation.skill,
               data: executionResult,
               executionTime,
               isSuccess,
@@ -5000,6 +5037,9 @@ export const createRuntimeExecutors = (
     const newState = structuredClone(state);
     if (scratchSettlement) applyScratchBindSettlement(newState, scratchSettlement);
     for (const result of toolResults) {
+      if (result.activatedSkill) {
+        recordActivatedSkill(newState, result.activatedSkill, result.data.content);
+      }
       if (result.usageParams) {
         const { usage, cost } = UsageCounter.accumulateTool({
           ...result.usageParams,

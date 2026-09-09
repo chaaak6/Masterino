@@ -39,6 +39,7 @@ export interface ActivatedStepSkill {
   activatedAtStep: number;
   content?: string;
   identifier: string;
+  key?: string;
 }
 
 /**
@@ -47,6 +48,7 @@ export interface ActivatedStepSkill {
  */
 export interface StepSkillDelta {
   activatedSkills: Array<{
+    key?: string;
     content?: string;
     identifier: string;
   }>;

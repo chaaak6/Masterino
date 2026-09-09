@@ -61,6 +61,8 @@ export interface ExecutionAccessRoot {
   rootPath: string;
   scope: 'operation' | 'primary' | 'topic';
   source: 'direct-user-message' | 'user-approval' | 'workspace';
+  /** Omitted legacy records remain directory grants. */
+  target?: 'file' | 'directory';
   /** Required transport evidence for a persisted topic grant. */
   topicId?: string;
 }

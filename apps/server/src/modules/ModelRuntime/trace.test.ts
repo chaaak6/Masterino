@@ -21,6 +21,19 @@ vi.mock('@/libs/traces', () => ({
 vi.mock('next/server', () => ({ after: vi.fn((callback) => callback()) }));
 
 describe('createTraceOptions', () => {
+  it('omits inline image bytes from trace input and output without modifying the request', async () => {
+    const image = 'data:image/png;base64,c3ludGhldGlj';
+    const payload = { messages: [{ role: 'user' as const, content: image }], model: 'test' };
+    const options = createTraceOptions(payload, { provider: 'openai' });
+    await options.callback.onCompletion?.({ text: image });
+    expect(JSON.stringify(mocks.createTrace.mock.calls)).not.toContain('c3ludGhldGlj');
+    expect(JSON.stringify(mocks.generation.mock.calls)).not.toContain('c3ludGhldGlj');
+    expect(JSON.stringify(mocks.generationUpdate.mock.calls)).not.toContain('c3ludGhldGlj');
+    expect(JSON.stringify(mocks.traceUpdate.mock.calls)).not.toContain('c3ludGhldGlj');
+    expect(mocks.createTrace.mock.calls[0][0].input[0].content).toBe('[inline image omitted]');
+    expect(payload.messages[0].content).toBe(image);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.generation.mockReturnValue({ id: 'observation-1', update: mocks.generationUpdate });

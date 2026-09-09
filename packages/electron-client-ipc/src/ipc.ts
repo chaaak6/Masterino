@@ -45,6 +45,7 @@ let cachedProxy: DesktopIpcServices | null = null;
 declare global {
   interface Window {
     electronAPI?: {
+      getPathForFile?: (file: File) => string;
       invoke?: IpcInvoke;
       onScreenCaptureSession?: (listener: (session: ScreenCaptureSession) => void) => () => void;
       onStreamInvoke: (

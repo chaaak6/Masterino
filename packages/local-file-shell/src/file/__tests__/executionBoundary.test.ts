@@ -50,6 +50,62 @@ describe('prepareToolCallExecution', () => {
     await rm(tempRoot, { force: true, recursive: true });
   });
 
+  it('grants only the selected file while keeping workspace directory access recursive', async () => {
+    const selected = path.join(homeDir, 'selected.txt');
+    const sibling = path.join(homeDir, 'sibling.txt');
+    await writeFile(selected, 'selected');
+    await writeFile(sibling, 'sibling');
+    const context: DeviceToolCallExecutionContext = {
+      ...primaryContext(),
+      accessRoots: [
+        ...primaryContext().accessRoots!,
+        {
+          target: 'file',
+          rootPath: selected,
+          modes: ['read'],
+          scope: 'operation',
+          source: 'user-approval',
+          operationId: 'op-1',
+        },
+      ],
+    };
+    const trace = {
+      deviceId: 'device-1',
+      operationId: 'op-1',
+      toolCallId: 'call-1',
+      topicId: 't-1',
+    };
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'readFile',
+        args: { path: selected },
+        context,
+        homeDir,
+        trace,
+      }),
+    ).resolves.toBeDefined();
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'readFile',
+        args: { path: sibling },
+        context,
+        homeDir,
+        trace,
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+    await mkdir(path.join(workspace, 'nested'));
+    await writeFile(path.join(workspace, 'nested/a.txt'), 'allowed');
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'readFile',
+        args: { path: 'nested/a.txt' },
+        context,
+        homeDir,
+        trace,
+      }),
+    ).resolves.toBeDefined();
+  });
+
   it('overrides model cwd with the primary cwd without retaining the supplied value', async () => {
     const result = await prepareToolCallExecution({
       apiName: 'runCommand',

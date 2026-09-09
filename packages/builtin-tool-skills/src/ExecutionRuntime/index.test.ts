@@ -175,12 +175,18 @@ describe('SkillsExecutionRuntime', () => {
           version: 1,
           workspace: { deviceId: 'device-1', kind: 'device', rootPath: '/repo' },
         },
+        projectSnapshotResolver: async () => ({
+          hash: 'snapshot-v1',
+          directory: '/cache/extracted/prepared',
+          content: 'body',
+          files: ['SKILL.md'],
+        }),
         projectSkills: [{ location: '/repo/.agents/skills/deploy/SKILL.md', name: 'deploy' }],
         service: createMockService(),
       });
 
       const result = await runtime.execScript({
-        activatedSkills: [{ id: 'project:deploy', name: 'deploy' }],
+        activatedSkills: [{ id: 'project:deploy', name: 'deploy', resourceVersion: 'snapshot-v1' }],
         command: 'scripts/deploy.sh',
         description: 'Run deploy script',
       });
@@ -189,10 +195,10 @@ describe('SkillsExecutionRuntime', () => {
       expect(deviceScriptRunner).toHaveBeenCalledWith(
         'scripts/deploy.sh',
         expect.objectContaining({
-          cwd: '/repo/.agents/skills/deploy',
+          cwd: '/repo',
           deviceId: 'device-1',
           env: {
-            SKILL_DIR: '/repo/.agents/skills/deploy',
+            SKILL_DIR: '/cache/extracted/prepared',
             WORKSPACE_DIR: '/repo',
           },
         }),
@@ -269,7 +275,7 @@ describe('SkillsExecutionRuntime', () => {
       // The hint points at the skill's directory and instructs the model to
       // call `local-system.globFiles` itself rather than pre-enumerating here.
       expect(result.content).toContain('/repo/.agents/skills/deploy');
-      expect(result.content).toContain('globFiles');
+      expect(result.content).toContain('id="project:deploy"');
       expect(result.state).toMatchObject({ name: 'deploy', source: 'project' });
     });
 
@@ -443,4 +449,63 @@ describe('SkillsExecutionRuntime', () => {
       expect(result.state).toMatchObject({ name: 'artifacts', source: 'builtin' });
     });
   });
+});
+
+it('requires reactivation when a stable user key points to a new ZIP version', async () => {
+  const execScript = vi.fn().mockResolvedValue({ exitCode: 0, output: 'ok', success: true });
+  const skill = {
+    id: 'db-1',
+    identifier: 'demo',
+    name: 'demo',
+    content: 'new body',
+    zipFileHash: 'new-hash',
+  };
+  const runtime = new SkillsExecutionRuntime({
+    registryResult: {
+      skills: [
+        {
+          key: 'user:demo',
+          identifier: 'demo',
+          name: 'demo',
+          description: '',
+          source: 'user',
+          scope: 'personal',
+          zipFileHash: 'new-hash',
+        },
+      ],
+    },
+    service: createMockService({
+      findAll: vi.fn().mockResolvedValue({ data: [skill], total: 1 }),
+      findById: vi.fn().mockResolvedValue(skill),
+      execScript,
+    }),
+  });
+  for (const resourceVersion of [undefined, 'old-hash']) {
+    const result = await runtime.execScript({
+      skillId: 'user:demo',
+      command: 'python demo.py',
+      description: '',
+      activatedSkills: [{ id: 'user:demo', name: 'demo', resourceVersion }],
+    });
+    expect(result.success).toBe(false);
+  }
+  expect(execScript).not.toHaveBeenCalled();
+  const activated = await runtime.activateSkill({ name: 'user:demo' });
+  expect(activated.state).toMatchObject({ id: 'user:demo', resourceVersion: 'new-hash' });
+  expect(
+    (
+      await runtime.execScript({
+        skillId: 'user:demo',
+        command: 'python demo.py',
+        description: '',
+        activatedSkills: [{ id: 'user:demo', name: 'demo', resourceVersion: 'new-hash' }],
+      })
+    ).success,
+  ).toBe(true);
+  expect(execScript).toHaveBeenCalledWith(
+    'python demo.py',
+    expect.objectContaining({
+      activatedSkills: [expect.objectContaining({ id: 'db-1', resourceVersion: 'new-hash' })],
+    }),
+  );
 });

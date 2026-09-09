@@ -467,6 +467,37 @@ describe('toolEngineering', () => {
     });
   });
 
+  it('does not let explicit activation cross the frozen execution environment', () => {
+    const ids = ['lobe-local-system', 'lobe-cloud-sandbox'];
+    mockInstalledPluginManifestList = () =>
+      ids.map(
+        (identifier) =>
+          ({
+            identifier,
+            type: 'builtin',
+            meta: { title: identifier },
+            api: [
+              { name: 'run', description: 'Run', parameters: { type: 'object', properties: {} } },
+            ],
+          }) as ToolManifest,
+      );
+    const engine = createAgentToolsEngine({ model: 'gpt-4', provider: 'openai' }, ids, {
+      version: 1,
+      operationId: 'op-1',
+      cwd: '/workspace',
+      plan: { kind: 'device', target: 'local', deviceId: 'device-1' },
+    });
+    const result = engine.generateToolsDetailed({
+      context: { isExplicitActivation: true },
+      toolIds: ids,
+      model: 'gpt-4',
+      provider: 'openai',
+      skipDefaultTools: true,
+    });
+    expect(result.enabledToolIds).toContain('lobe-local-system');
+    expect(result.enabledToolIds).not.toContain('lobe-cloud-sandbox');
+  });
+
   describe('stdio MCP filtering on web', () => {
     const stdioMcpManifest = {
       api: [

@@ -1,3 +1,4 @@
+import { mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import { type EnabledAiModel, ModelProvider } from 'model-bank';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -9,6 +10,34 @@ describe('chat helper', () => {
   afterEach(() => {
     useAiInfraStore.setState({ enabledAiModels: [] });
   });
+
+  it.each([
+    ['supported', false, true],
+    ['unsupported', true, false],
+    ['unknown', true, false],
+  ] as const)(
+    'uses catalog %s for image processing instead of legacy vision=%s',
+    (image, legacyVision, expected) => {
+      useAiInfraStore.setState({
+        enabledAiModels: [
+          {
+            id: 'catalog-image',
+            providerId: 'openai',
+            type: 'chat',
+            abilities: { vision: legacyVision },
+            settings: {
+              modelCatalog: mergeModelCatalogEntry({
+                modelId: 'catalog-image',
+                providerId: 'openai',
+                providerMetadata: { inputModalities: { image } },
+              }),
+            },
+          },
+        ],
+      });
+      expect(isCanUseVision('catalog-image', 'openai')).toBe(expected);
+    },
+  );
 
   it('should resolve LobeHub routed model abilities by model id fallback', () => {
     useAiInfraStore.setState({

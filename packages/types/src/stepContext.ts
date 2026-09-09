@@ -37,6 +37,8 @@ export interface StepActivatedSkill {
   description?: string;
   id: string;
   name: string;
+  /** Internal resource version from a successful activation. */
+  resourceVersion?: string;
 }
 
 /**

@@ -193,7 +193,7 @@ class SkillServerRuntimeService implements SkillRuntimeService {
         for (const activatedSkill of activatedSkills) {
           if (!activatedSkill.name) continue;
 
-          const skill = await this.skillModel.findByName(activatedSkill.name);
+          const skill = await this.skillModel.findById(activatedSkill.id);
 
           if (!skill) {
             log('No persisted skill bundle found for activated skill: %s', activatedSkill.name);
@@ -201,6 +201,8 @@ class SkillServerRuntimeService implements SkillRuntimeService {
           }
 
           if (!skill.zipFileHash) continue;
+          if (activatedSkill.resourceVersion !== skill.zipFileHash)
+            throw new Error('SKILL_RESOURCE_VERSION_CHANGED: activate this skill again');
 
           const fileInfo = await this.fileModel.checkHash(skill.zipFileHash);
           if (!fileInfo.isExist || !fileInfo.url) continue;
@@ -489,7 +491,7 @@ export const skillsRuntime: ServerRuntimeRegistration = {
                     source: 'user-approval' as const,
                   },
                 ],
-                cwd: skillCwd,
+                cwd: options.cwd,
                 env: options.env,
                 workspaceRootPath: gatewayContext.workspaceRootPath ?? gatewayContext.cwd,
               };
@@ -506,7 +508,7 @@ export const skillsRuntime: ServerRuntimeRegistration = {
                 apiName: LocalSystemApiName.runCommand,
                 arguments: JSON.stringify({
                   command,
-                  cwd: skillCwd,
+                  cwd: options.cwd,
                   description: options.description,
                   env: options.env,
                 }),
@@ -538,14 +540,36 @@ export const skillsRuntime: ServerRuntimeRegistration = {
       deviceScriptRunner,
       deviceSkillPathVerifier,
       executionContext: context.executionContext,
+      projectSnapshotResolver: frozenDeviceId
+        ? async ({ key, location, resourcePath }) => {
+            const execution = context.executionContext;
+            const operationId = execution?.operationId ?? context.operationId;
+            const workspaceRoot = execution?.workspace?.rootPath ?? execution?.cwd;
+            if (!operationId || !workspaceRoot) throw new Error('SKILL_OPERATION_BINDING_REQUIRED');
+            return deviceGateway.executeProjectSkillRpc<{
+              hash: string;
+              directory: string;
+              content: string;
+              files: string[];
+              resourceContent?: string;
+            }>({
+              deviceId: frozenDeviceId,
+              userId: context.userId!,
+              method: 'prepareProjectSkillSnapshot',
+              input: { operationId, skillId: key, path: location, workspaceRoot, resourcePath },
+            });
+          }
+        : undefined,
       projectSkills,
-      registryResult: context.skillRegistryResult,
+      registryResult: context.skillRegistryResult ?? { skills: [] },
       skillDirectoryResolver: frozenDeviceId
         ? async (activated) => {
             const selected = activated?.[0];
             if (!selected) return undefined;
             const skill = await skillModel.findById(selected.id);
             if (!skill || !skill.zipFileHash) return undefined;
+            if (selected.resourceVersion !== skill.zipFileHash)
+              throw new Error('SKILL_RESOURCE_VERSION_CHANGED: activate this skill again');
             if (skill.name !== selected.name)
               throw new Error('Activated skill identity does not match its package');
             const file = await fileModel.checkHash(skill.zipFileHash);

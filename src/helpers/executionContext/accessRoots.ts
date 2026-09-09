@@ -34,7 +34,7 @@ export const buildExecutionAccessRoots = (
 
   const seen = new Set<string>();
   return roots.filter((root) => {
-    const key = `${root.scope}:${root.grantId ?? ''}:${root.rootPath}:${[...root.modes].sort().join(',')}`;
+    const key = `${root.scope}:${root.target ?? 'directory'}:${root.grantId ?? ''}:${root.rootPath}:${[...root.modes].sort().join(',')}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

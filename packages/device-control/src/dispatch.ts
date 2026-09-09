@@ -27,6 +27,10 @@ import {
   updateProjectSkillOnDevice,
   validateProjectSkillOnDevice,
 } from './projectSkillAuthoring';
+import {
+  prepareProjectSkillSnapshot,
+  type ProjectSkillSnapshotParams,
+} from './projectSkillSnapshot';
 import { type PrepareDeviceSkillPackage, prepareSkillPackage } from './skillPackage';
 import type {
   CleanupScratchWorkspaceParams,
@@ -57,6 +61,7 @@ import {
  * handler, with no per-method gateway route.
  */
 export const DEVICE_RPC_METHODS = [
+  'prepareProjectSkillSnapshot',
   'prepareSkillPackage',
   'getLocalScratchExecution',
   'initWorkspace',
@@ -114,6 +119,9 @@ export const executeDeviceRpc = async (
   deps: DeviceControlDeps,
 ): Promise<unknown> => {
   switch (method) {
+    case 'prepareProjectSkillSnapshot': {
+      return prepareProjectSkillSnapshot(params as ProjectSkillSnapshotParams, deps.skillCacheRoot);
+    }
     case 'prepareSkillPackage': {
       return prepareSkillPackage(params as PrepareDeviceSkillPackage, deps.skillCacheRoot);
     }

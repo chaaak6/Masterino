@@ -1,0 +1,64 @@
+{
+  "case": "100000-row Excel natural grouped summary",
+  "topic": "tpc_TkrQYxyAw2tK",
+  "serverSha": "59eaba45",
+  "desktopMainSha": "59eaba45",
+  "rendererSourceSha": "10824781",
+  "status": "numeric_pass_tool_selection_fail",
+  "usageSum": {
+    "totalTokens": 94184,
+    "inputTextTokens": 90971,
+    "outputTextTokens": 1378,
+    "totalInputTokens": 90971,
+    "inputCachedTokens": 73088,
+    "totalOutputTokens": 3213,
+    "inputCacheMissTokens": 17883,
+    "outputReasoningTokens": 1835
+  },
+  "llmRoundsWithUsage": 4,
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputChars": 1757,
+      "outputBytes": 1757,
+      "recordsReturned": 5,
+      "hasMore": true,
+      "executionMetrics": {
+        "durationMs": 3.05,
+        "outputBytes": 1757
+      }
+    },
+    {
+      "name": "runCommand",
+      "outputChars": 253,
+      "outputBytes": 253,
+      "recordsReturned": null,
+      "hasMore": null,
+      "executionMetrics": null
+    },
+    {
+      "name": "runCommand",
+      "outputChars": 323,
+      "outputBytes": 323,
+      "recordsReturned": null,
+      "hasMore": null,
+      "executionMetrics": null
+    }
+  ],
+  "e2eSeconds": 35.543,
+  "oracleChecks": {
+    "rows": 100000,
+    "revenue": 75000000,
+    "regions": {
+      "East": 25000600,
+      "North": 24999600,
+      "West": 24999800
+    },
+    "months": {
+      "2026-01": 30000000,
+      "2026-02": 45000000
+    }
+  },
+  "diagnosis": "Model inspected workbook then probed openpyxl/pandas and used a new Python parser instead of native bounded Office summary",
+  "finalAcceptanceRepetition": false
+}

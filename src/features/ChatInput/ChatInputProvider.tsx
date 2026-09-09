@@ -14,6 +14,7 @@ interface ChatInputProviderProps extends StoreUpdaterProps {
 export const ChatInputProvider = memo<ChatInputProviderProps>(
   ({
     agentId,
+    topicId,
     children,
     contextWindowMessages,
     draftKey,
@@ -38,6 +39,7 @@ export const ChatInputProvider = memo<ChatInputProviderProps>(
       <Provider
         createStore={() =>
           createStore({
+            topicId,
             allowExpand,
             contextWindowMessages,
             draftKey,
@@ -69,6 +71,7 @@ export const ChatInputProvider = memo<ChatInputProviderProps>(
           sendButtonProps={sendButtonProps}
           sendMenu={sendMenu}
           slashPlacement={slashPlacement}
+          topicId={topicId}
           onMarkdownContentChange={onMarkdownContentChange}
           onSend={onSend}
         />

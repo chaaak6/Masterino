@@ -1,6 +1,7 @@
 import { filterAiProviderChatEligibleModels } from '@lobechat/business-model-bank';
 import { AiModelSourceEnum } from 'model-bank';
 
+import { resolveChatModelCatalog } from '@/helpers/modelCatalog';
 import { type AIProviderStoreState } from '@/store/aiInfra/initialState';
 import { ModelSearchImplement } from '@/types/search';
 
@@ -60,7 +61,7 @@ const isModelSupportFiles = (id: string, provider: string) => (s: AIProviderStor
 const isModelSupportVision = (id: string, provider: string) => (s: AIProviderStoreState) => {
   const model = getEnabledModelById(id, provider)(s);
 
-  return model?.abilities?.vision || false;
+  return model ? resolveChatModelCatalog(model).entry.inputModalities.image === 'supported' : false;
 };
 
 const isModelSupportVideo = (id: string, provider: string) => (s: AIProviderStoreState) => {

@@ -73,6 +73,7 @@ export interface PublicState {
    * Slash menu placement: 'bottom' for home page (input in center), 'top' for page input (at bottom)
    */
   slashPlacement?: SlashPlacement;
+  topicId?: string | null;
 }
 
 export interface State extends PublicState {

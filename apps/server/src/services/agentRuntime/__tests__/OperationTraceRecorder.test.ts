@@ -33,6 +33,43 @@ const buildPresentation = (overrides: Partial<StepPresentationData> = {}): StepP
   }) as StepPresentationData;
 
 describe('OperationTraceRecorder', () => {
+  it('redacts images in partial/final snapshots while preserving live messages and events', async () => {
+    const store = buildStore();
+    const recorder = new OperationTraceRecorder(store as any);
+    const image = 'data:image/png;base64,c3ludGhldGlj';
+    const messages = [
+      { role: 'user', content: [{ type: 'image_url', image_url: { url: image } }] },
+    ];
+    const events = [{ type: 'image', value: image }];
+    await recorder.appendStep('image-op', {
+      afterStepSignalEvents: events,
+      agentState: { messages },
+      beforeStepSignalEvents: [],
+      contextEngine: { output: messages },
+      currentContext: { payload: { messages } },
+      externalRetryCount: 0,
+      presentation: buildPresentation(),
+      startedAt: 1,
+      stepIndex: 0,
+      stepResult: { newState: { messages } },
+    });
+    const partial = store.savePartial.mock.calls[0][1];
+    expect(JSON.stringify(partial)).not.toContain('c3ludGhldGlj');
+    expect(partial.steps[0].contextEngine.output[0].content[0].image_url.url).toBe(
+      '[inline image omitted]',
+    );
+    store.loadPartial.mockResolvedValue(partial);
+    await recorder.finalize('image-op', {
+      appendEventsToLastStep: events,
+      completionReason: 'done',
+      state: {},
+    });
+    expect(store.save).toHaveBeenCalledOnce();
+    expect(JSON.stringify(store.save.mock.calls)).not.toContain('c3ludGhldGlj');
+    expect(messages[0].content[0].image_url.url).toBe(image);
+    expect(events[0].value).toBe(image);
+  });
+
   describe('appendStep', () => {
     let store: ReturnType<typeof buildStore>;
     let recorder: OperationTraceRecorder;

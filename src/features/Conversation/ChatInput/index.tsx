@@ -359,7 +359,7 @@ const ChatInput = memo<ChatInputProps>(
 
         // Clear content immediately for responsive UX
         clearContent();
-        fileStore.clearChatUploadFileList();
+        fileStore.clearChatUploadFileList({ preserveAttachments: true });
         fileStore.clearChatContextSelections();
 
         // Convert ChatContextContent to PageSelection for persistence
@@ -463,6 +463,7 @@ const ChatInput = memo<ChatInputProps>(
         sendButtonProps={sendButtonProps}
         sendMenu={showSendMenu ? sendMenu : undefined}
         slashPlacement="top"
+        topicId={context.topicId}
         chatInputEditorRef={(instance) => {
           if (instance) {
             setEditor(instance);

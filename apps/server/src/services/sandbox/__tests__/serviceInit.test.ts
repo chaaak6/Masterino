@@ -67,7 +67,7 @@ describe('SandboxMiddlewareService file initialization', () => {
     });
   });
 
-  it('only runs the sync once per service instance', async () => {
+  it('reconciles on each call so attachments added later are prepared', async () => {
     const provider = createProvider();
     const service = new SandboxMiddlewareService(provider, baseOptions());
 
@@ -77,7 +77,7 @@ describe('SandboxMiddlewareService file initialization', () => {
     const runCommandCalls = (provider.callTool as ReturnType<typeof vi.fn>).mock.calls.filter(
       ([tool]) => tool === 'runCommand',
     );
-    expect(runCommandCalls).toHaveLength(1);
+    expect(runCommandCalls).toHaveLength(2);
   });
 
   it('skips the sync when there is no serverDB', async () => {
@@ -105,13 +105,13 @@ describe('SandboxMiddlewareService file initialization', () => {
     expect(provider.callTool).toHaveBeenCalledWith('listFiles', {});
   });
 
-  it('never blocks the tool call when the sync fails', async () => {
+  it('reports preparation failure without executing tools against missing files', async () => {
     findFilesToInitInSandbox.mockRejectedValue(new Error('db down'));
     const provider = createProvider();
     const service = new SandboxMiddlewareService(provider, baseOptions());
 
-    await expect(service.callTool('listFiles', {})).resolves.toMatchObject({ success: true });
-    expect(provider.callTool).toHaveBeenCalledWith('listFiles', {});
+    await expect(service.callTool('listFiles', {})).rejects.toThrow('db down');
+    expect(provider.callTool).not.toHaveBeenCalled();
   });
 
   it('skips files exceeding the size cap, matching what the prompt advertises', async () => {

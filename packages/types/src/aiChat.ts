@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { UIChatMessage } from './message';
+import { type MessageAttachments, MessageAttachmentsSchema } from './message/attachments';
 import type { MessageMetadata } from './message/common';
 import { ChatToolPayloadSchema, MessageMetadataSchema } from './message/common';
 import type { CreateMessageParams, PageSelection } from './message/ui/params';
@@ -14,6 +15,7 @@ import type { ChatThreadType } from './topic/thread';
 import { ThreadType } from './topic/thread';
 
 export interface SendNewMessage {
+  attachments?: MessageAttachments | null;
   content: string;
   /** Lexical editor JSON state for rich text rendering */
   editorData?: Record<string, any>;
@@ -159,6 +161,7 @@ export const AiSendMessageServerSchema = z.object({
     .optional(),
   preloadMessages: z.array(SendPreloadMessageSchema).optional(),
   newUserMessage: z.object({
+    attachments: MessageAttachmentsSchema.nullable().optional(),
     content: z.string(),
     editorData: z.record(z.unknown()).optional(),
     files: z.array(z.string()).optional(),

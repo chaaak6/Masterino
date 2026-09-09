@@ -16,20 +16,14 @@ export function selectActivatedSkillsFromMessages(
   const add = (value: unknown) => {
     if (!value || typeof value !== 'object' || !('name' in value) || typeof value.name !== 'string')
       return;
-    // Older project activation results had no database ID. Reconstruct only the
-    // identity; execution still resolves paths against the frozen skill registry.
-    const project =
-      'source' in value && (value.source === 'project' || value.source === 'workspace');
-    const id =
-      'id' in value && typeof value.id === 'string'
-        ? value.id
-        : project
-          ? `project:${value.name}`
-          : undefined;
+    const id = 'id' in value && typeof value.id === 'string' ? value.id : undefined;
     if (!id) return;
     skills.delete(id);
     skills.set(id, {
       id,
+      ...('resourceVersion' in value && typeof value.resourceVersion === 'string'
+        ? { resourceVersion: value.resourceVersion }
+        : {}),
       name: value.name,
       description:
         'description' in value && typeof value.description === 'string'

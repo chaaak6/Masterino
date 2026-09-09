@@ -9,7 +9,13 @@ import { WebBrowsingManifest } from '@lobechat/builtin-tool-web-browsing';
 import { alwaysOnToolIds, chatModeAllowedToolIds, defaultToolIds } from '@lobechat/builtin-tools';
 import { createEnableChecker, type PluginEnableChecker } from '@lobechat/context-engine';
 import { ToolsEngine } from '@lobechat/context-engine';
-import { type ChatCompletionTool, type ToolManifest, type WorkingModel } from '@lobechat/types';
+import {
+  type ChatCompletionTool,
+  type LobeAgentConfig,
+  type ToolManifest,
+  type WorkingModel,
+} from '@lobechat/types';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 
 import { getActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import type { ConnectorToolPermission } from '@/database/schemas';
@@ -160,23 +166,28 @@ export const createAgentToolsEngine = (
   workingModel: WorkingModel,
   /** Runtime-resolved plugin IDs (from agentConfigResolver), may include tools beyond the active agent */
   pluginIds?: string[],
+  executionContext?: ExecutionContext,
+  resolvedConfig?: Partial<LobeAgentConfig>,
 ) => {
   const searchConfig = getSearchConfig(workingModel.model, workingModel.provider);
   const agentState = getAgentStoreState();
-  const userPlugins = agentSelectors.currentAgentPlugins(agentState);
-  const isChatMode =
-    agentChatConfigSelectors.currentChatConfig(agentState).enableAgentMode === false;
+  const userPlugins = pluginIds ?? agentSelectors.currentAgentPlugins(agentState);
+  const chatConfig =
+    resolvedConfig?.chatConfig ?? agentChatConfigSelectors.currentChatConfig(agentState);
+  const isChatMode = chatConfig.enableAgentMode === false;
 
   // Each entry below still respects its own runtime gate; in chat mode this
   // is the entire whitelist. `allowExplicitActivation` and user plugins /
   // `alwaysOnToolIds` are deliberately omitted in chat mode so the activator
   // can't smuggle additional tools in.
-  const kbEnabled = agentSelectors.hasEnabledKnowledgeBases(agentState);
+  const kbEnabled = resolvedConfig
+    ? !!resolvedConfig.knowledgeBases?.some((item) => item.enabled)
+    : agentSelectors.hasEnabledKnowledgeBases(agentState);
   const memoryEnabled =
     !getActiveWorkspaceId() &&
     getServerConfigStoreState()?.featureFlags?.enableMemory === true &&
     settingsSelectors.memoryEnabled(useUserStore.getState()) &&
-    agentChatConfigSelectors.currentChatConfig(agentState).memory?.enabled !== false;
+    chatConfig.memory?.enabled !== false;
   const webBrowsingEnabled = searchConfig.useApplicationBuiltinSearchTool;
 
   const chatModeRules = {
@@ -186,6 +197,7 @@ export const createAgentToolsEngine = (
   };
 
   const agentModeRules = {
+    'lobe-skill-authoring': executionContext?.plan.kind === 'device' && !!executionContext.cwd,
     // Runtime-resolved plugins (from agentConfigResolver for the effective agent,
     // may include sub-agent/group/page scope plugins not on the active agent)
     ...(pluginIds && Object.fromEntries(pluginIds.map((id) => [id, true]))),
@@ -204,11 +216,21 @@ export const createAgentToolsEngine = (
   const enableChecker = createEnableChecker({
     allowExplicitActivation: !isChatMode,
     platformFilter: ({ pluginId }) => {
+      if (executionContext) {
+        if (pluginId === LocalSystemManifest.identifier)
+          return executionContext.plan.kind === 'device';
+        if (pluginId === CloudSandboxManifest.identifier)
+          return executionContext.plan.kind === 'sandbox';
+      }
       const toolStoreState = getToolStoreState();
       const installedPlugin = pluginSelectors.getInstalledPluginById(pluginId)(toolStoreState);
 
       if (
         !isToolAvailableInCurrentEnv(pluginId, {
+          ...(executionContext && {
+            isDesktop:
+              executionContext.plan.kind === 'device' && executionContext.plan.target === 'local',
+          }),
           installedPlugins: installedPlugin ? [installedPlugin] : toolStoreState.installedPlugins,
         })
       ) {
@@ -225,7 +247,12 @@ export const createAgentToolsEngine = (
     // Explicit activation may bypass normal tool rules, but Memory consent is a
     // privacy boundary and must remain a hard gate.
     enableChecker: (params) =>
-      params.pluginId === MemoryManifest.identifier && !memoryEnabled
+      !isToolAvailableInCurrentEnv(params.pluginId, {
+        executionContext,
+        installedPlugins: getToolStoreState().installedPlugins,
+      }) ||
+      (params.pluginId === MemoryManifest.identifier && !memoryEnabled) ||
+      (isChatMode && !(params.pluginId in chatModeRules))
         ? false
         : enableChecker(params),
   });

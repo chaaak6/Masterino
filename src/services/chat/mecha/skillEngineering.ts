@@ -2,6 +2,7 @@ import type { OperationSkillSet } from '@lobechat/context-engine';
 import { SkillEngine } from '@lobechat/context-engine';
 
 import { isBuiltinSkillAvailableInCurrentEnv } from '@/helpers/toolAvailability';
+import { agentDocumentService } from '@/services/agentDocument';
 
 import {
   resolveClientSkillRegistry,
@@ -36,6 +37,21 @@ export const resolveClientSkills = async (
   const pinnedIds = new Set(pluginIds ?? []);
   const registry = await resolveClientSkillRegistry({
     ...options,
+    agentProvider:
+      options.agentProvider ??
+      (options.skillContext?.agentId
+        ? {
+            source: 'agent',
+            list: async (context) =>
+              (await agentDocumentService.getSkills({ agentId: context.agentId })).map((skill) => ({
+                ...skill,
+                key: `agent:${skill.identifier}`,
+                ownerId: context.agentId,
+                scope: 'personal',
+                source: 'agent',
+              })),
+          }
+        : undefined),
     contentIdentifiers: pluginIds,
     policy: { ...options.policy, pinned: pluginIds },
   });
@@ -53,6 +69,7 @@ export const resolveClientSkills = async (
       name: skill.name,
       scope: skill.scope,
       source: skill.source,
+      zipFileHash: skill.zipFileHash,
     })),
   });
 

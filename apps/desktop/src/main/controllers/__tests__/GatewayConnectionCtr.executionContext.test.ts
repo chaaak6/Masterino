@@ -2,6 +2,12 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import {
+  manageLocalAttachment,
+  prepareLocalAttachment,
+  receiveLocalAttachment,
+} from '@lobechat/device-control';
+import * as localFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ExecutionEnvService from '../../services/executionEnvSrv';
@@ -123,7 +129,133 @@ describe('GatewayConnectionCtr execution context boundary', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await rm(tempRoot, { force: true, recursive: true });
+  });
+
+  it('routes exact-trace cancellation into the running Office reader and removes it after completion', async () => {
+    const controller = makeController();
+    const file = path.join(workspace, 'data.xlsx');
+    await writeFile(file, 'fixture');
+    const trace = {
+      deviceId: 'device-1',
+      topicId: 'topic-1',
+      operationId: 'operation-1',
+      toolCallId: 'office-1',
+    };
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const reader = vi
+      .spyOn(localFileShell, 'readOfficeDocument')
+      .mockImplementation(async (_params, options) => {
+        const signal = options!.signal!;
+        expect(signal).toBeInstanceOf(AbortSignal);
+        started();
+        return new Promise((_, reject) =>
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+        );
+      });
+    const request = {
+      apiName: 'readOfficeDocument',
+      args: { path: file, aggregateColumn: 'A' },
+      executionContext: context(),
+      trace,
+    };
+    const execution = controller.executeLocalToolCall(request);
+    await ready;
+    const duplicate = controller.executeLocalToolCall(request);
+    expect(await controller.cancelLocalOfficeRead({ ...trace, topicId: 'another-topic' })).toEqual({
+      cancelled: false,
+    });
+    expect(await controller.cancelLocalOfficeRead(trace)).toEqual({ cancelled: true });
+    expect(await execution).toMatchObject({ success: false, content: 'Office read cancelled' });
+    expect(await duplicate).toMatchObject({ success: false });
+    expect(reader).toHaveBeenCalledTimes(1);
+    expect(await controller.cancelLocalOfficeRead(trace)).toEqual({ cancelled: false });
+  });
+
+  it('authorizes the first absolute write in prepared topic scratch, without sibling grants', async () => {
+    const controller = makeController();
+    const scratch = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    const source = path.join(workspace, 'source.xlsx');
+    await writeFile(source, 'fixture');
+    const ref = await receiveLocalAttachment(scratch, 'device-1', {
+      originalPath: source,
+      data: Buffer.from('fixture'),
+      name: 'source.xlsx',
+      mime: 'application/xlsx',
+      draftId: 'draft',
+    });
+    await prepareLocalAttachment(scratch, 'device-1', ref, 'topic-1');
+    const root = await realpath(path.join(scratch, 'topic-1'));
+    const trace = {
+      deviceId: 'device-1',
+      topicId: 'topic-1',
+      operationId: 'operation-1',
+      toolCallId: 'absolute-write',
+    };
+    vi.mocked(localFileCtr.handleWriteFile).mockResolvedValue({ success: true } as never);
+    const result = await controller.executeLocalToolCall({
+      apiName: 'writeFile',
+      args: { path: path.join(root, 'sales-report.html'), content: '<html>report</html>' },
+      executionContext: { accessRoots: [] },
+      trace,
+    });
+    expect(result).toMatchObject({ success: true, state: { localScratch: { root } } });
+    for (const denied of [
+      path.join(scratch, 'topic-2', 'report.html'),
+      path.join(workspace, 'sibling.html'),
+    ]) {
+      const output = await controller.executeLocalToolCall({
+        apiName: 'writeFile',
+        args: { path: denied, content: 'denied' },
+        executionContext: {
+          accessRoots: [
+            {
+              target: 'file',
+              rootPath: source,
+              modes: ['read'],
+              scope: 'operation',
+              source: 'user-approval',
+            },
+          ],
+        },
+        trace: { ...trace, toolCallId: denied },
+      });
+      expect(output).toMatchObject({ success: false, content: 'SCOPE_DENIED' });
+    }
+    expect(localFileCtr.handleWriteFile).toHaveBeenCalledTimes(1);
+    const nested = await controller.executeLocalToolCall({
+      apiName: 'writeFile',
+      args: { path: path.join(workspace, 'nested', 'report.html'), content: 'allowed' },
+      executionContext: context(),
+      trace: { ...trace, toolCallId: 'existing-workspace' },
+    });
+    expect(nested.success).toBe(true);
+    expect(nested.state).not.toHaveProperty('localScratch');
+  });
+
+  it('rejects scratch topic aliases and symlink escapes', async () => {
+    const controller = makeController();
+    const scratch = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    await mkdir(path.join(scratch, 'topic-b'), { recursive: true });
+    await symlink(path.join(scratch, 'topic-b'), path.join(scratch, 'topic-a'));
+    await symlink(workspace, path.join(scratch, 'topic-external'));
+    for (const topicId of ['topic-a', 'topic-external']) {
+      const result = await controller.executeLocalToolCall({
+        apiName: 'writeFile',
+        args: { path: path.join(scratch, topicId, 'report.html'), content: 'denied' },
+        executionContext: { accessRoots: [] },
+        trace: { deviceId: 'device-1', topicId, operationId: 'op', toolCallId: topicId },
+      });
+      expect(result.success).toBe(false);
+      await expect(
+        (controller as any).executeDeviceRpc('ensureScratchWorkspace', { topicId }),
+      ).rejects.toThrow('SCOPE_DENIED');
+    }
+    expect(localFileCtr.handleWriteFile).not.toHaveBeenCalled();
   });
 
   it('lazily prepares scratch and exposes evidence only after a successful tool', async () => {
@@ -160,6 +292,129 @@ describe('GatewayConnectionCtr execution context boundary', () => {
     });
     expect(handleRunCommand).toHaveBeenCalledTimes(1);
   });
+
+  it('resolves an attachment ID on device, hides its path and rejects a foreign topic', async () => {
+    const root = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    const ref = await receiveLocalAttachment(root, 'device-1', {
+      draftId: 'draft-id',
+      name: 'private.txt',
+      mime: 'text/plain',
+      data: Buffer.from('hello'),
+    });
+    await manageLocalAttachment(root, 'device-1', {
+      action: 'bindMessage',
+      ref,
+      messageId: 'message-id',
+      topicId: 'bound-topic',
+    });
+    const prepared = await prepareLocalAttachment(root, 'device-1', ref, 'bound-topic');
+    readFile.mockResolvedValueOnce({ content: prepared.path });
+    const controller = makeController();
+    const request = {
+      apiName: 'readFile',
+      args: { attachmentId: ref.attachmentId },
+      executionContext: context(),
+      trace: {
+        deviceId: 'device-1',
+        topicId: 'bound-topic',
+        operationId: 'op-id',
+        toolCallId: 'read-id',
+      },
+    };
+    const result = await controller.executeLocalToolCall(request);
+    expect(result.success).toBe(true);
+    expect(JSON.stringify(result)).not.toContain(prepared.path);
+    expect(result.content).toContain(`attachment:${ref.attachmentId}`);
+    expect(readFile).toHaveBeenCalledTimes(1);
+    handleRunCommand.mockImplementationOnce(async (args) => {
+      const env = (args as { env?: Record<string, string> }).env;
+      expect(env?.ATTACHMENT_FILE).toBe(prepared.path);
+      return {
+        success: true,
+        stdout: `${prepared.path} ${path.dirname(prepared.path)} ${encodeURI(prepared.path)}`,
+      };
+    });
+    const computed = await controller.executeLocalToolCall({
+      ...request,
+      apiName: 'runCommand',
+      args: { attachmentId: ref.attachmentId, command: 'test-command' },
+      trace: { ...request.trace, toolCallId: 'compute' },
+    });
+    expect(computed.success).toBe(true);
+    expect(JSON.stringify(computed)).not.toContain(path.dirname(prepared.path));
+    expect(computed.content).toContain(`attachment:${ref.attachmentId}`);
+    const denied = await controller.executeLocalToolCall({
+      ...request,
+      trace: { ...request.trace, topicId: 'foreign-topic', toolCallId: 'foreign-call' },
+    });
+    expect(denied.success).toBe(false);
+    expect(denied.content).toContain('ATTACHMENT_NOT_AVAILABLE');
+    expect(readFile).toHaveBeenCalledTimes(1);
+    const ambiguous = await controller.executeLocalToolCall({
+      ...request,
+      args: { ...request.args, path: prepared.path },
+      trace: { ...request.trace, toolCallId: 'ambiguous' },
+    });
+    expect(ambiguous.content).toBe('INVALID_ATTACHMENT_TOOL_REQUEST');
+  });
+
+  it.each(['readFile', 'readFiles'])(
+    'redacts legacy attachment paths in %s while preserving workspace paths',
+    async (apiName) => {
+      const root = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+      const attachments = [];
+      for (const name of ['first.txt', 'second.txt']) {
+        const ref = await receiveLocalAttachment(root, 'device-1', {
+          draftId: 'legacy-draft',
+          name,
+          mime: 'text/plain',
+          data: Buffer.from('hello'),
+        });
+        const prepared = await prepareLocalAttachment(root, 'device-1', ref, 'legacy-topic');
+        attachments.push(prepared);
+      }
+      const workspaceFile = path.join(workspace, 'ordinary.txt');
+      await writeFile(workspaceFile, 'ordinary');
+      const paths = [...attachments.map(({ path: filename }) => filename), workspaceFile];
+      if (apiName === 'readFile')
+        readFile.mockResolvedValueOnce({ content: `${paths[0]} ${workspaceFile}` });
+      else
+        vi.spyOn(localFileCtr, 'readFiles').mockResolvedValueOnce(
+          paths.map((filename) => ({
+            filename,
+            content: filename,
+            charCount: filename.length,
+            createdTime: new Date(0),
+            fileType: 'txt',
+            lineCount: 1,
+            loc: [1, 1] as [number, number],
+            modifiedTime: new Date(0),
+            totalCharCount: filename.length,
+            totalLineCount: 1,
+          })),
+        );
+      const result = await makeController().executeLocalToolCall({
+        apiName,
+        args: apiName === 'readFiles' ? { paths } : { path: paths[0] },
+        executionContext: context(),
+        trace: {
+          deviceId: 'device-1',
+          topicId: 'legacy-topic',
+          operationId: 'legacy-op',
+          toolCallId: 'legacy-read',
+        },
+      });
+      expect(result.success).toBe(true);
+      const serialized = JSON.stringify(result);
+      for (const item of apiName === 'readFiles' ? attachments : attachments.slice(0, 1)) {
+        expect(serialized).not.toContain(path.dirname(item.path));
+        expect(result.content).toContain(`attachment:${item.ref.attachmentId}`);
+      }
+      expect(serialized).not.toContain('.attachments');
+      expect(result.content).toContain(workspaceFile);
+      expect(serialized).toContain('consent:legacy-op');
+    },
+  );
 
   it.each([
     { success: false, stdout: 'failed' },

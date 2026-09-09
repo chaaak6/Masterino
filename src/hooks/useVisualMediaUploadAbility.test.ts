@@ -88,7 +88,7 @@ describe('useVisualMediaUploadAbility', () => {
 
     const { result } = renderHook(() => useVisualMediaUploadAbility('model', 'provider'));
 
-    expect(result.current.canUploadImage).toBe(true);
+    expect(result.current.canUploadImage).toBe(false);
     expect(result.current.canUploadVideo).toBe(true);
   });
 
@@ -103,7 +103,7 @@ describe('useVisualMediaUploadAbility', () => {
 
     const { result } = renderHook(() => useVisualMediaUploadAbility('model', 'provider'));
 
-    expect(result.current.canUploadImage).toBe(true);
+    expect(result.current.canUploadImage).toBe(false);
     expect(result.current.canUploadVideo).toBe(true);
   });
 
@@ -154,7 +154,7 @@ describe('useVisualMediaUploadAbility', () => {
 
     const { result } = renderHook(() => useVisualMediaUploadAbility('model', 'provider'));
 
-    expect(result.current.canUploadImage).toBe(true);
+    expect(result.current.canUploadImage).toBe(false);
     expect(result.current.canUploadVideo).toBe(false);
   });
 });

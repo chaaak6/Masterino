@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales 收入报告 — sales-12</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1f2733; --muted:#6b7688;
+    --accent:#3b82f6; --accent2:#8b5cf6; --accent3:#10b981;
+    --line:#e6e9f0; --table-head:#f0f3fa;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,sans-serif;
+    margin:0; padding:32px 20px; background:var(--bg); color:var(--ink); line-height:1.6;
+  }
+  .wrap{max-width:960px; margin:0 auto;}
+  header.hero{
+    background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff;
+    border-radius:16px; padding:28px 32px; margin-bottom:24px;
+  }
+  header.hero h1{margin:0 0 6px; font-size:26px;}
+  header.hero p{margin:0; opacity:.92; font-size:14px;}
+  .hero .meta{display:flex; flex-wrap:wrap; gap:14px; margin-top:16px; font-size:13px;}
+  .hero .meta span{background:rgba(255,255,255,.18); padding:6px 12px; border-radius:999px;}
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:24px;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px;}
+  .stat .label{font-size:13px; color:var(--muted);}
+  .stat .value{font-size:30px; font-weight:700; margin-top:6px;}
+  .stat .sub{font-size:12px; color:var(--muted); margin-top:4px;}
+  section.card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:24px; margin-bottom:24px;
+  }
+  section.card h2{margin-top:0; font-size:19px; margin-bottom:4px;}
+  section.card .desc{color:var(--muted); font-size:13px; margin-bottom:18px;}
+  table{width:100%; border-collapse:collapse; font-size:14px;}
+  th,td{padding:11px 14px; text-align:right; border-bottom:1px solid var(--line);}
+  th:first-child,td:first-child{text-align:left;}
+  thead th{background:var(--table-head); font-weight:600; color:var(--ink);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fafbfe;}
+  tfoot td{font-weight:700; background:#f7f9fe; text-align:right;}
+  tfoot td:first-child{text-align:left;}
+  .chart{margin-top:18px;}
+  .chart .legend{display:flex; gap:18px; font-size:12px; color:var(--muted); margin-bottom:6px;}
+  .chart .legend span::before{content:""; display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px;}
+  .note{font-size:12px; color:var(--muted); margin-top:14px;}
+  footer{text-align:center; color:var(--muted); font-size:12px; padding:16px 0 4px;}
+  .bar-label{font-size:13px; fill:var(--ink);}
+  .bar-val{font-size:13px; font-weight:600; fill:#1f2733;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Sales 收入分析报告</h1>
+    <p>源文件：sales-12.xlsx · 工作表：Sales · 单位：人民币（CNY）</p>
+    <div class="meta">
+      <span>数据行数：12 行</span>
+      <span>字段：order_id / month / region / product / units / unit_price / revenue</span>
+      <span>生成时间：自动</span>
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="stat">
+      <div class="label">总收入</div>
+      <div class="value">¥8,000</div>
+      <div class="sub">12 笔订单</div>
+    </div>
+    <div class="stat">
+      <div class="label">按 Region 分组</div>
+      <div class="value">3 个区域</div>
+      <div class="sub">East / West / North</div>
+    </div>
+    <div class="stat">
+      <div class="label">按 Month 分组</div>
+      <div class="value">2 个月</div>
+      <div class="sub">2026-01 / 2026-02</div>
+    </div>
+    <div class="stat">
+      <div class="label">平均单价</div>
+      <div class="value">¥266.67</div>
+      <div class="sub">units：共 33 件</div>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>摘要</h2>
+    <div class="desc">以下为 Sales 工作表全部 12 行数据计算得到的汇总指标。</div>
+    <table>
+      <thead>
+        <tr><th>指标</th><th>数值</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>总收入（Total Revenue）</td><td>¥8,000</td></tr>
+        <tr><td>数据行数（Data Rows）</td><td>12</td></tr>
+        <tr><td>区域数量（Distinct Regions）</td><td>3</td></tr>
+        <tr><td>月份数量（Distinct Months）</td><td>2</td></tr>
+        <tr><td>总销量（Total Units）</td><td>33</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>按 Region 分组的收入</h2>
+    <div class="desc">按区域汇总的收入（单位：CNY）。</div>
+    <table>
+      <thead>
+        <tr><th>Region</th><th>订单数</th><th>收入</th><th>占比</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>East</td><td>4</td><td>¥3,300</td><td>41.3%</td></tr>
+        <tr><td>West</td><td>4</td><td>¥2,400</td><td>30.0%</td></tr>
+        <tr><td>North</td><td>4</td><td>¥2,300</td><td>28.8%</td></tr>
+      </tbody>
+      <tfoot>
+        <tr><td>合计</td><td>12</td><td>¥8,000</td><td>100%</td></tr>
+      </tfoot>
+    </table>
+
+    <div class="chart">
+      <div class="legend">
+        <span style="background:var(--accent)"></span> 收入（CNY）
+      </div>
+      <svg viewBox="0 0 560 220" width="100%" role="img" aria-label="Region 收入柱状图">
+        <line x1="90" y1="20" x2="90" y2="205" stroke="#cbd2e0" stroke-width="1"/>
+        <!-- East -->
+        <rect x="90" y="32" width="440" height="36" rx="5" fill="var(--accent)"/>
+        <text x="80" y="55" text-anchor="end" class="bar-label">East</text>
+        <text x="538" y="55" text-anchor="end" class="bar-val">¥3,300</text>
+        <!-- West -->
+        <rect x="90" y="96" width="320" height="36" rx="5" fill="var(--accent2)"/>
+        <text x="80" y="119" text-anchor="end" class="bar-label">West</text>
+        <text x="418" y="119" text-anchor="end" class="bar-val">¥2,400</text>
+        <!-- North -->
+        <rect x="90" y="160" width="307" height="36" rx="5" fill="var(--accent3)"/>
+        <text x="80" y="183" text-anchor="end" class="bar-label">North</text>
+        <text x="405" y="183" text-anchor="end" class="bar-val">¥2,300</text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>按 Month 分组的收入</h2>
+    <div class="desc">按月份汇总的收入（单位：CNY）。</div>
+    <table>
+      <thead>
+        <tr><th>Month</th><th>订单数</th><th>收入</th><th>占比</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2026-01</td><td>6</td><td>¥2,800</td><td>35.0%</td></tr>
+        <tr><td>2026-02</td><td>6</td><td>¥5,200</td><td>65.0%</td></tr>
+      </tbody>
+      <tfoot>
+        <tr><td>合计</td><td>12</td><td>¥8,000</td><td>100%</td></tr>
+      </tfoot>
+    </table>
+
+    <div class="chart">
+      <div class="legend">
+        <span style="background:var(--accent)"></span> 收入（CNY）
+      </div>
+      <svg viewBox="0 0 560 220" width="100%" role="img" aria-label="Month 收入柱状图">
+        <line x1="90" y1="20" x2="90" y2="205" stroke="#cbd2e0" stroke-width="1"/>
+        <!-- 2026-01 -->
+        <rect x="90" y="32" width="237" height="36" rx="5" fill="var(--accent)"/>
+        <text x="80" y="55" text-anchor="end" class="bar-label">2026-01</text>
+        <text x="335" y="55" text-anchor="end" class="bar-val">¥2,800</text>
+        <!-- 2026-02 -->
+        <rect x="90" y="96" width="440" height="36" rx="5" fill="var(--accent2)"/>
+        <text x="80" y="119" text-anchor="end" class="bar-label">2026-02</text>
+        <text x="538" y="119" text-anchor="end" class="bar-val">¥5,200</text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Region × Month 交叉汇总</h2>
+    <div class="desc">按区域和月份交叉汇总的收入（单位：CNY）。</div>
+    <table>
+      <thead>
+        <tr><th>Region</th><th>2026-01</th><th>2026-02</th><th>合计</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>East</td><td>¥700</td><td>¥2,600</td><td>¥3,300</td></tr>
+        <tr><td>West</td><td>¥800</td><td>¥1,600</td><td>¥2,400</td></tr>
+        <tr><td>North</td><td>¥1,300</td><td>¥1,000</td><td>¥2,300</td></tr>
+      </tbody>
+      <tfoot>
+        <tr><td>合计</td><td>¥2,800</td><td>¥5,200</td><td>¥8,000</td></tr>
+      </tfoot>
+    </table>
+  </section>
+
+  <p class="note">说明：报告仅基于 sales-12.xlsx 中「Sales」工作表共 12 行数据计算；相关指标为整数 CNY，不涉及税务或退款。原文件保持不变。图表为内嵌 SVG，无需联网即可独立打开。</p>
+
+  <footer>Generated from sales-12.xlsx · Sales sheet · 数据行数：12</footer>
+</div>
+</body>
+</html>

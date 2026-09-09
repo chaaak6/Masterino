@@ -106,6 +106,7 @@ export abstract class ComputerRuntime {
       }
 
       const r = result.result || {};
+      if (r.error) return { content: String(r.error), state: { path: args.path }, success: false };
       const fileContent = r.content || '';
 
       const state: ReadFileState = {
@@ -126,13 +127,38 @@ export abstract class ComputerRuntime {
           ? [args.startLine, args.endLine]
           : undefined;
 
+      const pagination =
+        r.loc && state.totalLines !== undefined
+          ? {
+              actualRange: [r.loc[0], Math.min(r.loc[1], state.totalLines)],
+              rangeConvention: 'zero-based, end-exclusive',
+              totalLines: state.totalLines,
+              hasMore: !!r.truncated || r.loc[1] < state.totalLines,
+              truncated: !!r.truncated,
+              linesTruncated: r.linesTruncated ?? 0,
+              ...(r.loc[1] < state.totalLines && !r.truncated
+                ? {
+                    next: {
+                      path: args.path,
+                      loc: [r.loc[1], Math.min(r.loc[1] + 200, state.totalLines)],
+                    },
+                  }
+                : {}),
+            }
+          : undefined;
       const content = formatFileContent({
         content: fileContent,
         lineRange,
         path: args.path,
       });
 
-      return { content, state, success: true };
+      return {
+        content: pagination
+          ? `${content}\n\nRead metadata: ${JSON.stringify(pagination)}`
+          : content,
+        state: { ...state, ...pagination },
+        success: true,
+      };
     } catch (error) {
       return this.handleError(error);
     }

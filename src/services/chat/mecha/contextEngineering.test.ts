@@ -1,4 +1,5 @@
 import { LobeAgentIdentifier } from '@lobechat/builtin-tool-lobe-agent';
+import { createModelCatalogSnapshot, mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import { type UIChatMessage } from '@lobechat/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -41,6 +42,7 @@ vi.mock('@/helpers/parserPlaceholder', () => ({
     time: () => '14:30:45',
     username: () => 'TestUser',
     random: () => '12345',
+    workingDirectory: () => '/private/tmp/old-agent-default',
   },
 }));
 
@@ -106,7 +108,61 @@ const getCurrentDateContent = () => {
   return `Current date: ${year}-${month}-${day} (${tz})`;
 };
 
+const visionSnapshot = (model: string, provider = 'openai') =>
+  createModelCatalogSnapshot(
+    mergeModelCatalogEntry({
+      modelId: model,
+      providerId: provider,
+      catalog: { abilities: { vision: true } },
+    }).entry,
+    'test-operation',
+  );
+
 describe('contextEngineering', () => {
+  it.each(['missing', 'model', 'provider'] as const)(
+    'rejects current images with %s snapshot despite live vision support',
+    async (mismatch) => {
+      const live = vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(true);
+      const snapshot =
+        mismatch === 'missing'
+          ? undefined
+          : visionSnapshot(
+              mismatch === 'model' ? 'other' : 'current',
+              mismatch === 'provider' ? 'other-provider' : 'openai',
+            );
+      await expect(
+        contextEngineering({
+          model: 'current',
+          provider: 'openai',
+          modelCatalogSnapshot: snapshot,
+          messages: [
+            {
+              role: 'user',
+              content: 'image',
+              imageList: [{ id: 'image', url: 'https://example.com/image.png' }],
+            },
+          ] as UIChatMessage[],
+        }),
+      ).rejects.toThrow('cannot view images');
+      expect(live).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rejects current serialized image parts when no snapshot is available', async () => {
+    await expect(
+      contextEngineering({
+        model: 'current',
+        provider: 'openai',
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: 'https://example.com/image.png' } }],
+          },
+        ] as any,
+      }),
+    ).rejects.toThrow('cannot view images');
+  });
+
   it('injects full plan content from the dedicated latest plan interface', async () => {
     vi.mocked(notebookService.getLatestPlan).mockResolvedValue({
       associatedAt: new Date('2026-08-27T00:00:00.000Z'),
@@ -267,6 +323,7 @@ describe('contextEngineering', () => {
       ] as UIChatMessage[];
 
       const output = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4o', 'openai'),
         messages,
         model: 'gpt-4o',
         provider: 'openai',
@@ -315,7 +372,74 @@ describe('contextEngineering', () => {
       runtimeFlags.isServerMode = false;
     });
 
-    it('should include image files in server mode', async () => {
+    it.each(['supported', 'unsupported', 'unknown'] as const)(
+      'keeps frozen image capability %s despite mutable capability drift',
+      async (image) => {
+        vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(image !== 'supported');
+        const snapshot = createModelCatalogSnapshot(
+          mergeModelCatalogEntry({
+            modelId: 'working-model',
+            providerId: 'openai',
+            providerMetadata: { inputModalities: { image } },
+          }).entry,
+          'operation-1',
+        );
+        const messages = [
+          {
+            id: 'user-image',
+            role: 'user',
+            content: 'Inspect image',
+            imageList: [{ id: 'image-1', url: 'http://example.com/image.png', alt: 'image.png' }],
+          },
+        ] as UIChatMessage[];
+        const run = contextEngineering({
+          messages,
+          model: 'working-model',
+          provider: 'openai',
+          modelCatalogSnapshot: snapshot,
+        });
+        if (image === 'supported') {
+          const result = await run;
+          expect(result.find((message) => message.role === 'user')?.content).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                type: 'image_url',
+                image_url: expect.objectContaining({ url: 'http://example.com/image.png' }),
+              }),
+            ]),
+          );
+        } else await expect(run).rejects.toThrow('cannot view images');
+        expect(messages[0].imageList).toHaveLength(1);
+      },
+    );
+
+    it('does not apply a supported snapshot from another model to selected images', async () => {
+      vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(false);
+      const snapshot = createModelCatalogSnapshot(
+        mergeModelCatalogEntry({
+          modelId: 'old-model',
+          providerId: 'openai',
+          catalog: { abilities: { vision: true } },
+        }).entry,
+        'old-operation',
+      );
+      await expect(
+        contextEngineering({
+          messages: [
+            {
+              role: 'user',
+              content: 'Inspect',
+              imageList: [{ id: 'image-1', url: 'http://example.com/image.png', alt: 'image.png' }],
+            },
+          ] as UIChatMessage[],
+          model: 'new-model',
+          provider: 'openai',
+          modelCatalogSnapshot: snapshot,
+        }),
+      ).rejects.toThrow('cannot view images');
+    });
+
+    it('rejects selected image attachments when the current model has no vision capability', async () => {
       runtimeFlags.isServerMode = true;
 
       vi.spyOn(helpers, 'isCanUseVision').mockReturnValue(false);
@@ -334,47 +458,9 @@ describe('contextEngineering', () => {
         }, // Message with files
         { content: 'Hey', role: 'assistant' }, // Regular user message
       ] as UIChatMessage[];
-      const output = await contextEngineering({
-        messages,
-        provider: 'openai',
-        model: 'gpt-4-vision-preview',
-      });
-
-      expect(output).toEqual([
-        { content: expect.stringContaining(getCurrentDateContent()), role: 'system' },
-        {
-          content: [
-            {
-              // Vision disabled: the image is surfaced in the file-context
-              // block AND appended as a textual placeholder so the target
-              // model still sees that an image was sent (see ).
-              text: `Hello
-
-[image omitted: not supported by this model]
-
-<!-- SYSTEM CONTEXT (NOT PART OF USER QUERY) -->
-<context.instruction>following part contains context information injected by the system. Please follow these instructions:
-
-1. Always prioritize handling user-visible content.
-2. the context is only required when user's queries rely on it.
-</context.instruction>
-<files_info>
-<images>
-<images_docstring>here are user upload images you can refer to</images_docstring>
-<image ref="image_1" name="abc.png" url="http://example.com/image.jpg"></image>
-</images>
-</files_info>
-<!-- END SYSTEM CONTEXT -->`,
-              type: 'text',
-            },
-          ],
-          role: 'user',
-        },
-        {
-          content: 'Hey',
-          role: 'assistant',
-        },
-      ]);
+      await expect(
+        contextEngineering({ messages, provider: 'openai', model: 'gpt-4-vision-preview' }),
+      ).rejects.toThrow('cannot view images');
 
       runtimeFlags.isServerMode = false;
     });
@@ -527,6 +613,7 @@ describe('contextEngineering', () => {
         },
       ];
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4-vision-preview', 'openai'),
         messages,
         model: 'gpt-4-vision-preview',
         provider: 'openai',
@@ -557,6 +644,7 @@ describe('contextEngineering', () => {
         },
       ];
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4-vision-preview', 'openai'),
         messages,
         model: 'gpt-4-vision-preview',
         provider: 'openai',
@@ -610,6 +698,29 @@ describe('contextEngineering', () => {
   });
 
   describe('Process placeholder variables', () => {
+    it.each(['/scratch/current-topic', undefined])(
+      'uses the frozen operation cwd instead of global defaults (%s)',
+      async (cwd) => {
+        const result = await contextEngineering({
+          executionContext: {
+            version: 1,
+            cwd,
+            plan: { kind: 'device', target: 'local', deviceId: 'device-current' },
+          },
+          messages: [{ id: 'current-user', role: 'user', content: 'Continue' }] as UIChatMessage[],
+          model: 'gpt-4',
+          provider: 'openai',
+          systemRole: 'Current Working Directory: {{workingDirectory}}',
+        });
+        const prompt = result
+          .filter((message) => message.role === 'system')
+          .map((message) => message.content)
+          .join('\n');
+        expect(prompt).not.toContain('/private/tmp/old-agent-default');
+        expect(prompt).toContain(cwd ?? 'Use relative paths');
+      },
+    );
+
     it('should process placeholder variables in string content', async () => {
       const messages: UIChatMessage[] = [
         {
@@ -665,6 +776,7 @@ describe('contextEngineering', () => {
       ] as any;
 
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4'),
         messages,
         model: 'gpt-4',
         provider: 'openai',
@@ -822,6 +934,7 @@ describe('contextEngineering', () => {
       ];
 
       const result = await contextEngineering({
+        modelCatalogSnapshot: visionSnapshot('gpt-4o', 'openai'),
         messages,
         model: 'gpt-4o',
         provider: 'openai',

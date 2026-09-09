@@ -1,0 +1,27 @@
+{
+  "topic": "tpc_FyLyDGRxq2ww",
+  "status": "diagnostic_failed_stopped",
+  "desktopAtRestart": "e0f4ff282e5e826ce8553f67ba5bbee40442a323",
+  "server": "599e071335937d1d482caad189b1d3d7d3c4b082",
+  "toolRequests": 11,
+  "assistantRoundsWithUsage": 9,
+  "usageSum": {
+    "totalTokens": 213604,
+    "inputTextTokens": 211166,
+    "outputTextTokens": 1080,
+    "totalInputTokens": 211166,
+    "totalOutputTokens": 2438,
+    "inputCacheMissTokens": 44126,
+    "outputReasoningTokens": 1358,
+    "inputCachedTokens": 167040
+  },
+  "observations": [
+    "Finder file copy and real CmdV accepted XLSX attachment",
+    "DB attachments schemaVersion1 persisted local resource metadata",
+    "Persisted message UI lost attachment chip; model did not receive file path",
+    "Topic scratch workspace contains no files",
+    "Model searched and discovered original fixture directory outside topic; read request refused by QA",
+    "3 subsequent runCommand calls rejected WORKSPACE_REQUIRED; QA stopped using UI",
+    "No HTML generated; mixed-version diagnostic excluded from final acceptance"
+  ]
+}

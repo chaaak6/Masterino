@@ -6,6 +6,7 @@ import { type Mock } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mutate } from '@/libs/swr';
+import * as localAttachments from '@/services/electron/localAttachmentService';
 import { messageService } from '@/services/message';
 import { topicService } from '@/services/topic';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
@@ -1598,4 +1599,32 @@ describe('chatMessage actions', () => {
       });
     });
   });
+});
+
+describe('local attachment deletion lifecycle', () => {
+  it.each([true, false])(
+    'releases references only after confirmed deletion (success=%s)',
+    async (success) => {
+      const message = {
+        id: 'local-message',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        role: 'user',
+        content: 'attached',
+        attachments: { schemaVersion: 1, items: [] },
+      } as UIChatMessage;
+      const release = vi
+        .spyOn(localAttachments, 'releaseLocalMessageAttachments')
+        .mockResolvedValue();
+      vi.spyOn(messageService, 'removeMessage').mockResolvedValueOnce({ success, messages: [] });
+      useChatStore.setState({
+        dbMessagesMap: {
+          [messageMapKey({ agentId: 'session-id', topicId: 'topic-id' })]: [message],
+        },
+      });
+      await useChatStore.getState().optimisticDeleteMessage(message.id);
+      if (success) expect(release).toHaveBeenCalledWith([message]);
+      else expect(release).not.toHaveBeenCalled();
+    },
+  );
 });

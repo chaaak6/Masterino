@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales 分析报告 — diagnostic-paperclip-v3</title>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --card: #ffffff;
+    --ink: #1f2a37;
+    --muted: #667085;
+    --brand: #4f46e5;
+    --line: #e5e9f0;
+    --east: #4f46e5;
+    --west: #0ea5e9;
+    --north: #f59e0b;
+    --jan: #10b981;
+    --feb: #6366f1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 60px; }
+  header.hero {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(79,70,229,.25);
+  }
+  header.hero h1 { margin: 0 0 6px; font-size: 24px; font-weight: 700; }
+  header.hero p { margin: 0; color: #e5e7ff; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  }
+  .card .label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .card .value { font-size: 26px; font-weight: 700; letter-spacing: .3px; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  }
+  .section h2 { margin: 0 0 4px; font-size: 18px; }
+  .section .note { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; background: #fafbfc; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.total td { font-weight: 700; border-top: 2px solid var(--ink); }
+  .pill {
+    display: inline-block; padding: 3px 12px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; color: #fff;
+  }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 720px) { .charts { grid-template-columns: 1fr; } }
+  .chart-box { border-top: 1px dashed var(--line); padding-top: 8px; }
+  .chart-title { font-weight: 600; font-size: 14px; margin: 10px 0 8px; color: var(--ink); }
+  svg { display: block; width: 100%; max-width: 460px; height: auto; margin: 0 auto; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>Sales 数据收入分析报告</h1>
+    <p>数据来源：sales-12.xlsx · Sales 工作表 · 生成于本机环境 · 单位：CNY</p>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">总收入</div>
+      <div class="value">¥8,000</div>
+      <div class="sub">CNY</div>
+    </div>
+    <div class="card">
+      <div class="label">数据行数</div>
+      <div class="value">12</div>
+      <div class="sub">不含表头</div>
+    </div>
+    <div class="card">
+      <div class="label">覆盖区域</div>
+      <div class="value">3</div>
+      <div class="sub">East · West · North</div>
+    </div>
+    <div class="card">
+      <div class="label">覆盖月份</div>
+      <div class="value">2</div>
+      <div class="sub">2026-01 · 2026-02</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>按区域分组的收入</h2>
+    <p class="note">Revenue by region（单位：CNY）。East 贡献最高。</p>
+    <table>
+      <thead>
+        <tr><th>区域 (Region)</th><th class="num">订单数</th><th class="num">总收入 (CNY)</th><th class="num">占比</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="pill" style="background:var(--east)">East</span></td><td class="num">4</td><td class="num">3,300</td><td class="num">41.25%</td></tr>
+        <tr><td><span class="pill" style="background:var(--west)">West</span></td><td class="num">4</td><td class="num">2,400</td><td class="num">30.00%</td></tr>
+        <tr><td><span class="pill" style="background:var(--north)">North</span></td><td class="num">4</td><td class="num">2,300</td><td class="num">28.75%</td></tr>
+      </tbody>
+      <tfoot>
+        <tr class="total"><td>合计</td><td class="num">12</td><td class="num">8,000</td><td class="num">100%</td></tr>
+      </tfoot>
+    </table>
+    <div class="chart-box">
+      <div class="chart-title">各区域收入柱状图</div>
+      <svg viewBox="0 0 460 240" role="img" aria-label="各区域收入柱状图">
+        <line x1="40" y1="190" x2="440" y2="190" stroke="#e5e9f0" stroke-width="1"/>
+        <line x1="40" y1="140" x2="440" y2="140" stroke="#f0f2f6" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="40" y1="90" x2="440" y2="90" stroke="#f0f2f6" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="40" y1="40" x2="440" y2="40" stroke="#f0f2f6" stroke-width="1" stroke-dasharray="4 4"/>
+        <text x="34" y="194" text-anchor="end" font-size="11" fill="#667085">0</text>
+        <text x="34" y="144" text-anchor="end" font-size="11" fill="#667085">1.6k</text>
+        <text x="34" y="94" text-anchor="end" font-size="11" fill="#667085">3.2k</text>
+        <text x="34" y="44" text-anchor="end" font-size="11" fill="#667085">4.8k</text>
+        <rect x="80" y="50" width="70" height="140" rx="6" fill="#4f46e5"/>
+        <text x="115" y="42" text-anchor="middle" font-size="12" font-weight="600" fill="#4f46e5">3,300</text>
+        <text x="115" y="208" text-anchor="middle" font-size="12" fill="#1f2a37">East</text>
+        <rect x="210" y="88" width="70" height="102" rx="6" fill="#0ea5e9"/>
+        <text x="245" y="80" text-anchor="middle" font-size="12" font-weight="600" fill="#0ea5e9">2,400</text>
+        <text x="245" y="208" text-anchor="middle" font-size="12" fill="#1f2a37">West</text>
+        <rect x="340" y="92" width="70" height="98" rx="6" fill="#f59e0b"/>
+        <text x="375" y="84" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">2,300</text>
+        <text x="375" y="208" text-anchor="middle" font-size="12" fill="#1f2a37">North</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>按月份分组的收入</h2>
+    <p class="note">Revenue by month（单位：CNY）。2026-02 贡献显著更高。</p>
+    <table>
+      <thead>
+        <tr><th>月份 (Month)</th><th class="num">订单数</th><th class="num">总收入 (CNY)</th><th class="num">占比</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="pill" style="background:var(--jan)">2026-01</span></td><td class="num">6</td><td class="num">2,800</td><td class="num">35.00%</td></tr>
+        <tr><td><span class="pill" style="background:var(--feb)">2026-02</span></td><td class="num">6</td><td class="num">5,200</td><td class="num">65.00%</td></tr>
+      </tbody>
+      <tfoot>
+        <tr class="total"><td>合计</td><td class="num">12</td><td class="num">8,000</td><td class="num">100%</td></tr>
+      </tfoot>
+    </table>
+    <div class="chart-box">
+      <div class="chart-title">各月份收入柱状图</div>
+      <svg viewBox="0 0 460 240" role="img" aria-label="各月份收入柱状图">
+        <line x1="40" y1="190" x2="440" y2="190" stroke="#e5e9f0" stroke-width="1"/>
+        <line x1="40" y1="140" x2="440" y2="140" stroke="#f0f2f6" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="40" y1="90" x2="440" y2="90" stroke="#f0f2f6" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="40" y1="40" x2="440" y2="40" stroke="#f0f2f6" stroke-width="1" stroke-dasharray="4 4"/>
+        <text x="34" y="194" text-anchor="end" font-size="11" fill="#667085">0</text>
+        <text x="34" y="144" text-anchor="end" font-size="11" fill="#667085">2k</text>
+        <text x="34" y="94" text-anchor="end" font-size="11" fill="#667085">4k</text>
+        <text x="34" y="44" text-anchor="end" font-size="11" fill="#667085">6k</text>
+        <rect x="95" y="109.2" width="80" height="80.8" rx="6" fill="#10b981"/>
+        <text x="135" y="101" text-anchor="middle" font-size="12" font-weight="600" fill="#059669">2,800</text>
+        <text x="135" y="208" text-anchor="middle" font-size="12" fill="#1f2a37">2026-01</text>
+        <rect x="285" y="40" width="80" height="150" rx="6" fill="#6366f1"/>
+        <text x="325" y="32" text-anchor="middle" font-size="12" font-weight="600" fill="#4f46e5">5,200</text>
+        <text x="325" y="208" text-anchor="middle" font-size="12" fill="#1f2a37">2026-02</text>
+      </svg>
+    </div>
+  </div>
+
+  <footer>
+    报告由小宗狮AI 基于 sales-12.xlsx · Sales 工作表生成 · 数据行数 12 条（不含表头）· 总收入 ¥8,000 CNY · 原始文件未做任何修改
+  </footer>
+</div>
+</body>
+</html>

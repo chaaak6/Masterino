@@ -1,0 +1,1051 @@
+{
+  "status": "complete_fixed_5_plus_5_with_report_quality_limitations",
+  "versions": {
+    "clientSha": "0db77b3e8c3875975e6cb6450e140b1b72e3a17b",
+    "productBaselineSha": "f0a049ff5e2b4ec21c0c03f8e65f30038480ec37",
+    "serverSha": "f0a049ff5e2b4ec21c0c03f8e65f30038480ec37",
+    "serverDigest": "sha256:16dae8f6403ba7bcb467d95d4266604f6d45ef631a4d4ae004ed94a6298b7a46",
+    "difference": "Client HEAD adds only identity.test.ts type correction; product source identical to server baseline."
+  },
+  "prompt": "请读取 sales-12.xlsx 的 Sales 工作表，计算总收入、按 region 和 month 分组的收入（单位 CNY），生成可独立打开的 HTML 报告，包含摘要、两个分组表和图表，注明数据行数。保留原始文件不变。使用当前本机环境。",
+  "model": "deepseek-v4-flash-vision-exp",
+  "provider": "newapi",
+  "inputSha256": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+  "plannedRuns": {
+    "workspace": 5,
+    "paperclip": 5
+  },
+  "completedRuns": [
+    {
+      "label": "final-paperclip-01",
+      "topic": "tpc_o1l2omJzJl8l",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1749,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.93,
+            "outputBytes": 1749
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 2143,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.23,
+            "outputBytes": 2143
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 365,
+          "outputMetrics": {
+            "total": 2,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 0.89,
+            "outputBytes": 365
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 169,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.54,
+            "outputBytes": 169
+          }
+        }
+      ],
+      "rounds": 4,
+      "usage": {
+        "totalInputTokens": 96175,
+        "inputCachedTokens": 75904,
+        "inputCacheMissTokens": 20271,
+        "totalOutputTokens": 6361
+      },
+      "elapsedPersistedSeconds": 58.318,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 8700,
+          "sha256": "a3362fc5060b973f57d71ec82ca13ef1d95f177caaa5dd9b21e84f06bac836d6"
+        }
+      ],
+      "status": "core_pass_extra_metric_incorrect",
+      "contentCorrect": true,
+      "allArtifactMetricsCorrect": false,
+      "sourceUnchanged": true,
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "attachmentSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 0,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true,
+      "firstWritePathKind": "absolute",
+      "firstWriteScopeVerdict": "primary",
+      "extraMetricError": {
+        "label": "平均单价",
+        "reported": 266.67,
+        "simpleMean": 250,
+        "weightedMean": 242.42424242424244
+      }
+    },
+    {
+      "label": "final-paperclip-02",
+      "topic": "tpc_aIomr6J9aBvH",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "activateSkill",
+          "outputBytes": 4034,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1749,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.41,
+            "outputBytes": 1749
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 3395,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.5,
+            "outputBytes": 3395
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 169,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.65,
+            "outputBytes": 169
+          }
+        }
+      ],
+      "rounds": 4,
+      "usage": {
+        "totalInputTokens": 98430,
+        "inputCachedTokens": 79616,
+        "inputCacheMissTokens": 18814,
+        "totalOutputTokens": 5808
+      },
+      "elapsedPersistedSeconds": 52.664,
+      "reports": [
+        {
+          "name": "sales_12_report.html",
+          "bytes": 7151,
+          "sha256": "ab3e3888735a1caa496f3008a27dfeb7ee62ec63bc89326e318804c6d41d7d9f"
+        }
+      ],
+      "status": "pass",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "attachmentSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 0,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true,
+      "firstWritePathKind": "absolute",
+      "firstWriteScopeVerdict": "primary",
+      "browserVerified": true,
+      "minorObservations": [
+        "North share displayed28.7% instead of conventional28.8% rounding of28.75%."
+      ]
+    },
+    {
+      "label": "final-paperclip-03",
+      "topic": "tpc_RedCNRQif0r3",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1749,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.59,
+            "outputBytes": 1749
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 3395,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.24,
+            "outputBytes": 3395
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 365,
+          "outputMetrics": {
+            "total": 2,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 0.88,
+            "outputBytes": 365
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 169,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.56,
+            "outputBytes": 169
+          }
+        }
+      ],
+      "rounds": 4,
+      "usage": {
+        "totalInputTokens": 97708,
+        "inputCachedTokens": 80384,
+        "inputCacheMissTokens": 17324,
+        "totalOutputTokens": 6719
+      },
+      "elapsedPersistedSeconds": 59.943,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 9850,
+          "sha256": "549951a2065efc63b0469e55b2fbb3382755fdb9bdedc3357db7d1b4bee0e8d4"
+        }
+      ],
+      "status": "pass",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "attachmentSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 0,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true,
+      "firstWritePathKind": "absolute",
+      "firstWriteScopeVerdict": "primary"
+    },
+    {
+      "label": "final-paperclip-04",
+      "topic": "tpc_xDgInHd6PsVB",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1749,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.97,
+            "outputBytes": 1749
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 2143,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.28,
+            "outputBytes": 2143
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 169,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.58,
+            "outputBytes": 169
+          }
+        },
+        {
+          "name": "runCommand",
+          "outputBytes": 195,
+          "outputMetrics": {},
+          "executionMetrics": null
+        }
+      ],
+      "rounds": 5,
+      "usage": {
+        "totalInputTokens": 125507,
+        "inputCachedTokens": 108672,
+        "inputCacheMissTokens": 16835,
+        "totalOutputTokens": 6949
+      },
+      "elapsedPersistedSeconds": 61.777,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 8834,
+          "sha256": "36374bb6483d412e4f9ed6f5005026901774bdf56bee05ab075228180ad2fc13"
+        }
+      ],
+      "status": "pass_with_calculation_fallback",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "attachmentSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 1,
+      "shellCalls": 1,
+      "nativeAnalysisWithoutScript": false,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true,
+      "firstWritePathKind": "absolute",
+      "firstWriteScopeVerdict": "primary",
+      "calculationObservation": "After write HTML, Python verified totals from12 literal rows already returned by Office; no workbook open or dependency probe."
+    },
+    {
+      "label": "final-paperclip-05",
+      "topic": "tpc_k0519xuEolIp",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1749,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 3.17,
+            "outputBytes": 1749
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 2143,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.13,
+            "outputBytes": 2143
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 365,
+          "outputMetrics": {
+            "total": 2,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.15,
+            "outputBytes": 365
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 169,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.6,
+            "outputBytes": 169
+          }
+        }
+      ],
+      "rounds": 5,
+      "usage": {
+        "totalInputTokens": 119498,
+        "inputCachedTokens": 102784,
+        "inputCacheMissTokens": 16714,
+        "totalOutputTokens": 5559
+      },
+      "elapsedPersistedSeconds": 50.709,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 6924,
+          "sha256": "205d54dcae3765ccbbf37aa03a80fd539534b2f4223e87cdef7b08076866a5d2"
+        }
+      ],
+      "status": "pass",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "attachmentSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 0,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true,
+      "firstWritePathKind": "absolute",
+      "firstWriteScopeVerdict": "primary"
+    },
+    {
+      "label": "final-workspace-01",
+      "topic": "tpc_r88ifjOVLrET",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "searchFiles",
+          "outputBytes": 14,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "globFiles",
+          "outputBytes": 101,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1643,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 7.07,
+            "outputBytes": 1643
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 3395,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.49,
+            "outputBytes": 3395
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 192,
+          "outputMetrics": {
+            "aggregate": {
+              "count": 12,
+              "sum": 8000,
+              "min": 100,
+              "max": 1600
+            },
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.56,
+            "outputBytes": 192
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 365,
+          "outputMetrics": {
+            "total": 2,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.29,
+            "outputBytes": 365
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 113,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.95,
+            "outputBytes": 113
+          }
+        },
+        {
+          "name": "runCommand",
+          "outputBytes": 269,
+          "outputMetrics": {},
+          "executionMetrics": null
+        }
+      ],
+      "rounds": 7,
+      "usage": {
+        "totalInputTokens": 180160,
+        "inputCachedTokens": 162304,
+        "inputCacheMissTokens": 17856,
+        "totalOutputTokens": 7611
+      },
+      "elapsedPersistedSeconds": 70.013,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 8082,
+          "sha256": "cdac5d58a39535fdb7f872354fbb5d1ac49ded259f9770f2beaefac56b8a1b0c"
+        }
+      ],
+      "status": "pass",
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 1,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true
+    },
+    {
+      "label": "final-workspace-02",
+      "topic": "tpc_9wafZx37sQc1",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "activateSkill",
+          "outputBytes": 4034,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "globFiles",
+          "outputBytes": 101,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "searchFiles",
+          "outputBytes": 14,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "runCommand",
+          "outputBytes": 290,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1641,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 3.07,
+            "outputBytes": 1641
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 2142,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.36,
+            "outputBytes": 2142
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 191,
+          "outputMetrics": {
+            "aggregate": {
+              "count": 12,
+              "sum": 8000,
+              "min": 100,
+              "max": 1600
+            },
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.4,
+            "outputBytes": 191
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 113,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.73,
+            "outputBytes": 113
+          }
+        },
+        {
+          "name": "runCommand",
+          "outputBytes": 370,
+          "outputMetrics": {},
+          "executionMetrics": null
+        }
+      ],
+      "rounds": 8,
+      "usage": {
+        "totalInputTokens": 213562,
+        "inputCachedTokens": 194304,
+        "inputCacheMissTokens": 19258,
+        "totalOutputTokens": 10242
+      },
+      "elapsedPersistedSeconds": 94.131,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 10801,
+          "sha256": "0810bc6dd16511f10498caae1cc135707de17bea28047adfce956d3d999ca82d"
+        }
+      ],
+      "status": "pass",
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 2,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "activatedSkills": [
+        "builtin:office-documents"
+      ],
+      "firstSaveSucceeded": true
+    },
+    {
+      "label": "final-workspace-03",
+      "topic": "tpc_rsFFMWB3uYGq",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "activateSkill",
+          "outputBytes": 4034,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "searchFiles",
+          "outputBytes": 14,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "globFiles",
+          "outputBytes": 101,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "runCommand",
+          "outputBytes": 290,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1643,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.62,
+            "outputBytes": 1643
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 3395,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.78,
+            "outputBytes": 3395
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 365,
+          "outputMetrics": {
+            "total": 2,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.89,
+            "outputBytes": 365
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 113,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.45,
+            "outputBytes": 113
+          }
+        },
+        {
+          "name": "runCommand",
+          "outputBytes": 445,
+          "outputMetrics": {},
+          "executionMetrics": null
+        }
+      ],
+      "rounds": 7,
+      "usage": {
+        "totalInputTokens": 181723,
+        "inputCachedTokens": 162944,
+        "inputCacheMissTokens": 18779,
+        "totalOutputTokens": 7134
+      },
+      "elapsedPersistedSeconds": 67.114,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 9674,
+          "sha256": "f23e58736a327fd7b9ab5a2a73125e02074bc82b3430174f1510054f363db52b"
+        }
+      ],
+      "status": "pass",
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 2,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "browserVerified": true,
+      "minorObservations": [
+        "North share displayed28.7% due JS rounding; exact ratio28.75%, core requested revenue values correct."
+      ],
+      "firstSaveSucceeded": true
+    },
+    {
+      "label": "final-workspace-04",
+      "topic": "tpc_a8pVTZ15ufxg",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "searchFiles",
+          "outputBytes": 14,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1643,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.16,
+            "outputBytes": 1643
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 3395,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.57,
+            "outputBytes": 3395
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 113,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.86,
+            "outputBytes": 113
+          }
+        }
+      ],
+      "rounds": 4,
+      "usage": {
+        "totalInputTokens": 98133,
+        "inputCachedTokens": 81024,
+        "inputCacheMissTokens": 17109,
+        "totalOutputTokens": 5777
+      },
+      "elapsedPersistedSeconds": 52.423,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 7261,
+          "sha256": "515d9f5387a11a34c7c4b900bb2665f4ef929df9263ae123988ea9e22f9bd6ec"
+        }
+      ],
+      "status": "pass",
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 0,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true
+    },
+    {
+      "label": "final-workspace-05",
+      "topic": "tpc_ylIq3HlJLQv5",
+      "models": [
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "tools": [
+        {
+          "name": "globFiles",
+          "outputBytes": 101,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "searchFiles",
+          "outputBytes": 14,
+          "outputMetrics": {},
+          "executionMetrics": null
+        },
+        {
+          "name": "inspectOfficeDocument",
+          "outputBytes": 1643,
+          "outputMetrics": {
+            "hasMore": true,
+            "next": {
+              "limit": 5,
+              "start": 6
+            },
+            "sheetTotal": 2,
+            "sheetsHasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 2.71,
+            "outputBytes": 1643
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 3395,
+          "outputMetrics": {
+            "total": 13,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.33,
+            "outputBytes": 3395
+          }
+        },
+        {
+          "name": "readOfficeDocument",
+          "outputBytes": 365,
+          "outputMetrics": {
+            "total": 2,
+            "hasMore": false
+          },
+          "executionMetrics": {
+            "durationMs": 1.21,
+            "outputBytes": 365
+          }
+        },
+        {
+          "name": "writeFile",
+          "outputBytes": 113,
+          "outputMetrics": {},
+          "executionMetrics": {
+            "durationMs": 0.63,
+            "outputBytes": 113
+          }
+        }
+      ],
+      "rounds": 6,
+      "usage": {
+        "totalInputTokens": 146458,
+        "inputCachedTokens": 128896,
+        "inputCacheMissTokens": 17562,
+        "totalOutputTokens": 6239
+      },
+      "elapsedPersistedSeconds": 57.837,
+      "reports": [
+        {
+          "name": "sales-12-report.html",
+          "bytes": 7399,
+          "sha256": "a086b4153756088595bc09755a6fa9f9654c79f355df03f747d2b203c5fdfb4d"
+        }
+      ],
+      "status": "pass",
+      "sourceSha256After": "4f52de77bba4f38f2a93cf40843a04500f7fa5c2cd2f179b71cbe12b6de991a9",
+      "contentCorrect": true,
+      "sourceUnchanged": true,
+      "dependencyProbes": 0,
+      "officeParsingScripts": 0,
+      "calculationOnlyScripts": 0,
+      "shellCalls": 0,
+      "nativeAnalysisWithoutScript": true,
+      "humanApprovalWaitingSeconds": 0,
+      "firstSaveSucceeded": true
+    }
+  ],
+  "metricLimits": [
+    "Cumulative tokens and cache are not HTTP bytes or single-step context size.",
+    "Persisted elapsed time excludes fixture selection/setup before sending.",
+    "Zero manual approval wait means no dialog observed under existing automatic approval, not a general permission latency benchmark."
+  ],
+  "unexecutedRunsAreNotPasses": true,
+  "summary": {
+    "requiredCoreValuesCorrect": 10,
+    "sourceUnchanged": 10,
+    "firstSaveSucceeded": 10,
+    "noDependencyProbeOrOfficeParsing": 10,
+    "calculationOnlyFallbackRuns": 1,
+    "knownAdditionalMetricErrorRuns": [
+      "final-paperclip-01"
+    ],
+    "representativeArtifactContainsKnownError": true
+  },
+  "timing": {
+    "workspace": {
+      "medianSeconds": 67.114,
+      "rangeSeconds": [
+        52.423,
+        94.131
+      ]
+    },
+    "paperclip": {
+      "medianSeconds": 58.318,
+      "rangeSeconds": [
+        50.709,
+        61.777
+      ]
+    }
+  },
+  "representativeArtifacts": {
+    "final-workspace-report.html": {
+      "sha256": "cdac5d58a39535fdb7f872354fbb5d1ac49ded259f9770f2beaefac56b8a1b0c",
+      "bytes": 8082
+    },
+    "final-workspace-report.png": {
+      "sha256": "93555e25b066d47e7bec62cbf243c4c190a9d542facdf320797904542208d081",
+      "bytes": 444498
+    },
+    "final-paperclip-report.html": {
+      "sha256": "a3362fc5060b973f57d71ec82ca13ef1d95f177caaa5dd9b21e84f06bac836d6",
+      "bytes": 8700
+    },
+    "final-paperclip-report.png": {
+      "sha256": "1420ba18573fda65e4b9f686cbb261fa3ad2a22aaa264751c17c5274d974295e",
+      "bytes": 732848
+    }
+  }
+}

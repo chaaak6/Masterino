@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>销售报告 sales-12</title>
+<style>
+  :root { --accent:#2563eb; --muted:#64748b; --border:#e2e8f0; }
+  * { box-sizing:border-box; }
+  body {
+    font-family:-apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    margin:0; padding:32px 20px; background:#f8fafc; color:#0f172a; line-height:1.5;
+  }
+  .container { max-width:880px; margin:0 auto; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:14px; margin-bottom:24px; }
+  .card {
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+    padding:24px; margin-bottom:24px; box-shadow:0 1px 3px rgba(15,23,42,.04);
+  }
+  .total-row { display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; }
+  .total-amount { font-size:40px; font-weight:700; color:var(--accent); }
+  .total-amount .cur { font-size:20px; font-weight:600; }
+  .meta { color:var(--muted); font-size:14px; }
+  h2 { font-size:18px; margin:0 0 12px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:10px 12px; text-align:right; border-bottom:1px solid var(--border); }
+  th:first-child, td:first-child { text-align:left; }
+  thead th { background:#f1f5f9; font-weight:600; color:#334155; }
+  .total td { font-weight:700; background:#f8fafc; border-top:2px solid var(--border); }
+  .num { font-variant-numeric:tabular-nums; }
+  footer { margin-top:8px; color:var(--muted); font-size:13px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>销售报告 · sales-12</h1>
+  <div class="sub">数据来源：Sales 工作表 · 单位：人民币（CNY）</div>
+
+  <div class="card">
+    <h2>收入总计</h2>
+    <div class="total-row">
+      <div class="total-amount"><span class="num">8,000</span> <span class="cur">CNY</span></div>
+      <div class="meta">数据行数：<strong>12</strong> 条</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>按地区分组的收入</h2>
+    <table>
+      <thead>
+        <tr><th>地区（Region）</th><th>记录数</th><th>收入（CNY）</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>East</td><td class="num">4</td><td class="num">3,300</td></tr>
+        <tr><td>West</td><td class="num">4</td><td class="num">2,400</td></tr>
+        <tr><td>North</td><td class="num">4</td><td class="num">2,300</td></tr>
+      </tbody>
+      <tfoot>
+        <tr class="total"><td>合计</td><td class="num">12</td><td class="num">8,000</td></tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>按月份分组的收入</h2>
+    <table>
+      <thead>
+        <tr><th>月份（Month）</th><th>记录数</th><th>收入（CNY）</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2026-01</td><td class="num">6</td><td class="num">2,800</td></tr>
+        <tr><td>2026-02</td><td class="num">6</td><td class="num">5,200</td></tr>
+      </tbody>
+      <tfoot>
+        <tr class="total"><td>合计</td><td class="num">12</td><td class="num">8,000</td></tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <footer>由 Office Documents 工具生成本报告 · 原始文件未修改</footer>
+</div>
+</body>
+</html>

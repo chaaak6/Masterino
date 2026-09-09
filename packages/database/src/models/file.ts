@@ -1,6 +1,19 @@
 import type { QueryFileListParams } from '@lobechat/types';
 import { FilesTabs, SortType } from '@lobechat/types';
-import { and, asc, count, desc, eq, ilike, inArray, like, notExists, or, sum } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  like,
+  notExists,
+  or,
+  sql,
+  sum,
+} from 'drizzle-orm';
 import type { PgTransaction } from 'drizzle-orm/pg-core';
 
 import type { FileItem, NewFile, NewGlobalFile } from '../schemas';
@@ -32,6 +45,7 @@ export interface SandboxInitFileItem {
   size: number;
   /** S3 key / storage url, needs to be turned into a download url before use */
   url: string;
+  version?: string;
 }
 
 export class FileModel {
@@ -146,6 +160,24 @@ export class FileModel {
     };
   };
 
+  private detachMessageAttachments = async (trx: Transaction, ids: string[]) => {
+    if (!ids.length) return;
+    await trx
+      .update(messages)
+      .set({
+        attachments: sql`jsonb_set(${messages.attachments}, '{items}', COALESCE((SELECT jsonb_agg(item) FROM jsonb_array_elements(${messages.attachments}->'items') AS item WHERE NOT (item->>'source' = 'uploaded' AND item->>'fileId' IN (${sql.join(
+          ids.map((id) => sql`${id}`),
+          sql`, `,
+        )}))), '[]'::jsonb))`,
+      })
+      .where(
+        and(
+          buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, messages),
+          sql`${messages.attachments} IS NOT NULL`,
+        ),
+      );
+  };
+
   delete = async (id: string, removeGlobalFile: boolean = true, trx?: Transaction) => {
     const executeInTransaction = async (tx: Transaction) => {
       // In pglite environment, non-transactional operations cannot be used within a transaction as it will block
@@ -180,6 +212,7 @@ export class FileModel {
         await tx.delete(asyncTasks).where(inArray(asyncTasks.id, taskIds));
       }
 
+      await this.detachMessageAttachments(tx, [id]);
       // 4. Delete file record
       await tx.delete(files).where(and(eq(files.id, id), this.ownership()));
 
@@ -257,6 +290,10 @@ export class FileModel {
         await trx.delete(asyncTasks).where(inArray(asyncTasks.id, taskIds));
       }
 
+      await this.detachMessageAttachments(
+        trx,
+        fileList.map((file) => file.id),
+      );
       // 5. Delete file records
       await trx.delete(files).where(and(inArray(files.id, ids), this.ownership()));
 
@@ -290,7 +327,14 @@ export class FileModel {
   };
 
   clear = async () => {
-    return this.db.delete(files).where(this.ownership());
+    return this.db.transaction(async (trx) => {
+      const owned = await trx.select({ id: files.id }).from(files).where(this.ownership());
+      await this.detachMessageAttachments(
+        trx,
+        owned.map((file) => file.id),
+      );
+      return trx.delete(files).where(this.ownership());
+    });
   };
 
   query = async ({
@@ -397,6 +441,7 @@ export class FileModel {
    */
   findFilesToInitInSandbox = async (topicId: string): Promise<SandboxInitFileItem[]> => {
     const columns = {
+      version: files.fileHash,
       fileType: files.fileType,
       id: files.id,
       name: files.name,
@@ -420,8 +465,8 @@ export class FileModel {
     ]);
 
     const deduped = new Map<string, SandboxInitFileItem>();
-    for (const file of [...messageFiles, ...sessionFiles]) {
-      if (!deduped.has(file.id)) deduped.set(file.id, file);
+    for (const { version, ...file } of [...messageFiles, ...sessionFiles]) {
+      if (!deduped.has(file.id)) deduped.set(file.id, { ...file, ...(version ? { version } : {}) });
     }
 
     return [...deduped.values()];

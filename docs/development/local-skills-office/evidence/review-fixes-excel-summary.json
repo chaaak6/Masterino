@@ -1,0 +1,278 @@
+{
+  "versions": {
+    "client": "5d1b2cc3ccfce7ff802e3ca39e69945fcd718f9c",
+    "server": "b3cf909d114c77551efd16e0cf38e0fa3a0f47bf",
+    "imageDigest": "sha256:3c69e3188021b599e007f7c68ea023fdf3fd08c79be4dfa76f2ee61089d5b5d8",
+    "profile": "test-server",
+    "electronSession": 60107
+  },
+  "topic": "tpc_lLoPPmK1uPkg",
+  "observations": {
+    "passed": true,
+    "networkEvidence": "Actual Electron DevTools Network first business request expanded user local_attachments manifest: attachmentId/name/mime/size, no path. AX content truncated; whole request not exported/scanned. Title request excluded.",
+    "officeUsesIdWithoutPath": true,
+    "toolReceiptScan": "All 3 complete tool content/state values scanned for synthetic source root and managed .attachments directory; no matches. Ordinary output scratch path intentionally retained.",
+    "toolCount": 3,
+    "modelRounds": 4,
+    "shellCalls": 0,
+    "oracle": {
+      "rows": 12,
+      "revenue": 8000,
+      "regions": {
+        "East": 3300,
+        "West": 2400,
+        "North": 2300
+      },
+      "months": {
+        "2026-01": 2800,
+        "2026-02": 5200
+      }
+    },
+    "sourceHashUnchanged": "fd74bb1f87b62d926968778efb8cf35dea2bdadb887e24ec607c16b4da669c15",
+    "htmlSha256": "8091ff7678d57c5c491794b1870d3aa88cc72cc32a32201e3a8d737cd81cdf83",
+    "chart": "Two inline SVG bar charts, numeric labels correct; independently read HTML, no external resources."
+  },
+  "messages": [
+    {
+      "id": "msg_0K79wAQV0hIgF9Ro5h",
+      "role": "user",
+      "model": null,
+      "provider": null,
+      "tool": null,
+      "contentBytes": 281,
+      "stateKeys": [],
+      "usage": null,
+      "createdAt": "2026-09-09T02:24:16.173Z",
+      "updatedAt": "2026-09-09T02:24:16.173Z",
+      "attachments": [
+        {
+          "attachmentId": "f2303fd7-778f-4738-8d26-c18477421383",
+          "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "source": "local"
+        }
+      ]
+    },
+    {
+      "id": "msg_meIANIIwEEDEP3o6rT",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 60,
+      "stateKeys": [],
+      "usage": {
+        "totalTokens": 22012,
+        "inputTextTokens": 21843,
+        "outputTextTokens": 80,
+        "totalInputTokens": 21843,
+        "inputCachedTokens": 6784,
+        "totalOutputTokens": 169,
+        "inputCacheMissTokens": 15059,
+        "outputReasoningTokens": 89
+      },
+      "createdAt": "2026-09-09T02:24:16.174Z",
+      "updatedAt": "2026-09-09T02:24:20.801Z",
+      "calls": [
+        {
+          "name": "inspectOfficeDocument",
+          "attachmentId": "f2303fd7-778f-4738-8d26-c18477421383",
+          "pathPresent": false,
+          "argumentsManagedPathLeak": false
+        }
+      ]
+    },
+    {
+      "id": "msg_yHePfSBSQCyd",
+      "role": "tool",
+      "model": null,
+      "provider": null,
+      "tool": "inspectOfficeDocument",
+      "contentBytes": 1606,
+      "receiptManagedPathLeak": false,
+      "stateKeys": [
+        "next",
+        "sheet",
+        "total",
+        "format",
+        "sheets",
+        "hasMore",
+        "records",
+        "version",
+        "scopeAudit",
+        "sheetTotal",
+        "actualRange",
+        "localScratch",
+        "sheetsHasMore",
+        "executionMetrics",
+        "workspaceWarnings"
+      ],
+      "executionMetrics": {
+        "toolName": "inspectOfficeDocument",
+        "durationMs": 5.98,
+        "outputBytes": 1749
+      },
+      "toolOutputKeys": [
+        "format",
+        "version",
+        "sheet",
+        "records",
+        "total",
+        "hasMore",
+        "actualRange",
+        "next",
+        "sheets",
+        "sheetTotal",
+        "sheetsHasMore"
+      ],
+      "total": "unknown",
+      "hasMore": true,
+      "usage": null,
+      "createdAt": "2026-09-09T02:24:21.027Z",
+      "updatedAt": "2026-09-09T02:24:21.617Z"
+    },
+    {
+      "id": "msg_usX72b71KSglfmo5V8",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 70,
+      "stateKeys": [],
+      "usage": {
+        "totalTokens": 22786,
+        "inputTextTokens": 22579,
+        "outputTextTokens": 131,
+        "totalInputTokens": 22579,
+        "inputCachedTokens": 6784,
+        "totalOutputTokens": 207,
+        "inputCacheMissTokens": 15795,
+        "outputReasoningTokens": 76
+      },
+      "createdAt": "2026-09-09T02:24:21.703Z",
+      "updatedAt": "2026-09-09T02:24:25.234Z",
+      "calls": [
+        {
+          "name": "readOfficeDocument",
+          "attachmentId": "f2303fd7-778f-4738-8d26-c18477421383",
+          "pathPresent": false,
+          "argumentsManagedPathLeak": false
+        }
+      ]
+    },
+    {
+      "id": "msg_cp13Z316O5eb",
+      "role": "tool",
+      "model": null,
+      "provider": null,
+      "tool": "readOfficeDocument",
+      "contentBytes": 2143,
+      "receiptManagedPathLeak": false,
+      "stateKeys": [
+        "sheet",
+        "total",
+        "format",
+        "hasMore",
+        "records",
+        "version",
+        "scopeAudit",
+        "actualRange",
+        "executionMetrics",
+        "workspaceWarnings"
+      ],
+      "executionMetrics": {
+        "toolName": "readOfficeDocument",
+        "durationMs": 1.68,
+        "outputBytes": 2143
+      },
+      "toolOutputKeys": [
+        "format",
+        "version",
+        "sheet",
+        "records",
+        "total",
+        "hasMore",
+        "actualRange"
+      ],
+      "total": 13,
+      "hasMore": false,
+      "usage": null,
+      "createdAt": "2026-09-09T02:24:25.364Z",
+      "updatedAt": "2026-09-09T02:24:25.596Z"
+    },
+    {
+      "id": "msg_aeRv9i3xBBeWV198qU",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 475,
+      "stateKeys": [],
+      "usage": {
+        "totalTokens": 27920,
+        "inputTextTokens": 23520,
+        "outputTextTokens": 2408,
+        "totalInputTokens": 23520,
+        "inputCachedTokens": 22784,
+        "totalOutputTokens": 4400,
+        "inputCacheMissTokens": 736,
+        "outputReasoningTokens": 1992
+      },
+      "createdAt": "2026-09-09T02:24:25.689Z",
+      "updatedAt": "2026-09-09T02:25:04.037Z",
+      "calls": [
+        {
+          "name": "writeFile",
+          "pathPresent": true,
+          "pathKind": "absolute",
+          "argumentsManagedPathLeak": false
+        }
+      ]
+    },
+    {
+      "id": "msg_Lp1ZPL29nr0z",
+      "role": "tool",
+      "model": null,
+      "provider": null,
+      "tool": "writeFile",
+      "contentBytes": 169,
+      "receiptManagedPathLeak": false,
+      "stateKeys": [
+        "path",
+        "success",
+        "scopeAudit",
+        "executionMetrics",
+        "workspaceWarnings"
+      ],
+      "executionMetrics": {
+        "toolName": "writeFile",
+        "durationMs": 1.37,
+        "outputBytes": 169
+      },
+      "success": true,
+      "usage": null,
+      "createdAt": "2026-09-09T02:25:04.202Z",
+      "updatedAt": "2026-09-09T02:25:04.355Z"
+    },
+    {
+      "id": "msg_2kwLwa9e6TXCq5Keew",
+      "role": "assistant",
+      "model": "deepseek-v4-flash-vision-exp",
+      "provider": "newapi",
+      "tool": null,
+      "contentBytes": 1258,
+      "stateKeys": [],
+      "usage": {
+        "totalTokens": 28435,
+        "inputTextTokens": 27981,
+        "outputTextTokens": 373,
+        "totalInputTokens": 27981,
+        "inputCachedTokens": 27904,
+        "totalOutputTokens": 454,
+        "inputCacheMissTokens": 77,
+        "outputReasoningTokens": 81
+      },
+      "createdAt": "2026-09-09T02:25:04.447Z",
+      "updatedAt": "2026-09-09T02:25:09.470Z"
+    }
+  ]
+}

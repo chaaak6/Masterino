@@ -22,6 +22,7 @@ import { debugStream } from '../../utils/debugStream';
 import { desensitizeUrl } from '../../utils/desensitizeUrl';
 import { getModelPricing } from '../../utils/getModelPricing';
 import { MODEL_LIST_CONFIGS, processModelList } from '../../utils/modelParse';
+import { withRequestBodyBudget } from '../../utils/requestBodyBudget';
 import { StreamingResponse } from '../../utils/response';
 import type { LobeRuntimeAI } from '../BaseAI';
 import {
@@ -275,6 +276,7 @@ export const createDefaultAnthropicClient = <T extends Record<string, any> = any
 
   return new Anthropic({
     ...options,
+    fetch: withRequestBodyBudget(options.fetch),
     ...(baseURL ? { baseURL } : {}),
     defaultHeaders,
     timeout: options.timeout ?? resolveDefaultAnthropicTimeout(),
@@ -486,6 +488,7 @@ export const createAnthropicCompatibleRuntime = <T extends Record<string, any> =
         timeout: rest.timeout ?? constructorOptions?.timeout ?? resolveDefaultAnthropicTimeout(),
       };
 
+      initOptions.fetch = withRequestBodyBudget(initOptions.fetch);
       if (customClient?.createClient) {
         this.client = customClient.createClient(initOptions as ConstructorOptions<T>);
       } else {

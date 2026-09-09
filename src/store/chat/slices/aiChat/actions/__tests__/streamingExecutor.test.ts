@@ -1,5 +1,6 @@
 import type { AgentState } from '@lobechat/agent-runtime';
 import * as agentRuntime from '@lobechat/agent-runtime';
+import { createModelCatalogSnapshot, mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import type * as LobeChatConst from '@lobechat/const';
 import { type UIChatMessage } from '@lobechat/types';
 import { act, renderHook } from '@testing-library/react';
@@ -7,6 +8,7 @@ import { type EnabledAiModel, ModelProvider } from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as toolEngineering from '@/helpers/toolEngineering';
+import { agentDocumentService } from '@/services/agentDocument';
 import { chatService } from '@/services/chat';
 import * as agentConfigResolver from '@/services/chat/mecha/agentConfigResolver';
 import { messageService } from '@/services/message';
@@ -137,6 +139,7 @@ const mockInternalCreateAgentState = (value: ReturnType<typeof realCreateAgentSt
 
 beforeEach(() => {
   resetTestEnvironment();
+  vi.spyOn(agentDocumentService, 'getSkills').mockResolvedValue([]);
   useProjectWorkspaceStore.setState({ operationConsentByMessage: {} });
   setupMockSelectors();
   spyOnMessageService();
@@ -158,7 +161,170 @@ afterEach(() => {
 });
 
 describe('StreamingExecutor actions', () => {
+  describe('WorkingModel image evidence', () => {
+    const imageMessage = () =>
+      createMockMessage({
+        role: 'user',
+        attachments: {
+          schemaVersion: 1,
+          items: [
+            {
+              attachmentId: 'image-1',
+              localResourceId: 'resource-1',
+              source: 'local',
+              deviceId: 'device-1',
+              mime: 'image/png',
+              name: 'image.png',
+              size: 4,
+              version: 'v1',
+            },
+          ],
+        },
+      });
+
+    it.each([
+      ['unsupported', true, false],
+      ['supported', false, true],
+      ['unknown', true, false],
+    ] as const)(
+      'uses catalog %s instead of legacy vision=%s for local images',
+      (image, legacyVision, allowed) => {
+        setupMockSelectors({ agentConfig: { model: 'catalog-image', provider: 'openai' } });
+        useAiInfraStore.setState({
+          enabledAiModels: [
+            {
+              id: 'catalog-image',
+              providerId: 'openai',
+              type: 'chat',
+              abilities: { vision: legacyVision },
+              settings: {
+                modelCatalog: mergeModelCatalogEntry({
+                  modelId: 'catalog-image',
+                  providerId: 'openai',
+                  providerMetadata: { inputModalities: { image } },
+                }),
+              },
+            },
+          ],
+        });
+        const message = imageMessage();
+        const before = structuredClone(message);
+        const create = () =>
+          useChatStore.getState().internal_createAgentState({
+            messages: [message],
+            parentMessageId: message.id,
+            agentId: TEST_IDS.SESSION_ID,
+          });
+        if (allowed)
+          expect(create().state.metadata?.modelCatalogSnapshot).toMatchObject({
+            entry: { inputModalities: { image: 'supported' } },
+          });
+        else expect(create).toThrow('当前模型不支持图片');
+        expect(message).toEqual(before);
+      },
+    );
+
+    it.each([false, true])(
+      'uses the submitted model binding after agent config drift (vision=%s)',
+      (vision) => {
+        setupMockSelectors({ agentConfig: { model: 'old-vision', provider: 'openai' } });
+        useAiInfraStore.setState({
+          enabledAiModels: [
+            { id: 'submitted', providerId: 'openai', type: 'chat', abilities: { vision } },
+            { id: 'old-vision', providerId: 'openai', type: 'chat', abilities: { vision: true } },
+          ],
+        });
+        const message = imageMessage();
+        const create = () =>
+          useChatStore.getState().internal_createAgentState({
+            agentId: TEST_IDS.SESSION_ID,
+            messages: [message],
+            parentMessageId: message.id,
+            workingModel: { model: 'submitted', provider: 'openai' },
+          });
+        if (!vision) expect(create).toThrow('当前模型不支持图片');
+        else {
+          const result = create();
+          expect(result.agentConfig.agentConfig.model).toBe('submitted');
+          expect(result.state.metadata?.modelCatalogSnapshot).toMatchObject({
+            entry: { modelId: 'submitted' },
+          });
+        }
+      },
+    );
+
+    it('does not reuse a previous model snapshot after switching the WorkingModel', () => {
+      setupMockSelectors({ agentConfig: { model: 'text-model', provider: 'openai' } });
+      useAiInfraStore.setState({
+        enabledAiModels: [
+          { id: 'text-model', providerId: 'openai', type: 'chat', abilities: { vision: false } },
+        ],
+      });
+      const previous = createModelCatalogSnapshot(
+        mergeModelCatalogEntry({
+          modelId: 'vision-model',
+          providerId: 'openai',
+          catalog: { abilities: { vision: true } },
+        }).entry,
+        'operation-current',
+      );
+      const message = imageMessage();
+      expect(() =>
+        useChatStore.getState().internal_createAgentState({
+          messages: [message],
+          parentMessageId: message.id,
+          agentId: TEST_IDS.SESSION_ID,
+          operationId: 'operation-current',
+          initialState: {
+            ...createMockRuntimeState('operation-current', 'running'),
+            metadata: { modelCatalogSnapshot: previous },
+          },
+        }),
+      ).toThrow('当前模型不支持图片');
+    });
+  });
   describe('executeClientAgent', () => {
+    it('carries the finalized scratch cwd into the next runtime step', async () => {
+      act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
+      const step = vi.spyOn(agentRuntime.AgentRuntime.prototype, 'step');
+      step.mockImplementationOnce(async (state, nextContext) => {
+        expect(state.metadata?.workingDirectory).toBeUndefined();
+        const executionContext = state.metadata!.executionContext!;
+        useChatStore.getState().updateOperationMetadata(state.operationId, {
+          executionContext: {
+            ...executionContext,
+            cwd: '/scratch/current-topic',
+            workspace: {
+              kind: 'scratch',
+              rootPath: '/scratch/current-topic',
+              deviceId: 'device-local',
+            },
+          },
+        });
+        return { events: [], newState: state, nextContext };
+      });
+      step.mockImplementationOnce(async (state) => {
+        expect(state.metadata?.executionContext?.cwd).toBe('/scratch/current-topic');
+        expect(state.metadata?.workingDirectory).toBe('/scratch/current-topic');
+        return { events: [], newState: { ...state, status: 'done' } };
+      });
+      await act(async () => {
+        await useChatStore.getState().executeClientAgent({
+          context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+          executionContext: {
+            version: 1,
+            accessRoots: [],
+            plan: { kind: 'device', target: 'local', deviceId: 'device-local' },
+          },
+          workingDirectory: '/private/tmp/old-agent-default',
+          messages: [],
+          parentMessageId: TEST_IDS.USER_MESSAGE_ID,
+          parentMessageType: 'user',
+        });
+      });
+      expect(step).toHaveBeenCalledTimes(2);
+    });
+
     it('projects a preparation failure on the current assistant so the user can retry', async () => {
       const context = { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID };
       const assistant = createMockMessage({
@@ -1441,7 +1607,7 @@ describe('StreamingExecutor actions', () => {
       );
     });
 
-    it('should enable visual understanding when a previous user message has visual media', () => {
+    it('does not delegate historical paperclip images to another agent', () => {
       act(() => {
         useChatStore.setState({ executeClientAgent: realExecAgentRuntime });
       });
@@ -1490,7 +1656,7 @@ describe('StreamingExecutor actions', () => {
 
       expect(generateToolsDetailed).toHaveBeenCalledWith(
         expect.objectContaining({
-          toolIds: ['lobe-agent'],
+          toolIds: undefined,
         }),
       );
     });

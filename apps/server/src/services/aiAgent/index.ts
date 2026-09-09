@@ -143,6 +143,10 @@ import {
   createUserSkillProvider,
   SkillRegistryService,
 } from '@/server/services/skillRegistry';
+import {
+  resolveClientSkillExecutionContext,
+  resolveOwnedClientSkillTool,
+} from '@/server/services/skillRegistry/clientSkillToolEvidence';
 import { WorkspaceAccessGrantService } from '@/server/services/workspaceAccessGrant';
 import { markdownToTxt } from '@/utils/markdownToTxt';
 
@@ -154,7 +158,7 @@ import { ingestAttachment } from './ingestAttachment';
 import { getRuntimePathConsentRequest, validateOperationPathConsent } from './pathConsent';
 import { resolveDeviceWorkingDirectory } from './resolveDeviceWorkingDirectory';
 import { resolveTopicCreationExecutionMetadata } from './topicExecutionIntent';
-import { isWorkspaceCacheFresh, upsertWorkspaceScan } from './workspaceInitCache';
+import { upsertWorkspaceScan } from './workspaceInitCache';
 
 const log = debug('lobe-server:ai-agent-service');
 
@@ -431,12 +435,8 @@ export class AiAgentService {
       if (!boundCwd) return empty;
 
       const workingDirs = device.workingDirs ?? [];
-      const cached = workingDirs.find((dir) => dir.path === boundCwd);
-
-      if (isWorkspaceCacheFresh(cached, Date.now()) && cached?.workspace) {
-        log('execAgent: reusing cached workspace init for %s', boundCwd);
-        return cached.workspace;
-      }
+      // The persisted scan is a UI projection, not execution authority. Scan
+      // the bounded skill roots once per operation to observe local edits.
 
       const scanned = await deviceGateway.initWorkspace({
         deviceId: activeDeviceId,
@@ -599,6 +599,75 @@ export class AiAgentService {
         workspaces,
       },
       runtimeConfig,
+    };
+  }
+
+  /** Revalidate client-originated Skill calls from owned persisted message evidence.
+   * Client operation maps are not server state: authority is rebuilt from the
+   * message chain and current topic/agent/workspace policy on every call.
+   */
+  async resolveClientSkillToolContext(input: {
+    topicId: string;
+    messageId: string;
+    apiName: 'activateSkill' | 'readReference' | 'execScript';
+  }) {
+    const evidence = await resolveOwnedClientSkillTool(input, {
+      findTopic: this.topicModel.findById,
+      findMessage: async (id) => {
+        const message = await this.messageModel.findById(id);
+        if (!message || typeof message.id !== 'string' || typeof message.role !== 'string')
+          return undefined;
+        return {
+          id: message.id,
+          role: message.role,
+          topicId: message.topicId,
+          parentId: message.parentId,
+          agentId: message.agentId,
+          groupId: message.groupId,
+          threadId: message.threadId,
+          tools: message.tools,
+        };
+      },
+      findPlugin: this.messageModel.findMessagePlugin,
+    });
+    const { topic, message, agentId, operationId, toolCallId, args } = evidence;
+    const agentConfig = await this.agentService.getAgentConfig(agentId);
+    if (!agentConfig) throw new Error('SKILL_AGENT_UNAVAILABLE');
+    const frozen = await this.resolveFrozenExecutionContextInput({
+      agentConfig,
+      canUseDevice: true,
+      isDesktop: false,
+      isHetero: false,
+      operationId,
+      topicId: topic.id,
+    });
+    const executionContext = resolveClientSkillExecutionContext(frozen.input);
+    const skillRegistryResult = await this.resolveFrozenSkillRegistry({
+      activeDeviceId:
+        executionContext.plan.kind === 'device' ? executionContext.plan.deviceId : undefined,
+      agentConfig,
+      agentId,
+      executionContext,
+      skillPolicy: frozen.runtimeConfig.skillPolicy,
+      topicId: topic.id,
+    });
+    return {
+      args: args as Record<string, unknown>,
+      context: {
+        agentId,
+        groupId: message.groupId ?? undefined,
+        threadId: message.threadId ?? undefined,
+        topicId: topic.id,
+        operationId,
+        toolCallId,
+        messageId: message.id,
+        userId: this.userId,
+        workspaceId: this.workspaceId,
+        serverDB: this.db,
+        executionContext,
+        skillRegistryResult,
+        toolManifestMap: {},
+      },
     };
   }
 

@@ -1,0 +1,27 @@
+{
+  "environment": "https://mlai-test.bielcrystal.com",
+  "deployment": "f0a (parent-reported)",
+  "imageDigest": "sha256:16dae8f6403ba7bcb467d95d4266604f6d45ef631a4d4ae004ed94a6298b7a46",
+  "independentAgentId": "agt_weBQfWvp4Bx9",
+  "agentName": "WEB Skill资格合成验收 20260909",
+  "newTopicCreated": false,
+  "syntheticSkillName": "web-eligibility-20260909",
+  "zipSha256": "52c9153c3b89c3a350e082c82dc902bf571eca913902dde1449a37badf5d549b",
+  "zipContents": [
+    "SKILL.md",
+    "references/probe.md"
+  ],
+  "uploadOutcome": "Browser fileChooser.setFiles rejected: Not allowed. No successful import observed.",
+  "personalSkillStableKeyE2E": "NOT COVERED: cannot import new synthetic personal Skill with current Chrome extension file permissions.",
+  "disabledHistoryExecutionE2E": "NOT COVERED: ordinary Skill policy menu only supports pinned/auto; genuine workspace includeUserSkills switch requires a separately configured workspace, unavailable through the safe isolated Web path used here.",
+  "boundaries": [
+    "No Chrome extension permissions changed",
+    "No Electron UI/native picker interaction",
+    "No existing agent policy changed",
+    "No pin/auto action treated as disabling",
+    "No scripts executed",
+    "No historical test Skill reused without provenance evidence",
+    "No product files changed"
+  ],
+  "priorBuiltinEvidence": "web-skill-boundary-after-fix.json"
+}

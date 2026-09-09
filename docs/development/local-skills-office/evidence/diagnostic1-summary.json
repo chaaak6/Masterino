@@ -1,0 +1,56 @@
+{
+  "case": "project workbook to standalone HTML",
+  "topic": "tpc_OTfHHziHxrRs",
+  "serverSha": "599e0713",
+  "desktopSha": "599e0713 plus 46 tracked dirty files",
+  "status": "diagnostic_pass",
+  "usageSum": {
+    "totalTokens": 102684,
+    "inputTextTokens": 96953,
+    "outputTextTokens": 3335,
+    "totalInputTokens": 96953,
+    "totalOutputTokens": 5731,
+    "inputCacheMissTokens": 23609,
+    "outputReasoningTokens": 2396,
+    "inputCachedTokens": 73344
+  },
+  "llmRoundsWithUsage": 4,
+  "tools": [
+    {
+      "name": "inspectOfficeDocument",
+      "outputChars": 1612,
+      "outputBytes": 1612,
+      "recordsReturned": 5,
+      "hasMore": true
+    },
+    {
+      "name": "readOfficeDocument",
+      "outputChars": 3395,
+      "outputBytes": 3395,
+      "recordsReturned": 13,
+      "hasMore": false
+    },
+    {
+      "name": "inspectOfficeDocument",
+      "outputChars": 429,
+      "outputBytes": 429,
+      "recordsReturned": 2,
+      "hasMore": false
+    },
+    {
+      "name": "writeFile",
+      "outputChars": 90,
+      "outputBytes": 90,
+      "recordsReturned": null,
+      "hasMore": null
+    }
+  ],
+  "e2eSeconds": 54.814,
+  "reportBytes": 6950,
+  "reportSha256": "043fb91e48d46a352397020e2ce02b07af96ff2744c49658c615b7fcda979b07",
+  "renderedInRealChrome": true,
+  "allOracleChecksPassed": true,
+  "originalHashUnchanged": true,
+  "toolPureExecutionTimings": "unavailable in first image",
+  "finalAcceptanceRepetition": false
+}

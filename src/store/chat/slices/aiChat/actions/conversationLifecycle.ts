@@ -37,6 +37,7 @@ import { chatService } from '@/services/chat';
 import { resolveClientSkillRegistry } from '@/services/chat/mecha/clientSkillRegistry';
 import { resolveSelectedSkillsWithContent } from '@/services/chat/mecha/skillPreload';
 import { resolveSelectedToolsWithContent } from '@/services/chat/mecha/toolPreload';
+import { bindLocalAttachmentMessage } from '@/services/electron/localAttachmentService';
 import { messageService } from '@/services/message';
 import { type ProjectWorkspaceItem, projectWorkspaceService } from '@/services/projectWorkspace';
 import { getAgentStoreState, useAgentStore } from '@/store/agent';
@@ -345,7 +346,11 @@ export class ConversationLifecycleActionImpl {
       ...(activePageDocumentId ? { documentId: activePageDocumentId } : {}),
     };
 
-    const fileIdList = files?.map((f) => f.id);
+    const fileIdList = files?.filter((f) => !f.attachment).map((f) => f.id);
+    const attachmentItems = files?.flatMap((f) => (f.attachment ? [f.attachment] : [])) ?? [];
+    const attachments = attachmentItems.length
+      ? { schemaVersion: 1 as const, items: attachmentItems }
+      : undefined;
     const isLocalSystemEnabled =
       chatConfigByIdSelectors.isLocalSystemEnabledById(agentId)(getAgentStoreState());
     const canMaterializeLocalFiles =
@@ -378,7 +383,7 @@ export class ConversationLifecycleActionImpl {
     const requestTrigger = (metadata as Pick<MessageMetadata, 'trigger'> | undefined)?.trigger;
     const requestMetadata = requestTrigger ? { trigger: requestTrigger } : undefined;
 
-    const hasFile = !!fileIdList && fileIdList.length > 0;
+    const hasFile = !!files?.length;
 
     // if message is empty or no files, then stop
     if (!message && !hasFile) return;
@@ -400,6 +405,8 @@ export class ConversationLifecycleActionImpl {
       // resumed sendMessage can rebuild imageList/videoList — by the time
       // we drain, chatUploadFileList has long been cleared.
       const filesPreview: QueuedFile[] = (files ?? []).map((f) => ({
+        attachment: f.attachment,
+        attachmentDraftId: f.attachmentDraftId,
         id: f.id,
         mimeType: f.file?.type ?? '',
         name: f.file?.name ?? f.id,
@@ -413,6 +420,7 @@ export class ConversationLifecycleActionImpl {
           content: message,
           editorData: editorData ?? undefined,
           files: fileIdList,
+          attachments,
           filesPreview: filesPreview.length > 0 ? filesPreview : undefined,
           ...(forceRuntime ? { forceRuntime } : {}),
           interruptMode: 'soft',
@@ -425,7 +433,12 @@ export class ConversationLifecycleActionImpl {
     }
 
     if (onlyAddUserMessage) {
-      await this.#get().addUserMessage({ message, fileList: fileIdList });
+      await this.#get().addUserMessage({
+        message,
+        fileList: fileIdList,
+        attachments,
+        attachmentDrafts: files,
+      });
 
       return;
     }
@@ -649,6 +662,7 @@ export class ConversationLifecycleActionImpl {
         editorData: editorData ?? undefined,
         // if message has attached with files, then add files to message and the agent
         files: fileIdList,
+        attachments,
         role: 'user',
         agentId: operationContext.agentId,
         // if there is topicId, then add topicId to message
@@ -745,6 +759,7 @@ export class ConversationLifecycleActionImpl {
               content: message,
               editorData,
               files: fileIdList,
+              attachments,
               metadata: userMessageMetadata,
               pageSelections,
               parentId,
@@ -770,6 +785,12 @@ export class ConversationLifecycleActionImpl {
       }
 
       if (!heteroData) return;
+      if (files?.some((file) => file.attachment))
+        await bindLocalAttachmentMessage(
+          files,
+          heteroData.userMessageId,
+          heteroData.topicId ?? operationContext.topicId ?? 'active',
+        );
       if (pendingExecution?.draftKey) {
         getProjectWorkspaceStoreState().clearDraftIntent(pendingExecution.draftKey);
       }
@@ -933,9 +954,11 @@ export class ConversationLifecycleActionImpl {
 
     // ── Client mode: send via server API then run agent locally ──
     let data: SendMessageServerResponse | undefined;
+    // Use one binding for the persisted assistant and this run. New-topic hydration
+    // can refresh the mutable agent store while message persistence is in flight.
+    const { model, provider } = agentSelectors.getAgentConfigById(agentId)(getAgentStoreState());
+    const workingModel = { model, provider: provider! };
     try {
-      const { model, provider } = agentSelectors.getAgentConfigById(agentId)(getAgentStoreState());
-
       const topicId = operationContext.topicId;
 
       // Persist selected skill/tool context into user message content so it survives across turns.
@@ -971,6 +994,7 @@ export class ConversationLifecycleActionImpl {
             content: persistedContent,
             editorData,
             files: fileIdList,
+            attachments,
             metadata: userMessageMetadata,
             pageSelections,
             parentId,
@@ -1014,6 +1038,12 @@ export class ConversationLifecycleActionImpl {
         },
         abortController,
       );
+      if (files?.some((file) => file.attachment))
+        await bindLocalAttachmentMessage(
+          files,
+          data.userMessageId,
+          data.topicId ?? operationContext.topicId ?? 'active',
+        );
       const responseMeta = data as SendMessageServerResponseMeta;
       if (pendingExecution?.draftKey) {
         getProjectWorkspaceStoreState().clearDraftIntent(pendingExecution.draftKey);
@@ -1319,6 +1349,7 @@ export class ConversationLifecycleActionImpl {
             skipCreateFirstMessage: true,
             skillContext: frozenSkillContext,
             workingDirectory: frozenWorkingDirectory,
+            workingModel,
           });
         }
 

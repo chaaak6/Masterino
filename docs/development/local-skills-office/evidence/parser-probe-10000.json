@@ -1,0 +1,148 @@
+{
+  "cancellation": {
+    "latencyMs": 0.444,
+    "parts": [
+      {
+        "name": "xl/workbook.xml",
+        "expandedBytes": 614,
+        "consumedBytes": 614
+      },
+      {
+        "name": "xl/_rels/workbook.xml.rels",
+        "expandedBytes": 653,
+        "consumedBytes": 653
+      },
+      {
+        "name": "xl/worksheets/sheet1.xml",
+        "expandedBytes": 3258331,
+        "consumedBytes": 212992
+      }
+    ]
+  },
+  "evidenceType": "supplementary direct parser probe; cancellation latency is reader-only, not Electron stop-button E2E",
+  "file": "sales-10000.xlsx",
+  "inputBytes": 285495,
+  "kind": "supplemental-parser-probe",
+  "measurements": [
+    {
+      "label": "cold-inspect",
+      "milliseconds": 8.777,
+      "outputBytes": 1604,
+      "records": 5,
+      "actualRange": [1, 5],
+      "hasMore": true,
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        },
+        {
+          "name": "xl/worksheets/sheet1.xml",
+          "expandedBytes": 3258331,
+          "consumedBytes": 16384
+        },
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        }
+      ],
+      "rssBytes": 104087552,
+      "processPeakRssBytes": 108789760
+    },
+    {
+      "label": "repeat-inspect",
+      "milliseconds": 0.876,
+      "outputBytes": 1604,
+      "records": 5,
+      "actualRange": [1, 5],
+      "hasMore": true,
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        }
+      ],
+      "rssBytes": 104136704,
+      "processPeakRssBytes": 108789760
+    },
+    {
+      "label": "last-three-rows",
+      "milliseconds": 11.604,
+      "outputBytes": 978,
+      "records": 3,
+      "actualRange": [9999, 10001],
+      "hasMore": false,
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        },
+        {
+          "name": "xl/worksheets/sheet1.xml",
+          "expandedBytes": 3258331,
+          "consumedBytes": 3258331
+        }
+      ],
+      "rssBytes": 113491968,
+      "processPeakRssBytes": 113491968
+    },
+    {
+      "label": "grouped-aggregate",
+      "milliseconds": 92.728,
+      "outputBytes": 404,
+      "records": 0,
+      "actualRange": [],
+      "hasMore": false,
+      "aggregate": {
+        "count": 10000,
+        "sum": 7500000,
+        "min": 100,
+        "max": 2000
+      },
+      "parts": [
+        {
+          "name": "xl/workbook.xml",
+          "expandedBytes": 614,
+          "consumedBytes": 614
+        },
+        {
+          "name": "xl/_rels/workbook.xml.rels",
+          "expandedBytes": 653,
+          "consumedBytes": 653
+        },
+        {
+          "name": "xl/worksheets/sheet1.xml",
+          "expandedBytes": 3258331,
+          "consumedBytes": 3258331
+        }
+      ],
+      "rssBytes": 114786304,
+      "processPeakRssBytes": 114786304
+    }
+  ],
+  "node": "v24.19.0"
+}

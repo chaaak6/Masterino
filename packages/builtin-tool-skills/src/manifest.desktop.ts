@@ -15,12 +15,12 @@ export const SkillsManifest: BuiltinToolManifest = {
     readReferenceApi,
     {
       description:
-        "Execute a shell command or script specified in a skill's instructions. Use this when a skill's content instructs you to run CLI commands (e.g., npx, npm, pip). Commands run directly on the local system. The system automatically uses the current skill context from the most recent activateSkill call. Returns the command output.",
+        "Execute a shell command or script specified in a skill's instructions. Use this when a skill's content instructs you to run CLI commands (e.g., npx, npm, pip). Commands run directly on the local system. Pass the exact skillId returned by activateSkill; only that currently allowed skill is used. Returns the command output.",
       humanIntervention: 'required',
       name: SkillsApiName.execScript,
       parameters: {
         properties: execScriptBaseParams,
-        required: ['description', 'command'],
+        required: ['description', 'command', 'skillId'],
         type: 'object',
       },
     },

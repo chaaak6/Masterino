@@ -3,9 +3,172 @@ import { type BuiltinToolManifest } from '@lobechat/types';
 import { systemPrompt } from './systemRole';
 import { LocalSystemApiName, LocalSystemIdentifier } from './types';
 
+const officeVersionParameter = {
+  type: 'string' as const,
+  description:
+    'Optional change-detection token: copy exactly from a previous Office tool result for this path. Omit on the first call. Attachment content hashes are not Office versions.',
+};
+
+const attachmentIdParameter = {
+  type: 'string' as const,
+  description:
+    'ID from local_attachments in this conversation. Use this instead of path for an attached file; the device resolves its managed copy.',
+};
+const fileSourceChoice = [{ required: ['path'] }, { required: ['attachmentId'] }];
+
 export const LocalSystemManifest: BuiltinToolManifest = {
   executors: ['client', 'server'],
   api: [
+    {
+      name: 'batchOfficeDocument',
+      description:
+        'Edit literal cell values in a simple xlsx and save to a NEW outputPath. Source remains unchanged. Max10000 operations, source10MiB/expanded64MiB. Untouched formulas preserved without recalculation. Rejects complex drawings/charts/macros/pivots/external links. Does not guarantee arbitrary formatting preservation.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        oneOf: fileSourceChoice,
+        required: ['outputPath', 'operations'],
+        properties: {
+          attachmentId: attachmentIdParameter,
+          path: { type: 'string' },
+          outputPath: { type: 'string' },
+          version: officeVersionParameter,
+          operations: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['sheet', 'cell', 'value'],
+              properties: { sheet: { type: 'string' }, cell: { type: 'string' }, value: {} },
+            },
+          },
+        },
+      },
+    },
+    {
+      name: 'mergeOfficeTemplate',
+      description:
+        'Replace {{key}} placeholders in simple xlsx literal string cells using values, writing a NEW outputPath. Formulas are untouched. Same finite workbook feature and size limits as batchOfficeDocument.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        oneOf: fileSourceChoice,
+        required: ['outputPath', 'values'],
+        properties: {
+          attachmentId: attachmentIdParameter,
+          path: { type: 'string' },
+          outputPath: { type: 'string' },
+          version: officeVersionParameter,
+          values: { type: 'object', additionalProperties: { type: 'string' } },
+        },
+      },
+    },
+    {
+      name: 'validateOfficeDocument',
+      description:
+        'Validate supported local xlsx package structure and feature/size limits. Does not recalculate formulas or validate visual appearance.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        oneOf: fileSourceChoice,
+        properties: {
+          attachmentId: attachmentIdParameter,
+          path: { type: 'string' },
+          version: officeVersionParameter,
+        },
+      },
+    },
+    {
+      name: 'createOfficeDocument',
+      description:
+        'Create a NEW local xlsx (sheets with literal values), docx (paragraphs with text and optional heading), or pptx (slides with title/body). Pinned offline engines; docx max1000 paragraphs, pptx max100 slides. XLSX maximum 100000 cells, 20 sheets, 20000 rows per sheet. Existing destination is never overwritten. Text-only docx/pptx creation; no arbitrary template fidelity, images, formula calculation or visual validation.',
+      humanIntervention: {
+        dynamic: { default: 'never', policy: 'required', type: 'pathScopeAudit' },
+      },
+      parameters: {
+        type: 'object',
+        required: ['path'],
+        properties: {
+          path: { type: 'string' },
+          paragraphs: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['text'],
+              properties: { text: { type: 'string' }, heading: { type: 'boolean' } },
+            },
+          },
+          slides: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['title', 'body'],
+              properties: { title: { type: 'string' }, body: { type: 'string' } },
+            },
+          },
+          sheets: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['name', 'rows'],
+              properties: {
+                name: { type: 'string' },
+                rows: { type: 'array', items: { type: 'array', items: {} } },
+              },
+            },
+          },
+        },
+      },
+    },
+    ...(['inspectOfficeDocument', 'readOfficeDocument'] as const).map((name) => ({
+      name,
+      defaultTimeoutMs: 120_000,
+      description:
+        name === 'inspectOfficeDocument'
+          ? 'Inspect local xlsx/docx/pptx structure with bounded samples and a resource version. Excel lists worksheet names. Use readOfficeDocument for selected content or Excel numeric/grouped summaries; no external parser is needed.'
+          : 'Read bounded local Office rows, paragraphs or slides in actual document order. Returns actualRange, total (or unknown), hasMore and next parameters. Excel returns cached values and formulas without recalculation. For Excel totals or grouped summaries, prefer aggregateColumn (numeric column letter) with optional groupByColumn: scans from start to worksheet end for count/sum/min/max without injecting rows or writing a parser.',
+      humanIntervention: {
+        dynamic: {
+          default: 'never' as const,
+          policy: 'required' as const,
+          type: 'pathScopeAudit' as const,
+        },
+      },
+      parameters: {
+        type: 'object' as const,
+        oneOf: fileSourceChoice,
+        properties: {
+          attachmentId: attachmentIdParameter,
+          path: { type: 'string' as const },
+          sheet: { type: 'string' as const },
+          start: {
+            type: 'number' as const,
+            description: 'One-based row, paragraph or slide, defaults to 1',
+          },
+          limit: { type: 'number' as const, description: 'Maximum records, capped at 500' },
+          maxChars: {
+            type: 'number' as const,
+            description: 'JSON record character budget, capped at 64000',
+          },
+          version: officeVersionParameter,
+          groupByColumn: {
+            type: 'string' as const,
+            description:
+              'Optional Excel column letter to group numeric aggregate results by; max500 groups',
+          },
+          aggregateColumn: {
+            type: 'string' as const,
+            description:
+              'Excel numeric column letter to aggregate from start to sheet end; ignores row limit, returns summaries instead of rows',
+          },
+        },
+      },
+    })),
     {
       defaultTimeoutMs: 30_000,
       description:
@@ -20,6 +183,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       name: LocalSystemApiName.readFile,
       parameters: {
         properties: {
+          attachmentId: attachmentIdParameter,
           loc: {
             description:
               'Optional range of lines to read [startLine, endLine]. Defaults to [0, 200] if not specified.',
@@ -33,7 +197,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
             type: 'string',
           },
         },
-        required: ['path'],
+        oneOf: fileSourceChoice,
         type: 'object',
       },
     },
@@ -163,7 +327,7 @@ export const LocalSystemManifest: BuiltinToolManifest = {
     {
       defaultTimeoutMs: 30_000,
       description:
-        'Write content to a specific file. Input should be the file path and content. Overwrites existing file or creates a new one.',
+        'Write content to a specific file. Overwrites existing file or creates a new one. Write a standalone HTML report directly from structured Office results already returned; no intermediate generator script is needed.',
       humanIntervention: {
         dynamic: {
           default: 'never',
@@ -225,11 +389,16 @@ export const LocalSystemManifest: BuiltinToolManifest = {
     {
       defaultTimeoutMs: 30_000,
       description:
-        'Start a terminal session to execute a shell command and return console output collected during the wait window (up to 30 seconds by default). If the command is still running after the wait window, the result includes `shell_id` for later observation or termination.',
+        'Start a terminal session to execute a shell command and return console output collected during the wait window (up to 30 seconds by default). If the command is still running after the wait window, the result includes `shell_id` for later observation or termination. For supported Office summaries or plain HTML reports, use returned structured results directly; do not probe parser dependencies, re-read the workbook, or create a script just to repeat a successful aggregate or render the report. Use same-environment code when an Office tool fails or the required operation is unsupported.',
       humanIntervention: 'required',
       name: LocalSystemApiName.runCommand,
       parameters: {
         properties: {
+          attachmentId: {
+            ...attachmentIdParameter,
+            description:
+              'Optional attached file for code fallback. Read the managed copy using the ATTACHMENT_FILE environment variable; do not guess an absolute path.',
+          },
           command: {
             description: 'The shell command to execute',
             type: 'string',
