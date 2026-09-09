@@ -46,6 +46,8 @@ export type TopicNavigationPlacement =
 export interface TopicNavigationContext {
   /** Restore pre-A1 path grouping only after the new router is proven absent. */
   allowLegacyPathGroups?: boolean;
+  /** undefined: shared web view; null: desktop identity is still loading. */
+  currentDeviceId?: string | null;
   sortBy?: TopicSortBy;
   topicStatesById: Record<string, TopicWorkspaceState | undefined>;
   workspacesById: Record<string, ProjectWorkspaceItem | undefined>;
@@ -75,12 +77,12 @@ const isSnapshot = (value: unknown): value is TopicExecutionSnapshot => {
   );
 };
 
-const readTransitionalMetadata = (topic: ChatTopic): TransitionalTopicMetadata =>
+const readTransitionalMetadata = (topic: Pick<ChatTopic, 'metadata'>): TransitionalTopicMetadata =>
   (topic.metadata ?? {}) as TransitionalTopicMetadata;
 
 /** Authoritative server snapshot for a topic, if any. Never synthesized. */
 export const readTopicExecutionSnapshot = (
-  topic: ChatTopic,
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
   topicState?: TopicWorkspaceState,
 ): TopicExecutionSnapshot | undefined => {
   if (topicState?.snapshot) return topicState.snapshot;
@@ -126,7 +128,7 @@ const buildScopeIndex = (workspacesById: TopicNavigationContext['workspacesById'
  * resolves to an existing `project_workspaces` id.
  */
 export const resolveTopicPlacementEvidence = (
-  topic: ChatTopic,
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
   context: TopicNavigationContext,
   scopeIndex: Map<string, ProjectWorkspaceItem> = buildScopeIndex(context.workspacesById),
 ): PlacementEvidence => {
@@ -179,11 +181,38 @@ export const resolveTopicPlacementEvidence = (
     }
   }
 
-  return { snapshot, workspace: undefined };
+  return { snapshot, workspace: topicState?.workspace };
+};
+
+/** Hide foreign or unidentified projects, while retaining ordinary chat history. */
+export const isTopicVisibleOnDevice = (
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
+  context: TopicNavigationContext,
+  scopeIndex?: Map<string, ProjectWorkspaceItem>,
+): boolean => {
+  if (context.currentDeviceId === undefined) return true;
+  if (context.topicStatesById[topic.id]?.unresolvedProject) return false;
+  const { snapshot, workspace } = resolveTopicPlacementEvidence(topic, context, scopeIndex);
+  const metadata = readTransitionalMetadata(topic);
+  const kind = snapshot?.workspaceKind ?? workspace?.kind ?? metadata.workspaceKind;
+  if (kind === 'scratch') return true;
+  const hasProject = !!(
+    snapshot?.workspaceId ||
+    metadata.workspaceId ||
+    metadata.workingDirectory ||
+    (workspace?.kind === 'device' ? workspace.rootPath : undefined)
+  );
+  if (!hasProject) return true;
+  const deviceId = snapshot?.boundDeviceId ?? workspace?.deviceId ?? metadata.boundDeviceId;
+  return (
+    !!context.currentDeviceId &&
+    deviceId === context.currentDeviceId &&
+    (!workspace?.deviceId || workspace.deviceId === context.currentDeviceId)
+  );
 };
 
 export const classifyTopicForNavigation = (
-  topic: ChatTopic,
+  topic: Pick<ChatTopic, 'id' | 'metadata'>,
   context: TopicNavigationContext,
   scopeIndex?: Map<string, ProjectWorkspaceItem>,
 ): { placement: TopicPlacement; workspace?: ProjectWorkspaceItem | WorkspaceRef } => {
@@ -194,7 +223,10 @@ export const classifyTopicForNavigation = (
   };
 };
 
-const timestampOf = (topic: ChatTopic, field: 'createdAt' | 'updatedAt'): number => {
+const timestampOf = (
+  topic: Pick<ChatTopic, 'createdAt' | 'updatedAt'>,
+  field: 'createdAt' | 'updatedAt',
+): number => {
   const value = topic[field] as unknown;
   if (typeof value === 'number') return value;
   if (value instanceof Date) return value.getTime();
@@ -229,7 +261,7 @@ export const assertDisjointTopicNavigation = (navigation: WorkspaceTopicNavigati
 
 /**
  * Derives the fixed Topic sidebar navigation: formal workspace groups on top,
- * one flat recent list at the bottom. Every topic lands in exactly one set.
+ * one flat recent list at the bottom. Every visible topic lands in exactly one set.
  * Input is expected to already be page-sliced and completed-filtered by the
  * topic fetch; this function only classifies and orders.
  */
@@ -245,6 +277,7 @@ export const buildWorkspaceTopicNavigation = (
   const recent: TopicNavigationRecentEntry[] = [];
 
   for (const topic of topics) {
+    if (!isTopicVisibleOnDevice(topic, context, scopeIndex)) continue;
     const { placement, workspace } = classifyTopicForNavigation(topic, context, scopeIndex);
     placementById[topic.id] = placement;
 

@@ -3,6 +3,7 @@
 import { isDesktop } from '@lobechat/const';
 import type { DeviceExecutionTarget } from '@lobechat/types';
 import { memo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEffectiveWorkspace } from '@/hooks/useEffectiveWorkspace';
 import { useAgentStore } from '@/store/agent';
@@ -42,6 +43,7 @@ interface WorkspaceControlsProps {
  */
 const WorkspaceControls = memo<WorkspaceControlsProps>(
   ({ agentId, alwaysShowWorkspace = false }) => {
+    const { t } = useTranslation('chat');
     const isHeterogeneous = useAgentStore(agentByIdSelectors.isAgentHeterogeneousById(agentId));
     const effective = useEffectiveWorkspace(agentId);
     const bind = useBindWorkspaceOnce(effective, agentId);
@@ -156,7 +158,11 @@ const WorkspaceControls = memo<WorkspaceControlsProps>(
           readOnly={targetReadOnly}
           onSelectTarget={handleSelectTarget}
         />
-        {renderWorkspace()}
+        {effective.projectUnavailable ? (
+          <span>{t('workspaceRuntime.otherDeviceProject')}</span>
+        ) : (
+          renderWorkspace()
+        )}
       </>
     );
   },

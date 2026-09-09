@@ -26,6 +26,7 @@ import { useDeviceStore } from '@/store/device';
 import { useElectronStore } from '@/store/electron';
 import {
   buildDraftConversationKey,
+  isTopicVisibleOnDevice,
   projectWorkspaceSelectors,
   readTopicExecutionSnapshot,
   useProjectWorkspaceStore,
@@ -59,6 +60,7 @@ export interface EffectiveWorkspace {
   loadError?: unknown;
   /** Initial evidence is still loading; consumers must not present this as an empty/unavailable state. */
   loading?: boolean;
+  projectUnavailable?: boolean;
   recommendation: WorkspaceRecommendation;
   /** Retry all evidence requests used by this projection. */
   reload?: () => Promise<void>;
@@ -99,9 +101,11 @@ export const useEffectiveWorkspace = (
 
   // Self-populate the stores this view depends on (SWR dedupes by key).
   const devicesRequest = useDeviceStore((s) => s.useFetchDevices)(canFetch);
-  const gatewayRequest = useElectronStore((s) => s.useFetchGatewayDeviceInfo)();
+  const gatewayRequest = useElectronStore((s) => s.useFetchGatewayDeviceInfo)(isDesktop);
+  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
   const workspacesRequest = useProjectWorkspaceStore((s) => s.useFetchWorkspaces)(
-    canFetch && isDesktop,
+    canFetch && isDesktop && !!currentDeviceId,
+    { deviceId: currentDeviceId },
   );
 
   const activeTopicId = useChatStore((s) => s.activeTopicId);
@@ -120,7 +124,7 @@ export const useEffectiveWorkspace = (
   const chatConfig = useAgentStore((s) =>
     agentId ? agentSelectors.getAgentConfigById(agentId)(s)?.chatConfig : undefined,
   );
-  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+
   const devices = useDeviceStore((s) => s.devices);
   const isDevicesInit = useDeviceStore((s) => s.isDevicesInit);
   const legacyLocalWorkingDirectory = useLegacyWorkspaceMigration(
@@ -247,11 +251,44 @@ export const useEffectiveWorkspace = (
       workspaces,
     };
 
-    const context = resolveFrozenClientExecutionContext({
+    let context = resolveFrozenClientExecutionContext({
       ...baseInput,
       topicGrants: Object.values(grantsByTopicDevice).flat(),
       topicId: resolvedTopicId,
     });
+
+    const projectUnavailable =
+      isDesktop &&
+      !isTopicVisibleOnDevice(
+        {
+          id: resolvedTopicId ?? '',
+          metadata: {
+            ...topic?.metadata,
+            ...(snapshot ? { executionSnapshot: snapshot } : {}),
+            ...(draft?.workspaceId ? { workspaceId: draft.workspaceId } : {}),
+            ...(draft?.legacyWorkingDirectory
+              ? { workingDirectory: draft.legacyWorkingDirectory }
+              : {}),
+            ...(draft?.targetDeviceId ? { boundDeviceId: draft.targetDeviceId } : {}),
+          },
+        },
+        {
+          currentDeviceId: currentDeviceId ?? null,
+          topicStatesById: resolvedTopicId && topicState ? { [resolvedTopicId]: topicState } : {},
+          workspacesById,
+        },
+      );
+    if (projectUnavailable)
+      context = {
+        ...context,
+        cwd: undefined,
+        workspace: undefined,
+        accessRoots: [],
+        env: undefined,
+        envFiles: undefined,
+        plan: { kind: 'device-unrouted', target: 'device', reason: 'no-bound-device' },
+        unresolvedReason: 'device-unrouted',
+      };
 
     const plan = context.plan;
     let state: EffectiveWorkspaceState;
@@ -259,7 +296,10 @@ export const useEffectiveWorkspace = (
     else if (context.workspace) state = context.workspace.kind === 'scratch' ? 'scratch' : 'bound';
     else state = 'unbound';
 
-    const targetDeviceId = plan.kind === 'device' ? plan.deviceId : undefined;
+    const targetDeviceId =
+      plan.kind === 'device'
+        ? plan.deviceId
+        : (snapshot?.boundDeviceId ?? legacyTopic?.boundDeviceId);
     const recommendationDeviceId =
       targetDeviceId ??
       requestedDeviceId ??
@@ -291,7 +331,8 @@ export const useEffectiveWorkspace = (
       isDraft,
       loadError,
       loading,
-      recommendation,
+      recommendation: projectUnavailable ? {} : recommendation,
+      projectUnavailable,
       reload,
       state,
       target: plan.target,

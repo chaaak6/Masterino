@@ -7,6 +7,7 @@ import urlJoin from 'url-join';
 
 import EmptyNavItem from '@/features/NavPanel/components/EmptyNavItem';
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useFetchChatTopics } from '@/hooks/useFetchChatTopics';
 import { usePermission } from '@/hooks/usePermission';
 import { useQueryRoute } from '@/hooks/useQueryRoute';
@@ -24,7 +25,7 @@ const TopicListContent = memo(() => {
   const { t } = useTranslation('topic');
   const router = useQueryRoute();
   const { allowed: canCreateTopic } = usePermission('create_content');
-  const topicLength = useChatStore((s) => topicSelectors.currentTopicLength(s));
+  const topicLength = useDeviceTopics((s) => topicSelectors.currentTopicLength(s));
   const [agentId, isUndefinedTopics, isInSearchMode] = useChatStore((s) => [
     s.activeAgentId,
     topicSelectors.isUndefinedTopics(s),

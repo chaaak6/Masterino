@@ -33,6 +33,8 @@ type ServerTopicMetadata = ChatTopicMetadata & {
 
 export interface TopicWorkspaceState {
   snapshot?: TopicExecutionSnapshot;
+  /** A historical project exists, but its directory/device evidence cannot be resolved. */
+  unresolvedProject?: boolean;
   workspace?: WorkspaceRef;
 }
 
@@ -410,8 +412,16 @@ export class DatabaseTopicWorkspaceBindingStore implements TopicWorkspaceBinding
         ? undefined
         : legacyWorkspaceEvidence(metadata);
     if (workspace && !mirrorMatchesWorkspace(metadata, workspace)) {
-      return { snapshot, workspace: undefined };
+      return { snapshot, workspace: undefined, unresolvedProject: true };
     }
-    return { snapshot, workspace };
+    return {
+      snapshot,
+      workspace,
+      ...(!workspace &&
+      (snapshot?.workspaceKind ?? metadata?.workspaceKind) !== 'scratch' &&
+      (workspaceId || metadata?.workingDirectory)
+        ? { unresolvedProject: true }
+        : {}),
+    };
   };
 }

@@ -143,6 +143,20 @@ describe('TopicModel - Stats', () => {
   });
 
   describe('rank', () => {
+    it('filters foreign projects before the rank limit without changing account counts', async () => {
+      await serverDB.insert(topics).values([
+        { id: 'foreign', userId, metadata: { workspaceId: 'foreign-ws', boundDeviceId: 'win' } },
+        { id: 'local', userId, metadata: { workspaceId: 'local-ws', boundDeviceId: 'mac' } },
+      ]);
+      await serverDB.insert(messages).values([
+        { id: 'f1', role: 'user', topicId: 'foreign', userId },
+        { id: 'f2', role: 'user', topicId: 'foreign', userId },
+        { id: 'l1', role: 'user', topicId: 'local', userId },
+      ]);
+      expect((await topicModel.rank(1, 'mac')).map((t) => t.id)).toEqual(['local']);
+      expect((await topicModel.rank(1)).map((t) => t.id)).toEqual(['foreign']);
+      expect(await topicModel.count()).toBe(2);
+    });
     it('should return ranked topics based on message count', async () => {
       await serverDB.transaction(async (tx) => {
         await tx.insert(agents).values([{ id: 'rank-agent', userId, title: 'Rank Agent' }]);

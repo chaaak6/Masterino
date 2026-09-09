@@ -2,8 +2,9 @@ import { isDesktop } from '@lobechat/const';
 import isEqual from 'fast-deep-equal';
 import { useMemo } from 'react';
 
-import { useChatStore } from '@/store/chat';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { topicSelectors } from '@/store/chat/selectors';
+import { useElectronStore } from '@/store/electron';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import {
@@ -35,11 +36,15 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
   const topicSortBy = useUserStore(preferenceSelectors.topicSortBy);
   const isLogin = useUserStore(authSelectors.isLogin);
 
+  useElectronStore((s) => s.useFetchGatewayDeviceInfo)(isDesktop);
+  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+
   const workspaceRequest = useProjectWorkspaceStore((s) => s.useFetchWorkspaces)(
-    isLogin || isDesktop,
+    isDesktop ? !!currentDeviceId : isLogin,
+    isDesktop ? { deviceId: currentDeviceId } : {},
   );
 
-  const topics = useChatStore(
+  const topics = useDeviceTopics(
     topicSelectors.displayTopicsForSidebar(topicPageSize, topicSortBy),
     isEqual,
   );
@@ -50,12 +55,13 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
   const navigation = useMemo(
     () =>
       buildWorkspaceTopicNavigation(topics ?? [], {
+        currentDeviceId: isDesktop ? (currentDeviceId ?? null) : undefined,
         allowLegacyPathGroups: !seamAvailable,
         sortBy: topicSortBy,
         topicStatesById,
         workspacesById,
       }),
-    [seamAvailable, topics, topicSortBy, topicStatesById, workspacesById],
+    [currentDeviceId, seamAvailable, topics, topicSortBy, topicStatesById, workspacesById],
   );
 
   const groupIds = useMemo(
@@ -67,11 +73,11 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
     () => ({
       groupIds,
       loadError: workspaceRequest?.error,
-      loading: Boolean(workspaceRequest?.isLoading),
+      loading: (isDesktop && !currentDeviceId) || Boolean(workspaceRequest?.isLoading),
       navigation,
       reload: async () => workspaceRequest?.mutate?.(),
       topicSortBy,
     }),
-    [groupIds, navigation, topicSortBy, workspaceRequest],
+    [currentDeviceId, groupIds, navigation, topicSortBy, workspaceRequest],
   );
 };

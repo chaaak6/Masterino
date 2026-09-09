@@ -4,7 +4,7 @@ import { Maximize2, Minimize2 } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useChatStore } from '@/store/chat';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
@@ -23,7 +23,7 @@ const ToggleGroups = memo(() => {
     () => topicSelectors.groupedTopicsForSidebar(topicPageSize, topicSortBy, topicGroupMode),
     [topicPageSize, topicSortBy, topicGroupMode],
   );
-  const groupTopics = useChatStore(groupSelector, isEqual);
+  const groupTopics = useDeviceTopics(groupSelector, isEqual);
 
   const [topicGroupKeys, updateSystemStatus] = useGlobalStore((s) => [
     systemStatusSelectors.topicGroupKeys(s),

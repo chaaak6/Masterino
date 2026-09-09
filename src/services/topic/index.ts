@@ -1,5 +1,7 @@
 import { INBOX_SESSION_ID } from '@/const/session';
+import { isDesktop } from '@/const/version';
 import { lambdaClient } from '@/libs/trpc/client';
+import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { type BatchTaskResult } from '@/types/service';
 import {
   type ChatTopic,
@@ -17,6 +19,13 @@ type UpdateTopicMetadataInput = Omit<Partial<ChatTopicMetadata>, 'onboardingSess
 };
 
 export class TopicService {
+  private async desktopScope(): Promise<{ localDeviceId: string } | undefined> {
+    if (!isDesktop) return undefined;
+    const deviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
+    if (!deviceId) throw new Error('Local device identity is unavailable');
+    return { localDeviceId: deviceId };
+  }
+
   createTopic = (params: CreateTopicParams): Promise<string> => {
     return lambdaClient.topic.createTopic.mutate({
       ...params,
@@ -46,6 +55,7 @@ export class TopicService {
 
   getTopics = async (params: QueryTopicParams): Promise<{ items: ChatTopic[]; total: number }> => {
     return lambdaClient.topic.getTopics.query({
+      ...(await this.desktopScope()),
       agentId: params.agentId,
       current: params.current,
       excludeStatuses: params.excludeStatuses,
@@ -60,8 +70,14 @@ export class TopicService {
     }) as any;
   };
 
-  queryTopics = (params?: { pageSize?: number; statuses?: string[] }): Promise<ChatTopic[]> => {
-    return lambdaClient.topic.queryTopics.query(params) as any;
+  queryTopics = async (params?: {
+    pageSize?: number;
+    statuses?: string[];
+  }): Promise<ChatTopic[]> => {
+    return lambdaClient.topic.queryTopics.query({
+      ...params,
+      ...(await this.desktopScope()),
+    }) as any;
   };
 
   countTopics = async (params?: {
@@ -75,7 +91,8 @@ export class TopicService {
   };
 
   rankTopics = async (limit?: number): Promise<TopicRankItem[]> => {
-    return lambdaClient.topic.rankTopics.query(limit);
+    const scope = await this.desktopScope();
+    return lambdaClient.topic.rankTopics.query(scope ? { limit, ...scope } : limit);
   };
 
   getMaxTaskDuration = async (): Promise<number> => {
@@ -86,8 +103,13 @@ export class TopicService {
     return lambdaClient.topic.recentTopics.query({ limit });
   };
 
-  searchTopics = (keywords: string, agentId?: string, groupId?: string): Promise<ChatTopic[]> => {
+  searchTopics = async (
+    keywords: string,
+    agentId?: string,
+    groupId?: string,
+  ): Promise<ChatTopic[]> => {
     return lambdaClient.topic.searchTopics.query({
+      ...(await this.desktopScope()),
       agentId,
       groupId,
       keywords,

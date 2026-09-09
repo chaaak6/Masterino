@@ -119,6 +119,43 @@ describe('useEffectiveWorkspace', () => {
     expect(result.current.draftRuntimeEditable).toBe(false);
   });
 
+  it('does not expose a foreign cwd as local even when the remote workspace is cached', () => {
+    mocks.activeTopicId = 'foreign';
+    mocks.topic = {
+      id: 'foreign',
+      metadata: {
+        executionSnapshot: { ...boundSnapshot('remote-ws', 'device'), boundDeviceId: 'other-mac' },
+      },
+    };
+    useProjectWorkspaceStore.setState({
+      workspacesById: {
+        'remote-ws': {
+          id: 'remote-ws',
+          deviceId: 'other-mac',
+          kind: 'device',
+          rootPath: '/same/path',
+        },
+      },
+    });
+    const { result } = renderHook(() => useEffectiveWorkspace('agent-1'));
+    expect(result.current).toMatchObject({
+      projectUnavailable: true,
+      state: 'unrouted',
+      target: 'device',
+      targetDeviceId: 'other-mac',
+    });
+    expect(result.current.cwd).toBeUndefined();
+    expect(result.current.context.accessRoots).toEqual([]);
+  });
+
+  it('does not adopt an unowned historical path on this machine', () => {
+    mocks.activeTopicId = 'legacy';
+    mocks.topic = { id: 'legacy', metadata: { workingDirectory: '/same/path' } };
+    const { result } = renderHook(() => useEffectiveWorkspace('agent-1'));
+    expect(result.current.projectUnavailable).toBe(true);
+    expect(result.current.cwd).toBeUndefined();
+  });
+
   it('returns bound with the persisted workspace root as cwd', () => {
     mocks.activeTopicId = 'topic-1';
     mocks.topic = {

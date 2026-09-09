@@ -33,6 +33,7 @@ import type { TopicItem } from '../schemas';
 import { agents, messagePlugins, messages, threads, topics } from '../schemas';
 import type { LobeChatDatabase } from '../type';
 import { sanitizeBm25Query } from '../utils/bm25';
+import { desktopTopicCondition } from '../utils/desktopTopicCondition';
 import { genEndDateWhere, genRangeWhere, genStartDateWhere, genWhere } from '../utils/genWhere';
 import { idGenerator } from '../utils/idGenerator';
 import { buildWorkspacePayload, buildWorkspaceWhere } from '../utils/workspace';
@@ -85,6 +86,7 @@ interface QueryTopicParams {
    * When true, also includes legacy inbox topics (sessionId IS NULL AND groupId IS NULL AND agentId IS NULL)
    */
   isInbox?: boolean;
+  localDeviceId?: string;
   pageSize?: number;
   /**
    * Server-side ordering. Defaults to `updatedAt`. `status` orders by status
@@ -124,6 +126,7 @@ export interface TopicKeywordScope {
    */
   containerId?: string | null;
   groupId?: string | null;
+  localDeviceId?: string;
 }
 
 export interface ListTopicsForMemoryExtractorCursor {
@@ -181,6 +184,7 @@ export class TopicModel {
   // **************** Query *************** //
 
   query = async ({
+    localDeviceId,
     agentId,
     containerId,
     current = 0,
@@ -206,6 +210,7 @@ export class TopicModel {
       withDetails,
     });
     const offset = current * pageSize;
+    const deviceCondition = desktopTopicCondition(localDeviceId);
 
     // Heavier columns gated behind `withDetails` and used by the per-agent
     // Topics management page: real aggregates from the `messages` table
@@ -282,6 +287,7 @@ export class TopicModel {
         excludeTriggerCondition,
         triggerCondition,
         excludeStatusCondition,
+        deviceCondition,
       );
 
       const [items, totalResult] = await Promise.all([
@@ -347,6 +353,7 @@ export class TopicModel {
         excludeTriggerCondition,
         triggerCondition,
         excludeStatusCondition,
+        deviceCondition,
       );
 
       const [items, totalResult] = await Promise.all([
@@ -403,6 +410,7 @@ export class TopicModel {
       excludeTriggerCondition,
       triggerCondition,
       excludeStatusCondition,
+      deviceCondition,
     );
 
     const [items, totalResult] = await Promise.all([
@@ -492,15 +500,19 @@ export class TopicModel {
    * pulling the full topic set to the client.
    */
   queryTopics = async ({
+    localDeviceId,
     statuses,
     pageSize = 200,
-  }: { pageSize?: number; statuses?: string[] } = {}): Promise<TopicItem[]> => {
+  }: { localDeviceId?: string; pageSize?: number; statuses?: string[] } = {}): Promise<
+    TopicItem[]
+  > => {
     return this.db
       .select()
       .from(topics)
       .where(
         and(
           this.ownership(),
+          desktopTopicCondition(localDeviceId),
           statuses && statuses.length > 0
             ? inArray(topics.status, statuses as ChatTopicStatus[])
             : undefined,
@@ -520,7 +532,10 @@ export class TopicModel {
     // as the legacy `containerId` (sessionId or groupId).
     const scopeOptions: TopicKeywordScope =
       scope && typeof scope === 'object' ? scope : { containerId: scope ?? null };
-    const scopeCondition = this.matchKeywordScope(scopeOptions);
+    const scopeCondition = and(
+      this.matchKeywordScope(scopeOptions),
+      desktopTopicCondition(scopeOptions.localDeviceId),
+    );
 
     const bm25Query = sanitizeBm25Query(keyword);
 
@@ -559,7 +574,7 @@ export class TopicModel {
 
     const topicsByMessages = await this.db.query.topics.findMany({
       orderBy: [desc(topics.updatedAt)],
-      where: and(this.ownership(), inArray(topics.id, topicIds)),
+      where: and(this.ownership(), scopeCondition, inArray(topics.id, topicIds)),
     });
 
     // Merge results and deduplicate
@@ -614,7 +629,7 @@ export class TopicModel {
     return result[0].count;
   };
 
-  rank = async (limit: number = 10): Promise<TopicRankItem[]> => {
+  rank = async (limit: number = 10, localDeviceId?: string): Promise<TopicRankItem[]> => {
     return this.db
       .select({
         agentId: topics.agentId,
@@ -623,7 +638,7 @@ export class TopicModel {
         title: topics.title,
       })
       .from(topics)
-      .where(and(this.ownership()))
+      .where(and(this.ownership(), desktopTopicCondition(localDeviceId)))
       .leftJoin(messages, eq(topics.id, messages.topicId))
       .groupBy(topics.id)
       .orderBy(desc(sql`count`))

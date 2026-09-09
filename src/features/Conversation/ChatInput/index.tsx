@@ -23,10 +23,14 @@ import {
   type SendButtonProps,
 } from '@/features/ChatInput/store/initialState';
 import { useChatStore } from '@/store/chat';
-import { operationSelectors } from '@/store/chat/selectors';
+import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import { selectCurrentTurnTodosFromMessages } from '@/store/chat/slices/message/selectors/dbMessage';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
+import {
+  checkDesktopProjectSend,
+  ProjectDeviceMismatchError,
+} from '@/store/projectWorkspace/topicExecutionIntent';
 
 import WideScreenContainer from '../../WideScreenContainer';
 import InterventionBar from '../InterventionBar';
@@ -354,6 +358,22 @@ const ChatInput = memo<ChatInputProps>(
         });
         if (shouldSend === false) return;
 
+        try {
+          await checkDesktopProjectSend({
+            agentId: context.agentId,
+            groupId: context.groupId,
+            topicId: context.topicId,
+            isNewTopic: !context.topicId,
+            topicMetadata: context.topicId
+              ? topicSelectors.getTopicById(context.topicId)(useChatStore.getState())?.metadata
+              : undefined,
+          });
+        } catch (error) {
+          if (!(error instanceof ProjectDeviceMismatchError)) throw error;
+          antdMessage.error(t('workspaceRuntime.otherDeviceProject'));
+          return;
+        }
+
         // Capture editor JSON state before clearing for rich text rendering
         const editorData = getEditorData();
 
@@ -373,7 +393,7 @@ const ChatInput = memo<ChatInputProps>(
         // Fire and forget - send with captured message
         await sendMessage({ editorData, files: currentFileList, message, pageSelections });
       },
-      [sendMessage, disableQueue, disableSend, isInputLoading, onBeforeSend, t],
+      [context, sendMessage, disableQueue, disableSend, isInputLoading, onBeforeSend, t],
     );
 
     const sendButtonProps: SendButtonProps = {

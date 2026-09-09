@@ -358,6 +358,9 @@ export class GatewayActionImpl {
       groupId: context.groupId,
       isNewTopic: isCreateNewTopic,
       topicId: context.topicId,
+      topicMetadata: context.topicId
+        ? topicSelectors.getTopicById(context.topicId)(this.#get())?.metadata
+        : undefined,
     });
 
     const result = await aiAgentService.execAgentTask(

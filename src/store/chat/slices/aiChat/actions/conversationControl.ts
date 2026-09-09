@@ -78,12 +78,17 @@ export class ConversationControlActionImpl {
       isNewTopic: false,
       topicId,
       topicSnapshot,
+      topicMetadata: topicId
+        ? topicSelectors.getTopicById(topicId)(this.#get())?.metadata
+        : undefined,
     });
     return (
       (await routeDesktopWorkspaceRuntime(
         selectRuntimeType({
-          boundDeviceId: pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-          executionTarget: pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget,
+          boundDeviceId:
+            pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
+          executionTarget:
+            pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget,
           heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
           isGatewayMode: this.#get().isGatewayModeEnabled(context.agentId),
         }),

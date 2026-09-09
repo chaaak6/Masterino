@@ -331,6 +331,13 @@ export default class GatewayConnectionCtr extends ControllerModule {
   @IpcMethod()
   async executeLocalToolCall(params: LocalToolCallRequest): Promise<BuiltinServerRuntimeOutput> {
     const { trace } = params;
+    // IPC is local-only. Gateway dispatch uses executeToolCall separately.
+    if (trace && trace.deviceId !== this.service.getDeviceId()) {
+      return {
+        content: 'DEVICE_MISMATCH: This project belongs to another device.',
+        success: false,
+      };
+    }
     if (!trace?.topicId || !trace.operationId || !trace.toolCallId) {
       return this.executeLocalToolCallOnce(params);
     }

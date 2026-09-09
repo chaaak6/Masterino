@@ -1,5 +1,6 @@
 'use client';
 
+import { isDesktop } from '@lobechat/const';
 import { Flexbox } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
 import { memo, useCallback, useEffect, useRef } from 'react';
@@ -8,8 +9,10 @@ import { VList } from 'virtua';
 
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
 import TopicEmpty from '@/features/TopicEmpty';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
+import { useElectronStore } from '@/store/electron';
 
 import TopicItem from '../List/Item';
 
@@ -66,8 +69,8 @@ const Content = memo<ContentProps>(({ open, searchKeyword }) => {
     groupId: undefined,
   });
 
-  const searchResults = useChatStore(topicSelectors.searchTopics, isEqual);
-  const allTopicList = useChatStore(topicSelectors.displayTopics, isEqual);
+  const searchResults = useDeviceTopics(topicSelectors.searchTopics, isEqual);
+  const allTopicList = useDeviceTopics(topicSelectors.displayTopics, isEqual);
   const isSearchingTopic = useChatStore(topicSelectors.isSearchingTopic);
 
   // Use search results if searching, otherwise use regular list
@@ -140,16 +143,17 @@ const Content = memo<ContentProps>(({ open, searchKeyword }) => {
     }
   }, [hasMore, loadMoreTopics, count, isSearching]);
 
+  const deviceReady = useElectronStore((s) => !isDesktop || !!s.gatewayDeviceInfo?.deviceId);
   const showLoading = (isLoadingMore || isExpandingPageSize) && !isSearching;
   const showSearchLoading = isSearching && isSearchingTopic;
 
   // Show empty state when no topics
-  if (count === 0 && !showLoading && !showSearchLoading) {
+  if (deviceReady && count === 0 && !showLoading && !showSearchLoading) {
     return <TopicEmpty search={Boolean(searchKeyword)} />;
   }
 
   // Show loading when searching
-  if (showSearchLoading) {
+  if (!deviceReady || showSearchLoading) {
     return (
       <Flexbox gap={1} paddingBlock={1} paddingInline={4}>
         <SkeletonList rows={5} />

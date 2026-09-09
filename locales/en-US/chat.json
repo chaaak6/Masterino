@@ -1176,6 +1176,7 @@
   "workspaceRuntime.intent.confirmDescription": "Use {{path}} as this topic’s project? This folder will stay fixed for the topic.",
   "workspaceRuntime.intent.confirmTitle": "Use this folder as the current project?",
   "workspaceRuntime.intent.keepUnbound": "Continue without binding",
+  "workspaceRuntime.otherDeviceProject": "Project unavailable on this device",
   "workspaceRuntime.picker.addPath": "Add directory path",
   "workspaceRuntime.picker.alreadyBound": "This topic already has a project. Create a new referenced topic to use another project.",
   "workspaceRuntime.picker.bindFailed": "Couldn't select this project. Try again.",
