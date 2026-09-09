@@ -1,16 +1,10 @@
 import { expect, it, vi } from 'vitest';
 
+import { scopeDeviceTopics } from '@/hooks/useDeviceTopics';
+
 import type { ChatStoreState } from '../../initialState';
 import { topicMapKey } from '../../utils/topicMapKey';
 import { topicSelectors } from './selectors';
-
-vi.mock('@lobechat/const', () => ({ isDesktop: true }));
-vi.mock('@/store/electron', () => ({
-  getElectronStoreState: () => ({ gatewayDeviceInfo: { deviceId: 'mac-a' } }),
-}));
-vi.mock('@/store/projectWorkspace/store', () => ({
-  getProjectWorkspaceStoreState: () => ({ topicStatesById: {}, workspacesById: {} }),
-}));
 
 it('filters cached foreign projects before the sidebar/@ limit and in drawer/search selectors', () => {
   const foreign = Array.from({ length: 30 }, (_, i) => ({
@@ -32,12 +26,26 @@ it('filters cached foreign projects before the sidebar/@ limit and in drawer/sea
     topicDataMap: { [topicMapKey({ agentId: 'agent' })]: { items } },
     searchTopics: items,
   } as unknown as ChatStoreState;
+  const scoped = scopeDeviceTopics(state, {
+    currentDeviceId: 'mac-a',
+    topicStatesById: {},
+    workspacesById: {},
+  });
   expect(
     topicSelectors
-      .displayTopicsForSidebar(1)(state)
+      .displayTopicsForSidebar(1)(scoped)
       ?.map((t) => t.id),
   ).toEqual(['local']);
-  expect(topicSelectors.displayTopics(state)?.map((t) => t.id)).toEqual(['local']);
-  expect(topicSelectors.searchTopics(state)?.map((t) => t.id)).toEqual(['local']);
+  expect(topicSelectors.displayTopics(scoped)?.map((t) => t.id)).toEqual(['local']);
+  expect(topicSelectors.searchTopics(scoped)?.map((t) => t.id)).toEqual(['local']);
+  expect(
+    topicSelectors
+      .getTopicsByAgentId('agent')(scoped)
+      ?.map((t) => t.id),
+  ).toEqual(['local']);
   expect(topicSelectors.getTopicById('foreign-0')(state)?.id).toBe('foreign-0');
 });
+
+vi.mock('@/store/chat', () => ({ useChatStore: vi.fn() }));
+vi.mock('@/store/electron', () => ({ useElectronStore: vi.fn() }));
+vi.mock('@/store/projectWorkspace/store', () => ({ useProjectWorkspaceStore: vi.fn() }));

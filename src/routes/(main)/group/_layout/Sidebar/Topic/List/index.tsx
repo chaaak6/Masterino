@@ -6,6 +6,7 @@ import urlJoin from 'url-join';
 
 import EmptyNavItem from '@/features/NavPanel/components/EmptyNavItem';
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useFetchChatTopics } from '@/hooks/useFetchChatTopics';
 import { useQueryRoute } from '@/hooks/useQueryRoute';
 import { useAgentGroupStore } from '@/store/agentGroup';
@@ -21,7 +22,7 @@ import FlatMode from '../TopicListContent/FlatMode';
 const TopicList = memo(() => {
   const { t } = useTranslation('topic');
   const router = useQueryRoute();
-  const topicLength = useChatStore((s) => topicSelectors.currentTopicLength(s));
+  const topicLength = useDeviceTopics((s) => topicSelectors.currentTopicLength(s));
   const isUndefinedTopics = useChatStore((s) => topicSelectors.isUndefinedTopics(s));
   const activeGroupId = useAgentGroupStore((s) => s.activeGroupId);
   const [allTopicsDrawerOpen, closeAllTopicsDrawer] = useChatStore((s) => [

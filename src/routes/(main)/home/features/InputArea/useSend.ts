@@ -1,6 +1,8 @@
 import { SESSION_CHAT_TOPIC_URL, SESSION_CHAT_URL } from '@lobechat/const';
+import { t } from 'i18next';
 import { useCallback } from 'react';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import type { SendButtonHandler } from '@/features/ChatInput/store/initialState';
 import { useHomeDailyBrief } from '@/hooks/useHomeDailyBrief';
 import { useQueryRoute } from '@/hooks/useQueryRoute';
@@ -9,6 +11,10 @@ import { useAgentStore } from '@/store/agent';
 import { useChatStore } from '@/store/chat';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useHomeStore } from '@/store/home';
+import {
+  checkDesktopProjectSend,
+  ProjectDeviceMismatchError,
+} from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { useResolvedHomeAgentId } from '../AgentSelect/useResolvedHomeAgentId';
 
@@ -92,6 +98,17 @@ export const useSend = () => {
 
       // Require input content (except for default inbox which can have files/context)
       if (!message && fileList.length === 0 && contextList.length === 0) return;
+
+      // Validate project drafts before the finally block clears input and attachments.
+      if (!inputActiveMode) {
+        try {
+          await checkDesktopProjectSend({ agentId: activeAgentId, isNewTopic: true });
+        } catch (error) {
+          if (!(error instanceof ProjectDeviceMismatchError)) throw error;
+          antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+          return;
+        }
+      }
 
       try {
         switch (inputActiveMode) {

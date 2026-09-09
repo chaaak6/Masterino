@@ -224,7 +224,7 @@ export const classifyTopicForNavigation = (
 };
 
 const timestampOf = (
-  topic: Pick<ChatTopic, 'id' | 'metadata'>,
+  topic: Pick<ChatTopic, 'createdAt' | 'updatedAt'>,
   field: 'createdAt' | 'updatedAt',
 ): number => {
   const value = topic[field] as unknown;

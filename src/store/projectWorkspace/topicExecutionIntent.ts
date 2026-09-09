@@ -7,6 +7,7 @@ import { isDesktop } from '@/const/version';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
 import { normalizeNewTopicIntent } from '@/helpers/workspacePlatform';
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
+import { projectWorkspaceService } from '@/services/projectWorkspace';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import type { ChatTopicMetadata } from '@/types/topic';
@@ -110,7 +111,7 @@ export const resolvePendingTopicExecutionIntent = async (params: {
         },
       )
     ) {
-      throw new Error(
+      throw new ProjectDeviceMismatchError(
         'This project belongs to another device. Open it on its original device or use Web.',
       );
     }
@@ -136,4 +137,37 @@ export const resolvePendingTopicExecutionIntent = async (params: {
       ...(isNewTopic && draft?.workspaceId ? { workspaceId: draft.workspaceId } : {}),
     },
   };
+};
+
+/** Expected business rejection, distinct from transport or programming failures. */
+export class ProjectDeviceMismatchError extends Error {
+  override name = 'ProjectDeviceMismatchError';
+}
+
+/** Run before the input clears. The execution path still checks again before dispatch. */
+export const checkDesktopProjectSend = async (
+  params: Parameters<typeof resolvePendingTopicExecutionIntent>[0],
+): Promise<void> => {
+  if (!isDesktop) return;
+  const state = getProjectWorkspaceStoreState();
+  if (params.topicId && !state.topicStatesById[params.topicId]) {
+    // A direct URL may not have loaded the topic list yet. Do not swallow lookup failures.
+    const topicState = await projectWorkspaceService.getTopicState(params.topicId);
+    const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
+    if (
+      !isTopicVisibleOnDevice(
+        { id: params.topicId, metadata: params.topicMetadata },
+        {
+          currentDeviceId: currentDeviceId ?? null,
+          topicStatesById: { ...state.topicStatesById, [params.topicId]: topicState },
+          workspacesById: state.workspacesById,
+        },
+      )
+    ) {
+      throw new ProjectDeviceMismatchError('This project is unavailable on this device.');
+    }
+    // Do not partially hydrate the store here: sendMessage still loads workspace details/env.
+    params = { ...params, topicSnapshot: params.topicSnapshot ?? topicState?.snapshot };
+  }
+  await resolvePendingTopicExecutionIntent(params);
 };

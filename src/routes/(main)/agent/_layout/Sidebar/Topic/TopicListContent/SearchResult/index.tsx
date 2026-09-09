@@ -6,6 +6,7 @@ import React, { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 
@@ -17,7 +18,7 @@ const SearchResult = memo(() => {
     s.activeTopicId,
     topicSelectors.isSearchingTopic(s),
   ]);
-  const topics = useChatStore(topicSelectors.searchTopics, isEqual);
+  const topics = useDeviceTopics(topicSelectors.searchTopics, isEqual);
 
   if (isSearchingTopic) return <SkeletonList />;
 

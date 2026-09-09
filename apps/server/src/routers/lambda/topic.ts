@@ -464,9 +464,20 @@ export const topicRouter = router({
     return ctx.agentOperationModel.getMaxDurationSeconds();
   }),
 
-  rankTopics: topicProcedure.input(z.number().max(50).optional()).query(async ({ ctx, input }) => {
-    return ctx.topicModel.rank(input);
-  }),
+  rankTopics: topicProcedure
+    .input(
+      z
+        .union([
+          z.number().max(50),
+          z.object({ limit: z.number().max(50).optional(), localDeviceId: z.string().optional() }),
+        ])
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      return typeof input === 'object'
+        ? ctx.topicModel.rank(input.limit, input.localDeviceId)
+        : ctx.topicModel.rank(input);
+    }),
 
   recentTopics: topicProcedure
     .input(z.object({ limit: z.number().max(50).optional() }).optional())

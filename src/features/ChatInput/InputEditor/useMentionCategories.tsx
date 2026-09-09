@@ -4,6 +4,7 @@ import { Bot, MessageSquareText, Users, Wrench } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useGlobalStore } from '@/store/global';
@@ -31,7 +32,7 @@ export const useMentionCategories = (): MentionCategory[] => {
     () => topicSelectors.displayTopicsForSidebar(topicPageSize),
     [topicPageSize],
   );
-  const topics = useChatStore(topicsSelector);
+  const topics = useDeviceTopics(topicsSelector);
   const activeTopicId = useChatStore((s) => s.activeTopicId);
 
   const externalMentionItems = useChatInputStore((s) => s.mentionItems);

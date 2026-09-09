@@ -10,6 +10,7 @@ import urlJoin from 'url-join';
 
 import NavItem from '@/features/NavPanel/components/NavItem';
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useGlobalStore } from '@/store/global';
@@ -49,7 +50,7 @@ const GroupedAccordion = memo<GroupedAccordionProps>(({ GroupItem }) => {
     () => topicSelectors.groupedTopicsForSidebar(topicPageSize, topicSortBy, topicGroupMode),
     [topicPageSize, topicSortBy, topicGroupMode],
   );
-  const groupTopics = useChatStore(groupSelector, isEqual);
+  const groupTopics = useDeviceTopics(groupSelector, isEqual);
 
   const [topicGroupKeys, updateSystemStatus] = useGlobalStore((s) => [
     systemStatusSelectors.topicGroupKeys(s),

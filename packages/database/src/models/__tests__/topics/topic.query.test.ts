@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DatabaseTopicWorkspaceBindingStore } from '@/server/services/projectWorkspace/bindingStore';
+import { isTopicVisibleOnDevice } from '@/store/projectWorkspace/topicNavigation';
 
 import { getTestDB } from '../../../core/getTestDB';
 import {
@@ -36,6 +37,35 @@ describe('TopicModel - Query', () => {
   });
 
   describe('query', () => {
+    it('uses the same desktop ownership rules in SQL and the client', async () => {
+      const cases: Array<Pick<Parameters<typeof isTopicVisibleOnDevice>[0], 'id' | 'metadata'>> = [
+        { id: 'plain', metadata: {} },
+        {
+          id: 'scratch',
+          metadata: { workspaceId: 'scratch', workspaceKind: 'scratch', boundDeviceId: 'win' },
+        },
+        { id: 'local', metadata: { workspaceId: 'mac-ws', boundDeviceId: 'mac' } },
+        { id: 'foreign', metadata: { workspaceId: 'win-ws', boundDeviceId: 'win' } },
+        { id: 'old-local', metadata: { workingDirectory: '/same/path', boundDeviceId: 'mac' } },
+        { id: 'old-foreign', metadata: { workingDirectory: '/same/path', boundDeviceId: 'win' } },
+        { id: 'old-unowned', metadata: { workingDirectory: '/same/path' } },
+      ];
+      await serverDB.insert(topics).values(cases.map((t) => ({ ...t, userId, sessionId })));
+      for (const deviceId of ['mac', 'win']) {
+        const scope = { currentDeviceId: deviceId, topicStatesById: {}, workspacesById: {} };
+        const expected = cases
+          .filter((t) => isTopicVisibleOnDevice(t, scope))
+          .map((t) => t.id)
+          .sort();
+        const result = await topicModel.query({
+          containerId: sessionId,
+          localDeviceId: deviceId,
+          pageSize: 30,
+        });
+        expect(result.items.map((t) => t.id).sort()).toEqual(expected);
+        expect(result.total).toBe(expected.length);
+      }
+    });
     it('preserves unowned legacy-project evidence when the topic is absent from a desktop list', async () => {
       await serverDB.insert(topics).values({
         id: 'unowned-link',

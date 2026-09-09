@@ -629,7 +629,7 @@ export class TopicModel {
     return result[0].count;
   };
 
-  rank = async (limit: number = 10): Promise<TopicRankItem[]> => {
+  rank = async (limit: number = 10, localDeviceId?: string): Promise<TopicRankItem[]> => {
     return this.db
       .select({
         agentId: topics.agentId,
@@ -638,7 +638,7 @@ export class TopicModel {
         title: topics.title,
       })
       .from(topics)
-      .where(and(this.ownership()))
+      .where(and(this.ownership(), desktopTopicCondition(localDeviceId)))
       .leftJoin(messages, eq(topics.id, messages.topicId))
       .groupBy(topics.id)
       .orderBy(desc(sql`count`))

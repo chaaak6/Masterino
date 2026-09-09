@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { DESKTOP_HEADER_ICON_SMALL_SIZE } from '@/const/layoutTokens';
 import NavHeader from '@/features/NavHeader';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useQueryState } from '@/hooks/useQueryParam';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/slices/topic/selectors';
@@ -23,7 +24,7 @@ const TopicSelector = memo<TopicSelectorProps>(({ agentId, disabled }) => {
 
   // Use activeTopicId from chatStore (synced from URL query 'bt' via ProfileHydration)
   const activeTopicId = useChatStore((s) => s.activeTopicId);
-  const topics = useChatStore((s) => topicSelectors.getTopicsByAgentId(agentId)(s));
+  const topics = useDeviceTopics((s) => topicSelectors.getTopicsByAgentId(agentId)(s));
 
   // Directly update URL query 'bt' to switch topic in profile page
   const [, setBuilderTopicId] = useQueryState('bt');

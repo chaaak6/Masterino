@@ -5,6 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SendButtonHandler } from '@/features/ChatInput/store/initialState';
+import { ProjectDeviceMismatchError } from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { useSend } from './useSend';
 
@@ -227,4 +228,30 @@ describe('Home InputArea useSend', () => {
     expect(clearChatUploadFileListMock).not.toHaveBeenCalled();
     expect(clearChatContextSelectionsMock).not.toHaveBeenCalled();
   });
+});
+
+const preflight = vi.hoisted(() => vi.fn());
+const errorToast = vi.hoisted(() => vi.fn());
+vi.mock('@/components/AntdStaticMethods', () => ({ message: { error: errorToast } }));
+vi.mock('@/store/projectWorkspace/topicExecutionIntent', () => ({
+  checkDesktopProjectSend: preflight,
+  ProjectDeviceMismatchError: class extends Error {},
+}));
+
+it('keeps input and files when a project draft is rejected', async () => {
+  clearContentMock.mockClear();
+  clearChatUploadFileListMock.mockClear();
+  sendMessageMock.mockClear();
+  homeState.inputActiveMode = null;
+  chatState.inputMessage = 'keep my draft';
+  fileState.chatUploadFileList = [{ id: 'kept-file', status: 'success' }] as any;
+  preflight.mockRejectedValueOnce(new ProjectDeviceMismatchError());
+  const { result } = renderHook(() => useSend());
+  await act(async () => {
+    await result.current.send({ getMarkdownContent: () => 'keep my draft' } as any);
+  });
+  expect(errorToast).toHaveBeenCalled();
+  expect(clearContentMock).not.toHaveBeenCalled();
+  expect(clearChatUploadFileListMock).not.toHaveBeenCalled();
+  expect(sendMessageMock).not.toHaveBeenCalled();
 });

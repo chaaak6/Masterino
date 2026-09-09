@@ -91,7 +91,8 @@ export class TopicService {
   };
 
   rankTopics = async (limit?: number): Promise<TopicRankItem[]> => {
-    return lambdaClient.topic.rankTopics.query(limit);
+    const scope = await this.desktopScope();
+    return lambdaClient.topic.rankTopics.query(scope ? { limit, ...scope } : limit);
   };
 
   getMaxTaskDuration = async (): Promise<number> => {

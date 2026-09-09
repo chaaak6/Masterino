@@ -1,9 +1,5 @@
-import { isDesktop } from '@lobechat/const';
 import { t } from 'i18next';
 
-import { getElectronStoreState } from '@/store/electron';
-import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace/store';
-import { isTopicVisibleOnDevice } from '@/store/projectWorkspace/topicNavigation';
 import {
   type ChatTopic,
   type ChatTopicSummary,
@@ -33,23 +29,9 @@ const currentTopicData = (s: ChatStoreState): TopicData | undefined => {
 
 const currentTopics = (s: ChatStoreState): ChatTopic[] | undefined => currentTopicData(s)?.items;
 
-// Shared by sidebar, @ mentions, drawers and search. Never filter getTopicById:
-// old links may show history, but execution has a separate ownership guard.
-const visibleTopics = (items: ChatTopic[] | undefined) => {
-  if (!isDesktop) return items;
-  const state = getProjectWorkspaceStoreState();
-  return items?.filter((topic) =>
-    isTopicVisibleOnDevice(topic, {
-      currentDeviceId: getElectronStoreState().gatewayDeviceInfo?.deviceId ?? null,
-      topicStatesById: state.topicStatesById,
-      workspacesById: state.workspacesById,
-    }),
-  );
-};
-
 // Get topics without cron-triggered ones
 const currentTopicsWithoutCron = (s: ChatStoreState): ChatTopic[] | undefined => {
-  const topics = visibleTopics(currentTopics(s));
+  const topics = currentTopics(s);
   if (!topics) return undefined;
   return topics.filter((topic) => topic.trigger !== 'cron');
 };
@@ -57,7 +39,7 @@ const currentTopicsWithoutCron = (s: ChatStoreState): ChatTopic[] | undefined =>
 const currentActiveTopic = (s: ChatStoreState): ChatTopic | undefined => {
   return currentTopics(s)?.find((topic) => topic.id === s.activeTopicId);
 };
-const searchTopics = (s: ChatStoreState): ChatTopic[] => visibleTopics(s.searchTopics) ?? [];
+const searchTopics = (s: ChatStoreState): ChatTopic[] => s.searchTopics ?? [];
 
 const displayTopics = (s: ChatStoreState): ChatTopic[] | undefined => currentTopicsWithoutCron(s);
 

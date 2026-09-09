@@ -19,6 +19,7 @@ vi.mock('@/libs/trpc/client', () => ({
   lambdaClient: {
     topic: {
       getTopics: { query: mocks.query },
+      rankTopics: { query: mocks.query },
       searchTopics: { query: mocks.query },
       queryTopics: { query: mocks.query },
     },
@@ -45,6 +46,13 @@ describe('desktop topic query scope', () => {
     expect(mocks.query).toHaveBeenLastCalledWith(
       expect.objectContaining({ localDeviceId: 'mac-a', keywords: 'report' }),
     );
+  });
+  it('scopes desktop rankings and preserves the legacy web request', async () => {
+    await new TopicService().rankTopics(5);
+    expect(mocks.query).toHaveBeenLastCalledWith({ limit: 5, localDeviceId: 'mac-a' });
+    mocks.desktop = false;
+    await new TopicService().rankTopics(5);
+    expect(mocks.query).toHaveBeenLastCalledWith(5);
   });
   it('does not issue an unscoped query while desktop identity is unavailable', async () => {
     mocks.device = undefined;

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import NavItem from '@/features/NavPanel/components/NavItem';
 import SkeletonList from '@/features/NavPanel/components/SkeletonList';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useGlobalStore } from '@/store/global';
@@ -31,7 +32,7 @@ const FlatMode = memo(() => {
       s.openAllTopicsDrawer,
     ]);
 
-  const activeTopicList = useChatStore(
+  const activeTopicList = useDeviceTopics(
     topicSelectors.displayTopicsForSidebar(topicPageSize, topicSortBy),
     isEqual,
   );

@@ -3,11 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ConstVersion from '@/const/version';
 
 import { buildDraftConversationKey } from './draftKey';
-import { resolvePendingTopicExecutionIntent } from './topicExecutionIntent';
+import {
+  checkDesktopProjectSend,
+  ProjectDeviceMismatchError,
+  resolvePendingTopicExecutionIntent,
+} from './topicExecutionIntent';
 
 const mocks = vi.hoisted(() => ({
   agentConfig: undefined as any,
   getDeviceInfo: vi.fn(),
+  getTopicState: vi.fn(),
   isDesktop: true,
   workspaceState: {
     draftByConversationKey: {},
@@ -26,6 +31,10 @@ vi.mock('@/const/version', async (importOriginal) => {
   };
 });
 
+vi.mock('@/services/projectWorkspace', () => ({
+  projectWorkspaceService: { getTopicState: mocks.getTopicState },
+}));
+
 vi.mock('@/services/electron/gatewayConnection', () => ({
   gatewayConnectionService: { getDeviceInfo: mocks.getDeviceInfo },
 }));
@@ -42,6 +51,7 @@ describe('resolvePendingTopicExecutionIntent', () => {
   beforeEach(() => {
     mocks.agentConfig = undefined;
     mocks.getDeviceInfo.mockReset();
+    mocks.getTopicState.mockReset();
     mocks.isDesktop = true;
     mocks.workspaceState = {
       draftByConversationKey: {},
@@ -51,6 +61,20 @@ describe('resolvePendingTopicExecutionIntent', () => {
   });
 
   afterEach(() => vi.clearAllMocks());
+
+  it('checks old links before sending and keeps lookup errors distinct from ownership errors', async () => {
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'mac' });
+    mocks.getTopicState.mockResolvedValue({ unresolvedProject: true });
+    await expect(
+      checkDesktopProjectSend({ topicId: 'old-link', isNewTopic: false }),
+    ).rejects.toBeInstanceOf(ProjectDeviceMismatchError);
+    expect(mocks.workspaceState.topicStatesById).toEqual({});
+    const networkError = new Error('connection lost');
+    mocks.getTopicState.mockRejectedValue(networkError);
+    await expect(checkDesktopProjectSend({ topicId: 'old-link', isNewTopic: false })).rejects.toBe(
+      networkError,
+    );
+  });
 
   it('freezes desktop chat-only topics as local instead of rewriting target to none', async () => {
     mocks.agentConfig = { chatConfig: { toolMode: 'chat' } };

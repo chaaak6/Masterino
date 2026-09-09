@@ -2,7 +2,7 @@ import { isDesktop } from '@lobechat/const';
 import isEqual from 'fast-deep-equal';
 import { useMemo } from 'react';
 
-import { useChatStore } from '@/store/chat';
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useElectronStore } from '@/store/electron';
 import { useGlobalStore } from '@/store/global';
@@ -44,7 +44,7 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
     isDesktop ? { deviceId: currentDeviceId } : {},
   );
 
-  const topics = useChatStore(
+  const topics = useDeviceTopics(
     topicSelectors.displayTopicsForSidebar(topicPageSize, topicSortBy),
     isEqual,
   );
@@ -73,11 +73,11 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
     () => ({
       groupIds,
       loadError: workspaceRequest?.error,
-      loading: Boolean(workspaceRequest?.isLoading),
+      loading: (isDesktop && !currentDeviceId) || Boolean(workspaceRequest?.isLoading),
       navigation,
       reload: async () => workspaceRequest?.mutate?.(),
       topicSortBy,
     }),
-    [groupIds, navigation, topicSortBy, workspaceRequest],
+    [currentDeviceId, groupIds, navigation, topicSortBy, workspaceRequest],
   );
 };

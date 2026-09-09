@@ -2,6 +2,7 @@ import { Icon } from '@lobehub/ui';
 import { MessageSquareText } from 'lucide-react';
 import { useMemo } from 'react';
 
+import { useDeviceTopics } from '@/hooks/useDeviceTopics';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useGlobalStore } from '@/store/global';
@@ -14,7 +15,7 @@ export const useTopicMentionItems = () => {
     () => topicSelectors.displayTopicsForSidebar(topicPageSize),
     [topicPageSize],
   );
-  const topics = useChatStore(topicsSelector);
+  const topics = useDeviceTopics(topicsSelector);
   const activeTopicId = useChatStore((s) => s.activeTopicId);
 
   return useMemo(() => {
