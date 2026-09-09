@@ -91,7 +91,7 @@ const publicKey = createPublicKey(privateKey);
 if (!verify(null, payload, publicKey, signature))
   throw new Error('Unable to self-verify signed update manifest');
 const committedKey = JSON.parse(
-  fs.readFileSync('apps/desktop/resources/update-public-key.json', 'utf8'),
+  fs.readFileSync('packages/desktop-release/src/update-public-key.json', 'utf8'),
 );
 const derivedPublicKeyB64 = publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
 if (committedKey.keyId !== keyId || committedKey.publicKeySpkiB64 !== derivedPublicKeyB64) {

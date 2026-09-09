@@ -1,7 +1,4 @@
-import {
-  resolveArtifactUrl,
-  verifySignedManifest,
-} from '../../../../../../apps/desktop/src/main/modules/updater/signedManifest';
+import { resolveArtifactUrl, verifySignedManifest } from '@lobechat/desktop-release';
 
 export const runtime = 'nodejs';
 

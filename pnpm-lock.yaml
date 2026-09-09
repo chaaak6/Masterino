@@ -307,6 +307,9 @@ importers:
       '@lobechat/desktop-bridge':
         specifier: workspace:*
         version: link:packages/desktop-bridge
+      '@lobechat/desktop-release':
+        specifier: workspace:*
+        version: link:packages/desktop-release
       '@lobechat/device-control':
         specifier: workspace:*
         version: link:packages/device-control
@@ -319,15 +322,15 @@ importers:
       '@lobechat/editor-runtime':
         specifier: workspace:*
         version: link:packages/editor-runtime
-      '@lobechat/env':
-        specifier: workspace:*
-        version: link:packages/env
       '@lobechat/electron-client-ipc':
         specifier: workspace:*
         version: link:packages/electron-client-ipc
       '@lobechat/electron-server-ipc':
         specifier: workspace:*
         version: link:packages/electron-server-ipc
+      '@lobechat/env':
+        specifier: workspace:*
+        version: link:packages/env
       '@lobechat/eval-dataset-parser':
         specifier: workspace:*
         version: link:packages/eval-dataset-parser
@@ -1256,6 +1259,8 @@ importers:
         specifier: 3.2.6
         version: 3.2.6(@edge-runtime/vm@5.0.0)(@types/debug@4.1.13)(@types/node@24.13.2)(happy-dom@20.10.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
 
+  apps/desktop/src/main: {}
+
   apps/market:
     dependencies:
       '@aws-sdk/client-s3':
@@ -1298,8 +1303,6 @@ importers:
       vitest:
         specifier: 3.2.6
         version: 3.2.6(@edge-runtime/vm@5.0.0)(@types/debug@4.1.13)(@types/node@24.13.2)(happy-dom@20.10.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
-
-  apps/desktop/src/main: {}
 
   apps/server: {}
 
@@ -2556,6 +2559,19 @@ importers:
         version: 6.2.5
 
   packages/desktop-bridge: {}
+
+  packages/desktop-release:
+    dependencies:
+      semver:
+        specifier: ^7.7.3
+        version: 7.8.5
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.7.1
 
   packages/device-control:
     dependencies:

@@ -24,6 +24,9 @@ importers:
         specifier: ^0.2.8
         version: 0.2.8
     devDependencies:
+      '@lobechat/desktop-release':
+        specifier: workspace:*
+        version: link:../../packages/desktop-release
       '@electron-toolkit/eslint-config-prettier':
         specifier: ^3.0.0
         version: 3.0.0(eslint@10.0.0(jiti@2.7.0))(prettier@3.9.5)
@@ -511,6 +514,20 @@ importers:
   stubs/business-const: {}
 
   stubs/types: {}
+
+  ../../packages/desktop-release:
+    dependencies:
+      semver:
+        specifier: ^7.7.3
+        version: 7.8.5
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/semver':
+        specifier: ^7.7.1
+        version: 7.7.1
+
 
 packages:
 
