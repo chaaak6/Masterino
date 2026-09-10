@@ -35,7 +35,11 @@ import type { ModelCatalogSnapshot } from '@lobechat/types/src/modelCatalog';
 import type { SkillProviderContext, WorkspaceRef } from '@lobechat/types/src/projectWorkspace';
 import debug from 'debug';
 
-import { resolveFrozenClientExecutionContext } from '@/helpers/executionContext';
+import {
+  mergeCurrentTopicGrantsIntoExecutionContext,
+  resolveFrozenClientExecutionContext,
+} from '@/helpers/executionContext';
+import { arePathsCoveredByExecutionContext } from '@/helpers/executionContext/authorizedPathAudit';
 import { buildDirectUserMessageAccessRoots } from '@/helpers/executionContext/directUserPathConsent';
 import {
   getRuntimePathConsentRequest,
@@ -78,6 +82,13 @@ const log = debug('lobe-store:streaming-executor');
 
 const dynamicInterventionAudits = {
   pathScopeAudit: createPathScopeAudit({
+    areAllPathsAuthorized: ({ metadata, paths, resolveAgainstScope }) =>
+      arePathsCoveredByExecutionContext({
+        apiName: metadata?.toolApiName,
+        context: metadata?.executionContext,
+        paths,
+        resolveAgainstScope,
+      }),
     areAllPathsSafe: async ({ paths, resolveAgainstScope }) => {
       if (!isDesktop) return false;
 
@@ -760,6 +771,12 @@ export class StreamingExecutorActionImpl {
           workspaces,
         });
       }
+      frozenExecutionContext = mergeCurrentTopicGrantsIntoExecutionContext({
+        context: frozenExecutionContext,
+        operationId,
+        topicGrants: Object.values(projectWorkspaceState.grantsByTopicDevice).flat(),
+        topicId: topicId ?? undefined,
+      });
       // Agent state reconstruction may already have resolved the workspace authority.
       // Always publish that frozen value to the new runtime operation because builtin
       // tool dispatch reads operation metadata, not AgentState metadata.

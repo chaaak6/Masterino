@@ -2,7 +2,7 @@ import type { AgentState } from '@lobechat/agent-runtime';
 import * as agentRuntime from '@lobechat/agent-runtime';
 import { createModelCatalogSnapshot, mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import type * as LobeChatConst from '@lobechat/const';
-import { type UIChatMessage } from '@lobechat/types';
+import { type ExecutionContext, type UIChatMessage } from '@lobechat/types';
 import { act, renderHook } from '@testing-library/react';
 import { type EnabledAiModel, ModelProvider } from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,6 +12,7 @@ import { agentDocumentService } from '@/services/agentDocument';
 import { chatService } from '@/services/chat';
 import * as agentConfigResolver from '@/services/chat/mecha/agentConfigResolver';
 import { messageService } from '@/services/message';
+import { projectWorkspaceService } from '@/services/projectWorkspace';
 import { useAgentStore } from '@/store/agent';
 import { useAiInfraStore } from '@/store/aiInfra';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace';
@@ -365,6 +366,141 @@ describe('StreamingExecutor actions', () => {
             scope: 'topic',
           }),
         );
+      },
+    );
+
+    it.each(['scratch', 'device'] as const)(
+      'keeps the paused %s execution identity while applying a topic grant approved afterward',
+      async (workspaceKind) => {
+        act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
+        const originalRootPath =
+          workspaceKind === 'scratch'
+            ? '/app/scratch/original-topic'
+            : '/projects/original-device-workspace';
+        const originalWorkspaceId = `${workspaceKind}-original`;
+        const pausedExecutionContext: ExecutionContext = {
+          accessRoots: [
+            {
+              modes: ['read', 'write', 'exec'],
+              rootPath: originalRootPath,
+              scope: 'primary' as const,
+              source: 'workspace' as const,
+            },
+          ],
+          cwd: originalRootPath,
+          env: {
+            secretKeys: ['SECRET_TOKEN'],
+            sources: { PUBLIC_FLAG: 'workspace' as const, SECRET_TOKEN: 'user' as const },
+            values: { PUBLIC_FLAG: 'enabled', SECRET_TOKEN: 'hidden' },
+          },
+          envFiles: ['.env.local'],
+          envSummary: { keys: ['PUBLIC_FLAG', 'SECRET_TOKEN'], secretKeys: ['SECRET_TOKEN'] },
+          operationId: 'paused-operation',
+          plan: { deviceId: 'device-local', kind: 'device' as const, target: 'local' as const },
+          snapshot: {
+            boundDeviceId: 'device-local',
+            target: 'local' as const,
+            targetCapturedAt: '2026-09-09T00:00:00.000Z',
+            version: 1 as const,
+            workspaceId: originalWorkspaceId,
+            workspaceKind,
+          },
+          version: 1 as const,
+          workspace: {
+            deviceId: 'device-local',
+            id: originalWorkspaceId,
+            kind: workspaceKind,
+            rootPath: originalRootPath,
+          },
+        };
+        const replacementWorkspace = {
+          deviceId: 'device-local',
+          id: 'workspace-selected-while-paused',
+          kind: 'device' as const,
+          rootPath: '/projects/replacement',
+        };
+        const approvedGrant = {
+          createdAt: '2026-09-09T00:01:00.000Z',
+          deviceId: 'device-local',
+          id: 'grant-approved-after-pause',
+          modes: ['read'] as Array<'read'>,
+          requestedVia: { messageId: 'approved-tool-message' },
+          rootPath: '/private/tmp/work.html',
+          scope: 'topic' as const,
+          topicId: TEST_IDS.TOPIC_ID,
+          userId: 'test-user',
+        };
+        useProjectWorkspaceStore.setState({
+          grantsByTopicDevice: {},
+          topicStatesById: {
+            [TEST_IDS.TOPIC_ID]: {
+              snapshot: {
+                boundDeviceId: 'device-local',
+                target: 'local',
+                targetCapturedAt: '2026-09-09T00:02:00.000Z',
+                version: 1,
+                workspaceId: replacementWorkspace.id,
+                workspaceKind: replacementWorkspace.kind,
+              },
+              workspace: replacementWorkspace,
+            },
+          },
+          workspacesById: { [replacementWorkspace.id]: replacementWorkspace },
+        });
+        vi.spyOn(chatService, 'createAssistantMessageStream').mockImplementation(
+          async ({ onFinish }) => {
+            await onFinish?.(TEST_CONTENT.AI_RESPONSE, {} as any);
+          },
+        );
+        vi.spyOn(projectWorkspaceService, 'grant').mockResolvedValue(approvedGrant);
+
+        await act(async () => {
+          const outcome = await useProjectWorkspaceStore.getState().grantTopicAccess({
+            deviceId: 'device-local',
+            modes: ['read'],
+            requestedVia: { messageId: 'approved-tool-message' },
+            rootPath: '/private/tmp/work.html',
+            topicId: TEST_IDS.TOPIC_ID,
+          });
+          expect(outcome).toEqual({ ok: true, value: approvedGrant });
+        });
+
+        const parent = useChatStore.getState().startOperation({
+          context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+          type: 'approveToolCalling',
+        });
+        await act(async () => {
+          await useChatStore.getState().executeClientAgent({
+            context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+            executionContext: pausedExecutionContext,
+            messages: [],
+            operationSkills: [],
+            parentMessageId: 'approved-tool-message',
+            parentMessageType: 'tool',
+            parentOperationId: parent.operationId,
+            skipCreateFirstMessage: true,
+          });
+        });
+
+        const operation = Object.values(useChatStore.getState().operations).find(
+          (op) => op.type === 'execAgentRuntime' && op.parentOperationId === parent.operationId,
+        );
+        expect(operation?.metadata.executionContext).toEqual({
+          ...pausedExecutionContext,
+          accessRoots: [
+            pausedExecutionContext.accessRoots![0],
+            {
+              deviceId: 'device-local',
+              grantId: 'grant-approved-after-pause',
+              modes: ['read'],
+              rootPath: '/private/tmp/work.html',
+              scope: 'topic',
+              source: 'user-approval',
+              topicId: TEST_IDS.TOPIC_ID,
+            },
+          ],
+          operationId: operation?.id,
+        });
       },
     );
 

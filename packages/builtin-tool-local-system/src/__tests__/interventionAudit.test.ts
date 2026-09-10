@@ -153,6 +153,21 @@ describe('pathScopeAudit', () => {
   });
 
   describe('safe path exclusions', () => {
+    it('allows an injected authority resolver to cover a non-safe external path', async () => {
+      const authorizedPathAudit = createPathScopeAudit({
+        areAllPathsAuthorized: async ({ metadata: received, paths, resolveAgainstScope }) => {
+          expect(received).toBe(metadata);
+          expect(paths).toEqual(['/Users/me/shared/note.txt']);
+          expect(resolveAgainstScope).toBe('/Users/me/project');
+          return true;
+        },
+      });
+
+      await expect(
+        authorizedPathAudit({ path: '/Users/me/shared/note.txt' }, metadata),
+      ).resolves.toBe(false);
+    });
+
     it('should require intervention for safe-path candidates when no resolver is configured', async () => {
       await expect(pathScopeAudit({ path: '/tmp/test-file.ts' }, metadata)).resolves.toBe(true);
       await expect(pathScopeAudit({ file_path: '/tmp/secret.txt' }, metadata)).resolves.toBe(true);
@@ -161,8 +176,12 @@ describe('pathScopeAudit', () => {
     });
 
     it('should skip intervention when an injected resolver confirms all safe paths', async () => {
+      const received: unknown[] = [];
       const safePathAudit = createPathScopeAudit({
-        areAllPathsSafe: async () => true,
+        areAllPathsSafe: async (params) => {
+          received.push(params.metadata);
+          return true;
+        },
       });
 
       await expect(safePathAudit({ path: '/tmp/test-file.ts' }, metadata)).resolves.toBe(false);
@@ -175,6 +194,7 @@ describe('pathScopeAudit', () => {
           metadata,
         ),
       ).resolves.toBe(false);
+      expect(received).toEqual([metadata, metadata, metadata]);
     });
 
     it('should still require intervention when mixing safe and unsafe paths', async () => {

@@ -200,6 +200,33 @@ describe('useEffectiveWorkspace', () => {
     expect(result.current.cwd).toBe('/tmp/masterino/topic-1');
   });
 
+  it('reloads persisted topic grants for a scratch topic after renderer state resets', () => {
+    mocks.activeTopicId = 'topic-1';
+    mocks.topic = { id: 'topic-1' };
+    useProjectWorkspaceStore.setState({
+      seamAvailable: true,
+      topicStatesById: {
+        'topic-1': {
+          snapshot: boundSnapshot('ws-scratch', 'scratch'),
+          workspace: {
+            deviceId: 'desktop-1',
+            id: 'ws-scratch',
+            kind: 'scratch',
+            rootPath: '/tmp/masterino/topic-1',
+          },
+        },
+      },
+    });
+    const fetchTopicGrants = vi.spyOn(
+      useProjectWorkspaceStore.getState(),
+      'useFetchTopicGrants',
+    );
+
+    renderHook(() => useEffectiveWorkspace('agent-1'));
+
+    expect(fetchTopicGrants).toHaveBeenCalledWith('topic-1', 'desktop-1');
+  });
+
   it('keeps an unbound desktop draft at cwd undefined and only recommends defaults', () => {
     mocks.agencyConfig = { workingDirByDevice: { 'desktop-1': '/Users/me/agent-default' } };
 
