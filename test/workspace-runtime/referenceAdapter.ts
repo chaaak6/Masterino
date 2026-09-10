@@ -130,10 +130,9 @@ export const referenceWorkspaceRuntimeAdapter: WorkspaceRuntimeAcceptanceAdapter
     symlinkToSensitiveAllowed: false,
   }),
   'AC-P06': result({
+    ordinaryWriteAllowed: true,
     sensitiveReadCode: 'SCOPE_DENIED',
     sensitiveReadProviderCalls: 0,
-    writeCode: 'SCOPE_DENIED',
-    writeProviderCalls: 0,
   }),
   'AC-P07': result({
     auditWarnings: ['MODEL_CWD_OVERRIDDEN'],

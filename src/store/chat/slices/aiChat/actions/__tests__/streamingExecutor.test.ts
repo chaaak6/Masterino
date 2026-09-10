@@ -17,6 +17,7 @@ import { useAgentStore } from '@/store/agent';
 import { useAiInfraStore } from '@/store/aiInfra';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace';
 import { pageAgentRuntime } from '@/store/tool/slices/builtin/executors/lobe-page-agent';
+import { useUserStore } from '@/store/user';
 
 import { useChatStore } from '../../../../store';
 import { messageMapKey } from '../../../../utils/messageMapKey';
@@ -148,6 +149,9 @@ beforeEach(() => {
 
   act(() => {
     useAgentStore.setState({ availableAgents: [] });
+    useUserStore.setState({
+      settings: { tool: { humanIntervention: { approvalMode: 'manual' } } },
+    } as any);
     useChatStore.setState({
       refreshMessages: vi.fn(),
       executeClientAgent: vi.fn(),
@@ -289,6 +293,11 @@ describe('StreamingExecutor actions', () => {
       'keeps the resolved %s workspace authority when a local tool turn resumes',
       async (workspaceKind) => {
         act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
+        act(() =>
+          useUserStore.setState({
+            settings: { tool: { humanIntervention: { approvalMode: 'auto-run' } } },
+          } as any),
+        );
         const workspaceId = `workspace-${workspaceKind}`;
         const rootPath =
           workspaceKind === 'scratch' ? '/app/scratch/topic-resume' : '/projects/device-workspace';
@@ -355,6 +364,7 @@ describe('StreamingExecutor actions', () => {
           (op) => op.type === 'execAgentRuntime' && op.parentOperationId === parent.operationId,
         );
         expect(operation?.metadata.executionContext).toMatchObject({
+          approvalMode: 'auto-run',
           cwd: rootPath,
           plan: { deviceId: 'device-local', kind: 'device', target: 'local' },
           workspace: { id: workspaceId, kind: workspaceKind, rootPath },
@@ -364,6 +374,13 @@ describe('StreamingExecutor actions', () => {
             grantId: 'grant-private-tmp',
             rootPath: '/private/tmp/work.html',
             scope: 'topic',
+          }),
+        );
+        expect(chatService.createAssistantMessageStream).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: expect.objectContaining({
+              executionContext: expect.objectContaining({ approvalMode: 'auto-run' }),
+            }),
           }),
         );
       },
@@ -479,6 +496,7 @@ describe('StreamingExecutor actions', () => {
             parentMessageType: 'tool',
             parentOperationId: parent.operationId,
             skipCreateFirstMessage: true,
+            workingModel: { model: 'glm-resume', provider: 'newapi' },
           });
         });
 
@@ -487,10 +505,12 @@ describe('StreamingExecutor actions', () => {
         );
         expect(operation?.metadata.executionContext).toEqual({
           ...pausedExecutionContext,
+          approvalMode: 'manual',
           accessRoots: [
             pausedExecutionContext.accessRoots![0],
             {
               deviceId: 'device-local',
+              expiresAt: undefined,
               grantId: 'grant-approved-after-pause',
               modes: ['read'],
               rootPath: '/private/tmp/work.html',
@@ -501,6 +521,11 @@ describe('StreamingExecutor actions', () => {
           ],
           operationId: operation?.id,
         });
+        expect(chatService.createAssistantMessageStream).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: expect.objectContaining({ model: 'glm-resume', provider: 'newapi' }),
+          }),
+        );
       },
     );
 
@@ -617,10 +642,12 @@ describe('StreamingExecutor actions', () => {
         );
         expect(operation?.metadata.executionContext).toEqual({
           ...frozenExecutionContext,
+          approvalMode: 'manual',
           accessRoots: [
             frozenExecutionContext.accessRoots![0],
             {
               deviceId: 'device-local',
+              expiresAt: undefined,
               grantId: persistedGrant.id,
               modes: ['read'],
               rootPath: '/private/tmp/persisted.txt',

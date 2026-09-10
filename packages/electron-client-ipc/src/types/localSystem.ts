@@ -117,6 +117,7 @@ export interface ResolveRealPathParams {
 
 export interface ResolveRealPathResult {
   error?: string;
+  errorCode?: 'PATH_ACCESS_DENIED' | 'PATH_NOT_ABSOLUTE' | 'PATH_NOT_FOUND' | 'PATH_UNRESOLVABLE';
   path?: string;
   success: boolean;
 }

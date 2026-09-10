@@ -103,6 +103,7 @@ import { UserModel } from '@/database/models/user';
 import { type LobeChatDatabase } from '@/database/type';
 import { fileEnv } from '@/envs/file';
 import { isAbsoluteFilesystemPath } from '@/helpers/executionContext';
+import { shouldPauseForPathConsent } from '@/helpers/executionContext/credentialPath';
 import { type ExecutionPlan, isDeviceCapablePlan } from '@/helpers/executionTarget';
 import { serverMessagesEngine } from '@/server/modules/Mecha/ContextEngineering';
 import { type EvalContext } from '@/server/modules/Mecha/ContextEngineering/types';
@@ -1085,6 +1086,15 @@ const requireRuntimeBoundary = <T>(boundary: T | undefined, name: string): T => 
 const getFrozenExecutionContext = (state: AgentState): ExecutionContext | undefined =>
   state.metadata?.executionContext as ExecutionContext | undefined;
 
+const resolveExecutionApprovalMode = (state: AgentState) =>
+  state.userInterventionConfig?.approvalMode ?? getFrozenExecutionContext(state)?.approvalMode;
+
+const requiresInteractivePathConsent = (
+  state: AgentState,
+  requestedPath?: string,
+): boolean =>
+  shouldPauseForPathConsent(resolveExecutionApprovalMode(state), requestedPath);
+
 interface PreparedToolExecutionContext {
   executionContext?: ExecutionContext;
   scratchRoot?: string;
@@ -1121,7 +1131,13 @@ const prepareToolExecutionContext = async (
   state: AgentState,
   tool: ChatToolPayload,
 ): Promise<PreparedToolExecutionContext> => {
-  const executionContext = getFrozenExecutionContext(state);
+  const frozenExecutionContext = getFrozenExecutionContext(state);
+  const executionContext = frozenExecutionContext
+    ? {
+        ...frozenExecutionContext,
+        approvalMode: resolveExecutionApprovalMode(state),
+      }
+    : undefined;
   if (!requiresPrimaryCwdForTool({ executionContext, tool })) return { executionContext };
   if (!executionContext) throw new Error('WORKSPACE_REQUIRED');
 
@@ -1340,6 +1356,7 @@ const projectExecutionContextForClient = (
 
   return {
     accessRoots: frozen.accessRoots,
+    approvalMode: resolveExecutionApprovalMode(state),
     cwd: frozen.cwd,
     envRef: state.metadata?.agentId
       ? {
@@ -4054,7 +4071,10 @@ export const createRuntimeExecutors = (
           result: execution.result,
           topicId: ctx.topicId ?? state.metadata?.topicId,
         });
-        if (postDispatchPathConsent && state.userInterventionConfig?.approvalMode !== 'headless') {
+        if (
+          postDispatchPathConsent &&
+          requiresInteractivePathConsent(state, postDispatchPathConsent.requestedPath)
+        ) {
           const pendingState = {
             ...(execution.result.state && typeof execution.result.state === 'object'
               ? execution.result.state
@@ -4818,9 +4838,9 @@ export const createRuntimeExecutors = (
               topicId: ctx.topicId ?? state.metadata?.topicId,
             });
             if (
-              postDispatchPathConsent &&
-              state.userInterventionConfig?.approvalMode !== 'headless'
-            ) {
+          postDispatchPathConsent &&
+          requiresInteractivePathConsent(state, postDispatchPathConsent.requestedPath)
+        ) {
               const pendingState = {
                 ...(execution.result.state && typeof execution.result.state === 'object'
                   ? execution.result.state

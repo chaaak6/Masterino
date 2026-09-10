@@ -175,10 +175,9 @@ const cases: AcceptanceCase[] = [
     id: 'AC-P06',
     verify: async (adapter) => {
       expect(await adapter['AC-P06']()).toEqual({
+        ordinaryWriteAllowed: true,
         sensitiveReadCode: 'SCOPE_DENIED',
         sensitiveReadProviderCalls: 0,
-        writeCode: 'SCOPE_DENIED',
-        writeProviderCalls: 0,
       });
     },
   },

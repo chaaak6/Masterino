@@ -172,6 +172,7 @@ describe('LocalSystemExecutor', () => {
                 source: 'workspace',
               },
             ],
+            approvalMode: 'auto-run',
             cwd: '/approved/project',
             envFiles: ['.env'],
             operationId: 'op-1',
@@ -197,6 +198,7 @@ describe('LocalSystemExecutor', () => {
         args: { command: 'pwd', cwd: '/tmp/evil', env: { MODEL_SECRET: 'drop' } },
         executionContext: {
           accessRoots: expect.any(Array),
+          approvalMode: 'auto-run',
           cwd: '/approved/project',
           envFiles: ['.env'],
           envRef: { agentId: 'agent-1', topicId: 'topic-1', workspaceId: 'workspace-1' },

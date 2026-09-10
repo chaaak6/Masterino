@@ -226,4 +226,29 @@ describe('runtime workspace path consent', () => {
       ),
     ).resolves.toBe(true);
   });
+
+  it('lets a topic grant cover a later write on the same path', async () => {
+    const grantedContext: ExecutionContext = {
+      ...executionContext,
+      accessRoots: [
+        ...(executionContext.accessRoots ?? []),
+        {
+          deviceId: 'device-a',
+          grantId: 'grant-1',
+          modes: ['read'],
+          rootPath: '/outside/docs',
+          scope: 'topic',
+          source: 'user-approval',
+          topicId: 'topic-a',
+        },
+      ],
+    };
+
+    await expect(
+      workspacePathInterventionAudits['workspacePathScopeAudit:writeFile'](
+        { path: '/outside/docs/readme.md' },
+        { executionContext: grantedContext, workingDirectory: '/workspace' },
+      ),
+    ).resolves.toBe(false);
+  });
 });

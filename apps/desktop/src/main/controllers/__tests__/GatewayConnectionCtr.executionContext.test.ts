@@ -244,7 +244,7 @@ describe('GatewayConnectionCtr execution context boundary', () => {
         },
         trace: { ...trace, toolCallId: denied },
       });
-      expect(output).toMatchObject({ success: false, content: 'SCOPE_DENIED' });
+      expect(output).toMatchObject({ success: false, content: 'INTERVENTION_REQUIRED' });
     }
     expect(localFileCtr.handleWriteFile).toHaveBeenCalledTimes(1);
     const nested = await controller.executeLocalToolCall({
@@ -539,6 +539,35 @@ describe('GatewayConnectionCtr execution context boundary', () => {
     expect(result).toMatchObject({ content: 'INTERVENTION_REQUIRED', success: false });
     expect(readFile).not.toHaveBeenCalled();
   });
+
+  it.each(['scratch', 'device'] as const)(
+    'executes an external %s read without path consent while auto-approve is active',
+    async (workspaceKind) => {
+      const outside = path.join(tempRoot, `${workspaceKind}-outside.txt`);
+      await writeFile(outside, 'allowed by auto-run');
+      const canonicalOutside = await realpath(outside);
+      const controller = makeController();
+
+      const result = await controller.executeLocalToolCall({
+        apiName: 'readFile',
+        args: { path: outside },
+        executionContext: {
+          ...context(),
+          approvalMode: 'auto-run',
+          workspaceKind,
+        },
+        trace: {
+          deviceId: 'device-1',
+          operationId: 'op-1',
+          toolCallId: 'call-1',
+          topicId: 'topic-1',
+        },
+      });
+
+      expect(result).toMatchObject({ success: true });
+      expect(readFile).toHaveBeenCalledWith(expect.objectContaining({ path: canonicalOutside }));
+    },
+  );
 
   it('fails closed when standalone tool_execute loses its execution context', async () => {
     const file = path.join(workspace, 'safe.txt');

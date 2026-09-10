@@ -1757,6 +1757,7 @@ export class AiAgentService {
       ...frozen.input,
       accessRoots,
     });
+    executionContext.approvalMode = userInterventionConfig.approvalMode;
     executionContext.envSummary = {
       keys: Object.keys(executionEnv.values).sort(),
       secretKeys: [...executionEnv.secretKeys].sort(),

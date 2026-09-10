@@ -12,6 +12,8 @@ import {
   useProjectWorkspaceStore,
 } from '@/store/projectWorkspace';
 
+import { PathConsentResolutionError } from './pathConsentDecision';
+
 export const WORKSPACE_PATH_CONSENT_METADATA_KEY = 'workspacePathConsent' as const;
 
 export interface StructuredPathConsentRequest {
@@ -138,7 +140,7 @@ const PathConsent = memo<PathConsentProps>(
       projectWorkspaceSelectors.getOperationPathConsent(messageId),
     );
     const [loadingScope, setLoadingScope] = useState<PathConsentDecision['scope']>();
-    const [callbackError, setCallbackError] = useState(false);
+    const [callbackErrorKey, setCallbackErrorKey] = useState<string>();
     const [coordinationComplete, setCoordinationComplete] = useState(false);
 
     const decide = useCallback(
@@ -155,15 +157,24 @@ const PathConsent = memo<PathConsentProps>(
           scope,
           topicId: request.topicId,
         };
-        setCallbackError(false);
+        setCallbackErrorKey(undefined);
         setCoordinationComplete(false);
         setLoadingScope(scope);
         try {
           const finalized = await onDecision?.(decision);
           setOperationPathConsent(messageId, finalized ?? decision);
           setCoordinationComplete(!!finalized);
-        } catch {
-          setCallbackError(true);
+        } catch (error) {
+          const key =
+            error instanceof PathConsentResolutionError
+              ? {
+                  PATH_ACCESS_DENIED: 'workspacePathConsent.pathAccessDenied',
+                  PATH_NOT_ABSOLUTE: 'workspacePathConsent.pathNotAbsolute',
+                  PATH_NOT_FOUND: 'workspacePathConsent.pathNotFound',
+                  PATH_UNRESOLVABLE: 'workspacePathConsent.pathUnresolvable',
+                }[error.code]
+              : 'workspacePathConsent.callbackFailed';
+          setCallbackErrorKey(key);
         } finally {
           setLoadingScope(undefined);
         }
@@ -246,13 +257,8 @@ const PathConsent = memo<PathConsentProps>(
             }
           />
         )}
-        {callbackError && (
-          <Alert
-            showIcon
-            role="alert"
-            title={tw('workspacePathConsent.callbackFailed')}
-            type="error"
-          />
+        {callbackErrorKey && (
+          <Alert showIcon role="alert" title={tw(callbackErrorKey)} type="error" />
         )}
         {actionsPortalTarget ? createPortal(actions, actionsPortalTarget) : actions}
       </Flexbox>

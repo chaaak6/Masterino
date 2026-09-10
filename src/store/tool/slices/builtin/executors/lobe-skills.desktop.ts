@@ -35,6 +35,7 @@ const createRuntime = (ctx: BuiltinToolContext) => {
       args,
       executionContext: {
         accessRoots: execution.accessRoots,
+        approvalMode: execution.approvalMode,
         cwd: execution.cwd,
         workspaceRootPath: execution.workspace?.rootPath,
         workspaceKind: execution.workspace?.kind,
@@ -112,6 +113,7 @@ const createRuntime = (ctx: BuiltinToolContext) => {
         args: { command, description: options.description },
         executionContext: {
           accessRoots: [...(executionContext.accessRoots ?? []), ...(extraRoot ? [extraRoot] : [])],
+          approvalMode: executionContext.approvalMode,
           cwd: options.cwd,
           env: options.env,
           envFiles: executionContext.envFiles,

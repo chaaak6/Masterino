@@ -253,6 +253,7 @@ export const toToolCallExecutionContext = (
   options: { envRef?: ToolCallExecutionContext['envRef']; includeEnvValues?: boolean } = {},
 ): ToolCallExecutionContext => ({
   accessRoots: context.accessRoots,
+  approvalMode: context.approvalMode,
   cwd: context.cwd,
   env: options.includeEnvValues ? context.env?.values : undefined,
   envFiles: context.envFiles,

@@ -474,4 +474,12 @@ describe('resolveExecutionContext', () => {
       TOKEN: 'secret',
     });
   });
+
+  it('keeps the frozen approval policy in tool-call projections', () => {
+    const result = resolveExecutionContext({ isDesktop: true, onlineDeviceIds: ['device-a'] });
+
+    expect(toToolCallExecutionContext({ ...result, approvalMode: 'auto-run' }).approvalMode).toBe(
+      'auto-run',
+    );
+  });
 });

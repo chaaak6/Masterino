@@ -2296,6 +2296,118 @@ describe('GeneralChatAgent', () => {
       ]);
     });
 
+    it('should execute a dynamically-required tool in auto-run mode', async () => {
+      const agent = new GeneralChatAgent({
+        agentConfig: { maxSteps: 100 },
+        dynamicInterventionAudits: {
+          pathScopeAudit: async () => true,
+        },
+        operationId: 'test-session',
+        modelRuntimeConfig: mockModelRuntimeConfig,
+      });
+
+      const toolCall: ChatToolPayload = {
+        id: 'call-1',
+        identifier: 'local-system',
+        apiName: 'writeFile',
+        arguments: '{"path":"/private/tmp/report.txt","content":"ok"}',
+        type: 'builtin',
+      };
+
+      const state = createMockState({
+        metadata: { workingDirectory: '/workspace' },
+        toolManifestMap: {
+          'local-system': {
+            identifier: 'local-system',
+            api: [
+              {
+                name: 'writeFile',
+                humanIntervention: {
+                  dynamic: {
+                    default: 'never',
+                    policy: 'required',
+                    type: 'pathScopeAudit',
+                  },
+                },
+              },
+            ],
+          },
+        },
+        userInterventionConfig: { approvalMode: 'auto-run', allowList: [] },
+      });
+
+      const context = createMockContext('llm_result', {
+        hasToolsCalling: true,
+        toolsCalling: [toolCall],
+        parentMessageId: 'msg-1',
+      });
+
+      const result = await agent.runner(context, state);
+
+      expect(result).toEqual([
+        {
+          type: 'call_tool',
+          payload: { parentMessageId: 'msg-1', toolCalling: toolCall },
+        },
+      ]);
+    });
+
+    it('should keep a dynamically-always tool blocked in auto-run mode', async () => {
+      const agent = new GeneralChatAgent({
+        agentConfig: { maxSteps: 100 },
+        dynamicInterventionAudits: {
+          pathScopeAudit: async () => true,
+        },
+        operationId: 'test-session',
+        modelRuntimeConfig: mockModelRuntimeConfig,
+      });
+
+      const toolCall: ChatToolPayload = {
+        id: 'call-1',
+        identifier: 'local-system',
+        apiName: 'writeFile',
+        arguments: '{"path":"/private/tmp/report.txt","content":"ok"}',
+        type: 'builtin',
+      };
+
+      const state = createMockState({
+        toolManifestMap: {
+          'local-system': {
+            identifier: 'local-system',
+            api: [
+              {
+                name: 'writeFile',
+                humanIntervention: {
+                  dynamic: {
+                    default: 'never',
+                    policy: 'always',
+                    type: 'pathScopeAudit',
+                  },
+                },
+              },
+            ],
+          },
+        },
+        userInterventionConfig: { approvalMode: 'auto-run', allowList: [] },
+      });
+
+      const context = createMockContext('llm_result', {
+        hasToolsCalling: true,
+        toolsCalling: [toolCall],
+        parentMessageId: 'msg-1',
+      });
+
+      const result = await agent.runner(context, state);
+
+      expect(result).toEqual([
+        {
+          type: 'request_human_approve',
+          pendingToolsCalling: [toolCall],
+          reason: 'human_intervention_required',
+        },
+      ]);
+    });
+
     it('should await async dynamic intervention resolvers', async () => {
       const agent = new GeneralChatAgent({
         agentConfig: { maxSteps: 100 },

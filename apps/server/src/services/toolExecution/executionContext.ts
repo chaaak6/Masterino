@@ -14,6 +14,7 @@ export const toGatewayExecutionContext = (
   if (!frozen) return;
 
   return {
+    approvalMode: frozen.approvalMode,
     accessRoots: frozen.accessRoots?.map((root) => ({
       ...root,
       deviceId: context.activeDeviceId,

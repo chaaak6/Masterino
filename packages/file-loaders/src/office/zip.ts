@@ -3,6 +3,10 @@ import { StringDecoder } from 'node:string_decoder';
 
 import * as yauzl from 'yauzl';
 
+const escapeRegExp = (value: string) => value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const xmlQualifiedNamePattern = (tag: string) =>
+  tag.includes(':') ? escapeRegExp(tag) : `(?:[A-Za-z_][\\w.-]*:)?${escapeRegExp(tag)}`;
+
 /** Opens only requested ZIP members; never expands the whole Office package. */
 export async function openOfficeZip(path: string, options: { signal?: AbortSignal } = {}) {
   const { signal } = options;
@@ -77,8 +81,7 @@ export async function openOfficeZip(path: string, options: { signal?: AbortSigna
   }
   async function* records(name: string, tag: string) {
     let buffer = '';
-    const start = new RegExp(`<${tag}(?:\\s[^>]*|)>`);
-    const end = `</${tag}>`;
+    const start = new RegExp(`<(${xmlQualifiedNamePattern(tag)})(?:\\s[^>]*|)>`);
     for await (const chunk of chunks(name)) {
       buffer += chunk;
       while (true) {
@@ -89,6 +92,7 @@ export async function openOfficeZip(path: string, options: { signal?: AbortSigna
           break;
         }
         buffer = buffer.slice(match.index);
+        const end = `</${match[1]}>`;
         const stop = buffer.indexOf(end);
         if (stop < 0) break;
         yield buffer.slice(0, stop + end.length);

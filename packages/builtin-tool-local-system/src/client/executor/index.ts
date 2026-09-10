@@ -127,6 +127,7 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
       args,
       executionContext: {
         accessRoots: executionContext.accessRoots,
+        approvalMode: executionContext.approvalMode,
         cwd: executionContext.cwd,
         envFiles: executionContext.envFiles,
         envRef: {

@@ -38,6 +38,7 @@ export interface BuiltinServerRuntimeOutput {
  * and has no runtime exports.
  */
 export type PathAccessMode = 'exec' | 'read' | 'write';
+export type ExecutionApprovalMode = 'allow-list' | 'auto-run' | 'headless' | 'manual';
 
 export interface ExecutionAccessRoot {
   deviceId?: string;
@@ -54,6 +55,7 @@ export interface ExecutionAccessRoot {
 
 export interface ToolCallExecutionContext {
   accessRoots?: ExecutionAccessRoot[];
+  approvalMode?: ExecutionApprovalMode;
   cwd?: string;
   env?: Record<string, string>;
   envFiles?: string[];

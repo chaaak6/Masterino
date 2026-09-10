@@ -286,6 +286,9 @@ const authorizePath = async ({
     throw new ExecutionBoundaryError('SCOPE_DENIED', [deniedAudit(trace, mode, target)]);
   }
 
+  const autoApprove =
+    context.approvalMode === 'auto-run' || context.approvalMode === 'headless';
+
   const roots = [...(context.accessRoots ?? [])];
   if (!roots.some((root) => root.scope === 'primary') && context.cwd) {
     roots.unshift({
@@ -322,11 +325,9 @@ const authorizePath = async ({
     if (isSensitiveRoot(realRoot, homeDir) || !matches) continue;
     // A selected file never grants shell execution or becomes the workspace root.
     if (root.target === 'file' && (mode === 'exec' || root.scope === 'primary')) continue;
-    if (
-      !root.modes.includes(mode) ||
-      (root.scope === 'operation' && root.source === 'direct-user-message' && mode !== 'read')
-    ) {
-      if (root.scope !== 'primary') rejectedScopedRoot = true;
+    // Attachments expand the readable set only. Write/exec still need a user grant,
+    // auto-run, or a fresh path-consent card — do not fail-closed here.
+    if (root.scope === 'operation' && root.source === 'direct-user-message' && mode !== 'read') {
       continue;
     }
 
@@ -366,18 +367,26 @@ const authorizePath = async ({
     candidates.find(({ root }) => root.scope === 'operation') ??
     candidates[0];
   if (!preferred) {
+    // Shell stays pinned to the primary workspace. Auto-run is not a sandbox escape.
+    if (mode === 'exec') {
+      throw new ExecutionBoundaryError('SCOPE_DENIED', [deniedAudit(trace, mode, target)]);
+    }
+    if (autoApprove) {
+      return {
+        ...trace,
+        mode,
+        path: target,
+        rootPath: target,
+        scopeVerdict: 'auto-run',
+        source: 'auto-run',
+      };
+    }
     // A root that covers the path but has stale/incomplete tuple evidence is
     // an authorization failure, not an invitation to mint a fresh consent.
     if (rejectedScopedRoot) {
       throw new ExecutionBoundaryError('SCOPE_DENIED', [deniedAudit(trace, mode, target)]);
     }
-    // Structured reads outside the frozen roots are recoverable through the
-    // explicit path-consent flow. Writes and execution remain hard-denied:
-    // auto-run must never turn an out-of-scope mutation into an implicit
-    // authorization prompt.
-    throw new ExecutionBoundaryError(mode === 'read' ? 'INTERVENTION_REQUIRED' : 'SCOPE_DENIED', [
-      deniedAudit(trace, mode, target),
-    ]);
+    throw new ExecutionBoundaryError('INTERVENTION_REQUIRED', [deniedAudit(trace, mode, target)]);
   }
   return {
     ...trace,

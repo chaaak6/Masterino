@@ -819,6 +819,13 @@ export class StreamingExecutorActionImpl {
         topicGrants: Object.values(projectWorkspaceState.grantsByTopicDevice).flat(),
         topicId: topicId ?? undefined,
       });
+      // Freeze the user's approval choice with the operation and carry it to
+      // the final device boundary. Without this, tool approval was automatic
+      // while filesystem scope checks still behaved as manual approval.
+      frozenExecutionContext = {
+        ...frozenExecutionContext,
+        approvalMode: toolInterventionSelectors.approvalMode(getUserStoreState()),
+      };
       // Agent state reconstruction may already have resolved the workspace authority.
       // Always publish that frozen value to the new runtime operation because builtin
       // tool dispatch reads operation metadata, not AgentState metadata.

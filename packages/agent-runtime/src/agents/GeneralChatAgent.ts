@@ -204,7 +204,10 @@ export class GeneralChatAgent implements Agent {
       if (dynamicPolicy !== undefined) {
         if (dynamicPolicy === 'never') {
           toolsToExecute.push(toolCalling);
-        } else if (approvalMode === 'headless' && dynamicPolicy !== 'always') {
+        } else if (
+          dynamicPolicy !== 'always' &&
+          (approvalMode === 'auto-run' || approvalMode === 'headless')
+        ) {
           toolsToExecute.push(toolCalling);
         } else {
           toolsNeedingIntervention.push(toolCalling);

@@ -12,6 +12,7 @@ import PathConsent, {
   type PathConsentDecisionCallback,
   type StructuredPathConsentRequest,
 } from './PathConsent';
+import { PathConsentResolutionError } from './pathConsentDecision';
 
 vi.mock('@lobehub/ui', () => ({
   Alert: ({
@@ -188,6 +189,33 @@ describe('structured workspace path consent', () => {
       useProjectWorkspaceStore.getState().operationConsentByMessage['message-1'],
     ).toMatchObject({ rootPath: '/canonical/reports', scope: 'operation' });
   });
+
+  it.each([
+    ['workspacePathConsent.once', 'operation'],
+    ['workspacePathConsent.topic', 'topic'],
+  ] as const)(
+    'shows an actionable missing-path error for %s without recording consent',
+    async (label, _scope) => {
+      const onDecision = vi.fn<PathConsentDecisionCallback>(async () => {
+        throw new PathConsentResolutionError('PATH_NOT_FOUND');
+      });
+      render(<PathConsent messageId="message-1" request={request} onDecision={onDecision} />);
+
+      fireEvent.click(screen.getByRole('button', { name: label }));
+
+      await waitFor(() =>
+        expect(
+          screen
+            .getAllByRole('alert')
+            .some((alert) => alert.textContent?.includes('workspacePathConsent.pathNotFound')),
+        ).toBe(true),
+      );
+      expect(
+        useProjectWorkspaceStore.getState().operationConsentByMessage['message-1'],
+      ).toBeUndefined();
+      expect(screen.queryByTestId('workspace-path-consent-recorded')).not.toBeInTheDocument();
+    },
+  );
 
   it('keeps every choice keyboard-addressable and exposes a labelled group', () => {
     render(<PathConsent messageId="message-1" request={request} />);

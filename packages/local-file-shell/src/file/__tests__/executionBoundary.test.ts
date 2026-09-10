@@ -243,7 +243,7 @@ describe('prepareToolCallExecution', () => {
         homeDir,
         trace,
       }),
-    ).rejects.toMatchObject({ code: 'SCOPE_DENIED' });
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
   });
 
   it('records which root source and canonical root authorized a successful read', async () => {
@@ -607,13 +607,163 @@ describe('prepareToolCallExecution', () => {
     });
   });
 
+  it.each(['device', 'scratch'] as const)(
+    'lets auto-approve %s execution read and write real external paths without a grant',
+    async (workspaceKind) => {
+      const outside = path.join(homeDir, 'outside');
+      const outsideFile = path.join(outside, 'report.xlsx');
+      await mkdir(outside);
+      await writeFile(outsideFile, 'outside');
+      const context: DeviceToolCallExecutionContext = {
+        ...primaryContext(),
+        approvalMode: 'auto-run',
+        workspaceKind,
+      };
+      const trace = {
+        deviceId: 'device-1',
+        operationId: 'op-auto',
+        topicId: 'topic-1',
+        toolCallId: 'call-auto',
+      };
+
+      const read = await prepareToolCallExecution({
+        apiName: 'inspectOfficeDocument',
+        args: { path: outsideFile },
+        context,
+        homeDir,
+        trace,
+      });
+      const write = await prepareToolCallExecution({
+        apiName: 'writeFile',
+        args: { content: 'created', path: path.join(outside, 'created.txt') },
+        context,
+        homeDir,
+        trace,
+      });
+
+      expect(read.scopeAudit).toEqual([
+        expect.objectContaining({
+          path: await realpath(outsideFile),
+          scopeVerdict: 'auto-run',
+          source: 'auto-run',
+        }),
+      ]);
+      expect(write.scopeAudit).toEqual([
+        expect.objectContaining({
+          path: path.join(await realpath(outside), 'created.txt'),
+          scopeVerdict: 'auto-run',
+          source: 'auto-run',
+        }),
+      ]);
+      expect(context.accessRoots).toEqual(primaryContext().accessRoots);
+    },
+  );
+
+  it('still overrides an explicit external command cwd in auto-approve mode', async () => {
+    const outside = path.join(homeDir, 'outside-command');
+    await mkdir(outside);
+
+    const result = await prepareToolCallExecution({
+      apiName: 'runCommand',
+      args: { command: 'pwd', cwd: outside },
+      context: { ...primaryContext(), approvalMode: 'auto-run' },
+      homeDir,
+      trace: {
+        deviceId: 'device-1',
+        operationId: 'op-auto',
+        topicId: 'topic-1',
+        toolCallId: 'call-auto',
+      },
+    });
+
+    expect(result.args.cwd).toBe(workspace);
+    expect(result.warnings).toEqual([{ code: 'MODEL_CWD_OVERRIDDEN', overridden: true }]);
+    expect(result.scopeAudit).toEqual([
+      expect.objectContaining({ cwdOverridden: true, mode: 'exec', scopeVerdict: 'primary' }),
+    ]);
+  });
+
+  it('lets a read-only topic grant cover a later write on the same path', async () => {
+    const outside = path.join(homeDir, 'granted-write');
+    await mkdir(outside);
+    const context: DeviceToolCallExecutionContext = {
+      ...primaryContext(),
+      accessRoots: [
+        ...primaryContext().accessRoots!,
+        {
+          deviceId: 'device-1',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          grantId: 'grant-write',
+          modes: ['read'],
+          rootPath: outside,
+          scope: 'topic',
+          source: 'user-approval',
+          topicId: 'topic-1',
+        },
+      ],
+    };
+
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'writeFile',
+        args: { content: 'ok', path: path.join(outside, 'created.txt') },
+        context,
+        homeDir,
+        trace: { deviceId: 'device-1', topicId: 'topic-1' },
+      }),
+    ).resolves.toMatchObject({
+      scopeAudit: [expect.objectContaining({ mode: 'write', scopeVerdict: 'grant:grant-write' })],
+    });
+  });
+
+  it('asks for consent on an out-of-scope manual write', async () => {
+    const outside = path.join(homeDir, 'manual-write');
+    await mkdir(outside);
+
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'writeFile',
+        args: { content: 'ask', path: path.join(outside, 'new.txt') },
+        context: primaryContext(),
+        homeDir,
+        trace: { deviceId: 'device-1', operationId: 'op-1', topicId: 'topic-1' },
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+  });
+
+  it('still denies private keys and credentials while auto-approve is active', async () => {
+    const secret = path.join(homeDir, '.ssh', 'id_rsa');
+    const credential = path.join(workspace, '.env');
+    await mkdir(path.dirname(secret), { recursive: true });
+    await writeFile(secret, 'secret');
+    await writeFile(credential, 'TOKEN=secret');
+    const context = { ...primaryContext(), approvalMode: 'auto-run' as const };
+
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'readFile',
+        args: { path: secret },
+        context,
+        homeDir,
+      }),
+    ).rejects.toMatchObject({ code: 'SCOPE_DENIED' });
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'readFile',
+        args: { path: credential },
+        context,
+        homeDir,
+        trace: { operationId: 'op-credential' },
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+  });
+
   it.each([
     [{ grantId: undefined }, { deviceId: 'device-1', topicId: 'topic-1' }],
     [{ deviceId: undefined }, { deviceId: 'device-1', topicId: 'topic-1' }],
     [{ deviceId: 'device-2' }, { deviceId: 'device-1', topicId: 'topic-1' }],
     [{ topicId: 'topic-2' }, { deviceId: 'device-1', topicId: 'topic-1' }],
     [{ expiresAt: '2020-01-01T00:00:00.000Z' }, { deviceId: 'device-1', topicId: 'topic-1' }],
-    [{ modes: ['write'] as Array<'write'> }, { deviceId: 'device-1', topicId: 'topic-1' }],
     [{ source: 'workspace' as const }, { deviceId: 'device-1', topicId: 'topic-1' }],
   ])('fails closed for incomplete or mismatched topic grant evidence', async (override, trace) => {
     const outside = path.join(homeDir, 'shared');

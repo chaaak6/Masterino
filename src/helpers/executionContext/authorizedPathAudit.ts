@@ -58,7 +58,6 @@ const rootCovers = (
   now: number,
 ): boolean => {
   if (root.deviceId && root.deviceId !== deviceId) return false;
-  if (!root.modes.includes(mode)) return false;
   if (root.expiresAt) {
     const expiresAt = Date.parse(root.expiresAt);
     if (!Number.isFinite(expiresAt) || expiresAt <= now) return false;
@@ -66,6 +65,7 @@ const rootCovers = (
   if (root.scope === 'operation' && root.source === 'direct-user-message' && mode !== 'read') {
     return false;
   }
+  if (root.target === 'file' && mode === 'exec') return false;
 
   const normalizedRoot = normalizeRootPath(root.rootPath);
   return root.target === 'file' ? target === normalizedRoot : isWithin(target, normalizedRoot);

@@ -1,4 +1,4 @@
-import { type ConversationContext } from '@lobechat/types';
+import { type ConversationContext, type ExecutionApprovalMode } from '@lobechat/types';
 
 import { type ChatStore } from '@/store/chat/store';
 
@@ -9,6 +9,7 @@ import { createDefaultToolCallRetryPolicy } from './retryPolicy';
 import { ToolCallLifecycle, type ToolCallOperationRecord } from './ToolCallLifecycle';
 
 export const createChatStoreToolCallLifecycle = (input: {
+  approvalMode?: ExecutionApprovalMode;
   context: ConversationContext;
   get: () => ChatStore;
   messageAgentId?: string;
