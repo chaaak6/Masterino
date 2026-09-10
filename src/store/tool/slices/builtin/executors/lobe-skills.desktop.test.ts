@@ -42,6 +42,7 @@ const context = {
         source: 'workspace',
       },
     ],
+    approvalMode: 'auto-run',
     cwd: '/workspace/project',
     envFiles: ['.env'],
     operationId: 'operation-a',
@@ -131,6 +132,7 @@ describe('desktop skills execution', () => {
       expect.objectContaining({
         apiName: 'runCommand',
         executionContext: expect.objectContaining({
+          approvalMode: 'auto-run',
           cwd: '/workspace/project',
           env: expect.objectContaining({ SKILL_DIR: '/managed/project-snapshot' }),
           workspaceRootPath: '/workspace/project',

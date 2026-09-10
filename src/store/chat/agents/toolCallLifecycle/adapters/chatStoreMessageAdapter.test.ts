@@ -65,6 +65,55 @@ describe('createChatStoreToolCallMessageAdapter', () => {
     );
   });
 
+  it('never projects a legacy path-consent card while auto-approve is active', async () => {
+    vi.mocked(messageService.commitToolResult).mockResolvedValue({
+      disposition: 'committed',
+      id: 'tool-1',
+    });
+    const optimisticUpdateToolMessage = vi.fn().mockResolvedValue(undefined);
+    const internal_dispatchMessage = vi.fn();
+    const adapter = createChatStoreToolCallMessageAdapter({
+      approvalMode: 'auto-run',
+      context: { agentId: 'agent-1', topicId: 'topic-1' },
+      get: () => ({ optimisticUpdateToolMessage, internal_dispatchMessage }) as any,
+    });
+    const state = {
+      code: 'INTERVENTION_REQUIRED',
+      workspacePathConsent: {
+        version: 1,
+        actualCwd: '',
+        primaryCwd: '',
+        requestedPath: '/tmp/probe.txt',
+        modes: ['read'],
+        deviceId: 'device-1',
+        operationId: 'operation-1',
+        topicId: 'topic-1',
+      },
+    };
+
+    await adapter.commitResult({
+      executionAttemptId: 'attempt-1',
+      messageId: 'tool-1',
+      operationId: 'commit-1',
+      signal: new AbortController().signal,
+      result: { content: 'INTERVENTION_REQUIRED', success: false, state },
+      toolCall: {
+        id: 'call-1',
+        identifier: 'lobe-local-system',
+        apiName: 'readFile',
+        arguments: '{}',
+        type: 'builtin',
+      },
+    });
+
+    expect(optimisticUpdateToolMessage).not.toHaveBeenCalledWith(
+      'tool-1',
+      expect.objectContaining({ pluginState: state }),
+      expect.anything(),
+    );
+    expect(messageService.commitToolResult).toHaveBeenCalledTimes(1);
+  });
+
   it('projects one stable optimistic message before retrying the ensure request', async () => {
     const optimisticCreateTmpMessage = vi.fn();
     const adapter = createChatStoreToolCallMessageAdapter({

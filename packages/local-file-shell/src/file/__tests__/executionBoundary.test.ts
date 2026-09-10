@@ -607,6 +607,82 @@ describe('prepareToolCallExecution', () => {
     });
   });
 
+  it.each(['device', 'scratch'] as const)(
+    'lets auto-approve %s execution read and write real external paths without a grant',
+    async (workspaceKind) => {
+      const outside = path.join(homeDir, 'outside');
+      const outsideFile = path.join(outside, 'report.xlsx');
+      await mkdir(outside);
+      await writeFile(outsideFile, 'outside');
+      const context: DeviceToolCallExecutionContext = {
+        ...primaryContext(),
+        approvalMode: 'auto-run',
+        workspaceKind,
+      };
+      const trace = {
+        deviceId: 'device-1',
+        operationId: 'op-auto',
+        topicId: 'topic-1',
+        toolCallId: 'call-auto',
+      };
+
+      const read = await prepareToolCallExecution({
+        apiName: 'inspectOfficeDocument',
+        args: { path: outsideFile },
+        context,
+        homeDir,
+        trace,
+      });
+      const write = await prepareToolCallExecution({
+        apiName: 'writeFile',
+        args: { content: 'created', path: path.join(outside, 'created.txt') },
+        context,
+        homeDir,
+        trace,
+      });
+
+      expect(read.scopeAudit).toEqual([
+        expect.objectContaining({
+          path: await realpath(outsideFile),
+          scopeVerdict: 'auto-run',
+          source: 'auto-run',
+        }),
+      ]);
+      expect(write.scopeAudit).toEqual([
+        expect.objectContaining({
+          path: path.join(await realpath(outside), 'created.txt'),
+          scopeVerdict: 'auto-run',
+          source: 'auto-run',
+        }),
+      ]);
+      expect(context.accessRoots).toEqual(primaryContext().accessRoots);
+    },
+  );
+
+  it('uses an explicit external command cwd in auto-approve mode instead of overriding it', async () => {
+    const outside = path.join(homeDir, 'outside-command');
+    await mkdir(outside);
+
+    const result = await prepareToolCallExecution({
+      apiName: 'runCommand',
+      args: { command: 'pwd', cwd: outside },
+      context: { ...primaryContext(), approvalMode: 'auto-run' },
+      homeDir,
+      trace: {
+        deviceId: 'device-1',
+        operationId: 'op-auto',
+        topicId: 'topic-1',
+        toolCallId: 'call-auto',
+      },
+    });
+
+    expect(result.args.cwd).toBe(await realpath(outside));
+    expect(result.warnings).toEqual([]);
+    expect(result.scopeAudit).toEqual([
+      expect.objectContaining({ scopeVerdict: 'auto-run', source: 'auto-run' }),
+    ]);
+  });
+
   it.each([
     [{ grantId: undefined }, { deviceId: 'device-1', topicId: 'topic-1' }],
     [{ deviceId: undefined }, { deviceId: 'device-1', topicId: 'topic-1' }],

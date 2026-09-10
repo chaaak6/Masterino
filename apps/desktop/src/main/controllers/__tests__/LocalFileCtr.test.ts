@@ -21,6 +21,8 @@ vi.mock('execa', () => ({
   execa: execaMock,
 }));
 
+vi.mock('fast-glob', () => ({ default: vi.fn() }));
+
 // Mock logger
 vi.mock('@/utils/logger', () => ({
   createLogger: () => ({
@@ -481,6 +483,21 @@ describe('LocalFileCtr', () => {
       });
 
       expect(result).toEqual({ allSafe: false });
+    });
+  });
+
+  describe('resolveRealPath', () => {
+    it('returns a stable missing-path error without approving anything', async () => {
+      const error = Object.assign(new Error('no such file or directory'), { code: 'ENOENT' });
+      vi.mocked(mockFsPromises.realpath).mockRejectedValue(error);
+
+      await expect(localFileCtr.resolveRealPath({ path: '/missing/report.xlsx' })).resolves.toEqual(
+        {
+          error: 'Path does not exist',
+          errorCode: 'PATH_NOT_FOUND',
+          success: false,
+        },
+      );
     });
   });
 

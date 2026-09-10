@@ -279,6 +279,17 @@ const authorizePath = async ({
   target: string;
   trace: ExecutionBoundaryTrace;
 }): Promise<ScopeAuditEntry> => {
+  if (context.approvalMode === 'auto-run' || context.approvalMode === 'headless') {
+    return {
+      ...trace,
+      mode,
+      path: target,
+      rootPath: target,
+      scopeVerdict: 'auto-run',
+      source: 'auto-run',
+    };
+  }
+
   if (
     PRIVATE_KEY_BASENAMES.has(path.basename(target).toLowerCase()) ||
     SENSITIVE_ROOT_SEGMENTS.some((needle) => containsSegments(pathSegments(target), needle))
@@ -581,10 +592,18 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
   const next = structuredClone(args) as T;
   const warnings: PreparedToolCallExecution['warnings'] = [];
   const modelCwd = typeof args.cwd === 'string' ? args.cwd : undefined;
+  let commandCwd = realCwd;
   if ((apiName === 'runCommand' || apiName === 'runHeteroTask') && modelCwd) {
     if (!realCwd) throw new ExecutionBoundaryError('WORKSPACE_REQUIRED');
     const modelAbsolute = toAbsolutePath(modelCwd, realCwd, realHomeDir);
-    if (path.resolve(modelAbsolute) !== path.resolve(realCwd)) {
+    if (context.approvalMode === 'auto-run' || context.approvalMode === 'headless') {
+      commandCwd = await realpath(modelAbsolute).catch(() => undefined);
+      if (!commandCwd) {
+        throw new ExecutionBoundaryError('SCOPE_DENIED', [
+          deniedAudit(trace, 'exec', modelAbsolute),
+        ]);
+      }
+    } else if (path.resolve(modelAbsolute) !== path.resolve(realCwd)) {
       warnings.push({ code: 'MODEL_CWD_OVERRIDDEN', overridden: true });
     }
   }
@@ -613,7 +632,7 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     ]);
   }
 
-  const requests = collectPathRequests(apiName, next, realCwd ?? '');
+  const requests = collectPathRequests(apiName, next, commandCwd ?? '');
   if (!realCwd) {
     const hasOnlyExplicitAbsoluteRequests =
       requests.length > 0 &&

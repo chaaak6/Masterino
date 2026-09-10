@@ -118,6 +118,7 @@ describe('localSystemRuntime', () => {
       const context: ToolExecutionContext = {
         activeDeviceId: 'device-1',
         executionContext: {
+          approvalMode: 'auto-run',
           accessRoots: [],
           cwd: '/approved/project',
           env: {
@@ -151,6 +152,7 @@ describe('localSystemRuntime', () => {
         expect.objectContaining({
           deviceId: 'device-1',
           executionContext: expect.objectContaining({
+            approvalMode: 'auto-run',
             cwd: '/approved/project',
             env: { TOKEN: 'resolved-secret' },
             envFiles: ['.env', '.env.local'],

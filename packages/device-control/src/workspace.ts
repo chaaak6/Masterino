@@ -385,7 +385,16 @@ export const resolveRealPath = async (
   params: ResolveRealPathParams,
 ): Promise<ResolveRealPathResult> => {
   if (!path.isAbsolute(params.path)) throw new Error('ABSOLUTE_PATH_REQUIRED');
-  return { path: await realpath(params.path) };
+  try {
+    return { path: await realpath(params.path) };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') throw new Error('PATH_NOT_FOUND', { cause: error });
+    if (code === 'EACCES' || code === 'EPERM') {
+      throw new Error('PATH_ACCESS_DENIED', { cause: error });
+    }
+    throw new Error('PATH_UNRESOLVABLE', { cause: error });
+  }
 };
 
 /**

@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import { attr, openOfficeZip, textNodes, unescapeXml } from './zip';
 
+const XML_PREFIX = '(?:[A-Za-z_][\\w.-]*:)?';
+
 export interface OfficeReadParams {
   aggregateColumn?: string;
   groupByColumn?: string;
@@ -36,8 +38,8 @@ const integer = (n: number | undefined, fallback: number, max: number) => {
 async function sheetParts(zip: Awaited<ReturnType<typeof openOfficeZip>>) {
   const workbook = await zip.text('xl/workbook.xml');
   const rels = await zip.text('xl/_rels/workbook.xml.rels');
-  const relationships = [...rels.matchAll(/<Relationship\s[^>]*>/g)];
-  return [...workbook.matchAll(/<sheet\s[^>]*>/g)].map(([xml]) => {
+  const relationships = [...rels.matchAll(new RegExp(`<${XML_PREFIX}Relationship\\s[^>]*>`, 'g'))];
+  return [...workbook.matchAll(new RegExp(`<${XML_PREFIX}sheet\\s[^>]*>`, 'g'))].map(([xml]) => {
     const rel = relationships.find(([r]) => attr(r, 'Id') === attr(xml, 'r:id'))?.[0] ?? '';
     const target = attr(rel, 'Target');
     return {
@@ -184,10 +186,18 @@ async function readOfficeDocumentUncached(params: OfficeReadParams, options: Off
             break;
           }
           const cells: NonNullable<OfficeRecord['cells']> = [];
-          for (const [cell] of xml.matchAll(/<c\s[^>]*>[\s\S]*?<\/c>/g)) {
-            const raw = unescapeXml(/<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/.exec(cell)?.[1] ?? '');
+          for (const [cell] of xml.matchAll(
+            new RegExp(`<${XML_PREFIX}c\\s[^>]*>[\\s\\S]*?<\\/${XML_PREFIX}c>`, 'g'),
+          )) {
+            const raw = unescapeXml(
+              new RegExp(`<${XML_PREFIX}v(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${XML_PREFIX}v>`).exec(
+                cell,
+              )?.[1] ?? '',
+            );
             const type = attr(cell, 't');
-            const formula = /<f(?:\s[^>]*)?>([\s\S]*?)<\/f>/.exec(cell)?.[1];
+            const formula = new RegExp(
+              `<${XML_PREFIX}f(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${XML_PREFIX}f>`,
+            ).exec(cell)?.[1];
             cells.push({
               address: attr(cell, 'r'),
               value:

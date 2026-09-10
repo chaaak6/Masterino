@@ -529,13 +529,28 @@ export default class LocalFileCtr extends ControllerModule {
   }: ResolveRealPathParams): Promise<ResolveRealPathResult> {
     const expanded = expandTilde(requestedPath) ?? requestedPath;
     if (!path.isAbsolute(expanded)) {
-      return { error: 'Path must be absolute', success: false };
+      return {
+        error: 'Path must be absolute',
+        errorCode: 'PATH_NOT_ABSOLUTE',
+        success: false,
+      };
     }
 
     try {
       return { path: normalizeAbsolutePath(await realpath(expanded)), success: true };
-    } catch {
-      return { error: 'Unable to resolve path', success: false };
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        return { error: 'Path does not exist', errorCode: 'PATH_NOT_FOUND', success: false };
+      }
+      if (code === 'EACCES' || code === 'EPERM') {
+        return { error: 'Path access denied', errorCode: 'PATH_ACCESS_DENIED', success: false };
+      }
+      return {
+        error: 'Unable to resolve path',
+        errorCode: 'PATH_UNRESOLVABLE',
+        success: false,
+      };
     }
   }
 

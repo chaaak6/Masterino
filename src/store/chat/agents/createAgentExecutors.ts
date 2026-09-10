@@ -950,7 +950,11 @@ export const createAgentExecutors = (context: {
           agentId: opContext.agentId!,
           sourceMessageId,
         };
+        const approvalMode =
+          state.userInterventionConfig?.approvalMode ??
+          context.get().operations[context.operationId]?.metadata.executionContext?.approvalMode;
         const lifecycle = createChatStoreToolCallLifecycle({
+          approvalMode,
           context: lifecycleContext,
           get: context.get,
           messageAgentId: getEffectiveAgentId(),
@@ -1033,7 +1037,7 @@ export const createAgentExecutors = (context: {
           pathRequest.deviceId === executionContext.plan.deviceId &&
           pathRequest.operationId === (executionContext.operationId ?? context.operationId) &&
           pathRequest.topicId === opContext.topicId &&
-          state.userInterventionConfig?.approvalMode !== 'headless'
+          !['auto-run', 'headless'].includes(approvalMode ?? 'manual')
         ) {
           const updateContext = { operationId: context.operationId };
           context.get().preservePausedExecutionContext(toolMessageId, executionContext);

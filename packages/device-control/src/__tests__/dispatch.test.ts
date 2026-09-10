@@ -208,6 +208,9 @@ describe('executeDeviceRpc', () => {
     await expect(
       executeDeviceRpc('resolveRealPath', { path: 'relative/path' }, makeDeps()),
     ).rejects.toThrow('ABSOLUTE_PATH_REQUIRED');
+    await expect(
+      executeDeviceRpc('resolveRealPath', { path: path.join(root, 'missing.xlsx') }, makeDeps()),
+    ).rejects.toThrow('PATH_NOT_FOUND');
   });
 
   it('delegates the v2 heterogeneous RPC without dropping execution inputs', async () => {

@@ -222,6 +222,14 @@ export default {
   'updateArgs.formValidationFailed': 'Form validation failed, please check the parameter format',
   'updateArgs.keyRequired': 'Field key cannot be empty',
   'updateArgs.stringifyError': 'Unable to serialize parameters, please check the parameter format',
+  'workspacePathConsent.pathAccessDenied':
+    'The selected device denied access to this path. No permission was granted and execution was not resumed.',
+  'workspacePathConsent.pathNotAbsolute':
+    'This is not an absolute path. No permission was granted. Ask the Agent to use the full path.',
+  'workspacePathConsent.pathNotFound':
+    'This path does not exist on the selected device. No permission was granted. Reject this request and ask the Agent to use an existing path.',
+  'workspacePathConsent.pathUnresolvable':
+    'The selected device could not verify this path. No permission was granted and execution was not resumed.',
   'workspaceAutoPathConsent.actions': 'Path authorization actions',
   'workspaceAutoPathConsent.grantsError':
     'Could not load this topic’s path authorizations, so these actions are unavailable.',

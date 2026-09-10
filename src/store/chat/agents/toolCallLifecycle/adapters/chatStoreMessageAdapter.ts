@@ -2,6 +2,7 @@ import type {
   BuiltinToolResult,
   ChatMessagePluginError,
   CreateMessageParams,
+  ExecutionApprovalMode,
 } from '@lobechat/types';
 
 import { getRuntimePathConsentRequest } from '@/helpers/executionContext/pathConsent';
@@ -15,6 +16,7 @@ import { type ToolCallCommand, type ToolCallLifecycleDependencies } from '../Too
 type MessagePort = ToolCallLifecycleDependencies['messages'];
 
 interface CreateMessageAdapterInput {
+  approvalMode?: ExecutionApprovalMode;
   context: ToolCallCommand['context'];
   get: () => ChatStore;
   messageAgentId?: string;
@@ -61,6 +63,7 @@ const waitForArchive = async (task: Promise<string>, signal: AbortSignal): Promi
  * payload and project it into Zustand only once.
  */
 export const createChatStoreToolCallMessageAdapter = ({
+  approvalMode,
   context,
   get,
   messageAgentId,
@@ -159,6 +162,7 @@ export const createChatStoreToolCallMessageAdapter = ({
         toolCall.identifier === 'lobe-local-system' &&
         result.success === false &&
         result.content === 'INTERVENTION_REQUIRED' &&
+        !['auto-run', 'headless'].includes(approvalMode ?? 'manual') &&
         pendingPath?.topicId === context.topicId
       ) {
         // The boundary refused before execution. Keep its request resumable;

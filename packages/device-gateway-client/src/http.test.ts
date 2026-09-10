@@ -371,6 +371,7 @@ describe('GatewayHttpClient', () => {
         {
           deviceId: 'device-1',
           executionContext: {
+            approvalMode: 'auto-run',
             accessRoots: [
               {
                 modes: ['read'],
@@ -393,7 +394,7 @@ describe('GatewayHttpClient', () => {
       const body = JSON.parse((init as RequestInit).body as string);
       expect(body).toMatchObject({
         deviceId: 'device-1',
-        executionContext: { cwd: '/approved/project' },
+        executionContext: { approvalMode: 'auto-run', cwd: '/approved/project' },
         operationId: 'op-1',
         toolCallId: 'call-1',
         topicId: 'topic-1',

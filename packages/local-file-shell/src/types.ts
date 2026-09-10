@@ -106,6 +106,7 @@ export interface DeviceExecutionAccessRoot {
 /** Structurally compatible with ToolCallExecutionContext from @lobechat/types. */
 export interface DeviceToolCallExecutionContext {
   accessRoots?: DeviceExecutionAccessRoot[];
+  approvalMode?: 'allow-list' | 'auto-run' | 'headless' | 'manual';
   cwd?: string;
   env?: Record<string, string>;
   envFiles?: string[];
@@ -121,7 +122,12 @@ export interface ExecutionBoundaryTrace {
   topicId?: string;
 }
 
-export type ScopeVerdict = 'denied' | 'primary' | `consent:${string}` | `grant:${string}`;
+export type ScopeVerdict =
+  | 'auto-run'
+  | 'denied'
+  | 'primary'
+  | `consent:${string}`
+  | `grant:${string}`;
 
 /** Redacted authorization evidence. Never contains file contents or env values. */
 export interface ScopeAuditEntry extends ExecutionBoundaryTrace {
@@ -142,7 +148,7 @@ export interface ScopeAuditEntry extends ExecutionBoundaryTrace {
    * auto-allowed direct-user-message root from an explicitly approved one, so the
    * source travels with the verdict. Absent on a denial.
    */
-  source?: DeviceExecutionAccessRoot['source'];
+  source?: DeviceExecutionAccessRoot['source'] | 'auto-run';
 }
 
 export interface PreparedToolCallExecution<T extends Record<string, any> = Record<string, any>> {

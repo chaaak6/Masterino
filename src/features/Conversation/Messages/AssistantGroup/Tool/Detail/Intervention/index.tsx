@@ -29,6 +29,7 @@ import PathConsent, {
   type PathConsentSelection,
   WORKSPACE_PATH_CONSENT_METADATA_KEY,
 } from './PathConsent';
+import { coordinatePathConsentApproval, PathConsentResolutionError } from './pathConsentDecision';
 import SecurityBlacklistWarning from './SecurityBlacklistWarning';
 
 export type { ApprovalMode } from '@/store/user/slices/settings/selectors';
@@ -140,42 +141,38 @@ const Intervention = memo<InterventionProps>(
           return decision;
         }
 
-        let canonicalPath: string;
-        if (isDesktop && currentDeviceId === decision.deviceId) {
-          const resolved = await localFileService.resolveRealPath({ path: decision.rootPath });
-          if (!resolved.success || !resolved.path) {
-            throw new Error(resolved.error || 'Unable to resolve the selected path');
-          }
-          canonicalPath = resolved.path;
-        } else {
-          const resolved = await projectWorkspaceService.resolveRealPath({
-            deviceId: decision.deviceId,
-            path: decision.rootPath,
-          });
-          canonicalPath = resolved.path;
-        }
-
-        const canonicalDecision = { ...decision, rootPath: canonicalPath };
-        if (decision.scope === 'topic') {
-          const granted = await grantTopicAccess({
-            deviceId: decision.deviceId,
-            modes: decision.modes,
-            requestedVia: {
-              messageId: id,
-              reason: 'workspace-path-consent',
-              toolCallId,
-            },
-            rootPath: canonicalPath,
-            topicId: decision.topicId,
-          });
-          if (!granted.ok) throw new Error(granted.message || granted.code);
-        }
-
-        // Persist the canonical operation decision before resume so the next
-        // execution-context build can consume it synchronously.
-        setOperationPathConsent(id, canonicalDecision);
-        await approveToolCall(id, assistantGroupId ?? '');
-        return canonicalDecision;
+        return coordinatePathConsentApproval(decision, {
+          grantTopicRoot: async (canonicalPath) => {
+            const granted = await grantTopicAccess({
+              deviceId: decision.deviceId,
+              modes: decision.modes,
+              requestedVia: {
+                messageId: id,
+                reason: 'workspace-path-consent',
+                toolCallId,
+              },
+              rootPath: canonicalPath,
+              topicId: decision.topicId,
+            });
+            if (!granted.ok) throw new Error(granted.message || granted.code);
+          },
+          persistDecision: (canonicalDecision) => setOperationPathConsent(id, canonicalDecision),
+          resolveRootPath: async () => {
+            if (isDesktop && currentDeviceId === decision.deviceId) {
+              const resolved = await localFileService.resolveRealPath({ path: decision.rootPath });
+              if (!resolved.success || !resolved.path) {
+                throw new PathConsentResolutionError(resolved.errorCode ?? 'PATH_UNRESOLVABLE');
+              }
+              return resolved.path;
+            }
+            const resolved = await projectWorkspaceService.resolveRealPath({
+              deviceId: decision.deviceId,
+              path: decision.rootPath,
+            });
+            return resolved.path;
+          },
+          resume: () => approveToolCall(id, assistantGroupId ?? ''),
+        });
       },
       [
         approveToolCall,

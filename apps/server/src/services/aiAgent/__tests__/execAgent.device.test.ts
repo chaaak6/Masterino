@@ -559,6 +559,21 @@ describe('AiAgentService.execAgent - device auto-activation', () => {
       expect(mockDecryptWorkspaceEnv).toHaveBeenCalledTimes(2);
     });
 
+    it('freezes auto-approve with the operation execution context', async () => {
+      bindWorkspace();
+
+      await service.execAgent({
+        agentId: 'agent-1',
+        prompt: 'Read an external file without another path prompt',
+        userInterventionConfig: { approvalMode: 'auto-run' },
+      });
+
+      expect(mockCreateOperation.mock.calls[0][0].executionContext).toMatchObject({
+        approvalMode: 'auto-run',
+        cwd: '/approved/project',
+      });
+    });
+
     it('fails operation creation when a configured env value cannot be authenticated', async () => {
       bindWorkspace();
       mockDecryptWorkspaceEnv.mockResolvedValue({ plaintext: '', wasAuthentic: false });

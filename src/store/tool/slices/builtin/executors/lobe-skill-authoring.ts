@@ -29,6 +29,7 @@ export const skillAuthoringExecutor: IBuiltinToolExecutor = {
       args: params,
       executionContext: {
         accessRoots: execution.accessRoots,
+        approvalMode: execution.approvalMode,
         cwd: execution.cwd,
         workspaceRootPath: execution.workspace?.rootPath ?? execution.cwd,
         workspaceKind: execution.workspace?.kind,

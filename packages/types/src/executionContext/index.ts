@@ -117,9 +117,13 @@ export type ExecutionPlan = { target: DeviceExecutionTarget } & (
 
 export type ExecutionContextUnresolvedReason = 'device-unrouted' | 'no-workspace' | 'target-none';
 
+export type ExecutionApprovalMode = 'allow-list' | 'auto-run' | 'headless' | 'manual';
+
 /** The single, operation-scoped execution result consumed by all execution channels. */
 export interface ExecutionContext {
   accessRoots?: ExecutionAccessRoot[];
+  /** Frozen user approval policy consumed by the final device boundary. */
+  approvalMode?: ExecutionApprovalMode;
   cwd?: string;
   /** Server/device-only. Never serialize values to a browser-facing response. */
   env?: ExecutionEnv;
@@ -138,6 +142,8 @@ export interface ExecutionContext {
 /** Optional transport subset. Old devices ignore fields they do not understand. */
 export interface ToolCallExecutionContext {
   accessRoots?: ExecutionAccessRoot[];
+  /** User approval policy for this operation; old devices safely ignore it. */
+  approvalMode?: ExecutionApprovalMode;
   cwd?: string;
   /** Gateway/server channel only. Renderer-originated calls use envRef. */
   env?: Record<string, string>;

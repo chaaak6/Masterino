@@ -3576,6 +3576,53 @@ describe('RuntimeExecutors', () => {
       );
     });
 
+    it('carries auto-approve to the device execution boundary', async () => {
+      const executors = createRuntimeExecutors(ctx);
+      const state = createMockState({
+        metadata: {
+          activeDeviceId: 'device-a',
+          agentId: 'agent-123',
+          executionContext: {
+            accessRoots: [],
+            cwd: '/Users/me/project',
+            plan: { deviceId: 'device-a', kind: 'device', target: 'local' },
+            version: 1,
+            workspace: {
+              deviceId: 'device-a',
+              kind: 'device',
+              rootPath: '/Users/me/project',
+            },
+          },
+          topicId: 'topic-123',
+        },
+        userInterventionConfig: { approvalMode: 'auto-run' },
+      });
+
+      await executors.call_tool!(
+        {
+          payload: {
+            parentMessageId: 'assistant-msg-123',
+            toolCalling: {
+              apiName: 'readFile',
+              arguments: '{"path":"/outside/report.xlsx"}',
+              id: 'tool-call-auto-path',
+              identifier: 'lobe-local-system',
+              type: 'builtin' as const,
+            },
+          },
+          type: 'call_tool' as const,
+        },
+        state,
+      );
+
+      expect(mockToolExecutionService.executeTool).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'tool-call-auto-path' }),
+        expect.objectContaining({
+          executionContext: expect.objectContaining({ approvalMode: 'auto-run' }),
+        }),
+      );
+    });
+
     it('does not use the renderer tool channel when a local device is unrouted', async () => {
       mockStreamManager.sendToolExecute = vi.fn();
       const executors = createRuntimeExecutors(ctx);
@@ -3745,6 +3792,125 @@ describe('RuntimeExecutors', () => {
         expect.objectContaining({ type: 'human_approve_required' }),
       );
       expect(result.events).not.toContainEqual(expect.objectContaining({ type: 'tool_result' }));
+    });
+
+    it('never turns a legacy device path response into a prompt in auto-approve mode', async () => {
+      mockToolExecutionService.executeTool.mockResolvedValue({
+        content: 'INTERVENTION_REQUIRED',
+        executionTime: 10,
+        state: {
+          code: 'INTERVENTION_REQUIRED',
+          workspacePathConsent: {
+            actualCwd: '/workspace',
+            deviceId: 'device-a',
+            modes: ['read'],
+            operationId: 'op-123',
+            primaryCwd: '/workspace',
+            requestedPath: '/outside/docs',
+            topicId: 'topic-123',
+            version: 1,
+          },
+        },
+        success: false,
+      });
+      const executors = createRuntimeExecutors(ctx);
+      const state = createMockState({
+        metadata: {
+          activeDeviceId: 'device-a',
+          agentId: 'agent-123',
+          topicId: 'topic-123',
+        },
+        userInterventionConfig: { approvalMode: 'auto-run' },
+      });
+
+      const result = await executors.call_tool!(
+        {
+          payload: {
+            parentMessageId: 'assistant-msg-123',
+            toolCalling: {
+              apiName: 'readFile',
+              arguments: '{"path":"/outside/docs"}',
+              id: 'tool-call-path',
+              identifier: 'lobe-local-system',
+              type: 'builtin' as const,
+            },
+          },
+          type: 'call_tool' as const,
+        },
+        state,
+      );
+
+      expect(result.newState.status).not.toBe('waiting_for_human');
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({ type: 'human_approve_required' }),
+      );
+      expect(mockMessageModel.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({ pluginIntervention: { status: 'pending' } }),
+      );
+    });
+
+    it('keeps frozen auto-approve active when a resumed state omits intervention settings', async () => {
+      mockToolExecutionService.executeTool.mockResolvedValue({
+        content: 'INTERVENTION_REQUIRED',
+        executionTime: 10,
+        state: {
+          code: 'INTERVENTION_REQUIRED',
+          workspacePathConsent: {
+            actualCwd: '/workspace',
+            deviceId: 'device-a',
+            modes: ['read'],
+            operationId: 'op-123',
+            primaryCwd: '/workspace',
+            requestedPath: '/outside/docs',
+            topicId: 'topic-123',
+            version: 1,
+          },
+        },
+        success: false,
+      });
+      const executors = createRuntimeExecutors(ctx);
+      const state = createMockState({
+        metadata: {
+          activeDeviceId: 'device-a',
+          agentId: 'agent-123',
+          executionContext: {
+            accessRoots: [],
+            approvalMode: 'auto-run',
+            plan: { deviceId: 'device-a', kind: 'device', target: 'local' },
+            version: 1,
+          },
+          topicId: 'topic-123',
+        },
+        userInterventionConfig: undefined,
+      });
+
+      const result = await executors.call_tool!(
+        {
+          payload: {
+            parentMessageId: 'assistant-msg-123',
+            toolCalling: {
+              apiName: 'readFile',
+              arguments: '{"path":"/outside/docs"}',
+              id: 'tool-call-frozen-auto-path',
+              identifier: 'lobe-local-system',
+              type: 'builtin' as const,
+            },
+          },
+          type: 'call_tool' as const,
+        },
+        state,
+      );
+
+      expect(mockToolExecutionService.executeTool).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'tool-call-frozen-auto-path' }),
+        expect.objectContaining({
+          executionContext: expect.objectContaining({ approvalMode: 'auto-run' }),
+        }),
+      );
+      expect(result.newState.status).not.toBe('waiting_for_human');
+      expect(result.events).not.toContainEqual(
+        expect.objectContaining({ type: 'human_approve_required' }),
+      );
     });
 
     it('interrupts after the same deterministic tool failure occurs twice', async () => {

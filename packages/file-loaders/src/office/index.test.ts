@@ -54,6 +54,36 @@ it('reads XLSX shared strings, pagination, formula cache and aggregate', async (
     'VERSION_CHANGED',
   );
 });
+
+it('reads XLSX parts that use namespace-prefixed spreadsheet tags', async () => {
+  const file = await fixture('prefixed.xlsx');
+  await zipFile(file, {
+    'xl/workbook.xml':
+      '<x:workbook xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><x:sheets><x:sheet name="学员名单" sheetId="1" r:id="r1" /></x:sheets></x:workbook>',
+    'xl/_rels/workbook.xml.rels':
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Target="worksheets/sheet1.xml" /></Relationships>',
+    'xl/sharedStrings.xml':
+      '<x:sst xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><x:si><x:t>工号</x:t></x:si></x:sst>',
+    'xl/worksheets/sheet1.xml':
+      '<x:worksheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><x:sheetData><x:row r="1"><x:c r="A1" t="s"><x:v>0</x:v></x:c><x:c r="B1" t="str"><x:v>姓名</x:v></x:c><x:c r="C1"><x:f>1+1</x:f><x:v>2</x:v></x:c></x:row></x:sheetData></x:worksheet>',
+  });
+
+  const result = await inspectOfficeDocument({ path: file });
+  if (!('sheets' in result)) throw new Error('Expected an XLSX inspection result');
+
+  expect(result.sheets).toEqual(['学员名单']);
+  expect(result.sheet).toBe('学员名单');
+  expect(result.records).toEqual([
+    {
+      index: 1,
+      cells: [
+        { address: 'A1', value: '工号' },
+        { address: 'B1', value: '姓名' },
+        { address: 'C1', formula: '1+1', value: '2' },
+      ],
+    },
+  ]);
+});
 it('uses presentation relationship order', async () => {
   const file = await fixture('slides.pptx');
   await zipFile(file, {
