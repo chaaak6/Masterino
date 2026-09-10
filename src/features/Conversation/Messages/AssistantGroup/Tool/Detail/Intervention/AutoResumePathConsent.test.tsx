@@ -72,19 +72,17 @@ describe('AutoResumePathConsent', () => {
     ['generic intervention', { approvalMode: 'auto-run' as const, request: undefined }],
   ])('does not resume %s', async (_label, overrides) => {
     const approve = vi.fn().mockResolvedValue(undefined);
+    const props: AutoResumePathConsentOptions = {
+      approvalMode: overrides.approvalMode ?? 'auto-run',
+      approve,
+      assistantGroupId: 'group-1',
+      isUserStateInit: 'isUserStateInit' in overrides ? overrides.isUserStateInit : true,
+      messageId: `message-${_label}`,
+      request: 'request' in overrides ? overrides.request : request,
+      toolCallId: `tool-${_label}`,
+    };
 
-    render(
-      <AutoResumePathConsent
-        isUserStateInit
-        approvalMode="auto-run"
-        approve={approve}
-        assistantGroupId="group-1"
-        messageId={`message-${_label}`}
-        request={request}
-        toolCallId={`tool-${_label}`}
-        {...overrides}
-      />,
-    );
+    render(<AutoResumePathConsent {...props} />);
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(approve).not.toHaveBeenCalled();
