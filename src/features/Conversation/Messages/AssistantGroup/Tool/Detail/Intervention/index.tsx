@@ -16,6 +16,7 @@ import { toolInterventionSelectors } from '@/store/user/selectors';
 import { dataSelectors, useConversationStore } from '../../../../../store';
 import Arguments from '../Arguments';
 import ApprovalActions from './ApprovalActions';
+import { useAutoResumePathConsent } from './AutoResumePathConsent';
 import {
   isCustomInteractionIdentifier,
   isHeteroInteractionIdentifier,
@@ -47,6 +48,7 @@ interface InterventionProps {
 const Intervention = memo<InterventionProps>(
   ({ requestArgs, id, identifier, apiName, toolCallId, assistantGroupId, actionsPortalTarget }) => {
     const approvalMode = useUserStore(toolInterventionSelectors.approvalMode);
+    const isUserStateInit = useUserStore((s) => s.isUserStateInit);
     const [isEditing, setIsEditing] = useState(false);
     const updatePluginArguments = useConversationStore((s) => s.updatePluginArguments);
 
@@ -132,6 +134,16 @@ const Intervention = memo<InterventionProps>(
     // turn. Pull the chat-store action lazily so non-hetero interactions stay
     // on the existing path with no behavior change.
     const submitHeteroIntervention = useChatStore((s) => s.submitHeteroIntervention);
+
+    useAutoResumePathConsent({
+      approvalMode,
+      approve: approveToolCall,
+      assistantGroupId,
+      isUserStateInit,
+      messageId: id,
+      request: pathConsentRequest,
+      toolCallId,
+    });
 
     const handlePathConsentDecision = useCallback(
       async (decision: PathConsentSelection): Promise<PathConsentSelection> => {
