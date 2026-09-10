@@ -653,6 +653,34 @@ export class StreamingExecutorActionImpl {
       });
     }
 
+    // A renderer refresh starts with an empty in-memory grant map while the
+    // persisted Topic grants are being rehydrated. Wait at the common runtime
+    // boundary so every entry point (send, retry, continue, resume, subtask)
+    // sees the same authority before AgentState and tool manifests are frozen.
+    if (topicId && frozenExecutionContext?.plan.kind === 'device') {
+      const projectWorkspace = getProjectWorkspaceStoreState();
+      try {
+        await projectWorkspace.ensureTopicGrantsLoaded(
+          topicId,
+          frozenExecutionContext.plan.deviceId,
+        );
+      } catch (error) {
+        // Unknown grant state must fail closed. Continuing without roots keeps
+        // the normal intervention/boundary checks active instead of granting
+        // access from stale or unverifiable authority.
+        log('[executeClientAgent] topic grant hydration failed: %O', error);
+      }
+      frozenExecutionContext = mergeCurrentTopicGrantsIntoExecutionContext({
+        context: frozenExecutionContext,
+        operationId,
+        topicGrants: Object.values(getProjectWorkspaceStoreState().grantsByTopicDevice).flat(),
+        topicId,
+      });
+      this.#get().updateOperationMetadata(operationId, {
+        executionContext: frozenExecutionContext,
+      });
+    }
+
     const runScope: RunScope = scope === 'sub_agent' ? 'sub_agent' : 'top_level';
     const runLifecycle = buildRunLifecycle(this.#get, {
       context,
