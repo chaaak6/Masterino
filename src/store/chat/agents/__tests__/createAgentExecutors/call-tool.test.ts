@@ -79,7 +79,13 @@ describe('call_tool executor', () => {
       type: 'execAgentRuntime',
     } as any;
     mockStore.dbMessagesMap[context.messageKey] = [createAssistantMessage()];
-    const instruction = createCallToolInstruction({ id: 'read-1', identifier: 'lobe-local-system', apiName: 'readFile', arguments: '{"path":"/tmp/probe.txt"}', type: 'builtin' });
+    const instruction = createCallToolInstruction({
+      id: 'read-1',
+      identifier: 'lobe-local-system',
+      apiName: 'readFile',
+      arguments: '{"path":"/tmp/probe.txt"}',
+      type: 'builtin',
+    });
     const result = await executeWithMockContext({
       executor: 'call_tool',
       instruction,
@@ -101,6 +107,10 @@ describe('call_tool executor', () => {
       expect.any(String),
       expect.objectContaining({ content: '', pluginError: null }),
       expect.anything(),
+    );
+    expect(mockStore.preservePausedExecutionContext).toHaveBeenCalledWith(
+      expect.any(String),
+      mockStore.operations[context.operationId].metadata.executionContext,
     );
   });
 

@@ -157,6 +157,11 @@ export class GeneralChatAgent implements Agent {
     for (const toolCalling of toolsCalling) {
       const { identifier, apiName } = toolCalling;
       const toolKey = `${identifier}/${apiName}`;
+      const toolResolverMetadata = {
+        ...resolverMetadata,
+        toolApiName: apiName,
+        toolIdentifier: identifier,
+      };
 
       // Parse arguments for intervention checking
       let toolArgs: Record<string, any> = {};
@@ -172,7 +177,7 @@ export class GeneralChatAgent implements Agent {
 
       // Default global audits are ordered so always-block rules match first
       for (const globalResolver of globalResolvers) {
-        if (await globalResolver.resolver(toolArgs, resolverMetadata)) {
+        if (await globalResolver.resolver(toolArgs, toolResolverMetadata)) {
           globalBlocked = true;
           globalPolicy = globalResolver.policy ?? 'always';
           break;
@@ -191,7 +196,7 @@ export class GeneralChatAgent implements Agent {
       // Phase 3: Per-tool dynamic resolver
       const config = this.getToolInterventionConfig(toolCalling, state);
       const isDynamicConfig = this.isDynamicInterventionConfig(config);
-      const dynamicPolicy = await this.resolveDynamicPolicy(config, toolArgs, state.metadata);
+      const dynamicPolicy = await this.resolveDynamicPolicy(config, toolArgs, toolResolverMetadata);
       const staticConfig = isDynamicConfig
         ? undefined
         : (config as HumanInterventionConfig | undefined);

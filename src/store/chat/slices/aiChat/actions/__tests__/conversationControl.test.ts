@@ -1,5 +1,6 @@
 import type * as LobechatConstModule from '@lobechat/const';
 import { type ConversationContext, RequestTrigger } from '@lobechat/types';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -65,6 +66,86 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
+
+const setupPausedAuthorityResume = (kind: 'scratch' | 'device', mode: 'approve' | 'reject') => {
+  mockConstEnv.isDesktop = true;
+  const { result } = renderHook(() => useChatStore());
+  const prefix = `${mode}-${kind}`;
+  const agentId = `${prefix}-agent`;
+  const topicId = `${prefix}-topic`;
+  const key = messageMapKey({ agentId, topicId });
+  const assistantMessage = createMockMessage({ id: `${prefix}-assistant`, role: 'assistant' });
+  const toolMessage = createMockMessage({
+    id: `${prefix}-tool`,
+    parentId: assistantMessage.id,
+    plugin: {
+      apiName: 'readFile',
+      arguments: '{}',
+      identifier: 'local-system',
+      type: 'default',
+    },
+    role: 'tool',
+    tool_call_id: `${prefix}-call`,
+  });
+  const pausedExecutionContext: ExecutionContext = {
+    accessRoots:
+      mode === 'approve'
+        ? [
+            {
+              modes: ['read'],
+              rootPath: `/paused/${prefix}/grant`,
+              scope: 'topic',
+              source: 'user-approval',
+            },
+          ]
+        : [],
+    cwd: `/paused/${prefix}`,
+    plan: { deviceId: 'paused-device', kind: 'device', target: 'local' },
+    version: 1,
+    workspace: { id: `paused-${prefix}`, kind, rootPath: `/paused/${prefix}` },
+  };
+  act(() => {
+    useChatStore.setState({
+      activeAgentId: agentId,
+      activeTopicId: topicId,
+      dbMessagesMap: { [key]: [assistantMessage, toolMessage] },
+      messagesMap: { [key]: [assistantMessage, toolMessage] },
+      pausedExecutionContextByMessage: { [toolMessage.id]: pausedExecutionContext },
+    });
+    useProjectWorkspaceStore.setState({
+      topicStatesById: {
+        [topicId]: {
+          snapshot: {
+            boundDeviceId: 'replacement-device',
+            target: 'local',
+            targetCapturedAt: '2026-09-09T00:00:00.000Z',
+            version: 1,
+            workspaceId: 'replacement-workspace',
+            workspaceKind: 'device',
+          },
+          workspace: {
+            deviceId: 'replacement-device',
+            id: 'replacement-workspace',
+            kind: 'device',
+            rootPath: '/replacement/workspace',
+          },
+        },
+      },
+    });
+  });
+  vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
+  vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+  vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
+    state: {} as any,
+    context: { phase: 'init' } as any,
+    agentConfig: createMockResolvedAgentConfig(),
+  });
+  const executeClientAgent = vi
+    .spyOn(result.current, 'executeClientAgent')
+    .mockResolvedValue(undefined);
+
+  return { executeClientAgent, pausedExecutionContext, result, toolMessage };
+};
 
 describe('ConversationControl actions', () => {
   describe('stopGenerateMessage', () => {
@@ -469,6 +550,75 @@ describe('ConversationControl actions', () => {
   });
 
   describe('approveToolCalling', () => {
+    it.each(['scratch', 'device'] as const)(
+      'resumes approved %s tools with the paused authority after workspace state changes',
+      async (kind) => {
+        const { executeClientAgent, pausedExecutionContext, result, toolMessage } =
+          setupPausedAuthorityResume(kind, 'approve');
+
+        await act(async () => {
+          await result.current.approveToolCalling(toolMessage.id, 'group-1');
+        });
+
+        expect(executeClientAgent).toHaveBeenCalledWith(
+          expect.objectContaining({ executionContext: pausedExecutionContext }),
+        );
+        expect(result.current.pausedExecutionContextByMessage[toolMessage.id]).toBeUndefined();
+      },
+    );
+
+    it('continues an approved assistant turn with the model persisted on that turn', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const agentId = 'model-resume-agent';
+      const topicId = 'model-resume-topic';
+      const key = messageMapKey({ agentId, topicId });
+      const assistantMessage = createMockMessage({
+        id: 'assistant-original-model',
+        model: 'glm-original',
+        provider: 'newapi',
+        role: 'assistant',
+      });
+      const toolMessage = createMockMessage({
+        id: 'tool-model-resume',
+        parentId: assistantMessage.id,
+        plugin: {
+          apiName: 'readFile',
+          arguments: '{}',
+          identifier: 'local-system',
+          type: 'default',
+        },
+        role: 'tool',
+        tool_call_id: 'call-model-resume',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeTopicId: topicId,
+          dbMessagesMap: { [key]: [assistantMessage, toolMessage] },
+          messagesMap: { [key]: [assistantMessage, toolMessage] },
+        });
+      });
+      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
+        state: {} as any,
+        context: { phase: 'init' } as any,
+        agentConfig: createMockResolvedAgentConfig(),
+      });
+      const executeClientAgent = vi
+        .spyOn(result.current, 'executeClientAgent')
+        .mockResolvedValue(undefined);
+
+      await act(async () => {
+        await result.current.approveToolCalling(toolMessage.id, 'group-1');
+      });
+
+      expect(executeClientAgent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workingModel: { model: 'glm-original', provider: 'newapi' },
+        }),
+      );
+    });
+
     it('should use provided context instead of global state', async () => {
       const { result } = renderHook(() => useChatStore());
 
@@ -1313,6 +1463,59 @@ describe('ConversationControl actions', () => {
   });
 
   describe('submitToolInteraction', () => {
+    it('continues a submitted interaction with the model persisted on its assistant turn', async () => {
+      mockConstEnv.isDesktop = true;
+      const { result } = renderHook(() => useChatStore());
+      const agentId = 'submit-model-agent';
+      const topicId = 'submit-model-topic';
+      const chatKey = messageMapKey({ agentId, topicId });
+      const assistantMessage = createMockMessage({
+        id: 'assistant-submit-model',
+        model: 'glm-original',
+        provider: 'newapi',
+        role: 'assistant',
+      });
+      const toolMessage = createMockMessage({
+        id: 'tool-submit-model',
+        parentId: assistantMessage.id,
+        role: 'tool',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeTopicId: topicId,
+          dbMessagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+          messagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+        });
+      });
+      vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
+      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
+        agentConfig: createMockResolvedAgentConfig(),
+        context: { phase: 'init' } as any,
+        state: {} as any,
+      });
+      const executeClientAgent = vi
+        .spyOn(result.current, 'executeClientAgent')
+        .mockResolvedValue(undefined);
+
+      await act(async () => {
+        await result.current.submitToolInteraction(
+          toolMessage.id,
+          { answer: 'continue' },
+          undefined,
+          { createUserMessage: false },
+        );
+      });
+
+      expect(executeClientAgent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workingModel: { model: 'glm-original', provider: 'newapi' },
+        }),
+      );
+    });
+
     it('routes a desktop tool-result-only submit through the client resume contract', async () => {
       mockConstEnv.isDesktop = true;
       const { result } = renderHook(() => useChatStore());
@@ -1729,6 +1932,58 @@ describe('ConversationControl actions', () => {
   });
 
   describe('skipToolInteraction', () => {
+    it('continues a skipped interaction with the model persisted on its assistant turn', async () => {
+      mockConstEnv.isDesktop = true;
+      const { result } = renderHook(() => useChatStore());
+      const agentId = 'skip-model-agent';
+      const topicId = 'skip-model-topic';
+      const chatKey = messageMapKey({ agentId, topicId });
+      const assistantMessage = createMockMessage({
+        id: 'assistant-skip-model',
+        model: 'glm-original',
+        provider: 'newapi',
+        role: 'assistant',
+      });
+      const toolMessage = createMockMessage({
+        id: 'tool-skip-model',
+        parentId: assistantMessage.id,
+        role: 'tool',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeTopicId: topicId,
+          dbMessagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+          messagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+        });
+      });
+      vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
+      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'optimisticCreateMessage').mockResolvedValue({
+        id: 'skip-user-message',
+        messages: [],
+      });
+      vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
+        agentConfig: createMockResolvedAgentConfig(),
+        context: { phase: 'init' } as any,
+        state: {} as any,
+      });
+      const executeClientAgent = vi
+        .spyOn(result.current, 'executeClientAgent')
+        .mockResolvedValue(undefined);
+
+      await act(async () => {
+        await result.current.skipToolInteraction(toolMessage.id, 'not needed');
+      });
+
+      expect(executeClientAgent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workingModel: { model: 'glm-original', provider: 'newapi' },
+        }),
+      );
+    });
+
     it('routes a desktop skip through the client runtime', async () => {
       mockConstEnv.isDesktop = true;
       const { result } = renderHook(() => useChatStore());
@@ -2019,6 +2274,78 @@ describe('ConversationControl actions', () => {
   });
 
   describe('rejectAndContinueToolCalling', () => {
+    it.each(['scratch', 'device'] as const)(
+      'resumes rejected %s tools with the paused authority after workspace state changes',
+      async (kind) => {
+        const { executeClientAgent, pausedExecutionContext, result, toolMessage } =
+          setupPausedAuthorityResume(kind, 'reject');
+        vi.spyOn(result.current, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+
+        await act(async () => {
+          await result.current.rejectAndContinueToolCalling(toolMessage.id, 'not now');
+        });
+
+        expect(executeClientAgent).toHaveBeenCalledWith(
+          expect.objectContaining({ executionContext: pausedExecutionContext }),
+        );
+        expect(result.current.pausedExecutionContextByMessage[toolMessage.id]).toBeUndefined();
+      },
+    );
+
+    it('continues a rejected assistant turn with the model persisted on that turn', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const agentId = 'reject-model-agent';
+      const topicId = 'reject-model-topic';
+      const key = messageMapKey({ agentId, topicId });
+      const assistantMessage = createMockMessage({
+        id: 'assistant-reject-model',
+        model: 'glm-original',
+        provider: 'newapi',
+        role: 'assistant',
+      });
+      const toolMessage = createMockMessage({
+        id: 'tool-reject-model',
+        parentId: assistantMessage.id,
+        plugin: {
+          apiName: 'runCommand',
+          arguments: '{}',
+          identifier: 'local-system',
+          type: 'default',
+        },
+        role: 'tool',
+        tool_call_id: 'call-reject-model',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeTopicId: topicId,
+          dbMessagesMap: { [key]: [assistantMessage, toolMessage] },
+          messagesMap: { [key]: [assistantMessage, toolMessage] },
+        });
+      });
+      vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
+      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
+        state: {} as any,
+        context: { phase: 'init' } as any,
+        agentConfig: createMockResolvedAgentConfig(),
+      });
+      const executeClientAgent = vi
+        .spyOn(result.current, 'executeClientAgent')
+        .mockResolvedValue(undefined);
+
+      await act(async () => {
+        await result.current.rejectAndContinueToolCalling(toolMessage.id, 'not now');
+      });
+
+      expect(executeClientAgent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workingModel: { model: 'glm-original', provider: 'newapi' },
+        }),
+      );
+    });
+
     it('should use provided context instead of global state', async () => {
       const { result } = renderHook(() => useChatStore());
 

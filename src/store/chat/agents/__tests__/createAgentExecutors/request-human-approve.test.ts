@@ -10,6 +10,34 @@ import { createInitialState, createTestContext, executeWithMockContext } from '.
 
 describe('request_human_approve executor', () => {
   describe('Basic Behavior', () => {
+    it('captures the runtime authority for every pending tool message', async () => {
+      const executionContext = {
+        accessRoots: [],
+        cwd: '/paused/scratch',
+        plan: { deviceId: 'device-1', kind: 'device', target: 'local' },
+        version: 1,
+        workspace: { id: 'scratch-1', kind: 'scratch', rootPath: '/paused/scratch' },
+      } as const;
+      const mockStore = createMockStore({
+        optimisticCreateMessage: vi.fn().mockResolvedValue({ id: 'pending-tool-message' }),
+      });
+      const assistantMessage = createAssistantMessage({ id: 'msg_assistant' });
+      mockStore.dbMessagesMap['test-session_test-topic'] = [assistantMessage];
+
+      await executeWithMockContext({
+        executor: 'request_human_approve',
+        instruction: createRequestHumanApproveInstruction(),
+        state: createInitialState({ metadata: { executionContext } }),
+        mockStore,
+        context: createTestContext(),
+      });
+
+      expect(mockStore.preservePausedExecutionContext).toHaveBeenCalledWith(
+        'pending-tool-message',
+        executionContext,
+      );
+    });
+
     it('should create tool messages with pending intervention status', async () => {
       // Given
       const mockStore = createMockStore();

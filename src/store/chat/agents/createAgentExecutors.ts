@@ -1036,6 +1036,7 @@ export const createAgentExecutors = (context: {
           state.userInterventionConfig?.approvalMode !== 'headless'
         ) {
           const updateContext = { operationId: context.operationId };
+          context.get().preservePausedExecutionContext(toolMessageId, executionContext);
           await context.get().optimisticUpdateToolMessage(
             toolMessageId,
             {
@@ -1265,6 +1266,9 @@ export const createAgentExecutors = (context: {
       // Get assistant message to extract groupId and parentId
       const latestMessages = context.get().dbMessagesMap[context.messageKey] || [];
       const assistantMessage = latestMessages.findLast((m) => m.role === 'assistant');
+      const executionContext =
+        context.get().operations[context.operationId]?.metadata.executionContext ??
+        state.metadata?.executionContext;
 
       if (!assistantMessage) {
         log('[%s][request_human_approve] ERROR: No assistant message found', sessionLogId);
@@ -1280,6 +1284,16 @@ export const createAgentExecutors = (context: {
       if (skipCreateToolMessage) {
         // Resumption mode: Tool messages already exist, just verify them
         log('[%s][request_human_approve] Resuming with existing tool messages', sessionLogId);
+        if (executionContext) {
+          for (const toolPayload of pendingToolsCalling) {
+            const toolMessage = latestMessages.find(
+              (message) => message.role === 'tool' && message.tool_call_id === toolPayload.id,
+            );
+            if (toolMessage) {
+              context.get().preservePausedExecutionContext(toolMessage.id, executionContext);
+            }
+          }
+        }
       } else {
         // Get context from operation
         const opContext = getOperationContext();
@@ -1322,6 +1336,10 @@ export const createAgentExecutors = (context: {
               toolName,
             );
             throw new Error(`Failed to create tool message for ${toolName}`);
+          }
+
+          if (executionContext) {
+            context.get().preservePausedExecutionContext(createResult.id, executionContext);
           }
 
           log(

@@ -2173,6 +2173,10 @@ describe('GeneralChatAgent', () => {
         agentConfig: { maxSteps: 100 },
         dynamicInterventionAudits: {
           pathScopeAudit: async (toolArgs, metadata) => {
+            expect(metadata).toMatchObject({
+              toolApiName: 'readLocalFile',
+              toolIdentifier: 'local-system',
+            });
             const workingDirectory = metadata?.workingDirectory as string | undefined;
             if (!workingDirectory) return false;
             const path = toolArgs.path as string;

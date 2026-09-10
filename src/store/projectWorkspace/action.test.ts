@@ -403,6 +403,121 @@ describe('projectWorkspace store actions', () => {
     });
   });
 
+  describe('ensureTopicGrantsLoaded', () => {
+    it('deduplicates concurrent hydration and publishes the server grants before resolving', async () => {
+      let resolveList!: (value: Awaited<ReturnType<ProjectWorkspaceClient['listGrants']>>) => void;
+      const pendingList = new Promise<Awaited<ReturnType<ProjectWorkspaceClient['listGrants']>>>(
+        (resolve) => {
+          resolveList = resolve;
+        },
+      );
+      const grant = {
+        createdAt: 'now',
+        deviceId: 'device-1',
+        id: 'wag_existing',
+        modes: ['read' as const],
+        requestedVia: {},
+        rootPath: '/private/tmp/existing.txt',
+        scope: 'topic' as const,
+        topicId: 'topic-1',
+        userId: 'user-1',
+      };
+      client.listGrants.mockReturnValue(pendingList);
+
+      const first = store.getState().ensureTopicGrantsLoaded('topic-1', 'device-1');
+      const second = store.getState().ensureTopicGrantsLoaded('topic-1', 'device-1');
+
+      expect(client.listGrants).toHaveBeenCalledTimes(1);
+      expect(store.getState().grantsByTopicDevice['topic-1::device-1']).toBeUndefined();
+
+      resolveList([grant]);
+
+      await expect(first).resolves.toEqual([grant]);
+      await expect(second).resolves.toEqual([grant]);
+      expect(store.getState().grantsByTopicDevice['topic-1::device-1']).toEqual([grant]);
+
+      await expect(
+        store.getState().ensureTopicGrantsLoaded('topic-1', 'device-1'),
+      ).resolves.toEqual([grant]);
+      expect(client.listGrants).toHaveBeenCalledTimes(1);
+    });
+
+    it('revalidates cached grants while runtime callers join the same request', async () => {
+      const staleGrant = {
+        createdAt: 'earlier',
+        deviceId: 'device-1',
+        id: 'wag_stale',
+        modes: ['read' as const],
+        requestedVia: {},
+        rootPath: '/private/tmp/stale.txt',
+        scope: 'topic' as const,
+        topicId: 'topic-1',
+        userId: 'user-1',
+      };
+      const currentGrant = {
+        ...staleGrant,
+        id: 'wag_current',
+        rootPath: '/private/tmp/current.txt',
+      };
+      store.getState().setTopicGrants('topic-1', 'device-1', [staleGrant]);
+
+      let resolveList!: (value: (typeof currentGrant)[]) => void;
+      client.listGrants.mockReturnValue(
+        new Promise<(typeof currentGrant)[]>((resolve) => {
+          resolveList = resolve;
+        }),
+      );
+
+      const revalidation = store
+        .getState()
+        .ensureTopicGrantsLoaded('topic-1', 'device-1', { revalidate: true });
+      const runtimeRead = store.getState().ensureTopicGrantsLoaded('topic-1', 'device-1');
+
+      expect(client.listGrants).toHaveBeenCalledTimes(1);
+      resolveList([currentGrant]);
+      await expect(revalidation).resolves.toEqual([currentGrant]);
+      await expect(runtimeRead).resolves.toEqual([currentGrant]);
+      expect(store.getState().grantsByTopicDevice['topic-1::device-1']).toEqual([currentGrant]);
+    });
+
+    it('does not let an older revalidation overwrite a grant acknowledged while it was loading', async () => {
+      const acknowledgedGrant = {
+        createdAt: 'now',
+        deviceId: 'device-1',
+        id: 'wag_acknowledged',
+        modes: ['read' as const],
+        requestedVia: {},
+        rootPath: '/private/tmp/acknowledged.txt',
+        scope: 'topic' as const,
+        topicId: 'topic-1',
+        userId: 'user-1',
+      };
+      let resolveList!: (value: never[]) => void;
+      client.listGrants.mockReturnValue(
+        new Promise<never[]>((resolve) => {
+          resolveList = resolve;
+        }),
+      );
+      client.grant.mockResolvedValue(acknowledgedGrant);
+
+      const revalidation = store
+        .getState()
+        .ensureTopicGrantsLoaded('topic-1', 'device-1', { revalidate: true });
+      await store.getState().grantTopicAccess({
+        deviceId: 'device-1',
+        modes: ['read'],
+        rootPath: acknowledgedGrant.rootPath,
+        topicId: 'topic-1',
+      });
+      resolveList([]);
+
+      await expect(revalidation).resolves.toEqual([acknowledgedGrant]);
+      expect(store.getState().grantsByTopicDevice['topic-1::device-1']).toEqual([
+        acknowledgedGrant,
+      ]);
+    });
+  });
+
   it('focusWorkspacePicker bumps the nonce', () => {
     store.getState().focusWorkspacePicker();
     store.getState().focusWorkspacePicker();

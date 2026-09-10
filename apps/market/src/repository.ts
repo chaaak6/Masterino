@@ -10,7 +10,10 @@ export interface Account {
 }
 
 export interface ListOptions {
+  /** Restrict discovery to published originals, excluding personal forks and drafts. */
+  publishedOriginalsOnly?: boolean;
   category?: string;
+  identifiers?: readonly string[];
   locale?: string;
   page?: number;
   pageSize?: number;
@@ -90,6 +93,13 @@ export class MarketRepository {
       `r.type=$1`,
       `(r.status='published' OR r.owner_account_id=$2 OR ($3::text IS NOT NULL AND r.workspace_id=$3))`,
     ];
+    if (options.publishedOriginalsOnly) {
+      filters.push(`r.status='published'`, 'r.forked_from_id IS NULL');
+    }
+    if (options.identifiers) {
+      values.push(options.identifiers);
+      filters.push(`r.identifier=ANY($${values.length}::text[])`);
+    }
     if (options.category && options.category !== 'all') {
       values.push(options.category);
       filters.push(`r.category=$${values.length}`);

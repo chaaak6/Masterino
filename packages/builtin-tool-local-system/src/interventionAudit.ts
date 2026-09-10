@@ -7,11 +7,15 @@ const CREDENTIAL_PATH_PATTERN =
   /(?:^|\/)(?:\.env(?:\.[^/]+)?|\.npmrc|\.pypirc|\.aws\/credentials)$/i;
 
 interface SafePathAuditParams {
+  metadata?: Record<string, any>;
   paths: string[];
   resolveAgainstScope: string;
 }
 
 interface PathScopeAuditOptions {
+  /** Trusted authority resolver; evaluated for every non-credential path. */
+  areAllPathsAuthorized?: (params: SafePathAuditParams) => boolean | Promise<boolean>;
+  /** Optional convenience resolver for the built-in /tmp and /var/tmp candidates. */
   areAllPathsSafe?: (params: SafePathAuditParams) => boolean | Promise<boolean>;
 }
 
@@ -80,7 +84,7 @@ const areAllPathsSafeCandidates = (paths: string[], resolveAgainstScope: string)
 export const createPathScopeAudit = (
   options: PathScopeAuditOptions = {},
 ): DynamicInterventionResolver => {
-  const { areAllPathsSafe } = options;
+  const { areAllPathsAuthorized, areAllPathsSafe } = options;
 
   return async (
     toolArgs: Record<string, any>,
@@ -108,6 +112,13 @@ export const createPathScopeAudit = (
     });
     if (containsCredentialRead) return true;
 
+    if (
+      areAllPathsAuthorized &&
+      (await areAllPathsAuthorized({ metadata, paths, resolveAgainstScope: effectiveScope }))
+    ) {
+      return false;
+    }
+
     const isLegacyMetadata =
       metadata?.pathAccessMode === undefined && metadata?.pathSource === undefined;
     const isStructuredDirectReadConsent =
@@ -119,7 +130,11 @@ export const createPathScopeAudit = (
       (isLegacyMetadata || isStructuredDirectReadConsent) &&
       areAllPathsSafeCandidates(paths, effectiveScope)
     ) {
-      const allSafe = await areAllPathsSafe({ paths, resolveAgainstScope: effectiveScope });
+      const allSafe = await areAllPathsSafe({
+        metadata,
+        paths,
+        resolveAgainstScope: effectiveScope,
+      });
       if (allSafe) return false;
     }
 

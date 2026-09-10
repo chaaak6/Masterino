@@ -97,6 +97,16 @@ export const createMockStore = (overrides: Partial<ChatStore> = {}): ChatStore =
 
     onOperationCancel: vi.fn(),
 
+    pausedExecutionContextByMessage: {},
+
+    preservePausedExecutionContext: vi.fn().mockImplementation((messageId, executionContext) => {
+      store.pausedExecutionContextByMessage[messageId] = executionContext;
+    }),
+
+    clearPausedExecutionContext: vi.fn().mockImplementation((messageId) => {
+      delete store.pausedExecutionContextByMessage[messageId];
+    }),
+
     // Operation state
     operations,
 

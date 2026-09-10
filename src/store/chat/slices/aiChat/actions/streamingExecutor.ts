@@ -35,7 +35,11 @@ import type { ModelCatalogSnapshot } from '@lobechat/types/src/modelCatalog';
 import type { SkillProviderContext, WorkspaceRef } from '@lobechat/types/src/projectWorkspace';
 import debug from 'debug';
 
-import { resolveFrozenClientExecutionContext } from '@/helpers/executionContext';
+import {
+  mergeCurrentTopicGrantsIntoExecutionContext,
+  resolveFrozenClientExecutionContext,
+} from '@/helpers/executionContext';
+import { arePathsCoveredByExecutionContext } from '@/helpers/executionContext/authorizedPathAudit';
 import { buildDirectUserMessageAccessRoots } from '@/helpers/executionContext/directUserPathConsent';
 import {
   getRuntimePathConsentRequest,
@@ -78,6 +82,13 @@ const log = debug('lobe-store:streaming-executor');
 
 const dynamicInterventionAudits = {
   pathScopeAudit: createPathScopeAudit({
+    areAllPathsAuthorized: ({ metadata, paths, resolveAgainstScope }) =>
+      arePathsCoveredByExecutionContext({
+        apiName: metadata?.toolApiName,
+        context: metadata?.executionContext,
+        paths,
+        resolveAgainstScope,
+      }),
     areAllPathsSafe: async ({ paths, resolveAgainstScope }) => {
       if (!isDesktop) return false;
 
@@ -632,7 +643,7 @@ export class StreamingExecutorActionImpl {
           executionContext: frozenExecutionContext,
           // Mark if this operation is in thread context
           // Thread operations should not affect main window UI state
-          inThread: params.inPortalThread || false,
+          inThread: params.inPortalThread ?? Boolean(threadId),
         },
       });
       operationId = newOperationId;
@@ -640,6 +651,48 @@ export class StreamingExecutorActionImpl {
       this.#get().updateOperationMetadata(operationId, {
         executionContext: frozenExecutionContext,
       });
+    }
+
+    // A renderer refresh starts with an empty in-memory grant map while the
+    // persisted Topic grants are being rehydrated. A pause snapshot is only
+    // renderer memory, so fall back to the Topic's persisted execution binding
+    // when a user resumes immediately after a reload.
+    const projectWorkspace = getProjectWorkspaceStoreState();
+    const hydrationTopicState = topicId ? projectWorkspace.topicStatesById[topicId] : undefined;
+    const hydrationTopic = topicId ? topicSelectors.getTopicById(topicId)(this.#get()) : undefined;
+    const hydrationSnapshot =
+      hydrationTopicState?.snapshot ?? hydrationTopic?.metadata?.executionSnapshot;
+    const grantHydrationDeviceId =
+      frozenExecutionContext?.plan.kind === 'device'
+        ? frozenExecutionContext.plan.deviceId
+        : (hydrationSnapshot?.boundDeviceId ??
+          hydrationTopicState?.workspace?.deviceId ??
+          hydrationTopic?.metadata?.boundDeviceId);
+
+    // Wait at the common runtime boundary so every entry point (send, retry,
+    // continue, resume, subtask) sees the same authority before AgentState and
+    // tool manifests are frozen. Existing cache entries return synchronously;
+    // an in-flight page hydration is joined rather than duplicated.
+    if (topicId && grantHydrationDeviceId) {
+      try {
+        await projectWorkspace.ensureTopicGrantsLoaded(topicId, grantHydrationDeviceId);
+      } catch (error) {
+        // Unknown grant state must fail closed. Continuing without roots keeps
+        // the normal intervention/boundary checks active instead of granting
+        // access from stale or unverifiable authority.
+        log('[executeClientAgent] topic grant hydration failed: %O', error);
+      }
+      if (frozenExecutionContext) {
+        frozenExecutionContext = mergeCurrentTopicGrantsIntoExecutionContext({
+          context: frozenExecutionContext,
+          operationId,
+          topicGrants: Object.values(getProjectWorkspaceStoreState().grantsByTopicDevice).flat(),
+          topicId,
+        });
+        this.#get().updateOperationMetadata(operationId, {
+          executionContext: frozenExecutionContext,
+        });
+      }
     }
 
     const runScope: RunScope = scope === 'sub_agent' ? 'sub_agent' : 'top_level';
@@ -759,10 +812,19 @@ export class StreamingExecutorActionImpl {
           topicId: topicId ?? undefined,
           workspaces,
         });
-        this.#get().updateOperationMetadata(operationId, {
-          executionContext: frozenExecutionContext,
-        });
       }
+      frozenExecutionContext = mergeCurrentTopicGrantsIntoExecutionContext({
+        context: frozenExecutionContext,
+        operationId,
+        topicGrants: Object.values(projectWorkspaceState.grantsByTopicDevice).flat(),
+        topicId: topicId ?? undefined,
+      });
+      // Agent state reconstruction may already have resolved the workspace authority.
+      // Always publish that frozen value to the new runtime operation because builtin
+      // tool dispatch reads operation metadata, not AgentState metadata.
+      this.#get().updateOperationMetadata(operationId, {
+        executionContext: frozenExecutionContext,
+      });
 
       // A path approval resumes under a new operation. Rebind only the exact
       // device-authored request selected by the user, never a model-provided path.

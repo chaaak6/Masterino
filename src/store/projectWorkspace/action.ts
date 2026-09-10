@@ -67,6 +67,8 @@ export class ProjectWorkspaceActionImpl {
   readonly #get: () => ProjectWorkspaceStore;
   readonly #service: ProjectWorkspaceService;
   readonly #set: Setter;
+  readonly #topicGrantLoads = new Map<string, Promise<WorkspaceAccessGrant[]>>();
+  readonly #topicGrantMutationVersions = new Map<string, number>();
 
   constructor(
     set: Setter,
@@ -341,6 +343,47 @@ export class ProjectWorkspaceActionImpl {
     );
   };
 
+  /**
+   * Load persisted topic authority once per topic/device and publish it before
+   * allowing runtime callers to continue. The explicit store-key presence check
+   * distinguishes an authoritative empty response from an unhydrated renderer.
+   */
+  ensureTopicGrantsLoaded = async (
+    topicId: string,
+    deviceId: string,
+    options: { revalidate?: boolean } = {},
+  ): Promise<WorkspaceAccessGrant[]> => {
+    const key = buildTopicDeviceKey(topicId, deviceId);
+    const existing = this.#topicGrantLoads.get(key);
+    if (existing) return existing;
+
+    const current = this.#get().grantsByTopicDevice;
+    if (!options.revalidate && Object.prototype.hasOwnProperty.call(current, key)) {
+      return current[key];
+    }
+    if (!this.#get().seamAvailable) return current[key] ?? [];
+
+    const mutationVersion = this.#topicGrantMutationVersions.get(key) ?? 0;
+    const request = (async () => {
+      try {
+        const grants = await this.#service.listGrants({ deviceId, topicId });
+        if ((this.#topicGrantMutationVersions.get(key) ?? 0) !== mutationVersion) {
+          return this.#get().grantsByTopicDevice[key] ?? [];
+        }
+        this.setTopicGrants(topicId, deviceId, grants);
+        return grants;
+      } catch (error) {
+        if (!isProjectWorkspaceSeamUnavailableError(error)) throw error;
+        this.#set({ seamAvailable: false }, false, 'disableUnavailableSeam');
+        return this.#get().grantsByTopicDevice[key] ?? [];
+      } finally {
+        this.#topicGrantLoads.delete(key);
+      }
+    })();
+    this.#topicGrantLoads.set(key, request);
+    return request;
+  };
+
   useFetchTopicGrants = (
     topicId?: string | null,
     deviceId?: string | null,
@@ -349,15 +392,7 @@ export class ProjectWorkspaceActionImpl {
       topicId && deviceId && this.#get().seamAvailable
         ? projectWorkspaceSwrKeys.grants(topicId, deviceId)
         : null,
-      async () => {
-        try {
-          return await this.#service.listGrants({ deviceId: deviceId!, topicId: topicId! });
-        } catch (error) {
-          if (!isProjectWorkspaceSeamUnavailableError(error)) throw error;
-          this.#set({ seamAvailable: false }, false, 'disableUnavailableSeam');
-          return [];
-        }
-      },
+      () => this.ensureTopicGrantsLoaded(topicId!, deviceId!, { revalidate: true }),
       {
         fallbackData: [],
         onSuccess: (grants) => this.setTopicGrants(topicId!, deviceId!, grants),
@@ -375,6 +410,10 @@ export class ProjectWorkspaceActionImpl {
     try {
       const grant = await this.#service.grant(input);
       const key = buildTopicDeviceKey(input.topicId, input.deviceId);
+      this.#topicGrantMutationVersions.set(
+        key,
+        (this.#topicGrantMutationVersions.get(key) ?? 0) + 1,
+      );
       const existing = (this.#get().grantsByTopicDevice[key] ?? []).filter(
         (item) => item.id !== grant.id,
       );
@@ -393,6 +432,10 @@ export class ProjectWorkspaceActionImpl {
     try {
       const grant = await this.#service.revoke(input);
       const key = buildTopicDeviceKey(input.topicId, input.deviceId);
+      this.#topicGrantMutationVersions.set(
+        key,
+        (this.#topicGrantMutationVersions.get(key) ?? 0) + 1,
+      );
       this.setTopicGrants(
         input.topicId,
         input.deviceId,

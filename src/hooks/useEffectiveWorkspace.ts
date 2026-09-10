@@ -118,6 +118,18 @@ export const useEffectiveWorkspace = (
   const topic = useChatStore((s) =>
     resolvedTopicId ? topicSelectors.getTopicById(resolvedTopicId)(s) : undefined,
   );
+  const topicState = useProjectWorkspaceStore(
+    projectWorkspaceSelectors.getTopicState(resolvedTopicId),
+  );
+  const persistedGrantDeviceId =
+    topicState?.snapshot?.boundDeviceId ??
+    topicState?.workspace?.deviceId ??
+    (topic ? readTopicExecutionSnapshot(topic, topicState)?.boundDeviceId : undefined) ??
+    (isDesktop ? currentDeviceId : undefined);
+  const grantsRequest = useProjectWorkspaceStore((s) => s.useFetchTopicGrants)(
+    resolvedTopicId,
+    persistedGrantDeviceId,
+  );
   const agencyConfig = useAgentStore((s) =>
     agentId ? agentByIdSelectors.getAgencyConfigById(agentId)(s) : undefined,
   ) as ExecutionAgencyConfig | undefined;
@@ -139,25 +151,30 @@ export const useEffectiveWorkspace = (
     () => (rawDraft ? normalizeNewTopicIntent(rawDraft, isDesktop) : undefined),
     [rawDraft],
   );
-  const topicState = useProjectWorkspaceStore(
-    projectWorkspaceSelectors.getTopicState(resolvedTopicId),
-  );
   const workspacesById = useProjectWorkspaceStore((s) => s.workspacesById);
   const grantsByTopicDevice = useProjectWorkspaceStore((s) => s.grantsByTopicDevice);
   const seamAvailable = useProjectWorkspaceStore((s) => s.seamAvailable);
   const reload = useCallback(async () => {
-    const requests = [devicesRequest, gatewayRequest, workspacesRequest, topicRequest];
+    const requests = [
+      devicesRequest,
+      gatewayRequest,
+      grantsRequest,
+      workspacesRequest,
+      topicRequest,
+    ];
     await Promise.allSettled(requests.map((request) => request?.mutate?.()));
-  }, [devicesRequest, gatewayRequest, topicRequest, workspacesRequest]);
+  }, [devicesRequest, gatewayRequest, grantsRequest, topicRequest, workspacesRequest]);
   const loading = Boolean(
     devicesRequest?.isLoading ||
     gatewayRequest?.isLoading ||
+    grantsRequest?.isLoading ||
     workspacesRequest?.isLoading ||
     topicRequest?.isLoading,
   );
   const loadError =
     devicesRequest?.error ??
     gatewayRequest?.error ??
+    grantsRequest?.error ??
     workspacesRequest?.error ??
     topicRequest?.error;
 

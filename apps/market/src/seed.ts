@@ -41,6 +41,7 @@ export const runCuratedSeed = async (
   );
   const created: Array<{ identifier: string; seedBatchId: string; type: string }> = [];
   const updated: Array<{
+    avatar: string | null;
     category: string | null;
     currentVersionId: number | null;
     description: string | null;
@@ -63,7 +64,7 @@ export const runCuratedSeed = async (
       const idempotencyKey = `${seedBatchId}:${entry.type}:${entry.resource.identifier}:${entry.resource.version}:${artifactHash}`;
       const existing = await pool.query(
         `SELECT r.id, r.status, r.metadata, r.owner_account_id, r.name, r.description,
-          r.category, r.tags, r.current_version_id, v.id AS version_id, v.version,
+          r.avatar, r.category, r.tags, r.current_version_id, v.id AS version_id, v.version,
           v.workflow_state, v.artifact_sha256
          FROM market_resources r LEFT JOIN market_versions v ON v.id=r.current_version_id
          WHERE r.type=$1 AND r.identifier=$2`,
@@ -71,12 +72,16 @@ export const runCuratedSeed = async (
       );
       const current = existing.rows[0];
       const previousHash = current?.artifact_sha256 || current?.metadata?.artifactSha256;
+      const presentationMatches =
+        current?.category === entry.resource.category &&
+        (entry.resource.avatar === undefined || current?.avatar === entry.resource.avatar);
 
       if (
         current?.status === 'published' &&
         current.version === entry.resource.version &&
         previousHash === artifactHash &&
-        current.workflow_state === 'published'
+        current.workflow_state === 'published' &&
+        presentationMatches
       ) {
         console.info(`seed skip ${entry.type}:${entry.resource.identifier}`);
         continue;
@@ -107,6 +112,7 @@ export const runCuratedSeed = async (
         created.push({ identifier: entry.resource.identifier, seedBatchId, type: entry.type });
       } else {
         updated.push({
+          avatar: current.avatar,
           category: current.category,
           currentVersionId: current.current_version_id ? Number(current.current_version_id) : null,
           description: current.description,
@@ -117,12 +123,14 @@ export const runCuratedSeed = async (
           type: entry.type,
         });
         await pool.query(
-          `UPDATE market_resources SET metadata=$1, name=$2, description=$3, category=$4, tags=$5,
-            updated_at=now() WHERE type=$6 AND identifier=$7`,
+          `UPDATE market_resources SET metadata=$1, name=$2, description=$3,
+            avatar=COALESCE($4, avatar), category=$5, tags=$6,
+            updated_at=now() WHERE type=$7 AND identifier=$8`,
           [
             JSON.stringify(metadata),
             entry.resource.name,
             entry.resource.description,
+            entry.resource.avatar,
             entry.resource.category,
             JSON.stringify(entry.resource.tags || []),
             entry.type,
@@ -208,12 +216,13 @@ export const runCuratedSeed = async (
   } catch (error) {
     for (const item of [...updated].reverse()) {
       await pool.query(
-        `UPDATE market_resources SET name=$1, description=$2, category=$3, tags=$4,
-          metadata=$5, current_version_id=$6, status='published', updated_at=now()
-         WHERE type=$7 AND identifier=$8`,
+        `UPDATE market_resources SET name=$1, description=$2, avatar=$3, category=$4, tags=$5,
+          metadata=$6, current_version_id=$7, status='published', updated_at=now()
+         WHERE type=$8 AND identifier=$9`,
         [
           item.name,
           item.description,
+          item.avatar,
           item.category,
           JSON.stringify(item.tags),
           JSON.stringify(item.metadata),
