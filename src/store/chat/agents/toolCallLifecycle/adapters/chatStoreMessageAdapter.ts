@@ -163,8 +163,9 @@ export const createChatStoreToolCallMessageAdapter = ({
         toolCall.identifier === 'lobe-local-system' &&
         result.success === false &&
         result.content === 'INTERVENTION_REQUIRED' &&
+        pendingPath &&
         shouldPauseForPathConsent(approvalMode, pendingPath.requestedPath) &&
-        pendingPath?.topicId === context.topicId
+        pendingPath.topicId === context.topicId
       ) {
         // The boundary refused before execution. Keep its request resumable;
         // committing a terminal result here would forbid the later approved read.
