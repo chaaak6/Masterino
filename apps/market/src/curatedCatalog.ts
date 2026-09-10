@@ -1,4 +1,5 @@
 import type { ResourceType } from './contracts.js';
+import { applyOnboardingSeedMetadata } from './onboardingCatalog.js';
 
 export const CURATED_SEED_BATCH = 'masterino-community-v1';
 export const CURATED_AGENT_SEED_BATCH = 'masterino-agent-catalog-v2-20260811';
@@ -68,7 +69,7 @@ const agent = (
   skills: string[] = [],
   category = 'office',
 ): CuratedResource => ({
-  resource: {
+  resource: applyOnboardingSeedMetadata({
     category,
     config: { skills, systemRole },
     description,
@@ -77,7 +78,7 @@ const agent = (
     name,
     tags: ['Masterino 官方', '企业效率'],
     version: '2.0.0',
-  },
+  }),
   seedBatchId: CURATED_AGENT_SEED_BATCH,
   type: 'agent',
 });
@@ -138,7 +139,7 @@ interface LobehubAgentInput {
 }
 
 const lobehubAgent = (input: LobehubAgentInput): CuratedResource => ({
-  resource: {
+  resource: applyOnboardingSeedMetadata({
     category: input.category,
     config: {
       skills: input.skills || [],
@@ -165,7 +166,7 @@ const lobehubAgent = (input: LobehubAgentInput): CuratedResource => ({
     name: input.name,
     tags: ['LobeHub 热榜', input.category, '内部重写'],
     version: '1.0.0',
-  },
+  }),
   seedBatchId: CURATED_AGENT_SEED_BATCH,
   type: 'agent',
 });

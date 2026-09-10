@@ -3,6 +3,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { type Context, Hono } from 'hono';
 import { Redis } from 'ioredis';
 
+import { getAgentAvatar } from './agentAvatars.js';
 import { type AuthEnv, requireRole, trustedClientAuth } from './auth.js';
 import type { MarketConfig } from './config.js';
 import { splitCsv } from './config.js';
@@ -21,6 +22,11 @@ import {
   verifyImportSignature,
 } from './crypto.js';
 import { MarketObjectStorage } from './objectStorage.js';
+import {
+  ONBOARDING_AGENT_CATALOG,
+  ONBOARDING_AGENT_IDENTIFIERS,
+  resolveMarketAvatar,
+} from './onboardingCatalog.js';
 import type { Account, MarketRepository } from './repository.js';
 import { runCuratedSeed } from './seed.js';
 import { CredentialVault } from './vault.js';
@@ -78,6 +84,14 @@ export const createMarketApp = (options: {
   const oauthRedirectOrigins = splitCsv(config.MARKET_OAUTH_REDIRECT_ORIGINS);
   const publicBaseUrl = config.MARKET_PUBLIC_BASE_URL.replace(/\/$/, '');
   const marketUiUrl = new URL('/community', publicBaseUrl).toString();
+  const withPublicAvatar = <T extends Record<string, any>>(item: T): T => ({
+    ...item,
+    avatar: resolveMarketAvatar(item.avatar, publicBaseUrl),
+  });
+  const withPublicListAvatars = <T extends { items: Record<string, any>[] }>(result: T) => ({
+    ...result,
+    items: result.items.map(withPublicAvatar),
+  });
   const app = new Hono<AppEnv>();
 
   app.onError((error, c) => {
@@ -91,6 +105,15 @@ export const createMarketApp = (options: {
   });
 
   app.get('/', (c) => c.redirect(marketUiUrl));
+  app.get('/assets/agent-avatars/v1/:name', (c) => {
+    const svg = getAgentAvatar(c.req.param('name'));
+    if (!svg) return c.notFound();
+    c.header('Content-Type', 'image/svg+xml');
+    c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    c.header('X-Content-Type-Options', 'nosniff');
+    c.header('Content-Security-Policy', "default-src 'none'; sandbox");
+    return c.body(svg);
+  });
   app.get('/health', (c) => c.json({ service: 'masterino-market', status: 'ok' }));
   app.post('/api/internal/curated-seed', async (c) => {
     const supplied = Buffer.from(c.req.header('x-market-internal-token') || '');
@@ -251,13 +274,18 @@ export const createMarketApp = (options: {
     );
     const items = result.rows.map((row) => ({
       ...row.metadata,
-      avatar: row.avatar,
+      avatar: resolveMarketAvatar(row.avatar, publicBaseUrl),
       category: row.category,
       config: row.config,
       description: row.description,
       identifier: row.identifier,
       manifest: row.manifest,
-      meta: { avatar: row.avatar, description: row.description, tags: row.tags, title: row.name },
+      meta: {
+        avatar: resolveMarketAvatar(row.avatar, publicBaseUrl),
+        description: row.description,
+        tags: row.tags,
+        title: row.name,
+      },
       name: row.name,
       tags: row.tags,
       version: row.version,
@@ -299,19 +327,23 @@ export const createMarketApp = (options: {
   ) => {
     app.get(`/api/v1/${prefix}`, async (c) =>
       c.json(
-        await repository.list(
-          type,
-          queryOptions(c),
-          ...(Object.values(actorScope(c)) as [Account, string | undefined]),
+        withPublicListAvatars(
+          await repository.list(
+            type,
+            queryOptions(c),
+            ...(Object.values(actorScope(c)) as [Account, string | undefined]),
+          ),
         ),
       ),
     );
     app.get(`/api/v1/${prefix}/own`, async (c) =>
       c.json(
-        await repository.list(
-          type,
-          queryOptions(c),
-          ...(Object.values(actorScope(c)) as [Account, string | undefined]),
+        withPublicListAvatars(
+          await repository.list(
+            type,
+            queryOptions(c),
+            ...(Object.values(actorScope(c)) as [Account, string | undefined]),
+          ),
         ),
       ),
     );
@@ -340,7 +372,7 @@ export const createMarketApp = (options: {
           ...(Object.values(actorScope(c)) as [Account, string | undefined]),
           c.req.query('version'),
         );
-        return value ? c.json(value) : c.json({ error: 'not_found' }, 404);
+        return value ? c.json(withPublicAvatar(value)) : c.json({ error: 'not_found' }, 404);
       });
     } else {
       app.get(`/api/v1/${prefix}/detail`, async (c) => {
@@ -350,7 +382,7 @@ export const createMarketApp = (options: {
           ...(Object.values(actorScope(c)) as [Account, string | undefined]),
           c.req.query('version'),
         );
-        return value ? c.json(value) : c.json({ error: 'not_found' }, 404);
+        return value ? c.json(withPublicAvatar(value)) : c.json({ error: 'not_found' }, 404);
       });
     }
   };
@@ -363,11 +395,22 @@ export const createMarketApp = (options: {
   app.get('/api/v1/agents/onboarding-full', async (c) => {
     const result = await repository.list(
       'agent',
-      { pageSize: 100, sort: 'installCount' },
+      {
+        identifiers: ONBOARDING_AGENT_IDENTIFIERS,
+        pageSize: ONBOARDING_AGENT_IDENTIFIERS.length,
+        publishedOriginalsOnly: true,
+      },
       ...(Object.values(actorScope(c)) as [Account, string | undefined]),
     );
+    const itemByIdentifier = new Map(result.items.map((item) => [item.identifier, item]));
     const grouped: Record<string, unknown[]> = {};
-    for (const item of result.items) (grouped[item.category || 'other'] ||= []).push(item);
+    for (const entry of ONBOARDING_AGENT_CATALOG) {
+      const item = itemByIdentifier.get(entry.identifier);
+      if (!item) continue;
+      (grouped[entry.category] ||= []).push(
+        withPublicAvatar({ ...item, avatar: entry.avatar, category: entry.category }),
+      );
+    }
     return c.json(grouped);
   });
   app.get('/api/v1/agents/by-plugin', async (c) => {

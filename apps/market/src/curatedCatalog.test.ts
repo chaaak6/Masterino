@@ -8,6 +8,7 @@ import {
   rejectedLobehubCandidates,
 } from './curatedCatalog.js';
 import { createStoredZip } from './zip.js';
+import { ONBOARDING_AGENT_CATALOG } from './onboardingCatalog.js';
 
 describe('curated community catalog', () => {
   it('contains fifty assistants and five candidates for each other community type', () => {
@@ -21,16 +22,30 @@ describe('curated community catalog', () => {
     expect(curatedResources.some((item) => ['model', 'provider'].includes(item.type))).toBe(false);
   });
 
+  it('keeps the eight onboarding templates aligned with the product catalog', () => {
+    const resources = new Map(
+      curatedResources.map((entry) => [entry.resource.identifier, entry.resource]),
+    );
+    for (const entry of ONBOARDING_AGENT_CATALOG) {
+      expect(resources.get(entry.identifier)).toMatchObject({
+        avatar: entry.avatar,
+        category: entry.category,
+        version: entry.seedVersion,
+      });
+    }
+  });
+
   it('publishes five reviewed LobeHub directions in each public assistant category', () => {
     const lobehubAgents = curatedResources.filter(
       (item) => item.type === 'agent' && item.resource.metadata.sourceCatalog === 'lobehub.com',
     );
-    const categoryCounts = lobehubAgents.reduce<Record<string, number>>((result, item) => {
-      result[item.resource.category] = (result[item.resource.category] || 0) + 1;
+    const sourceCategoryCounts = lobehubAgents.reduce<Record<string, number>>((result, item) => {
+      const sourceCategory = item.resource.tags[1];
+      result[sourceCategory] = (result[sourceCategory] || 0) + 1;
       return result;
     }, {});
 
-    expect(categoryCounts).toEqual({
+    expect(sourceCategoryCounts).toEqual({
       academic: 5,
       career: 5,
       copywriting: 5,
