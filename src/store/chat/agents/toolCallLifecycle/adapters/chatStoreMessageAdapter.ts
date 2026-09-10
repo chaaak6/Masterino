@@ -5,6 +5,7 @@ import type {
   ExecutionApprovalMode,
 } from '@lobechat/types';
 
+import { shouldPauseForPathConsent } from '@/helpers/executionContext/credentialPath';
 import { getRuntimePathConsentRequest } from '@/helpers/executionContext/pathConsent';
 import { truncateToolResult } from '@/server/utils/truncateToolResult';
 import { messageService } from '@/services/message';
@@ -162,7 +163,7 @@ export const createChatStoreToolCallMessageAdapter = ({
         toolCall.identifier === 'lobe-local-system' &&
         result.success === false &&
         result.content === 'INTERVENTION_REQUIRED' &&
-        !['auto-run', 'headless'].includes(approvalMode ?? 'manual') &&
+        shouldPauseForPathConsent(approvalMode, pendingPath.requestedPath) &&
         pendingPath?.topicId === context.topicId
       ) {
         // The boundary refused before execution. Keep its request resumable;

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 
+import { isCredentialFilesystemPath } from '@/helpers/executionContext/credentialPath';
 import type { ApprovalMode } from '@/store/user/slices/settings/selectors';
 
 import type { StructuredPathConsentRequest } from './PathConsent';
@@ -40,6 +41,7 @@ export const useAutoResumePathConsent = ({
       !isUserStateInit ||
       approvalMode !== 'auto-run' ||
       !request ||
+      isCredentialFilesystemPath(request.requestedPath) ||
       messageId.startsWith('tmp_')
     )
       return;

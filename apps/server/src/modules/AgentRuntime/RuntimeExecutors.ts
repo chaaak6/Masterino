@@ -103,6 +103,7 @@ import { UserModel } from '@/database/models/user';
 import { type LobeChatDatabase } from '@/database/type';
 import { fileEnv } from '@/envs/file';
 import { isAbsoluteFilesystemPath } from '@/helpers/executionContext';
+import { shouldPauseForPathConsent } from '@/helpers/executionContext/credentialPath';
 import { type ExecutionPlan, isDeviceCapablePlan } from '@/helpers/executionTarget';
 import { serverMessagesEngine } from '@/server/modules/Mecha/ContextEngineering';
 import { type EvalContext } from '@/server/modules/Mecha/ContextEngineering/types';
@@ -1088,8 +1089,11 @@ const getFrozenExecutionContext = (state: AgentState): ExecutionContext | undefi
 const resolveExecutionApprovalMode = (state: AgentState) =>
   state.userInterventionConfig?.approvalMode ?? getFrozenExecutionContext(state)?.approvalMode;
 
-const requiresInteractivePathConsent = (state: AgentState): boolean =>
-  !['auto-run', 'headless'].includes(resolveExecutionApprovalMode(state) ?? 'manual');
+const requiresInteractivePathConsent = (
+  state: AgentState,
+  requestedPath?: string,
+): boolean =>
+  shouldPauseForPathConsent(resolveExecutionApprovalMode(state), requestedPath);
 
 interface PreparedToolExecutionContext {
   executionContext?: ExecutionContext;
@@ -4067,7 +4071,10 @@ export const createRuntimeExecutors = (
           result: execution.result,
           topicId: ctx.topicId ?? state.metadata?.topicId,
         });
-        if (postDispatchPathConsent && requiresInteractivePathConsent(state)) {
+        if (
+          postDispatchPathConsent &&
+          requiresInteractivePathConsent(state, postDispatchPathConsent.requestedPath)
+        ) {
           const pendingState = {
             ...(execution.result.state && typeof execution.result.state === 'object'
               ? execution.result.state
@@ -4830,7 +4837,10 @@ export const createRuntimeExecutors = (
               result: execution.result,
               topicId: ctx.topicId ?? state.metadata?.topicId,
             });
-            if (postDispatchPathConsent && requiresInteractivePathConsent(state)) {
+            if (
+          postDispatchPathConsent &&
+          requiresInteractivePathConsent(state, postDispatchPathConsent.requestedPath)
+        ) {
               const pendingState = {
                 ...(execution.result.state && typeof execution.result.state === 'object'
                   ? execution.result.state

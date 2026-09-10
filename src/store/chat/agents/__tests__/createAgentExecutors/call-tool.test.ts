@@ -168,7 +168,61 @@ describe('call_tool executor', () => {
     expect(result.events).not.toContainEqual(
       expect.objectContaining({ type: 'human_approve_required' }),
     );
-    expect(mockStore.preservePausedExecutionContext).not.toHaveBeenCalled();
+      expect(mockStore.preservePausedExecutionContext).not.toHaveBeenCalled();
+  });
+
+  it('still parks a credential path card in auto-approve mode', async () => {
+    const context = createTestContext({ topicId: 'test-topic' });
+    const request = {
+      actualCwd: '/workspace',
+      deviceId: 'device-1',
+      modes: ['read'],
+      operationId: context.operationId,
+      primaryCwd: '/workspace',
+      requestedPath: '/workspace/.env',
+      topicId: 'test-topic',
+      version: 1,
+    };
+    const mockStore = createMockStore({
+      internal_executeDifferentTypePlugin: vi.fn().mockResolvedValue({
+        content: 'INTERVENTION_REQUIRED',
+        success: false,
+        state: { code: 'INTERVENTION_REQUIRED', workspacePathConsent: request },
+      }),
+      optimisticUpdateToolMessage: vi.fn().mockResolvedValue(undefined),
+    });
+    mockStore.operations[context.operationId] = {
+      abortController: new AbortController(),
+      childOperationIds: [],
+      context: { agentId: 'test-session', topicId: 'test-topic' },
+      id: context.operationId,
+      metadata: {
+        executionContext: {
+          approvalMode: 'auto-run',
+          plan: { kind: 'device', target: 'local', deviceId: 'device-1' },
+        },
+      },
+      status: 'running',
+      type: 'execAgentRuntime',
+    } as any;
+    mockStore.dbMessagesMap[context.messageKey] = [createAssistantMessage()];
+
+    const result = await executeWithMockContext({
+      context,
+      executor: 'call_tool',
+      instruction: createCallToolInstruction({
+        apiName: 'readFile',
+        arguments: '{"path":"/workspace/.env"}',
+        id: 'read-credential',
+        identifier: 'lobe-local-system',
+        type: 'builtin',
+      }),
+      mockStore,
+      state: createInitialState({ userInterventionConfig: { approvalMode: 'auto-run' } }),
+    });
+
+    expect(result.newState.status).toBe('waiting_for_human');
+    expect(mockStore.preservePausedExecutionContext).toHaveBeenCalled();
   });
 
   describe('Basic Behavior', () => {

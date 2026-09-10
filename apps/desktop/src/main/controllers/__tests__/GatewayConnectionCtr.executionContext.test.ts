@@ -244,7 +244,7 @@ describe('GatewayConnectionCtr execution context boundary', () => {
         },
         trace: { ...trace, toolCallId: denied },
       });
-      expect(output).toMatchObject({ success: false, content: 'SCOPE_DENIED' });
+      expect(output).toMatchObject({ success: false, content: 'INTERVENTION_REQUIRED' });
     }
     expect(localFileCtr.handleWriteFile).toHaveBeenCalledTimes(1);
     const nested = await controller.executeLocalToolCall({

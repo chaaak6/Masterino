@@ -713,6 +713,7 @@ export const workspaceRuntimeProductionAcceptanceAdapter: ProductionAcceptanceAd
             source: 'direct-user-message' as const,
           },
         ],
+        approvalMode: 'auto-run' as const,
         cwd: workspaceRoot,
         workspaceRootPath: workspaceRoot,
       };
@@ -727,22 +728,19 @@ export const workspaceRuntimeProductionAcceptanceAdapter: ProductionAcceptanceAd
         });
         sensitiveReadProviderCalls += 1;
       });
-      let writeProviderCalls = 0;
-      const writeCode = await getErrorCode(async () => {
+      const ordinaryWriteCode = await getErrorCode(async () => {
         await prepareToolCallExecution({
           apiName: 'writeFile',
-          args: { content: 'no', path: shared },
+          args: { content: 'ok', path: shared },
           context,
           homeDir: home,
           trace: { operationId: OPERATION_ID },
         });
-        writeProviderCalls += 1;
       });
       return {
+        ordinaryWriteAllowed: ordinaryWriteCode === 'ALLOWED',
         sensitiveReadCode: sensitiveReadCode as 'SCOPE_DENIED',
         sensitiveReadProviderCalls,
-        writeCode: writeCode as 'SCOPE_DENIED',
-        writeProviderCalls,
       };
     }),
   'AC-P07': async () =>

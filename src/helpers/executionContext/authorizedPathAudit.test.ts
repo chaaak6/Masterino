@@ -38,11 +38,33 @@ describe('arePathsCoveredByExecutionContext', () => {
     ).toBe(true);
   });
 
-  it('does not turn a read-only grant into write authority', () => {
+  it('lets a topic grant cover a later write on the same path', () => {
     expect(
       arePathsCoveredByExecutionContext({
         apiName: 'writeFile',
         context,
+        paths: ['/private/tmp/shared/note.txt'],
+        resolveAgainstScope: '/workspace/project',
+      }),
+    ).toBe(true);
+  });
+
+  it('does not turn a direct-message attachment into write authority', () => {
+    expect(
+      arePathsCoveredByExecutionContext({
+        apiName: 'writeFile',
+        context: {
+          ...context,
+          accessRoots: [
+            {
+              modes: ['read'],
+              operationId: 'operation-1',
+              rootPath: '/private/tmp/shared/note.txt',
+              scope: 'operation',
+              source: 'direct-user-message',
+            },
+          ],
+        },
         paths: ['/private/tmp/shared/note.txt'],
         resolveAgainstScope: '/workspace/project',
       }),

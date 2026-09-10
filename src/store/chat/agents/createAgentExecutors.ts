@@ -42,6 +42,7 @@ import { t } from 'i18next';
 import pMap from 'p-map';
 
 import { LOADING_FLAT } from '@/const/message';
+import { shouldPauseForPathConsent } from '@/helpers/executionContext/credentialPath';
 import { getRuntimePathConsentRequest } from '@/helpers/executionContext/pathConsent';
 import { aiAgentService } from '@/services/aiAgent';
 import { chatService, collectClientProviderMediaTokenEstimates } from '@/services/chat';
@@ -1037,7 +1038,7 @@ export const createAgentExecutors = (context: {
           pathRequest.deviceId === executionContext.plan.deviceId &&
           pathRequest.operationId === (executionContext.operationId ?? context.operationId) &&
           pathRequest.topicId === opContext.topicId &&
-          !['auto-run', 'headless'].includes(approvalMode ?? 'manual')
+          shouldPauseForPathConsent(approvalMode, pathRequest.requestedPath)
         ) {
           const updateContext = { operationId: context.operationId };
           context.get().preservePausedExecutionContext(toolMessageId, executionContext);

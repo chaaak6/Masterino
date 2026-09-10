@@ -150,4 +150,23 @@ describe('AutoResumePathConsent', () => {
 
     await waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
   });
+
+  it('does not auto-resume a credential path card in auto-run mode', async () => {
+    const approve = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <AutoResumePathConsent
+        isUserStateInit
+        approvalMode="auto-run"
+        approve={approve}
+        assistantGroupId="group-1"
+        messageId="message-credential"
+        request={{ ...request, requestedPath: '/workspace/.env' }}
+        toolCallId="tool-credential"
+      />,
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(approve).not.toHaveBeenCalled();
+  });
 });

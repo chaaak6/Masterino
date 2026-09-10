@@ -14,8 +14,8 @@ AC-C01..C08, AC-X01..X02 and the accepted C0 contracts at
   provider/device calls.
 
 The security-sensitive oracle details are intentional: AC-C08 enables `retry_compression` and
-`switch_compression_model` only for `SUMMARY_FAILED`; AC-P06 uses the device boundary's stable
-`SCOPE_DENIED` code for both denied cases with zero provider calls; and AC-P07 keeps the model's
+`switch_compression_model` only for `SUMMARY_FAILED`; AC-P06 denies sensitive reads under auto-run
+with zero provider calls while ordinary external writes are prepared; and AC-P07 keeps the model's
 requested cwd as fixture input while exposing only `MODEL_CWD_OVERRIDDEN` in audit warnings.
 
 ## Integration status

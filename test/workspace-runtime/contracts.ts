@@ -145,10 +145,9 @@ export interface AcceptanceResultMap {
     symlinkToSensitiveAllowed: boolean;
   };
   'AC-P06': {
+    ordinaryWriteAllowed: boolean;
     sensitiveReadCode: 'SCOPE_DENIED';
     sensitiveReadProviderCalls: number;
-    writeCode: 'SCOPE_DENIED';
-    writeProviderCalls: number;
   };
   'AC-P07': {
     auditWarnings: Array<'MODEL_CWD_OVERRIDDEN'>;

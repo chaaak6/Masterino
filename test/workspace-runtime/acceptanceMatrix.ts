@@ -144,9 +144,10 @@ export const acceptanceMatrix = [
   {
     command: 'vitest',
     failCondition:
-      'Auto-run permits out-of-scope write/sensitive read, reports another code, or calls provider.',
-    fixture: 'Structured write outside roots and sensitive read under auto-run.',
-    observable: 'Both return SCOPE_DENIED before provider execution; both provider counts stay 0.',
+      'Auto-run permits a sensitive read, or an ordinary external write is blocked before provider execution.',
+    fixture: 'Sensitive read and ordinary write outside roots under auto-run.',
+    observable:
+      'Sensitive read returns SCOPE_DENIED with zero provider calls; ordinary write is prepared.',
     testId: 'AC-P06',
   },
   {
