@@ -2,30 +2,30 @@
 
 ## 发布边界
 
-只部署 Market 服务。本次初始化查询在数据库分页前限制为已发布且没有 `forked_from_id` 的原始模板，普通列表仍允许用户查看自己的草稿和副本。
+只部署 Market 服务。初始化查询在数据库分页前同时限制为固定 8 个 identifier、已发布且没有 `forked_from_id` 的原始模板；接口返回时再次按产品目录过滤和排序。普通列表仍允许用户查看自己的草稿和副本。
 
-头像是 `apps/market/src/agentAvatars.ts` 中的原创固定 SVG，通过 Market 的 `/assets/agent-avatars/v1/{name}.svg` 匿名只读返回。路由只查固定映射，不访问文件系统、不读取用户文件、不接受外部 URL。修改图标时新增版本路径，避免一年 immutable 缓存继续显示旧图。
+头像是 `apps/market/src/agentAvatars.ts` 中的原创固定 SVG，通过 Market 的 `/assets/agent-avatars/v1/{name}.svg` 匿名只读返回。数据库只保存版本化相对路径，Market 按当前环境的 `MARKET_PUBLIC_BASE_URL` 解析为公开 URL；外部头像、emoji 和其他用户自定义值保持原样。路由只查固定映射，不访问文件系统、不读取用户文件。修改图标时新增版本路径，避免一年 immutable 缓存继续显示旧图。
 
 内测 OSS 禁止公开对象，因此不用公开桶或会过期的签名地址。生产发布时使用生产 Market 域名，不能复制内测头像 URL。
 
 ## 模板数据
 
-仅修改下列已发布原始模板的 `avatar` 与 `category`，经 `/api/v1/agents/modify` 以资源所有者身份更新并写审计。提前备份旧字段。不要修改个人 fork、已创建 Agent 或用户自定义头像。
+`apps/market/src/onboardingCatalog.ts` 是初始化目录、分类、顺序、头像和 seed 版本的唯一产品契约。Curated seed 会把下列原始模板写成对应值；相同版本下若分类或头像发生漂移，也会自动纠正。不要修改个人 fork、已创建 Agent 或用户自定义头像。
 
-| identifier | 图标文件 | category |
-| --- | --- | --- |
-| masterino-meeting-assistant | meeting.svg | operations |
-| curated-lobehub-writing-assistant | writing.svg | content-creation |
-| curated-lobehub-en-cn-translator | translation.svg | content-creation |
-| masterino-research-assistant | research.svg | learning-research |
-| curated-lobehub-mu6pt9gg | project.svg | product-management |
-| curated-lobehub-7xjj75u8 | code.svg | engineering |
-| curated-lobehub-34z99to7 | prompt.svg | learning-research |
-| curated-lobehub-business-guru | business.svg | business-strategy |
+| identifier                        | 图标文件        | category           |
+| --------------------------------- | --------------- | ------------------ |
+| masterino-meeting-assistant       | meeting.svg     | operations         |
+| curated-lobehub-writing-assistant | writing.svg     | content-creation   |
+| curated-lobehub-en-cn-translator  | translation.svg | content-creation   |
+| masterino-research-assistant      | research.svg    | learning-research  |
+| curated-lobehub-mu6pt9gg          | project.svg     | product-management |
+| curated-lobehub-7xjj75u8          | code.svg        | engineering        |
+| curated-lobehub-34z99to7          | prompt.svg      | learning-research  |
+| curated-lobehub-business-guru     | business.svg    | business-strategy  |
 
-内测 URL 前缀：`https://mlai-test.bielcrystal.com/market/assets/agent-avatars/v1/`。
+内测解析后的 URL 前缀：`https://mlai-test.bielcrystal.com/market/assets/agent-avatars/v1/`。
 
-其余内测旧分类仍由原有前端过滤；这次只维护上述 8 个精选模板，不变更全市场分类体系。
+其余模板不在初始化 allowlist 中；这次只维护上述 8 个精选模板，不变更全市场分类体系。
 
 ## 验收步骤
 
@@ -49,3 +49,13 @@
 - 保留已有账号、旧助理头像以及新增验收助理/话题；没有操作正式安装包，没有部署生产。
 - 验收发现内测模板旧分类不兼容，本次已修正选定的 8 个模板分类；未扩展到其余模板。
 - 临时 ACR 构建规则已清理，原有规则保持不变。
+
+## 2026-09-10 稳定目录复验
+
+- PR 分支先 rebase 到 `main@c52a60f4`，验收提交为 `6d1603c3`。
+- Market 类型检查和全量单测通过：7 个文件、37 项测试。
+- ACR 构建 `01A08991-49CF-5B7A-BFE2-DAD818C28CA1` 成功；内测部署镜像为 `boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-market@sha256:6237f90c81aba39eb95b2a9761b5be3630f6eff0b9d35e348c2bff2fe6818142`。
+- `masterino-market` rollout 和 seed Job 成功；seed 返回 50 个 Agent、5 个 MCP、5 个 Skill。数据库中的 8 条初始化记录均为相对头像路径及目录要求的版本。8 个 SVG 返回 200 和 `image/svg+xml`，未知文件返回 404。
+- Computer Use Web 验收：全部页严格显示 8 张卡；工程 1 张、内容创作 2 张；选择和取消选择状态正确。真实安装“中英文互译助手”后返回首页，再次进入向导仍为 8 张卡且没有个人副本重复项。
+- Computer Use Electron 验收：只启动当前 worktree 的源码测试版，环境输出确认 backend、Gateway 均为 `mlai-test.bielcrystal.com`，profile 为 `test-server`。新助理无需重启即跨端同步，侧栏、欢迎区和详情页均显示正确翻译图标；社区页正常加载。
+- 未操作正式安装的 Masterino，未改生产环境。临时 ACR 构建规则和临时 ACK kubeconfig 均已清理；测试版 Electron 保持运行，便于继续人工复测。
