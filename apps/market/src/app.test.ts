@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMarketApp } from './app.js';
 import type { MarketConfig } from './config.js';
 import { encryptJson } from './crypto.js';
+import { ONBOARDING_AGENT_CATALOG, ONBOARDING_AGENT_IDENTIFIERS } from './onboardingCatalog.js';
 
 const secret = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const actor = {
@@ -354,9 +355,26 @@ describe('Market SDK compatibility', () => {
   });
 });
 
-
-it('requests only published original templates for onboarding', async () => {
-  const repository = createRepository();
+it('returns only the ordered onboarding allowlist with environment-correct avatars', async () => {
+  const items = [
+    { identifier: 'other-published-agent', name: 'Other Agent' },
+    ...[...ONBOARDING_AGENT_CATALOG].reverse().map((entry) => ({
+      avatar: 'https://wrong-environment.example.com/avatar.svg',
+      category: 'office',
+      identifier: entry.identifier,
+      name: entry.identifier,
+    })),
+  ];
+  const repository = {
+    ...createRepository(),
+    list: vi.fn(async () => ({
+      currentPage: 1,
+      items,
+      pageSize: items.length,
+      totalCount: items.length,
+      totalPages: 1,
+    })),
+  };
   const app = createMarketApp({
     config,
     redis: { ping: vi.fn(async () => 'PONG') } as any,
@@ -367,17 +385,52 @@ it('requests only published original templates for onboarding', async () => {
     headers: { 'x-lobe-trust-token': token },
   });
   expect(response.status).toBe(200);
-  expect(repository.list).toHaveBeenCalledWith('agent', {
-    pageSize: 100, publishedOriginalsOnly: true, sort: 'installCount',
-  }, account, 'workspace-1');
+  expect(repository.list).toHaveBeenCalledWith(
+    'agent',
+    {
+      identifiers: ONBOARDING_AGENT_IDENTIFIERS,
+      pageSize: 8,
+      publishedOriginalsOnly: true,
+    },
+    account,
+    'workspace-1',
+  );
+
+  const data = (await response.json()) as Record<
+    string,
+    Array<{ avatar: string; category: string; identifier: string }>
+  >;
+  const returned = Object.values(data).flat();
+  expect(returned).toHaveLength(8);
+  expect(new Set(returned.map((item) => item.identifier))).toEqual(
+    new Set(ONBOARDING_AGENT_IDENTIFIERS),
+  );
+  expect(returned.some((item) => item.identifier === 'other-published-agent')).toBe(false);
+  for (const item of returned) {
+    const contract = ONBOARDING_AGENT_CATALOG.find((entry) => entry.identifier === item.identifier);
+    expect(item.category).toBe(contract?.category);
+    expect(item.avatar).toBe(`https://masterino.example.com/market${contract?.avatar}`);
+  }
 });
 
 it('serves only fixed versioned avatar artwork without authentication', async () => {
   const repository = createRepository();
-  const app = createMarketApp({ config, repository: repository as any,
+  const app = createMarketApp({
+    config,
+    repository: repository as any,
     redis: { ping: vi.fn(async () => 'PONG') } as any,
-    storage: { ping: vi.fn(async () => undefined) } as any });
-  for (const name of ['meeting', 'writing', 'translation', 'research', 'project', 'code', 'prompt', 'business']) {
+    storage: { ping: vi.fn(async () => undefined) } as any,
+  });
+  for (const name of [
+    'meeting',
+    'writing',
+    'translation',
+    'research',
+    'project',
+    'code',
+    'prompt',
+    'business',
+  ]) {
     const response = await app.request(`/assets/agent-avatars/v1/${name}.svg`);
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('image/svg+xml');

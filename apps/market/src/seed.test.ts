@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { MarketConfig } from './config.js';
 import { CURATED_SEED_BATCH, curatedResources } from './curatedCatalog.js';
+import { ONBOARDING_AGENT_CATALOG } from './onboardingCatalog.js';
 import { runCuratedSeed } from './seed.js';
 import { createStoredZip } from './zip.js';
 
@@ -44,7 +45,7 @@ describe('runCuratedSeed', () => {
   it('publishes exactly 50 assistants, 5 skills and 5 MCPs on first run', async () => {
     const pool = {
       end: vi.fn(async () => undefined),
-      query: vi.fn(async (sql: string) => {
+      query: vi.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('GROUP BY type')) return countResult;
         if (sql.includes('SELECT r.id')) return { rowCount: 0, rows: [] };
         return { rowCount: 1, rows: [] };
@@ -79,6 +80,8 @@ describe('runCuratedSeed', () => {
             rows: [
               {
                 artifact_sha256: entry?.artifact ? artifactHash(index) : null,
+                avatar: entry?.resource.avatar,
+                category: entry?.resource.category,
                 id: index + 1,
                 metadata: entry?.artifact ? {} : { artifactSha256: artifactHash(index) },
                 owner_account_id: account.id,
@@ -111,6 +114,10 @@ describe('runCuratedSeed', () => {
   });
 
   it('creates a new reviewed version when the catalog version increases', async () => {
+    const selected = ONBOARDING_AGENT_CATALOG[0];
+    const selectedIndex = curatedResources.findIndex(
+      (entry) => entry.resource.identifier === selected.identifier,
+    );
     let index = 0;
     const pool = {
       end: vi.fn(async () => undefined),
@@ -125,11 +132,13 @@ describe('runCuratedSeed', () => {
             rows: [
               {
                 artifact_sha256: entry?.artifact ? artifactHash(currentIndex) : null,
+                avatar: entry?.resource.avatar,
+                category: entry?.resource.category,
                 id: currentIndex + 1,
                 metadata: entry?.artifact ? {} : { artifactSha256: artifactHash(currentIndex) },
                 owner_account_id: account.id,
                 status: 'published',
-                version: currentIndex === 0 ? '0.9.0' : entry?.resource.version,
+                version: currentIndex === selectedIndex ? '0.9.0' : entry?.resource.version,
                 version_id: currentIndex + 100,
                 workflow_state: 'published',
               },
@@ -149,7 +158,69 @@ describe('runCuratedSeed', () => {
     });
 
     expect(repository.createVersion).toHaveBeenCalledOnce();
+    expect(repository.createVersion).toHaveBeenCalledWith(
+      'agent',
+      expect.objectContaining({
+        avatar: selected.avatar,
+        category: selected.category,
+        identifier: selected.identifier,
+        version: selected.seedVersion,
+      }),
+      account,
+    );
     expect(repository.review).toHaveBeenCalledTimes(5);
+  });
+
+  it('repairs onboarding presentation drift without creating another version', async () => {
+    const selected = ONBOARDING_AGENT_CATALOG[0];
+    let index = 0;
+    const pool = {
+      end: vi.fn(async () => undefined),
+      query: vi.fn(async (sql: string, _params?: unknown[]) => {
+        if (sql.includes('GROUP BY type')) return countResult;
+        if (sql.includes('SELECT r.id')) {
+          const entry = curatedResources[index];
+          const currentIndex = index;
+          index += 1;
+          const isSelected = entry?.resource.identifier === selected.identifier;
+          return {
+            rowCount: 1,
+            rows: [
+              {
+                artifact_sha256: entry?.artifact ? artifactHash(currentIndex) : null,
+                avatar: isSelected
+                  ? 'https://stale.example.com/avatar.svg'
+                  : entry?.resource.avatar,
+                category: isSelected ? 'office' : entry?.resource.category,
+                id: currentIndex + 1,
+                metadata: entry?.artifact ? {} : { artifactSha256: artifactHash(currentIndex) },
+                owner_account_id: account.id,
+                status: 'published',
+                version: entry?.resource.version,
+                version_id: currentIndex + 100,
+                workflow_state: 'published',
+              },
+            ],
+          };
+        }
+        return { rowCount: 1, rows: [] };
+      }),
+    };
+    const repository = createRepository();
+
+    await runCuratedSeed(config, {
+      pool: pool as never,
+      repository: repository as never,
+      storage: { ping: vi.fn(async () => undefined), put: vi.fn() } as never,
+    });
+
+    const presentationUpdate = pool.query.mock.calls.find(
+      ([sql, params]) => sql.includes('avatar=COALESCE') && params?.at(-1) === selected.identifier,
+    );
+    expect(presentationUpdate?.[1]?.[3]).toBe(selected.avatar);
+    expect(presentationUpdate?.[1]?.[4]).toBe(selected.category);
+    expect(repository.createVersion).not.toHaveBeenCalled();
+    expect(repository.review).not.toHaveBeenCalled();
   });
 
   it('deprecates resources created by a failed batch without deleting data', async () => {

@@ -13,6 +13,7 @@ export interface ListOptions {
   /** Restrict discovery to published originals, excluding personal forks and drafts. */
   publishedOriginalsOnly?: boolean;
   category?: string;
+  identifiers?: readonly string[];
   locale?: string;
   page?: number;
   pageSize?: number;
@@ -94,6 +95,10 @@ export class MarketRepository {
     ];
     if (options.publishedOriginalsOnly) {
       filters.push(`r.status='published'`, 'r.forked_from_id IS NULL');
+    }
+    if (options.identifiers) {
+      values.push(options.identifiers);
+      filters.push(`r.identifier=ANY($${values.length}::text[])`);
     }
     if (options.category && options.category !== 'all') {
       values.push(options.category);
