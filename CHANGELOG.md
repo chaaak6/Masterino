@@ -2,6 +2,51 @@
 
 # Changelog
 
+## [Version 1.3.2](https://github.com/chaaak6/Masterino/compare/v1.3.1...v1.3.2)
+
+<sup>Released on **2026-09-10**</sup>
+
+#### 🐛 Bug Fixes
+
+- **chat**: hydrate grants before snapshotless resume.
+- **market**: stabilize onboarding catalog contract.
+- **market**: exclude personal forks from onboarding templates.
+- **chat**: hydrate topic grants before local execution.
+- **chat**: retain topic grants when resuming tools.
+- **chat**: preserve runtime context across intervention resume.
+- **topic**: restore desktop selector guard.
+
+#### ✨ Features
+
+- **market**: serve versioned assistant avatar artwork.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **chat**: hydrate grants before snapshotless resume ([be35743](https://github.com/chaaak6/Masterino/commit/be35743))
+- **market**: stabilize onboarding catalog contract ([6d1603c](https://github.com/chaaak6/Masterino/commit/6d1603c))
+- **market**: exclude personal forks from onboarding templates ([931f7a5](https://github.com/chaaak6/Masterino/commit/931f7a5))
+- **chat**: hydrate topic grants before local execution ([ccc9988](https://github.com/chaaak6/Masterino/commit/ccc9988))
+- **chat**: retain topic grants when resuming tools ([4bc75d5](https://github.com/chaaak6/Masterino/commit/4bc75d5))
+- **chat**: preserve runtime context across intervention resume ([fd2f2ea](https://github.com/chaaak6/Masterino/commit/fd2f2ea))
+- **topic**: restore desktop selector guard ([a857baf](https://github.com/chaaak6/Masterino/commit/a857baf))
+
+#### What's improved
+
+- **market**: serve versioned assistant avatar artwork ([5bfaea7](https://github.com/chaaak6/Masterino/commit/5bfaea7))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.3.1](https://github.com/chaaak6/Masterino/compare/v1.3.0...v1.3.1)
 
 <sup>Released on **2026-09-09**</sup>
