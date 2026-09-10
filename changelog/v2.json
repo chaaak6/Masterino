@@ -2442,6 +2442,15 @@
     "version": "2.0.0-next.1"
   },
   {
+    "children": {
+      "fixes": [
+        "recover local file authorization safely."
+      ]
+    },
+    "date": "2026-09-10",
+    "version": "1.3.3"
+  },
+  {
     "children": {},
     "date": "2026-09-10",
     "version": "1.3.2"
