@@ -635,6 +635,112 @@ describe('StreamingExecutor actions', () => {
       },
     );
 
+    it.each(['scratch', 'device'] as const)(
+      'waits for persisted topic grants before rebuilding a refreshed %s runtime without a pause snapshot',
+      async (workspaceKind) => {
+        act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
+        const rootPath =
+          workspaceKind === 'scratch'
+            ? '/app/scratch/rebuilt-topic'
+            : '/projects/rebuilt-device-workspace';
+        const workspaceId = `rebuilt-${workspaceKind}`;
+        const workspace = {
+          deviceId: 'device-local',
+          id: workspaceId,
+          kind: workspaceKind,
+          rootPath,
+        };
+        const persistedGrant = {
+          createdAt: '2026-09-10T00:01:00.000Z',
+          deviceId: 'device-local',
+          id: `persisted-rebuilt-${workspaceKind}-grant`,
+          modes: ['read'] as Array<'read'>,
+          requestedVia: { messageId: 'tool-before-renderer-refresh' },
+          rootPath: '/private/tmp/persisted-after-refresh.txt',
+          scope: 'topic' as const,
+          topicId: TEST_IDS.TOPIC_ID,
+          userId: 'test-user',
+        };
+        useProjectWorkspaceStore.setState({
+          grantsByTopicDevice: {},
+          seamAvailable: true,
+          topicStatesById: {
+            [TEST_IDS.TOPIC_ID]: {
+              snapshot: {
+                boundDeviceId: 'device-local',
+                target: 'local',
+                targetCapturedAt: '2026-09-10T00:00:00.000Z',
+                version: 1,
+                workspaceId,
+                workspaceKind,
+              },
+              workspace,
+            },
+          },
+          workspacesById: { [workspaceId]: workspace },
+        });
+
+        let resolveGrants!: (value: (typeof persistedGrant)[]) => void;
+        vi.spyOn(projectWorkspaceService, 'listGrants').mockReturnValue(
+          new Promise<(typeof persistedGrant)[]>((resolve) => {
+            resolveGrants = resolve;
+          }),
+        );
+        const streamSpy = vi
+          .spyOn(chatService, 'createAssistantMessageStream')
+          .mockImplementation(async ({ onFinish }) => {
+            await onFinish?.(TEST_CONTENT.AI_RESPONSE, {} as any);
+          });
+        const parent = useChatStore.getState().startOperation({
+          context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+          type: 'approveToolCalling',
+        });
+
+        let run!: ReturnType<typeof realExecAgentRuntime>;
+        await act(async () => {
+          run = useChatStore.getState().executeClientAgent({
+            context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+            messages: [],
+            operationSkills: [],
+            parentMessageId: 'tool-before-renderer-refresh',
+            parentMessageType: 'tool',
+            parentOperationId: parent.operationId,
+            skipCreateFirstMessage: true,
+          });
+          await Promise.resolve();
+        });
+
+        expect(projectWorkspaceService.listGrants).toHaveBeenCalledWith({
+          deviceId: 'device-local',
+          topicId: TEST_IDS.TOPIC_ID,
+        });
+        expect(streamSpy).not.toHaveBeenCalled();
+
+        resolveGrants([persistedGrant]);
+        await act(async () => run);
+
+        const operation = Object.values(useChatStore.getState().operations).find(
+          (item) =>
+            item.type === 'execAgentRuntime' && item.parentOperationId === parent.operationId,
+        );
+        expect(operation?.metadata.executionContext).toMatchObject({
+          cwd: rootPath,
+          plan: { deviceId: 'device-local', kind: 'device', target: 'local' },
+          workspace: { id: workspaceId, kind: workspaceKind, rootPath },
+        });
+        expect(operation?.metadata.executionContext?.accessRoots).toContainEqual({
+          deviceId: 'device-local',
+          grantId: persistedGrant.id,
+          modes: ['read'],
+          rootPath: persistedGrant.rootPath,
+          scope: 'topic',
+          source: 'user-approval',
+          topicId: TEST_IDS.TOPIC_ID,
+        });
+        expect(streamSpy).toHaveBeenCalledTimes(1);
+      },
+    );
+
     it('keeps an existing thread resume out of the main-window running state', async () => {
       act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
       vi.spyOn(chatService, 'createAssistantMessageStream').mockImplementation(

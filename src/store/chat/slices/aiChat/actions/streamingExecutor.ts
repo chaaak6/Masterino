@@ -654,31 +654,45 @@ export class StreamingExecutorActionImpl {
     }
 
     // A renderer refresh starts with an empty in-memory grant map while the
-    // persisted Topic grants are being rehydrated. Wait at the common runtime
-    // boundary so every entry point (send, retry, continue, resume, subtask)
-    // sees the same authority before AgentState and tool manifests are frozen.
-    if (topicId && frozenExecutionContext?.plan.kind === 'device') {
-      const projectWorkspace = getProjectWorkspaceStoreState();
+    // persisted Topic grants are being rehydrated. A pause snapshot is only
+    // renderer memory, so fall back to the Topic's persisted execution binding
+    // when a user resumes immediately after a reload.
+    const projectWorkspace = getProjectWorkspaceStoreState();
+    const hydrationTopicState = topicId ? projectWorkspace.topicStatesById[topicId] : undefined;
+    const hydrationTopic = topicId ? topicSelectors.getTopicById(topicId)(this.#get()) : undefined;
+    const hydrationSnapshot =
+      hydrationTopicState?.snapshot ?? hydrationTopic?.metadata?.executionSnapshot;
+    const grantHydrationDeviceId =
+      frozenExecutionContext?.plan.kind === 'device'
+        ? frozenExecutionContext.plan.deviceId
+        : (hydrationSnapshot?.boundDeviceId ??
+          hydrationTopicState?.workspace?.deviceId ??
+          hydrationTopic?.metadata?.boundDeviceId);
+
+    // Wait at the common runtime boundary so every entry point (send, retry,
+    // continue, resume, subtask) sees the same authority before AgentState and
+    // tool manifests are frozen. Existing cache entries return synchronously;
+    // an in-flight page hydration is joined rather than duplicated.
+    if (topicId && grantHydrationDeviceId) {
       try {
-        await projectWorkspace.ensureTopicGrantsLoaded(
-          topicId,
-          frozenExecutionContext.plan.deviceId,
-        );
+        await projectWorkspace.ensureTopicGrantsLoaded(topicId, grantHydrationDeviceId);
       } catch (error) {
         // Unknown grant state must fail closed. Continuing without roots keeps
         // the normal intervention/boundary checks active instead of granting
         // access from stale or unverifiable authority.
         log('[executeClientAgent] topic grant hydration failed: %O', error);
       }
-      frozenExecutionContext = mergeCurrentTopicGrantsIntoExecutionContext({
-        context: frozenExecutionContext,
-        operationId,
-        topicGrants: Object.values(getProjectWorkspaceStoreState().grantsByTopicDevice).flat(),
-        topicId,
-      });
-      this.#get().updateOperationMetadata(operationId, {
-        executionContext: frozenExecutionContext,
-      });
+      if (frozenExecutionContext) {
+        frozenExecutionContext = mergeCurrentTopicGrantsIntoExecutionContext({
+          context: frozenExecutionContext,
+          operationId,
+          topicGrants: Object.values(getProjectWorkspaceStoreState().grantsByTopicDevice).flat(),
+          topicId,
+        });
+        this.#get().updateOperationMetadata(operationId, {
+          executionContext: frozenExecutionContext,
+        });
+      }
     }
 
     const runScope: RunScope = scope === 'sub_agent' ? 'sub_agent' : 'top_level';
