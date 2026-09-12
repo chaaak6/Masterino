@@ -9,6 +9,7 @@
   "activity.narrative": "Tường thuật",
   "activity.notes": "Ghi chú",
   "analysis.action.button": "Yêu cầu phân tích ký ức",
+  "analysis.action.enableFirst": "Bật Memory trong cài đặt cá nhân trước khi yêu cầu phân tích.",
   "analysis.modal.cancel": "Hủy",
   "analysis.modal.helper": "Theo mặc định, Masterino sẽ phân tích tất cả các cuộc trò chuyện chưa được xử lý. Bạn có thể chọn khoảng thời gian để phân tích nếu muốn.",
   "analysis.modal.rangePlaceholder": "Chưa chọn khoảng thời gian; tất cả cuộc trò chuyện sẽ được phân tích.",

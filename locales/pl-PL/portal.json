@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "Usunąć tę stronę?",
   "notebook.delete": "Usuń",
   "notebook.empty": "Brak stron. Strony powiązane z tym tematem pojawią się tutaj.",
+  "notebook.loadError": "Nie udało się załadować stron. Spróbuj ponownie.",
   "notebook.title": "Notatnik",
   "openInPageEditor": "Edytuj na stronie",
   "title": "Przestrzeń robocza"

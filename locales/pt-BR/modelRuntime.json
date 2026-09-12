@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "O gateway ou proxy do provedor retornou um erro. Por favor, tente novamente em breve; se o problema persistir, verifique sua configuração de proxy/endpoint.",
   "UpstreamHttpError": "O provedor retornou um erro HTTP sem mais detalhes. Por favor, tente novamente ou verifique sua solicitação e configuração do modelo.",
   "UpstreamMalformedResponse": "O provedor retornou uma resposta malformada que não pôde ser analisada. Por favor, tente novamente; se o problema persistir, tente um modelo ou provedor diferente.",
-  "UserConfigError": "A configuração do provedor é inválida (URL base incorreta, variável de ambiente ausente, restrição de chave virtual, etc.). Por favor, revise as configurações do provedor."
+  "UserConfigError": "A configuração do provedor é inválida (URL base incorreta, variável de ambiente ausente, restrição de chave virtual, etc.). Por favor, revise as configurações do provedor.",
+  "upstream_timeout": "A resposta do modelo excedeu o limite de tempo de 300 segundos. Por favor, tente novamente a solicitação."
 }

@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "確定要刪除這份文件嗎？",
   "notebook.delete": "刪除",
   "notebook.empty": "暫無文件，當前主題關聯的文件將會顯示在這裡",
+  "notebook.loadError": "頁面無法載入，請再試一次。",
   "notebook.title": "筆記本",
   "openInPageEditor": "在文稿中編輯",
   "title": "擴展視窗"

@@ -9,6 +9,7 @@
   "activity.narrative": "ナラティブ",
   "activity.notes": "メモ",
   "analysis.action.button": "メモリ分析をリクエスト",
+  "analysis.action.enableFirst": "分析をリクエストする前に、個人設定でメモリを有効にしてください。",
   "analysis.modal.cancel": "キャンセル",
   "analysis.modal.helper": "デフォルトでは、Masterino は未処理のすべてのチャットを分析します。分析する期間を選択することも可能です（任意）。",
   "analysis.modal.rangePlaceholder": "期間が選択されていません。すべての会話が分析されます。",

@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "上游網關或代理返回錯誤。請稍後重試；如果問題持續，請檢查您的代理/端點配置。",
   "UpstreamHttpError": "提供者返回了 HTTP 錯誤但未提供更多細節。請重試，或檢查您的請求和模型配置。",
   "UpstreamMalformedResponse": "提供者返回了無法解析的格式錯誤響應。請重試；如果問題持續，請嘗試使用不同的模型或提供者。",
-  "UserConfigError": "提供者配置無效（基礎 URL 錯誤、缺少環境變數、虛擬金鑰限制等）。請檢查提供者設置。"
+  "UserConfigError": "提供者配置無效（基礎 URL 錯誤、缺少環境變數、虛擬金鑰限制等）。請檢查提供者設置。",
+  "upstream_timeout": "模型回應已超過 300 秒的時間限制。請重試請求。"
 }

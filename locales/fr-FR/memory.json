@@ -9,6 +9,7 @@
   "activity.narrative": "Récit",
   "activity.notes": "Notes",
   "analysis.action.button": "Demander une analyse des souvenirs",
+  "analysis.action.enableFirst": "Activez Mémoire dans les paramètres personnels avant de demander une analyse.",
   "analysis.modal.cancel": "Annuler",
   "analysis.modal.helper": "Par défaut, Masterino analysera toutes les conversations non traitées. Il est possible de sélectionner une plage de dates à analyser.",
   "analysis.modal.rangePlaceholder": "Aucune plage sélectionnée ; toutes les conversations seront analysées.",

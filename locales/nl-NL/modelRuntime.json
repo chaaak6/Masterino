@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "De upstream-gateway of proxy heeft een fout geretourneerd. Probeer het over een tijdje opnieuw; controleer uw proxy-/eindpuntconfiguratie als het probleem aanhoudt.",
   "UpstreamHttpError": "De provider heeft een HTTP-fout geretourneerd zonder verdere details. Probeer het opnieuw, of controleer uw verzoek en modelconfiguratie.",
   "UpstreamMalformedResponse": "De provider heeft een onjuist geformatteerd antwoord geretourneerd dat niet kon worden geparsed. Probeer het opnieuw; probeer een ander model of een andere provider als het probleem aanhoudt.",
-  "UserConfigError": "De providerconfiguratie is ongeldig (onjuiste basis-URL, ontbrekende omgevingsvariabele, virtuele-sleutelbeperking, enz.). Controleer de providerinstellingen."
+  "UserConfigError": "De providerconfiguratie is ongeldig (onjuiste basis-URL, ontbrekende omgevingsvariabele, virtuele-sleutelbeperking, enz.). Controleer de providerinstellingen.",
+  "upstream_timeout": "De reactie van het model overschreed de tijdslimiet van 300 seconden. Probeer het verzoek opnieuw."
 }

@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "Diese Seite löschen?",
   "notebook.delete": "Löschen",
   "notebook.empty": "Noch keine Seiten. Seiten, die mit diesem Thema verknüpft sind, erscheinen hier.",
+  "notebook.loadError": "Seiten konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
   "notebook.title": "Notizbuch",
   "openInPageEditor": "In Seite bearbeiten",
   "title": "Arbeitsbereich"

@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "Cổng hoặc proxy đầu nguồn trả về lỗi. Vui lòng thử lại sau; nếu vấn đề vẫn tiếp diễn, hãy kiểm tra cấu hình proxy/endpoint của bạn.",
   "UpstreamHttpError": "Nhà cung cấp trả về lỗi HTTP mà không có chi tiết thêm. Vui lòng thử lại, hoặc kiểm tra yêu cầu và cấu hình mô hình của bạn.",
   "UpstreamMalformedResponse": "Nhà cung cấp trả về phản hồi không hợp lệ và không thể phân tích. Vui lòng thử lại; nếu vấn đề vẫn tiếp diễn, hãy thử một mô hình hoặc nhà cung cấp khác.",
-  "UserConfigError": "Cấu hình nhà cung cấp không hợp lệ (URL cơ sở không chính xác, thiếu biến môi trường, hạn chế khóa ảo, v.v.). Vui lòng xem lại cài đặt của nhà cung cấp."
+  "UserConfigError": "Cấu hình nhà cung cấp không hợp lệ (URL cơ sở không chính xác, thiếu biến môi trường, hạn chế khóa ảo, v.v.). Vui lòng xem lại cài đặt của nhà cung cấp.",
+  "upstream_timeout": "Phản hồi từ mô hình đã vượt quá giới hạn thời gian 300 giây. Vui lòng thử lại yêu cầu."
 }

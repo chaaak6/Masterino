@@ -9,6 +9,7 @@
   "activity.narrative": "Verhaal",
   "activity.notes": "Notities",
   "analysis.action.button": "Analyse van herinneringen aanvragen",
+  "analysis.action.enableFirst": "Schakel Geheugen in bij persoonlijke instellingen voordat u een analyse aanvraagt.",
   "analysis.modal.cancel": "Annuleren",
   "analysis.modal.helper": "Standaard analyseert Masterino alle niet-verwerkte chats. Het is optioneel om een datumbereik te selecteren voor analyse.",
   "analysis.modal.rangePlaceholder": "Geen bereik geselecteerd; alle gesprekken worden geanalyseerd.",

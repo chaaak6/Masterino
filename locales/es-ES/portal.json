@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "¿Eliminar esta página?",
   "notebook.delete": "Eliminar",
   "notebook.empty": "Aún no hay páginas. Las páginas vinculadas a este tema aparecerán aquí.",
+  "notebook.loadError": "No se pudieron cargar las páginas. Inténtalo de nuevo.",
   "notebook.title": "Cuaderno",
   "openInPageEditor": "Editar en la página",
   "title": "Espacio de trabajo"

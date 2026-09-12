@@ -9,6 +9,7 @@
   "activity.narrative": "敘述",
   "activity.notes": "備註",
   "analysis.action.button": "請求記憶分析",
+  "analysis.action.enableFirst": "請先在個人設定中啟用記憶功能，再提出分析要求。",
   "analysis.modal.cancel": "取消",
   "analysis.modal.helper": "預設情況下，Masterino 將分析所有未處理的對話。您也可以選擇特定的日期範圍進行分析（可選）。",
   "analysis.modal.rangePlaceholder": "未選擇範圍；將分析所有對話。",

@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "Bramka upstream lub proxy zwróciły błąd. Proszę spróbować ponownie za chwilę; jeśli problem będzie się powtarzał, sprawdź konfigurację proxy / punktu końcowego.",
   "UpstreamHttpError": "Dostawca zwrócił błąd HTTP bez dodatkowych szczegółów. Proszę spróbować ponownie, lub sprawdzić swoje żądanie i konfigurację modelu.",
   "UpstreamMalformedResponse": "Dostawca zwrócił nieprawidłową odpowiedź, której nie można było przetworzyć. Proszę spróbować ponownie; jeśli problem będzie się powtarzał, spróbuj użyć innego modelu lub dostawcy.",
-  "UserConfigError": "Konfiguracja dostawcy jest nieprawidłowa (nieprawidłowy podstawowy URL, brakująca zmienna środowiskowa, ograniczenie wirtualnego klucza itp.). Proszę sprawdzić ustawienia dostawcy."
+  "UserConfigError": "Konfiguracja dostawcy jest nieprawidłowa (nieprawidłowy podstawowy URL, brakująca zmienna środowiskowa, ograniczenie wirtualnego klucza itp.). Proszę sprawdzić ustawienia dostawcy.",
+  "upstream_timeout": "Odpowiedź modelu przekroczyła limit czasu wynoszący 300 sekund. Ponów żądanie."
 }

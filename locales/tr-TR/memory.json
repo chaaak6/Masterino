@@ -9,6 +9,7 @@
   "activity.narrative": "Anlatı",
   "activity.notes": "Notlar",
   "analysis.action.button": "Hafıza analizi iste",
+  "analysis.action.enableFirst": "Analiz istemeden önce kişisel ayarlarınızdan Hafıza'yı etkinleştirin.",
   "analysis.modal.cancel": "İptal",
   "analysis.modal.helper": "Varsayılan olarak Masterino, işlenmemiş tüm sohbetleri analiz eder. Analiz için tarih aralığı seçmek isteğe bağlıdır.",
   "analysis.modal.rangePlaceholder": "Aralık seçilmedi; tüm sohbetler analiz edilecek.",

@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "La passerelle ou le proxy en amont a renvoyé une erreur. Veuillez réessayer sous peu ; si le problème persiste, vérifiez la configuration de votre proxy / point de terminaison.",
   "UpstreamHttpError": "Le fournisseur a renvoyé une erreur HTTP sans plus de détails. Veuillez réessayer ou vérifier votre requête et la configuration du modèle.",
   "UpstreamMalformedResponse": "Le fournisseur a renvoyé une réponse mal formée qui n'a pas pu être analysée. Veuillez réessayer ; si le problème persiste, essayez un autre modèle ou fournisseur.",
-  "UserConfigError": "La configuration du fournisseur est invalide (URL de base incorrecte, variable d'environnement manquante, restriction de clé virtuelle, etc.). Veuillez vérifier les paramètres du fournisseur."
+  "UserConfigError": "La configuration du fournisseur est invalide (URL de base incorrecte, variable d'environnement manquante, restriction de clé virtuelle, etc.). Veuillez vérifier les paramètres du fournisseur.",
+  "upstream_timeout": "La réponse du modèle a dépassé le délai de 300 secondes. Veuillez réessayer la requête."
 }
