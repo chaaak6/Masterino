@@ -5,7 +5,6 @@ import {
   NewApiError,
   type NewApiManagementAuth,
   type NewApiToken,
-  type NewApiUpdateUserInput,
   type NewApiUser,
 } from './client';
 import type { AihubReadinessErrorKind } from './readiness';
@@ -65,7 +64,7 @@ export class NewApiProvisioningError extends Error {
 
 type ProvisioningClient = Pick<
   NewApiClient,
-  'createToken' | 'createUser' | 'listTokens' | 'searchUsers' | 'updateUser'
+  'createToken' | 'createUser' | 'listTokens' | 'searchUsers'
 >;
 
 type NewApiProvisioningAdapterOptions = {
@@ -222,12 +221,6 @@ const isDuplicateUserError = (error: unknown): boolean => {
   );
 };
 
-const getUserQuota = (user: NewApiUser | undefined): number | undefined => {
-  if (!user) return undefined;
-  const quota = user.quota;
-  return typeof quota === 'number' && Number.isFinite(quota) ? quota : undefined;
-};
-
 const getLegacyManagedTokenName = (policy: AihubProvisioningPolicy) =>
   asTrimmedString(policy.managedTokenName);
 
@@ -321,11 +314,9 @@ export class NewApiProvisioningAdapter {
       targetUser = await this.createUser(input, policy);
     }
 
-    // Bug 2: an existing Aihub user created without the default initial quota
-    // (e.g. pre-provisioned manually or via a prior partial failure) would have
-    // no balance. Top up the configured initial quota when the user has none.
-    targetUser = await this.ensureInitialQuota(targetUser, policy);
-
+    // Wallet quota is deliberately outside provisioning readiness. Never top it up with a
+    // partial `{ id, quota }` payload through NewAPI PUT /api/user/: that endpoint ignores quota
+    // and replaces omitted identity fields, including username, with empty values.
     const token = await this.ensureManagedToken(
       targetUser.id,
       managedTokenName,
@@ -453,32 +444,6 @@ export class NewApiProvisioningAdapter {
       'transient',
       'aihub_user_create_incomplete',
     );
-  }
-
-  private async ensureInitialQuota(
-    user: NewApiUser,
-    policy: AihubProvisioningPolicy,
-  ): Promise<NewApiUser> {
-    const initialQuota = typeof policy.initialQuota === 'number' ? policy.initialQuota : 0;
-    if (initialQuota <= 0) return user;
-    // Only top up when the user has no balance; never reduce an existing quota.
-    const currentQuota = getUserQuota(user);
-    if (currentQuota === undefined || currentQuota > 0) return user;
-
-    const updateInput: NewApiUpdateUserInput = {
-      id: user.id,
-      quota: initialQuota,
-    };
-    const updated = await this.client.updateUser(this.adminAuth, updateInput);
-    if (!updated || !isValidId(updated.id)) {
-      throw new NewApiProvisioningError(
-        `Aihub quota top-up did not return a valid user for ${user.id}`,
-        'transient',
-        'aihub_quota_top_up_incomplete',
-      );
-    }
-
-    return { ...user, quota: initialQuota };
   }
 
   private async ensureManagedToken(
