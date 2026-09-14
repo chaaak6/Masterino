@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 1.3.4](https://github.com/chaaak6/Masterino/compare/v1.3.3...v1.3.4)
+
+<sup>Released on **2026-09-14**</sup>
+
+#### 🐛 Bug Fixes
+
+- **aihub**: decouple readiness from wallet quota.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **aihub**: decouple readiness from wallet quota, closes [#126](https://github.com/chaaak6/Masterino/issues/126) ([64332cf](https://github.com/chaaak6/Masterino/commit/64332cf))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.3.3](https://github.com/chaaak6/Masterino/compare/v1.3.2...v1.3.3)
 
 <sup>Released on **2026-09-10**</sup>
