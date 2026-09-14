@@ -52,6 +52,8 @@ const createClient = () => ({
   createUser: vi.fn(),
   listTokens: vi.fn(),
   searchUsers: vi.fn(),
+  // Regression guard: provisioning must not mutate wallet quota through Aihub PUT /api/user/.
+  // Its update handler replaces omitted identity fields, including username, with empty values.
   updateUser: vi.fn(),
 });
 
@@ -873,14 +875,10 @@ describe('NewApiProvisioningAdapter', () => {
     expect(client.createUser).not.toHaveBeenCalled();
   });
 
-  it('tops up the initial quota when an existing Aihub user has no balance', async () => {
-    // Bug 2: an existing Aihub user created without the default initial quota
-    // (e.g. pre-provisioned manually) has no balance. Provisioning must grant
-    // the configured initialQuota and never reduce an existing higher balance.
+  it('does not make an existing Aihub user wallet balance part of readiness', async () => {
     const client = createClient();
     const zeroQuotaUser = { email: 'ada@example.com', id: 9001, quota: 0, username: 'E-1001' };
     client.searchUsers.mockResolvedValue({ items: [zeroQuotaUser], total: 0 });
-    client.updateUser.mockResolvedValue({ id: 9001, quota: 1000 });
     client.listTokens.mockResolvedValue({
       items: [{ id: 8001, name: 'masterlion-managed', user_id: 9001 }],
       total: 1,
@@ -894,44 +892,6 @@ describe('NewApiProvisioningAdapter', () => {
       newApiUserId: 9001,
       status: 'active',
     });
-    expect(client.updateUser).toHaveBeenCalledWith(
-      adminAuth,
-      expect.objectContaining({ id: 9001, quota: 1000 }),
-    );
-  });
-
-  it('does not report provisioning active when the required initial quota top-up fails', async () => {
-    const client = createClient();
-    client.searchUsers.mockResolvedValue({
-      items: [{ email: 'ada@example.com', id: 9001, quota: 0, username: 'E-1001' }],
-      total: 1,
-    });
-    client.updateUser.mockRejectedValue(new NewApiError('充值服务暂时不可用', 503));
-    client.listTokens.mockResolvedValue({
-      items: [{ id: 8001, name: 'Masterino_E-1001', user_id: 9001 }],
-      total: 1,
-    });
-    const adapter = createAdapter(client);
-
-    await expect(adapter.provisionEnterpriseUser(enterpriseUserInput)).rejects.toMatchObject({
-      message: '充值服务暂时不可用',
-      status: 503,
-    });
-    expect(client.createToken).not.toHaveBeenCalled();
-  });
-
-  it('does not reduce an existing positive balance', async () => {
-    const client = createClient();
-    const fundedUser = { email: 'ada@example.com', id: 9001, quota: 5000, username: 'E-1001' };
-    client.searchUsers.mockResolvedValue({ items: [fundedUser], total: 1 });
-    client.listTokens.mockResolvedValue({
-      items: [{ id: 8001, name: 'masterlion-managed', user_id: 9001 }],
-      total: 1,
-    });
-    const adapter = createAdapter(client);
-
-    await adapter.provisionEnterpriseUser(enterpriseUserInput);
-
     expect(client.updateUser).not.toHaveBeenCalled();
   });
 });
