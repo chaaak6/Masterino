@@ -163,7 +163,6 @@
   "ModelSwitchPanel.detail.abilities.vision": "Vision",
   "ModelSwitchPanel.detail.config": "Model Config",
   "ModelSwitchPanel.detail.context": "Context Length",
-  "ModelSwitchPanel.detail.inputModality": "Input modality",
   "ModelSwitchPanel.detail.pricing": "Pricing",
   "ModelSwitchPanel.detail.pricing.cachedInput": "Cached input ${{amount}}/M",
   "ModelSwitchPanel.detail.pricing.credits.cachedInput": "Cached input {{amount}} credits/M tokens",

@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "Bu Sayfa silinsin mi?",
   "notebook.delete": "Sil",
   "notebook.empty": "Henüz sayfa yok. Bu Konuya bağlı sayfalar burada görünecek.",
+  "notebook.loadError": "Sayfalar yüklenemedi. Lütfen tekrar deneyin.",
   "notebook.title": "Not Defteri",
   "openInPageEditor": "Sayfada Düzenle",
   "title": "Çalışma Alanı"
