@@ -6,13 +6,12 @@ import {
   Button,
   Descriptions,
   Drawer,
-  message,
   Popconfirm,
   Space,
   Tag,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import BoundTokenEditor from './BoundTokenEditor';
 
@@ -49,6 +48,11 @@ export default function UserAvailabilityDrawer({
   userId,
 }: UserAvailabilityDrawerProps) {
   const [editing, setEditing] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    message: string;
+    type: 'error' | 'success' | 'warning';
+  } | null>(null);
+  useEffect(() => setFeedback(null), [userId]);
   const availability = trpc.admin.getUserAvailability.useQuery(
     { userId: userId! },
     { enabled: Boolean(userId), retry: false },
@@ -65,26 +69,32 @@ export default function UserAvailabilityDrawer({
 
   const rerunReadiness = async () => {
     if (!userId) return;
+    setFeedback(null);
     try {
       const result = await rerun.mutateAsync({ userId });
       await refresh();
-      if (result.status === 'active') message.success('Readiness 已重新检查完成');
-      else message.warning(result.errorMessage || `Readiness 状态：${result.status}`);
+      setFeedback(
+        result.status === 'active'
+          ? { message: 'Readiness 已重新检查完成', type: 'success' }
+          : { message: result.errorMessage || `Readiness 状态：${result.status}`, type: 'warning' },
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : String(error));
+      setFeedback({ message: error instanceof Error ? error.message : String(error), type: 'error' });
     }
   };
 
   const syncModels = async () => {
     if (!userId) return;
+    setFeedback(null);
     try {
       const result = await sync.mutateAsync({ userId });
       await refresh();
-      message.success(
-        `已将 ${result.modelCount} 个模型写入该用户的服务端数据；用户重启 App 或刷新网页后获取最新列表`,
-      );
+      setFeedback({
+        message: `已将 ${result.modelCount} 个模型写入该用户的服务端数据；用户重启 App 或刷新网页后获取最新列表`,
+        type: 'success',
+      });
     } catch (error) {
-      message.error(error instanceof Error ? error.message : String(error));
+      setFeedback({ message: error instanceof Error ? error.message : String(error), type: 'error' });
     }
   };
 
@@ -103,6 +113,15 @@ export default function UserAvailabilityDrawer({
           action={<Button onClick={() => availability.refetch()}>重试</Button>}
           message={availability.error.message}
           type="error"
+        />
+      )}
+      {feedback && (
+        <Alert
+          closable
+          showIcon
+          message={feedback.message}
+          type={feedback.type}
+          onClose={() => setFeedback(null)}
         />
       )}
       {detail && (
@@ -232,10 +251,22 @@ export default function UserAvailabilityDrawer({
               token={token}
               onClose={() => setEditing(false)}
               onSave={async (patch) => {
-                await updateToken.mutateAsync({ patch, userId: detail.masterino.id });
-                setEditing(false);
-                await refresh();
-                message.success('绑定 Token 配置已保存。若修改了模型范围，请手动刷新该用户模型。');
+                setFeedback(null);
+                try {
+                  await updateToken.mutateAsync({ patch, userId: detail.masterino.id });
+                  setEditing(false);
+                  await refresh();
+                  setFeedback({
+                    message: '绑定 Token 配置已保存。若修改了模型范围，请手动刷新该用户模型。',
+                    type: 'success',
+                  });
+                } catch (error) {
+                  setFeedback({
+                    message: error instanceof Error ? error.message : String(error),
+                    type: 'error',
+                  });
+                  throw error;
+                }
               }}
             />
           )}
