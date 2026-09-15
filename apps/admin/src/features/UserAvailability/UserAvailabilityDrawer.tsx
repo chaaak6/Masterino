@@ -90,7 +90,7 @@ export default function UserAvailabilityDrawer({
       const result = await sync.mutateAsync({ userId });
       await refresh();
       setFeedback({
-        message: `已将 ${result.modelCount} 个模型写入该用户的服务端数据；用户重启 App 或刷新网页后获取最新列表`,
+        message: `已同步 ${result.modelCount} 个各类模型；上方仅统计可用的聊天模型。用户重启 App 或刷新网页后获取最新列表`,
         type: 'success',
       });
     } catch (error) {
@@ -165,7 +165,7 @@ export default function UserAvailabilityDrawer({
             {detail.binding?.errorMessage && (
               <Descriptions.Item label="最近错误">{detail.binding.errorMessage}</Descriptions.Item>
             )}
-            <Descriptions.Item label="模型">
+            <Descriptions.Item label="聊天模型">
               {detail.models.count} 个 · 最近更新{' '}
               {detail.models.lastUpdatedAt
                 ? new Date(detail.models.lastUpdatedAt).toLocaleString('zh-CN')

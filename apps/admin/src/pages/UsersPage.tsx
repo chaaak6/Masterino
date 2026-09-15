@@ -102,7 +102,7 @@ export default function UsersPage() {
             {
               render: (_: unknown, record: { id: string }) =>
                 availabilityByUserId.get(record.id)?.modelCount ?? '-',
-              title: '模型',
+              title: '聊天模型',
             },
             {
               render: (_: unknown, record: { id: string }) => {
