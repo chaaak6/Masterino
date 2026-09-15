@@ -303,7 +303,7 @@ limit 1
       ? 'deleted'
       : token.status !== TOKEN_STATUS_ENABLED
         ? 'disabled'
-        : token.expired_time != null && token.expired_time !== -1 && token.expired_time <= now
+        : token.expired_time == null || (token.expired_time !== -1 && token.expired_time <= now)
           ? 'expired'
           : !token.unlimited_quota && (token.remain_quota ?? 0) <= 0
             ? 'exhausted'

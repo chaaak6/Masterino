@@ -110,6 +110,15 @@ describe('AihubBridgeRepository', () => {
     expect(client.query).toHaveBeenCalledWith(expect.not.stringContaining('`key`'), [31]);
   });
 
+  it('uses the same expiration requirement as runtime token lookup', async () => {
+    const client = createClient([{ id: 31, status: 1, unlimited_quota: 1, user_id: 7 }]);
+    const repo = new AihubBridgeRepository({ client, dialect: 'mysql' });
+
+    await expect(repo.inspectBoundToken(7, 31)).resolves.toMatchObject({
+      availability: 'expired',
+    });
+  });
+
   it('never updates a token that belongs to another user', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [{ deleted_at: null, user_id: 8 }] });
     const client = {
@@ -137,6 +146,7 @@ describe('AihubBridgeRepository', () => {
         rows: [
           {
             deleted_at: null,
+            expired_time: -1,
             id: 31,
             name: 'Masterino_7',
             status: 1,
