@@ -94,9 +94,9 @@ export default function BoundTokenEditor({
       return;
     }
     const patch: Parameters<typeof onSave>[0] = {};
-    const allowIps = values.allow_ips.trim();
-    const group = values.group.trim();
-    const modelLimits = values.model_limits.trim();
+    const allowIps = (values.allow_ips ?? '').trim();
+    const group = (values.group ?? '').trim();
+    const modelLimits = (values.model_limits ?? '').trim();
     const status = values.enabled ? (1 as const) : (2 as const);
     if (allowIps !== (token.allow_ips ?? '')) patch.allow_ips = allowIps;
     if (expiredTime !== token.expired_time) patch.expired_time = expiredTime;
