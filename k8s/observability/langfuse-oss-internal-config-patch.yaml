@@ -1,0 +1,4 @@
+data:
+  LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: https://oss-cn-shenzhen-internal.aliyuncs.com
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: https://oss-cn-shenzhen-internal.aliyuncs.com
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: https://oss-cn-shenzhen-internal.aliyuncs.com
