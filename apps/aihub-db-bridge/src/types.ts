@@ -12,6 +12,7 @@ export interface AihubBridgeUser {
 }
 
 export interface AihubBridgeToken {
+  allow_ips?: string;
   expired_time?: number;
   group?: string;
   id: number;
@@ -24,6 +25,32 @@ export interface AihubBridgeToken {
   unlimited_quota?: boolean;
   used_quota?: number;
   user_id?: number;
+}
+
+export type BoundTokenAvailability =
+  | 'active'
+  | 'disabled'
+  | 'expired'
+  | 'exhausted'
+  | 'deleted'
+  | 'missing'
+  | 'owner_mismatch';
+
+/** Management view of exactly one bound token. Never includes its API key. */
+export interface BoundTokenInspection {
+  availability: BoundTokenAvailability;
+  token?: Omit<AihubBridgeToken, 'key'>;
+}
+
+export interface BoundTokenPatch {
+  allow_ips?: string;
+  expired_time?: number;
+  group?: string;
+  model_limits?: string;
+  model_limits_enabled?: boolean;
+  remain_quota?: number;
+  status?: 1 | 2;
+  unlimited_quota?: boolean;
 }
 
 export interface AihubBridgeUsageLog {

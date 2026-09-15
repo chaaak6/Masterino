@@ -1,0 +1,17 @@
+[
+  {
+    "op": "test",
+    "path": "/spec/templates/podTemplates/0/spec/containers/1/name",
+    "value": "clickhouse-backup"
+  },
+  {
+    "op": "test",
+    "path": "/spec/templates/podTemplates/0/spec/containers/1/env/5/name",
+    "value": "S3_ENDPOINT"
+  },
+  {
+    "op": "replace",
+    "path": "/spec/templates/podTemplates/0/spec/containers/1/env/5/value",
+    "value": "https://oss-cn-shenzhen-internal.aliyuncs.com"
+  }
+]

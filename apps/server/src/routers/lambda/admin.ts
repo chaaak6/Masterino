@@ -34,10 +34,12 @@ import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { generateTrustedClientToken } from '@/libs/trusted-client';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
 import { AiAgentService } from '@/server/services/aiAgent';
+import { UserAvailabilityService } from '@/server/services/aihubUserAdmin/userAvailabilityService';
 import {
   type AdminRbacPermissionCode,
   requireAdminAccess,
   requireAdminRbacPermission,
+  requireAihubManage,
 } from '@/server/services/enterprise/adminPermissionService';
 import { applyEnterpriseDirectorySnapshot } from '@/server/services/enterprise/directorySyncService';
 import { resolveResourceAclScope } from '@/server/services/enterprise/resourceAclService';
@@ -48,6 +50,7 @@ import {
 } from '@/server/services/enterprise/wecomSsoService';
 import { getEmbeddingInputLimit } from '@/server/services/memory/userMemory/embedding';
 import { NewApiService } from '@/server/services/newApi';
+import { createAihubReadiness } from '@/server/services/newApi/readiness/production';
 import { TaskService } from '@/server/services/task';
 import { TaskRunnerService } from '@/server/services/taskRunner';
 import { getInternalMarketBaseUrl } from '@/utils/internalMarket';
@@ -293,6 +296,29 @@ const directorySyncRunInput = z.object({
 
 const userIdInput = z.object({
   userId: z.string().min(1),
+});
+
+const boundTokenPatchInput = userIdInput.extend({
+  patch: z
+    .object({
+      allow_ips: z.string().max(5000).optional(),
+      expired_time: z
+        .number()
+        .int()
+        .min(-1)
+        .refine((value) => value !== 0)
+        .optional(),
+      group: z.string().max(64).optional(),
+      model_limits: z.string().max(5000).optional(),
+      model_limits_enabled: z.boolean().optional(),
+      remain_quota: z.number().int().nonnegative().optional(),
+      status: z.union([z.literal(1), z.literal(2)]).optional(),
+      unlimited_quota: z.boolean().optional(),
+    })
+    .strict()
+    .refine((patch) => Object.values(patch).some((value) => value !== undefined), {
+      message: 'At least one token setting is required',
+    }),
 });
 
 const usageDiagnosticsInput = z
@@ -1787,57 +1813,163 @@ const resumeTaskAutomation = async (
   return { operationId: run.operationId, taskId: task.id };
 };
 
+const listAdminUsers = async (db: any, input: z.infer<typeof paginationInput>) => {
+  if (typeof db.query?.users?.findMany !== 'function') {
+    return emptyList<AdminUserListItem>();
+  }
+
+  const matchingProfiles = input.q
+    ? ((await db.query?.enterpriseUserProfiles?.findMany?.({
+        columns: { userId: true },
+        where: ilike(enterpriseUserProfiles.employeeNumber, `%${input.q}%`),
+      })) ?? [])
+    : [];
+  const matchingProfileUserIds = matchingProfiles.map((profile: any) => profile.userId);
+  const where = input.q
+    ? or(
+        ilike(users.fullName, `%${input.q}%`),
+        ilike(users.email, `%${input.q}%`),
+        ilike(users.username, `%${input.q}%`),
+        ilike(users.id, `%${input.q}%`),
+        matchingProfileUserIds.length ? inArray(users.id, matchingProfileUserIds) : undefined,
+      )
+    : undefined;
+
+  const rows = await db.query.users.findMany({
+    limit: input.pageSize,
+    offset: (input.page - 1) * input.pageSize,
+    orderBy: [desc(users.createdAt)],
+    where,
+  });
+  const profiles = rows.length
+    ? ((await db.query?.enterpriseUserProfiles?.findMany?.({
+        where: inArray(
+          enterpriseUserProfiles.userId,
+          rows.map((row: any) => row.id),
+        ),
+      })) ?? [])
+    : [];
+  const employeeNumberByUserId = new Map<string, null | string>(
+    profiles.map((profile: any) => [profile.userId, profile.employeeNumber]),
+  );
+  const items = rows.map((row: any) => mapAdminUser(row, employeeNumberByUserId.get(row.id)));
+
+  return {
+    items,
+    total: await countRows(db, users, where, items.length),
+  };
+};
+
 export const adminRouter = router({
   listUsers: adminProcedure.input(paginationInput).query(async ({ ctx, input }) => {
     await requireUserManage(ctx);
+    return listAdminUsers(getServerDBFromContext(ctx), input);
+  }),
 
+  listUserAvailability: adminProcedure.input(paginationInput).query(async ({ ctx, input }) => {
+    await requireAihubManage(ctx);
     const db = getServerDBFromContext(ctx) as any;
-
-    if (typeof db.query?.users?.findMany !== 'function') {
-      return emptyList<AdminUserListItem>();
-    }
-
-    const matchingProfiles = input.q
-      ? ((await db.query?.enterpriseUserProfiles?.findMany?.({
-          columns: { userId: true },
-          where: ilike(enterpriseUserProfiles.employeeNumber, `%${input.q}%`),
-        })) ?? [])
-      : [];
-    const matchingProfileUserIds = matchingProfiles.map((profile: any) => profile.userId);
-    const where = input.q
-      ? or(
-          ilike(users.fullName, `%${input.q}%`),
-          ilike(users.email, `%${input.q}%`),
-          ilike(users.username, `%${input.q}%`),
-          ilike(users.id, `%${input.q}%`),
-          matchingProfileUserIds.length ? inArray(users.id, matchingProfileUserIds) : undefined,
-        )
-      : undefined;
-
-    const rows = await db.query.users.findMany({
-      limit: input.pageSize,
-      offset: (input.page - 1) * input.pageSize,
-      orderBy: [desc(users.createdAt)],
-      where,
-    });
-    const profiles = rows.length
-      ? ((await db.query?.enterpriseUserProfiles?.findMany?.({
-          where: inArray(
-            enterpriseUserProfiles.userId,
-            rows.map((row: any) => row.id),
-          ),
-        })) ?? [])
-      : [];
-    const employeeNumberByUserId = new Map<string, null | string>(
-      profiles.map((profile: any) => [profile.userId, profile.employeeNumber]),
-    );
-    const items = rows.map((row: any) => mapAdminUser(row, employeeNumberByUserId.get(row.id)));
-
+    const list = await listAdminUsers(db, input);
     return {
-      items,
-      total: await countRows(db, users, where, items.length),
+      items: await new UserAvailabilityService(db).summarizeUsers(list.items),
+      total: list.total,
     };
   }),
+
+  getUserAvailability: adminProcedure.input(userIdInput).query(async ({ ctx, input }) => {
+    await requireAihubManage(ctx);
+    return new UserAvailabilityService(getServerDBFromContext(ctx) as any).getUser(input.userId);
+  }),
+
+  rerunAihubReadiness: adminProcedure.input(userIdInput).mutation(async ({ ctx, input }) => {
+    const admin = await requireAihubManage(ctx);
+    const db = getServerDBFromContext(ctx) as any;
+    try {
+      const state = await createAihubReadiness({ db }).ensure(input.userId, {
+        force: true,
+        trigger: 'admin_reconcile',
+      });
+      await writeEnterpriseAuditLog(db, {
+        action: 'aihub.readiness.rerun',
+        actorUserId: admin.userId,
+        metadata: { status: state.status },
+        result: state.status === 'active' ? 'success' : 'failed',
+        targetId: input.userId,
+        targetType: 'user',
+      });
+      return state;
+    } catch (error) {
+      await writeEnterpriseAuditLog(db, {
+        action: 'aihub.readiness.rerun',
+        actorUserId: admin.userId,
+        metadata: { error: error instanceof Error ? error.message : String(error) },
+        result: 'failed',
+        targetId: input.userId,
+        targetType: 'user',
+      });
+      throw error;
+    }
+  }),
+
+  syncUserModels: adminProcedure.input(userIdInput).mutation(async ({ ctx, input }) => {
+    const admin = await requireAihubManage(ctx);
+    const db = getServerDBFromContext(ctx) as any;
+    try {
+      const result = await new UserAvailabilityService(db).syncBoundModels(input.userId);
+      await writeEnterpriseAuditLog(db, {
+        action: 'aihub.models.sync',
+        actorUserId: admin.userId,
+        metadata: { modelCount: result.models.length },
+        result: 'success',
+        targetId: input.userId,
+        targetType: 'user',
+      });
+      return { modelCount: result.models.length };
+    } catch (error) {
+      await writeEnterpriseAuditLog(db, {
+        action: 'aihub.models.sync',
+        actorUserId: admin.userId,
+        metadata: { error: error instanceof Error ? error.message : String(error) },
+        result: 'failed',
+        targetId: input.userId,
+        targetType: 'user',
+      });
+      throw error;
+    }
+  }),
+
+  updateBoundAihubToken: adminProcedure
+    .input(boundTokenPatchInput)
+    .mutation(async ({ ctx, input }) => {
+      const admin = await requireAihubManage(ctx);
+      const db = getServerDBFromContext(ctx) as any;
+      const service = new UserAvailabilityService(db);
+      try {
+        const inspection = await service.updateBoundToken(input.userId, input.patch);
+        await writeEnterpriseAuditLog(db, {
+          action: 'aihub.bound_token.update',
+          actorUserId: admin.userId,
+          metadata: { fields: Object.keys(input.patch), tokenId: inspection.token?.id },
+          result: 'success',
+          targetId: input.userId,
+          targetType: 'user',
+        });
+        return inspection;
+      } catch (error) {
+        await writeEnterpriseAuditLog(db, {
+          action: 'aihub.bound_token.update',
+          actorUserId: admin.userId,
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+            fields: Object.keys(input.patch),
+          },
+          result: 'failed',
+          targetId: input.userId,
+          targetType: 'user',
+        });
+        throw error;
+      }
+    }),
 
   getUserDetail: adminProcedure.input(userIdInput).query(async ({ ctx, input }) => {
     await requireUserManage(ctx);
