@@ -40,7 +40,7 @@ export const useWorkspaceTopicNavigation = (): WorkspaceTopicNavigationView => {
   const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
 
   const workspaceRequest = useProjectWorkspaceStore((s) => s.useFetchWorkspaces)(
-    isDesktop ? !!currentDeviceId : isLogin,
+    isDesktop ? !!currentDeviceId : isLogin === true,
     isDesktop ? { deviceId: currentDeviceId } : {},
   );
 
