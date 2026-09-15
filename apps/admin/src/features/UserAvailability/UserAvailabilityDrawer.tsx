@@ -47,12 +47,15 @@ export default function UserAvailabilityDrawer({
   onUpdated,
   userId,
 }: UserAvailabilityDrawerProps) {
-  const [editing, setEditing] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string>();
   const [feedback, setFeedback] = useState<{
     message: string;
     type: 'error' | 'success' | 'warning';
   } | null>(null);
-  useEffect(() => setFeedback(null), [userId]);
+  useEffect(() => {
+    setFeedback(null);
+    setEditingUserId(undefined);
+  }, [userId]);
   const availability = trpc.admin.getUserAvailability.useQuery(
     { userId: userId! },
     { enabled: Boolean(userId), retry: false },
@@ -60,7 +63,7 @@ export default function UserAvailabilityDrawer({
   const rerun = trpc.admin.rerunAihubReadiness.useMutation();
   const sync = trpc.admin.syncUserModels.useMutation();
   const updateToken = trpc.admin.updateBoundAihubToken.useMutation();
-  const detail = availability.data;
+  const detail = availability.data?.masterino.id === userId ? availability.data : undefined;
   const token = detail?.token.inspection?.token;
 
   const refresh = async () => {
@@ -105,7 +108,10 @@ export default function UserAvailabilityDrawer({
       open={Boolean(userId)}
       size="large"
       title="用户可用性"
-      onClose={onClose}
+      onClose={() => {
+        setEditingUserId(undefined);
+        onClose();
+      }}
     >
       {availability.error && (
         <Alert
@@ -241,20 +247,20 @@ export default function UserAvailabilityDrawer({
             )}
           </Descriptions>
           {token && detail.token.status !== 'deleted' && (
-            <Button onClick={() => setEditing(true)}>编辑绑定 Token 配置</Button>
+            <Button onClick={() => setEditingUserId(userId)}>编辑绑定 Token 配置</Button>
           )}
           {token && (
             <BoundTokenEditor
               loading={updateToken.isPending}
-              open={editing}
+              open={Boolean(userId && editingUserId === userId)}
               quotaPolicy={detail.quotaPolicy}
               token={token}
-              onClose={() => setEditing(false)}
+              onClose={() => setEditingUserId(undefined)}
               onSave={async (patch) => {
                 setFeedback(null);
                 try {
                   await updateToken.mutateAsync({ patch, userId: detail.masterino.id });
-                  setEditing(false);
+                  setEditingUserId(undefined);
                   await refresh();
                   setFeedback({
                     message: '绑定 Token 配置已保存。若修改了模型范围，请手动刷新该用户模型。',

@@ -78,24 +78,33 @@ describe('UserAvailabilityService', () => {
     expect(result.token.inspection?.token).not.toHaveProperty('key');
   });
 
-  it('does not mark a list row usable when the Aihub account is disabled or unavailable', async () => {
+  it('loads a page of stored facts without fan-out to Aihub', async () => {
     const { bridge, db, service } = createFixture({
       managedTokenId: 4893,
       newApiUserId: 2664,
       status: 'active',
     });
     db.query.aiModels.findMany.mockResolvedValue([{ id: 'chat-model', userId: 'user-test' }]);
-    bridge.inspectBoundToken.mockResolvedValue({
-      availability: 'active',
-      token: { id: 4893, status: 1, user_id: 2664 },
+    const items = Array.from({ length: 100 }, (_, index) => ({
+      id: index === 0 ? 'user-test' : `user-${index}`,
+      name: 'Test User',
+      status: '正常',
+    }));
+
+    const result = await service.summarizeUsers(items);
+
+    expect(result[0]).toMatchObject({
+      bindingStatus: 'active',
+      managedTokenId: 4893,
+      modelCount: 1,
     });
-    const items = [{ id: 'user-test', name: 'Test User', status: '正常' }];
-
-    bridge.findUserById.mockResolvedValue({ id: 2664, status: 2 });
-    expect((await service.summarizeUsers(items))[0].health).toBe('blocked');
-
-    bridge.findUserById.mockRejectedValue(new Error('Aihub temporarily unavailable'));
-    expect((await service.summarizeUsers(items))[0].health).toBe('unknown');
+    expect(result[0]).not.toHaveProperty('health');
+    expect(result[0]).not.toHaveProperty('tokenHealth');
+    expect(result[1]).toMatchObject({ bindingStatus: 'missing', managedTokenId: null });
+    expect(bridge.inspectBoundToken).not.toHaveBeenCalled();
+    expect(bridge.findUserById).not.toHaveBeenCalled();
+    expect(db.query.newApiBindings.findMany).toHaveBeenCalledTimes(1);
+    expect(db.query.aiModels.findMany).toHaveBeenCalledTimes(1);
   });
 
   it('does not mark a pending binding or an account without chat models as usable', async () => {

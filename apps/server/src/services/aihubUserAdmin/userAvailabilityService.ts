@@ -69,7 +69,7 @@ export class UserAvailabilityService {
     }
   }
 
-  /** Page enrichment checks the bound Aihub user and token before marking a row usable. */
+  /** List rows show stored Masterino facts only; live Aihub checks belong to getUser. */
   async summarizeUsers(
     items: Array<{
       employeeNumber?: null | string;
@@ -97,37 +97,15 @@ export class UserAvailabilityService {
     for (const model of models)
       modelCounts.set(model.userId, (modelCounts.get(model.userId) ?? 0) + 1);
 
-    return Promise.all(
-      items.map(async (item) => {
-        const binding = bindingMap.get(item.id);
-        const [token, account] = await Promise.all([
-          binding?.newApiUserId && binding.managedTokenId
-            ? this.inspectToken(binding.newApiUserId, binding.managedTokenId)
-            : { tokenHealth: 'unbound' as const },
-          binding?.newApiUserId && this.bridge.isEnabled()
-            ? this.bridge.findUserById(binding.newApiUserId).catch(() => undefined)
-            : undefined,
-        ]);
-        const modelCount = modelCounts.get(item.id) ?? 0;
-        return {
-          ...item,
-          aihubUserId: binding?.newApiUserId ?? null,
-          bindingStatus: binding?.status ?? 'missing',
-          health: summarizeHealth({
-            aihubUserStatus: typeof account?.status === 'number' ? account.status : undefined,
-            bindingStatus: binding?.status,
-            masterinoBanned: item.status === '禁用',
-            modelCount,
-            newApiUserId: binding?.newApiUserId,
-            tokenHealth: token.tokenHealth,
-            verifyAihubUser: Boolean(binding?.newApiUserId),
-          }),
-          managedTokenId: binding?.managedTokenId ?? null,
-          modelCount,
-          tokenHealth: token.tokenHealth,
-        };
-      }),
-    );
+    return items.map((item) => {
+      const binding = bindingMap.get(item.id);
+      return {
+        ...item,
+        bindingStatus: binding?.status ?? 'missing',
+        managedTokenId: binding?.managedTokenId ?? null,
+        modelCount: modelCounts.get(item.id) ?? 0,
+      };
+    });
   }
 
   async getUser(userId: string) {

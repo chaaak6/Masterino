@@ -12,7 +12,6 @@ import {
   Space,
   Statistic,
   Table,
-  Tag,
   Typography,
 } from 'antd';
 import { useState } from 'react';
@@ -72,7 +71,7 @@ export default function UsersPage() {
         {availability.error && !/forbidden|permission|无权限/i.test(availability.error.message) && (
           <Alert
             showIcon
-            message="Aihub 可用性暂时无法查询；基础用户列表仍可使用"
+            message="绑定与模型信息暂时无法查询；基础用户列表仍可使用"
             style={{ marginBottom: 16 }}
             type="warning"
           />
@@ -93,9 +92,7 @@ export default function UsersPage() {
             {
               render: (_: unknown, record: { id: string }) => {
                 const item = availabilityByUserId.get(record.id);
-                return item?.managedTokenId
-                  ? `#${item.managedTokenId} · ${item.tokenHealth}`
-                  : '未绑定';
+                return item?.managedTokenId ? `#${item.managedTokenId}` : '未绑定';
               },
               title: '绑定 Token',
             },
@@ -105,34 +102,10 @@ export default function UsersPage() {
               title: '聊天模型',
             },
             {
-              render: (_: unknown, record: { id: string }) => {
-                const health = availabilityByUserId.get(record.id)?.health;
-                return health ? (
-                  <Tag
-                    color={
-                      health === 'active' ? 'success' : health === 'unknown' ? 'warning' : 'error'
-                    }
-                  >
-                    {
-                      {
-                        active: '可用',
-                        blocked: '不可用',
-                        uninitialized: '未初始化',
-                        unknown: '待确认',
-                      }[health]
-                    }
-                  </Tag>
-                ) : (
-                  '-'
-                );
-              },
-              title: '整体状态',
-            },
-            {
               render: (_: unknown, record: { id: string }) => (
                 <Space size="small">
                   <Button type="link" onClick={() => setSelectedAvailabilityUserId(record.id)}>
-                    可用性
+                    检查可用
                   </Button>
                   <Button type="link" onClick={() => setSelectedUserId(record.id)}>
                     更多诊断
