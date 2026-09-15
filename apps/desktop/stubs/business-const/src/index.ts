@@ -4,10 +4,10 @@ export const BRANDING_NAME = 'Masterino';
 // AIHUB_DEFAULT_MODEL at runtime; Electron cannot, so these mirror the fallback
 // value in packages/business/const/src/llm.ts. Keep both in sync.
 export const DEFAULT_EMBEDDING_PROVIDER = 'newapi';
-export const DEFAULT_MINI_MODEL = 'glm-5.2';
+export const DEFAULT_MINI_MODEL = 'deepseek-v4-flash';
 export const DEFAULT_MINI_PROVIDER = 'newapi';
-export const DEFAULT_MODEL = 'glm-5.2';
-export const DEFAULT_ONBOARDING_MODEL = 'glm-5.2';
+export const DEFAULT_MODEL = 'deepseek-v4-flash';
+export const DEFAULT_ONBOARDING_MODEL = 'deepseek-v4-flash';
 export const DEFAULT_ONBOARDING_PROVIDER = 'newapi';
 export const DEFAULT_PROVIDER = 'newapi';
 export const ORG_NAME = '小宗狮';
