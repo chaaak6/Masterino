@@ -71,7 +71,7 @@ patches:
       metadata:
         name: masterino-market-config
       data:
-        MARKET_OBJECT_STORAGE_ENDPOINT: https://s3.oss-cn-shenzhen.aliyuncs.com
+        MARKET_OBJECT_STORAGE_ENDPOINT: https://s3.oss-cn-shenzhen-internal.aliyuncs.com
         MARKET_OBJECT_STORAGE_BUCKET: masterlion-prd
         MARKET_OBJECT_STORAGE_REGION: cn-shenzhen
         MARKET_OBJECT_STORAGE_FORCE_PATH_STYLE: '0'
@@ -147,6 +147,18 @@ patches:
                 port: 53
               - protocol: TCP
                 port: 53
+          - to:
+              - ipBlock:
+                  cidr: 100.118.78.0/24
+              - ipBlock:
+                  cidr: 100.118.203.0/24
+              - ipBlock:
+                  cidr: 100.118.204.0/24
+              - ipBlock:
+                  cidr: 100.118.217.0/24
+            ports:
+              - protocol: TCP
+                port: 443
           - to:
               - ipBlock:
                   cidr: 0.0.0.0/0

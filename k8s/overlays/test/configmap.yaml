@@ -26,7 +26,7 @@ data:
   DEVICE_GATEWAY_URL: 'http://masterino-device-gateway:8788'
   DATABASE_DRIVER: 'node'
   LOBE_DB_NAME: 'lobechat'
-  S3_ENDPOINT: 'https://oss-cn-shenzhen.aliyuncs.com'
+  S3_ENDPOINT: 'https://oss-cn-shenzhen-internal.aliyuncs.com'
   S3_REGION: 'cn-shenzhen'
   S3_BUCKET: 'masterlion-test'
   S3_ENABLE_PATH_STYLE: '0'

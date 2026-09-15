@@ -22,7 +22,7 @@ data:
   AUTH_SSO_PROVIDERS: 'wecom'
   DATABASE_DRIVER: 'node'
   LOBE_DB_NAME: 'lobechat'
-  S3_ENDPOINT: 'https://oss-cn-shenzhen.aliyuncs.com'
+  S3_ENDPOINT: 'https://oss-cn-shenzhen-internal.aliyuncs.com'
   S3_REGION: 'cn-shenzhen'
   S3_BUCKET: 'masterlion-prd'
   S3_ENABLE_PATH_STYLE: '0'
