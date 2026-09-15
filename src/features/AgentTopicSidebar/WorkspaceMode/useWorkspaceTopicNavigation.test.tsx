@@ -7,6 +7,7 @@ import { useWorkspaceTopicNavigation } from './useWorkspaceTopicNavigation';
 const mocks = vi.hoisted(() => ({
   desktop: true,
   deviceId: 'mac-a' as string | undefined,
+  login: true as boolean | undefined,
   fetchWorkspaces: vi.fn(() => ({})),
   fetchDevice: vi.fn(),
 }));
@@ -24,7 +25,7 @@ vi.mock('@/store/electron', () => ({
     }),
 }));
 vi.mock('@/store/global', () => ({ useGlobalStore: () => 30 }));
-vi.mock('@/store/user', () => ({ useUserStore: () => true }));
+vi.mock('@/store/user', () => ({ useUserStore: () => mocks.login }));
 vi.mock('@/store/chat', () => ({
   useChatStore: () =>
     ['mac-a', 'mac-b'].map((id) => ({
@@ -65,6 +66,7 @@ describe('desktop sidebar device scope', () => {
     vi.clearAllMocks();
     mocks.desktop = true;
     mocks.deviceId = 'mac-a';
+    mocks.login = true;
   });
 
   it('requests one device and filters cached foreign workspaces; reacts to device changes', () => {
@@ -89,5 +91,19 @@ describe('desktop sidebar device scope', () => {
     expect(mocks.fetchDevice).toHaveBeenLastCalledWith(false);
     expect(mocks.fetchWorkspaces).toHaveBeenLastCalledWith(true, {});
     expect(result.current.groupIds).toEqual(['mac-a', 'mac-b']);
+  });
+
+  it.each([
+    { login: undefined, enabled: false },
+    { login: false, enabled: false },
+    { login: true, enabled: true },
+  ])('only fetches web workspaces after sign-in is confirmed ($login)', ({ login, enabled }) => {
+    mocks.desktop = false;
+    mocks.login = login;
+
+    renderHook(() => useWorkspaceTopicNavigation());
+
+    expect(mocks.fetchDevice).toHaveBeenLastCalledWith(false);
+    expect(mocks.fetchWorkspaces).toHaveBeenLastCalledWith(enabled, {});
   });
 });
