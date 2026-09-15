@@ -11,7 +11,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
 import BoundTokenEditor from './BoundTokenEditor';
 
@@ -52,8 +52,8 @@ export default function UserAvailabilityDrawer({
     message: string;
     type: 'error' | 'success' | 'warning';
   } | null>(null);
-  useEffect(() => {
-    setFeedback(null);
+  useEffect(() => setFeedback(null), [userId]);
+  useLayoutEffect(() => {
     setEditingUserId(undefined);
   }, [userId]);
   const availability = trpc.admin.getUserAvailability.useQuery(
