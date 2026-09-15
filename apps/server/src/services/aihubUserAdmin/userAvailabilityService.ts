@@ -69,7 +69,7 @@ export class UserAvailabilityService {
     }
   }
 
-  /** Lightweight page enrichment: one DB read per table and only bound token inspections. */
+  /** Page enrichment checks the bound Aihub user and token before marking a row usable. */
   async summarizeUsers(
     items: Array<{
       employeeNumber?: null | string;
@@ -100,21 +100,27 @@ export class UserAvailabilityService {
     return Promise.all(
       items.map(async (item) => {
         const binding = bindingMap.get(item.id);
-        const token =
+        const [token, account] = await Promise.all([
           binding?.newApiUserId && binding.managedTokenId
-            ? await this.inspectToken(binding.newApiUserId, binding.managedTokenId)
-            : { tokenHealth: 'unbound' as const };
+            ? this.inspectToken(binding.newApiUserId, binding.managedTokenId)
+            : { tokenHealth: 'unbound' as const },
+          binding?.newApiUserId && this.bridge.isEnabled()
+            ? this.bridge.findUserById(binding.newApiUserId).catch(() => undefined)
+            : undefined,
+        ]);
         const modelCount = modelCounts.get(item.id) ?? 0;
         return {
           ...item,
           aihubUserId: binding?.newApiUserId ?? null,
           bindingStatus: binding?.status ?? 'missing',
           health: summarizeHealth({
+            aihubUserStatus: typeof account?.status === 'number' ? account.status : undefined,
             bindingStatus: binding?.status,
             masterinoBanned: item.status === '禁用',
             modelCount,
             newApiUserId: binding?.newApiUserId,
             tokenHealth: token.tokenHealth,
+            verifyAihubUser: Boolean(binding?.newApiUserId),
           }),
           managedTokenId: binding?.managedTokenId ?? null,
           modelCount,

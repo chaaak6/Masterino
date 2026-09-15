@@ -18,7 +18,10 @@ const createFixture = (binding?: {
       enterpriseUserProfiles: {
         findFirst: vi.fn().mockResolvedValue({ employeeNumber: 'MTEST10020' }),
       },
-      newApiBindings: { findFirst: vi.fn().mockResolvedValue(binding) },
+      newApiBindings: {
+        findFirst: vi.fn().mockResolvedValue(binding),
+        findMany: vi.fn().mockResolvedValue(binding ? [{ ...binding, userId: 'user-test' }] : []),
+      },
       users: {
         findFirst: vi
           .fn()
@@ -73,6 +76,26 @@ describe('UserAvailabilityService', () => {
     expect(result.token.status).toBe('disabled');
     expect(result.health).toBe('blocked');
     expect(result.token.inspection?.token).not.toHaveProperty('key');
+  });
+
+  it('does not mark a list row usable when the Aihub account is disabled or unavailable', async () => {
+    const { bridge, db, service } = createFixture({
+      managedTokenId: 4893,
+      newApiUserId: 2664,
+      status: 'active',
+    });
+    db.query.aiModels.findMany.mockResolvedValue([{ id: 'chat-model', userId: 'user-test' }]);
+    bridge.inspectBoundToken.mockResolvedValue({
+      availability: 'active',
+      token: { id: 4893, status: 1, user_id: 2664 },
+    });
+    const items = [{ id: 'user-test', name: 'Test User', status: '正常' }];
+
+    bridge.findUserById.mockResolvedValue({ id: 2664, status: 2 });
+    expect((await service.summarizeUsers(items))[0].health).toBe('blocked');
+
+    bridge.findUserById.mockRejectedValue(new Error('Aihub temporarily unavailable'));
+    expect((await service.summarizeUsers(items))[0].health).toBe('unknown');
   });
 
   it('does not mark a pending binding or an account without chat models as usable', async () => {
