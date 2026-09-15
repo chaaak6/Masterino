@@ -12,6 +12,7 @@ import {
   Space,
   Statistic,
   Table,
+  Tag,
   Typography,
 } from 'antd';
 import { useState } from 'react';
