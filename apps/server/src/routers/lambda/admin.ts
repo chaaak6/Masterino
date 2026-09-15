@@ -34,6 +34,7 @@ import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { generateTrustedClientToken } from '@/libs/trusted-client';
 import { parseMemoryExtractionConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
 import { AiAgentService } from '@/server/services/aiAgent';
+import { UserAvailabilityService } from '@/server/services/aihubUserAdmin/userAvailabilityService';
 import {
   type AdminRbacPermissionCode,
   requireAdminAccess,
@@ -48,7 +49,6 @@ import {
   wecomSsoUpdateInputSchema,
 } from '@/server/services/enterprise/wecomSsoService';
 import { getEmbeddingInputLimit } from '@/server/services/memory/userMemory/embedding';
-import { UserAvailabilityService } from '@/server/services/aihubUserAdmin/userAvailabilityService';
 import { NewApiService } from '@/server/services/newApi';
 import { createAihubReadiness } from '@/server/services/newApi/readiness/production';
 import { TaskService } from '@/server/services/task';
