@@ -1,3 +1,4 @@
+import UserAvailabilityDrawer from '@admin/features/UserAvailability/UserAvailabilityDrawer';
 import { trpc } from '@admin/lib/trpc';
 import {
   Alert,
@@ -22,8 +23,13 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string>();
+  const [selectedAvailabilityUserId, setSelectedAvailabilityUserId] = useState<string>();
   const utils = trpc.useUtils();
   const users = trpc.admin.listUsers.useQuery({ page, pageSize: 20, q: query || undefined });
+  const availability = trpc.admin.listUserAvailability.useQuery(
+    { page, pageSize: 20, q: query || undefined },
+    { retry: false },
+  );
   const diagnostics = trpc.admin.getUserUsageDiagnostics.useQuery(
     { userId: selectedUserId! },
     { enabled: Boolean(selectedUserId) },
@@ -46,10 +52,13 @@ export default function UsersPage() {
     },
   });
   const detail = diagnostics.data;
+  const availabilityByUserId = new Map(
+    (availability.data?.items ?? []).map((item) => [item.id, item]),
+  );
 
   return (
     <>
-      <Typography.Title level={3}>用户与后台用量诊断</Typography.Title>
+      <Typography.Title level={3}>用户可用性</Typography.Title>
       <Card>
         <Input.Search
           allowClear
@@ -60,6 +69,14 @@ export default function UsersPage() {
             setQuery(value.trim());
           }}
         />
+        {availability.error && !/forbidden|permission|无权限/i.test(availability.error.message) && (
+          <Alert
+            showIcon
+            message="Aihub 可用性暂时无法查询；基础用户列表仍可使用"
+            style={{ marginBottom: 16 }}
+            type="warning"
+          />
+        )}
         <Table
           dataSource={users.data?.items ?? []}
           loading={users.isLoading}
@@ -67,19 +84,60 @@ export default function UsersPage() {
           columns={[
             { dataIndex: 'name', title: '用户' },
             { dataIndex: 'employeeNumber', title: '工号' },
-            { dataIndex: 'email', title: '邮箱' },
+            { dataIndex: 'status', title: 'Masterino' },
             {
-              dataIndex: 'id',
-              render: (value: string) => <Typography.Text copyable>{value}</Typography.Text>,
-              title: 'Masterino userId',
+              render: (_: unknown, record: { id: string }) =>
+                availabilityByUserId.get(record.id)?.bindingStatus ?? '-',
+              title: 'Readiness',
             },
-            { dataIndex: 'role', title: '角色' },
-            { dataIndex: 'status', title: '状态' },
+            {
+              render: (_: unknown, record: { id: string }) => {
+                const item = availabilityByUserId.get(record.id);
+                return item?.managedTokenId
+                  ? `#${item.managedTokenId} · ${item.tokenHealth}`
+                  : '未绑定';
+              },
+              title: '绑定 Token',
+            },
+            {
+              render: (_: unknown, record: { id: string }) =>
+                availabilityByUserId.get(record.id)?.modelCount ?? '-',
+              title: '模型',
+            },
+            {
+              render: (_: unknown, record: { id: string }) => {
+                const health = availabilityByUserId.get(record.id)?.health;
+                return health ? (
+                  <Tag
+                    color={
+                      health === 'active' ? 'success' : health === 'unknown' ? 'warning' : 'error'
+                    }
+                  >
+                    {
+                      {
+                        active: '可用',
+                        blocked: '不可用',
+                        uninitialized: '未初始化',
+                        unknown: '待确认',
+                      }[health]
+                    }
+                  </Tag>
+                ) : (
+                  '-'
+                );
+              },
+              title: '整体状态',
+            },
             {
               render: (_: unknown, record: { id: string }) => (
-                <Button type="link" onClick={() => setSelectedUserId(record.id)}>
-                  用量诊断
-                </Button>
+                <Space size="small">
+                  <Button type="link" onClick={() => setSelectedAvailabilityUserId(record.id)}>
+                    可用性
+                  </Button>
+                  <Button type="link" onClick={() => setSelectedUserId(record.id)}>
+                    更多诊断
+                  </Button>
+                </Space>
               ),
               title: '操作',
             },
@@ -93,6 +151,12 @@ export default function UsersPage() {
           }}
         />
       </Card>
+
+      <UserAvailabilityDrawer
+        userId={selectedAvailabilityUserId}
+        onClose={() => setSelectedAvailabilityUserId(undefined)}
+        onUpdated={() => Promise.all([availability.refetch(), utils.admin.listUsers.invalidate()])}
+      />
 
       <Drawer
         destroyOnHidden

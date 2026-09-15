@@ -24,6 +24,10 @@ const createRepo = () => ({
   findUserByIdentity: vi.fn().mockResolvedValue({ id: 7, username: 'ada' }),
   getUsageLogs: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 1 }),
   inspectOAuthBinding: vi.fn().mockResolvedValue({ status: 'missing' }),
+  inspectBoundToken: vi.fn().mockResolvedValue({
+    availability: 'disabled',
+    token: { id: 12, name: 'managed', status: 2, user_id: 7 },
+  }),
   listAccessibleModels: vi.fn().mockResolvedValue(['gpt-4o-mini']),
   listManagedTokens: vi.fn().mockResolvedValue([
     { id: 12, name: 'managed' },
@@ -31,6 +35,10 @@ const createRepo = () => ({
   ]),
   reassignToken: vi.fn().mockResolvedValue(true),
   updateTokenName: vi.fn().mockResolvedValue(true),
+  updateBoundToken: vi.fn().mockResolvedValue({
+    availability: 'active',
+    token: { id: 12, name: 'managed', status: 1, user_id: 7 },
+  }),
   linkOAuthBinding: vi.fn().mockResolvedValue({ status: 'repaired' }),
 });
 
@@ -147,6 +155,47 @@ describe('createBridgeHandler', () => {
 
     expect(response.body.data).toMatchObject({ id: 12, user_id: 7 });
     expect(repo.findManagedTokenById).toHaveBeenCalledWith(7, 12);
+  });
+
+  it('returns disabled token management state without the API key', async () => {
+    const repo = createRepo();
+    const handler = createBridgeHandler({
+      bridgeToken: 'secret',
+      iamProviderId: 1,
+      managedTokenName: 'managed',
+      repository: repo as any,
+    });
+
+    const response = await readResponse(
+      await handler(makeRequest('/v1/users/7/managed-tokens/12/inspection')),
+    );
+    expect(response.status).toBe(200);
+    expect(response.body.data.availability).toBe('disabled');
+    expect(response.body.data.token).not.toHaveProperty('key');
+    expect(repo.inspectBoundToken).toHaveBeenCalledWith(7, 12);
+  });
+
+  it('rejects unknown fields and edits only the exact bound token', async () => {
+    const repo = createRepo();
+    const handler = createBridgeHandler({
+      bridgeToken: 'secret',
+      iamProviderId: 1,
+      managedTokenName: 'managed',
+      repository: repo as any,
+    });
+    const request = (body: unknown) =>
+      new Request('http://bridge.local/v1/users/7/managed-tokens/12', {
+        body: JSON.stringify(body),
+        headers: { 'Authorization': 'Bearer secret', 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      });
+
+    expect((await readResponse(await handler(request({ key: 'new-key' })))).status).toBe(400);
+    expect((await readResponse(await handler(request({ status: 3 })))).status).toBe(400);
+    expect(repo.updateBoundToken).not.toHaveBeenCalled();
+    const response = await readResponse(await handler(request({ status: 1 })));
+    expect(response.status).toBe(200);
+    expect(repo.updateBoundToken).toHaveBeenCalledWith(7, 12, { status: 1 });
   });
 
   it('returns models using token and account context', async () => {

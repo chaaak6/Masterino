@@ -7,6 +7,9 @@ import type {
   AihubBridgeUsageLog,
   AihubBridgeUser,
   AihubOAuthBindingResult,
+  BoundTokenAvailability,
+  BoundTokenInspection,
+  BoundTokenPatch,
 } from './types.js';
 
 export type AihubBridgeDialect = 'mysql' | 'postgres';
@@ -277,6 +280,75 @@ limit 1
     );
 
     return this.normalizeToken(rows[0]);
+  }
+
+  /** Inspect the exact bound token without selecting its API key. */
+  async inspectBoundToken(userId: number, tokenId: number): Promise<BoundTokenInspection> {
+    const groupColumn = this.groupColumn();
+    const rows = await this.query<AihubBridgeToken & { deleted_at?: Date | null }>(
+      `select id, user_id, name, status, expired_time, remain_quota, unlimited_quota,
+              model_limits_enabled, model_limits, used_quota, allow_ips,
+              ${groupColumn} as ${groupColumn}, deleted_at
+       from tokens where id = ? limit 1`,
+      [tokenId],
+    );
+    const row = rows[0];
+    if (!row) return { availability: 'missing' };
+    if (row.user_id !== userId) return { availability: 'owner_mismatch' };
+
+    const { deleted_at, key: _key, ...safeToken } = row;
+    const token = this.normalizeToken(safeToken)!;
+    const now = Math.floor(Date.now() / 1000);
+    const availability: BoundTokenAvailability = deleted_at
+      ? 'deleted'
+      : token.status !== TOKEN_STATUS_ENABLED
+        ? 'disabled'
+        : token.expired_time != null && token.expired_time !== -1 && token.expired_time <= now
+          ? 'expired'
+          : !token.unlimited_quota && (token.remain_quota ?? 0) <= 0
+            ? 'exhausted'
+            : 'active';
+
+    return { availability, token };
+  }
+
+  /** Update only approved settings of a token owned by the requested user. */
+  async updateBoundToken(
+    userId: number,
+    tokenId: number,
+    patch: BoundTokenPatch,
+  ): Promise<BoundTokenInspection> {
+    const columns: Record<keyof BoundTokenPatch, string> = {
+      allow_ips: 'allow_ips',
+      expired_time: 'expired_time',
+      group: this.groupColumn(),
+      model_limits: 'model_limits',
+      model_limits_enabled: 'model_limits_enabled',
+      remain_quota: 'remain_quota',
+      status: 'status',
+      unlimited_quota: 'unlimited_quota',
+    };
+    const entries = Object.entries(patch) as Array<[keyof BoundTokenPatch, unknown]>;
+    if (entries.length === 0) throw new Error('No token settings were supplied');
+
+    const result = await this.withTransaction(async (client) => {
+      const rows = await client.query<{ deleted_at?: Date | null; user_id: number }>(
+        'select user_id, deleted_at from tokens where id = ? for update',
+        [tokenId],
+      );
+      const row = rows.rows[0];
+      if (!row) return { availability: 'missing' as const };
+      if (row.user_id !== userId) return { availability: 'owner_mismatch' as const };
+      if (row.deleted_at) return { availability: 'deleted' as const };
+
+      await client.query(
+        `update tokens set ${entries.map(([field]) => `${columns[field]} = ?`).join(', ')}
+         where id = ? and user_id = ? and deleted_at is null`,
+        [...entries.map(([, value]) => value), tokenId, userId],
+      );
+      return { availability: 'active' as const };
+    });
+    return result.availability === 'active' ? this.inspectBoundToken(userId, tokenId) : result;
   }
 
   async listManagedTokens(userId: number, tokenName: string) {
