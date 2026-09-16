@@ -835,7 +835,7 @@ describe('GatewayActionImpl', () => {
       controller.abort('user cancelled');
 
       const mockClient = createMockClient();
-      const state: Record<string, any> = { gatewayConnections: {} };
+      const state: Record<string, any> = { gatewayConnections: {}, topicDataMap: {} };
       const set = vi.fn((updater: any) => {
         if (typeof updater === 'function') Object.assign(state, updater(state));
         else Object.assign(state, updater);

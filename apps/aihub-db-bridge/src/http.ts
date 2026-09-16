@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import type { AihubBridgeRepository } from './repository.js';
+import type { BoundTokenPatch } from './types.js';
 
 interface HandlerOptions {
   bridgeToken: string;
@@ -59,6 +60,50 @@ const isAuthorized = (request: Request, bridgeToken: string) => {
   const header = request.headers.get('authorization') || '';
 
   return header === `Bearer ${bridgeToken}`;
+};
+
+const tokenPatchFields = new Set([
+  'allow_ips',
+  'expired_time',
+  'group',
+  'model_limits',
+  'model_limits_enabled',
+  'remain_quota',
+  'status',
+  'unlimited_quota',
+]);
+
+const parseBoundTokenPatch = (body: unknown): BoundTokenPatch | undefined => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return undefined;
+  const patch = body as Record<string, unknown>;
+  const entries = Object.entries(patch);
+  if (!entries.length || entries.some(([key]) => !tokenPatchFields.has(key))) return undefined;
+  if (
+    entries.some(([key, value]) => {
+      if (key === 'status') return value !== 1 && value !== 2;
+      if (key === 'expired_time')
+        return !Number.isSafeInteger(value) || (value as number) < -1 || value === 0;
+      if (key === 'remain_quota') return !Number.isSafeInteger(value) || (value as number) < 0;
+      if (key === 'model_limits_enabled' || key === 'unlimited_quota')
+        return typeof value !== 'boolean';
+      if (key === 'group') return typeof value !== 'string' || value.length > 64;
+      return typeof value !== 'string' || value.length > 5000;
+    })
+  )
+    return undefined;
+  return patch as BoundTokenPatch;
+};
+
+const inspectionResponse = (
+  inspection: Awaited<ReturnType<AihubBridgeRepository['inspectBoundToken']>>,
+) => {
+  if (inspection.availability === 'missing')
+    return failure(404, 'token_missing', 'Bound token was not found');
+  if (inspection.availability === 'owner_mismatch')
+    return failure(409, 'owner_mismatch', 'Bound token belongs to another Aihub user');
+  if (inspection.availability === 'deleted')
+    return failure(410, 'token_deleted', 'Bound token was deleted');
+  return success(inspection);
 };
 
 const requestHeadersToWebHeaders = (request: IncomingMessage) => {
@@ -214,6 +259,28 @@ export const createBridgeHandler = ({
       const managedTokenByIdMatch = url.pathname.match(
         new RegExp(`^/v1/users/${userId}/managed-tokens/(\\d+)$`),
       );
+
+      const boundTokenInspectionMatch = url.pathname.match(
+        new RegExp(`^/v1/users/${userId}/managed-tokens/(\\d+)/inspection$`),
+      );
+      if (boundTokenInspectionMatch && request.method === 'GET') {
+        return inspectionResponse(
+          await repository.inspectBoundToken(userId, Number(boundTokenInspectionMatch[1])),
+        );
+      }
+      if (managedTokenByIdMatch && request.method === 'PATCH') {
+        const patch = parseBoundTokenPatch(await request.json().catch(() => undefined));
+        if (!patch) return failure(400, 'bad_request', 'Invalid bound token settings');
+        try {
+          return inspectionResponse(
+            await repository.updateBoundToken(userId, Number(managedTokenByIdMatch[1]), patch),
+          );
+        } catch (error) {
+          if (isDatabaseWriteForbidden(error))
+            return failure(403, 'database_write_forbidden', 'Database write is not permitted');
+          throw error;
+        }
+      }
       if (managedTokenByIdMatch) {
         const managedTokenId = Number(managedTokenByIdMatch[1]);
         const token = await repository.findManagedTokenById(userId, managedTokenId);

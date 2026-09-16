@@ -1,6 +1,31 @@
 import type { NewApiLogItem, NewApiPage, NewApiToken, NewApiUser } from './client';
 import type { NewApiReadSource } from './readSource';
 
+export type BoundTokenAvailability =
+  | 'active'
+  | 'disabled'
+  | 'expired'
+  | 'exhausted'
+  | 'deleted'
+  | 'missing'
+  | 'owner_mismatch';
+
+export interface BoundTokenInspection {
+  availability: BoundTokenAvailability;
+  token?: Omit<NewApiToken, 'key'> & { allow_ips?: string };
+}
+
+export interface BoundTokenPatch {
+  allow_ips?: string;
+  expired_time?: number;
+  group?: string;
+  model_limits?: string;
+  model_limits_enabled?: boolean;
+  remain_quota?: number;
+  status?: 1 | 2;
+  unlimited_quota?: boolean;
+}
+
 interface NewApiBridgeClientOptions {
   baseUrl?: string;
   fetchImpl?: typeof fetch;
@@ -82,7 +107,11 @@ export class NewApiBridgeClient implements NewApiReadSource {
     return url.toString();
   }
 
-  private async request<T>(path: string, query?: Record<string, number | string | undefined>) {
+  private async request<T>(
+    path: string,
+    query?: Record<string, number | string | undefined>,
+    options?: { body?: unknown; method?: 'GET' | 'PATCH' },
+  ) {
     if (!this.token) throw new NewApiBridgeError('AIHUB_BRIDGE_TOKEN is required', 500);
 
     const controller = new AbortController();
@@ -90,10 +119,13 @@ export class NewApiBridgeClient implements NewApiReadSource {
 
     try {
       const response = await this.fetchImpl(this.buildUrl(path, query), {
+        body: options?.body === undefined ? undefined : JSON.stringify(options.body),
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${this.token}`,
+          ...(options?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
+        method: options?.method || 'GET',
         signal: controller.signal,
       });
 
@@ -137,6 +169,20 @@ export class NewApiBridgeClient implements NewApiReadSource {
 
   findManagedTokenById(userId: number, tokenId: number) {
     return this.request<NewApiToken>(`/v1/users/${userId}/managed-tokens/${tokenId}`);
+  }
+
+  inspectBoundToken(userId: number, tokenId: number) {
+    return this.request<BoundTokenInspection>(
+      `/v1/users/${userId}/managed-tokens/${tokenId}/inspection`,
+    );
+  }
+
+  updateBoundToken(userId: number, tokenId: number, patch: BoundTokenPatch) {
+    return this.request<BoundTokenInspection>(
+      `/v1/users/${userId}/managed-tokens/${tokenId}`,
+      undefined,
+      { body: patch, method: 'PATCH' },
+    );
   }
 
   async listManagedTokens(userId: number, tokenName: string) {

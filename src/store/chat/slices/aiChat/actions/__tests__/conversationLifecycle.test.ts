@@ -36,6 +36,9 @@ const mockLocalFileService = vi.hoisted(() => ({
   listLocalFiles: vi.fn(),
   readLocalFile: vi.fn(),
 }));
+const mockGatewayConnectionService = vi.hoisted(() => ({
+  getDeviceInfo: vi.fn(),
+}));
 
 vi.mock('@lobechat/const', async (importOriginal) => {
   const actual = await importOriginal<typeof LobechatConstModule>();
@@ -61,6 +64,10 @@ vi.mock('@/services/electron/localFileService', () => ({
   localFileService: mockLocalFileService,
 }));
 
+vi.mock('@/services/electron/gatewayConnection', () => ({
+  gatewayConnectionService: mockGatewayConnectionService,
+}));
+
 // Mock lambdaClient to prevent network requests
 vi.mock('@/libs/trpc/client', () => ({
   lambdaClient: {
@@ -76,6 +83,7 @@ beforeEach(() => {
   resetTestEnvironment();
   setupMockSelectors();
   spyOnMessageService();
+  mockGatewayConnectionService.getDeviceInfo.mockResolvedValue({ deviceId: 'device-local' });
   const sessionStore = getSessionStoreState();
   vi.spyOn(sessionStore, 'triggerSessionUpdate').mockResolvedValue(undefined);
   vi.spyOn(agentService, 'getAgentConfigById').mockResolvedValue(createMockAgentConfig() as any);
@@ -1235,6 +1243,9 @@ describe('ConversationLifecycle actions', () => {
 
       it('loads a missing existing-topic binding before freezing hetero cwd and intent', async () => {
         mockConstEnv.isDesktop = true;
+        mockGatewayConnectionService.getDeviceInfo.mockResolvedValue({
+          deviceId: 'device-existing',
+        });
         setupMockSelectors({
           agentConfig: {
             agencyConfig: {
@@ -1519,13 +1530,13 @@ describe('ConversationLifecycle actions', () => {
               agentId: TEST_IDS.SESSION_ID,
               topicId: TEST_IDS.TOPIC_ID,
             }),
-            executionContext: expect.objectContaining({ unresolvedReason: 'device-unrouted' }),
+            executionContext: expect.objectContaining({ unresolvedReason: 'no-workspace' }),
           }),
         );
         expect(executeGatewayAgent).not.toHaveBeenCalled();
         expect(sendMessageInServerSpy).toHaveBeenCalledOnce();
-        // Unbound routing is decided before the managed-env probe: no secret
-        // values or cache-dependent decision crosses the renderer boundary.
+        // The current desktop device is known, but no workspace is bound. The
+        // client still avoids probing managed env before native execution.
         expect(projectWorkspaceService.getManagedEnvSummary).not.toHaveBeenCalled();
       });
 

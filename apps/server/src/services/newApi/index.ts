@@ -1333,6 +1333,32 @@ export class NewApiService {
     return this.syncModelsForBinding(binding, key);
   }
 
+  /** Admin-only model refresh for an existing binding; never provisions or repairs a token. */
+  async syncBoundModels() {
+    const binding = await this.getBindingOrThrow({ autoBind: false });
+    if (!binding.managedTokenId) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'Current Masterino user has no bound Aihub token',
+      });
+    }
+    const bridge = new NewApiBridgeClient();
+    if (!bridge.isEnabled()) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'Aihub bridge is required for administrator model refresh',
+      });
+    }
+    const token = await bridge.findManagedTokenById(binding.newApiUserId, binding.managedTokenId);
+    if (!token?.key) {
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'Bound Aihub token is unavailable; inspect or repair it before refreshing models',
+      });
+    }
+    return this.syncModelsForBinding(binding, token.key);
+  }
+
   private buildUsageSummary(
     account: NewApiAccountSummary,
     tokenUsage: NewApiTokenUsage,

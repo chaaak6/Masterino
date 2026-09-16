@@ -100,6 +100,46 @@ describe('NewApiService', () => {
     vi.unstubAllGlobals();
   });
 
+  it('admin model refresh requires an existing bound token and never provisions one', async () => {
+    const service = new NewApiService({
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      userId: 'current-user',
+    });
+    const fetchImpl = vi.fn();
+    vi.stubGlobal('fetch', fetchImpl);
+
+    await expect(service.syncBoundModels()).rejects.toThrow('not bound');
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(mocks.upsertBinding).not.toHaveBeenCalled();
+
+    mocks.bindingStore.set('current-user', {
+      managedTokenId: 4893,
+      newApiUserId: 2664,
+      status: 'active',
+      userId: 'current-user',
+    });
+    process.env.AIHUB_BRIDGE_URL = 'http://bridge.internal';
+    process.env.AIHUB_BRIDGE_TOKEN = 'bridge-secret';
+    fetchImpl.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: { code: 'token_missing', message: 'Bound token was not found' },
+          success: false,
+        }),
+        { status: 404 },
+      ),
+    );
+
+    await expect(service.syncBoundModels()).rejects.toThrow('unavailable');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe(
+      'http://bridge.internal/v1/users/2664/managed-tokens/4893',
+    );
+    expect(mocks.upsertBinding).not.toHaveBeenCalled();
+    expect(mocks.batchUpdateAiModels).not.toHaveBeenCalled();
+  });
+
   it('rebinds only the current WeCom user to the persisted Aihub account', async () => {
     mocks.bindingStore.set('wecom-user', {
       iamOAuthBindingStatus: 'error',
