@@ -1530,13 +1530,13 @@ describe('ConversationLifecycle actions', () => {
               agentId: TEST_IDS.SESSION_ID,
               topicId: TEST_IDS.TOPIC_ID,
             }),
-            executionContext: expect.objectContaining({ unresolvedReason: 'device-unrouted' }),
+            executionContext: expect.objectContaining({ unresolvedReason: 'no-workspace' }),
           }),
         );
         expect(executeGatewayAgent).not.toHaveBeenCalled();
         expect(sendMessageInServerSpy).toHaveBeenCalledOnce();
-        // Unbound routing is decided before the managed-env probe: no secret
-        // values or cache-dependent decision crosses the renderer boundary.
+        // The current desktop device is known, but no workspace is bound. The
+        // client still avoids probing managed env before native execution.
         expect(projectWorkspaceService.getManagedEnvSummary).not.toHaveBeenCalled();
       });
 
