@@ -29,6 +29,7 @@ data:
   S3_ENABLE_PATH_STYLE: '0'
   S3_SET_ACL: '0'
   S3_PUBLIC_DOMAIN: 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com'
+  S3_PUBLIC_READ_ENDPOINT: 'https://oss-cn-shenzhen.aliyuncs.com'
   S3_PREVIEW_URL_EXPIRE_IN: '7200'
   DEFAULT_FILES_CONFIG: 'embedding_model=newapi/text-embedding-3-large,query_mode=full_text'
   CHUNKS_AUTO_EMBEDDING: '1'

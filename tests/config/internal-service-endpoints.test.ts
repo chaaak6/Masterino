@@ -37,6 +37,7 @@ describe('ACK internal service endpoints', () => {
       const config = parse(await read(file));
 
       expect(config.data.S3_ENDPOINT).toBe(internalOssEndpoint);
+      expect(config.data.S3_PUBLIC_READ_ENDPOINT).toBe(publicOssEndpoint);
       expect(config.data.S3_PUBLIC_DOMAIN).not.toContain('-internal');
     },
   );
