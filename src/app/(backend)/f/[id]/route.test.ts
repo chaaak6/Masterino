@@ -11,6 +11,7 @@ import { GET } from './route';
 
 const fileServiceMocks = vi.hoisted(() => {
   const instance = {
+    createBrowserFileAccessUrl: vi.fn(),
     createCachedPreSignedUrlForPreview: vi.fn(),
     createPreSignedUrlForDownload: vi.fn(),
     getFullFileUrl: vi.fn(),
@@ -48,11 +49,11 @@ describe('file proxy route', () => {
       url: 'files/user-id/image.png',
       userId: 'owner-user-id',
     } as FileItem);
-    fileServiceMocks.instance.createCachedPreSignedUrlForPreview.mockResolvedValue(
-      'https://s3.example.com/presigned-preview-url',
-    );
-    fileServiceMocks.instance.createPreSignedUrlForDownload.mockResolvedValue(
-      'https://s3.example.com/presigned-download-url',
+    fileServiceMocks.instance.createBrowserFileAccessUrl.mockImplementation(
+      async (_url: string, options?: { contentDisposition?: string }) =>
+        options?.contentDisposition
+          ? 'https://masterlion-test.oss-cn-shenzhen.aliyuncs.com/presigned-download-url'
+          : 'https://masterlion-test.oss-cn-shenzhen.aliyuncs.com/presigned-preview-url',
     );
   });
 
@@ -62,12 +63,16 @@ describe('file proxy route', () => {
     });
 
     expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('https://s3.example.com/presigned-preview-url');
+    expect(response.headers.get('location')).toBe(
+      'https://masterlion-test.oss-cn-shenzhen.aliyuncs.com/presigned-preview-url',
+    );
     expect(FileModel.getFileById).toHaveBeenCalledWith(db, 'file-id');
     expect(FileService).toHaveBeenCalledWith(db, 'owner-user-id');
-    expect(fileServiceMocks.instance.createCachedPreSignedUrlForPreview).toHaveBeenCalledWith(
+    expect(fileServiceMocks.instance.createBrowserFileAccessUrl).toHaveBeenCalledWith(
       'files/user-id/image.png',
+      undefined,
     );
+    expect(fileServiceMocks.instance.createCachedPreSignedUrlForPreview).not.toHaveBeenCalled();
     expect(fileServiceMocks.instance.getFullFileUrl).not.toHaveBeenCalled();
   });
 
@@ -84,11 +89,18 @@ describe('file proxy route', () => {
     });
 
     expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('https://s3.example.com/presigned-download-url');
-    expect(fileServiceMocks.instance.createPreSignedUrlForDownload).toHaveBeenCalledWith(
-      'files/user-id/report.html',
-      expect.stringContaining("filename*=UTF-8''%E4%B8%AD%E6%96%87%20%E6%8A%A5%E5%91%8A.html"),
+    expect(response.headers.get('location')).toBe(
+      'https://masterlion-test.oss-cn-shenzhen.aliyuncs.com/presigned-download-url',
     );
+    expect(fileServiceMocks.instance.createBrowserFileAccessUrl).toHaveBeenCalledWith(
+      'files/user-id/report.html',
+      {
+        contentDisposition: expect.stringContaining(
+          "filename*=UTF-8''%E4%B8%AD%E6%96%87%20%E6%8A%A5%E5%91%8A.html",
+        ),
+      },
+    );
+    expect(fileServiceMocks.instance.createPreSignedUrlForDownload).not.toHaveBeenCalled();
     expect(fileServiceMocks.instance.createCachedPreSignedUrlForPreview).not.toHaveBeenCalled();
   });
 

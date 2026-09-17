@@ -4,12 +4,13 @@ import { z } from 'zod';
 const DEFAULT_S3_FILE_PATH = 'files';
 const optionalEnv = (value?: string) => {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
+  return trimmed || undefined;
 };
 
 export const getFileConfig = () => {
   const NEXT_PUBLIC_S3_DOMAIN = optionalEnv(process.env.NEXT_PUBLIC_S3_DOMAIN);
   const S3_PUBLIC_DOMAIN = optionalEnv(process.env.S3_PUBLIC_DOMAIN) || NEXT_PUBLIC_S3_DOMAIN;
+  const S3_PUBLIC_READ_ENDPOINT = optionalEnv(process.env.S3_PUBLIC_READ_ENDPOINT);
   const S3_PUBLIC_UPLOAD_ENDPOINT =
     optionalEnv(process.env.S3_PUBLIC_UPLOAD_ENDPOINT) ||
     optionalEnv(process.env.S3_PUBLIC_ENDPOINT) ||
@@ -45,6 +46,7 @@ export const getFileConfig = () => {
       S3_ENDPOINT: process.env.S3_ENDPOINT,
       S3_PREVIEW_URL_EXPIRE_IN: parseInt(process.env.S3_PREVIEW_URL_EXPIRE_IN || '7200'),
       S3_PUBLIC_DOMAIN,
+      S3_PUBLIC_READ_ENDPOINT,
       S3_PUBLIC_UPLOAD_ENDPOINT,
       S3_REGION: process.env.S3_REGION,
       S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY,
@@ -64,6 +66,7 @@ export const getFileConfig = () => {
       S3_ENDPOINT: z.string().url().optional(),
       S3_PREVIEW_URL_EXPIRE_IN: z.number(),
       S3_PUBLIC_DOMAIN: z.string().optional(),
+      S3_PUBLIC_READ_ENDPOINT: z.string().url().optional(),
       S3_PUBLIC_UPLOAD_ENDPOINT: z.string().url().optional(),
       S3_REGION: z.string().optional(),
       S3_SECRET_ACCESS_KEY: z.string().optional(),

@@ -20,6 +20,7 @@ vi.mock('@/envs/app', () => ({
 
 vi.mock('../impls', () => ({
   createFileServiceModule: () => ({
+    createBrowserFileAccessUrl: vi.fn(),
     deleteFile: vi.fn(),
     deleteFiles: vi.fn(),
     getFileContent: vi.fn(),
@@ -249,6 +250,23 @@ describe('FileService', () => {
     const result = await service.createPreSignedUrlForPreview(testKey, expiresIn);
 
     expect(service['impl'].createPreSignedUrlForPreview).toHaveBeenCalledWith(testKey, expiresIn);
+    expect(result).toBe(expectedUrl);
+  });
+
+  it('should delegate browser file access URL creation to implementation', async () => {
+    const expectedUrl = 'https://public.example.com/browser-url';
+    const options = {
+      contentDisposition: 'attachment; filename="report.html"',
+      expiresIn: 1800,
+    };
+    vi.mocked(service['impl'].createBrowserFileAccessUrl).mockResolvedValue(expectedUrl);
+
+    const result = await service.createBrowserFileAccessUrl('files/report.html', options);
+
+    expect(service['impl'].createBrowserFileAccessUrl).toHaveBeenCalledWith(
+      'files/report.html',
+      options,
+    );
     expect(result).toBe(expectedUrl);
   });
 

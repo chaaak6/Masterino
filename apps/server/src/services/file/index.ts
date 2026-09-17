@@ -12,7 +12,7 @@ import { isDev } from '@/utils/env';
 
 import { createStorageObjectAccessError } from './errors';
 import { createFileServiceModule } from './impls';
-import type { FileServiceImpl, PreSignedUpload } from './impls/type';
+import type { BrowserFileAccessOptions, FileServiceImpl, PreSignedUpload } from './impls/type';
 
 export const getFileProxyUrl = (fileId: string): string => `${appEnv.APP_URL}/f/${fileId}`;
 
@@ -100,6 +100,14 @@ export class FileService {
    */
   public async createPreSignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
     return this.impl.createPreSignedUrlForPreview(key, expiresIn);
+  }
+
+  /** Create a public signed URL intended for browser preview or download. */
+  public async createBrowserFileAccessUrl(
+    url: string,
+    options?: BrowserFileAccessOptions,
+  ): Promise<string> {
+    return this.impl.createBrowserFileAccessUrl(url, options);
   }
 
   public async createPreSignedUrlForDownload(

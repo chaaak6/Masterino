@@ -29,4 +29,16 @@ describe('file env', () => {
     expect(config.S3_PUBLIC_DOMAIN).toBeUndefined();
     expect(config.S3_PUBLIC_UPLOAD_ENDPOINT).toBeUndefined();
   });
+
+  it('reads a dedicated public endpoint for browser file access', async () => {
+    process.env = {
+      ...originalEnv,
+      S3_PUBLIC_READ_ENDPOINT: 'https://oss-cn-shenzhen.aliyuncs.com',
+    };
+
+    const { getFileConfig } = await loadFileConfig();
+    const config = getFileConfig();
+
+    expect(config.S3_PUBLIC_READ_ENDPOINT).toBe('https://oss-cn-shenzhen.aliyuncs.com');
+  });
 });

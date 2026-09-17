@@ -58,12 +58,10 @@ export const GET = async (req: Request, segmentData: { params: Params }) => {
     const fileService = new FileService(db, file.userId);
 
     const download = new URL(req.url).searchParams.get('download') === '1';
-    const redirectUrl = download
-      ? await fileService.createPreSignedUrlForDownload(
-          file.url,
-          createAttachmentContentDisposition(file.name),
-        )
-      : await fileService.createCachedPreSignedUrlForPreview(file.url);
+    const redirectUrl = await fileService.createBrowserFileAccessUrl(
+      file.url,
+      download ? { contentDisposition: createAttachmentContentDisposition(file.name) } : undefined,
+    );
     log('Web S3 presigned URL generated');
 
     // Return 302 redirect

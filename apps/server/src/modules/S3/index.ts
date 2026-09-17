@@ -250,6 +250,8 @@ export class S3 {
 }
 
 export class FileS3 extends S3 {
+  private publicReadS3?: S3;
+
   constructor() {
     super(fileEnv.S3_ACCESS_KEY_ID, fileEnv.S3_SECRET_ACCESS_KEY, fileEnv.S3_ENDPOINT, {
       bucket: fileEnv.S3_BUCKET,
@@ -257,6 +259,74 @@ export class FileS3 extends S3 {
       region: fileEnv.S3_REGION,
       setAcl: fileEnv.S3_SET_ACL,
     });
+  }
+
+  public assertBrowserFileUrl(url: string) {
+    const actualOrigin = new URL(url).origin;
+    const endpoint = fileEnv.S3_PUBLIC_READ_ENDPOINT || fileEnv.S3_ENDPOINT;
+    if (!endpoint) throw new Error('No S3 endpoint is configured for browser file access');
+
+    const endpointUrl = new URL(endpoint);
+    const expectedOrigin = fileEnv.S3_ENABLE_PATH_STYLE
+      ? endpointUrl.origin
+      : fileEnv.S3_PUBLIC_DOMAIN
+        ? new URL(fileEnv.S3_PUBLIC_DOMAIN).origin
+        : `${endpointUrl.protocol}//${fileEnv.S3_BUCKET}.${endpointUrl.host}`;
+
+    if (actualOrigin !== expectedOrigin) {
+      throw new Error(`Unexpected browser file URL origin: ${actualOrigin}`);
+    }
+  }
+
+  private getPublicReadS3(): S3 {
+    const internalEndpointHost = fileEnv.S3_ENDPOINT
+      ? new URL(fileEnv.S3_ENDPOINT).hostname
+      : undefined;
+
+    if (
+      internalEndpointHost?.endsWith('-internal.aliyuncs.com') &&
+      !fileEnv.S3_PUBLIC_READ_ENDPOINT
+    ) {
+      throw new Error(
+        'S3_PUBLIC_READ_ENDPOINT is required when S3_ENDPOINT uses an Alibaba Cloud internal endpoint',
+      );
+    }
+
+    const endpoint = fileEnv.S3_PUBLIC_READ_ENDPOINT || fileEnv.S3_ENDPOINT;
+    if (!endpoint) throw new Error('No S3 endpoint is configured for browser file access');
+    if (endpoint === fileEnv.S3_ENDPOINT) return this;
+
+    this.publicReadS3 ??= new S3(fileEnv.S3_ACCESS_KEY_ID, fileEnv.S3_SECRET_ACCESS_KEY, endpoint, {
+      bucket: fileEnv.S3_BUCKET,
+      forcePathStyle: fileEnv.S3_ENABLE_PATH_STYLE,
+      region: fileEnv.S3_REGION,
+      setAcl: false,
+    });
+
+    return this.publicReadS3;
+  }
+
+  public async createBrowserPreSignedUrlForDownload(
+    key: string,
+    contentDisposition: string,
+    expiresIn?: number,
+  ): Promise<string> {
+    const url = await this.getPublicReadS3().createPreSignedUrlForDownload(
+      key,
+      contentDisposition,
+      expiresIn,
+    );
+    this.assertBrowserFileUrl(url);
+    return url;
+  }
+
+  public async createBrowserPreSignedUrlForPreview(
+    key: string,
+    expiresIn?: number,
+  ): Promise<string> {
+    const url = await this.getPublicReadS3().createPreSignedUrlForPreview(key, expiresIn);
+    this.assertBrowserFileUrl(url);
+    return url;
   }
 
   public override async createPreSignedUpload(

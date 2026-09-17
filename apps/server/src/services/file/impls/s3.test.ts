@@ -41,6 +41,17 @@ vi.mock('@/libs/redis', () => ({
 // 模拟 S3 类
 vi.mock('@/server/modules/S3', () => ({
   FileS3: vi.fn().mockImplementation(() => ({
+    assertBrowserFileUrl: vi.fn((url: string) => {
+      if (new URL(url).origin !== new URL(config.S3_PUBLIC_DOMAIN).origin) {
+        throw new Error(`Unexpected browser file URL origin: ${new URL(url).origin}`);
+      }
+    }),
+    createBrowserPreSignedUrlForDownload: vi
+      .fn()
+      .mockResolvedValue('https://example.com/browser-download'),
+    createBrowserPreSignedUrlForPreview: vi
+      .fn()
+      .mockResolvedValue('https://example.com/browser-preview.jpg'),
     createPreSignedUrlForPreview: vi
       .fn()
       .mockResolvedValue('https://presigned.example.com/test.jpg'),
@@ -250,6 +261,102 @@ describe('S3StaticFileImpl', () => {
 
       expect(fileService.getKeyFromFullUrl).toHaveBeenCalledWith(fullUrl);
       expect(createPreSignedUrlForPreview).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('createBrowserFileAccessUrl', () => {
+    it('uses a separate browser cache namespace instead of a cached internal URL', async () => {
+      redisMocks.getRedisConfig.mockReturnValue({
+        enabled: true,
+        prefix: 'lobechat',
+        tls: false,
+        url: 'redis://localhost:6379',
+      });
+      redisMocks.isRedisEnabled.mockReturnValue(true);
+      redisMocks.redis.get.mockImplementation(async (key: string) =>
+        key.startsWith('file:presigned-preview:')
+          ? 'https://bucket.oss-cn-shenzhen-internal.aliyuncs.com/files/browser-report.html'
+          : null,
+      );
+
+      await expect(
+        fileService.createBrowserFileAccessUrl('files/browser-report.html', { expiresIn: 300 }),
+      ).resolves.toBe('https://example.com/browser-preview.jpg');
+
+      expect(redisMocks.redis.get).toHaveBeenCalledWith(
+        'file:browser-presigned-preview:v1:example.com:300:files/browser-report.html',
+      );
+      expect(fileService['s3'].createBrowserPreSignedUrlForPreview).toHaveBeenCalledWith(
+        'files/browser-report.html',
+        300,
+      );
+      expect(redisMocks.redis.set).toHaveBeenCalledWith(
+        'file:browser-presigned-preview:v1:example.com:300:files/browser-report.html',
+        'https://example.com/browser-preview.jpg',
+        { ex: 240 },
+      );
+    });
+
+    it('discards an internal URL found in the browser Redis cache and signs a new one', async () => {
+      redisMocks.getRedisConfig.mockReturnValue({
+        enabled: true,
+        prefix: 'lobechat',
+        tls: false,
+        url: 'redis://localhost:6379',
+      });
+      redisMocks.isRedisEnabled.mockReturnValue(true);
+      redisMocks.redis.get.mockResolvedValue(
+        'https://bucket.oss-cn-shenzhen-internal.aliyuncs.com/files/stale-browser-report.html',
+      );
+
+      await expect(
+        fileService.createBrowserFileAccessUrl('files/stale-browser-report.html', {
+          expiresIn: 300,
+        }),
+      ).resolves.toBe('https://example.com/browser-preview.jpg');
+
+      expect(fileService['s3'].assertBrowserFileUrl).toHaveBeenCalledWith(
+        'https://bucket.oss-cn-shenzhen-internal.aliyuncs.com/files/stale-browser-report.html',
+      );
+      expect(fileService['s3'].createBrowserPreSignedUrlForPreview).toHaveBeenCalledWith(
+        'files/stale-browser-report.html',
+        300,
+      );
+      expect(redisMocks.redis.set).toHaveBeenCalledWith(
+        'file:browser-presigned-preview:v1:example.com:300:files/stale-browser-report.html',
+        'https://example.com/browser-preview.jpg',
+        { ex: 240 },
+      );
+    });
+
+    it('signs explicit downloads without using the preview cache', async () => {
+      await expect(
+        fileService.createBrowserFileAccessUrl('files/browser-download.html', {
+          contentDisposition: 'attachment; filename="browser-download.html"',
+          expiresIn: 300,
+        }),
+      ).resolves.toBe('https://example.com/browser-download');
+
+      expect(fileService['s3'].createBrowserPreSignedUrlForDownload).toHaveBeenCalledWith(
+        'files/browser-download.html',
+        'attachment; filename="browser-download.html"',
+        300,
+      );
+      expect(redisMocks.redis.get).not.toHaveBeenCalled();
+      expect(redisMocks.redis.set).not.toHaveBeenCalled();
+    });
+
+    it('resolves legacy full URLs before creating browser access URLs', async () => {
+      vi.spyOn(fileService, 'getKeyFromFullUrl').mockResolvedValue('files/legacy-report.html');
+
+      await fileService.createBrowserFileAccessUrl(
+        'https://old-bucket.example.com/files/legacy-report.html?expired=1',
+      );
+
+      expect(fileService['s3'].createBrowserPreSignedUrlForPreview).toHaveBeenCalledWith(
+        'files/legacy-report.html',
+        undefined,
+      );
     });
   });
 

@@ -23,13 +23,16 @@ Recommended deployment defaults:
 - Keep the bucket private.
 - Set `S3_SET_ACL=0`.
 - Set `S3_ENABLE_PATH_STYLE=0` for virtual-host style endpoints.
+- When server-side traffic uses a private/internal endpoint, set `S3_PUBLIC_READ_ENDPOINT` to the corresponding public regional endpoint. Masterino uses it only to sign browser preview and download URLs; server-side object operations continue to use `S3_ENDPOINT`.
 - Leave `S3_PUBLIC_UPLOAD_ENDPOINT` unset. Browser uploads use the same-origin `/api/upload/s3-proxy` route, so no browser direct-upload CORS policy is required by default.
 - Set `LLM_VISION_IMAGE_USE_BASE64=1` when images are sent to providers that cannot fetch private or internal file URLs directly.
 
 Alibaba Cloud OSS example:
 
 ```env
-S3_ENDPOINT=https://s3.oss-cn-hangzhou.aliyuncs.com
+S3_ENDPOINT=https://oss-cn-hangzhou-internal.aliyuncs.com
+S3_PUBLIC_READ_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
+S3_PUBLIC_DOMAIN=https://your-oss-bucket.oss-cn-hangzhou.aliyuncs.com
 S3_REGION=cn-hangzhou
 S3_BUCKET=your-oss-bucket
 S3_ACCESS_KEY_ID=your-ram-access-key-id
@@ -74,6 +77,15 @@ If you are replacing a local RustFS deployment without migrating old objects, on
 - Description: Request endpoint for the bucket; for `virtual-host` mode, should not include the bucket name prefix
 - Default: -
 - Example: `https://cos.ap-chengdu.myqcloud.com`
+
+### `S3_PUBLIC_READ_ENDPOINT`
+
+- Type: Optional; required when `S3_ENDPOINT` is an Alibaba Cloud internal endpoint and browsers use `/f/:id`
+- Description: Public regional S3 endpoint used only to sign browser preview and download URLs; it must not include the bucket name
+- Default: Falls back to `S3_ENDPOINT` for deployments that use a single public/local endpoint
+- Example: `https://oss-cn-shenzhen.aliyuncs.com`
+
+`S3_PUBLIC_READ_ENDPOINT` is an SDK endpoint. `S3_PUBLIC_DOMAIN` is the final bucket domain, such as `https://my-bucket.oss-cn-shenzhen.aliyuncs.com`. Do not use the bucket domain as the SDK endpoint because virtual-host addressing would add the bucket name again.
 
 ### `S3_BUCKET`
 

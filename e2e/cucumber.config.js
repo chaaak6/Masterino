@@ -16,6 +16,6 @@ export default {
   require: ['src/steps/**/*.ts', 'src/support/**/*.ts'],
   requireModule: ['tsx/cjs'],
   retry: 0,
-  tags: 'not @skip',
+  tags: 'not @skip and not @live-test',
   timeout: 30_000,
 };
