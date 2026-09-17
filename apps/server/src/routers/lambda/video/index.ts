@@ -138,7 +138,9 @@ export const videoRouter = router({
         const updates: Record<string, unknown> = {};
 
         if (typeof params.imageUrl === 'string' && params.imageUrl) {
-          const s3Url = await fileService.getFullFileUrl(configForDatabase.imageUrl as string);
+          const s3Url = await fileService.createBrowserFileAccessUrl(
+            configForDatabase.imageUrl as string,
+          );
           if (s3Url) {
             log('Dev: converted imageUrl proxy URL to S3 URL: %s -> %s', params.imageUrl, s3Url);
             updates.imageUrl = s3Url;
@@ -146,7 +148,9 @@ export const videoRouter = router({
         }
 
         if (typeof params.endImageUrl === 'string' && params.endImageUrl) {
-          const s3Url = await fileService.getFullFileUrl(configForDatabase.endImageUrl as string);
+          const s3Url = await fileService.createBrowserFileAccessUrl(
+            configForDatabase.endImageUrl as string,
+          );
           if (s3Url) {
             log(
               'Dev: converted endImageUrl proxy URL to S3 URL: %s -> %s',

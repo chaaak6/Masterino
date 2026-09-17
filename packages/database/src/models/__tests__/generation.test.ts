@@ -21,9 +21,11 @@ import { GenerationModel } from '../generation';
 const serverDB: LobeChatDatabase = await getTestDB();
 
 // Mock FileService
+const mockCreateBrowserFileAccessUrl = vi.fn();
 const mockGetFullFileUrl = vi.fn();
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
+    createBrowserFileAccessUrl: mockCreateBrowserFileAccessUrl,
     getFullFileUrl: mockGetFullFileUrl,
   })),
 }));
@@ -98,6 +100,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
 
   // Setup mock return values
+  mockCreateBrowserFileAccessUrl.mockImplementation((url: string) => `https://example.com/${url}`);
   mockGetFullFileUrl.mockImplementation((url: string) => `https://example.com/${url}`);
 
   // Clear database and create test users
@@ -495,8 +498,8 @@ describe('GenerationModel', () => {
         },
       });
 
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('asset-url.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('thumbnail-url.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('asset-url.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('thumbnail-url.jpg');
     });
 
     it('should return null for non-existent generation', async () => {
@@ -568,8 +571,9 @@ describe('GenerationModel', () => {
         },
       });
 
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('original-asset.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('original-thumbnail.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('original-asset.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('original-thumbnail.jpg');
+      expect(mockGetFullFileUrl).not.toHaveBeenCalled();
     });
 
     it('should handle generation without asset', async () => {
@@ -647,7 +651,7 @@ describe('GenerationModel', () => {
     });
 
     it('should handle FileService errors during transformation', async () => {
-      mockGetFullFileUrl.mockRejectedValue(new Error('FileService error'));
+      mockCreateBrowserFileAccessUrl.mockRejectedValue(new Error('FileService error'));
 
       const generationWithAsset = {
         id: 'test-gen-id',
@@ -772,10 +776,10 @@ describe('GenerationModel', () => {
 
       const result = await generationModel.transformGeneration(generationWithVideo as any);
 
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('video-url.mp4');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('video-thumbnail.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('video-cover.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledTimes(3);
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('video-url.mp4');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('video-thumbnail.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('video-cover.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledTimes(3);
 
       const resultAsset = result.asset as VideoGenerationAsset;
       expect(resultAsset.url).toBe('https://example.com/video-url.mp4');
@@ -809,9 +813,9 @@ describe('GenerationModel', () => {
 
       const result = await generationModel.transformGeneration(generationWithVideo as any);
 
-      expect(mockGetFullFileUrl).toHaveBeenCalledTimes(2);
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('video-url.mp4');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('video-thumbnail.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledTimes(2);
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('video-url.mp4');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('video-thumbnail.jpg');
 
       const resultAsset = result.asset as VideoGenerationAsset;
       expect(resultAsset.coverUrl).toBeUndefined();
@@ -888,9 +892,9 @@ describe('GenerationModel', () => {
 
       await generationModel.findByIdAndTransform(createdGeneration.id);
 
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('asset-url.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('thumbnail-url.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledTimes(2);
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('asset-url.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('thumbnail-url.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledTimes(2);
     });
 
     it('should call FileModel.create with correct parameters during createAssetAndFile', async () => {
@@ -927,7 +931,7 @@ describe('GenerationModel', () => {
     });
 
     it('should handle FileService errors gracefully', async () => {
-      mockGetFullFileUrl.mockRejectedValue(new Error('FileService error'));
+      mockCreateBrowserFileAccessUrl.mockRejectedValue(new Error('FileService error'));
 
       const [createdGeneration] = await serverDB
         .insert(generations)

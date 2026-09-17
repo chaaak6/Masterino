@@ -9,9 +9,11 @@ import type { LobeChatDatabase } from '../../type';
 import { GenerationTopicModel } from '../generationTopic';
 
 // Mock FileService
+const mockCreateBrowserFileAccessUrl = vi.fn();
 const mockGetFullFileUrl = vi.fn();
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
+    createBrowserFileAccessUrl: mockCreateBrowserFileAccessUrl,
     getFullFileUrl: mockGetFullFileUrl,
   })),
 }));
@@ -28,6 +30,7 @@ beforeEach(async () => {
 
   // Reset mocks before each test
   vi.clearAllMocks();
+  mockCreateBrowserFileAccessUrl.mockImplementation((url: string) => `https://example.com/${url}`);
   mockGetFullFileUrl.mockImplementation((url: string) => `https://example.com/${url}`);
 });
 
@@ -131,8 +134,9 @@ describe('GenerationTopicModel', () => {
       expect(result[1].coverUrl).toBeNull();
 
       // Verify FileService was called for the topic with coverUrl
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('cover-image-key');
-      expect(mockGetFullFileUrl).toHaveBeenCalledTimes(1);
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('cover-image-key');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledTimes(1);
+      expect(mockGetFullFileUrl).not.toHaveBeenCalled();
     });
 
     it('should filter topics by type when type parameter is provided', async () => {

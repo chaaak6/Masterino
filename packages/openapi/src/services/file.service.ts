@@ -92,13 +92,7 @@ export class FileUploadService extends BaseService {
       return '';
     }
 
-    // Check if URL is already a full URL (backward compatible with historical data)
-    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-      return url; // Already a full URL, return directly
-    } else {
-      // Relative path, generate full URL
-      return await this.coreFileService.getFullFileUrl(url);
-    }
+    return await this.coreFileService.createBrowserFileAccessUrl(url);
   }
 
   /**
@@ -619,8 +613,9 @@ export class FileUploadService extends BaseService {
       // Set expiry time (default 1 hour)
       const expiresIn = options.expiresIn || 3600;
 
-      // Use S3 service to generate pre-signed URL
-      const signedUrl = await this.s3Service.createPreSignedUrlForPreview(file.url, expiresIn);
+      const signedUrl = await this.coreFileService.createBrowserFileAccessUrl(file.url, {
+        expiresIn,
+      });
 
       // Calculate expiry timestamp
       const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();

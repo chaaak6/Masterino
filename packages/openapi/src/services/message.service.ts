@@ -60,13 +60,9 @@ export class MessageService extends BaseService {
           ...messageWithoutFiles,
           files: await Promise.all(
             message.filesToMessages?.map(async ({ file }) => {
-              if (file.url.startsWith('http')) {
-                return file;
-              }
-
               return {
                 ...file,
-                url: await this.coreFileService.getFullFileUrl(file.url),
+                url: await this.coreFileService.createBrowserFileAccessUrl(file.url),
               };
             }) ?? [],
           ),

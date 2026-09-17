@@ -2,13 +2,19 @@ import type { PreSignedUpload, PreSignedUploadOptions } from '@/server/modules/S
 
 export type { PreSignedUpload };
 
+export interface BrowserFileAccessOptions {
+  contentDisposition?: string;
+  expiresIn?: number;
+}
+
 /**
  * File service implementation interface
  */
 export interface FileServiceImpl {
-  /**
-   * Create cached pre-signed preview URL
-   */
+  /** Create a public signed URL intended for browser preview or download. */
+  createBrowserFileAccessUrl: (url: string, options?: BrowserFileAccessOptions) => Promise<string>;
+
+  /** Create a cached signed preview URL for server-side or VPC consumers. */
   createCachedPreSignedUrlForPreview: (url?: string | null, expiresIn?: number) => Promise<string>;
 
   /**
@@ -62,9 +68,7 @@ export interface FileServiceImpl {
    */
   getFileMetadata: (key: string) => Promise<{ contentLength: number; contentType?: string }>;
 
-  /**
-   * Get full file URL
-   */
+  /** Resolve a public URL that browsers and external services can read. */
   getFullFileUrl: (url?: string | null, expiresIn?: number) => Promise<string>;
 
   /**

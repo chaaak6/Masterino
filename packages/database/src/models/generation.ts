@@ -190,15 +190,15 @@ export class GenerationModel {
     const asset = generation.asset as ImageGenerationAsset | VideoGenerationAsset | null;
     if (asset && asset.url && asset.thumbnailUrl) {
       const urlPromises: Promise<string>[] = [
-        this.fileService.getFullFileUrl(asset.url),
-        this.fileService.getFullFileUrl(asset.thumbnailUrl),
+        this.fileService.createBrowserFileAccessUrl(asset.url),
+        this.fileService.createBrowserFileAccessUrl(asset.thumbnailUrl),
       ];
 
       // Also convert coverUrl for video assets
       const videoAsset = asset as VideoGenerationAsset;
       const hasCoverUrl = videoAsset.coverUrl;
       if (hasCoverUrl) {
-        urlPromises.push(this.fileService.getFullFileUrl(videoAsset.coverUrl!));
+        urlPromises.push(this.fileService.createBrowserFileAccessUrl(videoAsset.coverUrl!));
       }
 
       const urls = await Promise.all(urlPromises);

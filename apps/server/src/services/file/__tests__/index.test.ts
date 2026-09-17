@@ -20,6 +20,7 @@ vi.mock('@/envs/app', () => ({
 
 vi.mock('../impls', () => ({
   createFileServiceModule: () => ({
+    createBrowserFileAccessUrl: vi.fn(),
     deleteFile: vi.fn(),
     deleteFiles: vi.fn(),
     getFileContent: vi.fn(),
@@ -252,6 +253,23 @@ describe('FileService', () => {
     expect(result).toBe(expectedUrl);
   });
 
+  it('should delegate browser file access URL creation to implementation', async () => {
+    const expectedUrl = 'https://public.example.com/browser-url';
+    const options = {
+      contentDisposition: 'attachment; filename="report.html"',
+      expiresIn: 1800,
+    };
+    vi.mocked(service['impl'].createBrowserFileAccessUrl).mockResolvedValue(expectedUrl);
+
+    const result = await service.createBrowserFileAccessUrl('files/report.html', options);
+
+    expect(service['impl'].createBrowserFileAccessUrl).toHaveBeenCalledWith(
+      'files/report.html',
+      options,
+    );
+    expect(result).toBe(expectedUrl);
+  });
+
   it('should delegate attachment URL creation to implementation', async () => {
     const expectedUrl = 'https://example.com/download-url';
     vi.mocked(service['impl'].createPreSignedUrlForDownload).mockResolvedValue(expectedUrl);
@@ -304,6 +322,21 @@ describe('FileService', () => {
 
     expect(service['impl'].getFullFileUrl).toHaveBeenCalledWith(testUrl, expiresIn);
     expect(result).toBe(expectedUrl);
+  });
+
+  it('should use the public signer when a stable file proxy cannot be created', async () => {
+    vi.mocked(service['impl'].createBrowserFileAccessUrl).mockResolvedValue(
+      'https://public.example.com/files/report.pdf',
+    );
+
+    await expect(service.getFileAccessUrl({ url: 'files/report.pdf' })).resolves.toBe(
+      'https://public.example.com/files/report.pdf',
+    );
+    expect(service['impl'].createBrowserFileAccessUrl).toHaveBeenCalledWith(
+      'files/report.pdf',
+      undefined,
+    );
+    expect(service['impl'].getFullFileUrl).not.toHaveBeenCalled();
   });
 
   it('should delegate getKeyFromFullUrl to implementation', async () => {

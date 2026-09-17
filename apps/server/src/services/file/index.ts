@@ -12,7 +12,7 @@ import { isDev } from '@/utils/env';
 
 import { createStorageObjectAccessError } from './errors';
 import { createFileServiceModule } from './impls';
-import type { FileServiceImpl, PreSignedUpload } from './impls/type';
+import type { BrowserFileAccessOptions, FileServiceImpl, PreSignedUpload } from './impls/type';
 
 export const getFileProxyUrl = (fileId: string): string => `${appEnv.APP_URL}/f/${fileId}`;
 
@@ -102,6 +102,14 @@ export class FileService {
     return this.impl.createPreSignedUrlForPreview(key, expiresIn);
   }
 
+  /** Create a public signed URL intended for browser preview or download. */
+  public async createBrowserFileAccessUrl(
+    url: string,
+    options?: BrowserFileAccessOptions,
+  ): Promise<string> {
+    return this.impl.createBrowserFileAccessUrl(url, options);
+  }
+
   public async createPreSignedUrlForDownload(
     url: string,
     contentDisposition: string,
@@ -110,9 +118,7 @@ export class FileService {
     return this.impl.createPreSignedUrlForDownload(url, contentDisposition, expiresIn);
   }
 
-  /**
-   * Create cached pre-signed preview URL
-   */
+  /** Create a cached signed preview URL for server-side or VPC consumers. */
   public async createCachedPreSignedUrlForPreview(
     url?: string | null,
     expiresIn?: number,
@@ -127,9 +133,7 @@ export class FileService {
     return this.impl.uploadContent(path, content);
   }
 
-  /**
-   * Get full file URL
-   */
+  /** Resolve a public URL that browsers and external services can read. */
   public async getFullFileUrl(url?: string | null, expiresIn?: number): Promise<string> {
     return this.impl.getFullFileUrl(url, expiresIn);
   }
@@ -146,7 +150,9 @@ export class FileService {
       return getFileProxyUrl(fileId);
     }
 
-    return this.getFullFileUrl(file.url);
+    if (!file.url) return '';
+
+    return this.createBrowserFileAccessUrl(file.url);
   }
 
   /**

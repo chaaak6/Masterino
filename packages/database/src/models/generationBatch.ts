@@ -132,18 +132,20 @@ export class GenerationBatchModel {
 
             // Handle single imageUrl
             if (config.imageUrl) {
-              config.imageUrl = await this.fileService.getFullFileUrl(config.imageUrl);
+              config.imageUrl = await this.fileService.createBrowserFileAccessUrl(config.imageUrl);
             }
 
             // Handle endImageUrl (video start/end frame)
             if (config.endImageUrl) {
-              config.endImageUrl = await this.fileService.getFullFileUrl(config.endImageUrl);
+              config.endImageUrl = await this.fileService.createBrowserFileAccessUrl(
+                config.endImageUrl,
+              );
             }
 
             // Handle imageUrls array
             if (Array.isArray(config.imageUrls)) {
               config.imageUrls = await Promise.all(
-                config.imageUrls.map((url) => this.fileService.getFullFileUrl(url)),
+                config.imageUrls.map((url) => this.fileService.createBrowserFileAccessUrl(url)),
               );
             }
             return config;

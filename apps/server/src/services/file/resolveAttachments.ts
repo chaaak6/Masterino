@@ -74,7 +74,8 @@ export const resolveAttachmentsByFileIds = async ({
       if (!file) {
         return { id, missing: true as const };
       }
-      const resolvedUrl = (await fileService.getFullFileUrl(file.url)) || file.url;
+      const resolvedUrl =
+        (await fileService.getFileAccessUrl({ id: file.id, url: file.url })) || file.url;
       const fileType = file.fileType || '';
       if (fileType.startsWith('image') || fileType.startsWith('video')) {
         return { file, fileType, id, resolvedUrl };
@@ -165,7 +166,9 @@ export const resolveAttachmentMetadata = async ({
     dedupedFileIds.map(async (id) => {
       const file = recordById.get(id);
       if (!file) return undefined;
-      const url = fileService ? (await fileService.getFullFileUrl(file.url)) || file.url : file.url;
+      const url = fileService
+        ? (await fileService.getFileAccessUrl({ id: file.id, url: file.url })) || file.url
+        : file.url;
       return {
         fileType: file.fileType || 'application/octet-stream',
         id: file.id,

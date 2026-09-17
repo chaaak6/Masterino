@@ -8,23 +8,42 @@ import { getRedisConfig } from '@/envs/redis';
 import { initializeRedis, isRedisEnabled } from '@/libs/redis';
 import { FileS3, type PreSignedUploadOptions } from '@/server/modules/S3';
 
-import type { FileServiceImpl, PreSignedUpload } from './type';
+import type { BrowserFileAccessOptions, FileServiceImpl, PreSignedUpload } from './type';
 
 const log = debug('lobe-file:s3');
 
 const PRESIGNED_PREVIEW_CACHE_SAFETY_SECONDS = 60;
 const PRESIGNED_PREVIEW_CACHE_MAX_SECONDS = 3600;
 const PRESIGNED_PREVIEW_CACHE_KEY_PREFIX = 'file:presigned-preview:';
+const BROWSER_PRESIGNED_PREVIEW_CACHE_KEY_PREFIX = 'file:browser-presigned-preview:v1:';
 
 interface PresignedPreviewCacheEntry {
   expiresAt: number;
   url: string;
 }
 
+interface PresignedPreviewCacheOptions {
+  cache: Map<string, PresignedPreviewCacheEntry>;
+  cacheKey: string;
+  createUrl: () => Promise<string>;
+  expiresInSeconds: number;
+  label: string;
+  validateUrl?: (url: string) => void;
+}
+
 const presignedPreviewUrlCache = new Map<string, PresignedPreviewCacheEntry>();
+const browserPresignedPreviewUrlCache = new Map<string, PresignedPreviewCacheEntry>();
 
 const createPresignedPreviewCacheKey = (key: string, expiresIn: number) =>
   `${PRESIGNED_PREVIEW_CACHE_KEY_PREFIX}${expiresIn}:${key}`;
+
+const createBrowserPresignedPreviewCacheKey = (key: string, expiresIn: number) => {
+  const publicUrlBase =
+    fileEnv.S3_PUBLIC_DOMAIN || fileEnv.S3_PUBLIC_READ_ENDPOINT || fileEnv.S3_ENDPOINT;
+  if (!publicUrlBase) throw new Error('No S3 endpoint is configured for browser file access');
+
+  return `${BROWSER_PRESIGNED_PREVIEW_CACHE_KEY_PREFIX}${new URL(publicUrlBase).host}:${expiresIn}:${key}`;
+};
 
 const getPresignedPreviewCacheTtlSeconds = (expiresInSeconds: number) =>
   Math.min(
@@ -87,11 +106,65 @@ export class S3StaticFileImpl implements FileServiceImpl {
     expiresIn?: number,
   ): Promise<string> {
     const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
+
     return this.s3.createPreSignedUrlForDownload(key, contentDisposition, expiresIn);
   }
 
-  private async getStorageKeyFromUrl(url: string): Promise<string> {
+  async createBrowserFileAccessUrl(
+    url: string,
+    options?: BrowserFileAccessOptions,
+  ): Promise<string> {
+    const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
+
+    if (options?.contentDisposition) {
+      return this.s3.createBrowserPreSignedUrlForDownload(
+        key,
+        options.contentDisposition,
+        options.expiresIn,
+      );
+    }
+
+    return this.getCachedBrowserPreSignedUrlForPreview(key, options?.expiresIn);
+  }
+
+  private isManagedStorageUrl(url: URL): boolean {
+    if (url.pathname.startsWith('/f/')) return true;
+
+    const managedHosts = new Set<string>();
+    const addHost = (value?: string) => {
+      if (value) managedHosts.add(new URL(value).host);
+    };
+
+    addHost(fileEnv.S3_PUBLIC_DOMAIN);
+
+    for (const endpoint of [fileEnv.S3_ENDPOINT, fileEnv.S3_PUBLIC_READ_ENDPOINT]) {
+      if (!endpoint) continue;
+
+      const endpointUrl = new URL(endpoint);
+      if (fileEnv.S3_ENABLE_PATH_STYLE || !fileEnv.S3_BUCKET) {
+        managedHosts.add(endpointUrl.host);
+        continue;
+      }
+
+      const bucketHostname =
+        endpointUrl.hostname === fileEnv.S3_BUCKET ||
+        endpointUrl.hostname.startsWith(`${fileEnv.S3_BUCKET}.`)
+          ? endpointUrl.hostname
+          : `${fileEnv.S3_BUCKET}.${endpointUrl.hostname}`;
+      const port = endpointUrl.port ? `:${endpointUrl.port}` : '';
+      managedHosts.add(`${bucketHostname}${port}`);
+    }
+
+    return managedHosts.has(url.host);
+  }
+
+  private async getStorageKeyFromUrl(url: string): Promise<string | null> {
     if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
+
+    const parsedUrl = new URL(url);
+    if (!this.isManagedStorageUrl(parsedUrl)) return null;
 
     const extractedKey = await this.getKeyFromFullUrl(url);
     if (!extractedKey) {
@@ -101,15 +174,26 @@ export class S3StaticFileImpl implements FileServiceImpl {
     return extractedKey;
   }
 
-  private async getCachedPreSignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
-    const expiresInSeconds = expiresIn ?? fileEnv.S3_PREVIEW_URL_EXPIRE_IN;
-    const cacheKey = createPresignedPreviewCacheKey(key, expiresInSeconds);
+  private async getCachedPreSignedUrl({
+    cache,
+    cacheKey,
+    createUrl,
+    expiresInSeconds,
+    label,
+    validateUrl,
+  }: PresignedPreviewCacheOptions): Promise<string> {
     const ttlSeconds = getPresignedPreviewCacheTtlSeconds(expiresInSeconds);
     const now = Date.now();
-    const cached = presignedPreviewUrlCache.get(cacheKey);
+    const cached = cache.get(cacheKey);
 
     if (cached && cached.expiresAt > now) {
-      return cached.url;
+      try {
+        validateUrl?.(cached.url);
+        return cached.url;
+      } catch (error) {
+        cache.delete(cacheKey);
+        log('Discarded invalid %s from memory cache: %O', label, error);
+      }
     }
 
     try {
@@ -118,8 +202,9 @@ export class S3StaticFileImpl implements FileServiceImpl {
       const cachedUrl = await redis?.get(cacheKey);
 
       if (cachedUrl) {
+        validateUrl?.(cachedUrl);
         if (ttlSeconds > 0) {
-          presignedPreviewUrlCache.set(cacheKey, {
+          cache.set(cacheKey, {
             expiresAt: now + ttlSeconds * 1000,
             url: cachedUrl,
           });
@@ -128,13 +213,14 @@ export class S3StaticFileImpl implements FileServiceImpl {
         return cachedUrl;
       }
     } catch (error) {
-      log('Failed to read presigned preview URL cache from Redis: %O', error);
+      log('Failed to read valid %s from Redis cache: %O', label, error);
     }
 
-    const url = await this.createPreSignedUrlForPreview(key, expiresIn);
+    const url = await createUrl();
+    validateUrl?.(url);
 
     if (ttlSeconds > 0) {
-      presignedPreviewUrlCache.set(cacheKey, {
+      cache.set(cacheKey, {
         expiresAt: now + ttlSeconds * 1000,
         url,
       });
@@ -144,11 +230,39 @@ export class S3StaticFileImpl implements FileServiceImpl {
         const redis = isRedisEnabled(redisConfig) ? await initializeRedis(redisConfig) : null;
         await redis?.set(cacheKey, url, { ex: ttlSeconds });
       } catch (error) {
-        log('Failed to write presigned preview URL cache to Redis: %O', error);
+        log('Failed to write %s to Redis cache: %O', label, error);
       }
     }
 
     return url;
+  }
+
+  private async getCachedPreSignedUrlForPreview(key: string, expiresIn?: number): Promise<string> {
+    const expiresInSeconds = expiresIn ?? fileEnv.S3_PREVIEW_URL_EXPIRE_IN;
+
+    return this.getCachedPreSignedUrl({
+      cache: presignedPreviewUrlCache,
+      cacheKey: createPresignedPreviewCacheKey(key, expiresInSeconds),
+      createUrl: () => this.createPreSignedUrlForPreview(key, expiresIn),
+      expiresInSeconds,
+      label: 'presigned preview URL',
+    });
+  }
+
+  private async getCachedBrowserPreSignedUrlForPreview(
+    key: string,
+    expiresIn?: number,
+  ): Promise<string> {
+    const expiresInSeconds = expiresIn ?? fileEnv.S3_PREVIEW_URL_EXPIRE_IN;
+
+    return this.getCachedPreSignedUrl({
+      cache: browserPresignedPreviewUrlCache,
+      cacheKey: createBrowserPresignedPreviewCacheKey(key, expiresInSeconds),
+      createUrl: () => this.s3.createBrowserPreSignedUrlForPreview(key, expiresIn),
+      expiresInSeconds,
+      label: 'browser presigned preview URL',
+      validateUrl: (url) => this.s3.assertBrowserFileUrl(url),
+    });
   }
 
   async createCachedPreSignedUrlForPreview(
@@ -158,6 +272,7 @@ export class S3StaticFileImpl implements FileServiceImpl {
     if (!url) return '';
 
     const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
 
     return await this.getCachedPreSignedUrlForPreview(key, expiresIn);
   }
@@ -170,17 +285,28 @@ export class S3StaticFileImpl implements FileServiceImpl {
     if (!url) return '';
 
     const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
 
-    // If bucket is not set public read, or S3_PUBLIC_DOMAIN is not configured,
-    // reuse the same presigned preview URL briefly so repeated chat turns keep
-    // stable media URLs and can reuse provider-side prefix caches.
+    // Public buckets can use their configured public domain directly. Private
+    // buckets must return a URL signed with the browser-facing endpoint.
     const publicUrlBase = fileEnv.S3_SET_ACL ? fileEnv.S3_PUBLIC_DOMAIN : undefined;
     if (!publicUrlBase) {
-      return await this.getCachedPreSignedUrlForPreview(key, expiresIn);
+      return await this.getCachedBrowserPreSignedUrlForPreview(key, expiresIn);
     }
 
     if (fileEnv.S3_ENABLE_PATH_STYLE) {
-      return urlJoin(publicUrlBase, fileEnv.S3_BUCKET!, key);
+      const publicUrl = new URL(publicUrlBase);
+      const bucket = fileEnv.S3_BUCKET!;
+      const normalizedPath = publicUrl.pathname.replace(/\/+$/, '');
+      const bucketPath = `/${bucket}`;
+      const isBucketScopedHost =
+        publicUrl.hostname === bucket || publicUrl.hostname.startsWith(`${bucket}.`);
+      const isBucketScopedPath =
+        normalizedPath === bucketPath || normalizedPath.endsWith(bucketPath);
+
+      return isBucketScopedHost || isBucketScopedPath
+        ? urlJoin(publicUrlBase, key)
+        : urlJoin(publicUrlBase, bucket, key);
     }
 
     return urlJoin(publicUrlBase, key);

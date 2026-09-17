@@ -51,11 +51,11 @@ import {
   type RuntimeExecutorContext,
 } from '@/server/modules/AgentRuntime/RuntimeExecutors';
 import { type IStreamEventManager } from '@/server/modules/AgentRuntime/types';
-import { createTraceOptions, initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
 import {
   tagWorkspacePathInterventionAudits,
   workspacePathInterventionAudits,
 } from '@/server/modules/AgentRuntime/workspacePathConsent';
+import { createTraceOptions, initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
 import { emitAgentSignalSourceEvent } from '@/server/services/agentSignal';
 import { toAgentSignalTraceEvents } from '@/server/services/agentSignal/observability/traceEvents';
 import { FileService } from '@/server/services/file';
@@ -2367,7 +2367,8 @@ export class AgentRuntimeService {
     let postProcessUrl: ((path: string | null) => Promise<string>) | undefined;
     try {
       const fileService = new FileService(this.serverDB, this.userId);
-      postProcessUrl = (path: string | null) => fileService.getFullFileUrl(path);
+      postProcessUrl = (path: string | null) =>
+        path ? fileService.createBrowserFileAccessUrl(path) : Promise.resolve('');
     } catch {
       postProcessUrl = undefined;
     }

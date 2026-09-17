@@ -207,7 +207,7 @@ class SkillServerRuntimeService implements SkillRuntimeService {
           const fileInfo = await this.fileModel.checkHash(skill.zipFileHash);
           if (!fileInfo.isExist || !fileInfo.url) continue;
 
-          const fullUrl = await this.fileService.getFullFileUrl(fileInfo.url);
+          const fullUrl = await this.fileService.createCachedPreSignedUrlForPreview(fileInfo.url);
           if (fullUrl) {
             skillZipUrls[skill.name] = fullUrl;
             log('Resolved zipUrl for skill %s', skill.name);
@@ -574,7 +574,7 @@ export const skillsRuntime: ServerRuntimeRegistration = {
               throw new Error('Activated skill identity does not match its package');
             const file = await fileModel.checkHash(skill.zipFileHash);
             if (!file.isExist || !file.url) throw new Error('Skill package file is unavailable');
-            const url = await fileService.getFullFileUrl(file.url);
+            const url = await fileService.createBrowserFileAccessUrl(file.url);
             if (!url) throw new Error('Skill package download is unavailable');
             const prepared = await deviceGateway.prepareSkillPackage({
               deviceId: frozenDeviceId,

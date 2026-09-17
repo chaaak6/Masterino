@@ -143,7 +143,9 @@ export const imageRouter = router({
 
         // Handle single imageUrl: localhost/f/{id} -> S3 URL
         if (typeof params.imageUrl === 'string' && params.imageUrl) {
-          const s3Url = await fileService.getFullFileUrl(configForDatabase.imageUrl as string);
+          const s3Url = await fileService.createBrowserFileAccessUrl(
+            configForDatabase.imageUrl as string,
+          );
           if (s3Url) {
             log('Dev: converted proxy URL to S3 URL: %s -> %s', params.imageUrl, s3Url);
             updates.imageUrl = s3Url;
@@ -153,7 +155,9 @@ export const imageRouter = router({
         // Handle multiple imageUrls
         if (Array.isArray(params.imageUrls) && params.imageUrls.length > 0) {
           const s3Urls = await Promise.all(
-            (configForDatabase.imageUrls as string[]).map((key) => fileService.getFullFileUrl(key)),
+            (configForDatabase.imageUrls as string[]).map((key) =>
+              fileService.createBrowserFileAccessUrl(key),
+            ),
           );
           log('Dev: converted proxy URLs to S3 URLs: %O', s3Urls);
           updates.imageUrls = s3Urls;

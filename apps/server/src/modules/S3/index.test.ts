@@ -22,6 +22,8 @@ const mockFileEnv = vi.hoisted(() => ({
   S3_ENABLE_PATH_STYLE: false,
   S3_ENDPOINT: 'https://s3.amazonaws.com',
   S3_PREVIEW_URL_EXPIRE_IN: 7200,
+  S3_PUBLIC_DOMAIN: 'https://test-bucket.s3.us-east-1.amazonaws.com',
+  S3_PUBLIC_READ_ENDPOINT: 'https://s3.us-east-1.amazonaws.com',
   S3_PUBLIC_UPLOAD_ENDPOINT: 'http://localhost:9100',
   S3_REGION: 'us-east-1',
   S3_SECRET_ACCESS_KEY: 'test-secret-key',
@@ -55,6 +57,8 @@ describe('S3', () => {
       S3_ENABLE_PATH_STYLE: false,
       S3_ENDPOINT: 'https://s3.amazonaws.com',
       S3_PREVIEW_URL_EXPIRE_IN: 7200,
+      S3_PUBLIC_DOMAIN: 'https://test-bucket.s3.us-east-1.amazonaws.com',
+      S3_PUBLIC_READ_ENDPOINT: 'https://s3.us-east-1.amazonaws.com',
       S3_PUBLIC_UPLOAD_ENDPOINT: 'http://localhost:9100',
       S3_REGION: 'us-east-1',
       S3_SECRET_ACCESS_KEY: 'test-secret-key',
@@ -138,6 +142,70 @@ describe('S3', () => {
         expect.objectContaining({
           region: 'us-east-1',
         }),
+      );
+    });
+  });
+
+  describe('browser file access', () => {
+    it('signs browser previews with the dedicated public read endpoint', async () => {
+      mockGetSignedUrl.mockResolvedValue(
+        'https://test-bucket.s3.us-east-1.amazonaws.com/files/report.html?X-Amz-Signature=sig',
+      );
+      const s3 = new FileS3();
+
+      await s3.createBrowserPreSignedUrlForPreview('files/report.html', 300);
+
+      expect(S3Client).toHaveBeenLastCalledWith(
+        expect.objectContaining({ endpoint: 'https://s3.us-east-1.amazonaws.com' }),
+      );
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+        expiresIn: 300,
+      });
+    });
+
+    it('accepts public endpoint hosts for path-style browser URLs', async () => {
+      Object.assign(mockFileEnv, { S3_ENABLE_PATH_STYLE: true });
+      mockGetSignedUrl.mockResolvedValue(
+        'https://s3.us-east-1.amazonaws.com/test-bucket/files/report.html?X-Amz-Signature=sig',
+      );
+      const s3 = new FileS3();
+
+      await expect(
+        s3.createBrowserPreSignedUrlForPreview('files/report.html', 300),
+      ).resolves.toContain('https://s3.us-east-1.amazonaws.com/test-bucket/');
+    });
+
+    it('signs browser downloads with attachment disposition on the public endpoint', async () => {
+      mockGetSignedUrl.mockResolvedValue(
+        'https://test-bucket.s3.us-east-1.amazonaws.com/files/report.html?X-Amz-Signature=sig',
+      );
+      const s3 = new FileS3();
+
+      await s3.createBrowserPreSignedUrlForDownload(
+        'files/report.html',
+        'attachment; filename="report.html"',
+        300,
+      );
+
+      expect(S3Client).toHaveBeenLastCalledWith(
+        expect.objectContaining({ endpoint: 'https://s3.us-east-1.amazonaws.com' }),
+      );
+      expect(GetObjectCommand).toHaveBeenLastCalledWith({
+        Bucket: 'test-bucket',
+        Key: 'files/report.html',
+        ResponseContentDisposition: 'attachment; filename="report.html"',
+      });
+    });
+
+    it('fails closed instead of signing browser URLs with an Alibaba internal endpoint', async () => {
+      Object.assign(mockFileEnv, {
+        S3_ENDPOINT: 'https://oss-cn-shenzhen-internal.aliyuncs.com',
+        S3_PUBLIC_READ_ENDPOINT: undefined,
+      });
+      const s3 = new FileS3();
+
+      await expect(s3.createBrowserPreSignedUrlForPreview('files/report.html')).rejects.toThrow(
+        'S3_PUBLIC_READ_ENDPOINT is required',
       );
     });
   });
