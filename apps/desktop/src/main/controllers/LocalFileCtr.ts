@@ -69,6 +69,7 @@ import ContentSearchService from '@/services/contentSearchSrv';
 import FileSearchService from '@/services/fileSearchSrv';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import { createLogger } from '@/utils/logger';
+import { resolveDesktopManagedPaths } from '@/utils/managedPaths';
 import { netFetch } from '@/utils/net-fetch';
 
 import { ControllerModule, IpcMethod } from './index';
@@ -244,6 +245,22 @@ const areAllPathsSafeOnDisk = async (
 export default class LocalFileCtr extends ControllerModule {
   static override readonly groupName = 'localSystem';
   private readonly attachmentImageCache = new Map<string, string>();
+  private get managedPaths() {
+    return resolveDesktopManagedPaths(this.app.appStoragePath);
+  }
+
+  private async fromManagedScratchRoots<T>(operation: (root: string) => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (const root of [this.managedPaths.scratchRoot, ...this.managedPaths.legacyScratchRoots]) {
+      try {
+        return await operation(root);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
   private get searchService() {
     return this.app.getService(FileSearchService);
   }
@@ -254,11 +271,12 @@ export default class LocalFileCtr extends ControllerModule {
 
   @IpcMethod()
   async manageAttachment(input: LocalAttachmentLifecycleInput) {
-    const result = await manageLocalAttachment(
-      path.join(this.app.appStoragePath, 'scratch-workspaces'),
-      this.app.getService(GatewayConnectionService).getDeviceId(),
-      input,
-    );
+    const deviceId = this.app.getService(GatewayConnectionService).getDeviceId();
+    let result: { available: boolean; removed?: boolean } = { available: false };
+    for (const root of [this.managedPaths.scratchRoot, ...this.managedPaths.legacyScratchRoots]) {
+      result = await manageLocalAttachment(root, deviceId, input);
+      if (result.available || result.removed) break;
+    }
     if (result.removed)
       for (const key of this.attachmentImageCache.keys()) {
         if (key.startsWith(`${input.ref.localResourceId}:`)) this.attachmentImageCache.delete(key);
@@ -285,7 +303,7 @@ export default class LocalFileCtr extends ControllerModule {
         );
     }
     return receiveLocalAttachment(
-      path.join(this.app.appStoragePath, 'scratch-workspaces'),
+      this.managedPaths.scratchRoot,
       this.app.getService(GatewayConnectionService).getDeviceId(),
       input,
     );
@@ -297,12 +315,13 @@ export default class LocalFileCtr extends ControllerModule {
     topicId?: string;
     image?: boolean;
   }) {
-    const root = path.join(this.app.appStoragePath, 'scratch-workspaces');
     const deviceId = this.app.getService(GatewayConnectionService).getDeviceId();
     if (input.image) {
       if (!/^image\/(?:png|jpeg|webp|gif)$/.test(input.ref.mime))
         throw new Error('Unsupported image type');
-      const resolved = await resolveLocalAttachment(root, deviceId, input.ref);
+      const resolved = await this.fromManagedScratchRoots((root) =>
+        resolveLocalAttachment(root, deviceId, input.ref),
+      );
       if (resolved.bytes.byteLength > 10 * 1024 * 1024) throw new Error('LOCAL_IMAGE_TOO_LARGE');
       const key = `${input.ref.localResourceId}:${input.ref.version}`;
       const dataUrl =
@@ -313,16 +332,21 @@ export default class LocalFileCtr extends ControllerModule {
       this.attachmentImageCache.set(key, dataUrl);
       return { dataUrl };
     }
-    return prepareLocalAttachment(root, deviceId, input.ref, input.topicId ?? 'active');
+    return this.fromManagedScratchRoots(async (root) => {
+      await resolveLocalAttachment(root, deviceId, input.ref);
+      return prepareLocalAttachment(root, deviceId, input.ref, input.topicId ?? 'active');
+    });
   }
 
   @IpcMethod()
   async bindAttachment(input: { ref: LocalAttachmentRecord; topicId: string }) {
-    return bindLocalAttachment(
-      path.join(this.app.appStoragePath, 'scratch-workspaces'),
-      this.app.getService(GatewayConnectionService).getDeviceId(),
-      input.ref,
-      input.topicId,
+    return this.fromManagedScratchRoots((root) =>
+      bindLocalAttachment(
+        root,
+        this.app.getService(GatewayConnectionService).getDeviceId(),
+        input.ref,
+        input.topicId,
+      ),
     );
   }
 
@@ -617,7 +641,7 @@ export default class LocalFileCtr extends ControllerModule {
   }: PrepareSkillDirectoryParams): Promise<PrepareSkillDirectoryResult> {
     return prepareSkillPackage(
       { forceRefresh, url, zipHash },
-      path.join(this.app.appStoragePath, 'file-storage', 'skills'),
+      this.managedPaths.skillsRoot,
       netFetch,
     );
   }

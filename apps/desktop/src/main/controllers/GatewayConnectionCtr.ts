@@ -59,6 +59,7 @@ import ExecutionEnvService from '@/services/executionEnvSrv';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import ImessageBridgeService from '@/services/imessageBridgeSrv';
 import { createLogger } from '@/utils/logger';
+import { resolveDesktopManagedPaths } from '@/utils/managedPaths';
 
 import HeterogeneousAgentCtr from './HeterogeneousAgentCtr';
 import { ControllerModule, IpcMethod } from './index';
@@ -172,6 +173,22 @@ const resolveArgsWithScope = <T extends { scope?: string }>(args: T, pathField: 
  * Thin IPC layer that delegates to GatewayConnectionService.
  */
 export default class GatewayConnectionCtr extends ControllerModule {
+  private get managedPaths() {
+    return resolveDesktopManagedPaths(this.app.appStoragePath);
+  }
+
+  private async fromManagedScratchRoots<T>(operation: (root: string) => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (const root of [this.managedPaths.scratchRoot, ...this.managedPaths.legacyScratchRoots]) {
+      try {
+        return await operation(root);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
   static override readonly groupName = 'gatewayConnection';
 
   /** In-memory registry for running platform agent tasks (openclaw / hermes). */
@@ -392,9 +409,8 @@ export default class GatewayConnectionCtr extends ControllerModule {
     // Discover only that managed root; external absolute paths gain no authority.
     const existingScratch =
       context && !context.cwd && !params.purpose && trace?.topicId
-        ? await getExistingScratchWorkspace(
-            trace.topicId,
-            path.join(this.app.appStoragePath, 'scratch-workspaces'),
+        ? await this.fromManagedScratchRoots((root) =>
+            getExistingScratchWorkspace(trace.topicId!, root),
           ).catch(() => undefined)
         : undefined;
     if (
@@ -608,8 +624,9 @@ export default class GatewayConnectionCtr extends ControllerModule {
       getProjectFileIndex: (params) => this.localFileCtr.getProjectFileIndex(params),
       runHeterogeneousAgent: (request) =>
         this.executeAgentRun({ ...request, type: 'agent_run_request' }),
-      scratchRoot: path.join(this.app.appStoragePath, 'scratch-workspaces'),
-      skillCacheRoot: path.join(this.app.appStoragePath, 'file-storage', 'skills'),
+      legacyScratchRoots: this.managedPaths.legacyScratchRoots,
+      scratchRoot: this.managedPaths.scratchRoot,
+      skillCacheRoot: this.managedPaths.skillsRoot,
     };
   }
 
@@ -659,11 +676,13 @@ export default class GatewayConnectionCtr extends ControllerModule {
       )
         return { success: false, content: 'INVALID_ATTACHMENT_TOOL_REQUEST' };
       try {
-        const prepared = await prepareLocalAttachmentById(
-          path.join(this.app.appStoragePath, 'scratch-workspaces'),
-          trace.deviceId,
-          trace.topicId,
-          input.attachmentId,
+        const prepared = await this.fromManagedScratchRoots((root) =>
+          prepareLocalAttachmentById(
+            root,
+            trace.deviceId!,
+            trace.topicId!,
+            input.attachmentId as string,
+          ),
         );
         attachment = { path: prepared.path, id: input.attachmentId };
         const { attachmentId: _id, ...rest } = input;
@@ -809,11 +828,13 @@ export default class GatewayConnectionCtr extends ControllerModule {
           !candidate.includes(`${path.sep}.attachments${path.sep}`)
         )
           continue;
-        const attachment = await validatePreparedLocalAttachment(
-          path.join(this.app.appStoragePath, 'scratch-workspaces'),
-          this.app.getService(GatewayConnectionService).getDeviceId(),
-          trace.topicId,
-          candidate,
+        const attachment = await this.fromManagedScratchRoots((root) =>
+          validatePreparedLocalAttachment(
+            root,
+            this.app.getService(GatewayConnectionService).getDeviceId(),
+            trace.topicId!,
+            candidate,
+          ),
         ).catch(() => undefined);
         if (!attachment) continue;
         onAttachmentResolved?.({ path: attachment.path, id: attachment.ref.attachmentId });

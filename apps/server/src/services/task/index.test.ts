@@ -178,6 +178,7 @@ describe('TaskService', () => {
 
       expect(cleanupScratchWorkspace).toHaveBeenCalledWith({
         deviceId: 'device-1',
+        expectedRoot: '/tmp/masterino/topic-1',
         topicId: 'topic-1',
         userId,
       });
@@ -279,6 +280,7 @@ describe('TaskService', () => {
       expect(state).toEqual({ linked: false, scratchCatalog: false, topic: false, totalTopics: 0 });
       expect(cleanupScratchWorkspace).toHaveBeenNthCalledWith(2, {
         deviceId: 'device-1',
+        expectedRoot: '/tmp/masterino/topic-1',
         topicId: 'topic-1',
         userId,
       });

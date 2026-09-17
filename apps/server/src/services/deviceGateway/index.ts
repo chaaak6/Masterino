@@ -251,18 +251,22 @@ export class DeviceGateway {
   /** Delete the deterministic topic scratch directory on its owning device. */
   async cleanupScratchWorkspace(params: {
     deviceId: string;
+    expectedRoot?: string;
     timeout?: number;
     topicId: string;
     userId: string;
   }): Promise<{ removed: boolean; root: string } | undefined> {
-    const { userId, deviceId, topicId, timeout = 8000 } = params;
+    const { userId, deviceId, expectedRoot, topicId, timeout = 8000 } = params;
     const client = this.getClient();
     if (!client) return undefined;
 
     try {
       const result = await client.invokeRpc<{ removed: boolean; root: string }>(
         { deviceId, timeout, userId },
-        { method: 'cleanupScratchWorkspace', params: { topicId } },
+        {
+          method: 'cleanupScratchWorkspace',
+          params: expectedRoot ? { expectedRoot, topicId } : { topicId },
+        },
       );
       if (!result.success || !result.data?.root) {
         log('cleanupScratchWorkspace: failed for deviceId=%s — %s', deviceId, result.error);

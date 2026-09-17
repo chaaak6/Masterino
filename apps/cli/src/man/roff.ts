@@ -11,23 +11,23 @@ interface RoffDefinition {
 const FILE_ENTRIES = [
   {
     description: 'Encrypted access and refresh tokens.',
-    path: '~/.lobehub/credentials.json',
+    path: '~/.masterino/state/credentials.json',
   },
   {
     description: 'CLI settings such as server and gateway URLs.',
-    path: '~/.lobehub/settings.json',
+    path: '~/.masterino/state/settings.json',
   },
   {
     description: 'Background daemon PID file.',
-    path: '~/.lobehub/daemon.pid',
+    path: '~/.masterino/state/daemon.pid',
   },
   {
     description: 'Background daemon status metadata.',
-    path: '~/.lobehub/daemon.status',
+    path: '~/.masterino/state/daemon.status.json',
   },
   {
     description: 'Background daemon log output.',
-    path: '~/.lobehub/daemon.log',
+    path: '~/.masterino/state/daemon.log',
   },
 ] as const;
 
@@ -96,7 +96,7 @@ export function generateRootManPage(program: Command, version: string) {
     ]),
     '.PP',
     'The base directory can be overridden with the',
-    '.B LOBEHUB_CLI_HOME',
+    '.B MASTERINO_HOME',
     'environment variable.',
     '.SH EXAMPLES',
     ...EXAMPLES.flatMap((example) => [
