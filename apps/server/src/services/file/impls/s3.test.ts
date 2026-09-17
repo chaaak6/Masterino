@@ -16,7 +16,9 @@ const redisMocks = vi.hoisted(() => ({
 
 const config = {
   S3_ENABLE_PATH_STYLE: false,
+  S3_ENDPOINT: 'https://oss-cn-shenzhen-internal.aliyuncs.com',
   S3_PUBLIC_DOMAIN: 'https://example.com',
+  S3_PUBLIC_READ_ENDPOINT: 'https://oss-cn-shenzhen.aliyuncs.com',
   S3_BUCKET: 'my-bucket',
   S3_PREVIEW_URL_EXPIRE_IN: 7200,
   S3_SET_ACL: true,
@@ -103,26 +105,28 @@ describe('S3StaticFileImpl', () => {
       expect(await fileService.getFullFileUrl(undefined)).toBe('');
     });
 
-    it('当S3_SET_ACL为false时应返回预签名URL', async () => {
+    it('returns a public presigned URL when S3_SET_ACL is false', async () => {
       config.S3_SET_ACL = false;
       const url = 'path/to/file.jpg';
-      expect(await fileService.getFullFileUrl(url)).toBe('https://presigned.example.com/test.jpg');
+      expect(await fileService.getFullFileUrl(url)).toBe('https://example.com/browser-preview.jpg');
+      expect(fileService['s3'].createPreSignedUrlForPreview).not.toHaveBeenCalled();
       config.S3_SET_ACL = true;
     });
 
     it('should reuse cached presigned preview URL for repeated private preview requests', async () => {
       config.S3_SET_ACL = false;
       const url = 'path/to/cached-file.jpg';
-      const createPreSignedUrlForPreview = fileService['s3'].createPreSignedUrlForPreview;
+      const createBrowserPreSignedUrlForPreview =
+        fileService['s3'].createBrowserPreSignedUrlForPreview;
 
       await expect(fileService.getFullFileUrl(url)).resolves.toBe(
-        'https://presigned.example.com/test.jpg',
+        'https://example.com/browser-preview.jpg',
       );
       await expect(fileService.getFullFileUrl(url)).resolves.toBe(
-        'https://presigned.example.com/test.jpg',
+        'https://example.com/browser-preview.jpg',
       );
 
-      expect(createPreSignedUrlForPreview).toHaveBeenCalledTimes(1);
+      expect(createBrowserPreSignedUrlForPreview).toHaveBeenCalledTimes(1);
       config.S3_SET_ACL = true;
     });
 
@@ -135,12 +139,12 @@ describe('S3StaticFileImpl', () => {
         url: 'redis://localhost:6379',
       });
       redisMocks.isRedisEnabled.mockReturnValue(true);
-      redisMocks.redis.get.mockResolvedValue('https://redis.example.com/cached.jpg');
+      redisMocks.redis.get.mockResolvedValue('https://example.com/cached.jpg');
 
       const result = await fileService.getFullFileUrl('path/to/redis-cached-file.jpg');
 
-      expect(result).toBe('https://redis.example.com/cached.jpg');
-      expect(fileService['s3'].createPreSignedUrlForPreview).not.toHaveBeenCalled();
+      expect(result).toBe('https://example.com/cached.jpg');
+      expect(fileService['s3'].createBrowserPreSignedUrlForPreview).not.toHaveBeenCalled();
     });
 
     it('should write generated presigned preview URL to Redis when available', async () => {
@@ -155,12 +159,12 @@ describe('S3StaticFileImpl', () => {
       redisMocks.redis.get.mockResolvedValue(null);
 
       await expect(fileService.getFullFileUrl('path/to/redis-write-file.jpg')).resolves.toBe(
-        'https://presigned.example.com/test.jpg',
+        'https://example.com/browser-preview.jpg',
       );
 
       expect(redisMocks.redis.set).toHaveBeenCalledWith(
-        'file:presigned-preview:7200:path/to/redis-write-file.jpg',
-        'https://presigned.example.com/test.jpg',
+        'file:browser-presigned-preview:v1:example.com:7200:path/to/redis-write-file.jpg',
+        'https://example.com/browser-preview.jpg',
         { ex: 3600 },
       );
     });
@@ -179,11 +183,35 @@ describe('S3StaticFileImpl', () => {
       config.S3_ENABLE_PATH_STYLE = false;
     });
 
+    it('does not append the bucket twice when the public domain is already the path-style bucket root', async () => {
+      config.S3_ENABLE_PATH_STYLE = true;
+      config.S3_PUBLIC_DOMAIN = 'https://example.com/my-bucket';
+
+      await expect(fileService.getFullFileUrl('path/to/file.jpg')).resolves.toBe(
+        'https://example.com/my-bucket/path/to/file.jpg',
+      );
+
+      config.S3_ENABLE_PATH_STYLE = false;
+      config.S3_PUBLIC_DOMAIN = 'https://example.com';
+    });
+
+    it('does not append the bucket path when the public domain is already bucket-scoped by hostname', async () => {
+      config.S3_ENABLE_PATH_STYLE = true;
+      config.S3_PUBLIC_DOMAIN = 'https://my-bucket.example.com';
+
+      await expect(fileService.getFullFileUrl('path/to/file.jpg')).resolves.toBe(
+        'https://my-bucket.example.com/path/to/file.jpg',
+      );
+
+      config.S3_ENABLE_PATH_STYLE = false;
+      config.S3_PUBLIC_DOMAIN = 'https://example.com';
+    });
+
     // Legacy bug compatibility tests - https://github.com/lobehub/lobe-chat/issues/8994
     describe('legacy bug compatibility', () => {
       it('should handle full URL input by extracting key (S3_SET_ACL=false)', async () => {
         config.S3_SET_ACL = false;
-        const fullUrl = 'https://s3.example.com/bucket/path/to/file.jpg?X-Amz-Signature=expired';
+        const fullUrl = 'https://example.com/path/to/file.jpg?X-Amz-Signature=expired';
 
         // Mock getKeyFromFullUrl to return the extracted key
         vi.spyOn(fileService, 'getKeyFromFullUrl').mockResolvedValue('path/to/file.jpg');
@@ -191,12 +219,12 @@ describe('S3StaticFileImpl', () => {
         const result = await fileService.getFullFileUrl(fullUrl);
 
         expect(fileService.getKeyFromFullUrl).toHaveBeenCalledWith(fullUrl);
-        expect(result).toBe('https://presigned.example.com/test.jpg');
+        expect(result).toBe('https://example.com/browser-preview.jpg');
         config.S3_SET_ACL = true;
       });
 
       it('should handle full URL input by extracting key (S3_SET_ACL=true)', async () => {
-        const fullUrl = 'https://s3.example.com/bucket/path/to/file.jpg';
+        const fullUrl = 'https://example.com/path/to/file.jpg';
 
         vi.spyOn(fileService, 'getKeyFromFullUrl').mockResolvedValue('path/to/file.jpg');
 
@@ -218,7 +246,7 @@ describe('S3StaticFileImpl', () => {
       });
 
       it('should handle http:// URLs for legacy compatibility', async () => {
-        const httpUrl = 'http://s3.example.com/bucket/path/to/file.jpg';
+        const httpUrl = 'http://example.com/path/to/file.jpg';
 
         vi.spyOn(fileService, 'getKeyFromFullUrl').mockResolvedValue('path/to/file.jpg');
 
@@ -247,7 +275,7 @@ describe('S3StaticFileImpl', () => {
     });
 
     it('should always return a cached presigned preview URL even when public URLs are available', async () => {
-      const fullUrl = 'https://s3.example.com/bucket/path/to/proxy-only-file.jpg';
+      const fullUrl = 'https://example.com/path/to/proxy-only-file.jpg';
       const createPreSignedUrlForPreview = fileService['s3'].createPreSignedUrlForPreview;
 
       vi.spyOn(fileService, 'getKeyFromFullUrl').mockResolvedValue('path/to/proxy-only-file.jpg');
@@ -265,6 +293,14 @@ describe('S3StaticFileImpl', () => {
   });
 
   describe('createBrowserFileAccessUrl', () => {
+    it('returns third-party URLs unchanged instead of treating their paths as bucket keys', async () => {
+      const externalUrl = 'https://cdn.third-party.example/assets/image.png';
+
+      await expect(fileService.createBrowserFileAccessUrl(externalUrl)).resolves.toBe(externalUrl);
+
+      expect(fileService['s3'].createBrowserPreSignedUrlForPreview).not.toHaveBeenCalled();
+    });
+
     it('uses a separate browser cache namespace instead of a cached internal URL', async () => {
       redisMocks.getRedisConfig.mockReturnValue({
         enabled: true,
@@ -350,7 +386,7 @@ describe('S3StaticFileImpl', () => {
       vi.spyOn(fileService, 'getKeyFromFullUrl').mockResolvedValue('files/legacy-report.html');
 
       await fileService.createBrowserFileAccessUrl(
-        'https://old-bucket.example.com/files/legacy-report.html?expired=1',
+        'https://example.com/files/legacy-report.html?expired=1',
       );
 
       expect(fileService['s3'].createBrowserPreSignedUrlForPreview).toHaveBeenCalledWith(

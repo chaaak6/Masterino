@@ -179,7 +179,7 @@ export const agentSkillsRouter = router({
         return { name: skill.name, url: null };
       }
 
-      const fullUrl = await ctx.fileService.getFullFileUrl(fileInfo.url);
+      const fullUrl = await ctx.fileService.createBrowserFileAccessUrl(fileInfo.url);
       return { name: skill.name, url: fullUrl || null };
     }),
 

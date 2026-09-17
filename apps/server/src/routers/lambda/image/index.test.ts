@@ -9,6 +9,7 @@ import { imageRouter } from './index';
 // Use vi.hoisted for variables used in vi.mock factory
 const {
   mockServerDB,
+  mockCreateBrowserFileAccessUrl,
   mockGetKeyFromFullUrl,
   mockGetFullFileUrl,
   mockAsyncTaskModelUpdate,
@@ -22,6 +23,7 @@ const {
   mockServerDB: {
     transaction: vi.fn(),
   },
+  mockCreateBrowserFileAccessUrl: vi.fn(),
   mockGetKeyFromFullUrl: vi.fn(),
   mockGetFullFileUrl: vi.fn(),
   mockAsyncTaskModelUpdate: vi.fn(),
@@ -46,6 +48,7 @@ vi.mock('@/database/core/db-adaptor', () => ({
 // Mock FileService
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn(() => ({
+    createBrowserFileAccessUrl: mockCreateBrowserFileAccessUrl,
     getKeyFromFullUrl: mockGetKeyFromFullUrl,
     getFullFileUrl: mockGetFullFileUrl,
   })),
@@ -142,6 +145,7 @@ describe('imageRouter', () => {
     );
     mockChargeBeforeGenerate.mockResolvedValue(undefined);
     mockGetKeyFromFullUrl.mockResolvedValue(null);
+    mockCreateBrowserFileAccessUrl.mockResolvedValue('https://public.example.com/default.jpg');
     mockGetFullFileUrl.mockResolvedValue(null);
     mockFindUserById.mockResolvedValue({ email: 'user@example.com' });
     mockIsLobeHubModelAvailable.mockResolvedValue(true);
@@ -529,7 +533,9 @@ describe('imageRouter', () => {
 
       it('should convert single imageUrl to S3 URL in development mode', async () => {
         mockGetKeyFromFullUrl.mockResolvedValue('files/image-key.jpg');
-        mockGetFullFileUrl.mockResolvedValue('https://s3.amazonaws.com/bucket/files/image-key.jpg');
+        mockCreateBrowserFileAccessUrl.mockResolvedValue(
+          'https://public.example.com/bucket/files/image-key.jpg',
+        );
 
         const ctx = createMockCtx();
         const input = createDefaultInput({
@@ -543,16 +549,17 @@ describe('imageRouter', () => {
         const result = await caller.createImage(input);
 
         expect(result.success).toBe(true);
-        expect(mockGetFullFileUrl).toHaveBeenCalledWith('files/image-key.jpg');
+        expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('files/image-key.jpg');
+        expect(mockGetFullFileUrl).not.toHaveBeenCalled();
       });
 
       it('should convert multiple imageUrls to S3 URLs in development mode', async () => {
         mockGetKeyFromFullUrl
           .mockResolvedValueOnce('files/image1.jpg')
           .mockResolvedValueOnce('files/image2.jpg');
-        mockGetFullFileUrl
-          .mockResolvedValueOnce('https://s3.amazonaws.com/bucket/files/image1.jpg')
-          .mockResolvedValueOnce('https://s3.amazonaws.com/bucket/files/image2.jpg');
+        mockCreateBrowserFileAccessUrl
+          .mockResolvedValueOnce('https://public.example.com/bucket/files/image1.jpg')
+          .mockResolvedValueOnce('https://public.example.com/bucket/files/image2.jpg');
 
         const ctx = createMockCtx();
         const input = createDefaultInput({
@@ -566,14 +573,14 @@ describe('imageRouter', () => {
         const result = await caller.createImage(input);
 
         expect(result.success).toBe(true);
-        expect(mockGetFullFileUrl).toHaveBeenCalledTimes(2);
-        expect(mockGetFullFileUrl).toHaveBeenCalledWith('files/image1.jpg');
-        expect(mockGetFullFileUrl).toHaveBeenCalledWith('files/image2.jpg');
+        expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledTimes(2);
+        expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('files/image1.jpg');
+        expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('files/image2.jpg');
       });
 
-      it('should not convert URLs when getFullFileUrl returns null', async () => {
+      it('should not convert URLs when public file URL creation returns null', async () => {
         mockGetKeyFromFullUrl.mockResolvedValue('files/image-key.jpg');
-        mockGetFullFileUrl.mockResolvedValue(null);
+        mockCreateBrowserFileAccessUrl.mockResolvedValue(null);
 
         const ctx = createMockCtx();
         const input = createDefaultInput({
@@ -587,7 +594,7 @@ describe('imageRouter', () => {
         const result = await caller.createImage(input);
 
         expect(result.success).toBe(true);
-        expect(mockGetFullFileUrl).toHaveBeenCalled();
+        expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalled();
       });
     });
   });

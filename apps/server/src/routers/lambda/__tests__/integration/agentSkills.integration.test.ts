@@ -1,6 +1,6 @@
 // @vitest-environment node
 import type { LobeChatDatabase } from '@lobechat/database';
-import { agentSkills } from '@lobechat/database/schemas';
+import { agentSkills, globalFiles } from '@lobechat/database/schemas';
 import { getTestDB } from '@lobechat/database/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,12 +23,18 @@ vi.mock('@/database/core/db-adaptor', () => ({
 }));
 
 // Mock FileService to avoid S3 dependency
+const { mockCreateBrowserFileAccessUrl, mockGetFullFileUrl } = vi.hoisted(() => ({
+  mockCreateBrowserFileAccessUrl: vi.fn(),
+  mockGetFullFileUrl: vi.fn(),
+}));
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
+    createBrowserFileAccessUrl: mockCreateBrowserFileAccessUrl,
     createGlobalFile: vi.fn().mockResolvedValue({ id: 'mock-global-file-id' }),
     createFileRecord: vi.fn().mockResolvedValue({ fileId: 'mock-file-id', url: '/f/mock-file-id' }),
     downloadFileToLocal: vi.fn(),
     getFileContent: vi.fn(),
+    getFullFileUrl: mockGetFullFileUrl,
     uploadBuffer: vi.fn().mockResolvedValue({ key: 'mock-key' }),
     uploadMedia: vi.fn().mockResolvedValue({ key: 'mock-key' }),
   })),
@@ -105,6 +111,8 @@ describe('Skill Router Integration Tests', () => {
     testDB = serverDB;
     userId = await createTestUser(serverDB);
     agentDocumentModel = new AgentDocumentModel(serverDB, userId);
+    mockCreateBrowserFileAccessUrl.mockResolvedValue('https://public.example.com/skill.zip');
+    mockGetFullFileUrl.mockResolvedValue('https://internal.example.com/skill.zip');
   });
 
   afterEach(async () => {
@@ -141,6 +149,42 @@ describe('Skill Router Integration Tests', () => {
 
     return document.id;
   };
+
+  describe('getByIdWithZipUrl', () => {
+    it('returns a public signed URL for a client-side skill download', async () => {
+      const zipFileHash = 'a'.repeat(64);
+      await serverDB.insert(globalFiles).values({
+        creator: userId,
+        fileType: 'application/zip',
+        hashId: zipFileHash,
+        size: 128,
+        url: 'skills/public-download.zip',
+      });
+      const [skill] = await serverDB
+        .insert(agentSkills)
+        .values({
+          description: 'Public download test',
+          identifier: 'public-download-test',
+          manifest: {
+            description: 'Public download test',
+            name: 'Public Download Test',
+          },
+          name: 'Public Download Test',
+          source: 'user',
+          userId,
+          zipFileHash,
+        })
+        .returning();
+
+      const caller = agentSkillsRouter.createCaller(createTestContext(userId));
+      await expect(caller.getByIdWithZipUrl({ id: skill.id })).resolves.toEqual({
+        name: 'Public Download Test',
+        url: 'https://public.example.com/skill.zip',
+      });
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('skills/public-download.zip');
+      expect(mockGetFullFileUrl).not.toHaveBeenCalled();
+    });
+  });
 
   describe('create', () => {
     it('should create a new skill', async () => {

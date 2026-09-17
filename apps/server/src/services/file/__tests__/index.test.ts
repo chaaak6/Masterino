@@ -324,6 +324,21 @@ describe('FileService', () => {
     expect(result).toBe(expectedUrl);
   });
 
+  it('should use the public signer when a stable file proxy cannot be created', async () => {
+    vi.mocked(service['impl'].createBrowserFileAccessUrl).mockResolvedValue(
+      'https://public.example.com/files/report.pdf',
+    );
+
+    await expect(service.getFileAccessUrl({ url: 'files/report.pdf' })).resolves.toBe(
+      'https://public.example.com/files/report.pdf',
+    );
+    expect(service['impl'].createBrowserFileAccessUrl).toHaveBeenCalledWith(
+      'files/report.pdf',
+      undefined,
+    );
+    expect(service['impl'].getFullFileUrl).not.toHaveBeenCalled();
+  });
+
   it('should delegate getKeyFromFullUrl to implementation', async () => {
     const testUrl = 'https://example.com/path/to/file.jpg';
     const expectedKey = 'path/to/file.jpg';

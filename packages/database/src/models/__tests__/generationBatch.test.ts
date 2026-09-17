@@ -13,9 +13,11 @@ import { GenerationBatchModel } from '../generationBatch';
 const serverDB: LobeChatDatabase = await getTestDB();
 
 // Mock FileService
+const mockCreateBrowserFileAccessUrl = vi.fn();
 const mockGetFullFileUrl = vi.fn();
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
+    createBrowserFileAccessUrl: mockCreateBrowserFileAccessUrl,
     getFullFileUrl: mockGetFullFileUrl,
   })),
 }));
@@ -77,7 +79,8 @@ beforeEach(async () => {
   vi.clearAllMocks();
 
   // Setup mock return values
-  mockGetFullFileUrl.mockImplementation((url: string) => `https://example.com/${url}`);
+  mockCreateBrowserFileAccessUrl.mockImplementation((url: string) => `https://example.com/${url}`);
+  mockGetFullFileUrl.mockImplementation((url: string) => `https://internal.example.com/${url}`);
   mockTransformGeneration.mockResolvedValue({
     id: testGeneration.id,
     asset: {
@@ -336,8 +339,9 @@ describe('GenerationBatchModel', () => {
       });
 
       // Verify FileService was called for config imageUrls
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('image1.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('image2.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('image1.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('image2.jpg');
+      expect(mockGetFullFileUrl).not.toHaveBeenCalled();
 
       // Verify GenerationModel.transformGeneration was called
       expect(mockTransformGeneration).toHaveBeenCalledTimes(1);
@@ -425,7 +429,7 @@ describe('GenerationBatchModel', () => {
         endImageUrl: 'https://example.com/end-frame.jpg',
         prompt: 'test video prompt',
       });
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('end-frame.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('end-frame.jpg');
     });
 
     it('should transform config with both imageUrl and endImageUrl through FileService', async () => {
@@ -451,8 +455,8 @@ describe('GenerationBatchModel', () => {
         endImageUrl: 'https://example.com/end-frame.jpg',
         prompt: 'test video prompt',
       });
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('start-frame.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('end-frame.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('start-frame.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('end-frame.jpg');
     });
 
     it('should handle config without imageUrls', async () => {
@@ -470,7 +474,7 @@ describe('GenerationBatchModel', () => {
       );
 
       expect(results[0].config).toEqual({ otherField: 'value' });
-      expect(mockGetFullFileUrl).not.toHaveBeenCalled();
+      expect(mockCreateBrowserFileAccessUrl).not.toHaveBeenCalled();
     });
 
     it('should return empty array when no batches exist', async () => {
@@ -696,8 +700,8 @@ describe('GenerationBatchModel', () => {
 
       await generationBatchModel.queryGenerationBatchesByTopicIdWithGenerations(testTopic.id);
 
-      expect(mockGetFullFileUrl).toHaveBeenCalledWith('test-image.jpg');
-      expect(mockGetFullFileUrl).toHaveBeenCalledTimes(1);
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('test-image.jpg');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledTimes(1);
     });
 
     it('should call GenerationModel.transformGeneration for each generation', async () => {
@@ -718,7 +722,7 @@ describe('GenerationBatchModel', () => {
     });
 
     it('should handle FileService errors gracefully', async () => {
-      mockGetFullFileUrl.mockRejectedValue(new Error('FileService error'));
+      mockCreateBrowserFileAccessUrl.mockRejectedValue(new Error('FileService error'));
 
       const [createdBatch] = await serverDB
         .insert(generationBatches)

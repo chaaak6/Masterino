@@ -41,4 +41,13 @@ describe('file env', () => {
 
     expect(config.S3_PUBLIC_READ_ENDPOINT).toBe('https://oss-cn-shenzhen.aliyuncs.com');
   });
+
+  it('rejects a public domain without a URL scheme', async () => {
+    process.env = {
+      ...originalEnv,
+      S3_PUBLIC_DOMAIN: 'masterlion-test.oss-cn-shenzhen.aliyuncs.com',
+    };
+
+    await expect(loadFileConfig()).rejects.toThrow('Invalid environment variables');
+  });
 });

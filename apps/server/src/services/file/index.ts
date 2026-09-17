@@ -118,9 +118,7 @@ export class FileService {
     return this.impl.createPreSignedUrlForDownload(url, contentDisposition, expiresIn);
   }
 
-  /**
-   * Create cached pre-signed preview URL
-   */
+  /** Create a cached signed preview URL for server-side or VPC consumers. */
   public async createCachedPreSignedUrlForPreview(
     url?: string | null,
     expiresIn?: number,
@@ -135,9 +133,7 @@ export class FileService {
     return this.impl.uploadContent(path, content);
   }
 
-  /**
-   * Get full file URL
-   */
+  /** Resolve a public URL that browsers and external services can read. */
   public async getFullFileUrl(url?: string | null, expiresIn?: number): Promise<string> {
     return this.impl.getFullFileUrl(url, expiresIn);
   }
@@ -154,7 +150,9 @@ export class FileService {
       return getFileProxyUrl(fileId);
     }
 
-    return this.getFullFileUrl(file.url);
+    if (!file.url) return '';
+
+    return this.createBrowserFileAccessUrl(file.url);
   }
 
   /**

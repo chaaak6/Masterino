@@ -270,7 +270,7 @@ export const ragEvalRouter = router({
         // Save data
         await ctx.evaluationModel.update(input.id, {
           status: EvalEvaluationStatus.Success,
-          evalRecordsUrl: await ctx.fileService.getFullFileUrl(path),
+          evalRecordsUrl: await ctx.fileService.createBrowserFileAccessUrl(path),
         });
       }
 

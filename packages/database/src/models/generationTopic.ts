@@ -46,7 +46,7 @@ export class GenerationTopicModel {
         if (topic.coverUrl) {
           return {
             ...topic,
-            coverUrl: await this.fileService.getFullFileUrl(topic.coverUrl),
+            coverUrl: await this.fileService.createBrowserFileAccessUrl(topic.coverUrl),
           };
         }
         return topic;

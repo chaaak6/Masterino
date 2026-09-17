@@ -85,6 +85,13 @@ S3_SET_ACL=0
 
 `S3_PUBLIC_READ_ENDPOINT` 是 SDK Endpoint。`S3_PUBLIC_DOMAIN` 是最终的 Bucket 域名，例如 `https://my-bucket.oss-cn-shenzhen.aliyuncs.com`。不能把 Bucket 域名作为 SDK Endpoint，否则 virtual-host 寻址会再次添加 Bucket 名称。
 
+### `S3_PUBLIC_DOMAIN`
+
+- 类型：可选；当 `S3_SET_ACL=1` 且需要返回公开文件直链时必填
+- 描述：Bucket 的公网 URL 根地址。virtual-host 模式下，域名中应包含 Bucket，例如 `https://my-bucket.oss-cn-shenzhen.aliyuncs.com`。path-style 存储既可以填写服务根地址，也可以填写 Bucket 根地址，例如 `https://s3.example.net` 或 `https://s3.example.net/my-bucket`；Masterino 不会重复拼接 Bucket。
+- 默认值：-
+- 示例：`https://my-bucket.oss-cn-shenzhen.aliyuncs.com`
+
 ### `S3_BUCKET`
 
 - 类型：必填

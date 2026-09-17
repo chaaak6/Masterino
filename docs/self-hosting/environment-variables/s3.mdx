@@ -87,6 +87,13 @@ If you are replacing a local RustFS deployment without migrating old objects, on
 
 `S3_PUBLIC_READ_ENDPOINT` is an SDK endpoint. `S3_PUBLIC_DOMAIN` is the final bucket domain, such as `https://my-bucket.oss-cn-shenzhen.aliyuncs.com`. Do not use the bucket domain as the SDK endpoint because virtual-host addressing would add the bucket name again.
 
+### `S3_PUBLIC_DOMAIN`
+
+- Type: Optional; required when `S3_SET_ACL=1` and files are returned as direct public URLs
+- Description: The public URL root of the bucket. For virtual-host style, include the bucket in the hostname, for example `https://my-bucket.oss-cn-shenzhen.aliyuncs.com`. For path-style storage, use either the service origin or the bucket root, for example `https://s3.example.net` or `https://s3.example.net/my-bucket`; Masterino will not append the bucket twice.
+- Default: -
+- Example: `https://my-bucket.oss-cn-shenzhen.aliyuncs.com`
+
 ### `S3_BUCKET`
 
 - Type: Required

@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => {
     prepareSkillPackage: vi.fn(),
     executeProjectSkillRpc: vi.fn(),
     fileService: {
+      createBrowserFileAccessUrl: vi.fn(),
+      createCachedPreSignedUrlForPreview: vi.fn(),
       getFullFileUrl: vi.fn(),
     },
     findAll: vi.fn(),
@@ -122,6 +124,12 @@ describe('skillsRuntime', () => {
     vi.clearAllMocks();
 
     mocks.checkHash.mockResolvedValue({ isExist: true, url: 'skills/user-skill.zip' });
+    mocks.fileService.createBrowserFileAccessUrl.mockResolvedValue(
+      'https://public.example.com/user-skill.zip',
+    );
+    mocks.fileService.createCachedPreSignedUrlForPreview.mockResolvedValue(
+      'https://internal.example.com/user-skill.zip',
+    );
     mocks.fileService.getFullFileUrl.mockResolvedValue('https://files.example.com/user-skill.zip');
     mocks.executeProjectSkillRpc.mockResolvedValue({
       directory: '/cache/extracted/deploy',
@@ -222,10 +230,14 @@ describe('skillsRuntime', () => {
         command: 'python scripts/run.py',
         description: 'Run skill script',
         skillZipUrls: {
-          'user-skill': 'https://files.example.com/user-skill.zip',
+          'user-skill': 'https://internal.example.com/user-skill.zip',
         },
       }),
     );
+    expect(mocks.fileService.createCachedPreSignedUrlForPreview).toHaveBeenCalledWith(
+      'skills/user-skill.zip',
+    );
+    expect(mocks.fileService.getFullFileUrl).not.toHaveBeenCalled();
   }, 60_000);
 
   it('injects the frozen device context, verifies paths, and never creates a sandbox', async () => {
@@ -378,8 +390,11 @@ describe('skillsRuntime', () => {
       deviceId: 'device-1',
       userId: 'user-1',
       zipHash: 'hash-1',
-      url: 'https://files.example.com/user-skill.zip',
+      url: 'https://public.example.com/user-skill.zip',
     });
+    expect(mocks.fileService.createBrowserFileAccessUrl).toHaveBeenCalledWith(
+      'skills/user-skill.zip',
+    );
     expect(mocks.deviceExecuteToolCall).toHaveBeenCalledWith(
       expect.objectContaining({
         executionContext: expect.objectContaining({

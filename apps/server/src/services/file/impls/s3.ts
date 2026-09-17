@@ -106,6 +106,8 @@ export class S3StaticFileImpl implements FileServiceImpl {
     expiresIn?: number,
   ): Promise<string> {
     const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
+
     return this.s3.createPreSignedUrlForDownload(key, contentDisposition, expiresIn);
   }
 
@@ -114,6 +116,7 @@ export class S3StaticFileImpl implements FileServiceImpl {
     options?: BrowserFileAccessOptions,
   ): Promise<string> {
     const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
 
     if (options?.contentDisposition) {
       return this.s3.createBrowserPreSignedUrlForDownload(
@@ -126,8 +129,42 @@ export class S3StaticFileImpl implements FileServiceImpl {
     return this.getCachedBrowserPreSignedUrlForPreview(key, options?.expiresIn);
   }
 
-  private async getStorageKeyFromUrl(url: string): Promise<string> {
+  private isManagedStorageUrl(url: URL): boolean {
+    if (url.pathname.startsWith('/f/')) return true;
+
+    const managedHosts = new Set<string>();
+    const addHost = (value?: string) => {
+      if (value) managedHosts.add(new URL(value).host);
+    };
+
+    addHost(fileEnv.S3_PUBLIC_DOMAIN);
+
+    for (const endpoint of [fileEnv.S3_ENDPOINT, fileEnv.S3_PUBLIC_READ_ENDPOINT]) {
+      if (!endpoint) continue;
+
+      const endpointUrl = new URL(endpoint);
+      if (fileEnv.S3_ENABLE_PATH_STYLE || !fileEnv.S3_BUCKET) {
+        managedHosts.add(endpointUrl.host);
+        continue;
+      }
+
+      const bucketHostname =
+        endpointUrl.hostname === fileEnv.S3_BUCKET ||
+        endpointUrl.hostname.startsWith(`${fileEnv.S3_BUCKET}.`)
+          ? endpointUrl.hostname
+          : `${fileEnv.S3_BUCKET}.${endpointUrl.hostname}`;
+      const port = endpointUrl.port ? `:${endpointUrl.port}` : '';
+      managedHosts.add(`${bucketHostname}${port}`);
+    }
+
+    return managedHosts.has(url.host);
+  }
+
+  private async getStorageKeyFromUrl(url: string): Promise<string | null> {
     if (!url.startsWith('http://') && !url.startsWith('https://')) return url;
+
+    const parsedUrl = new URL(url);
+    if (!this.isManagedStorageUrl(parsedUrl)) return null;
 
     const extractedKey = await this.getKeyFromFullUrl(url);
     if (!extractedKey) {
@@ -235,6 +272,7 @@ export class S3StaticFileImpl implements FileServiceImpl {
     if (!url) return '';
 
     const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
 
     return await this.getCachedPreSignedUrlForPreview(key, expiresIn);
   }
@@ -247,17 +285,28 @@ export class S3StaticFileImpl implements FileServiceImpl {
     if (!url) return '';
 
     const key = await this.getStorageKeyFromUrl(url);
+    if (!key) return url;
 
-    // If bucket is not set public read, or S3_PUBLIC_DOMAIN is not configured,
-    // reuse the same presigned preview URL briefly so repeated chat turns keep
-    // stable media URLs and can reuse provider-side prefix caches.
+    // Public buckets can use their configured public domain directly. Private
+    // buckets must return a URL signed with the browser-facing endpoint.
     const publicUrlBase = fileEnv.S3_SET_ACL ? fileEnv.S3_PUBLIC_DOMAIN : undefined;
     if (!publicUrlBase) {
-      return await this.getCachedPreSignedUrlForPreview(key, expiresIn);
+      return await this.getCachedBrowserPreSignedUrlForPreview(key, expiresIn);
     }
 
     if (fileEnv.S3_ENABLE_PATH_STYLE) {
-      return urlJoin(publicUrlBase, fileEnv.S3_BUCKET!, key);
+      const publicUrl = new URL(publicUrlBase);
+      const bucket = fileEnv.S3_BUCKET!;
+      const normalizedPath = publicUrl.pathname.replace(/\/+$/, '');
+      const bucketPath = `/${bucket}`;
+      const isBucketScopedHost =
+        publicUrl.hostname === bucket || publicUrl.hostname.startsWith(`${bucket}.`);
+      const isBucketScopedPath =
+        normalizedPath === bucketPath || normalizedPath.endsWith(bucketPath);
+
+      return isBucketScopedHost || isBucketScopedPath
+        ? urlJoin(publicUrlBase, key)
+        : urlJoin(publicUrlBase, bucket, key);
     }
 
     return urlJoin(publicUrlBase, key);
