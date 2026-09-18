@@ -37,10 +37,14 @@ import {
   batchOfficeDocument,
   composeChildProcessEnv,
   createOfficeDocument,
+  createPresentation,
+  type CreatePresentationParams,
   type CreateSpreadsheetParams,
   ExecutionBoundaryError,
   type ExecutionBoundaryTrace,
   inspectOfficeDocument,
+  inspectPresentation,
+  type InspectPresentationParams,
   loadWorkspaceEnvFiles,
   mergeOfficeTemplate,
   type OfficeBatchParams,
@@ -49,9 +53,15 @@ import {
   type PreparedToolCallExecution,
   prepareToolCallExecution,
   readOfficeDocument,
+  renderPresentationPreview,
+  type RenderPresentationPreviewParams,
   resolveLoginShellPath,
+  revisePresentation,
+  type RevisePresentationParams,
   toolNeedsDefaultCwd,
   validateOfficeDocument,
+  validatePresentation,
+  type ValidatePresentationParams,
 } from '@lobechat/local-file-shell';
 import { type ILocalSystemService, LocalSystemExecutionRuntime } from '@lobechat/tool-runtime';
 
@@ -884,7 +894,11 @@ export default class GatewayConnectionCtr extends ControllerModule {
     args = prepared.args;
     const executionStartedAt = performance.now();
     const finish = (output: BuiltinServerRuntimeOutput): BuiltinServerRuntimeOutput => {
-      const measure = normalized.endsWith('OfficeDocument') || normalized === 'writeFile';
+      const measure =
+        normalized.endsWith('OfficeDocument') ||
+        normalized.endsWith('Presentation') ||
+        normalized === 'renderPresentationPreview' ||
+        normalized === 'writeFile';
       if (!measure && prepared.scopeAudit.length === 0 && prepared.warnings.length === 0)
         return output;
       return {
@@ -970,6 +984,32 @@ export default class GatewayConnectionCtr extends ControllerModule {
       case 'createOfficeDocument': {
         try {
           const state = await createOfficeDocument(args as unknown as CreateSpreadsheetParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+      case 'createPresentation':
+      case 'revisePresentation':
+      case 'inspectPresentation':
+      case 'renderPresentationPreview':
+      case 'validatePresentation': {
+        try {
+          const state =
+            normalized === 'createPresentation'
+              ? await createPresentation(args as unknown as CreatePresentationParams)
+              : normalized === 'revisePresentation'
+                ? await revisePresentation(args as unknown as RevisePresentationParams)
+                : normalized === 'inspectPresentation'
+                  ? await inspectPresentation(args as unknown as InspectPresentationParams)
+                  : normalized === 'renderPresentationPreview'
+                    ? await renderPresentationPreview(
+                        args as unknown as RenderPresentationPreviewParams,
+                      )
+                    : await validatePresentation(args as unknown as ValidatePresentationParams);
           return finish({ content: JSON.stringify(state), state, success: true });
         } catch (error) {
           return finish({

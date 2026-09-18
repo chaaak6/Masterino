@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { access, realpath } from 'node:fs/promises';
+import { access, readFile, realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -53,9 +53,13 @@ const LOCAL_SYSTEM_APIS = new Set([
   'moveFiles',
   'moveLocalFiles',
   'createOfficeDocument',
+  'createPresentation',
+  'inspectPresentation',
   'inspectOfficeDocument',
   'prepareProjectSkillSnapshot',
   'readOfficeDocument',
+  'renderPresentationPreview',
+  'revisePresentation',
   'readFile',
   'readFiles',
   'readLocalFile',
@@ -66,6 +70,7 @@ const LOCAL_SYSTEM_APIS = new Set([
   'searchLocalFiles',
   'writeFile',
   'writeLocalFile',
+  'validatePresentation',
 ]);
 
 interface PathRequest {
@@ -286,8 +291,7 @@ const authorizePath = async ({
     throw new ExecutionBoundaryError('SCOPE_DENIED', [deniedAudit(trace, mode, target)]);
   }
 
-  const autoApprove =
-    context.approvalMode === 'auto-run' || context.approvalMode === 'headless';
+  const autoApprove = context.approvalMode === 'auto-run' || context.approvalMode === 'headless';
 
   const roots = [...(context.accessRoots ?? [])];
   if (!roots.some((root) => root.scope === 'primary') && context.cwd) {
@@ -402,6 +406,29 @@ const setField = (field: string) => (args: Record<string, any>, value: string) =
   args[field] = value;
 };
 
+const presentationImagePaths = (value: unknown): PathRequest[] => {
+  const requests: PathRequest[] = [];
+  const visit = (entry: unknown) => {
+    if (!entry || typeof entry !== 'object') return;
+    if (
+      (entry as { type?: unknown }).type === 'image' &&
+      typeof (entry as { source?: { path?: unknown } }).source?.path === 'string'
+    ) {
+      const target = entry as { source: { path: string } };
+      requests.push({
+        apply: (_args, resolved) => {
+          target.source.path = resolved;
+        },
+        mode: 'read',
+        value: target.source.path,
+      });
+    }
+    for (const child of Array.isArray(entry) ? entry : Object.values(entry)) visit(child);
+  };
+  visit(value);
+  return requests;
+};
+
 const collectPathRequests = (
   apiName: string,
   args: Record<string, any>,
@@ -490,6 +517,41 @@ const collectPathRequests = (
     case 'writeFile':
     case 'writeLocalFile': {
       return [{ apply: setField('path'), mode: 'write', value: args.path }];
+    }
+    case 'createPresentation': {
+      return [
+        { apply: setField('path'), mode: 'write', value: args.path },
+        { apply: () => {}, mode: 'write', value: `${args.path}.masterino.json` },
+        ...presentationImagePaths(args.deck),
+      ];
+    }
+    case 'revisePresentation': {
+      return [
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+        { apply: setField('projectPath'), mode: 'write', value: args.projectPath },
+        { apply: () => {}, mode: 'write', value: `${args.projectPath}.lock` },
+        { apply: setField('outputPath'), mode: 'write', value: args.outputPath },
+        ...presentationImagePaths(args.operations),
+      ];
+    }
+    case 'inspectPresentation': {
+      return [{ apply: setField('projectPath'), mode: 'read', value: args.projectPath }];
+    }
+    case 'renderPresentationPreview': {
+      return [
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+        {
+          apply: () => {},
+          mode: 'write',
+          value: `${args.projectPath}.previews`,
+        },
+      ];
+    }
+    case 'validatePresentation': {
+      return [
+        { apply: setField('path'), mode: 'read', value: args.path },
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+      ];
     }
     case 'editFile':
     case 'editLocalFile': {
@@ -653,6 +715,35 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     if (warnings.length > 0 && request.mode === 'exec') audit.cwdOverridden = true;
     request.apply(next, realTarget);
     scopeAudit.push(audit);
+  }
+
+  // Revisions and SVG previews re-render persisted elements, including images
+  // absent from the requested operation list. Audit those sidecar-controlled
+  // reads only after the project itself is authorized.
+  if (apiName === 'revisePresentation' || apiName === 'renderPresentationPreview') {
+    let stored: unknown;
+    try {
+      stored = JSON.parse(await readFile(next.projectPath, 'utf8'));
+    } catch {
+      throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+    }
+    for (const request of presentationImagePaths((stored as { deck?: unknown })?.deck)) {
+      if (!path.isAbsolute(request.value)) {
+        throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+      }
+      const realTarget = await realpathForAccess(request.value);
+      const audit = await authorizePath({
+        context: { ...context, cwd: realCwd },
+        credentialRead: isCredentialPath(realTarget),
+        homeDir: realHomeDir,
+        mode: 'read',
+        now,
+        allowedMountRoots: realAllowedMountRoots,
+        target: realTarget,
+        trace,
+      });
+      scopeAudit.push(audit);
+    }
   }
 
   return { args: next, legacy: false, scopeAudit, warnings };

@@ -7,6 +7,8 @@ import {
   buildAllowedBuiltinTools,
   DEVICE_TOOL_IDENTIFIERS,
   isDeviceToolIdentifier,
+  scopeLocalSystemManifestForDevice,
+  selectGatewayDispatchChannel,
 } from './deviceToolRegistry';
 
 describe('deviceToolRegistry', () => {
@@ -71,5 +73,66 @@ describe('deviceToolRegistry', () => {
       const ids = result.map((t) => t.identifier);
       expect(ids).toContain(LocalSystemManifest.identifier);
     });
+  });
+
+  it('offers presentation APIs only when the selected desktop advertises their contract version', () => {
+    const legacy = scopeLocalSystemManifestForDevice({ gatewayConfigured: true });
+    expect(legacy.api.map((api) => api.name)).toContain('createOfficeDocument');
+    expect(legacy.api.map((api) => api.name)).not.toContain('createPresentation');
+
+    const capable = scopeLocalSystemManifestForDevice({
+      gatewayConfigured: true,
+      localSystemApiVersions: {
+        createPresentation: 1,
+        inspectPresentation: 1,
+        renderPresentationPreview: 1,
+        revisePresentation: 1,
+        validatePresentation: 1,
+      },
+    });
+    expect(capable.api.map((api) => api.name)).toContain('createPresentation');
+
+    const partial = scopeLocalSystemManifestForDevice({
+      gatewayConfigured: true,
+      localSystemApiVersions: { createPresentation: 1 },
+    });
+    expect(partial.api.map((api) => api.name)).not.toContain('createPresentation');
+
+    const standalone = scopeLocalSystemManifestForDevice({ gatewayConfigured: false });
+    expect(standalone.api.map((api) => api.name)).toContain('createPresentation');
+  });
+
+  it('matches gateway channel priority when several clients share one device id', () => {
+    const capabilities = {
+      localSystemApiVersions: {
+        createPresentation: 1,
+        inspectPresentation: 1,
+        renderPresentationPreview: 1,
+        revisePresentation: 1,
+        validatePresentation: 1,
+      },
+    };
+    const selected = selectGatewayDispatchChannel([
+      {
+        channel: 'desktop',
+        connectedAt: '2026-09-18T10:00:00.000Z',
+        connectionId: 'desktop',
+        capabilities,
+      },
+      { channel: 'cli', connectedAt: '2026-09-18T09:00:00.000Z', connectionId: 'cli' },
+      {
+        channel: 'desktop-dev',
+        connectedAt: '2026-09-18T11:00:00.000Z',
+        connectionId: 'desktop-dev',
+        capabilities,
+      },
+    ]);
+    expect(selected?.channel).toBe('cli');
+    expect(
+      scopeLocalSystemManifestForDevice({
+        gatewayConfigured: true,
+        localSystemApiVersions: selected?.capabilities?.localSystemApiVersions,
+      }).api.map((api) => api.name),
+    ).not.toContain('createPresentation');
   });
 });

@@ -16,7 +16,7 @@ import ShellCommandCtr from '../ShellCommandCtr';
 
 // ─── Mocks ───
 
-const { ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
+const { createPresentationMock, ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
   const { EventEmitter } = require('node:events');
 
   // Must be defined inside vi.hoisted so it's available when vi.mock factories run
@@ -147,6 +147,7 @@ const { ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
   }
 
   return {
+    createPresentationMock: vi.fn(),
     MockGatewayClient: _MockGatewayClient,
     ipcMainHandleMock: vi.fn(),
   };
@@ -176,6 +177,7 @@ vi.mock('@/utils/logger', () => ({
 
 vi.mock('@lobechat/local-file-shell', async (importOriginal) => ({
   ...(await importOriginal<typeof LocalFileShell>()),
+  createPresentation: createPresentationMock,
   // This suite owns gateway routing and response envelopes. The real execution
   // boundary (including context-required failures and device mount roots) is
   // covered by GatewayConnectionCtr.executionContext.test.ts, so keep routing
@@ -365,6 +367,16 @@ describe('GatewayConnectionCtr', () => {
       expect(options.gatewayUrl).toBe('https://masterino.bielcrystal.com/device-gateway');
       expect(options.serverUrl).toBe('https://server.example.com');
       expect(options.logger).toBeDefined();
+      expect(options.capabilities).toMatchObject({
+        executionContextValidation: true,
+        localSystemApiVersions: {
+          createPresentation: 1,
+          inspectPresentation: 1,
+          renderPresentationPreview: 1,
+          revisePresentation: 1,
+          validatePresentation: 1,
+        },
+      });
     });
 
     it('should use custom gateway URL from store when set', async () => {
@@ -726,6 +738,34 @@ describe('GatewayConnectionCtr', () => {
         filename: 'a.txt',
         path: '/a.txt',
       });
+    });
+
+    it('should execute a presentation call in the Electron main process', async () => {
+      createPresentationMock.mockResolvedValueOnce({
+        format: 'pptx',
+        path: '/workspace/deck.pptx',
+        revision: 1,
+        slides: 1,
+      });
+      const client = await connectAndOpen();
+
+      client.simulateToolCallRequest(
+        'createPresentation',
+        { deck: { slides: [] }, path: '/workspace/deck.pptx' },
+        'ppt-create',
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(createPresentationMock).toHaveBeenCalledWith({
+        deck: { slides: [] },
+        path: '/workspace/deck.pptx',
+      });
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'ppt-create',
+          result: expect.objectContaining({ success: true }),
+        }),
+      );
     });
 
     it('should send tool_call_response with error on failure', async () => {

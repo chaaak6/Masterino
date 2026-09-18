@@ -152,7 +152,12 @@ import { markdownToTxt } from '@/utils/markdownToTxt';
 
 import { buildAdditionalDirectoriesPrompt } from './additionalDirectories';
 import { resolveDeviceAccessPolicy } from './deviceAccessPolicy';
-import { buildAllowedBuiltinTools, isDeviceToolIdentifier } from './deviceToolRegistry';
+import {
+  buildAllowedBuiltinTools,
+  isDeviceToolIdentifier,
+  scopeLocalSystemManifestForDevice,
+  selectGatewayDispatchChannel,
+} from './deviceToolRegistry';
 import { buildDirectUserMessageAccessRoots } from './directUserPathConsent';
 import { ingestAttachment } from './ingestAttachment';
 import { getRuntimePathConsentRequest, validateOperationPathConsent } from './pathConsent';
@@ -2648,6 +2653,12 @@ export class AiAgentService {
       // them, not even the proxy that could activate a device mid-run.
       const deviceCapable = isDeviceCapablePlan(executionPlan);
       activeDeviceId = executionPlan.kind === 'device' ? executionPlan.deviceId : undefined;
+      const activeDevice = onlineDevices.find((device) => device.deviceId === activeDeviceId);
+      const activeDispatchChannel = selectGatewayDispatchChannel(activeDevice?.channels);
+      const localSystemManifest = scopeLocalSystemManifestForDevice({
+        gatewayConfigured,
+        localSystemApiVersions: activeDispatchChannel?.capabilities?.localSystemApiVersions,
+      });
       log(
         'execAgent: execution plan → kind=%s deviceId=%s',
         executionPlan.kind,
@@ -2659,6 +2670,7 @@ export class AiAgentService {
           ...lobehubSkillManifests,
           ...composioManifests,
           ...connectorManifests,
+          localSystemManifest,
         ],
         agentConfig: {
           chatConfig: agentConfig.chatConfig ?? undefined,
@@ -2783,7 +2795,7 @@ export class AiAgentService {
         agentRuntimeMode === 'local' &&
         !toolManifestMap[LocalSystemManifest.identifier]
       ) {
-        toolManifestMap[LocalSystemManifest.identifier] = LocalSystemManifest as LobeToolManifest;
+        toolManifestMap[LocalSystemManifest.identifier] = localSystemManifest as LobeToolManifest;
       }
 
       // Include lobehub skill and composio manifests for activator discovery
