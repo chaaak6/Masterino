@@ -130,6 +130,7 @@ it('creates native image, table and chart content and renders deterministic loca
             },
           ],
         },
+        { id: 'no-notes', elements: [] },
       ],
       theme: {
         colors: {
@@ -148,13 +149,13 @@ it('creates native image, table and chart content and renders deterministic loca
     path: outputPath,
     projectPath: created.projectPath,
   });
-  expect(validation).toMatchObject({ errors: 0, slides: 1, valid: true });
+  expect(validation).toMatchObject({ errors: 0, slides: 2, valid: true });
   expect(validation.features).toEqual(
     expect.objectContaining({ charts: 1, images: 1, notes: 1, tables: 1 }),
   );
 
   const preview = await renderPresentationPreview({ projectPath: created.projectPath });
-  expect(preview.slides).toHaveLength(1);
+  expect(preview.slides).toHaveLength(2);
   expect(await readFile(preview.slides[0]!.path, 'utf8')).toContain('Revenue trend');
 });
 

@@ -365,11 +365,20 @@ export async function validatePresentation(
       { charts: 0, images: 0, notes: 0, shapes: 0, tables: 0 },
     );
     const slideXml = await Promise.all(slideParts.map((name) => zip.text(name)));
+    const notesParts = entryNames.filter((name) =>
+      /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(name),
+    );
+    const notesXml = await Promise.all(notesParts.map((name) => zip.text(name)));
     const features = {
       charts: entryNames.filter((name) => /^ppt\/charts\/chart\d+\.xml$/.test(name)).length,
       images: entryNames.filter((name) => /^ppt\/media\/[^/]+$/.test(name)).length,
-      notes: entryNames.filter((name) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(name))
-        .length,
+      // PptxGenJS emits an empty notes part for every slide once any slide has
+      // notes. Its first text run is the body; the later numeric run is the
+      // slide-number placeholder and must not be counted as a speaker note.
+      notes: notesXml.filter((xml) => {
+        const body = /<a:t>([\s\S]*?)<\/a:t>/.exec(xml)?.[1] ?? '';
+        return body.replaceAll(/<[^>]+>/g, '').trim().length > 0;
+      }).length,
       shapes: slideXml.reduce(
         (count, xml) => count + (xml.match(/<a:prstGeom\b/g)?.length ?? 0),
         0,
