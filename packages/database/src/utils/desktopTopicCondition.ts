@@ -2,7 +2,11 @@ import { sql } from 'drizzle-orm';
 
 import { projectWorkspaces, topics } from '../schemas';
 
-/** Desktop visibility must constrain both rows and counts before LIMIT/OFFSET. */
+/**
+ * Desktop visibility must constrain both rows and counts before LIMIT/OFFSET.
+ * Device projects stay local; account-scoped sandboxes and the existing scratch
+ * topic exception remain cross-device.
+ */
 export const desktopTopicCondition = (deviceId?: string) => {
   if (deviceId === undefined) return undefined;
   const metadata = topics.metadata;
@@ -18,7 +22,7 @@ export const desktopTopicCondition = (deviceId?: string) => {
   const kind = sql`coalesce(${metadata}->'executionSnapshot'->>'workspaceKind', ${workspaceField(projectWorkspaces.kind)}, ${metadata}->>'workspaceKind')`;
   const device = sql`coalesce(${metadata}->'executionSnapshot'->>'boundDeviceId', ${owner}, ${metadata}->>'boundDeviceId')`;
   return sql`(
-    ${kind} = 'scratch'
+    ${kind} in ('scratch', 'sandbox')
     or (${workspaceId} is null and nullif(${metadata}->>'workingDirectory', '') is null)
     or (${device} = ${deviceId} and (${owner} is null or ${owner} = ${deviceId}))
   )`;

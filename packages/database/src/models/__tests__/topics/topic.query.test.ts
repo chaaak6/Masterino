@@ -44,6 +44,18 @@ describe('TopicModel - Query', () => {
           id: 'scratch',
           metadata: { workspaceId: 'scratch', workspaceKind: 'scratch', boundDeviceId: 'win' },
         },
+        {
+          id: 'sandbox',
+          metadata: {
+            executionSnapshot: {
+              target: 'sandbox',
+              targetCapturedAt: '2026-09-17T00:00:00.000Z',
+              version: 1,
+              workspaceId: 'sandbox',
+              workspaceKind: 'sandbox',
+            },
+          },
+        },
         { id: 'local', metadata: { workspaceId: 'mac-ws', boundDeviceId: 'mac' } },
         { id: 'foreign', metadata: { workspaceId: 'win-ws', boundDeviceId: 'win' } },
         { id: 'old-local', metadata: { workingDirectory: '/same/path', boundDeviceId: 'mac' } },

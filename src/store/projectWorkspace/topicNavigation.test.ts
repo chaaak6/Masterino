@@ -271,6 +271,39 @@ describe('desktop project isolation', () => {
     expect(result.placementById.remote).toBeUndefined();
   });
 
+  it('keeps a cloud sandbox topic in Recent on every desktop device', () => {
+    const sandboxTopic = topic('sandbox', {
+      metadata: {
+        executionSnapshot: {
+          target: 'sandbox',
+          targetCapturedAt: '2026-09-17T00:00:00.000Z',
+          version: 1,
+          workspaceId: 'sandbox-workspace',
+          workspaceKind: 'sandbox',
+        },
+      },
+    });
+    const sandboxWorkspace = workspace('sandbox-workspace', {
+      deviceId: undefined,
+      kind: 'sandbox',
+      rootPath: '/workspace',
+    });
+
+    for (const currentDeviceId of ['mac-a', 'mac-b']) {
+      const result = buildWorkspaceTopicNavigation([sandboxTopic], {
+        currentDeviceId,
+        topicStatesById: {},
+        workspacesById: { 'sandbox-workspace': sandboxWorkspace },
+      });
+
+      expect(result.recent.map((entry) => entry.topic.id)).toEqual(['sandbox']);
+      expect(result.placementById.sandbox).toEqual({
+        kind: 'recent',
+        reason: 'sandbox-without-project',
+      });
+    }
+  });
+
   it('does not leak projects while device identity is loading; web remains shared', () => {
     expect(
       buildWorkspaceTopicNavigation(topics, { ...context, currentDeviceId: null }).workspaceGroups,
