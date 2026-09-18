@@ -520,7 +520,7 @@ describe('LocalFileCtr', () => {
         expect(await localFileCtr.handlePrepareSkillDirectory(input)).toEqual(prepared);
         expect(prepare).toHaveBeenCalledWith(
           input,
-          '/mock/app/storage/file-storage/skills',
+          deviceControl.resolveMasterinoHomePaths().skillsRoot,
           fetchMock,
         );
       } finally {

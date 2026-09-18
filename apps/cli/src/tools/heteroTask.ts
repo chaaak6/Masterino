@@ -1,6 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 import type { RemoteHeterogeneousAgentType } from '@lobechat/heterogeneous-agents';
@@ -8,36 +7,45 @@ import type { RemoteHeterogeneousAgentType } from '@lobechat/heterogeneous-agent
 import { getTrpcClient } from '../api/client';
 import { getTask, listTasks, removeTask, saveTask } from '../daemon/taskRegistry';
 import { log } from '../utils/logger';
+import { resolveCliManagedPaths } from '../utils/managedPaths';
 
 // ─── Hermes session persistence ───
 // Maps topicId → hermes session_id so multi-turn conversations can resume
 // the same session across separate `runHeteroTask` invocations.
 
-const LOBEHUB_DIR_NAME = process.env.LOBEHUB_CLI_HOME || '.lobehub';
-const HERMES_SESSIONS_FILE = path.join(os.homedir(), LOBEHUB_DIR_NAME, 'hermes-sessions.json');
+const getHermesSessionFiles = () => {
+  const { legacyStateRoot, stateRoot } = resolveCliManagedPaths();
+  return {
+    canonical: path.join(stateRoot, 'hermes-sessions.json'),
+    legacy: path.join(legacyStateRoot, 'hermes-sessions.json'),
+  };
+};
 
 function getHermesSessionId(topicId: string): string | undefined {
-  try {
-    const data = JSON.parse(fs.readFileSync(HERMES_SESSIONS_FILE, 'utf8')) as Record<
-      string,
-      string
-    >;
-    return data[topicId];
-  } catch {
-    return undefined;
-  }
+  const { canonical, legacy } = getHermesSessionFiles();
+  for (const filename of [canonical, legacy])
+    try {
+      const data = JSON.parse(fs.readFileSync(filename, 'utf8')) as Record<string, string>;
+      return data[topicId];
+    } catch {
+      // Try the compatibility location.
+    }
+  return undefined;
 }
 
 function saveHermesSessionId(topicId: string, sessionId: string): void {
+  const { canonical, legacy } = getHermesSessionFiles();
   let data: Record<string, string> = {};
-  try {
-    data = JSON.parse(fs.readFileSync(HERMES_SESSIONS_FILE, 'utf8')) as Record<string, string>;
-  } catch {
-    // File doesn't exist yet — start fresh.
-  }
+  for (const filename of [canonical, legacy])
+    try {
+      data = JSON.parse(fs.readFileSync(filename, 'utf8')) as Record<string, string>;
+      break;
+    } catch {
+      // Try the compatibility location, then start fresh.
+    }
   data[topicId] = sessionId;
-  fs.mkdirSync(path.dirname(HERMES_SESSIONS_FILE), { recursive: true });
-  fs.writeFileSync(HERMES_SESSIONS_FILE, JSON.stringify(data), 'utf8');
+  fs.mkdirSync(path.dirname(canonical), { recursive: true });
+  fs.writeFileSync(canonical, JSON.stringify(data), 'utf8');
 }
 
 /** Resolve the absolute path to the `lh` binary to avoid PATH issues in child processes. */
