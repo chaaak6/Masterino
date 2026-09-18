@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "keep cloud sandbox topics visible across devices."
+      ]
+    },
+    "date": "2026-09-18",
+    "version": "1.3.6"
+  },
+  {
+    "children": {
+      "fixes": [
         "align workspace and topic creation types."
       ]
     },

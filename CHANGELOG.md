@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 1.3.6](https://github.com/chaaak6/Masterino/compare/v1.3.5...v1.3.6)
+
+<sup>Released on **2026-09-18**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: keep cloud sandbox topics visible across devices.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: keep cloud sandbox topics visible across devices ([0489235](https://github.com/chaaak6/Masterino/commit/0489235))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.3.5](https://github.com/chaaak6/Masterino/compare/v1.3.4...v1.3.5)
 
 <sup>Released on **2026-09-18**</sup>
