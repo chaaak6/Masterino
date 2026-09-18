@@ -184,7 +184,10 @@ export const resolveTopicPlacementEvidence = (
   return { snapshot, workspace: topicState?.workspace };
 };
 
-/** Hide foreign or unidentified projects, while retaining ordinary chat history. */
+/**
+ * Hide foreign or unidentified device projects. Account-scoped cloud sandboxes,
+ * topic-scoped scratch directories, and ordinary chat history remain visible.
+ */
 export const isTopicVisibleOnDevice = (
   topic: Pick<ChatTopic, 'id' | 'metadata'>,
   context: TopicNavigationContext,
@@ -195,7 +198,10 @@ export const isTopicVisibleOnDevice = (
   const { snapshot, workspace } = resolveTopicPlacementEvidence(topic, context, scopeIndex);
   const metadata = readTransitionalMetadata(topic);
   const kind = snapshot?.workspaceKind ?? workspace?.kind ?? metadata.workspaceKind;
-  if (kind === 'scratch') return true;
+  // Scratch directories belong to the topic and cloud sandboxes belong to the
+  // account, so neither is tied to the desktop device currently rendering the
+  // sidebar. Only device workspaces participate in local-device isolation.
+  if (kind === 'scratch' || kind === 'sandbox') return true;
   const hasProject = !!(
     snapshot?.workspaceId ||
     metadata.workspaceId ||

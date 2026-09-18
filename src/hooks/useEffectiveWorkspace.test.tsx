@@ -148,6 +148,40 @@ describe('useEffectiveWorkspace', () => {
     expect(result.current.context.accessRoots).toEqual([]);
   });
 
+  it('keeps a cloud sandbox topic available on the current desktop', () => {
+    mocks.activeTopicId = 'sandbox-topic';
+    mocks.topic = {
+      id: 'sandbox-topic',
+      metadata: {
+        executionSnapshot: {
+          target: 'sandbox',
+          targetCapturedAt: '2026-09-17T00:00:00.000Z',
+          version: 1,
+          workspaceId: 'sandbox-workspace',
+          workspaceKind: 'sandbox',
+        },
+      },
+    };
+    useProjectWorkspaceStore.setState({
+      workspacesById: {
+        'sandbox-workspace': {
+          id: 'sandbox-workspace',
+          kind: 'sandbox',
+          rootPath: '/workspace',
+        },
+      },
+    });
+
+    const { result } = renderHook(() => useEffectiveWorkspace('agent-1'));
+
+    expect(result.current.projectUnavailable).toBe(false);
+    expect(result.current).toMatchObject({
+      state: 'bound',
+      target: 'sandbox',
+      workspace: { id: 'sandbox-workspace', kind: 'sandbox' },
+    });
+  });
+
   it('does not adopt an unowned historical path on this machine', () => {
     mocks.activeTopicId = 'legacy';
     mocks.topic = { id: 'legacy', metadata: { workingDirectory: '/same/path' } };
