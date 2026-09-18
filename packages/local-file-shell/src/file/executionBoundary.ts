@@ -717,10 +717,10 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     scopeAudit.push(audit);
   }
 
-  // Revisions re-render every element from the persisted project, including
-  // images that are absent from the requested operation list. Audit those
-  // sidecar-controlled read paths only after the project itself is authorized.
-  if (apiName === 'revisePresentation') {
+  // Revisions and SVG previews re-render persisted elements, including images
+  // absent from the requested operation list. Audit those sidecar-controlled
+  // reads only after the project itself is authorized.
+  if (apiName === 'revisePresentation' || apiName === 'renderPresentationPreview') {
     let stored: unknown;
     try {
       stored = JSON.parse(await readFile(next.projectPath, 'utf8'));

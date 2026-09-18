@@ -112,5 +112,14 @@ describe('presentation execution boundary', () => {
         homeDir: root,
       }),
     ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'renderPresentationPreview',
+        args: { projectPath },
+        context,
+        homeDir: root,
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
   });
 });
