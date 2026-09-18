@@ -2,6 +2,35 @@
 
 # Changelog
 
+### [Version 1.3.5](https://github.com/chaaak6/Masterino/compare/v1.3.4...v1.3.5)
+
+<sup>Released on **2026-09-18**</sup>
+
+#### 🐛 Bug Fixes
+
+- **workspace**: preserve Windows UNC roots.
+- **misc**: align workspace and topic creation types.
+- **infra**: 固化服务端内网链路配置.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **workspace**: preserve Windows UNC roots ([81eeacb](https://github.com/chaaak6/Masterino/commit/81eeacb))
+- **misc**: align workspace and topic creation types ([be88faa](https://github.com/chaaak6/Masterino/commit/be88faa))
+- **infra**: 固化服务端内网链路配置 ([07e27dd](https://github.com/chaaak6/Masterino/commit/07e27dd))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.3.4](https://github.com/chaaak6/Masterino/compare/v1.3.3...v1.3.4)
 
 <sup>Released on **2026-09-14**</sup>
