@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -258,4 +258,160 @@ it('revises a generated project by stable ids and rejects stale or invalid chang
     }),
   ).rejects.toThrow('INVALID_PRESENTATION');
   await expect(readFile(invalidPath)).rejects.toThrow();
+});
+
+it('allows only one concurrent revision for the same expected revision', async () => {
+  const outputPath = await fixture('concurrent.pptx');
+  const created = await createPresentation({
+    path: outputPath,
+    deck: {
+      slides: [
+        {
+          id: 'only',
+          elements: [
+            { id: 'title', type: 'text', frame: { h: 1, w: 8, x: 1, y: 1 }, text: 'Original' },
+          ],
+        },
+      ],
+      theme: {
+        colors: {
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          primary: '17324D',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+    },
+  });
+  const results = await Promise.allSettled([
+    revisePresentation({
+      expectedRevision: 1,
+      operations: [],
+      outputPath: path.join(path.dirname(outputPath), 'a.pptx'),
+      projectPath: created.projectPath,
+    }),
+    revisePresentation({
+      expectedRevision: 1,
+      operations: [],
+      outputPath: path.join(path.dirname(outputPath), 'b.pptx'),
+      projectPath: created.projectPath,
+    }),
+  ]);
+  expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+  expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+  await expect(
+    inspectPresentation({ detail: 'outline', projectPath: created.projectPath }),
+  ).resolves.toMatchObject({ revision: 2 });
+});
+
+it('rejects malformed elements without throwing an implementation TypeError', async () => {
+  const outputPath = await fixture('malformed.pptx');
+  await expect(
+    createPresentation({
+      path: outputPath,
+      deck: {
+        slides: [
+          {
+            id: 'bad',
+            elements: [{ id: 'table', type: 'table', frame: { h: 1, w: 1, x: 0, y: 0 } } as never],
+          },
+        ],
+        theme: {
+          colors: {
+            accent: '2F80ED',
+            background: 'FFFFFF',
+            muted: '667085',
+            primary: '17324D',
+            text: '101828',
+          },
+          fonts: { body: 'Arial', heading: 'Arial' },
+        },
+      },
+    }),
+  ).rejects.toThrow('INVALID_PRESENTATION');
+});
+
+it('detects a PPTX that no longer matches its project even when slide count is unchanged', async () => {
+  const firstPath = await fixture('first.pptx');
+  const first = await createPresentation({
+    path: firstPath,
+    deck: {
+      slides: [
+        {
+          id: 'first',
+          elements: [{ id: 'one', type: 'text', frame: { h: 1, w: 8, x: 1, y: 1 }, text: 'First' }],
+        },
+      ],
+      theme: {
+        colors: {
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          primary: '17324D',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+    },
+  });
+  const secondPath = path.join(path.dirname(firstPath), 'second.pptx');
+  await createPresentation({
+    path: secondPath,
+    deck: {
+      slides: [
+        {
+          id: 'second',
+          elements: [
+            { id: 'two', type: 'text', frame: { h: 1, w: 8, x: 1, y: 1 }, text: 'Second' },
+          ],
+        },
+      ],
+      theme: {
+        colors: {
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          primary: '17324D',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+    },
+  });
+  await writeFile(firstPath, await readFile(secondPath));
+  await expect(
+    validatePresentation({ path: firstPath, projectPath: first.projectPath }),
+  ).resolves.toMatchObject({ valid: false });
+});
+
+it('keeps preview filenames inside the audited preview directory for hostile slide ids', async () => {
+  const outputPath = await fixture('safe-preview.pptx');
+  const created = await createPresentation({
+    path: outputPath,
+    deck: {
+      slides: [
+        {
+          id: '../../../../escape',
+          elements: [
+            { id: 'title', type: 'text', frame: { h: 1, w: 8, x: 1, y: 1 }, text: 'Safe' },
+          ],
+        },
+      ],
+      theme: {
+        colors: {
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          primary: '17324D',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+    },
+  });
+  const preview = await renderPresentationPreview({ projectPath: created.projectPath });
+  expect(path.dirname(preview.slides[0]!.path)).toBe(`${created.projectPath}.previews/r1`);
+  expect(path.basename(preview.slides[0]!.path)).toBe('slide-1.svg');
 });

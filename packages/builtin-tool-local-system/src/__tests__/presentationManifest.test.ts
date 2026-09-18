@@ -1,3 +1,4 @@
+import Ajv from 'ajv';
 import { describe, expect, it } from 'vitest';
 
 import { LocalSystemManifest } from '../manifest';
@@ -28,5 +29,33 @@ describe('local presentation tools', () => {
         },
       },
     });
+  });
+
+  it('uses a discriminated element schema that rejects missing type-specific fields', () => {
+    const create = LocalSystemManifest.api.find((api) => api.name === 'createPresentation')!;
+    const validate = new Ajv({ strict: false }).compile(create.parameters);
+    expect(
+      validate({
+        path: 'bad.pptx',
+        deck: {
+          slides: [
+            {
+              id: 's1',
+              elements: [{ id: 'e1', type: 'table', frame: { x: 0, y: 0, w: 1, h: 1 } }],
+            },
+          ],
+          theme: {
+            colors: {
+              primary: '000000',
+              accent: '000000',
+              text: '000000',
+              muted: '000000',
+              background: 'FFFFFF',
+            },
+            fonts: { heading: 'Arial', body: 'Arial' },
+          },
+        },
+      }),
+    ).toBe(false);
   });
 });

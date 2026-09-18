@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { link, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { link, mkdir, open, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -143,6 +143,7 @@ async function publishPresentation(options: {
 }) {
   await assertOutputPath(options.outputPath);
   const { issues, output } = await buildPresentation(options.project.deck);
+  options.project.artifact = { sha256: createHash('sha256').update(output).digest('hex') };
 
   const tempId = randomUUID();
   const tempOutput = path.join(
@@ -192,6 +193,7 @@ export async function createPresentation(
   params: CreatePresentationParams,
 ): Promise<PresentationResult> {
   const project: PresentationProject = {
+    artifact: { sha256: '' },
     deck: params.deck,
     id: randomUUID(),
     revision: 1,
@@ -207,7 +209,12 @@ export async function createPresentation(
 
 async function readProject(projectPath: string): Promise<PresentationProject> {
   const project = JSON.parse(await readFile(projectPath, 'utf8')) as PresentationProject;
-  if (project.schemaVersion !== 1 || !project.id || !Number.isSafeInteger(project.revision)) {
+  if (
+    project.schemaVersion !== 1 ||
+    !project.id ||
+    !Number.isSafeInteger(project.revision) ||
+    !/^[\da-f]{64}$/i.test(project.artifact?.sha256 ?? '')
+  ) {
     throw new Error('INVALID_PRESENTATION_PROJECT');
   }
   return project;
@@ -216,52 +223,70 @@ async function readProject(projectPath: string): Promise<PresentationProject> {
 export async function revisePresentation(
   params: RevisePresentationParams,
 ): Promise<PresentationResult> {
-  const current = await readProject(params.projectPath);
-  if (current.revision !== params.expectedRevision) {
-    throw new Error(
-      `PRESENTATION_REVISION_CHANGED: expected ${params.expectedRevision}, current ${current.revision}`,
-    );
+  const lockPath = `${params.projectPath}.lock`;
+  let lock;
+  try {
+    lock = await open(lockPath, 'wx');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
+    }
+    throw error;
   }
-  if (!Array.isArray(params.operations) || params.operations.length > 500) {
-    throw new Error('Presentation revision accepts at most 500 operations');
+  try {
+    const current = await readProject(params.projectPath);
+    if (current.revision !== params.expectedRevision) {
+      throw new Error(
+        `PRESENTATION_REVISION_CHANGED: expected ${params.expectedRevision}, current ${current.revision}`,
+      );
+    }
+    if (!Array.isArray(params.operations) || params.operations.length > 500) {
+      throw new Error('Presentation revision accepts at most 500 operations');
+    }
+    const project = structuredClone(current);
+    for (const operation of params.operations) {
+      if (operation.op === 'addSlide') {
+        project.deck.slides.push(operation.slide);
+        continue;
+      }
+      const slideIndex = project.deck.slides.findIndex((slide) => slide.id === operation.slideId);
+      if (slideIndex < 0) throw new Error(`PRESENTATION_SLIDE_NOT_FOUND: ${operation.slideId}`);
+      if (operation.op === 'removeSlide') {
+        project.deck.slides.splice(slideIndex, 1);
+        continue;
+      }
+      const slide = project.deck.slides[slideIndex]!;
+      if (operation.op === 'addElement') {
+        slide.elements.push(operation.element);
+        continue;
+      }
+      const elementIndex = slide.elements.findIndex(
+        (element) => element.id === operation.elementId,
+      );
+      if (elementIndex < 0)
+        throw new Error(`PRESENTATION_ELEMENT_NOT_FOUND: ${operation.elementId}`);
+      if (operation.op === 'removeElement') {
+        slide.elements.splice(elementIndex, 1);
+        continue;
+      }
+      const existing = slide.elements[elementIndex]!;
+      const patch = operation.patch as Record<string, unknown>;
+      if ((patch.id && patch.id !== existing.id) || (patch.type && patch.type !== existing.type)) {
+        throw new Error('Presentation element id and type cannot be changed');
+      }
+      slide.elements[elementIndex] = { ...existing, ...patch } as PresentationElement;
+    }
+    project.revision++;
+    return await publishPresentation({
+      outputPath: params.outputPath,
+      project,
+      projectMode: 'replace',
+      projectPath: params.projectPath,
+    });
+  } finally {
+    await lock.close();
+    await unlink(lockPath).catch(() => undefined);
   }
-  const project = structuredClone(current);
-  for (const operation of params.operations) {
-    if (operation.op === 'addSlide') {
-      project.deck.slides.push(operation.slide);
-      continue;
-    }
-    const slideIndex = project.deck.slides.findIndex((slide) => slide.id === operation.slideId);
-    if (slideIndex < 0) throw new Error(`PRESENTATION_SLIDE_NOT_FOUND: ${operation.slideId}`);
-    if (operation.op === 'removeSlide') {
-      project.deck.slides.splice(slideIndex, 1);
-      continue;
-    }
-    const slide = project.deck.slides[slideIndex]!;
-    if (operation.op === 'addElement') {
-      slide.elements.push(operation.element);
-      continue;
-    }
-    const elementIndex = slide.elements.findIndex((element) => element.id === operation.elementId);
-    if (elementIndex < 0) throw new Error(`PRESENTATION_ELEMENT_NOT_FOUND: ${operation.elementId}`);
-    if (operation.op === 'removeElement') {
-      slide.elements.splice(elementIndex, 1);
-      continue;
-    }
-    const existing = slide.elements[elementIndex]!;
-    const patch = operation.patch as Record<string, unknown>;
-    if ((patch.id && patch.id !== existing.id) || (patch.type && patch.type !== existing.type)) {
-      throw new Error('Presentation element id and type cannot be changed');
-    }
-    slide.elements[elementIndex] = { ...existing, ...patch } as PresentationElement;
-  }
-  project.revision++;
-  return publishPresentation({
-    outputPath: params.outputPath,
-    project,
-    projectMode: 'replace',
-    projectPath: params.projectPath,
-  });
 }
 
 export async function inspectPresentation(params: InspectPresentationParams) {
@@ -304,6 +329,16 @@ export async function validatePresentation(
 ): Promise<PresentationValidationResult> {
   const project = await readProject(params.projectPath);
   const issues = validatePresentationSpec(project.deck);
+  const actualSha256 = createHash('sha256')
+    .update(await readFile(params.path))
+    .digest('hex');
+  if (actualSha256 !== project.artifact.sha256) {
+    issues.push({
+      code: 'PPTX_ARTIFACT_MISMATCH',
+      message: 'The PPTX does not match this Masterino project revision',
+      severity: 'error',
+    });
+  }
   const { openOfficeZip } = await import('../zip');
   const zip = await openOfficeZip(params.path);
   try {
@@ -316,7 +351,7 @@ export async function validatePresentation(
         severity: 'error',
       });
     }
-    const features = project.deck.slides.reduce(
+    const expectedFeatures = project.deck.slides.reduce(
       (result, slide) => {
         if (slide.notes) result.notes++;
         for (const element of slide.elements) {
@@ -329,6 +364,34 @@ export async function validatePresentation(
       },
       { charts: 0, images: 0, notes: 0, shapes: 0, tables: 0 },
     );
+    const slideXml = await Promise.all(slideParts.map((name) => zip.text(name)));
+    const features = {
+      charts: entryNames.filter((name) => /^ppt\/charts\/chart\d+\.xml$/.test(name)).length,
+      images: entryNames.filter((name) => /^ppt\/media\/[^/]+$/.test(name)).length,
+      notes: entryNames.filter((name) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(name))
+        .length,
+      shapes: slideXml.reduce(
+        (count, xml) => count + (xml.match(/<a:prstGeom\b/g)?.length ?? 0),
+        0,
+      ),
+      tables: slideXml.reduce((count, xml) => count + (xml.match(/<a:tbl>/g)?.length ?? 0), 0),
+    };
+    for (const feature of ['charts', 'images', 'notes', 'tables'] as const) {
+      if (features[feature] !== expectedFeatures[feature]) {
+        issues.push({
+          code: `PPTX_${feature.toUpperCase()}_MISMATCH`,
+          message: `The PPTX ${feature} count does not match the Masterino project`,
+          severity: 'error',
+        });
+      }
+    }
+    if (features.shapes < expectedFeatures.shapes) {
+      issues.push({
+        code: 'PPTX_SHAPES_MISMATCH',
+        message: 'The PPTX shape count does not match the Masterino project',
+        severity: 'error',
+      });
+    }
     const errors = issues.filter((issue) => issue.severity === 'error').length;
     const warnings = issues.filter((issue) => issue.severity === 'warning').length;
     return {
@@ -351,12 +414,12 @@ const escapeXml = (value: string) =>
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
 
-function elementSvg(element: PresentationElement, scale: number) {
+async function elementSvg(element: PresentationElement, scale: number) {
   const { x, y, w, h } = element.frame;
   const box = { x: x * scale, y: y * scale, w: w * scale, h: h * scale };
   if (element.type === 'text') {
     const fontSize = element.style?.fontSize ?? 18;
-    return `<text x="${box.x}" y="${box.y + fontSize}" font-family="${escapeXml(element.style?.fontFace ?? 'Arial')}" font-size="${fontSize}" fill="#${element.style?.color ?? '101828'}"${element.style?.bold ? ' font-weight="700"' : ''}>${escapeXml(element.text)}</text>`;
+    return `<foreignObject x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}"><div xmlns="http://www.w3.org/1999/xhtml" style="box-sizing:border-box;overflow:hidden;width:100%;height:100%;font-family:${escapeXml(element.style?.fontFace ?? 'Arial')};font-size:${fontSize}px;color:#${element.style?.color ?? '101828'};font-weight:${element.style?.bold ? 700 : 400};font-style:${element.style?.italic ? 'italic' : 'normal'};white-space:pre-wrap;overflow-wrap:anywhere">${escapeXml(element.text)}</div></foreignObject>`;
   }
   if (element.type === 'shape') {
     if (element.shape === 'line')
@@ -366,19 +429,68 @@ function elementSvg(element: PresentationElement, scale: number) {
     return `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="${element.shape === 'roundRect' ? 8 : 0}" fill="#${element.style?.fill ?? '2F80ED'}" />`;
   }
   if (element.type === 'image') {
-    return `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="#E4E7EC"/><text x="${box.x + 6}" y="${box.y + 18}" font-size="12">Image</text>`;
+    const extension = path.extname(element.source.path).toLowerCase();
+    const mime =
+      extension === '.jpg' || extension === '.jpeg'
+        ? 'image/jpeg'
+        : extension === '.svg'
+          ? 'image/svg+xml'
+          : 'image/png';
+    const data = (await readFile(element.source.path)).toString('base64');
+    return `<image x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" preserveAspectRatio="xMidYMid meet" href="data:${mime};base64,${data}"/>`;
   }
   if (element.type === 'table') {
-    const rows = element.rows
-      .map(
-        (row, rowIndex) =>
-          `<text x="${box.x + 6}" y="${box.y + 18 + rowIndex * 20}" font-size="12">${escapeXml(row.join(' | '))}</text>`,
+    const columns = Math.max(...element.rows.map((row) => row.length));
+    const rowHeight = box.h / element.rows.length;
+    const columnWidth = box.w / columns;
+    const cells = element.rows
+      .flatMap((row, rowIndex) =>
+        Array.from({ length: columns }, (_, columnIndex) => {
+          const x = box.x + columnIndex * columnWidth;
+          const y = box.y + rowIndex * rowHeight;
+          const fill = rowIndex === 0 ? `#${element.style?.headerFill ?? '17324D'}` : '#FFFFFF';
+          const color =
+            rowIndex === 0
+              ? `#${element.style?.headerText ?? 'FFFFFF'}`
+              : `#${element.style?.text ?? '101828'}`;
+          return `<rect x="${x}" y="${y}" width="${columnWidth}" height="${rowHeight}" fill="${fill}" stroke="#${element.style?.border ?? '98A2B3'}"/><text x="${x + 5}" y="${y + Math.min(rowHeight - 4, 16)}" font-size="12" fill="${color}">${escapeXml(row[columnIndex] ?? '')}</text>`;
+        }),
       )
       .join('');
-    return `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="#FFFFFF" stroke="#98A2B3"/>${rows}`;
+    return cells;
   }
   const title = element.style?.title ?? element.series.map((series) => series.name).join(', ');
-  return `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="#F2F4F7" stroke="#98A2B3"/><text x="${box.x + 8}" y="${box.y + 20}" font-size="14">${escapeXml(title)}</text>`;
+  const values = element.series.flatMap((series) => series.values);
+  const maximum = Math.max(...values.map((value) => Math.abs(value)), 1);
+  const plotY = box.y + 28;
+  const plotHeight = Math.max(box.h - 36, 1);
+  let plot: string;
+  if (element.chartType === 'line') {
+    plot = element.series
+      .map((series, seriesIndex) => {
+        const points = series.values
+          .map(
+            (value, index) =>
+              `${box.x + 10 + index * ((box.w - 20) / Math.max(series.values.length - 1, 1))},${plotY + plotHeight - (value / maximum) * plotHeight}`,
+          )
+          .join(' ');
+        return `<polyline points="${points}" fill="none" stroke="#${seriesIndex ? '17324D' : '2F80ED'}" stroke-width="3"/>`;
+      })
+      .join('');
+  } else if (element.chartType === 'pie' || element.chartType === 'doughnut') {
+    const radius = Math.min(box.w, plotHeight) / 3;
+    plot = `<circle cx="${box.x + box.w / 2}" cy="${plotY + plotHeight / 2}" r="${radius}" fill="#2F80ED" stroke="#17324D" stroke-width="${element.chartType === 'doughnut' ? radius / 2 : 2}"/>`;
+  } else {
+    const gap = 4;
+    const barWidth = Math.max((box.w - 20) / Math.max(values.length, 1) - gap, 1);
+    plot = values
+      .map((value, index) => {
+        const height = (Math.abs(value) / maximum) * plotHeight;
+        return `<rect x="${box.x + 10 + index * (barWidth + gap)}" y="${plotY + plotHeight - height}" width="${barWidth}" height="${height}" fill="#2F80ED"/>`;
+      })
+      .join('');
+  }
+  return `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" fill="#F8FAFC" stroke="#98A2B3"/><text x="${box.x + 8}" y="${box.y + 18}" font-size="14">${escapeXml(title)}</text>${plot}`;
 }
 
 export async function renderPresentationPreview(params: RenderPresentationPreviewParams) {
@@ -393,8 +505,9 @@ export async function renderPresentationPreview(params: RenderPresentationPrevie
   const slides = [];
   for (const [index, slide] of project.deck.slides.entries()) {
     if (requested && !requested.has(slide.id)) continue;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#${slide.background ?? project.deck.theme.colors.background}"/>${slide.elements.map((element) => elementSvg(element, scale)).join('')}</svg>`;
-    const previewPath = path.join(outputDirectory, `slide-${index + 1}-${slide.id}.svg`);
+    const elements = await Promise.all(slide.elements.map((element) => elementSvg(element, scale)));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#${slide.background ?? project.deck.theme.colors.background}"/>${elements.join('')}</svg>`;
+    const previewPath = path.join(outputDirectory, `slide-${index + 1}.svg`);
     await writeFile(previewPath, svg, 'utf8');
     slides.push({ id: slide.id, index: index + 1, path: previewPath });
   }

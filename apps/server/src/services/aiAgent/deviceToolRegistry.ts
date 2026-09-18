@@ -20,6 +20,7 @@
  *      the rule-layer gate denied it).
  */
 import { LocalSystemManifest, PRESENTATION_API_NAMES } from '@lobechat/builtin-tool-local-system';
+import type { DeviceChannel } from '@lobechat/builtin-tool-remote-device';
 import { RemoteDeviceManifest } from '@lobechat/builtin-tool-remote-device';
 import { builtinTools } from '@lobechat/builtin-tools';
 
@@ -33,6 +34,34 @@ export const isDeviceToolIdentifier = (identifier: string): boolean =>
   DEVICE_TOOL_IDENTIFIERS.has(identifier);
 
 const presentationApiNames = new Set<string>(PRESENTATION_API_NAMES);
+
+const channelRank = (channel?: string) => {
+  switch (channel) {
+    case 'cli': {
+      return 0;
+    }
+    case 'cli-dev': {
+      return 1;
+    }
+    case 'desktop': {
+      return 2;
+    }
+    case 'desktop-dev': {
+      return 3;
+    }
+    default: {
+      return 4;
+    }
+  }
+};
+
+/** Mirrors device-gateway `byDispatchPriority`; capability checks and calls
+ * must describe the same live connection when several clients share a device. */
+export const selectGatewayDispatchChannel = (channels: DeviceChannel[] = []) =>
+  channels.toSorted((a, b) => {
+    const rank = channelRank(a.channel) - channelRank(b.channel);
+    return rank || Date.parse(b.connectedAt) - Date.parse(a.connectedAt);
+  })[0];
 
 /**
  * Keep the server's schema authoritative while intersecting new local APIs

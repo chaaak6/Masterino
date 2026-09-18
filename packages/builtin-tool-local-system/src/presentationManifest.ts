@@ -19,52 +19,102 @@ const frame = {
   },
 };
 
+const elementBase = {
+  frame,
+  id: { maxLength: 100, minLength: 1, type: 'string' as const },
+};
+
 const element = {
-  type: 'object' as const,
-  required: ['id', 'type', 'frame'],
-  properties: {
-    id: { maxLength: 100, minLength: 1, type: 'string' as const },
-    type: {
-      enum: ['text', 'image', 'shape', 'table', 'chart'],
-      type: 'string' as const,
-    },
-    frame,
-    text: { maxLength: 10_000, type: 'string' as const },
-    shape: { enum: ['ellipse', 'line', 'rect', 'roundRect'], type: 'string' as const },
-    source: {
+  oneOf: [
+    {
       type: 'object' as const,
-      required: ['path'],
-      properties: { path: { type: 'string' as const } },
-    },
-    rows: {
-      type: 'array' as const,
-      maxItems: 100,
-      items: {
-        type: 'array' as const,
-        maxItems: 20,
-        items: { type: 'string' as const },
+      additionalProperties: false,
+      required: ['id', 'type', 'frame', 'text'],
+      properties: {
+        ...elementBase,
+        type: { const: 'text' },
+        text: { maxLength: 10_000, minLength: 1, type: 'string' as const },
+        style: { additionalProperties: true, type: 'object' as const },
       },
     },
-    chartType: { enum: ['bar', 'doughnut', 'line', 'pie'], type: 'string' as const },
-    categories: {
-      type: 'array' as const,
-      maxItems: 100,
-      items: { type: 'string' as const },
+    {
+      type: 'object' as const,
+      additionalProperties: false,
+      required: ['id', 'type', 'frame', 'shape'],
+      properties: {
+        ...elementBase,
+        type: { const: 'shape' },
+        shape: { enum: ['ellipse', 'line', 'rect', 'roundRect'], type: 'string' as const },
+        style: { additionalProperties: true, type: 'object' as const },
+      },
     },
-    series: {
-      type: 'array' as const,
-      maxItems: 20,
-      items: {
-        type: 'object' as const,
-        required: ['name', 'values'],
-        properties: {
-          name: { type: 'string' as const },
-          values: { type: 'array' as const, items: { type: 'number' as const }, maxItems: 100 },
+    {
+      type: 'object' as const,
+      additionalProperties: false,
+      required: ['id', 'type', 'frame', 'source'],
+      properties: {
+        ...elementBase,
+        type: { const: 'image' },
+        source: {
+          type: 'object' as const,
+          additionalProperties: false,
+          required: ['path'],
+          properties: { path: { minLength: 1, type: 'string' as const } },
         },
       },
     },
-    style: { additionalProperties: true, type: 'object' as const },
-  },
+    {
+      type: 'object' as const,
+      additionalProperties: false,
+      required: ['id', 'type', 'frame', 'rows'],
+      properties: {
+        ...elementBase,
+        type: { const: 'table' },
+        rows: {
+          type: 'array' as const,
+          minItems: 1,
+          maxItems: 100,
+          items: {
+            type: 'array' as const,
+            minItems: 1,
+            maxItems: 20,
+            items: { type: 'string' as const },
+          },
+        },
+        style: { additionalProperties: true, type: 'object' as const },
+      },
+    },
+    {
+      type: 'object' as const,
+      additionalProperties: false,
+      required: ['id', 'type', 'frame', 'chartType', 'categories', 'series'],
+      properties: {
+        ...elementBase,
+        type: { const: 'chart' },
+        chartType: { enum: ['bar', 'doughnut', 'line', 'pie'], type: 'string' as const },
+        categories: {
+          type: 'array' as const,
+          minItems: 1,
+          maxItems: 100,
+          items: { type: 'string' as const },
+        },
+        series: {
+          type: 'array' as const,
+          minItems: 1,
+          maxItems: 20,
+          items: {
+            type: 'object' as const,
+            required: ['name', 'values'],
+            properties: {
+              name: { type: 'string' as const },
+              values: { type: 'array' as const, items: { type: 'number' as const }, maxItems: 100 },
+            },
+          },
+        },
+        style: { additionalProperties: true, type: 'object' as const },
+      },
+    },
+  ],
 };
 
 const slide = {
@@ -164,19 +214,47 @@ export const presentationApis: BuiltinToolManifest['api'] = [
           type: 'array',
           maxItems: 500,
           items: {
-            type: 'object',
-            required: ['op'],
-            properties: {
-              op: {
-                enum: ['addSlide', 'removeSlide', 'addElement', 'updateElement', 'removeElement'],
-                type: 'string',
+            oneOf: [
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['op', 'slide'],
+                properties: { op: { const: 'addSlide' }, slide },
               },
-              slideId: { type: 'string' },
-              elementId: { type: 'string' },
-              slide,
-              element,
-              patch: { additionalProperties: true, type: 'object' },
-            },
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['op', 'slideId'],
+                properties: { op: { const: 'removeSlide' }, slideId: { type: 'string' } },
+              },
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['op', 'slideId', 'element'],
+                properties: { op: { const: 'addElement' }, slideId: { type: 'string' }, element },
+              },
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['op', 'slideId', 'elementId'],
+                properties: {
+                  op: { const: 'removeElement' },
+                  slideId: { type: 'string' },
+                  elementId: { type: 'string' },
+                },
+              },
+              {
+                type: 'object',
+                additionalProperties: false,
+                required: ['op', 'slideId', 'elementId', 'patch'],
+                properties: {
+                  op: { const: 'updateElement' },
+                  slideId: { type: 'string' },
+                  elementId: { type: 'string' },
+                  patch: { additionalProperties: true, minProperties: 1, type: 'object' },
+                },
+              },
+            ],
           },
         },
       },

@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { access, realpath } from 'node:fs/promises';
+import { access, readFile, realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -406,33 +406,34 @@ const setField = (field: string) => (args: Record<string, any>, value: string) =
   args[field] = value;
 };
 
+const presentationImagePaths = (value: unknown): PathRequest[] => {
+  const requests: PathRequest[] = [];
+  const visit = (entry: unknown) => {
+    if (!entry || typeof entry !== 'object') return;
+    if (
+      (entry as { type?: unknown }).type === 'image' &&
+      typeof (entry as { source?: { path?: unknown } }).source?.path === 'string'
+    ) {
+      const target = entry as { source: { path: string } };
+      requests.push({
+        apply: (_args, resolved) => {
+          target.source.path = resolved;
+        },
+        mode: 'read',
+        value: target.source.path,
+      });
+    }
+    for (const child of Array.isArray(entry) ? entry : Object.values(entry)) visit(child);
+  };
+  visit(value);
+  return requests;
+};
+
 const collectPathRequests = (
   apiName: string,
   args: Record<string, any>,
   cwd: string,
 ): PathRequest[] => {
-  const presentationImagePaths = (value: unknown): PathRequest[] => {
-    const requests: PathRequest[] = [];
-    const visit = (entry: unknown) => {
-      if (!entry || typeof entry !== 'object') return;
-      if (
-        (entry as { type?: unknown }).type === 'image' &&
-        typeof (entry as { source?: { path?: unknown } }).source?.path === 'string'
-      ) {
-        const target = entry as { source: { path: string } };
-        requests.push({
-          apply: (_args, resolved) => {
-            target.source.path = resolved;
-          },
-          mode: 'read',
-          value: target.source.path,
-        });
-      }
-      for (const child of Array.isArray(entry) ? entry : Object.values(entry)) visit(child);
-    };
-    visit(value);
-    return requests;
-  };
   switch (apiName) {
     case 'listFiles':
     case 'listLocalFiles':
@@ -526,7 +527,9 @@ const collectPathRequests = (
     }
     case 'revisePresentation': {
       return [
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
         { apply: setField('projectPath'), mode: 'write', value: args.projectPath },
+        { apply: () => {}, mode: 'write', value: `${args.projectPath}.lock` },
         { apply: setField('outputPath'), mode: 'write', value: args.outputPath },
         ...presentationImagePaths(args.operations),
       ];
@@ -712,6 +715,35 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     if (warnings.length > 0 && request.mode === 'exec') audit.cwdOverridden = true;
     request.apply(next, realTarget);
     scopeAudit.push(audit);
+  }
+
+  // Revisions re-render every element from the persisted project, including
+  // images that are absent from the requested operation list. Audit those
+  // sidecar-controlled read paths only after the project itself is authorized.
+  if (apiName === 'revisePresentation') {
+    let stored: unknown;
+    try {
+      stored = JSON.parse(await readFile(next.projectPath, 'utf8'));
+    } catch {
+      throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+    }
+    for (const request of presentationImagePaths((stored as { deck?: unknown })?.deck)) {
+      if (!path.isAbsolute(request.value)) {
+        throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+      }
+      const realTarget = await realpathForAccess(request.value);
+      const audit = await authorizePath({
+        context: { ...context, cwd: realCwd },
+        credentialRead: isCredentialPath(realTarget),
+        homeDir: realHomeDir,
+        mode: 'read',
+        now,
+        allowedMountRoots: realAllowedMountRoots,
+        target: realTarget,
+        trace,
+      });
+      scopeAudit.push(audit);
+    }
   }
 
   return { args: next, legacy: false, scopeAudit, warnings };

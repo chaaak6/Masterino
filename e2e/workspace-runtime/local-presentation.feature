@@ -26,12 +26,12 @@ Feature: Rich PowerPoint authoring on the user's desktop
       请只调用 createPresentation，尝试在当前项目现有的 protected.pptx 路径创建一页 PPT；不得改名、覆盖、删除现有文件，也不要使用 shell 或其他工具。请如实返回工具错误。
       """
     Then the createPresentation tool reports that the destination already exists
-    And protected.pptx has the same SHA-256
+    And verify-smoke.py confirms protected.pptx has the recorded SHA-256
 
   Scenario: Preserve established local capabilities
     When I ask the agent to use createOfficeDocument to create smoke.xlsx with one sheet and one data row
     Then the visible tool history contains createOfficeDocument
-    And an independent XLSX ZIP check reads the expected cell values
+    And verify-smoke.py independently reads the expected XLSX cell values
     When I ask the agent to activate the project skill bdd-smoke and follow it exactly
     Then the assistant returns the exact marker BDD-SKILL-SMOKE-OK
     And a plain chat request still receives a normal response

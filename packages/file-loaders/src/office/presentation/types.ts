@@ -91,6 +91,7 @@ export interface PresentationIssue {
 }
 
 export interface PresentationProject {
+  artifact: { sha256: string };
   deck: PresentationSpec;
   id: string;
   revision: number;

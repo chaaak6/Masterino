@@ -17,6 +17,18 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
       },
     ];
   }
+  if (
+    !deck.theme ||
+    !deck.theme.fonts ||
+    typeof deck.theme.fonts.body !== 'string' ||
+    typeof deck.theme.fonts.heading !== 'string'
+  ) {
+    issues.push({
+      code: 'INVALID_THEME_FONT',
+      message: 'Theme heading and body fonts are required',
+      severity: 'error',
+    });
+  }
   const colors = Object.values(deck.theme?.colors ?? {});
   if (colors.length !== 5 || colors.some((color) => !HEX.test(color))) {
     issues.push({
@@ -28,7 +40,20 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
   const slideIds = new Set<string>();
   const page = dimensions[deck.page?.layout ?? 'wide'];
   for (const slide of deck.slides) {
-    if (!slide.id || slideIds.has(slide.id)) {
+    if (!slide || typeof slide !== 'object') {
+      issues.push({
+        code: 'INVALID_SLIDE',
+        message: 'Every slide must be an object',
+        severity: 'error',
+      });
+      continue;
+    }
+    if (
+      typeof slide.id !== 'string' ||
+      !slide.id ||
+      slide.id.length > 100 ||
+      slideIds.has(slide.id)
+    ) {
       issues.push({
         code: 'DUPLICATE_SLIDE_ID',
         message: `Slide id must be unique: ${slide.id || '(empty)'}`,
@@ -37,9 +62,32 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
       });
     }
     slideIds.add(slide.id);
+    if (!Array.isArray(slide.elements) || slide.elements.length > 200) {
+      issues.push({
+        code: 'INVALID_ELEMENTS',
+        message: `Slide ${slide.id} must contain at most 200 elements`,
+        severity: 'error',
+        slideId: slide.id,
+      });
+      continue;
+    }
     const elementIds = new Set<string>();
-    for (const element of slide.elements ?? []) {
-      if (!element.id || elementIds.has(element.id)) {
+    for (const element of slide.elements) {
+      if (!element || typeof element !== 'object') {
+        issues.push({
+          code: 'INVALID_ELEMENT',
+          message: 'Every presentation element must be an object',
+          severity: 'error',
+          slideId: slide.id,
+        });
+        continue;
+      }
+      if (
+        typeof element.id !== 'string' ||
+        !element.id ||
+        element.id.length > 100 ||
+        elementIds.has(element.id)
+      ) {
         issues.push({
           code: 'DUPLICATE_ELEMENT_ID',
           elementId: element.id,
@@ -49,6 +97,16 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
         });
       }
       elementIds.add(element.id);
+      if (!['text', 'shape', 'image', 'table', 'chart'].includes(element.type)) {
+        issues.push({
+          code: 'INVALID_ELEMENT_TYPE',
+          elementId: element.id,
+          message: `Element ${element.id} has an unsupported type`,
+          severity: 'error',
+          slideId: slide.id,
+        });
+        continue;
+      }
       const { x, y, w, h } = element.frame ?? ({} as never);
       if (
         ![x, y, w, h].every(Number.isFinite) ||
@@ -67,7 +125,10 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
           slideId: slide.id,
         });
       }
-      if (element.type === 'text' && (!element.text || element.text.length > 10_000)) {
+      if (
+        element.type === 'text' &&
+        (typeof element.text !== 'string' || !element.text || element.text.length > 10_000)
+      ) {
         issues.push({
           code: 'INVALID_TEXT',
           elementId: element.id,
@@ -78,10 +139,15 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
       }
       if (
         element.type === 'table' &&
-        (!element.rows.length ||
+        (!Array.isArray(element.rows) ||
+          !element.rows.length ||
           element.rows.length > 100 ||
           element.rows.some(
-            (row) => !row.length || row.length > 20 || row.some((cell) => typeof cell !== 'string'),
+            (row) =>
+              !Array.isArray(row) ||
+              !row.length ||
+              row.length > 20 ||
+              row.some((cell) => typeof cell !== 'string'),
           ))
       ) {
         issues.push({
@@ -94,10 +160,17 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
       }
       if (
         element.type === 'chart' &&
-        (!element.categories.length ||
+        (!['bar', 'doughnut', 'line', 'pie'].includes(element.chartType) ||
+          !Array.isArray(element.categories) ||
+          !element.categories.length ||
+          element.categories.some((category) => typeof category !== 'string') ||
+          !Array.isArray(element.series) ||
           !element.series.length ||
           element.series.some(
             (series) =>
+              !series ||
+              typeof series.name !== 'string' ||
+              !Array.isArray(series.values) ||
               series.values.length !== element.categories.length ||
               series.values.some((value) => !Number.isFinite(value)),
           ))
@@ -110,7 +183,10 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
           slideId: slide.id,
         });
       }
-      if (element.type === 'image' && !element.source?.path) {
+      if (
+        element.type === 'image' &&
+        (typeof element.source?.path !== 'string' || !element.source.path)
+      ) {
         issues.push({
           code: 'INVALID_IMAGE',
           elementId: element.id,
@@ -118,6 +194,76 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
           severity: 'error',
           slideId: slide.id,
         });
+      }
+      if (
+        element.type === 'shape' &&
+        !['ellipse', 'line', 'rect', 'roundRect'].includes(element.shape)
+      ) {
+        issues.push({
+          code: 'INVALID_SHAPE',
+          elementId: element.id,
+          message: `Shape ${element.id} has an unsupported geometry`,
+          severity: 'error',
+          slideId: slide.id,
+        });
+      }
+      const style = 'style' in element ? element.style : undefined;
+      if (style && typeof style !== 'object') {
+        issues.push({
+          code: 'INVALID_STYLE',
+          elementId: element.id,
+          message: `Element ${element.id} style must be an object`,
+          severity: 'error',
+          slideId: slide.id,
+        });
+      }
+      if (style && typeof style === 'object') {
+        for (const key of [
+          'color',
+          'fill',
+          'line',
+          'border',
+          'headerFill',
+          'headerText',
+          'text',
+        ] as const) {
+          const value = (style as Record<string, unknown>)[key];
+          if (value !== undefined && (typeof value !== 'string' || !HEX.test(value))) {
+            issues.push({
+              code: 'INVALID_STYLE_COLOR',
+              elementId: element.id,
+              message: `Element ${element.id} ${key} must be a six-digit hexadecimal color`,
+              severity: 'error',
+              slideId: slide.id,
+            });
+          }
+        }
+      }
+      if (element.type === 'text' && typeof element.text === 'string') {
+        const fontSize = element.style?.fontSize ?? 18;
+        if (!Number.isFinite(fontSize) || fontSize < 6 || fontSize > 200) {
+          issues.push({
+            code: 'INVALID_FONT_SIZE',
+            elementId: element.id,
+            message: `Text element ${element.id} font size must be 6–200 pt`,
+            severity: 'error',
+            slideId: slide.id,
+          });
+        } else {
+          const capacity = Math.max(
+            1,
+            Math.floor((element.frame.w * 72) / (fontSize * 0.55)) *
+              Math.floor((element.frame.h * 72) / (fontSize * 1.2)),
+          );
+          if (element.text.length > capacity)
+            issues.push({
+              code: 'TEXT_MAY_OVERFLOW',
+              elementId: element.id,
+              message: `Text element ${element.id} may overflow its frame`,
+              severity: 'warning',
+              slideId: slide.id,
+            });
+        }
       }
     }
   }

@@ -156,6 +156,7 @@ import {
   buildAllowedBuiltinTools,
   isDeviceToolIdentifier,
   scopeLocalSystemManifestForDevice,
+  selectGatewayDispatchChannel,
 } from './deviceToolRegistry';
 import { buildDirectUserMessageAccessRoots } from './directUserPathConsent';
 import { ingestAttachment } from './ingestAttachment';
@@ -2653,12 +2654,10 @@ export class AiAgentService {
       const deviceCapable = isDeviceCapablePlan(executionPlan);
       activeDeviceId = executionPlan.kind === 'device' ? executionPlan.deviceId : undefined;
       const activeDevice = onlineDevices.find((device) => device.deviceId === activeDeviceId);
-      const activeDesktopChannel = activeDevice?.channels?.find((channel) =>
-        channel.channel?.startsWith('desktop'),
-      );
+      const activeDispatchChannel = selectGatewayDispatchChannel(activeDevice?.channels);
       const localSystemManifest = scopeLocalSystemManifestForDevice({
         gatewayConfigured,
-        localSystemApiVersions: activeDesktopChannel?.capabilities?.localSystemApiVersions,
+        localSystemApiVersions: activeDispatchChannel?.capabilities?.localSystemApiVersions,
       });
       log(
         'execAgent: execution plan → kind=%s deviceId=%s',

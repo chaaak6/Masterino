@@ -8,6 +8,7 @@ import {
   DEVICE_TOOL_IDENTIFIERS,
   isDeviceToolIdentifier,
   scopeLocalSystemManifestForDevice,
+  selectGatewayDispatchChannel,
 } from './deviceToolRegistry';
 
 describe('deviceToolRegistry', () => {
@@ -99,5 +100,39 @@ describe('deviceToolRegistry', () => {
 
     const standalone = scopeLocalSystemManifestForDevice({ gatewayConfigured: false });
     expect(standalone.api.map((api) => api.name)).toContain('createPresentation');
+  });
+
+  it('matches gateway channel priority when several clients share one device id', () => {
+    const capabilities = {
+      localSystemApiVersions: {
+        createPresentation: 1,
+        inspectPresentation: 1,
+        renderPresentationPreview: 1,
+        revisePresentation: 1,
+        validatePresentation: 1,
+      },
+    };
+    const selected = selectGatewayDispatchChannel([
+      {
+        channel: 'desktop',
+        connectedAt: '2026-09-18T10:00:00.000Z',
+        connectionId: 'desktop',
+        capabilities,
+      },
+      { channel: 'cli', connectedAt: '2026-09-18T09:00:00.000Z', connectionId: 'cli' },
+      {
+        channel: 'desktop-dev',
+        connectedAt: '2026-09-18T11:00:00.000Z',
+        connectionId: 'desktop-dev',
+        capabilities,
+      },
+    ]);
+    expect(selected?.channel).toBe('cli');
+    expect(
+      scopeLocalSystemManifestForDevice({
+        gatewayConfigured: true,
+        localSystemApiVersions: selected?.capabilities?.localSystemApiVersions,
+      }).api.map((api) => api.name),
+    ).not.toContain('createPresentation');
   });
 });

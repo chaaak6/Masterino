@@ -84,4 +84,33 @@ describe('presentation execution boundary', () => {
       }),
     ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
   });
+
+  it('rejects an existing project whose stored image escaped the workspace', async () => {
+    const outside = path.join(root, 'outside.png');
+    await writeFile(outside, 'image');
+    const projectPath = path.join(workspace, 'deck.pptx.masterino.json');
+    await writeFile(
+      projectPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        revision: 1,
+        id: 'p',
+        deck: { slides: [{ elements: [{ type: 'image', source: { path: outside } }] }] },
+      }),
+    );
+
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'revisePresentation',
+        args: {
+          projectPath,
+          outputPath: path.join(workspace, 'revised.pptx'),
+          expectedRevision: 1,
+          operations: [],
+        },
+        context,
+        homeDir: root,
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+  });
 });
