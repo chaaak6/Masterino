@@ -41,9 +41,41 @@ describe('workspace identity', () => {
     expect(normalizeRootPath('C:\\')).toBe('c:/');
   });
 
+  it('preserves UNC roots while normalizing separators inside the share path', () => {
+    expect(normalizeRootPath('\\\\server\\share\\folder\\')).toBe('//server/share/folder');
+    expect(normalizeRootPath('//server/share/folder/')).toBe('//server/share/folder');
+    expect(normalizeRootPath('//server//share///folder')).toBe('//server/share/folder');
+  });
+
+  it.each([
+    [
+      '\\\\BSFSPRD02\\biel\\d2 factory\\personal disks\\10360515\\AI AGENT\\',
+      '//BSFSPRD02/biel/d2 factory/personal disks/10360515/AI AGENT',
+    ],
+    ['\\\\BIEL.COM\\HZD2\\disks\\10268024', '//BIEL.COM/HZD2/disks/10268024'],
+    ['C:\\Users\\Alice\\Documents\\', 'c:/Users/Alice/Documents'],
+    ['d:\\Work\\\\Reports\\', 'd:/Work/Reports'],
+    ['Y:\\AI AGENT\\', 'y:/AI AGENT'],
+    ['Y:\\', 'y:/'],
+    ['/Users/alice/Projects/Masterino/', '/Users/alice/Projects/Masterino'],
+    ['/Volumes/Company Drive//Reports/', '/Volumes/Company Drive/Reports'],
+  ])('normalizes supported workspace path %s', (input, expected) => {
+    expect(normalizeRootPath(input)).toBe(expected);
+  });
+
+  it('keeps UNC identity stable across Windows and slash path spellings', () => {
+    const windowsUnc = workspace({ id: undefined, rootPath: '\\\\server\\share\\folder' });
+    const slashUnc = workspace({ id: undefined, rootPath: '//server/share/folder/' });
+
+    expect(buildWorkspaceScopeKey(windowsUnc)).toBe('device:device-a://server/share/folder');
+    expect(isSameWorkspace(windowsUnc, slashUnc)).toBe(true);
+  });
+
   it('accepts only absolute filesystem paths, never URLs, slugs, or home shorthand', () => {
     expect(isAbsoluteFilesystemPath('/code/masterino')).toBe(true);
     expect(isAbsoluteFilesystemPath('C:\\Code\\Masterino')).toBe(true);
+    expect(isAbsoluteFilesystemPath('\\\\server\\share\\folder')).toBe(true);
+    expect(isAbsoluteFilesystemPath('//server/share/folder')).toBe(true);
     expect(isAbsoluteFilesystemPath('https://github.com/acme/repo')).toBe(false);
     expect(isAbsoluteFilesystemPath('acme/repo')).toBe(false);
     expect(isAbsoluteFilesystemPath('~/repo')).toBe(false);
@@ -205,6 +237,28 @@ describe('resolveExecutionContext', () => {
     expect(result.workspace).toMatchObject({ id: 'workspace-a', rootPath: '/code/masterino' });
     expect(result.accessRoots?.[0]).toMatchObject({
       rootPath: '/code/masterino',
+      scope: 'primary',
+    });
+    expect(result.unresolvedReason).toBeUndefined();
+  });
+
+  it('keeps a captured UNC workspace usable as cwd and the primary access root', () => {
+    const topicSnapshot = snapshot({ workspaceId: 'workspace-a', workspaceKind: 'device' });
+    const result = resolveExecutionContext({
+      isDesktop: true,
+      onlineDeviceIds: ['device-a'],
+      snapshot: topicSnapshot,
+      workspaces: {
+        'workspace-a': workspace({
+          rootPath: '\\\\BSFSPRD02\\biel\\personal disks\\10360515\\AI AGENT\\',
+        }),
+      },
+    });
+
+    expect(result.cwd).toBe('//BSFSPRD02/biel/personal disks/10360515/AI AGENT');
+    expect(result.workspace?.rootPath).toBe('//BSFSPRD02/biel/personal disks/10360515/AI AGENT');
+    expect(result.accessRoots?.[0]).toMatchObject({
+      rootPath: '//BSFSPRD02/biel/personal disks/10360515/AI AGENT',
       scope: 'primary',
     });
     expect(result.unresolvedReason).toBeUndefined();
