@@ -53,9 +53,13 @@ const LOCAL_SYSTEM_APIS = new Set([
   'moveFiles',
   'moveLocalFiles',
   'createOfficeDocument',
+  'createPresentation',
+  'inspectPresentation',
   'inspectOfficeDocument',
   'prepareProjectSkillSnapshot',
   'readOfficeDocument',
+  'renderPresentationPreview',
+  'revisePresentation',
   'readFile',
   'readFiles',
   'readLocalFile',
@@ -66,6 +70,7 @@ const LOCAL_SYSTEM_APIS = new Set([
   'searchLocalFiles',
   'writeFile',
   'writeLocalFile',
+  'validatePresentation',
 ]);
 
 interface PathRequest {
@@ -286,8 +291,7 @@ const authorizePath = async ({
     throw new ExecutionBoundaryError('SCOPE_DENIED', [deniedAudit(trace, mode, target)]);
   }
 
-  const autoApprove =
-    context.approvalMode === 'auto-run' || context.approvalMode === 'headless';
+  const autoApprove = context.approvalMode === 'auto-run' || context.approvalMode === 'headless';
 
   const roots = [...(context.accessRoots ?? [])];
   if (!roots.some((root) => root.scope === 'primary') && context.cwd) {
@@ -407,6 +411,28 @@ const collectPathRequests = (
   args: Record<string, any>,
   cwd: string,
 ): PathRequest[] => {
+  const presentationImagePaths = (value: unknown): PathRequest[] => {
+    const requests: PathRequest[] = [];
+    const visit = (entry: unknown) => {
+      if (!entry || typeof entry !== 'object') return;
+      if (
+        (entry as { type?: unknown }).type === 'image' &&
+        typeof (entry as { source?: { path?: unknown } }).source?.path === 'string'
+      ) {
+        const target = entry as { source: { path: string } };
+        requests.push({
+          apply: (_args, resolved) => {
+            target.source.path = resolved;
+          },
+          mode: 'read',
+          value: target.source.path,
+        });
+      }
+      for (const child of Array.isArray(entry) ? entry : Object.values(entry)) visit(child);
+    };
+    visit(value);
+    return requests;
+  };
   switch (apiName) {
     case 'listFiles':
     case 'listLocalFiles':
@@ -490,6 +516,39 @@ const collectPathRequests = (
     case 'writeFile':
     case 'writeLocalFile': {
       return [{ apply: setField('path'), mode: 'write', value: args.path }];
+    }
+    case 'createPresentation': {
+      return [
+        { apply: setField('path'), mode: 'write', value: args.path },
+        { apply: () => {}, mode: 'write', value: `${args.path}.masterino.json` },
+        ...presentationImagePaths(args.deck),
+      ];
+    }
+    case 'revisePresentation': {
+      return [
+        { apply: setField('projectPath'), mode: 'write', value: args.projectPath },
+        { apply: setField('outputPath'), mode: 'write', value: args.outputPath },
+        ...presentationImagePaths(args.operations),
+      ];
+    }
+    case 'inspectPresentation': {
+      return [{ apply: setField('projectPath'), mode: 'read', value: args.projectPath }];
+    }
+    case 'renderPresentationPreview': {
+      return [
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+        {
+          apply: () => {},
+          mode: 'write',
+          value: `${args.projectPath}.previews`,
+        },
+      ];
+    }
+    case 'validatePresentation': {
+      return [
+        { apply: setField('path'), mode: 'read', value: args.path },
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+      ];
     }
     case 'editFile':
     case 'editLocalFile': {

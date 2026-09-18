@@ -19,7 +19,7 @@
  *      because the manifest was still resolvable in the engine even when
  *      the rule-layer gate denied it).
  */
-import { LocalSystemManifest } from '@lobechat/builtin-tool-local-system';
+import { LocalSystemManifest, PRESENTATION_API_NAMES } from '@lobechat/builtin-tool-local-system';
 import { RemoteDeviceManifest } from '@lobechat/builtin-tool-remote-device';
 import { builtinTools } from '@lobechat/builtin-tools';
 
@@ -31,6 +31,28 @@ export const DEVICE_TOOL_IDENTIFIERS: ReadonlySet<string> = new Set(
 
 export const isDeviceToolIdentifier = (identifier: string): boolean =>
   DEVICE_TOOL_IDENTIFIERS.has(identifier);
+
+const presentationApiNames = new Set<string>(PRESENTATION_API_NAMES);
+
+/**
+ * Keep the server's schema authoritative while intersecting new local APIs
+ * with the selected desktop's advertised implementation. Legacy devices keep
+ * all historical local-system APIs and simply do not see presentation calls.
+ */
+export const scopeLocalSystemManifestForDevice = (params: {
+  gatewayConfigured: boolean;
+  localSystemApiVersions?: Record<string, number>;
+}) => {
+  if (!params.gatewayConfigured) return LocalSystemManifest;
+  const supportsPresentations = PRESENTATION_API_NAMES.every(
+    (name) => (params.localSystemApiVersions?.[name] ?? 0) >= 1,
+  );
+  if (supportsPresentations) return LocalSystemManifest;
+  return {
+    ...LocalSystemManifest,
+    api: LocalSystemManifest.api.filter((api) => !presentationApiNames.has(api.name)),
+  };
+};
 
 export interface AllowedBuiltinToolsParams {
   /**

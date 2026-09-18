@@ -320,4 +320,5 @@ export async function inspectOfficeDocument(
 }
 
 export * from './modify';
+export * from './presentation';
 export * from './write';

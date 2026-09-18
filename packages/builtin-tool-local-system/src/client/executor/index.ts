@@ -36,6 +36,11 @@ const LocalSystemApiEnum = {
   createOfficeDocument: 'createOfficeDocument' as const,
   inspectOfficeDocument: 'inspectOfficeDocument' as const,
   readOfficeDocument: 'readOfficeDocument' as const,
+  createPresentation: 'createPresentation' as const,
+  inspectPresentation: 'inspectPresentation' as const,
+  renderPresentationPreview: 'renderPresentationPreview' as const,
+  revisePresentation: 'revisePresentation' as const,
+  validatePresentation: 'validatePresentation' as const,
   readFile: 'readFile' as const,
   readFiles: 'readFiles' as const,
   runCommand: 'runCommand' as const,
@@ -84,6 +89,36 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
   readOfficeDocument = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
     (await this.executeOnDesktopBoundary('readOfficeDocument', args, ctx)) ?? {
       content: 'Office tools require a bound device execution context',
+      success: false,
+    };
+
+  createPresentation = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('createPresentation', args, ctx)) ?? {
+      content: 'Presentation tools require a bound device execution context',
+      success: false,
+    };
+
+  revisePresentation = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('revisePresentation', args, ctx)) ?? {
+      content: 'Presentation tools require a bound device execution context',
+      success: false,
+    };
+
+  inspectPresentation = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('inspectPresentation', args, ctx)) ?? {
+      content: 'Presentation tools require a bound device execution context',
+      success: false,
+    };
+
+  renderPresentationPreview = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('renderPresentationPreview', args, ctx)) ?? {
+      content: 'Presentation tools require a bound device execution context',
+      success: false,
+    };
+
+  validatePresentation = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('validatePresentation', args, ctx)) ?? {
+      content: 'Presentation tools require a bound device execution context',
       success: false,
     };
 
@@ -145,7 +180,13 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
         topicId,
       },
     };
-    const output = ['inspectOfficeDocument', 'readOfficeDocument'].includes(apiName)
+    const output = [
+      'inspectOfficeDocument',
+      'readOfficeDocument',
+      'inspectPresentation',
+      'renderPresentationPreview',
+      'validatePresentation',
+    ].includes(apiName)
       ? await gatewayConnectionService.executeLocalToolCall(request, { signal: ctx.signal })
       : await gatewayConnectionService.executeLocalToolCall(request);
 

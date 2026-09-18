@@ -7,6 +7,7 @@ import {
   buildAllowedBuiltinTools,
   DEVICE_TOOL_IDENTIFIERS,
   isDeviceToolIdentifier,
+  scopeLocalSystemManifestForDevice,
 } from './deviceToolRegistry';
 
 describe('deviceToolRegistry', () => {
@@ -71,5 +72,32 @@ describe('deviceToolRegistry', () => {
       const ids = result.map((t) => t.identifier);
       expect(ids).toContain(LocalSystemManifest.identifier);
     });
+  });
+
+  it('offers presentation APIs only when the selected desktop advertises their contract version', () => {
+    const legacy = scopeLocalSystemManifestForDevice({ gatewayConfigured: true });
+    expect(legacy.api.map((api) => api.name)).toContain('createOfficeDocument');
+    expect(legacy.api.map((api) => api.name)).not.toContain('createPresentation');
+
+    const capable = scopeLocalSystemManifestForDevice({
+      gatewayConfigured: true,
+      localSystemApiVersions: {
+        createPresentation: 1,
+        inspectPresentation: 1,
+        renderPresentationPreview: 1,
+        revisePresentation: 1,
+        validatePresentation: 1,
+      },
+    });
+    expect(capable.api.map((api) => api.name)).toContain('createPresentation');
+
+    const partial = scopeLocalSystemManifestForDevice({
+      gatewayConfigured: true,
+      localSystemApiVersions: { createPresentation: 1 },
+    });
+    expect(partial.api.map((api) => api.name)).not.toContain('createPresentation');
+
+    const standalone = scopeLocalSystemManifestForDevice({ gatewayConfigured: false });
+    expect(standalone.api.map((api) => api.name)).toContain('createPresentation');
   });
 });

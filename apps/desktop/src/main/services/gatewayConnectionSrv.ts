@@ -30,6 +30,17 @@ import { ServiceModule } from './index';
 
 const logger = createLogger('services:GatewayConnectionSrv');
 
+// This is an implementation claim from the packaged Electron main process,
+// not a copy of the server manifest. Bump an entry only when the matching
+// controller path and local-file-shell implementation ship in this app.
+const LOCAL_SYSTEM_API_VERSIONS = {
+  createPresentation: 1,
+  inspectPresentation: 1,
+  renderPresentationPreview: 1,
+  revisePresentation: 1,
+  validatePresentation: 1,
+} as const;
+
 /**
  * Result envelope a tool-call handler must return. Mirrors
  * `BuiltinServerRuntimeOutput` so the renderer-side and remote-device paths
@@ -372,6 +383,10 @@ export default class GatewayConnectionService extends ServiceModule {
     }
 
     const client = new GatewayClient({
+      capabilities: {
+        executionContextValidation: true,
+        localSystemApiVersions: LOCAL_SYSTEM_API_VERSIONS,
+      },
       channel: isDev ? 'desktop-dev' : 'desktop',
       connectionId: this.getConnectionId(),
       deviceId: this.getDeviceId(),
