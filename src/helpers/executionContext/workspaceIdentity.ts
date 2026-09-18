@@ -18,8 +18,11 @@ export const isAbsoluteFilesystemPath = (value: string): boolean => {
  */
 export const normalizeRootPath = (value: string): string => {
   const withSlashes = value.trim().replaceAll('\\', '/');
-  const collapsed = withSlashes.replaceAll(/\/{2,}/g, '/');
-  const driveNormalized = collapsed.replace(
+  const hasUncPrefix = withSlashes.startsWith('//');
+  const withoutUncPrefix = hasUncPrefix ? withSlashes.slice(2).replace(/^\/+/, '') : withSlashes;
+  const collapsed = withoutUncPrefix.replaceAll(/\/{2,}/g, '/');
+  const withNormalizedPrefix = hasUncPrefix ? `//${collapsed}` : collapsed;
+  const driveNormalized = withNormalizedPrefix.replace(
     /^([A-Z]):\//,
     (_, drive: string) => `${drive.toLowerCase()}:/`,
   );
