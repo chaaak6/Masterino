@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "Das Upstream-Gateway oder der Proxy hat einen Fehler zurückgegeben. Bitte versuchen Sie es in Kürze erneut; falls das Problem weiterhin besteht, überprüfen Sie Ihre Proxy-/Endpunktkonfiguration.",
   "UpstreamHttpError": "Der Anbieter hat einen HTTP-Fehler ohne weitere Details zurückgegeben. Bitte versuchen Sie es erneut oder überprüfen Sie Ihre Anfrage- und Modellkonfiguration.",
   "UpstreamMalformedResponse": "Der Anbieter hat eine fehlerhafte Antwort zurückgegeben, die nicht analysiert werden konnte. Bitte versuchen Sie es erneut; falls das Problem weiterhin besteht, versuchen Sie ein anderes Modell oder einen anderen Anbieter.",
-  "UserConfigError": "Die Anbieter-Konfiguration ist ungültig (falsche Basis-URL, fehlende Umgebungsvariable, virtuelle Schlüsselbeschränkung usw.). Bitte überprüfen Sie die Anbietereinstellungen."
+  "UserConfigError": "Die Anbieter-Konfiguration ist ungültig (falsche Basis-URL, fehlende Umgebungsvariable, virtuelle Schlüsselbeschränkung usw.). Bitte überprüfen Sie die Anbietereinstellungen.",
+  "upstream_timeout": "Die Antwort des Modells hat das Zeitlimit von 300 Sekunden überschritten. Bitte wiederholen Sie die Anfrage."
 }

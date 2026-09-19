@@ -9,6 +9,7 @@
   "activity.narrative": "سرد",
   "activity.notes": "ملاحظات",
   "analysis.action.button": "طلب تحليل الذاكرة",
+  "analysis.action.enableFirst": "فعّل الذاكرة في الإعدادات الشخصية قبل طلب التحليل.",
   "analysis.modal.cancel": "إلغاء",
   "analysis.modal.helper": "بشكل افتراضي، سيقوم Masterino بتحليل جميع المحادثات غير المعالجة. من الممكن اختيار نطاق زمني للتحليل.",
   "analysis.modal.rangePlaceholder": "لم يتم تحديد نطاق؛ سيتم تحليل جميع المحادثات.",

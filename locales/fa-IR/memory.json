@@ -9,6 +9,7 @@
   "activity.narrative": "روایت",
   "activity.notes": "یادداشت‌ها",
   "analysis.action.button": "درخواست تحلیل خاطرات",
+  "analysis.action.enableFirst": "قبل از درخواست تحلیل، حافظه را در تنظیمات شخصی فعال کنید.",
   "analysis.modal.cancel": "لغو",
   "analysis.modal.helper": "به‌طور پیش‌فرض، Masterino تمام گفتگوهای پردازش‌نشده را تحلیل می‌کند. انتخاب بازه زمانی برای تحلیل اختیاری است.",
   "analysis.modal.rangePlaceholder": "بازه‌ای انتخاب نشده است؛ تمام گفتگوها تحلیل خواهند شد.",

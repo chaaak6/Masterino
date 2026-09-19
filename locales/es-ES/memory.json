@@ -9,6 +9,7 @@
   "activity.narrative": "Narrativa",
   "activity.notes": "Notas",
   "analysis.action.button": "Solicitar análisis de recuerdos",
+  "analysis.action.enableFirst": "Activa Memoria en los ajustes personales antes de solicitar el análisis.",
   "analysis.modal.cancel": "Cancelar",
   "analysis.modal.helper": "Por defecto, Masterino analizará todos los chats no procesados. Es opcional seleccionar un rango de fechas para analizar.",
   "analysis.modal.rangePlaceholder": "Sin rango seleccionado; se analizarán todas las conversaciones.",

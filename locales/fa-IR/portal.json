@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "آیا این صفحه حذف شود؟",
   "notebook.delete": "حذف",
   "notebook.empty": "هنوز صفحه‌ای وجود ندارد. صفحاتی که به این موضوع مرتبط هستند، در اینجا نمایش داده می‌شوند.",
+  "notebook.loadError": "بارگذاری صفحات ممکن نشد. لطفاً دوباره تلاش کنید.",
   "notebook.title": "دفترچه",
   "openInPageEditor": "ویرایش در صفحه",
   "title": "محیط کاری"

@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "Supprimer cette page ?",
   "notebook.delete": "Supprimer",
   "notebook.empty": "Aucune page pour le moment. Les pages liées à ce sujet apparaîtront ici.",
+  "notebook.loadError": "Impossible de charger les pages. Veuillez réessayer.",
   "notebook.title": "Carnet",
   "openInPageEditor": "Modifier dans la page",
   "title": "Espace de travail"
