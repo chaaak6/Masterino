@@ -9,6 +9,7 @@
   "activity.narrative": "Описание",
   "activity.notes": "Заметки",
   "analysis.action.button": "Запросить анализ воспоминаний",
+  "analysis.action.enableFirst": "Включите «Память» в личных настройках перед запросом анализа.",
   "analysis.modal.cancel": "Отмена",
   "analysis.modal.helper": "По умолчанию Masterino проанализирует все необработанные чаты. Вы можете выбрать диапазон дат для анализа по желанию.",
   "analysis.modal.rangePlaceholder": "Диапазон не выбран; будут проанализированы все беседы.",

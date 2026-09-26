@@ -163,7 +163,6 @@
   "ModelSwitchPanel.detail.abilities.vision": "视觉识别",
   "ModelSwitchPanel.detail.config": "模型配置",
   "ModelSwitchPanel.detail.context": "上下文长度",
-  "ModelSwitchPanel.detail.inputModality": "输入模态",
   "ModelSwitchPanel.detail.pricing": "价格",
   "ModelSwitchPanel.detail.pricing.cachedInput": "缓存输入 ${{amount}}/百万",
   "ModelSwitchPanel.detail.pricing.credits.cachedInput": "缓存输入 {{amount}} 积分/M 令牌",

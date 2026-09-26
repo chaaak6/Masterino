@@ -9,6 +9,7 @@
   "activity.narrative": "Narracja",
   "activity.notes": "Notatki",
   "analysis.action.button": "Poproś o analizę wspomnień",
+  "analysis.action.enableFirst": "Włącz funkcję Pamięć w ustawieniach osobistych przed zleceniem analizy.",
   "analysis.modal.cancel": "Anuluj",
   "analysis.modal.helper": "Domyślnie Masterino przeanalizuje wszystkie nieprzetworzone rozmowy. Możesz opcjonalnie wybrać zakres dat do analizy.",
   "analysis.modal.rangePlaceholder": "Nie wybrano zakresu; wszystkie rozmowy zostaną przeanalizowane.",

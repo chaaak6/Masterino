@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "Yukarı akış ağ geçidi veya proxy bir hata döndürdü. Lütfen kısa bir süre sonra yeniden deneyin; devam ederse proxy / uç nokta yapılandırmanızı kontrol edin.",
   "UpstreamHttpError": "Sağlayıcı ayrıntı vermeden bir HTTP hatası döndürdü. Lütfen yeniden deneyin veya isteğinizi ve model yapılandırmanızı kontrol edin.",
   "UpstreamMalformedResponse": "Sağlayıcı ayrıştırılamayan hatalı biçimlendirilmiş bir yanıt döndürdü. Lütfen yeniden deneyin; devam ederse farklı bir model veya sağlayıcı deneyin.",
-  "UserConfigError": "Sağlayıcı yapılandırması geçersiz (yanlış temel URL, eksik ortam değişkeni, sanal anahtar kısıtlaması vb.). Lütfen sağlayıcı ayarlarını gözden geçirin."
+  "UserConfigError": "Sağlayıcı yapılandırması geçersiz (yanlış temel URL, eksik ortam değişkeni, sanal anahtar kısıtlaması vb.). Lütfen sağlayıcı ayarlarını gözden geçirin.",
+  "upstream_timeout": "Model yanıtı 300 saniyelik zaman sınırını aştı. Lütfen isteği yeniden deneyin."
 }

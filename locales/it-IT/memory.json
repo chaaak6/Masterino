@@ -9,6 +9,7 @@
   "activity.narrative": "Narrazione",
   "activity.notes": "Note",
   "analysis.action.button": "Richiedi analisi delle memorie",
+  "analysis.action.enableFirst": "Abilita Memoria nelle impostazioni personali prima di richiedere l'analisi.",
   "analysis.modal.cancel": "Annulla",
   "analysis.modal.helper": "Per impostazione predefinita, Masterino analizzerà tutte le chat non elaborate. È facoltativo selezionare un intervallo di date da analizzare.",
   "analysis.modal.rangePlaceholder": "Nessun intervallo selezionato; tutte le conversazioni saranno analizzate.",
