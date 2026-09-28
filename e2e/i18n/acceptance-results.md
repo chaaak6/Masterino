@@ -62,3 +62,23 @@
 - 当前本地附件路径通过；云端上传、所有模型/插件/第三方服务和全部隐藏管理页面不属于本轮已逐页实测的范围。
 - 原生项目 `pnpm exec tsgo --noEmit -p tsconfig.json` 通过。根项目类型检查仍有 42 条诊断，错误文件均未在此分支修改，与本轮首次检查的诊断签名一致；没有声称全仓类型检查通过。
 - 品牌、模型名称、用户内容、服务端自由文本错误、第三方内容和开发日志不会机械翻译。其他语言保留已有能力，本轮不承诺完整覆盖。
+
+## 主流程补充回归（2026-09-28）
+
+针对聊天、工作目录和执行环境另行执行已有回归测试，均通过：
+
+- 前端 10 文件、149 测试：WorkspacePicker、WorkspaceControls、workspaceBindingIntent、topicExecutionIntent、executionContext、resolveFrozenClientExecutionContext、agentWorkingDirectory、executionTarget、clientToolExecution、agentEnvPolicy。
+- 原生客户端 3 文件、34 测试：executionEnvSrv、GatewayConnectionCtr.executionContext、WorkspaceCtr。
+- 覆盖首次/重复绑定、禁止已绑定会话重绑、设备隔离、冻结目录优先于模型传参、工具成功/失败/取消/超时、环境变量解析和缓存隔离。以上是单元/组件测试，不冒充远端沙箱 E2E。
+- 分支差异未涉及上述工作目录/执行环境/工具调用核心实现。
+
+日志：`/tmp/masterino-mainflow-frontend.log`、`/tmp/masterino-mainflow-native.log`。
+
+真实测试集群会话补验（越南语 UI、专用测试用户）：
+
+1. 通过项目侧栏 `demo_test` 的新增会话按钮创建项目草稿；界面显示 `/Users/a10507479/Desktop/codes/demo_test`，执行目标为本机。
+2. 发送只读测试要求，仅运行 `pwd`，不读文件内容、不修改文件；通过可见发送按钮提交。
+3. 展开真实工具卡片，命令为 `pwd`，输出为 `/Users/a10507479/Desktop/codes/demo_test`；模型继续正常回复。
+4. 重载会话后检查目录、只读执行目标和回复仍保留。测试会话 `tpc_X7VrGSiXi2vx`，截图 `/tmp/masterino-i18n-acceptance/mainflow-pwd-vi-VN.png`。
+
+这补足了本机“选项目 → 绑定目录 → 发消息 → 执行工具 → 返回回复 → 历史恢复”的实测链路。未对云沙箱或其他远端设备进行真实命令执行，不把环境解析单元测试等同于这些环境的 E2E。
