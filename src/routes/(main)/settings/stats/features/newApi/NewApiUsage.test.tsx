@@ -1,6 +1,12 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import i18n from 'i18next';
 import type { ReactNode } from 'react';
+import { initReactI18next } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import en from '@/../locales/en-US/aihub.json';
+import viVN from '@/../locales/vi-VN/aihub.json';
+import zh from '@/../locales/zh-CN/aihub.json';
 
 import NewApiUsage from './NewApiUsage';
 
@@ -141,9 +147,9 @@ describe('NewApiUsage', () => {
     expect(screen.getByText('Aihub 用量')).toBeInTheDocument();
     expect(screen.getByText('消耗金额')).toBeInTheDocument();
     expect(screen.getByText('请求数')).toBeInTheDocument();
-    expect(screen.getByText('Prompt Token')).toBeInTheDocument();
-    expect(screen.getByText('Completion Token')).toBeInTheDocument();
-    expect(screen.getByText('Total Token')).toBeInTheDocument();
+    expect(screen.getByText('输入 Token')).toBeInTheDocument();
+    expect(screen.getByText('输出 Token')).toBeInTheDocument();
+    expect(screen.getByText('总 Token')).toBeInTheDocument();
     expect(screen.getAllByText('¥0.14').length).toBeGreaterThan(0);
     expect(screen.getAllByText('30 tokens').length).toBeGreaterThan(0);
     expect(screen.getAllByText('glm5.1').length).toBeGreaterThan(0);
@@ -156,5 +162,16 @@ describe('NewApiUsage', () => {
     render(<NewApiUsage />);
 
     expect(screen.getByText('当前账号尚未绑定 Aihub 用户。')).toBeInTheDocument();
+  });
+});
+
+beforeEach(async () => {
+  await i18n.use(initReactI18next).init({
+    lng: 'zh-CN',
+    fallbackLng: 'en-US',
+    keySeparator: false,
+    defaultNS: 'aihub',
+    resources: { 'en-US': { aihub: en }, 'zh-CN': { aihub: zh }, 'vi-VN': { aihub: viVN } },
+    showSupportNotice: false,
   });
 });

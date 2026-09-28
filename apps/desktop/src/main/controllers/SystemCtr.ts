@@ -221,6 +221,7 @@ export default class SystemController extends ControllerModule {
 
     await this.app.i18n.changeLanguage(locale === 'auto' ? app.getLocale() : locale);
     this.app.browserManager.broadcastToAllWindows('localeChanged', { locale });
+    this.app.screenCaptureManager.updateLocale(locale);
 
     return { success: true };
   }

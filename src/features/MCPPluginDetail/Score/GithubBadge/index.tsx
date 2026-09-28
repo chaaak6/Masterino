@@ -13,7 +13,7 @@ type BadgeStyle = 'flat' | 'flat-square' | 'plastic' | 'for-the-badge';
 type BadgeTheme = 'dark' | 'light';
 
 const GithubBadge = memo(() => {
-  const { t } = useTranslation('discover');
+  const { t } = useTranslation(['discover', 'components']);
   const { identifier = '' } = useDetailContext();
   const [selectedStyle, setSelectedStyle] = useState<BadgeStyle>('flat-square');
   const [selectedTheme, setSelectedTheme] = useState<BadgeTheme>('dark');
@@ -51,30 +51,32 @@ const GithubBadge = memo(() => {
 
       <Select
         options={styleOptions}
-        prefix={<Tag style={{ marginRight: 4 }}>style</Tag>}
+        prefix={<Tag style={{ marginRight: 4 }}>{t('badgeStyle', { ns: 'components' })}</Tag>}
         value={selectedStyle}
         onChange={setSelectedStyle}
       />
       <Snippet language={'md'} style={{ fontSize: 12 }} variant={'outlined'}>
         {badgeLite}
       </Snippet>
-      { }
+      {}
       <img
         alt="MCP Badge"
         height={selectedStyle === 'for-the-badge' ? 28 : 20}
         src={styledBadgeUrl}
       />
-      <Divider style={{ color: cssVar.colorTextDescription, fontSize: 12 }}>OR</Divider>
+      <Divider style={{ color: cssVar.colorTextDescription, fontSize: 12 }}>
+        {t('or', { ns: 'components' })}
+      </Divider>
       <Select
         options={themeOptions}
-        prefix={<Tag style={{ marginRight: 4 }}>theme</Tag>}
+        prefix={<Tag style={{ marginRight: 4 }}>{t('badgeTheme', { ns: 'components' })}</Tag>}
         value={selectedTheme}
         onChange={setSelectedTheme}
       />
       <Snippet language={'md'} style={{ fontSize: 12 }} variant={'outlined'}>
         {badge}
       </Snippet>
-      { }
+      {}
       <img alt="MCP Badge" src={styledBadgeFullUrl} />
     </>
   );

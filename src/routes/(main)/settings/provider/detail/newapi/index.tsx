@@ -7,6 +7,7 @@ import { App, Divider } from 'antd';
 import { createStyles } from 'antd-style';
 import { LinkIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useAiInfraStore } from '@/store/aiInfra';
 import {
@@ -56,17 +57,19 @@ const Field = ({
 
 const ManagedTokenSelect = ({
   classNames,
+  label,
   onChange,
   options,
   value,
 }: {
   classNames: { field: string; tokenSelect: string };
   onChange: (value: string) => void;
+  label: string;
   options: SelectProps['options'];
   value?: string;
 }) => (
   <Flexbox className={classNames.field} gap={4}>
-    <Text type="secondary">托管 Token</Text>
+    <Text type="secondary">{label}</Text>
     <Select
       className={classNames.tokenSelect}
       disabled={!options?.length}
@@ -78,23 +81,24 @@ const ManagedTokenSelect = ({
   </Flexbox>
 );
 
-const BINDING_STATUS_TEXT: Record<string, string> = {
-  active: '正常',
-  error: '异常',
-  missing: '未绑定',
-  pending: '待同步',
-};
-
-const OAUTH_BINDING_STATUS_TEXT: Record<string, string> = {
-  active: '正常',
-  conflict: '绑定冲突',
-  error: '绑定失败',
-  missing: '未绑定',
-  pending: '绑定中',
-  unknown: '待校验',
-};
-
 const Page = () => {
+  const { t, i18n } = useTranslation('aihub');
+  const BINDING_STATUS_TEXT: Record<string, string> = {
+    active: t('healthy'),
+    error: t('error'),
+    missing: t('unbound'),
+    pending: t('pending'),
+  };
+
+  const OAUTH_BINDING_STATUS_TEXT: Record<string, string> = {
+    active: t('healthy'),
+    conflict: t('conflict'),
+    error: t('bindingFailed'),
+    missing: t('unbound'),
+    pending: t('binding'),
+    unknown: t('unverified'),
+  };
+
   const { styles } = useStyles();
   const { message } = App.useApp();
   const [syncing, setSyncing] = useState(false);
@@ -113,12 +117,12 @@ const Page = () => {
     readinessNeedsRepair || ['conflict', 'error', 'missing'].includes(oauthBindingStatus);
   const showRebind = canRebind || oauthBindingStatus === 'pending';
   const bindingTag = !isBound
-    ? { color: 'warning', text: '未绑定' }
+    ? { color: 'warning', text: t('unbound') }
     : oauthBindingStatus === 'active'
-      ? { color: 'success', text: '已绑定' }
+      ? { color: 'success', text: t('bound') }
       : oauthBindingStatus === 'unknown' || oauthBindingStatus === 'pending'
-        ? { color: 'warning', text: '待校验' }
-        : { color: 'error', text: '绑定异常' };
+        ? { color: 'warning', text: t('unverified') }
+        : { color: 'error', text: t('bindingError') };
 
   useFetchAiProviderList();
   useFetchAiProviderItem('newapi');
@@ -151,7 +155,7 @@ const Page = () => {
         useAiInfraStore.getState().refreshAiProviderDetail(),
       ]);
 
-      message.success(`已同步 ${result.models.length} 个 Aihub 模型`);
+      message.success(t('syncSuccess', { count: result.models.length }));
     } catch (error) {
       message.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -168,11 +172,11 @@ const Page = () => {
       await Promise.all([mutateBinding(), mutateAccount(), mutateUsage()]);
 
       if (result.status === 'active') {
-        message.success('重新绑定成功');
+        message.success(t('rebindSuccess'));
       } else if (result.status === 'conflict') {
-        message.error('该企业微信工号已绑定其他 Aihub 用户，请联系管理员处理');
+        message.error(t('rebindConflict'));
       } else {
-        message.error(result.errorMessage || '重新绑定失败，请稍后重试');
+        message.error(result.errorMessage || t('rebindFailed'));
       }
     } catch (error) {
       message.error(error instanceof Error ? error.message : String(error));
@@ -196,7 +200,7 @@ const Page = () => {
                 size="small"
                 onClick={handleRebind}
               >
-                重新绑定
+                {t('rebind')}
               </Button>
             )}
             <Button
@@ -206,14 +210,14 @@ const Page = () => {
               size="small"
               onClick={handleSyncModels}
             >
-              刷新模型
+              {t('refresh')}
             </Button>
           </Flexbox>
         }
         title={
           <Flexbox horizontal align="center" gap={8}>
             <ProviderCombine provider="newapi" size={24} />
-            <span>Aihub绑定情况</span>
+            <span>{t('bindingTitle')}</span>
             <Tag color={bindingTag.color}>{bindingTag.text}</Tag>
           </Flexbox>
         }
@@ -222,26 +226,31 @@ const Page = () => {
           <Flexbox horizontal gap={24} style={{ flexWrap: 'wrap' }}>
             <Field
               classNames={styles}
-              label="Masterino状态"
+              label={t('masterinoStatus')}
               value={
-                BINDING_STATUS_TEXT[binding?.status || 'missing'] || binding?.status || '未绑定'
+                BINDING_STATUS_TEXT[binding?.status || 'missing'] || binding?.status || t('unbound')
               }
             />
             <ManagedTokenSelect
               classNames={styles}
+              label={t('managedToken')}
               options={managedTokenOptions}
               value={selectedManagedTokenId}
               onChange={setSelectedManagedTokenId}
             />
             <Field
               classNames={styles}
-              label="企业微信与 Aihub"
+              label={t('oauthStatus')}
               value={OAUTH_BINDING_STATUS_TEXT[oauthBindingStatus] || oauthBindingStatus}
             />
             <Field
               classNames={styles}
-              label="最近同步"
-              value={binding?.lastSyncedAt ? new Date(binding.lastSyncedAt).toLocaleString() : '-'}
+              label={t('lastSynced')}
+              value={
+                binding?.lastSyncedAt
+                  ? new Date(binding.lastSyncedAt).toLocaleString(i18n.language)
+                  : '-'
+              }
             />
           </Flexbox>
           {binding?.errorMessage && (
@@ -256,23 +265,23 @@ const Page = () => {
           )}
           <Divider style={{ margin: 0 }} />
           <Flexbox horizontal gap={24} style={{ flexWrap: 'wrap' }}>
-            <Field classNames={styles} label="用户名" value={account?.username} />
-            <Field classNames={styles} label="用户组" value={account?.group} />
+            <Field classNames={styles} label={t('username')} value={account?.username} />
+            <Field classNames={styles} label={t('group')} value={account?.group} />
             <Field
               classNames={styles}
-              label="余额"
-              value={formatNewApiQuota(account?.quota, quotaPolicy)}
+              label={t('balance')}
+              value={formatNewApiQuota(account?.quota, quotaPolicy, i18n.language)}
             />
             <Field
               classNames={styles}
-              label="已用金额"
-              value={formatNewApiQuota(account?.usedQuota, quotaPolicy)}
+              label={t('usedAmount')}
+              value={formatNewApiQuota(account?.usedQuota, quotaPolicy, i18n.language)}
             />
-            <Field classNames={styles} label="请求数" value={account?.requestCount} />
+            <Field classNames={styles} label={t('requests')} value={account?.requestCount} />
             <Field
               classNames={styles}
-              label="消耗金额"
-              value={formatNewApiQuota(usage?.totalQuota, quotaPolicy)}
+              label={t('cost')}
+              value={formatNewApiQuota(usage?.totalQuota, quotaPolicy, i18n.language)}
             />
           </Flexbox>
         </Flexbox>

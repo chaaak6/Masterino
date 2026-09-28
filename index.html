@@ -93,10 +93,19 @@
           document.documentElement.setAttribute('data-theme', resolvedTheme);
         }
 
-        var hl = new URLSearchParams(location.search).get('hl');
+        var urlParams = new URLSearchParams(location.search);
+        var hl = urlParams.get('hl');
+        var desktopLocale = '';
+        if (window.electronAPI) {
+          try {
+            desktopLocale =
+              localStorage.getItem('masterino.localeMode') || localStorage.getItem('i18nextLng');
+          } catch (_) {}
+          desktopLocale = desktopLocale || urlParams.get('lng');
+        }
         var m = document.cookie.match(/(?:^|;\s*)LOBE_LOCALE=([^;]*)/);
         var cookie = m ? decodeURIComponent(m[1]) : '';
-        var locale = hl || cookie || navigator.language || 'en-US';
+        var locale = hl || desktopLocale || cookie || navigator.language || 'en-US';
         if (locale === 'auto') locale = navigator.language || 'en-US';
         if (hl && !cookie) {
           document.cookie =

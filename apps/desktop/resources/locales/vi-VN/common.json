@@ -18,6 +18,8 @@
   "actions.submit": "Gửi",
   "app.description": "Nền tảng hợp tác trợ lý AI của bạn",
   "app.name": "Masterino",
+  "notification.permissionBody": "Masterino hiện có thể gửi thông báo cho bạn.",
+  "notification.permissionTitle": "Quyền thông báo",
   "status.error": "Lỗi",
   "status.info": "Thông tin",
   "status.loading": "Đang tải",

@@ -1,6 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import i18n from 'i18next';
 import type { ReactNode } from 'react';
+import { initReactI18next } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import en from '@/../locales/en-US/aihub.json';
+import viVN from '@/../locales/vi-VN/aihub.json';
+import zh from '@/../locales/zh-CN/aihub.json';
 
 import Page from './index';
 
@@ -218,9 +224,9 @@ describe('Aihub provider detail page', () => {
   it('renders binding, visible RMB rows, model list, and refreshes models', async () => {
     render(<Page />);
 
-    expect(screen.getByText('Aihub绑定情况')).toBeInTheDocument();
+    expect(screen.getByText('Aihub 绑定情况')).toBeInTheDocument();
     expect(screen.getByText('已绑定')).toHaveAttribute('data-color', 'success');
-    expect(screen.getByText('Masterino状态')).toBeInTheDocument();
+    expect(screen.getByText('Masterino 状态')).toBeInTheDocument();
     expect(screen.getAllByText('正常')).toHaveLength(2);
     expect(screen.getByLabelText('托管 Token')).toHaveValue('13');
     expect(screen.getByRole('option', { name: 'masterlion-managed' })).toBeInTheDocument();
@@ -232,9 +238,9 @@ describe('Aihub provider detail page', () => {
     ).toBe(true);
     expect(screen.queryByText('Aihub 用户 ID')).not.toBeInTheDocument();
     expect(screen.queryByText('托管 Token 可用额度')).not.toBeInTheDocument();
-    expect(screen.queryByText('Total Token')).not.toBeInTheDocument();
-    expect(screen.queryByText('Prompt Token')).not.toBeInTheDocument();
-    expect(screen.queryByText('Completion Token')).not.toBeInTheDocument();
+    expect(screen.queryByText('总 Token')).not.toBeInTheDocument();
+    expect(screen.queryByText('输入 Token')).not.toBeInTheDocument();
+    expect(screen.queryByText('输出 Token')).not.toBeInTheDocument();
     expect(screen.queryByText('原始余额 quota')).not.toBeInTheDocument();
     expect(screen.queryByText(/[宸鏈鐢浣楼]/)).not.toBeInTheDocument();
     expect(screen.getByTestId('model-list')).toHaveTextContent('newapi: GLM-5.1');
@@ -265,5 +271,16 @@ describe('Aihub provider detail page', () => {
     expect(mocks.mutateAccount).toHaveBeenCalled();
     expect(mocks.mutateUsage).toHaveBeenCalled();
     expect(mocks.messageSuccess).toHaveBeenCalledWith('重新绑定成功');
+  });
+});
+
+beforeEach(async () => {
+  await i18n.use(initReactI18next).init({
+    lng: 'zh-CN',
+    fallbackLng: 'en-US',
+    keySeparator: false,
+    defaultNS: 'aihub',
+    resources: { 'en-US': { aihub: en }, 'zh-CN': { aihub: zh }, 'vi-VN': { aihub: viVN } },
+    showSupportNotice: false,
   });
 });

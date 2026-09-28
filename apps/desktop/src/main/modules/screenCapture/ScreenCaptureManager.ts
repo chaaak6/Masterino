@@ -61,6 +61,12 @@ export class ScreenCaptureManager {
 
   constructor(private readonly app: App) {}
 
+  updateLocale(locale: string): void {
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.webContents.send('localeChanged', { locale });
+    }
+  }
+
   publishOverlaySnapshot(payload: OverlaySnapshotPayload): void {
     this.snapshot = payload;
     // If a session is already on screen, push the updated lists so the user

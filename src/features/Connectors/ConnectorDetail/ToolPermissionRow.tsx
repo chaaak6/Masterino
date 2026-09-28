@@ -2,6 +2,7 @@ import { Tooltip } from 'antd';
 import { createStaticStyles } from 'antd-style';
 import { BanIcon, CheckIcon, HandIcon } from 'lucide-react';
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ConnectorToolPermission } from '@/database/schemas';
 import type { ConnectorTool } from '@/store/tool/slices/connector';
@@ -86,6 +87,7 @@ interface ToolPermissionRowProps {
 }
 
 const ToolPermissionRow = memo<ToolPermissionRowProps>(({ tool, onPermissionChange }) => {
+  const { t } = useTranslation('components');
   const btnClass = (permission: ConnectorToolPermission) =>
     tool.permission === permission ? `${styles.btn} ${styles.btnActive}` : styles.btn;
 
@@ -102,21 +104,21 @@ const ToolPermissionRow = memo<ToolPermissionRowProps>(({ tool, onPermissionChan
       <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
         <div
           className={btnClass(ConnectorToolPermission.auto)}
-          title="Auto — AI calls directly"
+          title={t('permission.auto')}
           onClick={() => onPermissionChange(tool.id, ConnectorToolPermission.auto)}
         >
           <CheckIcon size={15} />
         </div>
         <div
           className={btnClass(ConnectorToolPermission.needs_approval)}
-          title="Needs approval"
+          title={t('permission.approval')}
           onClick={() => onPermissionChange(tool.id, ConnectorToolPermission.needs_approval)}
         >
           <HandIcon size={15} />
         </div>
         <div
           className={btnClass(ConnectorToolPermission.disabled)}
-          title="Disabled — hidden from AI"
+          title={t('permission.disabled')}
           onClick={() => onPermissionChange(tool.id, ConnectorToolPermission.disabled)}
         >
           <BanIcon size={15} />

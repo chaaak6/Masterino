@@ -16,7 +16,7 @@ import { topicService } from '@/services/topic';
 import SectionHeader from './SectionHeader';
 
 const AgentRecentTopics = memo(() => {
-  const { t } = useTranslation('chat');
+  const { t, i18n } = useTranslation('chat');
   const { aid } = useParams<{ aid: string }>();
 
   const { data: result, isLoading } = useSWR(aid ? agentHomeKeys.topics(aid) : null, () =>
@@ -58,7 +58,9 @@ const AgentRecentTopics = memo(() => {
                   {topic.title || t('topic.defaultTitle')}
                 </Text>
                 <Text ellipsis fontSize={12} type={'secondary'}>
-                  {topic.updatedAt ? new Date(topic.updatedAt).toLocaleDateString() : ''}
+                  {topic.updatedAt
+                    ? new Date(topic.updatedAt).toLocaleDateString(i18n.language)
+                    : ''}
                 </Text>
               </Flexbox>
             </Block>

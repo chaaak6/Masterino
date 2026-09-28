@@ -17,13 +17,15 @@ vi.mock('@lobechat/utils', () => ({
 
 describe('switchLang', () => {
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.restoreAllMocks();
+    localStorage.clear();
   });
 
   it('should change language to the specified locale', () => {
     const locale: LocaleMode = 'en-US';
     switchLang(locale);
 
+    expect(localStorage.getItem('masterino.localeMode')).toBe(locale);
     expect(changeLanguage).toHaveBeenCalledWith(locale);
     expect(document.documentElement.lang).toBe(locale);
     expect(setCookie).toHaveBeenCalledWith(LOBE_LOCALE_COOKIE, locale, 365);
@@ -35,8 +37,9 @@ describe('switchLang', () => {
 
     switchLang('auto');
 
-    expect(changeLanguage).toHaveBeenCalledWith(navigatorLanguage);
-    expect(document.documentElement.lang).toBe(navigatorLanguage);
+    expect(localStorage.getItem('masterino.localeMode')).toBe('auto');
+    expect(changeLanguage).toHaveBeenCalledWith('fr-FR');
+    expect(document.documentElement.lang).toBe('fr-FR');
     expect(setCookie).toHaveBeenCalledWith(LOBE_LOCALE_COOKIE, undefined, 365);
   });
 });

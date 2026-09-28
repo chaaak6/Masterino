@@ -27,4 +27,15 @@ describe('newApiQuota', () => {
       }),
     ).toBe('¥0.14');
   });
+  it.each(['en-US', 'zh-CN', 'vi-VN'])('keeps the RMB value when formatting for %s', (locale) => {
+    const formatted = formatNewApiQuota(431_425_467, undefined, locale);
+    expect(formatted).toBe(
+      new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: 'CNY',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(6143.5),
+    );
+  });
 });

@@ -1,6 +1,12 @@
 import { cleanup, render, screen } from '@testing-library/react';
+import i18n from 'i18next';
 import type { ReactNode } from 'react';
+import { initReactI18next } from 'react-i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import en from '@/../locales/en-US/aihub.json';
+import viVN from '@/../locales/vi-VN/aihub.json';
+import zh from '@/../locales/zh-CN/aihub.json';
 
 import NewApiBalance from './NewApiBalance';
 
@@ -78,7 +84,7 @@ describe('NewApiBalance', () => {
     render(<NewApiBalance />);
 
     expect(screen.getByText('已绑定')).toHaveAttribute('data-color', 'success');
-    expect(screen.getByText('AIHUB 余额')).toBeInTheDocument();
+    expect(screen.getByText('Aihub 余额')).toBeInTheDocument();
     expect(screen.getByText('已用金额')).toBeInTheDocument();
     expect(screen.getByText('请求数')).toBeInTheDocument();
     expect(screen.getByText('¥0.14')).toHaveClass('value');
@@ -97,4 +103,25 @@ describe('NewApiBalance', () => {
     expect(mocks.useAccountSummary).toHaveBeenCalledWith(false);
     expect(screen.getAllByTestId('balance-loading')).toHaveLength(3);
   });
+});
+
+beforeEach(async () => {
+  await i18n.use(initReactI18next).init({
+    lng: 'zh-CN',
+    fallbackLng: 'en-US',
+    keySeparator: false,
+    defaultNS: 'aihub',
+    resources: { 'en-US': { aihub: en }, 'zh-CN': { aihub: zh }, 'vi-VN': { aihub: viVN } },
+    showSupportNotice: false,
+  });
+});
+
+it.each([
+  ['en-US', 'Aihub balance'],
+  ['zh-CN', 'Aihub 余额'],
+  ['vi-VN', 'Số dư Aihub'],
+])('renders balance in %s', async (lang, label) => {
+  await i18n.changeLanguage(lang);
+  render(<NewApiBalance />);
+  expect(screen.getByText(label)).toBeInTheDocument();
 });

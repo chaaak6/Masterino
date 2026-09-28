@@ -10,6 +10,7 @@ import defaultError from '@/locales/default/error';
 import defaultMarketAuth from '@/locales/default/marketAuth';
 import defaultOauth from '@/locales/default/oauth';
 import { normalizeLocale } from '@/locales/resources';
+import { loadI18nNamespaceModuleWithFallback } from '@/utils/i18n/loadI18nNamespaceModule';
 
 const defaultResources = {
   auth: defaultAuth,
@@ -24,43 +25,20 @@ type AuthI18nNamespace = keyof typeof defaultResources;
 
 const isAllowedNamespace = (ns: string): ns is AuthI18nNamespace => ns in defaultResources;
 
-const loadZhNamespace = async (ns: AuthI18nNamespace) => {
-  switch (ns) {
-    case 'auth': {
-      return import('@/../locales/zh-CN/auth.json');
-    }
-    case 'authError': {
-      return import('@/../locales/zh-CN/authError.json');
-    }
-    case 'common': {
-      return import('@/../locales/zh-CN/common.json');
-    }
-    case 'error': {
-      return import('@/../locales/zh-CN/error.json');
-    }
-    case 'marketAuth': {
-      return import('@/../locales/zh-CN/marketAuth.json');
-    }
-    case 'oauth': {
-      return import('@/../locales/zh-CN/oauth.json');
-    }
-  }
-};
-
 const loadAuthNamespace = async (lng: string, ns: string) => {
   const safeNamespace = isAllowedNamespace(ns) ? ns : 'auth';
-  const normalizedLocale = normalizeLocale(lng);
-
-  if (normalizedLocale === 'zh-CN') {
-    try {
-      const mod = await loadZhNamespace(safeNamespace);
-      return (mod as any).default ?? mod;
-    } catch {
-      // fall through to bundled default namespace
-    }
+  if (normalizeLocale(lng) === DEFAULT_LANG) return defaultResources[safeNamespace];
+  try {
+    const mod = await loadI18nNamespaceModuleWithFallback({
+      defaultLang: DEFAULT_LANG,
+      lng,
+      normalizeLocale,
+      ns: safeNamespace,
+    });
+    return mod.default ?? mod;
+  } catch {
+    return defaultResources[safeNamespace];
   }
-
-  return defaultResources[safeNamespace];
 };
 
 export const createAuthI18n = (lang?: string) => {
@@ -87,7 +65,7 @@ export const createAuthI18n = (lang?: string) => {
         initAsync,
         interpolation: { escapeValue: false },
         keySeparator: false,
-        lng: lang,
+        lng: normalizeLocale(lang),
         ns: [],
         // Bundle en-US synchronously so the first render never suspends: with the
         // default useSuspense=true and no Suspense boundary above AuthShell, every

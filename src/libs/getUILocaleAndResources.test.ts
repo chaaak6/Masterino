@@ -20,11 +20,11 @@ describe('getUILocaleAndResources', () => {
     expect(translateFromUILocaleResources(result.resources, 'form.submit')).toBe('提交');
   });
 
-  it('should merge built-in resources with partial business ui.json resources', async () => {
+  it('should prefer business translations over built-in resources', async () => {
     const result = await getUILocaleAndResources('zh-CN');
 
     expect(translateFromUILocaleResources(result.resources, 'image.copy')).toBe('复制');
-    expect(translateFromUILocaleResources(result.resources, 'hotkey.clear')).toBe('清除绑定');
+    expect(translateFromUILocaleResources(result.resources, 'hotkey.clear')).toBe('清除快捷键');
     expect(translateFromUILocaleResources(result.resources, 'form.submit')).toBe('提交');
   });
 

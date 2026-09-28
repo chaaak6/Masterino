@@ -170,7 +170,7 @@ const MarkdownFileItem = memo<MarkdownFileItemProps>(
       <>
         <div style={{ position: 'relative' }}>
           {isLoadingMarkdown ? (
-            <div className={styles.markdownLoading}>Loading preview...</div>
+            <div className={styles.markdownLoading}>{t('loadingPreview')}</div>
           ) : markdownContent ? (
             <div className={styles.markdownPreview}>{markdownContent}</div>
           ) : (

@@ -4,6 +4,7 @@ import { Flexbox, type FlexboxProps, Tag } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
 import { isUndefined } from 'es-toolkit/compat';
 import { memo, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import NeuralNetworkLoading from '@/components/NeuralNetworkLoading';
 import { useNewApiAccountSummary, useNewApiBindingStatus } from '@/store/newApi';
@@ -45,6 +46,7 @@ const AmountRow = ({ label, value }: { label: string; value: ReactNode }) => (
 );
 
 const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) => {
+  const { t, i18n } = useTranslation('aihub');
   const { data: binding, isLoading: bindingLoading } = useNewApiBindingStatus();
   const isBound = !!binding?.isBound;
   const { data: account, isLoading: accountLoading } = useNewApiAccountSummary(isBound);
@@ -63,27 +65,27 @@ const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) 
         <Flexbox horizontal align={'center'} justify={'space-between'}>
           <span className={styles.label}>AIHUB</span>
           <Tag color={binding?.status === 'active' ? 'success' : 'warning'}>
-            {binding?.status === 'active' ? '已绑定' : '未绑定'}
+            {binding?.status === 'active' ? t('bound') : t('unbound')}
           </Tag>
         </Flexbox>
         <AmountRow
-          label="AIHUB 余额"
+          label={t('balanceTitle')}
           value={
             loading || isUndefined(account?.quota)
               ? loadingNode
-              : formatNewApiQuota(account.quota, account.quotaPolicy)
+              : formatNewApiQuota(account.quota, account.quotaPolicy, i18n.language)
           }
         />
         <AmountRow
-          label="已用金额"
+          label={t('usedAmount')}
           value={
             loading || isUndefined(account?.usedQuota)
               ? loadingNode
-              : formatNewApiQuota(account.usedQuota, account.quotaPolicy)
+              : formatNewApiQuota(account.usedQuota, account.quotaPolicy, i18n.language)
           }
         />
         <AmountRow
-          label="请求数"
+          label={t('requests')}
           value={loading || isUndefined(account?.requestCount) ? loadingNode : account.requestCount}
         />
       </Flexbox>

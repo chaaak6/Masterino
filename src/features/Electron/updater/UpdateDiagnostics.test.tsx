@@ -7,6 +7,7 @@ import { UpdateDiagnostics } from './UpdateDiagnostics';
 
 const mocks = vi.hoisted(() => ({
   checkUpdate: vi.fn(),
+  i18n: { language: 'en-US' },
   copyToClipboard: vi.fn(),
   openLogsDirectory: vi.fn(),
   openManualDownload: vi.fn(),
@@ -43,7 +44,7 @@ vi.mock('antd-style', () => ({
 }));
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ i18n: mocks.i18n, t: (key: string) => key }),
 }));
 
 vi.mock('@/services/electron/autoUpdate', () => ({
@@ -104,6 +105,7 @@ const state: UpdaterState = {
 describe('UpdateDiagnostics', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.i18n.language = 'en-US';
     mocks.checkUpdate.mockResolvedValue(undefined);
     mocks.copyToClipboard.mockResolvedValue(undefined);
     mocks.openLogsDirectory.mockResolvedValue(undefined);
@@ -121,6 +123,18 @@ describe('UpdateDiagnostics', () => {
     expect(screen.getAllByText('updater.diagnostic.step.manifestReceived')).toHaveLength(2);
     expect(screen.getByText('updater.diagnostic.failureStage')).toBeInTheDocument();
     expect(screen.getAllByText(/HTTP 503/)).toHaveLength(2);
+  });
+
+  it.each(['zh-CN', 'en-US', 'vi-VN'])('formats diagnostic dates in %s', (language) => {
+    mocks.i18n.language = language;
+    render(<UpdateDiagnostics state={state} />);
+
+    expect(
+      screen.getByText(new Date(state.diagnostic!.startedAt).toLocaleString(language)),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(new Date(state.diagnostic!.steps[0].at).toLocaleTimeString(language)),
+    ).toBeInTheDocument();
   });
 
   it('copies a support-ready diagnostic report and opens support actions', async () => {
