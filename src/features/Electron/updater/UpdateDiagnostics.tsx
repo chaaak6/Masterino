@@ -178,7 +178,9 @@ export const UpdateDiagnostics = ({
             {diagnostic.steps.map((step, index) => (
               <li key={`${step.at}-${step.name}-${index}`}>
                 <Flexbox horizontal align="flex-start" gap={8}>
-                  <span className={styles.stepTime}>{new Date(step.at).toLocaleTimeString()}</span>
+                  <span className={styles.stepTime}>
+                    {new Date(step.at).toLocaleTimeString(i18n.language)}
+                  </span>
                   <span>
                     <strong>{t(STEP_KEYS[step.name])}</strong>
                     {step.detail ? ` — ${step.detail}` : ''}

@@ -68,7 +68,7 @@ vi.mock('lucide-react', () => ({
 }));
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ i18n: { language: 'en-US' }, t: (key: string) => key }),
 }));
 
 vi.mock('@/services/electron/autoUpdate', () => ({
