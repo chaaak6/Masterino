@@ -183,7 +183,7 @@ export class Tray {
           logger.debug(`[${this.identifier}] Menu item "Show Main Window" clicked`);
           this.app.browserManager.showMainWindow();
         },
-        label: 'Show Main Window',
+        label: this.app.i18n.ns('menu')('tray.show', { appName: app.getName() }),
       },
       { type: 'separator' },
       {
@@ -191,7 +191,7 @@ export class Tray {
           logger.debug(`[${this.identifier}] Menu item "Quit" clicked`);
           app.quit();
         },
-        label: 'Quit',
+        label: this.app.i18n.ns('menu')('tray.quit'),
       },
     ];
 

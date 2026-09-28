@@ -12,7 +12,7 @@
   "table.columns.spend": "Tín dụng",
   "table.columns.startTime": "Thời gian tạo",
   "table.columns.totalTokens": "Sử dụng token",
-  "table.columns.trigger.enums.agent_signal": "Tín hiệu đại lý",
+  "table.columns.trigger.enums.agent_signal": "Tín hiệu trợ lý",
   "table.columns.trigger.enums.api": "Gọi API",
   "table.columns.trigger.enums.bot": "Tin nhắn Bot",
   "table.columns.trigger.enums.chat": "Tin nhắn Chat",

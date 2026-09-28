@@ -1,0 +1,27 @@
+name: Primary language contracts
+on:
+  pull_request:
+    paths:
+      - 'locales/**'
+      - 'packages/locales/**'
+      - 'apps/desktop/resources/locales/**'
+      - 'apps/desktop/src/main/locales/default/**'
+      - 'apps/desktop/index.html'
+      - 'apps/desktop/popup.html'
+      - 'index.html'
+      - 'e2e/i18n/**'
+      - 'scripts/i18nWorkflow/checkPrimaryLocales.mjs'
+      - '.github/workflows/i18n-primary.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  resources:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/i18nWorkflow/checkPrimaryLocales.mjs
+      - run: node --test e2e/i18n/bootstrap.test.mjs

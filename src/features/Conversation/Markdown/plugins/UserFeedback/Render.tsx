@@ -2,6 +2,7 @@ import { Flexbox, Text } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
 import { MessageSquareText } from 'lucide-react';
 import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { type MarkdownElementProps } from '../type';
 import { type ParsedUserFeedbackComment, parseUserFeedback } from './parseUserFeedback';
@@ -79,12 +80,13 @@ const Comment = memo<{ comment: ParsedUserFeedbackComment }>(({ comment }) => (
 Comment.displayName = 'UserFeedbackComment';
 
 const Render = memo<MarkdownElementProps>(({ children }) => {
+  const { t } = useTranslation('components');
   const text = typeof children === 'string' ? children : String(children ?? '');
   const comments = useMemo(() => parseUserFeedback(text), [text]);
 
   if (comments.length === 0) return null;
 
-  const countLabel = comments.length === 1 ? '1 comment' : `${comments.length} comments`;
+  const countLabel = t('feedback.comments', { count: comments.length });
 
   return (
     <details className={styles.root}>
@@ -95,7 +97,7 @@ const Render = memo<MarkdownElementProps>(({ children }) => {
           </span>
           <Flexbox horizontal align={'center'} flex={1} gap={8} style={{ minWidth: 0 }}>
             <Text ellipsis weight={500}>
-              User feedback
+              {t('feedback.title')}
             </Text>
             <span className={styles.countBadge}>{countLabel}</span>
           </Flexbox>

@@ -45,6 +45,7 @@
   "recommendations.heteroAgent.tag": "Agent Lập Trình",
   "recommendations.heteroAgent.title": "Thêm agent {{name}}",
   "recommendations.subtitle": "Một số gợi ý cho thiết lập của bạn",
+  "starter.aihubDefault": "Mô hình mặc định Aihub",
   "starter.createAgent": "Tạo Tác Nhân",
   "starter.createGroup": "Tạo Nhóm",
   "starter.deepResearch": "Nghiên cứu chuyên sâu",

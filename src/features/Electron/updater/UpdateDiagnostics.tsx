@@ -118,7 +118,7 @@ export const UpdateDiagnostics = ({
   showCheckAction = false,
   state,
 }: UpdateDiagnosticsProps) => {
-  const { t } = useTranslation('electron');
+  const { t, i18n } = useTranslation('electron');
   const diagnostic = state.diagnostic;
   const runtime = state.runtime;
   const busy = state.stage === 'checking' || state.stage === 'downloading';
@@ -150,7 +150,9 @@ export const UpdateDiagnostics = ({
               : '-'}
         </span>
         <span className={styles.label}>{t('updater.diagnostic.lastChecked')}</span>
-        <span>{diagnostic ? new Date(diagnostic.startedAt).toLocaleString() : '-'}</span>
+        <span>
+          {diagnostic ? new Date(diagnostic.startedAt).toLocaleString(i18n.language) : '-'}
+        </span>
         <span className={styles.label}>{t('updater.diagnostic.targetVersion')}</span>
         <span>{diagnostic?.targetVersion ?? '-'}</span>
         <span className={styles.label}>{t('updater.diagnostic.stage')}</span>

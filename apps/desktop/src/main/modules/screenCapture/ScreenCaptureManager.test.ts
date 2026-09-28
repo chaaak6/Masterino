@@ -130,6 +130,23 @@ describe('ScreenCaptureManager', () => {
     mockRequestScreenCaptureAccess.mockResolvedValue(false);
   });
 
+  it('updates the existing overlay without recreating or starting a capture', async () => {
+    const manager = new ScreenCaptureManager(createApp());
+    manager.updateLocale('vi-VN');
+    expect(MockBrowserWindow).not.toHaveBeenCalled();
+    await manager.startSession();
+    mockBrowserWindow.webContents.send.mockClear();
+    manager.updateLocale('vi-VN');
+    expect(mockBrowserWindow.webContents.send).toHaveBeenCalledWith('localeChanged', {
+      locale: 'vi-VN',
+    });
+    expect(MockBrowserWindow).toHaveBeenCalledTimes(1);
+    mockBrowserWindow.isDestroyed.mockReturnValue(true);
+    mockBrowserWindow.webContents.send.mockClear();
+    manager.updateLocale('en-US');
+    expect(mockBrowserWindow.webContents.send).not.toHaveBeenCalled();
+  });
+
   it('keeps the app in regular mode when showing overlay on macOS', async () => {
     const manager = new ScreenCaptureManager(createApp());
 

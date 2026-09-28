@@ -4,6 +4,7 @@ import { type SkillItem } from '@lobechat/types';
 import { CopyButton, Highlighter, Markdown } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
   codeWrapper: css`
@@ -173,12 +174,13 @@ interface ContentViewerProps {
 
 const ContentViewer = memo<ContentViewerProps>(
   ({ skillDetail, selectedFile, contentMap, liveContent }) => {
+    const { t } = useTranslation('components');
     if (selectedFile === 'SKILL.md') {
       const displayContent = liveContent ?? skillDetail?.content;
       if (!displayContent) {
         return (
           <div className={styles.docWrapper}>
-            <p style={{ opacity: 0.45 }}>No content</p>
+            <p style={{ opacity: 0.45 }}>{t('noContent')}</p>
           </div>
         );
       }

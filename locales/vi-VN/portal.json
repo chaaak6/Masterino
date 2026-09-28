@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "Xóa trang này?",
   "notebook.delete": "Xóa",
   "notebook.empty": "Chưa có trang nào. Các trang liên kết với Chủ đề này sẽ hiển thị tại đây.",
+  "notebook.loadError": "Không thể tải các trang. Vui lòng thử lại.",
   "notebook.title": "Sổ tay",
   "openInPageEditor": "Chỉnh sửa trong Trang",
   "title": "Không gian làm việc"

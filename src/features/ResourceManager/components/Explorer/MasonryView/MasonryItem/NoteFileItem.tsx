@@ -159,7 +159,7 @@ const NoteFileItem = memo<NoteFileItemProps>(
       <>
         <div style={{ position: 'relative' }}>
           {isLoadingMarkdown ? (
-            <div className={styles.markdownLoading}>Loading preview...</div>
+            <div className={styles.markdownLoading}>{t('loadingPreview')}</div>
           ) : markdownContent ? (
             <div className={styles.noteContent}>
               <div className={styles.noteTitle}>
@@ -171,7 +171,7 @@ const NoteFileItem = memo<NoteFileItemProps>(
               ) : (
                 <div className={styles.notePreview}>
                   <span style={{ color: 'var(--lobe-text-tertiary)', fontStyle: 'italic' }}>
-                    No content
+                    {t('noContent')}
                   </span>
                 </div>
               )}
@@ -184,7 +184,7 @@ const NoteFileItem = memo<NoteFileItemProps>(
               </div>
               <div className={styles.notePreview}>
                 <span style={{ color: 'var(--lobe-text-tertiary)', fontStyle: 'italic' }}>
-                  No content
+                  {t('noContent')}
                 </span>
               </div>
             </div>

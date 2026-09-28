@@ -116,7 +116,7 @@ interface RunHeaderProps {
 }
 
 const RunHeader = memo<RunHeaderProps>(({ run, benchmarkId, hideStart }) => {
-  const { t } = useTranslation('eval');
+  const { t } = useTranslation(['eval', 'components']);
   const { message } = App.useApp();
   const navigate = useWorkspaceAwareNavigate();
   const abortRun = useEvalStore((s) => s.abortRun);
@@ -307,7 +307,9 @@ const RunHeader = memo<RunHeaderProps>(({ run, benchmarkId, hideStart }) => {
             {/* System Role */}
             {snapshot.systemRole && (
               <div className={styles.configSection}>
-                <div className={styles.configSectionLabel}>System Role</div>
+                <div className={styles.configSectionLabel}>
+                  {t('systemRole', { ns: 'components' })}
+                </div>
                 <div className={styles.systemRole}>
                   <Markdown variant="chat">{snapshot.systemRole}</Markdown>
                 </div>
@@ -316,7 +318,9 @@ const RunHeader = memo<RunHeaderProps>(({ run, benchmarkId, hideStart }) => {
             {/* Plugins */}
             {snapshot.plugins && snapshot.plugins.length > 0 && (
               <div className={styles.configSection}>
-                <div className={styles.configSectionLabel}>Plugins</div>
+                <div className={styles.configSectionLabel}>
+                  {t('plugins', { ns: 'components' })}
+                </div>
                 <Flexbox horizontal gap={4} wrap="wrap">
                   {snapshot.plugins.map((plugin) => (
                     <Tag key={plugin}>{plugin}</Tag>
@@ -330,7 +334,9 @@ const RunHeader = memo<RunHeaderProps>(({ run, benchmarkId, hideStart }) => {
                 <Flexbox horizontal gap={12}>
                   {snapshot.chatConfig && (
                     <Flexbox flex={1} gap={0} style={{ minWidth: 0 }}>
-                      <div className={styles.configSectionLabel}>Chat Config</div>
+                      <div className={styles.configSectionLabel}>
+                        {t('chatConfig', { ns: 'components' })}
+                      </div>
                       <Highlighter
                         language="json"
                         style={{ fontSize: 12, maxHeight: 300, overflow: 'auto' }}
@@ -342,7 +348,9 @@ const RunHeader = memo<RunHeaderProps>(({ run, benchmarkId, hideStart }) => {
                   )}
                   {snapshot.params && (
                     <Flexbox flex={1} gap={0} style={{ minWidth: 0 }}>
-                      <div className={styles.configSectionLabel}>Params</div>
+                      <div className={styles.configSectionLabel}>
+                        {t('params', { ns: 'components' })}
+                      </div>
                       <Highlighter
                         language="json"
                         style={{ fontSize: 12, maxHeight: 300, overflow: 'auto' }}

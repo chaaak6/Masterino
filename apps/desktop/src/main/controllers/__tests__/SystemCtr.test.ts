@@ -124,6 +124,7 @@ const mockApp = {
   appStoragePath: '/mock/storage',
   browserManager: mockBrowserManager,
   i18n: mockI18n,
+  screenCaptureManager: { updateLocale: vi.fn() },
   storeManager: mockStoreManager,
 } as unknown as App;
 
