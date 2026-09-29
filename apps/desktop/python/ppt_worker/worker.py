@@ -202,7 +202,7 @@ def main():
                 result = apply(request)
             else:
                 raise WorkerError("PRESENTATION_INVALID_COMMAND")
-        print(json.dumps(result, ensure_ascii=False))
+        print(json.dumps(result))
     except (WorkerError, OSError, ValueError, KeyError) as error:
         code = str(error) if isinstance(error, WorkerError) else "PRESENTATION_WORKER_FAILED"
         print(json.dumps({"error": code}))
