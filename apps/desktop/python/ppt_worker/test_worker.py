@@ -21,6 +21,7 @@ def invoke(command, payload):
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         input=json.dumps(payload),
         text=True,
+        encoding="utf-8",
         capture_output=True,
         timeout=20,
         check=False,
