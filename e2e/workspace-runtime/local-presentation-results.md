@@ -1,48 +1,50 @@
 # Local PowerPoint BDD results
 
-- Date: 2026-09-18 (Asia/Shanghai)
-- Candidate commit: `b80d0024`
+- Date: 2026-09-29 (Asia/Shanghai)
+- Candidate commit: `a24d9563`
 - Electron profile: `test-server`
 - Server: `https://mlai-test.bielcrystal.com`
-- Execution target: local desktop (`desktop-dev`, macOS)
-- Test topic: `tpc_zwS3l5yjhiD5`
+- Execution target: local desktop (source Electron app, macOS)
+- Interface language: 简体中文
+- Test topic: `tpc_Ut6dpHmNosfA`
+- Test project: `/private/tmp/masterino-ppt-bdd-20260929-125900`
 - Test namespace: `masterino-test`
-- Application image: `sha256:2c8d500dc3993641c8573696d65127b37d93d583d360a0f1c207f1c2e85fcaec`
+- Application image: `sha256:cb1e4272e1f1ed79c5996506cf2edb7e83e609957873aa73524b8a5177188b04`
 - Device gateway image: `sha256:09485c35d03f7b4a4b1ebf1da5371bd05c6d3d6fd8de898392aa9af8c71ff609`
 
-The scenarios in `local-presentation.feature` were exercised through the source Electron app with Computer Use against the test cluster. The topic was bound to an isolated local project directory and displayed `执行设备: 本机` throughout the run.
+The scenarios in `local-presentation.feature` were exercised through the source Electron app with Computer Use against the test cluster. The topic was locked to the isolated local project above and displayed `执行设备: 本机`. The verifier oracle was stored outside the project so the agent could not read expected hashes or assertions.
 
-## Rich presentation creation
+## Built-in PowerPoint tool flow
 
-The agent used the local-system presentation APIs. Its visible tool history was:
+The visible tool history confirmed that PowerPoint work stayed in the local-system suite:
 
-1. `createPresentation` (the model first supplied an unsupported layout value, received validation feedback, and corrected it)
-2. `createPresentation`
-3. `validatePresentation`
-4. `renderPresentationPreview`
+1. `createPresentation` created a three-slide PPTX and revision-1 sidecar.
+2. `inspectPresentation`, `validatePresentation`, and `renderPresentationPreview` inspected the structure, reported `valid: true` with zero errors, and generated all three SVG previews.
+3. `revisePresentation` updated the original PPTX in place from revision 1 to 2. The operations used top-level `elementId + patch`; one patch changed title text and the other changed only `source.path` to `replacement-logo.png`.
+4. A second in-place `revisePresentation` recovered a lock owned by a dead process, advanced revision 2 to 3, and removed the stale lock.
+5. The final `inspectPresentation`, `validatePresentation`, and `renderPresentationPreview` calls reported revision 3, zero errors, zero warnings, and wrote all three previews under `r3`.
 
-The final validation reported `valid: true`, zero errors, zero warnings, three slides, one table, one chart, one image, and speaker notes. The preview renderer wrote three SVG slides under revision `r1`.
+The model selected the intended built-in tools without shell, Python, or a cloud sandbox. Once the prompt stated the `updateElement` shape explicitly, the revise flow completed in one call. The initial natural creation did produce one non-blocking `TEXT_MAY_OVERFLOW` warning and the model made unnecessary failed revise attempts before the follow-up told it to accept the warning. This is a model/tool-guidance usability issue rather than an execution failure; the shorter revised title eliminated the warning.
 
-An independent OOXML verifier then inspected the generated file and returned:
+An independent OOXML verifier inspected the final file and returned:
 
 ```json
-{"charts": 1, "images": 2, "notes": 3, "pptxSha256": "45bf1882efec98f8d1a6e2b5fa34719771564e72f7752e03c342225a8c7f2e35", "slides": 3, "tables": 1}
+{"charts": 1, "images": 2, "notes": 3, "pptxSha256": "ed0dae58d87c320cd47db230231f0f91ed28716a9261c6147e8588a79fa1e5fe", "slides": 3, "tables": 1}
 ```
 
-The generated deck contained the required `LOCAL-PPT-BDD-20260918` and `Next steps` text, the source image, the Quarter/Revenue table, the Revenue chart, the blue rounded rectangle, stable slide/element ids, and notes.
+The final deck contains `LOCAL-PPT-BDD-LOCK-RECOVERED-20260929`, the replacement image, the Quarter/Revenue table, the Revenue chart, the blue rounded rectangle, stable slide/element ids, and notes on all three slides.
 
-## Refusal to overwrite
+## Safety and concurrency checks
 
-The agent called `createPresentation` once for the existing `protected.pptx`. The local tool returned `EEXIST` and did not rename, delete, or replace the target. The fixture hash remained:
-
-```text
-b8634424b0a4676354c7c35183e84f7bf04ef7d669dd68c09ea43b480393932d
-```
+- Unrelated existing output: `revisePresentation` returned `PRESENTATION_OUTPUT_EXISTS` for `protected.pptx`. Its SHA-256 remained `b8634424b0a4676354c7c35183e84f7bf04ef7d669dd68c09ea43b480393932d`, and the project stayed at revision 3.
+- Optimistic locking: an in-place revision with stale `expectedRevision: 2` returned `PRESENTATION_REVISION_CHANGED: expected 2, current 3`. The PPTX SHA-256 and sidecar revision remained unchanged.
+- Untrusted slide id: `renderPresentationPreview` with only `../../outside` returned `slides: []`. Independent filesystem checks found no `outside.svg` in `/private/tmp`, the project root, or the preview tree.
+- Crash recovery: a valid dead-owner lock was injected before the revision-3 operation. The local tool reclaimed it, completed the revision, and left no lock file behind.
 
 ## Regression smoke tests
 
-- Excel: `createOfficeDocument` created `smoke.xlsx`. Independent inspection returned `Quarter`, `Revenue`, `Q1`, `100` from the `Smoke` worksheet.
-- Project skills: `activateSkill` loaded `bdd-smoke` and returned exactly `BDD-SKILL-SMOKE-OK`. An earlier attempt was interrupted by the test service before any skill call; the explicit retry completed normally.
-- Basic chat: a separate test topic returned exactly `BDD-APP-SMOKE-OK`.
+- Excel: `createOfficeDocument` created `smoke.xlsx` with one `Smoke` worksheet. Independent ZIP/XML inspection returned `Quarter`, `Revenue`, `Q1`, and `100`.
+- Project skills: `activateSkill` loaded `bdd-smoke` and returned exactly `BDD-SKILL-SMOKE-OK` without invoking Office tools.
+- Basic chat: the same topic returned exactly `CHAT-SMOKE-OK` without invoking tools.
 
-No production service was accessed or changed during this run.
+No production service was accessed or changed during this run. The source Electron test app remains running with the test-server profile for manual follow-up.

@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
+import argparse
 import binascii
 import hashlib
 import json
 import struct
-import sys
 import zlib
 from pathlib import Path
 
@@ -27,7 +27,15 @@ def make_png(path: Path, color: bytes) -> None:
 
 
 def main() -> None:
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/masterino-ppt-bdd").resolve()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", nargs="?", type=Path, default=Path("/tmp/masterino-ppt-bdd"))
+    parser.add_argument(
+        "--oracle",
+        type=Path,
+        help="Write verifier expectations outside the agent-visible project directory.",
+    )
+    args = parser.parse_args()
+    root = args.root.resolve()
     root.mkdir(parents=True, exist_ok=True)
     make_png(root / "bdd-logo.png", b"\x2f\x80\xed")
     replacement = root / "replacement-logo.png"
@@ -48,7 +56,9 @@ def main() -> None:
         "slides": 3,
         "texts": ["LOCAL-PPT-BDD-LOCK-RECOVERED-20260929", "Revenue", "Next steps"],
     }
-    (root / "oracle.json").write_text(json.dumps(oracle, indent=2) + "\n", encoding="utf-8")
+    oracle_path = (args.oracle or root / "oracle.json").resolve()
+    oracle_path.parent.mkdir(parents=True, exist_ok=True)
+    oracle_path.write_text(json.dumps(oracle, indent=2) + "\n", encoding="utf-8")
     print(root)
 
 

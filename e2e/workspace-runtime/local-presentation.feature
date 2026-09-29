@@ -6,7 +6,9 @@ Feature: Rich PowerPoint authoring on the user's desktop
   Background:
     Given the source Electron app is connected to https://mlai-test.bielcrystal.com
     And the selected project is a fresh directory created by generate-fixture.py
+    And the verifier oracle is stored outside the agent-visible project directory
     And the execution target visibly says 本机
+    And the application language is 简体中文
 
   Scenario: Select the rich PowerPoint tools for a natural local request
     When I send this exact prompt through the visible composer:
@@ -45,6 +47,17 @@ Feature: Rich PowerPoint authoring on the user's desktop
       """
     Then revisePresentation reports that the destination is an unrelated existing file
     And verify-smoke.py confirms protected.pptx has the recorded SHA-256
+
+  Scenario: Reject a stale optimistic revision without changing the PPTX
+    Given the current project revision is 3
+    When I call revisePresentation through the visible agent with expectedRevision 2
+    Then the tool reports PRESENTATION_REVISION_CHANGED with expected 2 and current 3
+    And the sidecar revision and PPTX SHA-256 remain unchanged
+
+  Scenario: Bound preview selection for an untrusted slide id
+    When I call renderPresentationPreview with slideIds containing only ../../outside
+    Then the tool returns an empty slides array
+    And no file is created outside the revision preview directory
 
   Scenario: Preserve established local capabilities
     When I ask the agent to use createOfficeDocument to create smoke.xlsx with one sheet and one data row
