@@ -21,6 +21,7 @@ const callWorker = async (command: 'health' | 'inspect' | 'apply', payload?: obj
   const binary = pptWorkerPath();
   return new Promise<Record<string, any>>((resolve, reject) => {
     const child = spawn(binary, [command], {
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });

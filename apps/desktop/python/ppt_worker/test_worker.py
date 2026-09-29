@@ -18,6 +18,7 @@ def invoke(command, payload):
     executable = os.environ.get("PPT_WORKER_BINARY")
     completed = subprocess.run(
         [executable, command] if executable else [sys.executable, str(WORKER), command],
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         input=json.dumps(payload),
         text=True,
         capture_output=True,
@@ -124,6 +125,9 @@ class WorkerContractTest(unittest.TestCase):
         changed = Presentation(self.output).slides[0]
         self.assertEqual(round(changed.shapes[0].left / 914400), 2)
         self.assertEqual(changed.shapes[1].text, "新备注")
+        code, inspected = invoke("inspect", {"path": str(self.output)})
+        self.assertEqual(code, 0, inspected)
+        self.assertEqual(inspected["slides"][0]["shapes"][1]["paragraphs"][0]["runs"], ["新备注"])
         self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(), self.digest)
 
     def test_rejects_unknown_shape_without_output(self):
