@@ -410,10 +410,10 @@ const presentationImagePaths = (value: unknown): PathRequest[] => {
   const requests: PathRequest[] = [];
   const visit = (entry: unknown) => {
     if (!entry || typeof entry !== 'object') return;
-    if (
-      (entry as { type?: unknown }).type === 'image' &&
-      typeof (entry as { source?: { path?: unknown } }).source?.path === 'string'
-    ) {
+    // updateElement patches intentionally omit the immutable element type. Treat
+    // every presentation source.path as a read target so a patched image cannot
+    // bypass the same workspace and credential checks as a complete image node.
+    if (typeof (entry as { source?: { path?: unknown } }).source?.path === 'string') {
       const target = entry as { source: { path: string } };
       requests.push({
         apply: (_args, resolved) => {

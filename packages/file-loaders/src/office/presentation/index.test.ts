@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { copyFile, link, mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -305,6 +306,240 @@ it('allows only one concurrent revision for the same expected revision', async (
   await expect(
     inspectPresentation({ detail: 'outline', projectPath: created.projectPath }),
   ).resolves.toMatchObject({ revision: 2 });
+});
+
+it('revises the current PPTX in place when it still matches the project artifact', async () => {
+  const outputPath = await fixture('in-place.pptx');
+  const created = await createPresentation({
+    path: outputPath,
+    deck: {
+      slides: [
+        {
+          id: 'only',
+          elements: [
+            { id: 'title', type: 'text', frame: { h: 1, w: 8, x: 1, y: 1 }, text: 'Before' },
+          ],
+        },
+      ],
+      theme: {
+        colors: {
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          primary: '17324D',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+    },
+  });
+
+  await expect(
+    revisePresentation({
+      expectedRevision: 1,
+      operations: [
+        {
+          elementId: 'title',
+          op: 'updateElement',
+          patch: { text: 'After' },
+          slideId: 'only',
+        },
+      ],
+      outputPath,
+      projectPath: created.projectPath,
+    }),
+  ).resolves.toMatchObject({ path: outputPath, revision: 2 });
+  expect((await readOfficeDocument({ path: outputPath })).records[0]?.text).toBe('After');
+  await expect(
+    validatePresentation({ path: outputPath, projectPath: created.projectPath }),
+  ).resolves.toMatchObject({
+    valid: true,
+  });
+});
+
+it('recovers a revision lock whose owning process has exited', async () => {
+  const outputPath = await fixture('stale-lock.pptx');
+  const created = await createPresentation({
+    path: outputPath,
+    deck: {
+      slides: [
+        {
+          id: 'only',
+          elements: [
+            { id: 'title', type: 'text', frame: { h: 1, w: 8, x: 1, y: 1 }, text: 'Before' },
+          ],
+        },
+      ],
+      theme: {
+        colors: {
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          primary: '17324D',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+    },
+  });
+  await writeFile(
+    `${created.projectPath}.lock`,
+    JSON.stringify({
+      createdAt: Date.now(),
+      hostname: os.hostname(),
+      pid: 2_147_483_647,
+      token: 'abandoned-lock',
+      version: 1,
+    }),
+  );
+
+  await expect(
+    revisePresentation({
+      expectedRevision: 1,
+      operations: [],
+      outputPath: path.join(path.dirname(outputPath), 'recovered.pptx'),
+      projectPath: created.projectPath,
+    }),
+  ).resolves.toMatchObject({ revision: 2 });
+});
+
+it('rolls back an interrupted in-place publish before applying the next revision', async () => {
+  const outputPath = await fixture('interrupted.pptx');
+  const theme = {
+    colors: {
+      accent: '2F80ED',
+      background: 'FFFFFF',
+      muted: '667085',
+      primary: '17324D',
+      text: '101828',
+    },
+    fonts: { body: 'Arial', heading: 'Arial' },
+  };
+  const deck = (text: string) => ({
+    slides: [
+      {
+        id: 'only',
+        elements: [{ id: 'title', type: 'text' as const, frame: { h: 1, w: 8, x: 1, y: 1 }, text }],
+      },
+    ],
+    theme,
+  });
+  const created = await createPresentation({ path: outputPath, deck: deck('Before') });
+  const candidatePath = path.join(path.dirname(outputPath), 'candidate.pptx');
+  await createPresentation({ path: candidatePath, deck: deck('Interrupted') });
+  const hash = async (file: string) =>
+    createHash('sha256')
+      .update(await readFile(file))
+      .digest('hex');
+  const oldArtifactSha256 = (
+    JSON.parse(await readFile(created.projectPath, 'utf8')) as { artifact: { sha256: string } }
+  ).artifact.sha256;
+  const newArtifactSha256 = await hash(candidatePath);
+  const id = '11111111-1111-4111-8111-111111111111';
+  await link(
+    outputPath,
+    path.join(path.dirname(outputPath), `.masterino-presentation-${id}.backup.pptx`),
+  );
+  await link(
+    created.projectPath,
+    path.join(path.dirname(created.projectPath), `.masterino-presentation-${id}.backup.json`),
+  );
+  await unlink(outputPath);
+  await copyFile(candidatePath, outputPath);
+  await writeFile(
+    `${created.projectPath}.lock`,
+    JSON.stringify({
+      createdAt: Date.now(),
+      hostname: os.hostname(),
+      pid: 2_147_483_647,
+      token: 'abandoned-transaction',
+      transaction: {
+        id,
+        mode: 'replace',
+        newArtifactSha256,
+        oldArtifactSha256,
+        outputPath,
+        projectPath: created.projectPath,
+      },
+      version: 1,
+    }),
+  );
+
+  await expect(
+    revisePresentation({
+      expectedRevision: 1,
+      operations: [
+        {
+          elementId: 'title',
+          op: 'updateElement',
+          patch: { text: 'After recovery' },
+          slideId: 'only',
+        },
+      ],
+      outputPath,
+      projectPath: created.projectPath,
+    }),
+  ).resolves.toMatchObject({ revision: 2 });
+  expect((await readOfficeDocument({ path: outputPath })).records[0]?.text).toBe('After recovery');
+  await expect(
+    validatePresentation({ path: outputPath, projectPath: created.projectPath }),
+  ).resolves.toMatchObject({
+    valid: true,
+  });
+});
+
+it('does not replace an existing PPTX that is not the current project artifact', async () => {
+  const outputPath = await fixture('source.pptx');
+  const protectedPath = path.join(path.dirname(outputPath), 'protected.pptx');
+  const theme = {
+    colors: {
+      accent: '2F80ED',
+      background: 'FFFFFF',
+      muted: '667085',
+      primary: '17324D',
+      text: '101828',
+    },
+    fonts: { body: 'Arial', heading: 'Arial' },
+  };
+  const created = await createPresentation({
+    path: outputPath,
+    deck: { slides: [{ id: 'source', elements: [] }], theme },
+  });
+  await createPresentation({
+    path: protectedPath,
+    deck: {
+      slides: [
+        {
+          id: 'protected',
+          elements: [
+            {
+              id: 'title',
+              type: 'text',
+              frame: { h: 1, w: 8, x: 1, y: 1 },
+              text: 'Do not replace this deck',
+            },
+          ],
+        },
+      ],
+      theme,
+    },
+  });
+  const before = await readFile(protectedPath);
+
+  await expect(
+    revisePresentation({
+      expectedRevision: 1,
+      operations: [],
+      outputPath: protectedPath,
+      projectPath: created.projectPath,
+    }),
+  ).rejects.toMatchObject({ code: 'EEXIST' });
+  expect(await readFile(protectedPath)).toEqual(before);
+  await expect(
+    inspectPresentation({ detail: 'outline', projectPath: created.projectPath }),
+  ).resolves.toMatchObject({
+    revision: 1,
+  });
 });
 
 it('rejects malformed elements without throwing an implementation TypeError', async () => {

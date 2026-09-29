@@ -122,4 +122,55 @@ describe('presentation execution boundary', () => {
       }),
     ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
   });
+
+  it('rejects an image path introduced by an updateElement patch', async () => {
+    const outside = path.join(root, 'outside.png');
+    await writeFile(outside, 'image');
+    const projectPath = path.join(workspace, 'deck.pptx.masterino.json');
+    await writeFile(
+      projectPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        revision: 1,
+        id: 'p',
+        deck: {
+          slides: [
+            {
+              id: 'cover',
+              elements: [
+                {
+                  id: 'hero',
+                  type: 'image',
+                  frame: { h: 1, w: 1, x: 0, y: 0 },
+                  source: { path: path.join(workspace, 'original.png') },
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    await writeFile(path.join(workspace, 'original.png'), 'image');
+
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'revisePresentation',
+        args: {
+          projectPath,
+          outputPath: path.join(workspace, 'revised.pptx'),
+          expectedRevision: 1,
+          operations: [
+            {
+              op: 'updateElement',
+              slideId: 'cover',
+              elementId: 'hero',
+              patch: { source: { path: outside } },
+            },
+          ],
+        },
+        context,
+        homeDir: root,
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+  });
 });

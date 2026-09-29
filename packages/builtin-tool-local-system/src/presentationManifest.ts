@@ -200,7 +200,7 @@ export const presentationApis: BuiltinToolManifest['api'] = [
   {
     defaultTimeoutMs: 180_000,
     description:
-      'Revise a presentation previously created by createPresentation using stable slide and element ids. Writes a new PPTX output and atomically advances the existing project revision. Never use for arbitrary imported PPTX files.',
+      'Revise a presentation previously created by createPresentation using stable slide and element ids. Can safely update the current PPTX path when its content still matches the project artifact, or write a new PPTX output. Atomically advances the existing project revision and never overwrites an unrelated file. Never use for arbitrary imported PPTX files.',
     humanIntervention: audit,
     name: 'revisePresentation',
     parameters: {
@@ -208,7 +208,11 @@ export const presentationApis: BuiltinToolManifest['api'] = [
       required: ['projectPath', 'outputPath', 'expectedRevision', 'operations'],
       properties: {
         projectPath: { type: 'string' },
-        outputPath: { type: 'string' },
+        outputPath: {
+          description:
+            'Destination PPTX. May be the current artifact path for an in-place revision, or a new path. An existing file is replaced only when its SHA-256 matches the current project artifact.',
+          type: 'string',
+        },
         expectedRevision: { minimum: 1, type: 'number' },
         operations: {
           type: 'array',

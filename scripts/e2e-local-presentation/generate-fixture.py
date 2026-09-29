@@ -16,9 +16,9 @@ def png_chunk(kind: bytes, data: bytes) -> bytes:
     return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", binascii.crc32(kind + data) & 0xFFFFFFFF)
 
 
-def make_png(path: Path) -> None:
+def make_png(path: Path, color: bytes) -> None:
     width = height = 32
-    row = b"\x00" + b"\x2f\x80\xed" * width
+    row = b"\x00" + color * width
     payload = b"\x89PNG\r\n\x1a\n"
     payload += png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
     payload += png_chunk(b"IDAT", zlib.compress(row * height))
@@ -29,7 +29,9 @@ def make_png(path: Path) -> None:
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/masterino-ppt-bdd").resolve()
     root.mkdir(parents=True, exist_ok=True)
-    make_png(root / "bdd-logo.png")
+    make_png(root / "bdd-logo.png", b"\x2f\x80\xed")
+    replacement = root / "replacement-logo.png"
+    make_png(replacement, b"\x12\xb7\x6a")
     protected = root / "protected.pptx"
     protected.write_bytes(b"MASTERINO-PPT-BDD-PROTECTED\n")
     skill = root / ".agents" / "skills" / "bdd-smoke"
@@ -41,8 +43,10 @@ def main() -> None:
     )
     oracle = {
         "protectedSha256": hashlib.sha256(protected.read_bytes()).hexdigest(),
+        "replacementImageSha256": hashlib.sha256(replacement.read_bytes()).hexdigest(),
+        "revision": 3,
         "slides": 3,
-        "texts": ["LOCAL-PPT-BDD-20260918", "Revenue", "Next steps"],
+        "texts": ["LOCAL-PPT-BDD-LOCK-RECOVERED-20260929", "Revenue", "Next steps"],
     }
     (root / "oracle.json").write_text(json.dumps(oracle, indent=2) + "\n", encoding="utf-8")
     print(root)

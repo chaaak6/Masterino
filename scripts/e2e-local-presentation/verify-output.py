@@ -40,15 +40,21 @@ def main() -> None:
             "slides": len(slide_names),
             "tables": sum(b"<a:tbl>" in archive.read(name) for name in slide_names),
         }
+        media_hashes = {
+            hashlib.sha256(archive.read(name)).hexdigest()
+            for name in names
+            if name.startswith("ppt/media/")
+        }
 
     assert facts["slides"] == oracle["slides"], facts
     assert facts["charts"] >= 1, facts
     assert facts["images"] >= 1, facts
     assert facts["tables"] >= 1, facts
     assert facts["notes"] >= 1, facts
+    assert oracle["replacementImageSha256"] in media_hashes, media_hashes
     for marker in oracle["texts"]:
         assert marker in all_text, (marker, all_text)
-    assert project["schemaVersion"] == 1 and project["revision"] >= 1
+    assert project["schemaVersion"] == 1 and project["revision"] == oracle["revision"]
     assert len(project["deck"]["slides"]) == oracle["slides"]
     print(json.dumps({"pptxSha256": hashlib.sha256(args.pptx.read_bytes()).hexdigest(), **facts}, sort_keys=True))
 

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, mkdir, open, readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type {
@@ -14,6 +14,16 @@ import type {
   ValidatePresentationParams,
 } from './types';
 import { validatePresentationSpec } from './validate';
+import {
+  acquireRevisionLock,
+  cleanupRevisionTransaction,
+  releaseRevisionLock,
+  type RevisionLock,
+  type RevisionTransaction,
+  sha256File,
+  transactionPaths,
+  writeRevisionLock,
+} from './revisionLock';
 
 export type * from './types';
 export { validatePresentationSpec } from './validate';
@@ -140,21 +150,30 @@ async function publishPresentation(options: {
   project: PresentationProject;
   projectMode: 'create' | 'replace';
   projectPath: string;
+  revisionLock?: RevisionLock;
 }) {
   await assertOutputPath(options.outputPath);
   const { issues, output } = await buildPresentation(options.project.deck);
-  options.project.artifact = { sha256: createHash('sha256').update(output).digest('hex') };
+  const oldArtifactSha256 = options.project.artifact.sha256;
+  const newArtifactSha256 = createHash('sha256').update(output).digest('hex');
+  options.project.artifact = { sha256: newArtifactSha256 };
 
   const tempId = randomUUID();
-  const tempOutput = path.join(
-    path.dirname(options.outputPath),
-    `.masterino-presentation-${tempId}.pptx`,
-  );
-  const tempProject = path.join(
-    path.dirname(options.projectPath),
-    `.masterino-presentation-${tempId}.json`,
-  );
+  let transaction: RevisionTransaction | undefined;
+  const baseTransaction = {
+    id: tempId,
+    newArtifactSha256,
+    oldArtifactSha256,
+    outputPath: options.outputPath,
+    projectPath: options.projectPath,
+  };
+  const { tempOutput, tempProject } = transactionPaths({
+    ...baseTransaction,
+    mode: 'create',
+  });
   let outputPublished = false;
+  let projectPublished = false;
+  let transactionSettled = false;
   try {
     await writeFile(tempOutput, output, { flag: 'wx' });
     await writeFile(tempProject, `${JSON.stringify(options.project, null, 2)}\n`, { flag: 'wx' });
@@ -163,11 +182,34 @@ async function publishPresentation(options: {
     if (readback.records.length !== options.project.deck.slides.length) {
       throw new Error('Presentation slide-count validation failed');
     }
-    await link(tempOutput, options.outputPath);
+    if (options.projectMode === 'replace') {
+      const currentOutputSha = await sha256File(options.outputPath).catch((error) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+        throw error;
+      });
+      if (currentOutputSha !== undefined && currentOutputSha !== oldArtifactSha256) {
+        const error = new Error('PRESENTATION_OUTPUT_EXISTS');
+        Object.assign(error, { code: 'EEXIST' });
+        throw error;
+      }
+      transaction = {
+        ...baseTransaction,
+        mode: currentOutputSha === undefined ? 'create' : 'replace',
+      };
+      const paths = transactionPaths(transaction);
+      await link(options.projectPath, paths.backupProject);
+      if (transaction.mode === 'replace') await link(options.outputPath, paths.backupOutput);
+      if (!options.revisionLock) throw new Error('PRESENTATION_REVISION_LOCK_REQUIRED');
+      options.revisionLock.state.transaction = transaction;
+      await writeRevisionLock(options.revisionLock);
+    }
+    if (transaction?.mode === 'replace') await rename(tempOutput, options.outputPath);
+    else await link(tempOutput, options.outputPath);
     outputPublished = true;
     if (options.projectMode === 'create') await link(tempProject, options.projectPath);
     else await rename(tempProject, options.projectPath);
-    return {
+    projectPublished = true;
+    const result = {
       format: 'pptx',
       path: options.outputPath,
       presentationId: options.project.id,
@@ -181,11 +223,35 @@ async function publishPresentation(options: {
       },
       version: await versionOf(options.outputPath),
     } satisfies PresentationResult;
+    if (transaction && options.revisionLock) {
+      options.revisionLock.state.transaction = undefined;
+      await writeRevisionLock(options.revisionLock);
+      transactionSettled = true;
+      await cleanupRevisionTransaction(transaction);
+    }
+    return result;
   } catch (error) {
-    if (outputPublished) await rm(options.outputPath, { force: true });
+    if (transaction) {
+      const paths = transactionPaths(transaction);
+      if (projectPublished) await rename(paths.backupProject, options.projectPath);
+      if (outputPublished) {
+        if (transaction.mode === 'replace') await rename(paths.backupOutput, options.outputPath);
+        else await rm(options.outputPath, { force: true });
+      }
+      if (options.revisionLock) {
+        options.revisionLock.state.transaction = undefined;
+        await writeRevisionLock(options.revisionLock);
+      }
+      transactionSettled = true;
+      await cleanupRevisionTransaction(transaction);
+    } else if (outputPublished) {
+      await rm(options.outputPath, { force: true });
+    }
     throw error;
   } finally {
-    await Promise.all([rm(tempOutput, { force: true }), rm(tempProject, { force: true })]);
+    if (!transaction || transactionSettled) {
+      await Promise.all([rm(tempOutput, { force: true }), rm(tempProject, { force: true })]);
+    }
   }
 }
 
@@ -224,15 +290,7 @@ export async function revisePresentation(
   params: RevisePresentationParams,
 ): Promise<PresentationResult> {
   const lockPath = `${params.projectPath}.lock`;
-  let lock;
-  try {
-    lock = await open(lockPath, 'wx');
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-      throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
-    }
-    throw error;
-  }
+  const lock = await acquireRevisionLock(lockPath, params);
   try {
     const current = await readProject(params.projectPath);
     if (current.revision !== params.expectedRevision) {
@@ -282,10 +340,10 @@ export async function revisePresentation(
       project,
       projectMode: 'replace',
       projectPath: params.projectPath,
+      revisionLock: lock,
     });
   } finally {
-    await lock.close();
-    await unlink(lockPath).catch(() => undefined);
+    await releaseRevisionLock(lock);
   }
 }
 
