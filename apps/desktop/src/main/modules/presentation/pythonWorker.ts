@@ -146,7 +146,13 @@ export const editExistingPresentation = async (params: EditExistingPresentationP
     if (verification.sha256 !== result.sha256 || verification.totalSlides !== result.slides) {
       throw new Error('PRESENTATION_OUTPUT_VALIDATION_FAILED');
     }
-    await fs.link(tempOutput, params.outputPath);
+    try {
+      await fs.link(tempOutput, params.outputPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+        throw new Error('PRESENTATION_OUTPUT_EXISTS');
+      throw error;
+    }
     return { ...result, outputPath: params.outputPath };
   } finally {
     await fs.rm(tempOutput, { force: true });
