@@ -9,7 +9,7 @@ Feature: Edit an imported PowerPoint in the packaged desktop app
 
   Scenario: Inspect and edit without changing the source
     When I ask the agent to inspect the imported PPTX and replace only its first text run
-    And I require a new output path and validation of the resulting PPTX
+    And I require a new output path and inspection of the resulting PPTX
     Then the visible tool history contains inspectExistingPresentation
     And the visible tool history contains editExistingPresentation
     And the first run changes while the second run and both styles remain unchanged

@@ -213,7 +213,7 @@ export const presentationApis: BuiltinToolManifest['api'] = [
   {
     defaultTimeoutMs: 150_000,
     description:
-      'Make precise edits to an existing local PPTX and save a NEW file without changing the source. Requires the SHA-256 returned by inspectExistingPresentation. Supports replacing one text run while preserving its formatting, moving/resizing a shape, and adding a text box. Existing destinations are never overwritten. Inspect and validate the result before delivery.',
+      'Make precise edits to an existing local PPTX and save a NEW file without changing the source. Requires the SHA-256 returned by inspectExistingPresentation. Supports replacing one text run while preserving its formatting, moving/resizing a shape, and adding a text box. Existing destinations are never overwritten. Inspect the output before delivery.',
     humanIntervention: audit,
     name: 'editExistingPresentation',
     parameters: {
