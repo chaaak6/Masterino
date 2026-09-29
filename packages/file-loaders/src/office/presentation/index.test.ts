@@ -27,6 +27,40 @@ afterEach(async () => {
   await Promise.all(dirs.splice(0).map((dir) => rm(dir, { force: true, recursive: true })));
 });
 
+it('publishes decks even when text exceeds the Office readback character limit', async () => {
+  const path = await fixture('long-deck.pptx');
+  const created = await createPresentation({
+    path,
+    deck: {
+      slides: Array.from({ length: 8 }, (_, index) => ({
+        id: `slide-${index}`,
+        elements: [
+          {
+            id: `text-${index}`,
+            type: 'text' as const,
+            frame: { x: 1, y: 1, w: 10, h: 5 },
+            text: '长'.repeat(9000),
+          },
+        ],
+      })),
+      theme: {
+        colors: {
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          primary: '17324D',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+    },
+  });
+  const readback = await readOfficeDocument({ path, limit: 100, maxChars: 64_000 });
+  expect(readback.total).toBe(8);
+  expect(readback.records.length).toBeLessThan(8);
+  expect(created.slides).toBe(8);
+});
+
 it('creates a themed presentation and a local project that can be revised later', async () => {
   const outputPath = await fixture('quarterly-review.pptx');
 

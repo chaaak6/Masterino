@@ -1,0 +1,10 @@
+diff --git a/binding.gyp b/binding.gyp
+index aa04026..bd05dd0 100644
+--- a/binding.gyp
++++ b/binding.gyp
+@@ -16,7 +16,7 @@
+       "MACOSX_DEPLOYMENT_TARGET": "10.13",
+       "SYSTEM_VERSION_COMPAT": 1,
+-      "OTHER_CPLUSPLUSFLAGS": ["-std=c++14", "-stdlib=libc++"],
++      "OTHER_CPLUSPLUSFLAGS": ["-std=c++17", "-stdlib=libc++"],
+       "OTHER_LDFLAGS": [

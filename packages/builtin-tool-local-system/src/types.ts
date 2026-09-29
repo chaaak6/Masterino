@@ -33,6 +33,8 @@ export const LocalSystemApiName = {
   renderPresentationPreview: 'renderPresentationPreview',
   revisePresentation: 'revisePresentation',
   validatePresentation: 'validatePresentation',
+  inspectExistingPresentation: 'inspectExistingPresentation',
+  editExistingPresentation: 'editExistingPresentation',
   readFile: 'readFile',
   runCommand: 'runCommand',
   searchFiles: 'searchFiles',

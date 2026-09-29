@@ -179,7 +179,7 @@ async function publishPresentation(options: {
     await writeFile(tempProject, `${JSON.stringify(options.project, null, 2)}\n`, { flag: 'wx' });
     const { readOfficeDocument } = await import('../index');
     const readback = await readOfficeDocument({ path: tempOutput, limit: 100, maxChars: 64_000 });
-    if (readback.records.length !== options.project.deck.slides.length) {
+    if (readback.total !== options.project.deck.slides.length) {
       throw new Error('Presentation slide-count validation failed');
     }
     if (options.projectMode === 'replace') {
@@ -411,7 +411,7 @@ export async function validatePresentation(
     }
     const expectedFeatures = project.deck.slides.reduce(
       (result, slide) => {
-        if (slide.notes) result.notes++;
+        if (slide.notes?.trim()) result.notes++;
         for (const element of slide.elements) {
           if (element.type === 'chart') result.charts++;
           if (element.type === 'image') result.images++;
@@ -562,6 +562,7 @@ async function elementSvg(element: PresentationElement, scale: number) {
 
 export async function renderPresentationPreview(params: RenderPresentationPreviewParams) {
   const project = await readProject(params.projectPath);
+  if (params.slideIds && params.slideIds.length > 20) throw new Error('PRESENTATION_PREVIEW_LIMIT');
   const requested = params.slideIds ? new Set(params.slideIds) : undefined;
   const scale = 96;
   const wide = project.deck.page?.layout !== 'standard';
@@ -570,8 +571,17 @@ export async function renderPresentationPreview(params: RenderPresentationPrevie
   const outputDirectory = `${params.projectPath}.previews/r${project.revision}`;
   await mkdir(outputDirectory, { recursive: true });
   const slides = [];
+  let elementCount = 0;
+  let imageBytes = 0;
   for (const [index, slide] of project.deck.slides.entries()) {
     if (requested && !requested.has(slide.id)) continue;
+    if (slides.length >= 20) break;
+    elementCount += slide.elements.length;
+    if (elementCount > 500) throw new Error('PRESENTATION_PREVIEW_LIMIT');
+    for (const element of slide.elements) {
+      if (element.type === 'image') imageBytes += (await stat(element.source.path)).size;
+    }
+    if (imageBytes > 20 * 1024 * 1024) throw new Error('PRESENTATION_PREVIEW_LIMIT');
     const elements = await Promise.all(slide.elements.map((element) => elementSvg(element, scale)));
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#${slide.background ?? project.deck.theme.colors.background}"/>${elements.join('')}</svg>`;
     const previewPath = path.join(outputDirectory, `slide-${index + 1}.svg`);

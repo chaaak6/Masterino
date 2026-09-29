@@ -8,3 +8,5 @@ standalone
 release
 
 bin
+resources/ppt-runtime/
+python/**/__pycache__/

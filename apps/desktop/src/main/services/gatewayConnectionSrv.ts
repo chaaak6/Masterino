@@ -22,6 +22,7 @@ import type {
 import { app, powerSaveBlocker } from 'electron';
 
 import { isDev } from '@/const/env';
+import { isPythonPptWorkerAvailable } from '@/modules/presentation/pythonWorker';
 import { getDesktopEnv } from '@/env';
 import { resolveGatewayUrl } from '@/modules/gateway/configs';
 import { createLogger } from '@/utils/logger';
@@ -382,10 +383,17 @@ export default class GatewayConnectionService extends ServiceModule {
       this.resolveDeviceIdentity(userId);
     }
 
+    const pythonPptAvailable = await isPythonPptWorkerAvailable();
     const client = new GatewayClient({
       capabilities: {
         executionContextValidation: true,
-        localSystemApiVersions: LOCAL_SYSTEM_API_VERSIONS,
+        localSystemApiVersions: {
+          ...LOCAL_SYSTEM_API_VERSIONS,
+          ...(pythonPptAvailable && {
+            inspectExistingPresentation: 1,
+            editExistingPresentation: 1,
+          }),
+        },
       },
       channel: isDev ? 'desktop-dev' : 'desktop',
       connectionId: this.getConnectionId(),

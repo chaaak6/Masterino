@@ -62,6 +62,17 @@ export function validatePresentationSpec(deck: PresentationSpec): PresentationIs
       });
     }
     slideIds.add(slide.id);
+    if (
+      slide.background !== undefined &&
+      (typeof slide.background !== 'string' || !HEX.test(slide.background))
+    ) {
+      issues.push({
+        code: 'INVALID_SLIDE_BACKGROUND',
+        message: `Slide ${slide.id} background must be a six-digit hexadecimal color`,
+        severity: 'error',
+        slideId: slide.id,
+      });
+    }
     if (!Array.isArray(slide.elements) || slide.elements.length > 200) {
       issues.push({
         code: 'INVALID_ELEMENTS',

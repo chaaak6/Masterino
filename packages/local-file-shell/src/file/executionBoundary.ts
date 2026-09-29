@@ -54,6 +54,8 @@ const LOCAL_SYSTEM_APIS = new Set([
   'moveLocalFiles',
   'createOfficeDocument',
   'createPresentation',
+  'inspectExistingPresentation',
+  'editExistingPresentation',
   'inspectPresentation',
   'inspectOfficeDocument',
   'prepareProjectSkillSnapshot',
@@ -536,6 +538,15 @@ const collectPathRequests = (
     }
     case 'inspectPresentation': {
       return [{ apply: setField('projectPath'), mode: 'read', value: args.projectPath }];
+    }
+    case 'inspectExistingPresentation': {
+      return [{ apply: setField('path'), mode: 'read', value: args.path }];
+    }
+    case 'editExistingPresentation': {
+      return [
+        { apply: setField('path'), mode: 'read', value: args.path },
+        { apply: setField('outputPath'), mode: 'write', value: args.outputPath },
+      ];
     }
     case 'renderPresentationPreview': {
       return [

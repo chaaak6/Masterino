@@ -16,7 +16,13 @@ import ShellCommandCtr from '../ShellCommandCtr';
 
 // ─── Mocks ───
 
-const { createPresentationMock, ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
+const {
+  createPresentationMock,
+  inspectExistingPresentationMock,
+  isPythonPptWorkerAvailableMock,
+  ipcMainHandleMock,
+  MockGatewayClient,
+} = vi.hoisted(() => {
   const { EventEmitter } = require('node:events');
 
   // Must be defined inside vi.hoisted so it's available when vi.mock factories run
@@ -148,10 +154,18 @@ const { createPresentationMock, ipcMainHandleMock, MockGatewayClient } = vi.hois
 
   return {
     createPresentationMock: vi.fn(),
+    inspectExistingPresentationMock: vi.fn(),
+    isPythonPptWorkerAvailableMock: vi.fn().mockResolvedValue(false),
     MockGatewayClient: _MockGatewayClient,
     ipcMainHandleMock: vi.fn(),
   };
 });
+
+vi.mock('@/modules/presentation/pythonWorker', () => ({
+  editExistingPresentation: vi.fn(),
+  inspectExistingPresentation: inspectExistingPresentationMock,
+  isPythonPptWorkerAvailable: isPythonPptWorkerAvailableMock,
+}));
 
 vi.mock('electron', () => ({
   app: {
@@ -376,6 +390,17 @@ describe('GatewayConnectionCtr', () => {
           revisePresentation: 1,
           validatePresentation: 1,
         },
+      });
+    });
+
+    it('advertises existing PPTX tools only when the bundled worker starts', async () => {
+      isPythonPptWorkerAvailableMock.mockResolvedValueOnce(true);
+      ctr = new GatewayConnectionCtr(mockApp);
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(MockGatewayClient.lastOptions.capabilities.localSystemApiVersions).toMatchObject({
+        inspectExistingPresentation: 1,
+        editExistingPresentation: 1,
       });
     });
 
@@ -764,6 +789,32 @@ describe('GatewayConnectionCtr', () => {
         expect.objectContaining({
           requestId: 'ppt-create',
           result: expect.objectContaining({ success: true }),
+        }),
+      );
+    });
+
+    it('routes existing PPTX inspection to the bundled worker adapter', async () => {
+      inspectExistingPresentationMock.mockResolvedValueOnce({
+        sha256: 'a'.repeat(64),
+        totalSlides: 2,
+      });
+      const client = await connectAndOpen();
+      client.simulateToolCallRequest(
+        'inspectExistingPresentation',
+        { path: '/workspace/imported.pptx' },
+        'ppt-inspect',
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      expect(inspectExistingPresentationMock).toHaveBeenCalledWith({
+        path: '/workspace/imported.pptx',
+      });
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'ppt-inspect',
+          result: expect.objectContaining({
+            success: true,
+            state: expect.objectContaining({ totalSlides: 2 }),
+          }),
         }),
       );
     });

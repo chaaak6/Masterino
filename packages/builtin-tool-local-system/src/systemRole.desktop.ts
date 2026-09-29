@@ -28,6 +28,7 @@ You have access to a set of tools to interact with the user's local file system:
 
 **PowerPoint Creation:**
 - **createPresentation**, **revisePresentation**, **inspectPresentation**, **renderPresentationPreview**, **validatePresentation** create and iteratively revise rich local PPTX files with native text, images, shapes, tables and charts. Create the full deck, validate it, preview it, then revise only reported problem slides by stable ids. A revision may safely write back to the current generated PPTX or to a new path; unrelated existing files are preserved. These tools do not modify arbitrary imported PPTX files.
+- **inspectExistingPresentation** and **editExistingPresentation** work on arbitrary local PPTX files using the bundled Python PowerPoint worker. Inspect first; pass the returned SHA-256 to edit. Edit one text run, shape frame, or add a text box, always writing a new path. Use these when no Masterino project sidecar exists; do not use revisePresentation for imported PPTX files.
 
 **Shell Commands:**
 5.  **runCommand**: Start a terminal session to execute shell commands and return console output collected during the wait window. When providing a description, always use the same language as the user's input.

@@ -13,6 +13,7 @@
   "scripts": {
     "build:cli": "cd ../cli && cross-env MINIFY=1 npm run build",
     "build:main": "cross-env NODE_OPTIONS=--max-old-space-size=8192 electron-vite build",
+    "build:ppt-worker": "node python/ppt_worker/build.mjs",
     "build:run-unpack": "electron .",
     "dev": "electron-vite dev",
     "dev:static": "cross-env DESKTOP_RENDERER_STATIC=1 npm run dev",
@@ -29,11 +30,11 @@
     "lint:style": "stylelint \"{src,tests}/**/*.{js,jsx,ts,tsx}\" --fix",
     "lint:ts": "eslint \"{src,tests}/**/*.{js,jsx,ts,tsx}\" --fix",
     "package:linux": "npm run build:main && electron-builder --linux --config electron-builder.mjs  --publish never",
-    "package:local": "npm run build:main && electron-builder --dir --config electron-builder.mjs --c.mac.notarize=false --c.mac.identity=- --c.asar=false",
+    "package:local": "npm run build:ppt-worker && npm run build:main && electron-builder --dir --config electron-builder.mjs --c.mac.notarize=false --c.mac.identity=- --c.asar=false",
     "package:local:reuse": "electron-builder --dir --config electron-builder.mjs --c.mac.notarize=false --c.mac.identity=- --c.asar=false",
-    "package:mac": "npm run build:main && electron-builder --mac --config electron-builder.mjs  --publish never",
-    "package:mac:local": "npm run build:main && cross-env UPDATE_CHANNEL=nightly electron-builder --mac --config electron-builder.mjs --publish never --c.mac.notarize=false --c.mac.identity=-",
-    "package:win": "npm run build:main && electron-builder --win --config electron-builder.mjs  --publish never",
+    "package:mac": "npm run build:ppt-worker && npm run build:main && electron-builder --mac --config electron-builder.mjs  --publish never",
+    "package:mac:local": "npm run build:ppt-worker && npm run build:main && cross-env UPDATE_CHANNEL=nightly electron-builder --mac --config electron-builder.mjs --publish never --c.mac.notarize=false --c.mac.identity=-",
+    "package:win": "npm run build:ppt-worker && npm run build:main && electron-builder --win --config electron-builder.mjs  --publish never",
     "package:win:test": "cross-env DESKTOP_BUILD_FLAVOR=test npm run package:win",
     "start": "electron-vite preview",
     "stylelint": "stylelint \"src/**/*.{js,jsx,ts,tsx}\" --fix",
@@ -133,6 +134,9 @@
       "react": "19.2.4",
       "react-dom": "19.2.4",
       "vitest": "3.2.6"
+    },
+    "patchedDependencies": {
+      "node-mac-permissions": "patches/node-mac-permissions.patch"
     }
   },
   "productName": "Masterino"

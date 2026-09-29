@@ -1,6 +1,10 @@
 export { createPathScopeAudit, pathScopeAudit } from './interventionAudit';
 export { LocalSystemManifest } from './manifest';
-export { PRESENTATION_API_NAMES, PRESENTATION_API_VERSIONS } from './presentationManifest';
+export {
+  EXISTING_PRESENTATION_API_NAMES,
+  PRESENTATION_API_NAMES,
+  PRESENTATION_API_VERSIONS,
+} from './presentationManifest';
 export { systemPrompt } from './systemRole';
 export {
   type EditLocalFileState,

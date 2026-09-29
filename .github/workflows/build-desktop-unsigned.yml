@@ -170,6 +170,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
       - name: Validate OSS-only updater configuration
         shell: bash
         run: |

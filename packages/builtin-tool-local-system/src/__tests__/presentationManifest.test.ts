@@ -14,6 +14,8 @@ describe('local presentation tools', () => {
         'renderPresentationPreview',
         'revisePresentation',
         'validatePresentation',
+        'inspectExistingPresentation',
+        'editExistingPresentation',
       ]),
     );
     const create = LocalSystemManifest.api.find((api) => api.name === 'createPresentation');
@@ -44,6 +46,29 @@ describe('local presentation tools', () => {
               elements: [{ id: 'e1', type: 'table', frame: { x: 0, y: 0, w: 1, h: 1 } }],
             },
           ],
+          theme: {
+            colors: {
+              primary: '000000',
+              accent: '000000',
+              text: '000000',
+              muted: '000000',
+              background: 'FFFFFF',
+            },
+            fonts: { heading: 'Arial', body: 'Arial' },
+          },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects unsafe slide background colors in the agent schema', () => {
+    const create = LocalSystemManifest.api.find((api) => api.name === 'createPresentation')!;
+    const validate = new Ajv({ strict: false }).compile(create.parameters);
+    expect(
+      validate({
+        path: 'bad.pptx',
+        deck: {
+          slides: [{ id: 's1', background: 'fff" onload="alert(1)', elements: [] }],
           theme: {
             colors: {
               primary: '000000',

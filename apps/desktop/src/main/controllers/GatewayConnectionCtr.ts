@@ -65,6 +65,13 @@ import {
 } from '@lobechat/local-file-shell';
 import { type ILocalSystemService, LocalSystemExecutionRuntime } from '@lobechat/tool-runtime';
 
+import {
+  editExistingPresentation,
+  inspectExistingPresentation,
+  type EditExistingPresentationParams,
+  type InspectExistingPresentationParams,
+} from '@/modules/presentation/pythonWorker';
+
 import ExecutionEnvService from '@/services/executionEnvSrv';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import ImessageBridgeService from '@/services/imessageBridgeSrv';
@@ -1010,6 +1017,23 @@ export default class GatewayConnectionCtr extends ControllerModule {
                         args as unknown as RenderPresentationPreviewParams,
                       )
                     : await validatePresentation(args as unknown as ValidatePresentationParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+      case 'inspectExistingPresentation':
+      case 'editExistingPresentation': {
+        try {
+          const state =
+            normalized === 'inspectExistingPresentation'
+              ? await inspectExistingPresentation(
+                  args as unknown as InspectExistingPresentationParams,
+                )
+              : await editExistingPresentation(args as unknown as EditExistingPresentationParams);
           return finish({ content: JSON.stringify(state), state, success: true });
         } catch (error) {
           return finish({

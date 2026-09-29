@@ -68,6 +68,24 @@ describe('presentation execution boundary', () => {
     );
   });
 
+  it('audits an existing PPTX read and new output write', async () => {
+    await writeFile(path.join(workspace, 'original.pptx'), 'pptx');
+    const prepared = await prepareToolCallExecution({
+      apiName: 'editExistingPresentation',
+      args: {
+        path: 'original.pptx',
+        outputPath: 'edited.pptx',
+        expectedSha256: '0'.repeat(64),
+        operations: [],
+      },
+      context,
+      homeDir: root,
+    });
+    expect(prepared.args.path).toBe(path.join(workspace, 'original.pptx'));
+    expect(prepared.args.outputPath).toBe(path.join(workspace, 'edited.pptx'));
+    expect(prepared.scopeAudit.map(({ mode }) => mode)).toEqual(['read', 'write']);
+  });
+
   it('rejects a presentation image outside the authorized workspace', async () => {
     const outside = path.join(root, 'outside.png');
     await writeFile(outside, 'image');

@@ -79,6 +79,7 @@ describe('deviceToolRegistry', () => {
     const legacy = scopeLocalSystemManifestForDevice({ gatewayConfigured: true });
     expect(legacy.api.map((api) => api.name)).toContain('createOfficeDocument');
     expect(legacy.api.map((api) => api.name)).not.toContain('createPresentation');
+    expect(legacy.api.map((api) => api.name)).not.toContain('inspectExistingPresentation');
 
     const capable = scopeLocalSystemManifestForDevice({
       gatewayConfigured: true,
@@ -91,6 +92,26 @@ describe('deviceToolRegistry', () => {
       },
     });
     expect(capable.api.map((api) => api.name)).toContain('createPresentation');
+    expect(capable.api.map((api) => api.name)).not.toContain('inspectExistingPresentation');
+
+    const withWorker = scopeLocalSystemManifestForDevice({
+      gatewayConfigured: true,
+      localSystemApiVersions: {
+        ...Object.fromEntries(
+          [
+            'createPresentation',
+            'inspectPresentation',
+            'renderPresentationPreview',
+            'revisePresentation',
+            'validatePresentation',
+          ].map((name) => [name, 1]),
+        ),
+        inspectExistingPresentation: 1,
+        editExistingPresentation: 1,
+      },
+    });
+    expect(withWorker.api.map((api) => api.name)).toContain('inspectExistingPresentation');
+    expect(withWorker.api.map((api) => api.name)).toContain('editExistingPresentation');
 
     const partial = scopeLocalSystemManifestForDevice({
       gatewayConfigured: true,
