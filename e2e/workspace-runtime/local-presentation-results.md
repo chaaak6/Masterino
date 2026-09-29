@@ -48,3 +48,19 @@ The final deck contains `LOCAL-PPT-BDD-LOCK-RECOVERED-20260929`, the replacement
 - Basic chat: the same topic returned exactly `CHAT-SMOKE-OK` without invoking tools.
 
 No production service was accessed or changed during this run. The source Electron test app remains running with the test-server profile for manual follow-up.
+
+## Packaged macOS app follow-up
+
+- Candidate commit: `bb15dbd3`
+- App: `apps/desktop/release/mac-arm64/Masterino.app` (arm64, test-server profile)
+- Server: `https://mlai-test.bielcrystal.com`; execution target: local desktop; interface: 简体中文
+- Topics: `tpc_2XpAHIZXCxxF` (import/edit and negative cases), `tpc_b6W6LJZQppax` (complex authoring)
+- Local fixtures: `/Users/a10507479/Desktop/Masterino-PPT-BDD`
+
+The packaged app completed authorization and ran the visible `local-system` PowerPoint tools. `inspectExistingPresentation` read a two-slide imported PPTX, `editExistingPresentation` changed one text run and added a text box to a new file, and a second inspect read the result. Independent `python-pptx` inspection confirmed that the original PPTX stayed byte-for-byte unchanged and untouched bold/italic runs survived. A stale source hash returned `PRESENTATION_SOURCE_CHANGED` without publishing output.
+
+The same app created, validated, previewed, inspected, and revised a Masterino deck. In-place revision advanced the sidecar from revision 1 to 2. A stale expected revision returned `PRESENTATION_REVISION_CHANGED` and left both file and sidecar unchanged. Trying to publish an edit over an existing output originally surfaced raw `EEXIST`; the adapter now maps it to `PRESENTATION_OUTPUT_EXISTS`, verified by rerunning that live scenario after rebuilding and restarting the packaged app. The existing output hash was unchanged.
+
+The longer scenario created a five-slide Chinese quarterly-review deck with two native charts, one native table, one image, KPI cards, roadmap shapes, and speaker notes. The actual local calls were `createPresentation`, `validatePresentation`, `renderPresentationPreview`, and `inspectPresentation`; `globFiles` only checked the image path. Validation reported five slides, 70 shapes, two charts, one table, one image, zero errors, and zero warnings. Safari inspection of the five SVG previews showed the Chinese text and layout. The chart preview omits axis labels and legends, and the roadmap's number badges need visual alignment; these are visual-quality limits despite passing structural validation. The PPTX remains available locally for manual PowerPoint review.
+
+The bundled arm64 headless LibreOffice exported the deck to PDF, but omitted Chinese text even in a separate minimal PPTX using `PingFang SC`, `STHeiti`, `Arial Unicode MS`, and `Helvetica`. This is a limitation of that isolated test renderer, not evidence that the PPTX lacks Chinese text: `python-pptx` read the Chinese runs from the PPTX, and Safari displayed them in the Masterino previews. Microsoft PowerPoint on this Mac is x86_64-only and cannot launch because Rosetta is not installed, so native PowerPoint visual fidelity remains unverified. No Rosetta installation was required for Masterino or its worker.
