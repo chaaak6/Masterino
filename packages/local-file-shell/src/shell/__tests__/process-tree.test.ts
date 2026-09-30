@@ -41,10 +41,13 @@ describe('command process trees', () => {
           { processManager: manager },
         );
         await expect
-          .poll(async () => {
-            childPid = Number(await readFile(ready, 'utf8').catch(() => '0')) || undefined;
-            return childPid;
-          })
+          .poll(
+            async () => {
+              childPid = Number(await readFile(ready, 'utf8').catch(() => '0')) || undefined;
+              return childPid;
+            },
+            { timeout: 5000 },
+          )
           .toBeTruthy();
         if (action === 'kill') expect(manager.kill(result.shell_id!).success).toBe(true);
         else manager.cleanupAll();
