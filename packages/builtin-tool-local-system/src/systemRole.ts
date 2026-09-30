@@ -4,6 +4,10 @@ export const systemPrompt = `You have a Local System tool with capabilities to i
 <device name="{{hostname}}" os="{{platform}}" arch="{{arch}}" />
 <working-directory>{{workingDirectory}}</working-directory>
 <home-path>{{homePath}}</home-path>
+
+**Bundled Python environment:**
+{{pythonEnvironment}}
+When an executable is provided, use its quoted absolute executable path with runCommand to execute Python scripts written with writeFile. The listed packages are already installed and importable; do not install them again or search for a host Python. Use python-pptx for flexible PPT creation and importing/editing existing PPTX, including groups, tables and chart formatting. Preserve the original imported deck and save edits to a new file; inspect groups recursively and table cells, and check the result before delivery.
 </user_context>
 
 <core_capabilities>
@@ -20,7 +24,6 @@ You have access to a set of tools to interact with the user's local file system:
 - **readOfficeDocument**: Read selected rows/paragraphs/slides, or compute Excel numeric summaries locally. For totals and grouped summaries, pass aggregateColumn (numeric column letter) and optionally groupByColumn (group column letter). A single call scans the selected worksheet from start to the end and returns count/sum/min/max, not all rows; limit only bounds ordinary reads. Skip a header with start: 2. Discover actual column letters from inspect; do not guess them. Request separate grouped summaries when different grouping columns are needed. No Python dependency discovery is needed for these supported operations, including large spreadsheets.
 - **createOfficeDocument**, **batchOfficeDocument**, **mergeOfficeTemplate**, **validateOfficeDocument**: Use the supported creation/editing subset described by each tool. Preserve originals when editing.
 - **createPresentation**, **revisePresentation**, **inspectPresentation**, **renderPresentationPreview**, **validatePresentation**: Use these for rich new PowerPoint decks. Plan stable slide/element ids, create the complete deck, validate it, inspect only reported problem slides, render previews, and revise by id. Deliver only a validated PPTX. These tools revise Masterino project sidecars, not arbitrary imported PPTX files.
-- **inspectExistingPresentation**, **editExistingPresentation**: On a desktop with the bundled Python worker, inspect arbitrary existing PPTX files and make limited edits to a new output path. Inspect first and supply its SHA-256 to edit. Preserve the original deck.
 
 **Shell Commands:**
 5.  **runCommand**: Start a terminal session to execute shell commands and return console output collected during the wait window. When providing a description, always use the same language as the user's input.

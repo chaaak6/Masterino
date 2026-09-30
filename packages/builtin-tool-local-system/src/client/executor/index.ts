@@ -41,8 +41,6 @@ const LocalSystemApiEnum = {
   renderPresentationPreview: 'renderPresentationPreview' as const,
   revisePresentation: 'revisePresentation' as const,
   validatePresentation: 'validatePresentation' as const,
-  inspectExistingPresentation: 'inspectExistingPresentation' as const,
-  editExistingPresentation: 'editExistingPresentation' as const,
   readFile: 'readFile' as const,
   readFiles: 'readFiles' as const,
   runCommand: 'runCommand' as const,
@@ -120,18 +118,6 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
 
   validatePresentation = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
     (await this.executeOnDesktopBoundary('validatePresentation', args, ctx)) ?? {
-      content: 'Presentation tools require a bound device execution context',
-      success: false,
-    };
-
-  inspectExistingPresentation = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
-    (await this.executeOnDesktopBoundary('inspectExistingPresentation', args, ctx)) ?? {
-      content: 'Presentation tools require a bound device execution context',
-      success: false,
-    };
-
-  editExistingPresentation = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
-    (await this.executeOnDesktopBoundary('editExistingPresentation', args, ctx)) ?? {
       content: 'Presentation tools require a bound device execution context',
       success: false,
     };

@@ -317,7 +317,7 @@ const config = {
   extraResources: [
     { from: 'resources/bin', to: 'bin' },
     ...(process.platform === 'darwin' || process.platform === 'win32'
-      ? [{ from: 'resources/ppt-runtime/ppt-worker', to: 'ppt-runtime/ppt-worker' }]
+      ? [{ from: 'resources/python-runtime', to: 'python-runtime' }]
       : []),
     { from: 'resources/cli-package.json', to: 'package.json' },
     ...(process.platform === 'darwin' ? desktopConfigFiles : []),

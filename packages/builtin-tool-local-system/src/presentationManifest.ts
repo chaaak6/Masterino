@@ -184,92 +184,11 @@ export const PRESENTATION_API_NAMES = [
   'validatePresentation',
 ] as const;
 
-export const EXISTING_PRESENTATION_API_NAMES = [
-  'inspectExistingPresentation',
-  'editExistingPresentation',
-] as const;
-
 export const PRESENTATION_API_VERSIONS = Object.fromEntries(
   PRESENTATION_API_NAMES.map((name) => [name, 1]),
 ) as Record<(typeof PRESENTATION_API_NAMES)[number], number>;
 
 export const presentationApis: BuiltinToolManifest['api'] = [
-  {
-    defaultTimeoutMs: 45_000,
-    description:
-      'Inspect an existing local PPTX with the bundled PowerPoint worker. Returns its SHA-256, slide count, and bounded slide/shape/text-run details. Use the returned SHA-256 when editing. This reads arbitrary PPTX files; it does not require a Masterino project sidecar.',
-    humanIntervention: audit,
-    name: 'inspectExistingPresentation',
-    parameters: {
-      type: 'object',
-      required: ['path'],
-      properties: {
-        path: { type: 'string' },
-        expectedSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
-        slideIndices: { type: 'array', maxItems: 20, items: { type: 'integer', minimum: 1 } },
-      },
-    },
-  },
-  {
-    defaultTimeoutMs: 150_000,
-    description:
-      'Make precise edits to an existing local PPTX and save a NEW file without changing the source. Requires the SHA-256 returned by inspectExistingPresentation. Supports replacing one text run while preserving its formatting, moving/resizing a shape, and adding a text box. Existing destinations are never overwritten. Inspect the output before delivery.',
-    humanIntervention: audit,
-    name: 'editExistingPresentation',
-    parameters: {
-      type: 'object',
-      required: ['path', 'outputPath', 'expectedSha256', 'operations'],
-      properties: {
-        path: { type: 'string' },
-        outputPath: { type: 'string' },
-        expectedSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
-        operations: {
-          type: 'array',
-          minItems: 1,
-          maxItems: 200,
-          items: {
-            oneOf: [
-              {
-                type: 'object',
-                additionalProperties: false,
-                required: ['op', 'slideIndex', 'shapeId', 'paragraphIndex', 'runIndex', 'text'],
-                properties: {
-                  op: { const: 'replaceTextRun' },
-                  slideIndex: { type: 'integer', minimum: 1 },
-                  shapeId: { type: 'integer', minimum: 1 },
-                  paragraphIndex: { type: 'integer', minimum: 0 },
-                  runIndex: { type: 'integer', minimum: 0 },
-                  text: { type: 'string', maxLength: 10_000 },
-                },
-              },
-              {
-                type: 'object',
-                additionalProperties: false,
-                required: ['op', 'slideIndex', 'shapeId', 'frame'],
-                properties: {
-                  op: { const: 'setShapeFrame' },
-                  slideIndex: { type: 'integer', minimum: 1 },
-                  shapeId: { type: 'integer', minimum: 1 },
-                  frame,
-                },
-              },
-              {
-                type: 'object',
-                additionalProperties: false,
-                required: ['op', 'slideIndex', 'frame', 'text'],
-                properties: {
-                  op: { const: 'addTextBox' },
-                  slideIndex: { type: 'integer', minimum: 1 },
-                  frame,
-                  text: { type: 'string', minLength: 1, maxLength: 10_000 },
-                },
-              },
-            ],
-          },
-        },
-      },
-    },
-  },
   {
     defaultTimeoutMs: 180_000,
     description:

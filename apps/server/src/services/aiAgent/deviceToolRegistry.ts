@@ -19,11 +19,7 @@
  *      because the manifest was still resolvable in the engine even when
  *      the rule-layer gate denied it).
  */
-import {
-  EXISTING_PRESENTATION_API_NAMES,
-  LocalSystemManifest,
-  PRESENTATION_API_NAMES,
-} from '@lobechat/builtin-tool-local-system';
+import { LocalSystemManifest, PRESENTATION_API_NAMES } from '@lobechat/builtin-tool-local-system';
 import type { DeviceChannel } from '@lobechat/builtin-tool-remote-device';
 import { RemoteDeviceManifest } from '@lobechat/builtin-tool-remote-device';
 import { builtinTools } from '@lobechat/builtin-tools';
@@ -38,7 +34,6 @@ export const isDeviceToolIdentifier = (identifier: string): boolean =>
   DEVICE_TOOL_IDENTIFIERS.has(identifier);
 
 const presentationApiNames = new Set<string>(PRESENTATION_API_NAMES);
-const existingPresentationApiNames = new Set<string>(EXISTING_PRESENTATION_API_NAMES);
 
 const channelRank = (channel?: string) => {
   switch (channel) {
@@ -84,10 +79,7 @@ export const scopeLocalSystemManifestForDevice = (params: {
   return {
     ...LocalSystemManifest,
     api: LocalSystemManifest.api.filter(
-      (api) =>
-        (supportsPresentations || !presentationApiNames.has(api.name)) &&
-        (!existingPresentationApiNames.has(api.name) ||
-          (params.localSystemApiVersions?.[api.name] ?? 0) >= 1),
+      (api) => supportsPresentations || !presentationApiNames.has(api.name),
     ),
   };
 };

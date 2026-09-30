@@ -2954,6 +2954,8 @@ export class AiAgentService {
           hostname: device?.hostname ?? 'unknown',
           musicPath: systemInfo.musicPath,
           picturesPath: systemInfo.picturesPath,
+          pythonEnvironment:
+            systemInfo.pythonEnvironment ?? 'Bundled Python information unavailable.',
           platform: device?.platform ?? 'unknown',
           userDataPath: systemInfo.userDataPath,
           videosPath: systemInfo.videosPath,

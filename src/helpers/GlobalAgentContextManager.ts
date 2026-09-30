@@ -1,6 +1,7 @@
 export interface LobeGlobalAgentContext {
   // Other potential context
   currentTime?: string;
+  pythonEnvironment?: string;
 
   // App's data directory
   // Paths commonly used by agents

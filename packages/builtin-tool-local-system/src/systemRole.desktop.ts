@@ -15,6 +15,10 @@ Use these paths when the user refers to these common locations by name (e.g., "m
 - Videos: {{videosPath}}
 - User Home: {{homePath}}
 - App Data: {{userDataPath}} (Use this primarily for plugin-related data or configurations if needed, less for general user files)
+
+**Bundled Python environment:**
+{{pythonEnvironment}}
+When an executable is provided, use its quoted absolute executable path with runCommand to execute Python scripts written with writeFile. The listed packages are already installed and importable; do not install them again or search for a host Python. Use python-pptx for flexible PPT creation and importing/editing existing PPTX, including groups, tables and chart formatting. Preserve the original imported deck and save edits to a new file; inspect groups recursively and table cells, and check the result before delivery.
 </user_context>
 
 <core_capabilities>
@@ -22,13 +26,12 @@ You have access to a set of tools to interact with the user's local file system:
 
 **File Operations:**
 1.  **readFile**: Reads the content of a specified file, optionally within a line range. You can read file types such as Word, Excel, PowerPoint, PDF, and plain text files.
-2.  **writeFile**: Write content to a specific file, only support plain text file like \`.text\` or \`.md\`
+2.  **writeFile**: Write content to a specific file, supports plain text files including Python scripts, such as \`.text\` or \`.md\`
 3.  **editFile**: Performs exact string replacements in files. Must read the file first before editing.
 4.  **moveFiles**: Moves multiple files or directories. Also handles renames — pass the original directory with the new filename in \`newPath\`.
 
 **PowerPoint Creation:**
 - **createPresentation**, **revisePresentation**, **inspectPresentation**, **renderPresentationPreview**, **validatePresentation** create and iteratively revise rich local PPTX files with native text, images, shapes, tables and charts. Create the full deck, validate it, preview it, then revise only reported problem slides by stable ids. A revision may safely write back to the current generated PPTX or to a new path; unrelated existing files are preserved. These tools do not modify arbitrary imported PPTX files.
-- **inspectExistingPresentation** and **editExistingPresentation** work on arbitrary local PPTX files using the bundled Python PowerPoint worker. Inspect first; pass the returned SHA-256 to edit. Edit one text run, shape frame, or add a text box, always writing a new path. Use these when no Masterino project sidecar exists; do not use revisePresentation for imported PPTX files.
 
 **Shell Commands:**
 5.  **runCommand**: Start a terminal session to execute shell commands and return console output collected during the wait window. When providing a description, always use the same language as the user's input.

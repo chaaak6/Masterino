@@ -22,9 +22,10 @@ import type {
 import { app, powerSaveBlocker } from 'electron';
 
 import { isDev } from '@/const/env';
-import { isPythonPptWorkerAvailable } from '@/modules/presentation/pythonWorker';
 import { getDesktopEnv } from '@/env';
 import { resolveGatewayUrl } from '@/modules/gateway/configs';
+import { getPythonEnvironment } from '@/modules/pythonRuntime';
+
 import { createLogger } from '@/utils/logger';
 
 import { ServiceModule } from './index';
@@ -383,16 +384,11 @@ export default class GatewayConnectionService extends ServiceModule {
       this.resolveDeviceIdentity(userId);
     }
 
-    const pythonPptAvailable = await isPythonPptWorkerAvailable();
     const client = new GatewayClient({
       capabilities: {
         executionContextValidation: true,
         localSystemApiVersions: {
           ...LOCAL_SYSTEM_API_VERSIONS,
-          ...(pythonPptAvailable && {
-            inspectExistingPresentation: 1,
-            editExistingPresentation: 1,
-          }),
         },
       },
       channel: isDev ? 'desktop-dev' : 'desktop',
@@ -622,7 +618,7 @@ export default class GatewayConnectionService extends ServiceModule {
 
   // ─── System Info ───
 
-  private handleSystemInfoRequest(client: GatewayClient, request: SystemInfoRequestMessage) {
+  private async handleSystemInfoRequest(client: GatewayClient, request: SystemInfoRequestMessage) {
     logger.info(`Received system_info_request: requestId=${request.requestId}`);
     client.sendSystemInfoResponse({
       requestId: request.requestId,
@@ -636,6 +632,7 @@ export default class GatewayConnectionService extends ServiceModule {
           homePath: app.getPath('home'),
           musicPath: app.getPath('music'),
           picturesPath: app.getPath('pictures'),
+          pythonEnvironment: await getPythonEnvironment(),
           userDataPath: app.getPath('userData'),
           videosPath: app.getPath('videos'),
           workingDirectory: process.cwd(),

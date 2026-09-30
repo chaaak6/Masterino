@@ -38,10 +38,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
       - name: Set isolated test package version
         shell: bash
         env:
@@ -61,14 +57,14 @@ jobs:
         run: |
           $installer = Get-ChildItem apps/desktop/release -Filter '*-setup.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Windows test installer was not created' }
-          $worker = 'apps/desktop/release/win-unpacked/resources/ppt-runtime/ppt-worker/ppt-worker.exe'
-          if (-not (Test-Path $worker)) { throw 'Bundled PowerPoint worker missing' }
-          $worker = (Resolve-Path $worker).Path
+          $python = 'apps/desktop/release/win-unpacked/resources/python-runtime/python.exe'
+          if (-not (Test-Path $python)) { throw 'Bundled Python missing' }
+          $python = (Resolve-Path $python).Path
           $originalPath = $env:PATH
           try {
             $env:PATH = "$env:SystemRoot\System32"
-            $health = & $worker health | ConvertFrom-Json
-            if ($LASTEXITCODE -ne 0 -or $health.pythonPptx -ne $true) { throw 'Bundled PowerPoint worker failed without system Python' }
+            & $python -I apps/desktop/python/runtime/test_runtime.py
+            if ($LASTEXITCODE -ne 0) { throw 'Bundled Python failed without system Python' }
           } finally { $env:PATH = $originalPath }
           $signature = Get-AuthenticodeSignature $installer.FullName
           if ($signature.SignerCertificate) { throw 'Unexpected Authenticode signature found' }

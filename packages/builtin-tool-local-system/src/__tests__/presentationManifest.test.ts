@@ -14,10 +14,10 @@ describe('local presentation tools', () => {
         'renderPresentationPreview',
         'revisePresentation',
         'validatePresentation',
-        'inspectExistingPresentation',
-        'editExistingPresentation',
       ]),
     );
+    expect(names).not.toContain('inspectExistingPresentation');
+    expect(names).not.toContain('editExistingPresentation');
     const create = LocalSystemManifest.api.find((api) => api.name === 'createPresentation');
     expect(create).toMatchObject({
       humanIntervention: { dynamic: { type: 'pathScopeAudit' } },

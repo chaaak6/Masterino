@@ -110,8 +110,8 @@ describe('deviceToolRegistry', () => {
         editExistingPresentation: 1,
       },
     });
-    expect(withWorker.api.map((api) => api.name)).toContain('inspectExistingPresentation');
-    expect(withWorker.api.map((api) => api.name)).toContain('editExistingPresentation');
+    expect(withWorker.api.map((api) => api.name)).not.toContain('inspectExistingPresentation');
+    expect(withWorker.api.map((api) => api.name)).not.toContain('editExistingPresentation');
 
     const partial = scopeLocalSystemManifestForDevice({
       gatewayConfigured: true,

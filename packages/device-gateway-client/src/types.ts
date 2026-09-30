@@ -29,6 +29,7 @@ export interface GatewayDevice {
 }
 
 export interface DeviceSystemInfo {
+  pythonEnvironment?: string;
   arch: string;
   desktopPath: string;
   documentsPath: string;

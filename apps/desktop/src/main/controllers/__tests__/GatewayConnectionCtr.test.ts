@@ -3,6 +3,8 @@ import type { execSync as ExecSyncType } from 'node:child_process';
 import type * as LocalFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as pythonRuntime from '@/modules/pythonRuntime';
+
 import type { App } from '@/core/App';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import ImessageBridgeService from '@/services/imessageBridgeSrv';
@@ -16,13 +18,7 @@ import ShellCommandCtr from '../ShellCommandCtr';
 
 // ─── Mocks ───
 
-const {
-  createPresentationMock,
-  inspectExistingPresentationMock,
-  isPythonPptWorkerAvailableMock,
-  ipcMainHandleMock,
-  MockGatewayClient,
-} = vi.hoisted(() => {
+const { createPresentationMock, ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
   const { EventEmitter } = require('node:events');
 
   // Must be defined inside vi.hoisted so it's available when vi.mock factories run
@@ -46,6 +42,7 @@ const {
       this.connectionStatus = 'disconnected';
     });
 
+    sendSystemInfoResponse = vi.fn();
     sendToolCallResponse = vi.fn();
     sendMessageApiResponse = vi.fn();
     sendAgentRunAck = vi.fn();
@@ -154,18 +151,10 @@ const {
 
   return {
     createPresentationMock: vi.fn(),
-    inspectExistingPresentationMock: vi.fn(),
-    isPythonPptWorkerAvailableMock: vi.fn().mockResolvedValue(false),
     MockGatewayClient: _MockGatewayClient,
     ipcMainHandleMock: vi.fn(),
   };
 });
-
-vi.mock('@/modules/presentation/pythonWorker', () => ({
-  editExistingPresentation: vi.fn(),
-  inspectExistingPresentation: inspectExistingPresentationMock,
-  isPythonPptWorkerAvailable: isPythonPptWorkerAvailableMock,
-}));
 
 vi.mock('electron', () => ({
   app: {
@@ -394,14 +383,10 @@ describe('GatewayConnectionCtr', () => {
     });
 
     it('advertises existing PPTX tools only when the bundled worker starts', async () => {
-      isPythonPptWorkerAvailableMock.mockResolvedValueOnce(true);
       ctr = new GatewayConnectionCtr(mockApp);
       ctr.afterAppReady();
       await vi.advanceTimersByTimeAsync(0);
-      expect(MockGatewayClient.lastOptions.capabilities.localSystemApiVersions).toMatchObject({
-        inspectExistingPresentation: 1,
-        editExistingPresentation: 1,
-      });
+      expect(MockGatewayClient.lastOptions.capabilities.localSystemApiVersions).toMatchObject({});
     });
 
     it('should use custom gateway URL from store when set', async () => {
@@ -793,27 +778,22 @@ describe('GatewayConnectionCtr', () => {
       );
     });
 
-    it('routes existing PPTX inspection to the bundled worker adapter', async () => {
-      inspectExistingPresentationMock.mockResolvedValueOnce({
-        sha256: 'a'.repeat(64),
-        totalSlides: 2,
-      });
+    it('transmits verified Python context through the existing system-info channel', async () => {
+      const environment =
+        'Python 3.12.14\nExecutable: "/app/python-runtime/bin/python3"\npython-pptx==1.0.2';
+      vi.spyOn(pythonRuntime, 'getPythonEnvironment').mockResolvedValueOnce(environment);
       const client = await connectAndOpen();
-      client.simulateToolCallRequest(
-        'inspectExistingPresentation',
-        { path: '/workspace/imported.pptx' },
-        'ppt-inspect',
-      );
-      await vi.advanceTimersByTimeAsync(0);
-      expect(inspectExistingPresentationMock).toHaveBeenCalledWith({
-        path: '/workspace/imported.pptx',
+      client.emit('system_info_request', {
+        type: 'system_info_request',
+        requestId: 'python-context',
       });
-      expect(client.sendToolCallResponse).toHaveBeenCalledWith(
+      await vi.advanceTimersByTimeAsync(0);
+      expect(client.sendSystemInfoResponse).toHaveBeenCalledWith(
         expect.objectContaining({
-          requestId: 'ppt-inspect',
+          requestId: 'python-context',
           result: expect.objectContaining({
             success: true,
-            state: expect.objectContaining({ totalSlides: 2 }),
+            systemInfo: expect.objectContaining({ pythonEnvironment: environment }),
           }),
         }),
       );
