@@ -1,11 +1,11 @@
 export interface ElectronAppState {
-  pythonEnvironment?: string;
   arch?: string; // e.g., 'x64', 'arm64'
   isLinux?: boolean;
   isMac?: boolean;
   isWindows?: boolean;
   locale?: string;
   platform?: 'darwin' | 'win32' | 'linux';
+  pythonEnvironment?: string;
   systemAppearance?: string;
   userPath?: UserPathData;
 }

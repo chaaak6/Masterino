@@ -1,16 +1,16 @@
 export interface LobeGlobalAgentContext {
   // Other potential context
   currentTime?: string;
-  pythonEnvironment?: string;
-
   // App's data directory
   // Paths commonly used by agents
   desktopPath?: string;
+
   documentsPath?: string;
   downloadsPath?: string;
   homePath?: string;
   musicPath?: string;
   picturesPath?: string; // User's home directory
+  pythonEnvironment?: string;
   userDataPath?: string;
 
   videosPath?: string;

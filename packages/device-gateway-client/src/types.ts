@@ -29,7 +29,6 @@ export interface GatewayDevice {
 }
 
 export interface DeviceSystemInfo {
-  pythonEnvironment?: string;
   arch: string;
   desktopPath: string;
   documentsPath: string;
@@ -37,6 +36,7 @@ export interface DeviceSystemInfo {
   homePath: string;
   musicPath: string;
   picturesPath: string;
+  pythonEnvironment?: string;
   userDataPath: string;
   videosPath: string;
   workingDirectory: string;
