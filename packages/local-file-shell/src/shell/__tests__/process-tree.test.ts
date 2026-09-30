@@ -35,7 +35,7 @@ describe('command process trees', () => {
         );
         const result = await runCommand(
           {
-            command: `node "${parent}" ${process.platform === 'win32' ? '&' : ';'} echo shell-ended`,
+            command: `echo command-started ${process.platform === 'win32' ? '&' : ';'} "${process.execPath}" "${parent}" ${process.platform === 'win32' ? '&' : ';'} echo shell-ended`,
             run_in_background: true,
           },
           { processManager: manager },
@@ -48,7 +48,13 @@ describe('command process trees', () => {
             },
             { timeout: 5000 },
           )
-          .toBeTruthy();
+          .toBeTruthy()
+          .catch(async (error) => {
+            throw new Error(
+              JSON.stringify(await manager.getOutput({ shell_id: result.shell_id!, timeout: 0 })),
+              { cause: error },
+            );
+          });
         if (action === 'kill') expect(manager.kill(result.shell_id!).success).toBe(true);
         else manager.cleanupAll();
         await new Promise((resolve) => setTimeout(resolve, 1800));
