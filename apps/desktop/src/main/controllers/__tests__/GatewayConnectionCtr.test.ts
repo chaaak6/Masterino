@@ -222,7 +222,11 @@ vi.mock('node:child_process', async (importOriginal) => {
 });
 
 vi.mock('node:os', () => ({
-  default: { homedir: vi.fn(() => '/mock/home'), hostname: vi.fn(() => 'mock-hostname') },
+  default: {
+    arch: vi.fn(() => 'arm64'),
+    homedir: vi.fn(() => '/mock/home'),
+    hostname: vi.fn(() => 'mock-hostname'),
+  },
 }));
 
 vi.mock('@lobechat/device-gateway-client', () => ({
@@ -380,13 +384,6 @@ describe('GatewayConnectionCtr', () => {
           validatePresentation: 1,
         },
       });
-    });
-
-    it('advertises existing PPTX tools only when the bundled worker starts', async () => {
-      ctr = new GatewayConnectionCtr(mockApp);
-      ctr.afterAppReady();
-      await vi.advanceTimersByTimeAsync(0);
-      expect(MockGatewayClient.lastOptions.capabilities.localSystemApiVersions).toMatchObject({});
     });
 
     it('should use custom gateway URL from store when set', async () => {

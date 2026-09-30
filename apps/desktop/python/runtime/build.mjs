@@ -55,12 +55,15 @@ try {
   execFileSync(python, ['-I', path.join(here, 'test_runtime.py')], { stdio: 'inherit' });
   await mkdir(path.dirname(destination), { recursive: true });
   await rm(destination, { recursive: true, force: true });
-  await cp(runtime, destination, { recursive: true });
-  // Verify the relocated interpreter instead of depending on the build machine's Python.
-  execFileSync(path.join(destination, executable), ['-I', path.join(here, 'test_runtime.py')], {
-    stdio: 'inherit',
-  });
+  await cp(runtime, destination, { recursive: true, verbatimSymlinks: true });
   console.log(`Bundled Python ${info.version}: ${destination}`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }
+
+// Check only after the temporary download/extraction tree has been removed.
+execFileSync(
+  path.join(destination, process.platform === 'win32' ? 'python.exe' : 'bin/python3'),
+  ['-I', path.join(here, 'test_runtime.py')],
+  { stdio: 'inherit' },
+);
