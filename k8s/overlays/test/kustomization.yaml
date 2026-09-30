@@ -4,6 +4,7 @@ namespace: masterino-test
 resources:
   - ../../base
   - configmap.yaml
+  - searxng.yaml
   - device-gateway.yaml
   - memory-worker.yaml
 configMapGenerator:
