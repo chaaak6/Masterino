@@ -1,6 +1,8 @@
+import { resetLoginShellPathCacheForTest } from '@lobechat/local-file-shell';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { App } from '@/core/App';
+import * as pythonRuntime from '@/modules/pythonRuntime';
 
 import CliCtr from '../CliCtr';
 import ShellCommandCtr from '../ShellCommandCtr';
@@ -29,6 +31,8 @@ vi.mock('node:child_process', () => ({
   execFile: vi.fn(),
   spawn: vi.fn(),
 }));
+
+vi.mock('@/modules/pythonRuntime', () => ({ getBundledPythonInfo: vi.fn() }));
 
 vi.mock('../CliCtr', () => ({
   default: class CliCtr {},
@@ -89,6 +93,30 @@ describe('ShellCommandCtr (thin wrapper)', () => {
 
     expect(result.success).toBe(true);
     expect(result.stdout).toContain('output');
+  });
+
+  it('uses the healthy bundled runtime directory for ordinary commands', async () => {
+    resetLoginShellPathCacheForTest();
+    vi.spyOn(pythonRuntime, 'getBundledPythonInfo').mockResolvedValueOnce({
+      executable: '/App resources/python-runtime/bin/python3',
+      packages: {},
+      sitePackages: '/App resources/python-runtime/lib/site-packages',
+      version: '3.12.14',
+    });
+    mockChildProcess.once.mockImplementation((event: string, callback: () => void) => {
+      if (event === 'exit') setTimeout(callback, 0);
+      return mockChildProcess;
+    });
+    await ctr.handleRunCommand({ command: 'python3 report.py', run_in_background: true });
+    expect(mockSpawn).toHaveBeenCalledWith(
+      '/bin/sh',
+      ['-c', 'python3 report.py'],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          PATH: expect.stringMatching(/^\/App resources\/python-runtime\/bin:/),
+        }),
+      }),
+    );
   });
 
   it('should delegate handleGetCommandOutput to processManager', async () => {

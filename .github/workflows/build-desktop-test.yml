@@ -62,7 +62,7 @@ jobs:
         run: |
           $installer = Get-ChildItem apps/desktop/release -Filter '*-setup.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Windows test installer was not created' }
-          $config = Get-Content apps/desktop/release/win-unpacked/resources/desktop-config.json | ConvertFrom-Json
+          $config = Get-Content apps/desktop/release/win-unpacked/desktop-config.json | ConvertFrom-Json
           if ($config.cloudServer -ne 'https://mlai-test.bielcrystal.com') { throw 'Test installer points to the wrong server' }
           $python = 'apps/desktop/release/win-unpacked/resources/python-runtime/python.exe'
           if (-not (Test-Path $python)) { throw 'Bundled Python missing' }

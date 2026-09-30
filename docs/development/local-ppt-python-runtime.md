@@ -14,7 +14,7 @@ flowchart LR
   A --> H[本机 PPTX 文件]
 ```
 
-客户端直接执行模式在桌面初始化时调用 `SystemCtr.getAppState`，经 Electron store → `GlobalAgentContextManager` → `parserPlaceholder` 注册的 `pythonEnvironment` 变量注入同一份环境说明。网关模式通过已有系统信息消息传递新增可选字段 `pythonEnvironment`；服务端不安装或执行这个 Python，只给模型提供真实本机上下文。原有命令权限、工作目录、取消和执行状态同步链路不变。
+客户端直接执行模式在桌面初始化时调用 `SystemCtr.getAppState`，经 Electron store → `GlobalAgentContextManager` → `parserPlaceholder` 注册的 `pythonEnvironment` 变量注入同一份环境说明。网关模式通过已有系统信息消息传递新增可选字段 `pythonEnvironment`；服务端不安装或执行这个 Python，只给模型提供真实本机上下文。桌面命令执行层仅在包内环境健康时，把其解释器目录放到子进程 PATH 的最前面，`python`（macOS 还包括 `python3`）优先使用内置环境，其他宿主命令仍在原 PATH 中。共享 runner 只增加一个由桌面层传入的可选目录；Web / 服务端不传这一选项。原有命令权限、工作目录、取消和执行状态同步链路不变。
 
 ## 包内资源
 

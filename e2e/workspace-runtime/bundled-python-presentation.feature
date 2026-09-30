@@ -8,6 +8,7 @@ Feature: Local presentation scripts use the bundled Python environment
     When I ask the agent which Python executable and PPT libraries it can use
     Then its answer identifies the executable inside the app's python-runtime resources
     And running that executable imports pptx, PIL, lxml and xlsxwriter successfully
+    And a bare python command resolves to that bundled runtime without a path hint
     And the tool history contains no dependency installation or fixed PPT worker API
 
   Scenario: Author a polished Chinese presentation with editable charts

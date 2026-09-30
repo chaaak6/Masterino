@@ -26,7 +26,7 @@ export function formatPythonEnvironment(info?: BundledPythonInfo): string {
         `${name}==${version} (import ${imports[name] ?? name.replaceAll('-', '_')})`,
     )
     .join(', ');
-  return `Python ${info.version}\nExecutable: "${info.executable}"\nPackage directory: "${info.sitePackages}"\nPreinstalled packages: ${packages}\nThese packages are importable with this interpreter without configuring sys.path. Use this absolute path with -X utf8 for scripts and -m pip for package management; no host Python installation is needed.`;
+  return `Python ${info.version}\nExecutable: "${info.executable}"\nPackage directory: "${info.sitePackages}"\nPreinstalled packages: ${packages}\nThese packages are importable with this interpreter without configuring sys.path. Local runCommand prioritizes this interpreter directory on PATH. Use this absolute path with -X utf8 for scripts and -m pip for package management; no host Python installation is needed.`;
 }
 
 let infoPromise: Promise<BundledPythonInfo | undefined> | undefined;

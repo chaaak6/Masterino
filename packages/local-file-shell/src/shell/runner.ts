@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import path from 'node:path';
 
 import { composeChildProcessEnv, resolveLoginShellPath } from '../env';
 import type { RunCommandParams, RunCommandResult } from '../types';
@@ -11,6 +12,8 @@ export interface RunCommandOptions {
     error: (...args: any[]) => void;
     info: (...args: any[]) => void;
   };
+  /** App-owned runtime directory; keeps command lookup independent of host installations. */
+  prependPath?: string;
   processManager: ShellProcessManager;
 }
 
@@ -23,7 +26,7 @@ export async function runCommand(
     run_in_background,
     timeout = 30_000,
   }: RunCommandParams,
-  { processManager, logger }: RunCommandOptions,
+  { processManager, logger, prependPath }: RunCommandOptions,
 ): Promise<RunCommandResult> {
   if (!command) {
     return { error: 'command is required', success: false };
@@ -45,6 +48,11 @@ export async function runCommand(
     loginShellPath: await resolveLoginShellPath(),
     resolvedEnv: extraEnv,
   });
+
+  if (prependPath) {
+    const pathKey = Object.keys(childEnv).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH';
+    childEnv[pathKey] = [prependPath, childEnv[pathKey]].filter(Boolean).join(path.delimiter);
+  }
 
   try {
     const shellId = processManager.createShellId();
