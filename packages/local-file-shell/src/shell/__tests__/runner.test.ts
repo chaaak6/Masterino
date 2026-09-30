@@ -92,19 +92,6 @@ describe('runCommand', () => {
       expect(result.stdout).toContain('/tmp');
     });
 
-    it('prioritizes an app runtime directory without dropping the rest of PATH', async () => {
-      const runtimeDirectory = '/app resources/python-runtime/bin';
-      const result = await runCommand(
-        { command: 'node -p "process.env.PATH"' },
-        { prependPath: runtimeDirectory, processManager },
-      );
-      expect(result.exit_code).toBe(0);
-      expect(result.stdout?.trim().split(process.platform === 'win32' ? ';' : ':')[0]).toBe(
-        runtimeDirectory,
-      );
-      expect(result.stdout?.trim().length).toBeGreaterThan(runtimeDirectory.length + 1);
-    });
-
     it('should merge env into child process environment', async () => {
       const result = await runCommand(
         {

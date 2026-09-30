@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 import type {
   GetCommandOutputParams,
   GetCommandOutputResult,
@@ -10,7 +8,6 @@ import type {
 } from '@lobechat/electron-client-ipc';
 import { runCommand, ShellProcessManager } from '@lobechat/local-file-shell';
 
-import { getBundledPythonInfo } from '@/modules/pythonRuntime';
 import { createLogger } from '@/utils/logger';
 
 import CliCtr from './CliCtr';
@@ -49,15 +46,7 @@ export default class ShellCommandCtr extends ControllerModule {
       }
     }
 
-    const python = await getBundledPythonInfo();
-    const executionParams = python
-      ? { ...params, env: { ...params.env, PYTHONDONTWRITEBYTECODE: '1' } }
-      : params;
-    return runCommand(executionParams, {
-      logger,
-      prependPath: python ? path.dirname(python.executable) : undefined,
-      processManager,
-    });
+    return runCommand(params, { logger, processManager });
   }
 
   @IpcMethod()

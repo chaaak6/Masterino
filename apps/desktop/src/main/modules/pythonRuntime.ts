@@ -8,6 +8,7 @@ export interface BundledPythonInfo {
   executable: string;
   packages: Record<string, string>;
   sitePackages: string;
+  venvRoot: string;
   version: string;
 }
 
@@ -26,7 +27,19 @@ export function formatPythonEnvironment(info?: BundledPythonInfo): string {
         `${name}==${version} (import ${imports[name] ?? name.replaceAll('-', '_')})`,
     )
     .join(', ');
-  return `Python ${info.version}\nExecutable: "${info.executable}"\nPackage directory: "${info.sitePackages}"\nPreinstalled packages: ${packages}\nThese packages are importable with this interpreter without configuring sys.path. Local runCommand prioritizes this interpreter directory on PATH. Use this absolute path with -B -X utf8 for scripts and -m pip for package management; no host Python installation is needed.`;
+  const venv = path.join(info.venvRoot, 'project-env');
+  const venvPython = path.join(
+    venv,
+    process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python',
+  );
+  return `Python ${info.version}
+Executable: "${info.executable}"
+Package directory: "${info.sitePackages}"
+Preinstalled packages: ${packages}
+Use "${info.executable}" -I -B -X utf8 <script.py>. These packages are already importable; no host Python or PATH changes are needed. Treat the application runtime as read-only: never install or upgrade packages in it, and never use its -m pip to manage dependencies.
+For additional packages, create a project-specific virtual environment under "${info.venvRoot}". Example:
+"${info.executable}" -I -B -X utf8 -m venv --without-pip --system-site-packages "${venv}"
+Then install only with "${venvPython}" -I -B -X utf8 -m pip install <additional-package>, and run project scripts with that virtual environment's Python and the same flags. The virtual environment inherits the preinstalled packages. Use a distinct environment per project; do not use --user or alter host Python.`;
 }
 
 let infoPromise: Promise<BundledPythonInfo | undefined> | undefined;
@@ -48,12 +61,18 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
         [
           '-I',
           '-B',
+          '-X',
+          'utf8',
           '-c',
           'import json, platform, pathlib, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter; print(json.dumps({"version": platform.python_version(), "sitePackages": str(pathlib.Path(pptx.__file__).parent.parent), "packages": {n: m.version(n) for n in ["python-pptx", "Pillow", "lxml", "XlsxWriter", "typing-extensions"]}}))',
         ],
         { timeout: 10_000, windowsHide: true },
       );
-      return { ...JSON.parse(stdout), executable } as BundledPythonInfo;
+      return {
+        ...JSON.parse(stdout),
+        executable,
+        venvRoot: path.join(app.getPath('userData'), 'python-environments'),
+      } as BundledPythonInfo;
     } catch {
       return undefined;
     }

@@ -14,7 +14,7 @@ flowchart LR
   A --> H[本机 PPTX 文件]
 ```
 
-客户端直接执行模式在桌面初始化时调用 `SystemCtr.getAppState`，经 Electron store → `GlobalAgentContextManager` → `parserPlaceholder` 注册的 `pythonEnvironment` 变量注入同一份环境说明。网关模式通过已有系统信息消息传递新增可选字段 `pythonEnvironment`；服务端不安装或执行这个 Python，只给模型提供真实本机上下文。桌面命令执行层仅在包内环境健康时，把其解释器目录放到子进程 PATH 的最前面，`python`（macOS 还包括 `python3`）优先使用内置环境，其他宿主命令仍在原 PATH 中。共享 runner 只增加一个由桌面层传入的可选目录；Web / 服务端不传这一选项。原有命令权限、工作目录、取消和执行状态同步链路不变。
+客户端直接执行模式在桌面初始化时调用 `SystemCtr.getAppState`，经 Electron store → `GlobalAgentContextManager` → `parserPlaceholder` 注册的 `pythonEnvironment` 变量注入同一份环境说明。网关模式通过已有系统信息消息传递新增可选字段 `pythonEnvironment`；服务端不安装或执行这个 Python，只给模型提供真实本机上下文。模型使用上下文里的解释器绝对路径，并带 `-I -B -X utf8`。普通命令不前置 Python 目录，也不注入 Python 缓存设置；Windows 的运行时根目录与 DLL 不会进入其他命令的 PATH。原有命令权限、工作目录、取消和执行状态同步链路不变。
 
 ## 包内资源
 
@@ -50,7 +50,9 @@ flowchart TD
   F --> G
 ```
 
-Python 脚本能直接使用完整库 API，例如递归读取组合、读写表格单元格、图表轴和标签、段落对齐、边距、字体、备注。模型无需安装这些依赖或配置 `sys.path`。含空格的解释器路径需要加引号，桌面命令设置 `PYTHONDONTWRITEBYTECODE=1`，健康探测与脚本建议带 `-B`，避免 Python 缓存写入安装目录破坏 macOS 签名。脚本同时建议带 `-X utf8`，包管理使用解释器的 `-m pip`。不要向安装包目录写入新依赖；有额外依赖需求时使用项目自己的环境。
+Python 脚本能直接使用完整库 API，例如递归读取组合、读写表格单元格、图表轴和标签、段落对齐、边距、字体、备注。模型无需安装这些依赖或配置 `sys.path`。解释器绝对路径需加引号，执行参数统一为 `-I -B -X utf8`：忽略宿主 Python 环境变量、用户包和脚本目录的自动注入，并禁止导入时写字节码。它是导入环境隔离，不是文件系统沙箱。不要用基础解释器的 pip 安装或升级依赖，也不要改变宿主 Python。
+
+额外依赖使用 `userData/python-environments/` 下的项目虚拟环境。环境说明给出实际目录和命令：基础解释器执行 `-I -B -X utf8 -m venv --without-pip --system-site-packages <环境路径>`，然后用虚拟环境内的解释器带同样参数运行脚本和 `-m pip install`。它继承包内预装库及 pip，新增依赖只装到虚拟环境。`--without-pip` 避免 venv 内部另起未带 `-B` 的 ensurepip 子进程；无需复制整套运行环境。`-I` 会忽略 `PYTHONPATH`，这里通过标准 venv 机制加载依赖。
 
 Python 生成的 PPTX 没有 Masterino scene graph sidecar，因此不能套用 `revisePresentation` / `validatePresentation`；应使用 Python 回读或 OOXML 检查。`python-pptx` 不提供幻灯片渲染，也不保证任意导入稿中的 SmartArt、动画、OLE 等复杂内容无损往返。编辑导入稿保留原件，输出新文件，再检查内容与未修改部件。
 
@@ -59,7 +61,7 @@ Excel 工具实现和加载逻辑没有改动。内置 Python 不会替代 Excel
 ## 验收入口
 
 - 构建：在 `apps/desktop` 执行 `npm run build:python-runtime`。
-- 本机包内运行：`"<包内 Python 路径>" -I -B python/runtime/test_runtime.py`，覆盖中文、组合、表格、图表、图片、备注与编辑回读。
+- 本机包内运行：`"<包内 Python 路径>" -I -B -X utf8 python/runtime/test_runtime.py`，覆盖导入隔离、离线额外依赖安装及完整 runtime 哈希不变、中文、组合、表格、图表、图片、备注与编辑回读。
 - Windows 测试包工作流在只有系统基础目录的 PATH 下调用包内 Python，验证不依赖系统 Python。
 - 中文 Electron BDD 场景见 `e2e/workspace-runtime/bundled-python-presentation.feature`；实际结果单独记录，未完成的场景不得记为通过。
 

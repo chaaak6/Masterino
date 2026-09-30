@@ -8,7 +8,7 @@ Feature: Local presentation scripts use the bundled Python environment
     When I ask the agent which Python executable and PPT libraries it can use
     Then its answer identifies the executable inside the app's python-runtime resources
     And running that executable imports pptx, PIL, lxml and xlsxwriter successfully
-    And a bare python command resolves to that bundled runtime without a path hint
+    And the command uses its quoted absolute path with -I -B -X utf8
     And the tool history contains no dependency installation or fixed PPT worker API
 
   Scenario: Author a polished Chinese presentation with editable charts
@@ -34,3 +34,28 @@ Feature: Local presentation scripts use the bundled Python environment
     Then the created PPT validates and previews successfully
     And the Excel values read back correctly
     And a project skill and a basic chat response still work
+
+  Scenario: Ordinary commands retain the host environment
+    When the agent runs node and git version and environment probes
+    Then neither command has an app Python directory added to PATH
+    And neither command receives an app-authored PYTHONDONTWRITEBYTECODE override
+
+  Scenario: Host and workspace packages do not shadow the bundled libraries
+    Given synthetic shadow modules and Python environment variables exist only in test directories
+    When the agent executes a script with the recommended isolated command
+    Then pptx is imported from the bundled site-packages
+    And no shadow module executes
+
+  Scenario: An additional dependency lives outside the signed app
+    Given a synthetic local wheel exists in the test project
+    When the agent installs it in a project-specific virtual environment under app user data
+    Then the new dependency and the preinstalled PPT libraries are importable together
+    And the bundled runtime file hashes and app signature stay unchanged
+    And host Python and user site-packages stay unchanged
+
+  Scenario: A failed Python script does not poison later commands
+    When a synthetic script fails with a syntax error
+    Then the error is visible and no output PPTX is published
+    When the agent corrects that script and executes it again
+    Then a valid PPTX is produced
+    And ordinary commands still execute normally

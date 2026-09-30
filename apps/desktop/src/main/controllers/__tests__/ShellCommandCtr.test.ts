@@ -95,29 +95,39 @@ describe('ShellCommandCtr (thin wrapper)', () => {
     expect(result.stdout).toContain('output');
   });
 
-  it('uses the healthy bundled runtime directory for ordinary commands', async () => {
+  it('keeps ordinary command environments independent of bundled Python', async () => {
     resetLoginShellPathCacheForTest();
-    vi.spyOn(pythonRuntime, 'getBundledPythonInfo').mockResolvedValueOnce({
+    vi.mocked(pythonRuntime.getBundledPythonInfo).mockResolvedValue({
       executable: '/App resources/python-runtime/bin/python3',
       packages: {},
       sitePackages: '/App resources/python-runtime/lib/site-packages',
       version: '3.12.14',
+      venvRoot: '/User Data/python-environments',
     });
     mockChildProcess.once.mockImplementation((event: string, callback: () => void) => {
       if (event === 'exit') setTimeout(callback, 0);
       return mockChildProcess;
     });
-    await ctr.handleRunCommand({ command: 'python3 report.py', run_in_background: true });
+    await ctr.handleRunCommand({ command: 'node --version', run_in_background: true });
     expect(mockSpawn).toHaveBeenCalledWith(
       '/bin/sh',
-      ['-c', 'python3 report.py'],
+      ['-c', 'node --version'],
       expect.objectContaining({
         env: expect.objectContaining({
-          PATH: expect.stringMatching(/^\/App resources\/python-runtime\/bin:/),
-          PYTHONDONTWRITEBYTECODE: '1',
+          PATH: expect.not.stringContaining('/App resources/python-runtime'),
         }),
       }),
     );
+  });
+
+  it('does not impose Python cache settings on non-Python commands', async () => {
+    vi.stubEnv('PYTHONDONTWRITEBYTECODE', undefined);
+    try {
+      await ctr.handleRunCommand({ command: 'git --version', run_in_background: true });
+      expect(mockSpawn.mock.calls.at(-1)?.[2].env.PYTHONDONTWRITEBYTECODE).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should delegate handleGetCommandOutput to processManager', async () => {
