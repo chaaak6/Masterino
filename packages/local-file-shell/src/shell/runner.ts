@@ -53,6 +53,7 @@ export async function runCommand(
       detached: process.platform !== 'win32',
       env: childEnv as NodeJS.ProcessEnv,
       shell: false,
+      windowsVerbatimArguments: process.platform === 'win32',
     });
 
     const shellProcess: ShellProcess = {

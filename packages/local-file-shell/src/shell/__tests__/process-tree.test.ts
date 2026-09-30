@@ -13,7 +13,7 @@ describe('command process trees', () => {
     it(`${action} stops descendants without stopping another command`, async () => {
       const directory = await mkdtemp(path.join(os.tmpdir(), 'masterino-process-tree-'));
       const child = path.join(directory, 'child.cjs');
-      const parent = path.join(directory, 'parent.cjs');
+      const parent = path.join(directory, 'parent command.cjs');
       const ready = path.join(directory, 'ready');
       const parentReady = path.join(directory, 'parent-ready');
       const unexpected = path.join(directory, 'unexpected');
@@ -40,21 +40,22 @@ describe('command process trees', () => {
           },
           { processManager: manager },
         );
-        await expect
-          .poll(
-            async () => {
-              childPid = Number(await readFile(ready, 'utf8').catch(() => '0')) || undefined;
-              return childPid;
-            },
-            { timeout: 5000 },
-          )
-          .toBeTruthy()
-          .catch(async (error) => {
-            throw new Error(
-              JSON.stringify(await manager.getOutput({ shell_id: result.shell_id!, timeout: 0 })),
-              { cause: error },
-            );
-          });
+        try {
+          await expect
+            .poll(
+              async () => {
+                childPid = Number(await readFile(ready, 'utf8').catch(() => '0')) || undefined;
+                return childPid;
+              },
+              { timeout: 5000 },
+            )
+            .toBeTruthy();
+        } catch (error) {
+          throw new Error(
+            JSON.stringify(await manager.getOutput({ shell_id: result.shell_id!, timeout: 0 })),
+            { cause: error },
+          );
+        }
         if (action === 'kill') expect(manager.kill(result.shell_id!).success).toBe(true);
         else manager.cleanupAll();
         await new Promise((resolve) => setTimeout(resolve, 1800));
