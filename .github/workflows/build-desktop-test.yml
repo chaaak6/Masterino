@@ -46,6 +46,11 @@ jobs:
           node -e "const fs=require('fs'); const path='apps/desktop/package.json'; const pkg=JSON.parse(fs.readFileSync(path,'utf8')); pkg.version=process.env.DESKTOP_VERSION; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)+'\n');"
           node -e "const pkg=require('./apps/desktop/package.json'); if(pkg.productName!=='Masterino'||pkg.version!==process.env.DESKTOP_VERSION) process.exit(1)"
 
+      - name: Pin runtime configuration to the test cluster
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); fs.writeFileSync('apps/desktop/resources/desktop-config.json', JSON.stringify({cloudServer:'https://mlai-test.bielcrystal.com',cloudServerAliases:[],marketBaseUrl:'https://mlai-test.bielcrystal.com/market'}, null, 2)+'\\n');"
+
       - name: Build unsigned Windows test client
         working-directory: apps/desktop
         env:
@@ -57,6 +62,8 @@ jobs:
         run: |
           $installer = Get-ChildItem apps/desktop/release -Filter '*-setup.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Windows test installer was not created' }
+          $config = Get-Content apps/desktop/release/win-unpacked/resources/desktop-config.json | ConvertFrom-Json
+          if ($config.cloudServer -ne 'https://mlai-test.bielcrystal.com') { throw 'Test installer points to the wrong server' }
           $python = 'apps/desktop/release/win-unpacked/resources/python-runtime/python.exe'
           if (-not (Test-Path $python)) { throw 'Bundled Python missing' }
           $python = (Resolve-Path $python).Path
