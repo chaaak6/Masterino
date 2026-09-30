@@ -50,6 +50,7 @@ export async function runCommand(
     const shellId = processManager.createShellId();
     const childProcess = spawn(shellConfig.cmd, shellConfig.args, {
       cwd,
+      detached: process.platform !== 'win32',
       env: childEnv as NodeJS.ProcessEnv,
       shell: false,
     });
@@ -59,6 +60,7 @@ export async function runCommand(
       lastReadStderr: 0,
       lastReadStdout: 0,
       process: childProcess,
+      processGroup: process.platform !== 'win32',
       stderr: [],
       stdout: [],
     };

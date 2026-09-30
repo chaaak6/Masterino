@@ -59,3 +59,10 @@ Feature: Local presentation scripts use the bundled Python environment
     When the agent corrects that script and executes it again
     Then a valid PPTX is produced
     And ordinary commands still execute normally
+
+  Scenario: Cancelling a Python command stops its descendants
+    Given a background Python script waits before writing a test marker
+    When the agent cancels that command using its shell_id
+    Then the shell and its Python descendants stop
+    And the delayed marker is never written
+    And unrelated commands and the app remain available
