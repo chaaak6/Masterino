@@ -37,8 +37,9 @@ data:
   DEFAULT_FILES_CONFIG: 'embedding_model=newapi/text-embedding-3-large,query_mode=full_text'
   CHUNKS_AUTO_EMBEDDING: '1'
   LLM_VISION_IMAGE_USE_BASE64: '1'
-  # Optional web search is disabled until a dedicated test provider credential is supplied.
-  SEARCH_PROVIDERS: ''
+  # Search runs through the dedicated SearXNG service in this test namespace.
+  SEARCH_PROVIDERS: 'searxng'
+  SEARXNG_URL: 'http://masterino-searxng:8080'
   AIHUB_PROXY_URL: 'https://aihub.bielcrystal.com'
   MODEL_PROVIDER_ALLOWED_ORIGINS: 'https://aihub.bielcrystal.com'
   SKILL_IMPORT_ALLOWED_ORIGINS: 'https://mlai-test.bielcrystal.com,https://github.com,https://raw.githubusercontent.com,https://codeload.github.com,https://pinchwork.dev'
