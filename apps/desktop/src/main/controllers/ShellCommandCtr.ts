@@ -50,7 +50,10 @@ export default class ShellCommandCtr extends ControllerModule {
     }
 
     const python = await getBundledPythonInfo();
-    return runCommand(params, {
+    const executionParams = python
+      ? { ...params, env: { ...params.env, PYTHONDONTWRITEBYTECODE: '1' } }
+      : params;
+    return runCommand(executionParams, {
       logger,
       prependPath: python ? path.dirname(python.executable) : undefined,
       processManager,

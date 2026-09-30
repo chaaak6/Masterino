@@ -50,7 +50,7 @@ flowchart TD
   F --> G
 ```
 
-Python 脚本能直接使用完整库 API，例如递归读取组合、读写表格单元格、图表轴和标签、段落对齐、边距、字体、备注。模型无需安装这些依赖或配置 `sys.path`。含空格的解释器路径需要加引号，脚本建议带 `-X utf8`，包管理使用解释器的 `-m pip`。不要向安装包目录写入新依赖；有额外依赖需求时使用项目自己的环境。
+Python 脚本能直接使用完整库 API，例如递归读取组合、读写表格单元格、图表轴和标签、段落对齐、边距、字体、备注。模型无需安装这些依赖或配置 `sys.path`。含空格的解释器路径需要加引号，桌面命令设置 `PYTHONDONTWRITEBYTECODE=1`，健康探测与脚本建议带 `-B`，避免 Python 缓存写入安装目录破坏 macOS 签名。脚本同时建议带 `-X utf8`，包管理使用解释器的 `-m pip`。不要向安装包目录写入新依赖；有额外依赖需求时使用项目自己的环境。
 
 Python 生成的 PPTX 没有 Masterino scene graph sidecar，因此不能套用 `revisePresentation` / `validatePresentation`；应使用 Python 回读或 OOXML 检查。`python-pptx` 不提供幻灯片渲染，也不保证任意导入稿中的 SmartArt、动画、OLE 等复杂内容无损往返。编辑导入稿保留原件，输出新文件，再检查内容与未修改部件。
 
@@ -59,7 +59,7 @@ Excel 工具实现和加载逻辑没有改动。内置 Python 不会替代 Excel
 ## 验收入口
 
 - 构建：在 `apps/desktop` 执行 `npm run build:python-runtime`。
-- 本机包内运行：`"<包内 Python 路径>" -I python/runtime/test_runtime.py`，覆盖中文、组合、表格、图表、图片、备注与编辑回读。
+- 本机包内运行：`"<包内 Python 路径>" -I -B python/runtime/test_runtime.py`，覆盖中文、组合、表格、图表、图片、备注与编辑回读。
 - Windows 测试包工作流在只有系统基础目录的 PATH 下调用包内 Python，验证不依赖系统 Python。
 - 中文 Electron BDD 场景见 `e2e/workspace-runtime/bundled-python-presentation.feature`；实际结果单独记录，未完成的场景不得记为通过。
 

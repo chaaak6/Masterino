@@ -70,7 +70,7 @@ jobs:
           $originalPath = $env:PATH
           try {
             $env:PATH = "$env:SystemRoot\System32"
-            & $python -I apps/desktop/python/runtime/test_runtime.py
+            & $python -I -B apps/desktop/python/runtime/test_runtime.py
             if ($LASTEXITCODE -ne 0) { throw 'Bundled Python failed without system Python' }
           } finally { $env:PATH = $originalPath }
           $signature = Get-AuthenticodeSignature $installer.FullName

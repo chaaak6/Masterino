@@ -114,6 +114,7 @@ describe('ShellCommandCtr (thin wrapper)', () => {
       expect.objectContaining({
         env: expect.objectContaining({
           PATH: expect.stringMatching(/^\/App resources\/python-runtime\/bin:/),
+          PYTHONDONTWRITEBYTECODE: '1',
         }),
       }),
     );

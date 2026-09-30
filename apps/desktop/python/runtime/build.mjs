@@ -42,17 +42,26 @@ try {
   const python = path.join(runtime, executable);
   execFileSync(
     python,
-    ['-I', '-m', 'pip', 'install', '--no-cache-dir', '-r', path.join(here, 'requirements.txt')],
+    [
+      '-I',
+      '-B',
+      '-m',
+      'pip',
+      'install',
+      '--no-cache-dir',
+      '-r',
+      path.join(here, 'requirements.txt'),
+    ],
     { stdio: 'inherit' },
   );
   const packages = ['python-pptx', 'Pillow', 'lxml', 'XlsxWriter', 'typing-extensions'];
   const probe = `import json, platform, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter; print(json.dumps({'version': platform.python_version(), 'packages': {n: m.version(n) for n in ${JSON.stringify(packages)}}}))`;
-  const info = JSON.parse(execFileSync(python, ['-I', '-c', probe], { encoding: 'utf8' }));
+  const info = JSON.parse(execFileSync(python, ['-I', '-B', '-c', probe], { encoding: 'utf8' }));
   await writeFile(
     path.join(runtime, 'manifest.json'),
     JSON.stringify({ ...info, executable, target }, null, 2) + '\n',
   );
-  execFileSync(python, ['-I', path.join(here, 'test_runtime.py')], { stdio: 'inherit' });
+  execFileSync(python, ['-I', '-B', path.join(here, 'test_runtime.py')], { stdio: 'inherit' });
   await mkdir(path.dirname(destination), { recursive: true });
   await rm(destination, { recursive: true, force: true });
   await cp(runtime, destination, { recursive: true, verbatimSymlinks: true });
@@ -64,6 +73,6 @@ try {
 // Check only after the temporary download/extraction tree has been removed.
 execFileSync(
   path.join(destination, process.platform === 'win32' ? 'python.exe' : 'bin/python3'),
-  ['-I', path.join(here, 'test_runtime.py')],
+  ['-I', '-B', path.join(here, 'test_runtime.py')],
   { stdio: 'inherit' },
 );

@@ -16,6 +16,7 @@ describe('bundled Python agent context', () => {
     expect(context).toContain('Python 3.12.14');
     expect(context).toContain('/app/python-runtime/lib/python3.12/site-packages');
     expect(context).toContain('-X utf8');
+    expect(context).toContain('-B');
     expect(context).toContain('python-pptx==1.0.2 (import pptx)');
     expect(context).toContain('Pillow==12.3.0 (import PIL)');
     expect(context).toContain('lxml==6.1.3');
