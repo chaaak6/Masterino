@@ -55,6 +55,7 @@ vi.mock('@/store/chat/selectors', () => ({
 vi.mock('../GlobalAgentContextManager', () => ({
   globalAgentContextManager: {
     getContext: () => ({
+      pythonEnvironment: 'Python 3.12.14 at /App/python-runtime/bin/python3; python-pptx 1.0.2',
       homePath: '/Users/test',
       desktopPath: '/Users/test/Desktop',
       documentsPath: '/Users/test/Documents',
@@ -603,6 +604,12 @@ describe('VARIABLE_GENERATORS', () => {
   });
 
   describe('desktop path variables', () => {
+    it('should inject the bundled Python environment into desktop prompts', () => {
+      expect(parsePlaceholderVariables('Environment: {{pythonEnvironment}}')).toBe(
+        'Environment: Python 3.12.14 at /App/python-runtime/bin/python3; python-pptx 1.0.2',
+      );
+    });
+
     it('should get home path', () => {
       expect(VARIABLE_GENERATORS.homePath()).toBe('/Users/test');
     });
