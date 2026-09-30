@@ -7,6 +7,7 @@ import { app } from 'electron';
 export interface BundledPythonInfo {
   executable: string;
   packages: Record<string, string>;
+  sitePackages: string;
   version: string;
 }
 
@@ -25,7 +26,7 @@ export function formatPythonEnvironment(info?: BundledPythonInfo): string {
         `${name}==${version} (import ${imports[name] ?? name.replaceAll('-', '_')})`,
     )
     .join(', ');
-  return `Python ${info.version}\nExecutable: "${info.executable}"\nPreinstalled packages: ${packages}\nThese packages are importable with this interpreter without configuring sys.path. Use this absolute path; no host Python installation is needed.`;
+  return `Python ${info.version}\nExecutable: "${info.executable}"\nPackage directory: "${info.sitePackages}"\nPreinstalled packages: ${packages}\nThese packages are importable with this interpreter without configuring sys.path. Use this absolute path with -X utf8 for scripts and -m pip for package management; no host Python installation is needed.`;
 }
 
 let infoPromise: Promise<BundledPythonInfo | undefined> | undefined;
@@ -47,7 +48,7 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
         [
           '-I',
           '-c',
-          'import json, platform, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter; print(json.dumps({"version": platform.python_version(), "packages": {n: m.version(n) for n in ["python-pptx", "Pillow", "lxml", "XlsxWriter", "typing-extensions"]}}))',
+          'import json, platform, pathlib, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter; print(json.dumps({"version": platform.python_version(), "sitePackages": str(pathlib.Path(pptx.__file__).parent.parent), "packages": {n: m.version(n) for n in ["python-pptx", "Pillow", "lxml", "XlsxWriter", "typing-extensions"]}}))',
         ],
         { timeout: 10_000, windowsHide: true },
       );
