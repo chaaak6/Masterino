@@ -5,6 +5,8 @@ import { promisify } from 'node:util';
 import type { IToolDetector, ToolStatus } from '@/core/infrastructure/ToolDetectorManager';
 import { createCommandDetector } from '@/core/infrastructure/ToolDetectorManager';
 
+import { getBundledPythonInfo } from '../pythonRuntime';
+
 const execPromise = promisify(exec);
 
 /**
@@ -30,6 +32,9 @@ export const npmDetector: IToolDetector = createCommandDetector('npm', {
 export const pythonDetector: IToolDetector = {
   description: 'Python - programming language runtime',
   async detect(): Promise<ToolStatus> {
+    const bundled = await getBundledPythonInfo();
+    if (bundled)
+      return { available: true, path: bundled.executable, version: `Python ${bundled.version}` };
     const commands = platform() === 'win32' ? ['python', 'py'] : ['python3', 'python'];
 
     for (const cmd of commands) {

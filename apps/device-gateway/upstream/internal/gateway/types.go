@@ -3,7 +3,8 @@ package gateway
 import "encoding/json"
 
 type DeviceCapabilities struct {
-	ExecutionContextValidation bool `json:"executionContextValidation,omitempty"`
+	ExecutionContextValidation bool           `json:"executionContextValidation,omitempty"`
+	LocalSystemAPIVersions      map[string]int `json:"localSystemApiVersions,omitempty"`
 }
 
 type DeviceAttachment struct {

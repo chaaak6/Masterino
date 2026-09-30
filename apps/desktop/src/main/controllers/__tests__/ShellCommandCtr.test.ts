@@ -1,6 +1,8 @@
+import { resetLoginShellPathCacheForTest } from '@lobechat/local-file-shell';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { App } from '@/core/App';
+import * as pythonRuntime from '@/modules/pythonRuntime';
 
 import CliCtr from '../CliCtr';
 import ShellCommandCtr from '../ShellCommandCtr';
@@ -29,6 +31,8 @@ vi.mock('node:child_process', () => ({
   execFile: vi.fn(),
   spawn: vi.fn(),
 }));
+
+vi.mock('@/modules/pythonRuntime', () => ({ getBundledPythonInfo: vi.fn() }));
 
 vi.mock('../CliCtr', () => ({
   default: class CliCtr {},
@@ -89,6 +93,41 @@ describe('ShellCommandCtr (thin wrapper)', () => {
 
     expect(result.success).toBe(true);
     expect(result.stdout).toContain('output');
+  });
+
+  it('keeps ordinary command environments independent of bundled Python', async () => {
+    resetLoginShellPathCacheForTest();
+    vi.mocked(pythonRuntime.getBundledPythonInfo).mockResolvedValue({
+      executable: '/App resources/python-runtime/bin/python3',
+      packages: {},
+      sitePackages: '/App resources/python-runtime/lib/site-packages',
+      version: '3.12.14',
+      venvRoot: '/User Data/python-environments',
+    });
+    mockChildProcess.once.mockImplementation((event: string, callback: () => void) => {
+      if (event === 'exit') setTimeout(callback, 0);
+      return mockChildProcess;
+    });
+    await ctr.handleRunCommand({ command: 'node --version', run_in_background: true });
+    expect(mockSpawn).toHaveBeenCalledWith(
+      '/bin/sh',
+      ['-c', 'node --version'],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          PATH: expect.not.stringContaining('/App resources/python-runtime'),
+        }),
+      }),
+    );
+  });
+
+  it('does not impose Python cache settings on non-Python commands', async () => {
+    vi.stubEnv('PYTHONDONTWRITEBYTECODE', undefined);
+    try {
+      await ctr.handleRunCommand({ command: 'git --version', run_in_background: true });
+      expect(mockSpawn.mock.calls.at(-1)?.[2].env.PYTHONDONTWRITEBYTECODE).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('should delegate handleGetCommandOutput to processManager', async () => {

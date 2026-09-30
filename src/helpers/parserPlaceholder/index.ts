@@ -145,6 +145,9 @@ export const VARIABLE_GENERATORS = {
    * | `{{workingDirectory}}` | /Users/username/Projects/my-project |
    *
    */
+  pythonEnvironment: () =>
+    globalAgentContextManager.getContext().pythonEnvironment ??
+    'Bundled Python environment unavailable.',
   homePath: () => globalAgentContextManager.getContext().homePath ?? '',
   desktopPath: () => globalAgentContextManager.getContext().desktopPath ?? '',
   documentsPath: () => globalAgentContextManager.getContext().documentsPath ?? '',

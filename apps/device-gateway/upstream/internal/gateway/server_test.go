@@ -57,7 +57,13 @@ func TestAuthenticationPublishesExecutionContextCapability(t *testing.T) {
 	})
 	defer conn.Close()
 	writeTestJSON(t, conn, authMessage{
-		Capabilities:    DeviceCapabilities{ExecutionContextValidation: true},
+		Capabilities: DeviceCapabilities{
+			ExecutionContextValidation: true,
+			LocalSystemAPIVersions: map[string]int{
+				"createPresentation": 1,
+				"validatePresentation": 1,
+			},
+		},
 		ProtocolVersion: 2,
 		Token:           signTestJWT(t, privateKey, "capability-user"),
 		Type:            "auth",
@@ -72,6 +78,10 @@ func TestAuthenticationPublishesExecutionContextCapability(t *testing.T) {
 	channel := devices[0].Channels[0]
 	if channel.ProtocolVersion != 2 || !channel.Capabilities.ExecutionContextValidation {
 		t.Fatalf("capability envelope was lost: %#v", channel)
+	}
+	if channel.Capabilities.LocalSystemAPIVersions["createPresentation"] != 1 ||
+		channel.Capabilities.LocalSystemAPIVersions["validatePresentation"] != 1 {
+		t.Fatalf("local system API versions were lost: %#v", channel.Capabilities)
 	}
 }
 

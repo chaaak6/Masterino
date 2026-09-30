@@ -3,6 +3,8 @@ import type { execSync as ExecSyncType } from 'node:child_process';
 import type * as LocalFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as pythonRuntime from '@/modules/pythonRuntime';
+
 import type { App } from '@/core/App';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import ImessageBridgeService from '@/services/imessageBridgeSrv';
@@ -16,7 +18,7 @@ import ShellCommandCtr from '../ShellCommandCtr';
 
 // ─── Mocks ───
 
-const { ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
+const { createPresentationMock, ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
   const { EventEmitter } = require('node:events');
 
   // Must be defined inside vi.hoisted so it's available when vi.mock factories run
@@ -40,6 +42,7 @@ const { ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
       this.connectionStatus = 'disconnected';
     });
 
+    sendSystemInfoResponse = vi.fn();
     sendToolCallResponse = vi.fn();
     sendMessageApiResponse = vi.fn();
     sendAgentRunAck = vi.fn();
@@ -147,6 +150,7 @@ const { ipcMainHandleMock, MockGatewayClient } = vi.hoisted(() => {
   }
 
   return {
+    createPresentationMock: vi.fn(),
     MockGatewayClient: _MockGatewayClient,
     ipcMainHandleMock: vi.fn(),
   };
@@ -176,6 +180,7 @@ vi.mock('@/utils/logger', () => ({
 
 vi.mock('@lobechat/local-file-shell', async (importOriginal) => ({
   ...(await importOriginal<typeof LocalFileShell>()),
+  createPresentation: createPresentationMock,
   // This suite owns gateway routing and response envelopes. The real execution
   // boundary (including context-required failures and device mount roots) is
   // covered by GatewayConnectionCtr.executionContext.test.ts, so keep routing
@@ -217,7 +222,11 @@ vi.mock('node:child_process', async (importOriginal) => {
 });
 
 vi.mock('node:os', () => ({
-  default: { homedir: vi.fn(() => '/mock/home'), hostname: vi.fn(() => 'mock-hostname') },
+  default: {
+    arch: vi.fn(() => 'arm64'),
+    homedir: vi.fn(() => '/mock/home'),
+    hostname: vi.fn(() => 'mock-hostname'),
+  },
 }));
 
 vi.mock('@lobechat/device-gateway-client', () => ({
@@ -365,6 +374,16 @@ describe('GatewayConnectionCtr', () => {
       expect(options.gatewayUrl).toBe('https://masterino.bielcrystal.com/device-gateway');
       expect(options.serverUrl).toBe('https://server.example.com');
       expect(options.logger).toBeDefined();
+      expect(options.capabilities).toMatchObject({
+        executionContextValidation: true,
+        localSystemApiVersions: {
+          createPresentation: 1,
+          inspectPresentation: 1,
+          renderPresentationPreview: 1,
+          revisePresentation: 1,
+          validatePresentation: 1,
+        },
+      });
     });
 
     it('should use custom gateway URL from store when set', async () => {
@@ -726,6 +745,55 @@ describe('GatewayConnectionCtr', () => {
         filename: 'a.txt',
         path: '/a.txt',
       });
+    });
+
+    it('should execute a presentation call in the Electron main process', async () => {
+      createPresentationMock.mockResolvedValueOnce({
+        format: 'pptx',
+        path: '/workspace/deck.pptx',
+        revision: 1,
+        slides: 1,
+      });
+      const client = await connectAndOpen();
+
+      client.simulateToolCallRequest(
+        'createPresentation',
+        { deck: { slides: [] }, path: '/workspace/deck.pptx' },
+        'ppt-create',
+      );
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(createPresentationMock).toHaveBeenCalledWith({
+        deck: { slides: [] },
+        path: '/workspace/deck.pptx',
+      });
+      expect(client.sendToolCallResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'ppt-create',
+          result: expect.objectContaining({ success: true }),
+        }),
+      );
+    });
+
+    it('transmits verified Python context through the existing system-info channel', async () => {
+      const environment =
+        'Python 3.12.14\nExecutable: "/app/python-runtime/bin/python3"\npython-pptx==1.0.2';
+      vi.spyOn(pythonRuntime, 'getPythonEnvironment').mockResolvedValueOnce(environment);
+      const client = await connectAndOpen();
+      client.emit('system_info_request', {
+        type: 'system_info_request',
+        requestId: 'python-context',
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(client.sendSystemInfoResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'python-context',
+          result: expect.objectContaining({
+            success: true,
+            systemInfo: expect.objectContaining({ pythonEnvironment: environment }),
+          }),
+        }),
+      );
     });
 
     it('should send tool_call_response with error on failure', async () => {

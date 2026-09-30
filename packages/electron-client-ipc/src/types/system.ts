@@ -5,6 +5,7 @@ export interface ElectronAppState {
   isWindows?: boolean;
   locale?: string;
   platform?: 'darwin' | 'win32' | 'linux';
+  pythonEnvironment?: string;
   systemAppearance?: string;
   userPath?: UserPathData;
 }

@@ -24,3 +24,6 @@ allowBuilds:
   esbuild: set this to true or false
   get-windows: set this to true or false
   node-mac-permissions: set this to true or false
+
+patchedDependencies:
+  node-mac-permissions: patches/node-mac-permissions.patch

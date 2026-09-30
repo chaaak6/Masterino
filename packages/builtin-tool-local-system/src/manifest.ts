@@ -1,5 +1,6 @@
 import { type BuiltinToolManifest } from '@lobechat/types';
 
+import { presentationApis } from './presentationManifest';
 import { systemPrompt } from './systemRole';
 import { LocalSystemApiName, LocalSystemIdentifier } from './types';
 
@@ -19,6 +20,7 @@ const fileSourceChoice = [{ required: ['path'] }, { required: ['attachmentId'] }
 export const LocalSystemManifest: BuiltinToolManifest = {
   executors: ['client', 'server'],
   api: [
+    ...presentationApis,
     {
       name: 'batchOfficeDocument',
       description:

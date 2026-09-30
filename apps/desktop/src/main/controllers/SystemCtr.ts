@@ -5,6 +5,8 @@ import { app, dialog, nativeTheme, shell } from 'electron';
 import * as electronIs from 'electron-is';
 import { pathExists, readdir } from 'fs-extra';
 
+import { getPythonEnvironment } from '@/modules/pythonRuntime';
+
 import { legacyLocalDbDir } from '@/const/dir';
 import { detectRepoType } from '@/utils/git';
 import { createLogger } from '@/utils/logger';
@@ -43,6 +45,7 @@ export default class SystemController extends ControllerModule {
     const arch = process.arch;
 
     return {
+      pythonEnvironment: await getPythonEnvironment(),
       // System Info
       arch,
       isLinux: platform === 'linux',

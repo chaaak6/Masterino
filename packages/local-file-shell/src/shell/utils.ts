@@ -38,5 +38,5 @@ export const truncateOutput = (str: string, maxLength: number = MAX_OUTPUT_LENGT
 /** Get cross-platform shell configuration */
 export const getShellConfig = (command: string) =>
   process.platform === 'win32'
-    ? { args: ['/c', command], cmd: 'cmd.exe' }
+    ? { args: ['/d', '/s', '/c', `"${command}"`], cmd: 'cmd.exe' }
     : { args: ['-c', command], cmd: '/bin/sh' };

@@ -57,6 +57,37 @@ describe('LocalSystemExecutor', () => {
     );
   });
 
+  it.each([
+    ['createPresentation', false],
+    ['revisePresentation', false],
+    ['inspectPresentation', true],
+    ['renderPresentationPreview', true],
+    ['validatePresentation', true],
+  ] as const)('routes %s through the desktop boundary', async (apiName, cancellable) => {
+    executeLocalToolCallMock.mockResolvedValue({ content: 'ok', success: true });
+    const signal = new AbortController().signal;
+    const ctx: BuiltinToolContext = {
+      agentId: 'agent-1',
+      executionContext: {
+        cwd: '/workspace',
+        plan: { deviceId: 'device-1', kind: 'device', target: 'local' },
+        version: 1,
+      },
+      messageId: 'message-1',
+      operationId: 'operation-1',
+      signal,
+      toolCallId: 'call-1',
+      topicId: 'topic-1',
+    };
+
+    await (localSystemExecutor[apiName] as any)({ projectPath: '/workspace/deck.json' }, ctx);
+
+    expect(executeLocalToolCallMock).toHaveBeenCalledWith(
+      expect.objectContaining({ apiName }),
+      ...(cancellable ? [{ signal }] : []),
+    );
+  });
+
   describe('globFiles', () => {
     it('should preserve scope and relative pattern when delegating glob search', async () => {
       globFilesMock.mockResolvedValue({

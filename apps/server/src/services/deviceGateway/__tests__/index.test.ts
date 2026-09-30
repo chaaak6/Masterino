@@ -95,7 +95,20 @@ describe('DeviceGateway', () => {
       mockClient.queryDeviceList.mockResolvedValue([
         {
           channels: [
-            { channel: 'desktop', connectedAt, connectionId: 'conn-a' },
+            {
+              capabilities: {
+                localSystemApiVersions: {
+                  createPresentation: 1,
+                  inspectPresentation: 1,
+                  renderPresentationPreview: 1,
+                  revisePresentation: 1,
+                  validatePresentation: 1,
+                },
+              },
+              channel: 'desktop',
+              connectedAt,
+              connectionId: 'conn-a',
+            },
             { channel: 'cli', connectedAt, connectionId: 'conn-b' },
           ],
           connectedAt,
@@ -118,7 +131,20 @@ describe('DeviceGateway', () => {
       expect(result).toEqual([
         {
           channels: [
-            { channel: 'desktop', connectedAt: iso, connectionId: 'conn-a' },
+            {
+              capabilities: {
+                localSystemApiVersions: {
+                  createPresentation: 1,
+                  inspectPresentation: 1,
+                  renderPresentationPreview: 1,
+                  revisePresentation: 1,
+                  validatePresentation: 1,
+                },
+              },
+              channel: 'desktop',
+              connectedAt: iso,
+              connectionId: 'conn-a',
+            },
             { channel: 'cli', connectedAt: iso, connectionId: 'conn-b' },
           ],
           deviceId: 'dev-1',

@@ -36,6 +36,7 @@ export interface DeviceSystemInfo {
   homePath: string;
   musicPath: string;
   picturesPath: string;
+  pythonEnvironment?: string;
   userDataPath: string;
   videosPath: string;
   workingDirectory: string;
@@ -50,6 +51,8 @@ export interface DeviceSystemInfo {
  */
 export interface DeviceGatewayCapabilities {
   executionContextValidation?: boolean;
+  /** Versioned local-system APIs implemented by this connection. */
+  localSystemApiVersions?: Record<string, number>;
 }
 
 export const CURRENT_DEVICE_GATEWAY_PROTOCOL_VERSION = 2;

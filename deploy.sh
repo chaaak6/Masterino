@@ -294,11 +294,11 @@ check_secret() {
       "MARKET_TRUSTED_CLIENT_SECRET differs between application and Market Secrets"
   fi
   if searxng_enabled; then
-    "${KUBE[@]}" get secret masterlion-searxng-secret -n "$NAMESPACE" > /dev/null 2>&1 || fail \
-      "masterlion-searxng-secret is missing in namespace '$NAMESPACE'"
+    "${KUBE[@]}" get secret masterino-searxng-secret -n "$NAMESPACE" > /dev/null 2>&1 || fail \
+      "masterino-searxng-secret is missing in namespace '$NAMESPACE'"
     for key in "${required_searxng_secret_keys[@]}"; do
-      value="$("${KUBE[@]}" get secret masterlion-searxng-secret -n "$NAMESPACE" -o "jsonpath={.data.${key}}")"
-      [[ -n "$value" ]] || fail "masterlion-searxng-secret is missing key: $key"
+      value="$("${KUBE[@]}" get secret masterino-searxng-secret -n "$NAMESPACE" -o "jsonpath={.data.${key}}")"
+      [[ -n "$value" ]] || fail "masterino-searxng-secret is missing key: $key"
     done
   fi
   check_gateway_secret
@@ -601,7 +601,7 @@ case "$COMMAND" in
       --from-env-file="$bridge_secret_file" --dry-run=client -o yaml | "${KUBE[@]}" apply -f -
     if [[ "$ENVIRONMENT" == "test" ]]; then
       if searxng_enabled; then
-        "${KUBE[@]}" create secret generic masterlion-searxng-secret -n "$NAMESPACE" \
+        "${KUBE[@]}" create secret generic masterino-searxng-secret -n "$NAMESPACE" \
           --from-env-file="$searxng_secret_file" --dry-run=client -o yaml | "${KUBE[@]}" apply -f -
       fi
       "${KUBE[@]}" create secret generic masterino-market-secret -n "$NAMESPACE" \
