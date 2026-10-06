@@ -77,6 +77,15 @@ jobs:
             & $python -I -B apps/desktop/python/runtime/test_runtime.py
             if ($LASTEXITCODE -ne 0) { throw 'Bundled Python failed without system Python' }
           } finally { $env:PATH = $originalPath }
+          $env:MASTERINO_TEST_PYTHON = $python
+          Push-Location packages/local-file-shell
+          try {
+            pnpm exec vitest run --silent=passed-only src/shell/__tests__/runtime-routing.test.ts
+            if ($LASTEXITCODE -ne 0) { throw 'Packaged Python routing failed' }
+          } finally {
+            Pop-Location
+            Remove-Item Env:MASTERINO_TEST_PYTHON
+          }
           $signature = Get-AuthenticodeSignature $installer.FullName
           if ($signature.SignerCertificate) { throw 'Unexpected Authenticode signature found' }
           Write-Host "Verified isolated unsigned test installer: $($installer.Name)"
