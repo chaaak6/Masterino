@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "このドキュメントを削除してもよろしいですか？",
   "notebook.delete": "削除",
   "notebook.empty": "現在ドキュメントはありません。このトピックに関連するドキュメントはここに表示されます。",
+  "notebook.loadError": "ページを読み込めませんでした。もう一度お試しください。",
   "notebook.title": "ノートブック",
   "openInPageEditor": "ドキュメントで編集",
   "title": "拡張ウィンドウ"

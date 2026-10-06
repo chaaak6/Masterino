@@ -40,5 +40,6 @@
   "UpstreamGatewayError": "Il gateway o proxy a monte ha restituito un errore. Riprova tra poco; se il problema persiste, controlla la configurazione del proxy / endpoint.",
   "UpstreamHttpError": "Il provider ha restituito un errore HTTP senza ulteriori dettagli. Riprova o controlla la tua richiesta e la configurazione del modello.",
   "UpstreamMalformedResponse": "Il provider ha restituito una risposta malformata che non può essere analizzata. Riprova; se il problema persiste, prova un modello o un provider diverso.",
-  "UserConfigError": "La configurazione del provider non è valida (URL di base errato, variabile di ambiente mancante, restrizione virtual-key, ecc.). Rivedi le impostazioni del provider."
+  "UserConfigError": "La configurazione del provider non è valida (URL di base errato, variabile di ambiente mancante, restrizione virtual-key, ecc.). Rivedi le impostazioni del provider.",
+  "upstream_timeout": "La risposta del modello ha superato il limite di tempo di 300 secondi. Riprova la richiesta."
 }

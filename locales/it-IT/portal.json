@@ -19,6 +19,7 @@
   "notebook.confirmDelete": "Eliminare questa pagina?",
   "notebook.delete": "Elimina",
   "notebook.empty": "Nessuna pagina al momento. Le pagine collegate a questo argomento appariranno qui.",
+  "notebook.loadError": "Impossibile caricare le pagine. Riprova.",
   "notebook.title": "Taccuino",
   "openInPageEditor": "Modifica nella pagina",
   "title": "Spazio di lavoro"

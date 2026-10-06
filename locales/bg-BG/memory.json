@@ -9,6 +9,7 @@
   "activity.narrative": "Разказ",
   "activity.notes": "Бележки",
   "analysis.action.button": "Заяви анализ на спомени",
+  "analysis.action.enableFirst": "Активирайте Памет в личните настройки, преди да поискате анализ.",
   "analysis.modal.cancel": "Отказ",
   "analysis.modal.helper": "По подразбиране Masterino ще анализира всички необработени чатове. По желание можете да изберете период за анализ.",
   "analysis.modal.rangePlaceholder": "Не е избран период; всички разговори ще бъдат анализирани.",
