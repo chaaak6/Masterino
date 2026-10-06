@@ -7,7 +7,8 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import ChatPanel, { type ChatPanelSelection, type ChatPanelSubmitPayload } from './ChatPanel';
-import { OVERLAY_COPY, OVERLAY_LAYOUT, OVERLAY_SHORTCUTS } from './constants';
+import { OVERLAY_LAYOUT, OVERLAY_SHORTCUTS } from './constants';
+import { useOverlayCopy } from './Locale';
 import * as styles from './overlay.css.ts';
 import { resolveCommittedSelectionRect, shouldHideChatPanel } from './overlaySelectionState';
 import { useDragSelection } from './useDragSelection';
@@ -18,6 +19,7 @@ const clipLabel = (text: string, max = OVERLAY_LAYOUT.labelClipLength): string =
   text.length > max ? `${text.slice(0, max)}…` : text;
 
 const ScreenCaptureOverlay = memo(() => {
+  const OVERLAY_COPY = useOverlayCopy();
   const [isPanelHidden, setIsPanelHidden] = useState(false);
   const [pendingSelectionRect, setPendingSelectionRect] = useState<
     ChatPanelSelection['rect'] | null
@@ -225,7 +227,7 @@ const ScreenCaptureOverlay = memo(() => {
         setIsPanelHidden(false);
       }
     },
-    [traceOverlayEvent],
+    [traceOverlayEvent, OVERLAY_COPY.customRegionLabel],
   );
 
   const handleMouseDown = useCallback(

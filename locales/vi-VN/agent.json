@@ -37,7 +37,7 @@
   "channel.connecting": "Đang kết nối...",
   "channel.connectionConfig": "Cấu hình kết nối",
   "channel.connectionMode": "Chế độ kết nối",
-  "channel.connectionModeHint": "WebSocket được kh推荐 sử dụng cho các bot mới. Dùng Webhook nếu bot của bạn đã cấu hình sẵn URL callback trên Nền tảng Mở QQ.",
+  "channel.connectionModeHint": "WebSocket được khuyến nghị sử dụng cho các bot mới. Dùng Webhook nếu bot của bạn đã cấu hình sẵn URL callback trên Nền tảng Mở QQ.",
   "channel.connectionModeWebSocket": "WebSocket",
   "channel.connectionModeWebSocketHint": "Được khuyến nghị cho các bot mới",
   "channel.connectionModeWebhook": "Webhook",

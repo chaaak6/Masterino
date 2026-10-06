@@ -79,7 +79,7 @@ interface LoginStepProps {
 }
 
 const LoginStep = memo<LoginStepProps>(({ onBack, onNext }) => {
-  const { t } = useTranslation('desktop-onboarding');
+  const { t } = useTranslation(['desktop-onboarding', 'components']);
   const [endpoint, setEndpoint] = useState('');
   const [cloudLoginStatus, setCloudLoginStatus] = useState<LoginStatus>('idle');
   const [authProgress, setAuthProgress] = useState<AuthorizationProgress | null>(null);
@@ -595,7 +595,7 @@ const LoginStep = memo<LoginStepProps>(({ onBack, onNext }) => {
           <>
             <Divider>
               <Text fontSize={12} type={'secondary'}>
-                OR
+                {t('or', { ns: 'components' })}
               </Text>
             </Divider>
 

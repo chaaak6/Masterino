@@ -1,4 +1,6 @@
 export default {
+  'preview.pageNumber': 'Page {{page}}',
+
   'addFolder': 'Create Folder',
   'addLibrary': 'Add',
   'addPage': 'Create Page',

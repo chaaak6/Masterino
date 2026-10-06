@@ -17,7 +17,7 @@ import ScoreList from './ScoreList';
 import TotalScore from './TotalScore';
 
 const Score = memo(() => {
-  const { t } = useTranslation('discover');
+  const { t } = useTranslation(['discover', 'components']);
   const {
     github,
     overview,
@@ -74,7 +74,7 @@ const Score = memo(() => {
           </Block>
         </Flexbox>
         <Flexbox gap={16}>
-          <Title>GitHub Badge</Title>
+          <Title>{t('githubBadge', { ns: 'components' })}</Title>
           <Block gap={16} padding={16} variant={'outlined'}>
             <GithubBadge />
           </Block>

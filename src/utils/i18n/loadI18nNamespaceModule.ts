@@ -11,7 +11,7 @@ export const loadI18nNamespaceModule = async (params: LoadI18nNamespaceModulePar
   if (lng === defaultLang) return import(`@/locales/default/${ns}`);
 
   try {
-    return import(`@/../locales/${normalizeLocale(lng)}/${ns}.json`);
+    return await import(`@/../locales/${normalizeLocale(lng)}/${ns}.json`);
   } catch {
     return import(`@/locales/default/${ns}`);
   }

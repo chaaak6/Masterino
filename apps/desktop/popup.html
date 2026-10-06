@@ -80,7 +80,13 @@
           document.documentElement.setAttribute('data-theme', resolvedTheme);
         }
         var urlParams = new URLSearchParams(window.location.search);
-        var locale = urlParams.get('lng') || navigator.language || 'en-US';
+        var locale;
+        try {
+          locale =
+            localStorage.getItem('masterino.localeMode') || localStorage.getItem('i18nextLng');
+        } catch (_) {}
+        if (!locale) locale = urlParams.get('lng') || navigator.language || 'en-US';
+        if (locale === 'auto') locale = navigator.language || 'en-US';
         document.documentElement.lang = locale;
         var rtl = ['ar', 'arc', 'dv', 'fa', 'ha', 'he', 'khw', 'ks', 'ku', 'ps', 'ur', 'yi'];
         document.documentElement.dir =

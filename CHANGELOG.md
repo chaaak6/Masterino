@@ -2,6 +2,31 @@
 
 # Changelog
 
+## [Version 1.3.7](https://github.com/chaaak6/Masterino/compare/v1.3.6...v1.3.7)
+
+<sup>Released on **2026-10-06**</sup>
+
+#### ✨ Features
+
+- **i18n**: 完善中文、英文和越南语界面支持.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's improved
+
+- **i18n**: 完善中文、英文和越南语界面支持, closes [#135](https://github.com/chaaak6/Masterino/issues/135) ([56b0d0f](https://github.com/chaaak6/Masterino/commit/56b0d0f))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.3.6](https://github.com/chaaak6/Masterino/compare/v1.3.5...v1.3.6)
 
 <sup>Released on **2026-09-18**</sup>

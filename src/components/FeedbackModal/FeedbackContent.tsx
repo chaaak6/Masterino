@@ -26,7 +26,7 @@ interface FormValues {
 }
 
 const FeedbackContent = memo<FeedbackContentProps>(({ initialValues }) => {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'components']);
   const { message } = App.useApp();
   const { close } = useModalContext();
   const [form] = Form.useForm<FormValues>();
@@ -156,7 +156,7 @@ const FeedbackContent = memo<FeedbackContentProps>(({ initialValues }) => {
             {screenshotUrl ? (
               <Flexbox gap={8}>
                 <img
-                  alt="Screenshot"
+                  alt={t('screenshot', { ns: 'components' })}
                   src={screenshotUrl}
                   style={{ borderRadius: 8, maxHeight: 200, maxWidth: '100%' }}
                 />

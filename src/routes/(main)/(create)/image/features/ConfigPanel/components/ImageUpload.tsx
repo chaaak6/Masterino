@@ -348,12 +348,13 @@ interface UploadingDisplayProps {
 }
 
 const UploadingDisplay: FC<UploadingDisplayProps> = memo(({ previewUrl, progress }) => {
+  const { t } = useTranslation('components');
   return (
     <div className={styles.uploadingDisplay}>
       <Image
         fill
         unoptimized
-        alt="Uploading preview"
+        alt={t('uploadingPreview', { ns: 'components' })}
         src={previewUrl}
         style={{ objectFit: 'cover' }}
       />
@@ -403,7 +404,7 @@ const SuccessDisplay: FC<SuccessDisplayProps> = memo(
         <Image
           fill
           unoptimized
-          alt="Uploaded image"
+          alt={t('uploadedImage', { ns: 'components' })}
           src={imageUrl}
           style={{ objectFit: 'cover' }}
         />

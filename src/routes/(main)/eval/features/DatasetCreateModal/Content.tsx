@@ -47,7 +47,7 @@ const DatasetCreateContent: FC<DatasetCreateContentProps> = ({
   onLoadingChange,
   onSuccess,
 }) => {
-  const { t } = useTranslation('eval');
+  const { t } = useTranslation(['eval', 'components']);
   const { close } = useModalContext();
   const { message } = App.useApp();
   const [form] = Form.useForm();
@@ -164,11 +164,13 @@ const DatasetCreateContent: FC<DatasetCreateContentProps> = ({
                 {currentPreset.formatDescription}
               </p>
               <div style={{ color: cssVar.colorTextTertiary, fontSize: 12 }}>
-                <strong>Required:</strong> {currentPreset.requiredFields.join(', ')}
+                <strong>{t('requiredFields', { ns: 'components' })}</strong>{' '}
+                {currentPreset.requiredFields.join(', ')}
                 {currentPreset.optionalFields.length > 0 && (
                   <>
                     {' · '}
-                    <strong>Optional:</strong> {currentPreset.optionalFields.join(', ')}
+                    <strong>{t('optionalFields', { ns: 'components' })}</strong>{' '}
+                    {currentPreset.optionalFields.join(', ')}
                   </>
                 )}
               </div>
@@ -178,7 +180,7 @@ const DatasetCreateContent: FC<DatasetCreateContentProps> = ({
       >
         <Select
           options={selectOptions}
-          placeholder="Select a preset"
+          placeholder={t('selectPreset', { ns: 'components' })}
           value={selectedPreset}
           optionRender={(option) => {
             const preset = DATASET_PRESETS[option.value as string];

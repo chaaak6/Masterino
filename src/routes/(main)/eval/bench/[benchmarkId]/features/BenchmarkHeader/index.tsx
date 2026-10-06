@@ -97,7 +97,7 @@ const BenchmarkHeader = memo<BenchmarkHeaderProps>(
     systemIcon = Server,
     totalCases,
   }) => {
-    const { t } = useTranslation('eval');
+    const { t } = useTranslation(['eval', 'components']);
     const navigate = useWorkspaceAwareNavigate();
     const deleteBenchmark = useEvalStore((s) => s.deleteBenchmark);
     const refreshBenchmarkDetail = useEvalStore((s) => s.refreshBenchmarkDetail);
@@ -374,7 +374,9 @@ const BenchmarkHeader = memo<BenchmarkHeaderProps>(
                     {totalCases}
                   </span>
                   {totalCases > 0 && (
-                    <span style={{ color: cssVar.colorTextTertiary, fontSize: 13 }}>Cases</span>
+                    <span style={{ color: cssVar.colorTextTertiary, fontSize: 13 }}>
+                      {t('cases', { ns: 'components' })}
+                    </span>
                   )}
                 </Flexbox>
                 {totalCases === 0 ? (
@@ -430,7 +432,9 @@ const BenchmarkHeader = memo<BenchmarkHeaderProps>(
                     >
                       {formatDurationMinutes(avgDuration)}
                     </span>
-                    <span style={{ color: cssVar.colorTextTertiary, fontSize: 13 }}>min</span>
+                    <span style={{ color: cssVar.colorTextTertiary, fontSize: 13 }}>
+                      {t('minutesShort', { ns: 'components' })}
+                    </span>
                   </Flexbox>
                   {p99Duration != null && (
                     <span style={{ color: cssVar.colorTextQuaternary, fontSize: 12 }}>

@@ -14,6 +14,7 @@ vi.mock('electron', () => ({
     createFromPath: vi.fn(),
   },
   app: {
+    getName: vi.fn(() => 'Masterino'),
     quit: vi.fn(),
   },
 }));
@@ -71,6 +72,7 @@ describe('Tray', () => {
 
     // Mock App
     mockApp = {
+      i18n: { ns: () => (key: string) => (key === 'tray.quit' ? 'Quit' : 'Show Main Window') },
       browserManager: {
         showMainWindow: vi.fn(),
         getMainWindow: vi.fn(() => mockMainWindow),

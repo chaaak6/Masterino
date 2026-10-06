@@ -4,6 +4,7 @@ import { Flexbox, FormGroup, Text } from '@lobehub/ui';
 import { Progress, Table } from 'antd';
 import { createStyles } from 'antd-style';
 import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useNewApiBindingStatus, useNewApiUsageSummary } from '@/store/newApi';
 import { formatTokenNumber } from '@/utils/format';
@@ -38,6 +39,7 @@ const useStyles = createStyles(({ css, token }) => ({
 }));
 
 const NewApiUsage = memo(() => {
+  const { t, i18n } = useTranslation('aihub');
   const { styles } = useStyles();
   const { data: binding } = useNewApiBindingStatus();
   const { data, isLoading } = useNewApiUsageSummary(undefined, !!binding?.isBound);
@@ -69,42 +71,42 @@ const NewApiUsage = memo(() => {
 
   if (!binding?.isBound) {
     return (
-      <FormGroup collapsible={false} title="Aihub 用量" variant="filled">
-        <Text type="secondary">当前账号尚未绑定 Aihub 用户。</Text>
+      <FormGroup collapsible={false} title={t('usage')} variant="filled">
+        <Text type="secondary">{t('notBound')}</Text>
       </FormGroup>
     );
   }
 
   const metrics = [
     {
-      label: '消耗金额',
-      value: isLoading ? '-' : formatNewApiQuota(data?.totalQuota, quotaPolicy),
+      label: t('cost'),
+      value: isLoading ? '-' : formatNewApiQuota(data?.totalQuota, quotaPolicy, i18n.language),
     },
     {
-      label: '托管 Token 可用额度',
+      label: t('available'),
       value: isLoading
         ? '-'
         : data?.tokenUsage.unlimitedQuota
-          ? '不限'
-          : formatNewApiQuota(data?.tokenUsage.totalAvailable, quotaPolicy),
+          ? t('unlimited')
+          : formatNewApiQuota(data?.tokenUsage.totalAvailable, quotaPolicy, i18n.language),
     },
-    { label: '请求数', value: isLoading ? '-' : data?.requestCount || 0 },
+    { label: t('requests'), value: isLoading ? '-' : data?.requestCount || 0 },
     {
-      label: 'Prompt Token',
+      label: t('promptTokens'),
       value: isLoading ? '-' : formatTokenNumber(data?.totalPromptTokens || 0),
     },
     {
-      label: 'Completion Token',
+      label: t('completionTokens'),
       value: isLoading ? '-' : formatTokenNumber(data?.totalCompletionTokens || 0),
     },
     {
-      label: 'Total Token',
+      label: t('totalTokens'),
       value: isLoading ? '-' : formatTokenNumber(data?.totalTokens || 0),
     },
   ];
 
   return (
-    <FormGroup collapsible={false} gap={16} title="Aihub 用量" variant="filled">
+    <FormGroup collapsible={false} gap={16} title={t('usage')} variant="filled">
       <Flexbox gap={8}>
         {metrics.map((metric) => (
           <div className={styles.metricRow} key={metric.label}>
@@ -115,48 +117,48 @@ const NewApiUsage = memo(() => {
       </Flexbox>
 
       <Flexbox gap={10}>
-        <Text strong>近 14 天趋势</Text>
+        <Text strong>{t('last14Days')}</Text>
         {dayRows.map((row) => (
           <div className={styles.modelRow} key={row.day}>
             <Text ellipsis>{row.day}</Text>
             <Progress percent={row.percent} showInfo={false} size="small" />
-            <Text type="secondary">{formatNewApiQuota(row.quota, quotaPolicy)}</Text>
+            <Text type="secondary">{formatNewApiQuota(row.quota, quotaPolicy, i18n.language)}</Text>
             <Text type="secondary">{formatTokenNumber(row.totalTokens)}</Text>
           </div>
         ))}
       </Flexbox>
 
       <Flexbox gap={10}>
-        <Text strong>模型用量</Text>
+        <Text strong>{t('modelUsage')}</Text>
         {modelRows.map((row) => (
           <div className={styles.modelRow} key={row.model}>
             <Text ellipsis>{row.model}</Text>
             <Progress percent={row.percent} showInfo={false} size="small" />
-            <Text type="secondary">{formatNewApiQuota(row.quota, quotaPolicy)}</Text>
+            <Text type="secondary">{formatNewApiQuota(row.quota, quotaPolicy, i18n.language)}</Text>
             <Text type="secondary">{formatTokenNumber(row.totalTokens)}</Text>
           </div>
         ))}
       </Flexbox>
 
       <Table
+        dataSource={data?.recentLogs || []}
+        pagination={false}
         rowKey="id"
+        size="small"
         columns={[
           {
             dataIndex: 'createdAt',
-            render: (v: number) => new Date(v * 1000).toLocaleString(),
-            title: '时间',
+            render: (v: number) => new Date(v * 1000).toLocaleString(i18n.language),
+            title: t('time'),
           },
-          { dataIndex: 'modelName', title: '模型' },
+          { dataIndex: 'modelName', title: t('model') },
           { dataIndex: 'totalTokens', render: (v: number) => formatTokenNumber(v), title: 'Token' },
           {
             dataIndex: 'quota',
-            render: (v: number) => formatNewApiQuota(v, quotaPolicy),
-            title: '金额',
+            render: (v: number) => formatNewApiQuota(v, quotaPolicy, i18n.language),
+            title: t('amount'),
           },
         ]}
-        dataSource={data?.recentLogs || []}
-        pagination={false}
-        size="small"
       />
     </FormGroup>
   );

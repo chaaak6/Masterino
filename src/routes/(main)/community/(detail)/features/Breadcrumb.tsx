@@ -11,10 +11,10 @@ import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
 import { DiscoverTab } from '@/types/discover';
 
 const Breadcrumb = memo<{ identifier: string; tab: DiscoverTab }>(({ tab, identifier }) => {
-  const { t } = useTranslation('discover');
+  const { t } = useTranslation(['discover', 'components']);
 
   const tabLabel = useMemo(() => {
-    if (tab === DiscoverTab.Mcp) return 'MCP Servers';
+    if (tab === DiscoverTab.Mcp) return t('mcpServers', { ns: 'components' });
     if (tab === DiscoverTab.User) return t('tab.user');
     return t(`tab.${tab}` as any);
   }, [tab, t]);
@@ -24,7 +24,9 @@ const Breadcrumb = memo<{ identifier: string; tab: DiscoverTab }>(({ tab, identi
     if (tab === DiscoverTab.User) {
       return [
         {
-          title: <WorkspaceLink to="/community">Community</WorkspaceLink>,
+          title: (
+            <WorkspaceLink to="/community">{t('community', { ns: 'components' })}</WorkspaceLink>
+          ),
         },
         {
           title: (
@@ -45,7 +47,9 @@ const Breadcrumb = memo<{ identifier: string; tab: DiscoverTab }>(({ tab, identi
 
     return [
       {
-        title: <WorkspaceLink to="/community">Community</WorkspaceLink>,
+        title: (
+          <WorkspaceLink to="/community">{t('community', { ns: 'components' })}</WorkspaceLink>
+        ),
       },
       {
         title: <WorkspaceLink to={`/community/${tab}`}>{tabLabel}</WorkspaceLink>,
@@ -72,7 +76,7 @@ const Breadcrumb = memo<{ identifier: string; tab: DiscoverTab }>(({ tab, identi
         ),
       },
     ];
-  }, [tab, identifier, tabLabel]);
+  }, [tab, identifier, tabLabel, t]);
 
   return <AntdBreadcrumb items={items} />;
 });

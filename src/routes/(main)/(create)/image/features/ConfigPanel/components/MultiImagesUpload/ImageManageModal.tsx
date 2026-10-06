@@ -389,7 +389,7 @@ const ImageManageModal: FC<ImageManageModalProps> = memo(
               <>
                 <Image
                   unoptimized
-                  alt="Preview"
+                  alt={t('preview', { ns: 'components' })}
                   className={styles.previewImage}
                   height={320}
                   src={getDisplayUrl(selectedItem)}

@@ -12,6 +12,15 @@ const localeModule = {
 };
 
 describe('normalizeDayjsLocale', () => {
+  it.each([
+    ['vi-VN', 'vi'],
+    ['vi', 'vi'],
+    ['VI_vn', 'vi'],
+    ['de-DE', 'de'],
+    ['ja-JP', 'ja'],
+  ])('maps %s to an available date locale', (locale, expected) => {
+    expect(normalizeDayjsLocale(locale)).toBe(expected);
+  });
   it('should normalize full app locales to dayjs locale ids', () => {
     expect(normalizeDayjsLocale('en-US')).toBe('en');
     expect(normalizeDayjsLocale('zh-CN')).toBe('zh-cn');

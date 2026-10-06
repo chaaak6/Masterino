@@ -1,52 +1,10 @@
-import { DEFAULT_LANG } from '@/const/locale';
-
 import type resources from './default';
+import { type Locales, locales } from './localeCodes';
 
-export const locales = [
-  'ar',
-  'bg-BG',
-  'de-DE',
-  'en-US',
-  'es-ES',
-  'fr-FR',
-  'ja-JP',
-  'ko-KR',
-  'pt-BR',
-  'ru-RU',
-  'tr-TR',
-  'zh-CN',
-  'zh-TW',
-  'vi-VN',
-  'fa-IR',
-  'it-IT',
-  'pl-PL',
-  'nl-NL',
-] as const;
-
+export type { Locales } from './localeCodes';
+export { locales, normalizeLocale } from './localeCodes';
 export type DefaultResources = typeof resources;
 export type NS = keyof DefaultResources;
-export type Locales = (typeof locales)[number];
-
-export const normalizeLocale = (locale?: string): Locales => {
-  if (!locale) return DEFAULT_LANG;
-
-  const lowerLocale = locale.toLowerCase();
-
-  if (lowerLocale.startsWith('ar')) return 'ar';
-  if (lowerLocale.startsWith('fa')) return 'fa-IR';
-
-  if (lowerLocale.startsWith('cn')) return 'zh-CN';
-  if (lowerLocale.startsWith('zh-hans')) return 'zh-CN';
-  if (lowerLocale.startsWith('zh-hant')) return 'zh-TW';
-
-  for (const l of locales) {
-    if (l.startsWith(locale)) {
-      return l;
-    }
-  }
-
-  return DEFAULT_LANG;
-};
 
 type LocaleOptions = {
   label: string;

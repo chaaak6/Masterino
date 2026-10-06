@@ -2,7 +2,7 @@ import { ModelIcon } from '@lobehub/icons';
 import { Button, Center, Skeleton, Tag, Tooltip } from '@lobehub/ui';
 import { App } from 'antd';
 import { createStaticStyles, cx } from 'antd-style';
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -54,7 +54,11 @@ const StarterList = memo(() => {
   const { allowed: canCreateContent, reason } = usePermission('create_content');
   const updateAgentConfigById = useAgentStore((s) => s.updateAgentConfigById);
   const [switchingKey, setSwitchingKey] = useState<string | null>(null);
-  const { isLoading, items } = useHomeNewModels(DEFAULT_HOME_NEW_MODELS);
+  const defaultItems = useMemo(
+    () => DEFAULT_HOME_NEW_MODELS.map((item) => ({ ...item, title: t('starter.aihubDefault') })),
+    [t],
+  );
+  const { isLoading, items } = useHomeNewModels(defaultItems);
   const applyBusinessModelModeConfig = useBusinessModelModeConfig();
   const visibleItems = items.filter(
     (item) => item.type === 'chat' || isProductFeatureEnabled('generation'),

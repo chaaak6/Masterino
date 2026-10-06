@@ -45,6 +45,7 @@
   "recommendations.heteroAgent.tag": "Coding Agent",
   "recommendations.heteroAgent.title": "添加 {{name}} 助手",
   "recommendations.subtitle": "为你推荐的一些功能",
+  "starter.aihubDefault": "Aihub 默认模型",
   "starter.createAgent": "创建助理",
   "starter.createGroup": "创建群组",
   "starter.deepResearch": "探究",
