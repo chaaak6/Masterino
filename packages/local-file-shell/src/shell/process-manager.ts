@@ -22,6 +22,8 @@ export interface ShellProcess {
 export class ShellProcessManager {
   private nextShellId = 1;
 
+  private terminations = new Set<Promise<void>>();
+
   private processes = new Map<string, ShellProcess>();
 
   createShellId(): string {
@@ -144,7 +146,7 @@ export class ShellProcessManager {
     }
   }
 
-  cleanupAll(): void {
+  async cleanupAll(): Promise<void> {
     for (const [id, sp] of this.processes) {
       try {
         this.stopProcessTree(sp);
@@ -153,6 +155,7 @@ export class ShellProcessManager {
       }
       this.processes.delete(id);
     }
+    await Promise.all(this.terminations);
   }
 
   private stopProcessTree(shellProcess: ShellProcess): void {
@@ -165,7 +168,27 @@ export class ShellProcessManager {
         { stdio: 'ignore', windowsHide: true },
       );
     } else if (child.pid && shellProcess.processGroup) {
-      process.kill(-child.pid, 'SIGTERM');
+      const pid = child.pid;
+      try {
+        process.kill(-pid, 'SIGTERM');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ESRCH') return;
+        throw error;
+      }
+      // A shell may exit before a descendant which ignores SIGTERM. Escalate
+      // against the whole group, even when the shell has already exited.
+      const termination = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          try {
+            process.kill(-pid, 'SIGKILL');
+          } catch {
+            // The group has normally exited during the grace period.
+          }
+          resolve();
+        }, 500);
+      });
+      this.terminations.add(termination);
+      void termination.finally(() => this.terminations.delete(termination));
     } else {
       child.kill();
     }

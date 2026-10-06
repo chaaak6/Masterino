@@ -3,6 +3,8 @@ import { readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os';
 import path from 'node:path';
 
+import { lock as lockFile } from 'proper-lockfile';
+
 import type { PresentationProject, RevisePresentationParams } from './types';
 
 const REVISION_LOCK_STALE_MS = 10 * 60_000;
@@ -58,13 +60,15 @@ export const transactionPaths = (transaction: RevisionTransaction) => ({
 const validTransaction = (
   transaction: RevisionTransaction | undefined,
   params: RevisePresentationParams,
-): transaction is RevisionTransaction =>
+): boolean =>
   !!transaction &&
   /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(transaction.id) &&
   ['create', 'replace'].includes(transaction.mode) &&
   /^[\da-f]{64}$/i.test(transaction.newArtifactSha256) &&
   /^[\da-f]{64}$/i.test(transaction.oldArtifactSha256) &&
-  path.resolve(transaction.outputPath) === path.resolve(params.outputPath) &&
+  typeof transaction.outputPath === 'string' &&
+  typeof transaction.projectPath === 'string' &&
+  path.isAbsolute(transaction.outputPath) &&
   path.resolve(transaction.projectPath) === path.resolve(params.projectPath);
 
 export const writeRevisionLock = async (lock: RevisionLock) => {
@@ -96,7 +100,9 @@ const recoverRevisionTransaction = async (
   params: RevisePresentationParams,
 ) => {
   if (!validTransaction(transaction, params)) {
-    throw new Error('PRESENTATION_REVISION_RECOVERY_REQUIRED');
+    throw new Error(
+      `PRESENTATION_REVISION_RECOVERY_REQUIRED: ${transaction.outputPath} (${transaction.projectPath})`,
+    );
   }
   const paths = transactionPaths(transaction);
   const [outputSha, projectSha] = await Promise.all([
@@ -110,18 +116,24 @@ const recoverRevisionTransaction = async (
   if (projectSha === transaction.newArtifactSha256) {
     await rename(paths.backupProject, transaction.projectPath);
   } else if (projectSha !== transaction.oldArtifactSha256) {
-    throw new Error('PRESENTATION_REVISION_RECOVERY_REQUIRED');
+    throw new Error(
+      `PRESENTATION_REVISION_RECOVERY_REQUIRED: ${transaction.outputPath} (${transaction.projectPath})`,
+    );
   }
   if (transaction.mode === 'create') {
     if (outputSha === transaction.newArtifactSha256) {
       await rm(transaction.outputPath);
     } else if (outputSha !== undefined) {
-      throw new Error('PRESENTATION_REVISION_RECOVERY_REQUIRED');
+      throw new Error(
+        `PRESENTATION_REVISION_RECOVERY_REQUIRED: ${transaction.outputPath} (${transaction.projectPath})`,
+      );
     }
   } else if (outputSha === transaction.newArtifactSha256) {
     await rename(paths.backupOutput, transaction.outputPath);
   } else if (outputSha !== transaction.oldArtifactSha256) {
-    throw new Error('PRESENTATION_REVISION_RECOVERY_REQUIRED');
+    throw new Error(
+      `PRESENTATION_REVISION_RECOVERY_REQUIRED: ${transaction.outputPath} (${transaction.projectPath})`,
+    );
   }
   await cleanupRevisionTransaction(transaction);
 };
@@ -159,7 +171,7 @@ const revisionLockIsStale = async (lockPath: string, state?: RevisionLockState) 
   if (state.pid === process.pid) return true;
   try {
     process.kill(state.pid, 0);
-    return Date.now() - state.createdAt > REVISION_LOCK_STALE_MS;
+    return false;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'ESRCH';
   }
@@ -176,28 +188,42 @@ export const acquireRevisionLock = async (
     token: randomUUID(),
     version: 1,
   };
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      await writeFile(lockPath, `${JSON.stringify(state)}\n`, { flag: 'wx' });
-      activeRevisionLocks.add(state.token);
-      return { path: lockPath, state };
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      const existing = await readRevisionLock(lockPath);
-      if (!(await revisionLockIsStale(lockPath, existing))) {
-        throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
+  // Atomic cross-process ownership before touching transaction backups. The
+  // short-lived mutex has a heartbeat and is reclaimable after a crash.
+  const releaseRecovery = await lockFile(lockPath, {
+    realpath: false,
+    lockfilePath: `${lockPath}.recovery`,
+    stale: 10_000,
+  }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ELOCKED') throw new Error('PRESENTATION_REVISION_BUSY');
+    throw error;
+  });
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await writeFile(lockPath, `${JSON.stringify(state)}\n`, { flag: 'wx' });
+        activeRevisionLocks.add(state.token);
+        return { path: lockPath, state };
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+        const existing = await readRevisionLock(lockPath);
+        if (!(await revisionLockIsStale(lockPath, existing))) {
+          throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
+        }
+        const latest = await readRevisionLock(lockPath);
+        if (existing?.token !== latest?.token) {
+          throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
+        }
+        if (existing?.transaction) await recoverRevisionTransaction(existing.transaction, params);
+        await unlink(lockPath).catch((unlinkError) => {
+          if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') throw unlinkError;
+        });
       }
-      const latest = await readRevisionLock(lockPath);
-      if (existing?.token !== latest?.token) {
-        throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
-      }
-      if (existing?.transaction) await recoverRevisionTransaction(existing.transaction, params);
-      await unlink(lockPath).catch((unlinkError) => {
-        if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') throw unlinkError;
-      });
     }
+    throw new Error('PRESENTATION_REVISION_BUSY');
+  } finally {
+    await releaseRecovery();
   }
-  throw new Error('PRESENTATION_REVISION_BUSY');
 };
 
 export const releaseRevisionLock = async (lock: RevisionLock) => {

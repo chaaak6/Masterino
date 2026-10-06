@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { link, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { DOMParser } from '@xmldom/xmldom';
+
 import type {
   CreatePresentationParams,
   InspectPresentationParams,
@@ -72,6 +74,7 @@ async function buildPresentation(deck: CreatePresentationParams['deck']) {
       } else if (element.type === 'shape') {
         slide.addShape(presentation.ShapeType[element.shape], {
           ...frame,
+          objectName: `Masterino shape: ${element.id}`,
           fill: {
             color: element.style?.fill ?? deck.theme.colors.accent,
             transparency: element.style?.transparency,
@@ -437,10 +440,26 @@ export async function validatePresentation(
         const body = /<a:t>([\s\S]*?)<\/a:t>/.exec(xml)?.[1] ?? '';
         return body.replaceAll(/<[^>]+>/g, '').trim().length > 0;
       }).length,
-      shapes: slideXml.reduce(
-        (count, xml) => count + (xml.match(/<a:prstGeom\b/g)?.length ?? 0),
-        0,
-      ),
+      shapes: slideXml.reduce((count, xml) => {
+        const document = new DOMParser().parseFromString(xml, 'application/xml');
+        const shapes = Array.from(
+          document.getElementsByTagNameNS(
+            'http://schemas.openxmlformats.org/presentationml/2006/main',
+            'sp',
+          ),
+        );
+        return (
+          count +
+          shapes.filter((shape) => {
+            return (
+              shape.getElementsByTagNameNS(
+                'http://schemas.openxmlformats.org/presentationml/2006/main',
+                'txBody',
+              ).length === 0
+            );
+          }).length
+        );
+      }, 0),
       tables: slideXml.reduce((count, xml) => count + (xml.match(/<a:tbl>/g)?.length ?? 0), 0),
     };
     for (const feature of ['charts', 'images', 'notes', 'tables'] as const) {
@@ -452,7 +471,7 @@ export async function validatePresentation(
         });
       }
     }
-    if (features.shapes < expectedFeatures.shapes) {
+    if (features.shapes !== expectedFeatures.shapes) {
       issues.push({
         code: 'PPTX_SHAPES_MISMATCH',
         message: 'The PPTX shape count does not match the Masterino project',

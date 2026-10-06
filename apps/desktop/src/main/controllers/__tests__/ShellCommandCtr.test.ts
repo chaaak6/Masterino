@@ -32,7 +32,10 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
 }));
 
-vi.mock('@/modules/pythonRuntime', () => ({ getBundledPythonInfo: vi.fn() }));
+vi.mock('@/modules/pythonRuntime', () => ({
+  getBundledPythonInfo: vi.fn(),
+  prepareProjectPythonEnvironment: vi.fn(async () => ({})),
+}));
 
 vi.mock('../CliCtr', () => ({
   default: class CliCtr {},
@@ -69,6 +72,42 @@ describe('ShellCommandCtr (thin wrapper)', () => {
 
     mockSpawn.mockReturnValue(mockChildProcess);
     ctr = new ShellCommandCtr(mockApp);
+  });
+
+  it('runs bundled scripts directly with application-owned isolation flags', async () => {
+    vi.mocked(pythonRuntime.getBundledPythonInfo).mockResolvedValue({
+      executable: '/app/python-runtime/bin/python3',
+      version: '3.12.14',
+      packages: {},
+      sitePackages: '/app/site-packages',
+      venvRoot: '/data/python-environments',
+    });
+    vi.mocked(pythonRuntime.prepareProjectPythonEnvironment).mockResolvedValue({
+      MASTERINO_PYTHON_ENVIRONMENT: '/data/python-environments/project-key',
+      PIP_CONSTRAINT: '/data/python-environments/project-key/bundled-constraints.txt',
+    });
+    mockChildProcess.once.mockImplementation((event: string, callback: () => void) => {
+      if (event === 'exit') setTimeout(callback, 0);
+      return mockChildProcess;
+    });
+    await ctr.handleRunCommand({
+      runtime: 'bundled-python',
+      command: '/workspace/a script.py',
+      args: ['中文'],
+      run_in_background: true,
+    });
+    expect(mockSpawn.mock.calls.at(-1)[2].env.MASTERINO_PYTHON_ENVIRONMENT).toBe(
+      '/data/python-environments/project-key',
+    );
+    expect(mockSpawn.mock.calls.at(-1)[0]).toBe('/app/python-runtime/bin/python3');
+    expect(mockSpawn.mock.calls.at(-1)[1]).toEqual([
+      '-I',
+      '-B',
+      '-X',
+      'utf8',
+      '/workspace/a script.py',
+      '中文',
+    ]);
   });
 
   it('should delegate handleRunCommand to shared runCommand', async () => {

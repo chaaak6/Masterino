@@ -27,7 +27,7 @@ describe('command process trees', () => {
       try {
         await writeFile(
           child,
-          `require('node:fs').writeFileSync(${JSON.stringify(ready)}, String(process.pid)); setTimeout(() => require('node:fs').writeFileSync(${JSON.stringify(unexpected)}, 'not cancelled'), 1500);`,
+          `process.on('SIGTERM', () => {}); require('node:fs').writeFileSync(${JSON.stringify(ready)}, String(process.pid)); setTimeout(() => require('node:fs').writeFileSync(${JSON.stringify(unexpected)}, 'not cancelled'), 1500);`,
         );
         await writeFile(
           parent,

@@ -35,6 +35,66 @@ describe('presentation execution boundary', () => {
     await rm(root, { force: true, recursive: true });
   });
 
+  it('resolves bundled script paths and denies scripts outside the workspace', async () => {
+    context.accessRoots![0]!.modes.push('exec');
+    const script = path.join(workspace, 'task.py');
+    await writeFile(script, 'print("ok")');
+    const prepared = await prepareToolCallExecution({
+      apiName: 'runCommand',
+      args: {
+        runtime: 'bundled-python',
+        command: 'task.py',
+        args: ['中文'],
+      },
+      context,
+      homeDir: root,
+    });
+    expect(prepared.args.command).toBe(script);
+    expect(prepared.args.args).toEqual(['中文']);
+    expect(
+      prepared.scopeAudit.some((entry) => entry.mode === 'read' && entry.path === script),
+    ).toBe(true);
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'runCommand',
+        args: {
+          runtime: 'bundled-python',
+          command: path.join(root, 'outside.py'),
+        },
+        context,
+        homeDir: root,
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+  });
+
+  it('audits the old transaction output even when a retry changes its output', async () => {
+    const projectPath = path.join(workspace, 'deck.pptx.masterino.json');
+    await writeFile(projectPath, JSON.stringify({ deck: { slides: [] } }));
+    await writeFile(
+      `${projectPath}.lock`,
+      JSON.stringify({
+        transaction: {
+          id: '11111111-1111-4111-8111-111111111111',
+          projectPath,
+          outputPath: path.join(root, 'outside.pptx'),
+        },
+      }),
+    );
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'revisePresentation',
+        args: {
+          projectPath,
+          outputPath: 'new.pptx',
+          operations: [],
+          expectedRevision: 1,
+        },
+        context,
+        homeDir: root,
+      }),
+    ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
+  });
+
   it('audits PPTX output, project and local image paths before Electron executes', async () => {
     await writeFile(path.join(workspace, 'logo.png'), 'image');
     const prepared = await prepareToolCallExecution({

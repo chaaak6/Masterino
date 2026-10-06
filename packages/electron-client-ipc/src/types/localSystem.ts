@@ -259,6 +259,9 @@ export interface OpenLocalFolderParams {
 
 // Shell command types
 export interface RunCommandParams {
+  /** In bundled-python mode, command is one script path, not shell syntax. */
+  runtime?: 'bundled-python';
+  args?: string[];
   command: string;
   cwd?: string;
   description?: string;

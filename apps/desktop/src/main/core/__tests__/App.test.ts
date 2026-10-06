@@ -1,3 +1,5 @@
+import { app as electronApp } from 'electron';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Import after mocks are set up
@@ -22,6 +24,7 @@ vi.mock('electron', () => ({
       setIcon: vi.fn(),
     },
     exit: vi.fn(),
+    quit: vi.fn(),
   },
   ipcMain: {
     handle: vi.fn(),
@@ -186,6 +189,29 @@ describe('App', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('waits for command cleanup before completing an application quit', async () => {
+    appInstance = new App();
+    let complete!: () => void;
+    const cleanup = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    vi.spyOn(appInstance, 'getController').mockReturnValue({ cleanup } as never);
+    const handler = vi
+      .mocked(electronApp.on)
+      .mock.calls.find(([event]) => event === 'before-quit')![1];
+    const event = { preventDefault: vi.fn() };
+    handler(event);
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(electronApp.quit).not.toHaveBeenCalled();
+    complete();
+    await Promise.resolve();
+    expect(electronApp.quit).toHaveBeenCalledOnce();
   });
 
   describe('appStoragePath', () => {

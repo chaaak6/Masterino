@@ -110,6 +110,18 @@ it('creates a themed presentation and a local project that can be revised later'
     slides: 1,
     validation: { errors: 0 },
   });
+  expect(
+    (await validatePresentation({ path: outputPath, projectPath: created.projectPath })).features
+      .shapes,
+  ).toBe(1);
+  const project = JSON.parse(await readFile(created.projectPath, 'utf8'));
+  project.deck.slides[0].elements = project.deck.slides[0].elements.filter(
+    (element: { type: string }) => element.type !== 'shape',
+  );
+  await writeFile(created.projectPath, JSON.stringify(project));
+  expect(
+    (await validatePresentation({ path: outputPath, projectPath: created.projectPath })).issues,
+  ).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'PPTX_SHAPES_MISMATCH' })]));
   expect(created.projectPath).toBe(`${outputPath}.masterino.json`);
   expect(JSON.parse(await readFile(created.projectPath, 'utf8'))).toMatchObject({ revision: 1 });
   expect(
@@ -499,7 +511,7 @@ it('rolls back an interrupted in-place publish before applying the next revision
     }),
   );
 
-  await expect(
+  const retry = () =>
     revisePresentation({
       expectedRevision: 1,
       operations: [
@@ -510,13 +522,22 @@ it('rolls back an interrupted in-place publish before applying the next revision
           slideId: 'only',
         },
       ],
-      outputPath,
+      outputPath: candidatePath + '.recovered.pptx',
+      projectPath: created.projectPath,
+    });
+  const attempts = await Promise.allSettled([retry(), retry()]);
+  expect(attempts.filter((attempt) => attempt.status === 'fulfilled')).toHaveLength(1);
+  expect(attempts.find((attempt) => attempt.status === 'fulfilled')).toMatchObject({
+    value: { revision: 2 },
+  });
+  expect(
+    (await readOfficeDocument({ path: candidatePath + '.recovered.pptx' })).records[0]?.text,
+  ).toBe('After recovery');
+  await expect(
+    validatePresentation({
+      path: candidatePath + '.recovered.pptx',
       projectPath: created.projectPath,
     }),
-  ).resolves.toMatchObject({ revision: 2 });
-  expect((await readOfficeDocument({ path: outputPath })).records[0]?.text).toBe('After recovery');
-  await expect(
-    validatePresentation({ path: outputPath, projectPath: created.projectPath }),
   ).resolves.toMatchObject({
     valid: true,
   });

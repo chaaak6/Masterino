@@ -1,4 +1,6 @@
-import { execFile } from 'node:child_process';
+import childProcess from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -27,7 +29,7 @@ export function formatPythonEnvironment(info?: BundledPythonInfo): string {
         `${name}==${version} (import ${imports[name] ?? name.replaceAll('-', '_')})`,
     )
     .join(', ');
-  const venv = path.join(info.venvRoot, 'project-env');
+  const venv = path.join(info.venvRoot, '<project-key>');
   const venvPython = path.join(
     venv,
     process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python',
@@ -36,17 +38,34 @@ export function formatPythonEnvironment(info?: BundledPythonInfo): string {
 Executable: "${info.executable}"
 Package directory: "${info.sitePackages}"
 Preinstalled packages: ${packages}
-This interpreter and all listed packages were already verified by the application at startup. For questions about the available Python environment, answer from this metadata (including all preinstalled packages); do not run extra discovery or import probes unless the user requests a runtime check or a real execution fails.
-Use "${info.executable}" -I -B -X utf8 <script.py>. These packages are already importable; no host Python or PATH changes are needed. Treat the application runtime as read-only: never install or upgrade packages in it, and never use its -m pip to manage dependencies.
-For additional packages, create a project-specific virtual environment under "${info.venvRoot}". Example:
+The application detected this interpreter and the installed package versions when this metadata was requested. This is an availability check, not a PPT round-trip test. For questions about the bundled Python environment, answer from this metadata (including all preinstalled packages); do not run extra discovery or import probes unless the user requests a runtime check or a real execution fails. Respect an existing project environment (.venv, conda, test configuration) and explicit user interpreter choices; use the bundled environment by default for new PPT and Office scripts.
+For bundled scripts, use runCommand with runtime="bundled-python", command=<script.py path>, and args=[...]. The application supplies the interpreter and -I -B -X utf8. For an explicit terminal invocation: "${info.executable}" -I -B -X utf8 <script.py>. These packages are already importable; no host Python or PATH changes are needed. Treat the application runtime as read-only: never install or upgrade packages in it, and never use its -m pip to manage dependencies.
+For additional packages, create a project-specific virtual environment under "${info.venvRoot}". Bundled-script processes receive MASTERINO_PYTHON_ENVIRONMENT (the application-selected project environment directory) and PIP_CONSTRAINT (an application-written file pinning the preinstalled versions). Read these with os.environ when creating an environment or installing extra packages. For explicit terminal commands, use the first 16 hexadecimal characters of SHA-256 of the absolute project path as <project-key> (for a task without a project, use its absolute workspace path). Replace the placeholder before running this example:
 "${info.executable}" -I -B -X utf8 -m venv --without-pip --system-site-packages "${venv}"
-Then install only with "${venvPython}" -I -B -X utf8 -m pip install <additional-package>, and run project scripts with that virtual environment's Python and the same flags. The virtual environment inherits the preinstalled packages. Use a distinct environment per project; do not use --user or alter host Python.`;
+Write a bundled-constraints.txt file in that environment listing the exact preinstalled package versions above, one name==version per line. Never upgrade or replace these packages in this managed environment. Then install only with "${venvPython}" -I -B -X utf8 -m pip install --constraint "${path.join(venv, 'bundled-constraints.txt')}" <additional-package>, and run project scripts with that virtual environment's Python and the same flags. The virtual environment inherits the preinstalled packages. Use a distinct environment per project; do not use --user or alter host Python.`;
+}
+
+export async function prepareProjectPythonEnvironment(
+  info: BundledPythonInfo,
+  projectPath: string,
+) {
+  const key = createHash('sha256').update(path.resolve(projectPath)).digest('hex').slice(0, 16);
+  const root = path.join(info.venvRoot, key);
+  await mkdir(root, { recursive: true });
+  const constraints = path.join(root, 'bundled-constraints.txt');
+  await writeFile(
+    constraints,
+    Object.entries(info.packages)
+      .map(([name, version]) => `${name}==${version}`)
+      .join('\n') + '\n',
+  );
+  return { MASTERINO_PYTHON_ENVIRONMENT: root, PIP_CONSTRAINT: constraints };
 }
 
 let infoPromise: Promise<BundledPythonInfo | undefined> | undefined;
 
 export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
-  infoPromise ??= (async () => {
+  const pending = (infoPromise ??= (async () => {
     if (process.platform !== 'darwin' && process.platform !== 'win32') return undefined;
     const resources = app.isPackaged
       ? process.resourcesPath
@@ -57,7 +76,7 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
       process.platform === 'win32' ? 'python.exe' : 'bin/python3',
     );
     try {
-      const { stdout } = await promisify(execFile)(
+      const { stdout } = await promisify(childProcess.execFile)(
         executable,
         [
           '-I',
@@ -77,8 +96,11 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
     } catch {
       return undefined;
     }
-  })();
-  return infoPromise;
+  })());
+  void pending.then((info) => {
+    if (!info && infoPromise === pending) infoPromise = undefined;
+  });
+  return pending;
 }
 
 export async function getPythonEnvironment(): Promise<string> {

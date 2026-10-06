@@ -530,6 +530,7 @@ const collectPathRequests = (
         { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
         { apply: setField('projectPath'), mode: 'write', value: args.projectPath },
         { apply: () => {}, mode: 'write', value: `${args.projectPath}.lock` },
+        { apply: () => {}, mode: 'write', value: `${args.projectPath}.lock.recovery` },
         { apply: setField('outputPath'), mode: 'write', value: args.outputPath },
         ...presentationImagePaths(args.operations),
       ];
@@ -579,7 +580,14 @@ const collectPathRequests = (
         { apply: () => {}, mode: 'write', value: destination },
       ];
     }
-    case 'runCommand':
+    case 'runCommand': {
+      return [
+        { apply: setField('cwd'), mode: 'exec', value: cwd },
+        ...(args.runtime === 'bundled-python'
+          ? [{ apply: setField('command'), mode: 'read' as const, value: args.command }]
+          : []),
+      ];
+    }
     case 'runHeteroTask': {
       return [{ apply: setField('cwd'), mode: 'exec', value: cwd }];
     }
@@ -715,6 +723,55 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     if (warnings.length > 0 && request.mode === 'exec') audit.cwdOverridden = true;
     request.apply(next, realTarget);
     scopeAudit.push(audit);
+  }
+
+  // Recovery can touch an earlier output, distinct from this retry's output.
+  // Authorize the transaction paths before the engine can restore its backups.
+  if (apiName === 'revisePresentation') {
+    const state = await readFile(`${next.projectPath}.lock`, 'utf8').catch(() => undefined);
+    if (state) {
+      const transaction = JSON.parse(state).transaction;
+      if (transaction) {
+        if (
+          typeof transaction.id !== 'string' ||
+          !/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(
+            transaction.id,
+          ) ||
+          typeof transaction.outputPath !== 'string' ||
+          !path.isAbsolute(transaction.outputPath) ||
+          transaction.projectPath !== next.projectPath
+        )
+          throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+        const targets = [transaction.outputPath, transaction.projectPath];
+        for (const [file, extension] of [
+          [transaction.outputPath, 'pptx'],
+          [transaction.projectPath, 'json'],
+        ]) {
+          for (const suffix of [extension, `backup.${extension}`]) {
+            targets.push(
+              path.join(path.dirname(file), `.masterino-presentation-${transaction.id}.${suffix}`),
+            );
+          }
+        }
+        for (const target of targets) {
+          const realTarget = await realpathForAccess(target);
+          for (const mode of ['read', 'write'] as const) {
+            scopeAudit.push(
+              await authorizePath({
+                context: { ...context, cwd: realCwd },
+                credentialRead: mode === 'read' && isCredentialPath(realTarget),
+                homeDir: realHomeDir,
+                mode,
+                now,
+                allowedMountRoots: realAllowedMountRoots,
+                target: realTarget,
+                trace,
+              }),
+            );
+          }
+        }
+      }
+    }
   }
 
   // Revisions and SVG previews re-render persisted elements, including images
