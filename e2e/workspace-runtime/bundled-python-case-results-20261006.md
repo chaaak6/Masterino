@@ -34,3 +34,11 @@ Actual quarterly.pptx was rendered using test-only LibreOffice and PDF tools. Th
 The installed PowerPoint is an old Intel binary and failed to launch with NSOSStatus -10669. Native PowerPoint/WPS GUI acceptance therefore remains unverified; LibreOffice rendering is not a substitute for that claim. Arbitrary SmartArt/OLE/animation fidelity and Windows GUI acceptance remain unverified.
 
 The rebuilt App passed all four packaged Python integration tests with PATH limited to `/usr/bin:/bin`, strict deep codesign verification, and the 11 focused environment/controller tests. Test App is retained for manual testing. Final PR CI status is recorded in the PR description.
+
+## Installer and CI follow-up
+
+All four Python integration tests also passed from the read-only mounted new DMG (187.610s after slow initial image launch/reading). Strict deep codesign passed. Copying the App out of that DMG into an isolated test installation directory then passed all four tests in 4.381s and strict deep codesign. The test configuration in the DMG points only to mlai-test. Direct mounted-image launch speed is not claimed.
+
+Windows build run `37399632552` passed real command-cancellation and packaged-interpreter tests and produced `Masterino-1.1.4-test.141-setup.exe`. Windows GUI acceptance remains for a user machine.
+
+October 6 full CI exposed two existing date-dependent tests: observed evidence fixed at September 3 had expired under the current clock. Both failures were reproduced locally before correction. Only test fixtures changed: the database test scopes a Date-only fixed clock to its evidence case; the server fixture uses a fresh evidence timestamp. Complete affected files passed locally (25 database / 41 server tests). Model/database business behavior was not changed. Final CI status is reported in the PR description.

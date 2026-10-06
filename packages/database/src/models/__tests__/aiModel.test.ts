@@ -6,7 +6,7 @@ import {
 } from '@lobechat/business-model-bank';
 import { eq } from 'drizzle-orm';
 import type { AiProviderModelListItem } from 'model-bank';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTestDB } from '../../core/getTestDB';
 import type { NewAiModelItem } from '../../schemas';
@@ -196,6 +196,12 @@ describe('AiModelModel', () => {
   });
 
   describe('recordContextWindowRejection', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ now: new Date('2026-09-03T12:00:03.000Z'), toFake: ['Date'] });
+    });
+
+    afterEach(() => vi.useRealTimers());
+
     it('persists exact observed evidence while preserving the existing catalog', async () => {
       const manual = {
         createdAt: '2026-09-01T00:00:00.000Z',
