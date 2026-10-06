@@ -6,6 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 
 const mockPathExistsSync = vi.fn();
+const { mockAppOn } = vi.hoisted(() => ({
+  mockAppOn:
+    vi.fn<(event: string, listener: (event: { preventDefault: () => void }) => void) => void>(),
+}));
 
 // Mock electron modules
 vi.mock('electron', () => ({
@@ -16,7 +20,7 @@ vi.mock('electron', () => ({
     requestSingleInstanceLock: vi.fn(() => true),
     isReady: vi.fn(() => true),
     whenReady: vi.fn(() => Promise.resolve()),
-    on: vi.fn(),
+    on: mockAppOn,
     commandLine: {
       appendSwitch: vi.fn(),
     },
@@ -201,9 +205,7 @@ describe('App', () => {
         }),
     );
     vi.spyOn(appInstance, 'getController').mockReturnValue({ cleanup } as never);
-    const handler = vi
-      .mocked(electronApp.on)
-      .mock.calls.find(([event]) => event === 'before-quit')![1];
+    const handler = mockAppOn.mock.calls.find(([event]) => event === 'before-quit')![1];
     const event = { preventDefault: vi.fn() };
     handler(event);
     expect(event.preventDefault).toHaveBeenCalled();
