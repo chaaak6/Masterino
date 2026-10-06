@@ -120,6 +120,8 @@ export type PresentationOperation =
     };
 
 export interface RevisePresentationParams {
+  /** Internal boundary snapshot; null means no lock existed during authorization. */
+  authorizedRevisionLock?: string | null;
   expectedRevision: number;
   operations: PresentationOperation[];
   outputPath: string;

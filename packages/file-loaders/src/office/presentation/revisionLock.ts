@@ -138,9 +138,24 @@ const recoverRevisionTransaction = async (
   await cleanupRevisionTransaction(transaction);
 };
 
-const readRevisionLock = async (lockPath: string): Promise<RevisionLockState | undefined> => {
+const readRevisionLock = async (
+  lockPath: string,
+  authorizedFingerprint?: string | null,
+): Promise<RevisionLockState | undefined> => {
+  const content = await readFile(lockPath, 'utf8').catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ENOENT') return undefined;
+    throw error;
+  });
+  if (authorizedFingerprint !== undefined) {
+    const fingerprint =
+      content === undefined ? null : createHash('sha256').update(content).digest('hex');
+    if (fingerprint !== authorizedFingerprint) {
+      throw new Error('PRESENTATION_REVISION_TRANSACTION_CHANGED: retry authorization');
+    }
+  }
+  if (content === undefined) return;
   try {
-    const value = JSON.parse(await readFile(lockPath, 'utf8')) as Partial<RevisionLockState>;
+    const value = JSON.parse(content) as Partial<RevisionLockState>;
     if (
       value.version !== 1 ||
       !Number.isSafeInteger(value.pid) ||
@@ -199,6 +214,9 @@ export const acquireRevisionLock = async (
     throw error;
   });
   try {
+    if (params.authorizedRevisionLock !== undefined) {
+      await readRevisionLock(lockPath, params.authorizedRevisionLock);
+    }
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         await writeFile(lockPath, `${JSON.stringify(state)}\n`, { flag: 'wx' });
@@ -206,11 +224,11 @@ export const acquireRevisionLock = async (
         return { path: lockPath, state };
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-        const existing = await readRevisionLock(lockPath);
+        const existing = await readRevisionLock(lockPath, params.authorizedRevisionLock);
         if (!(await revisionLockIsStale(lockPath, existing))) {
           throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
         }
-        const latest = await readRevisionLock(lockPath);
+        const latest = await readRevisionLock(lockPath, params.authorizedRevisionLock);
         if (existing?.token !== latest?.token) {
           throw new Error('PRESENTATION_REVISION_BUSY', { cause: error });
         }

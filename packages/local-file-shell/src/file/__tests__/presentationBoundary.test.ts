@@ -1,9 +1,11 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, realpath, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { createPresentation, revisePresentation } from '../../office';
 import type { DeviceToolCallExecutionContext } from '../../types';
 import { prepareToolCallExecution } from '../executionBoundary';
 
@@ -66,6 +68,92 @@ describe('presentation execution boundary', () => {
       }),
     ).rejects.toMatchObject({ code: 'INTERVENTION_REQUIRED' });
   });
+
+  it.each(['{"transaction":', 'null', '[]'])(
+    'rejects a damaged recovery record clearly: %s',
+    async (content) => {
+      const projectPath = path.join(workspace, 'deck.pptx.masterino.json');
+      await writeFile(projectPath, JSON.stringify({ deck: { slides: [] } }));
+      await writeFile(`${projectPath}.lock`, content);
+      await expect(
+        prepareToolCallExecution({
+          apiName: 'revisePresentation',
+          args: { projectPath, outputPath: 'new.pptx', operations: [], expectedRevision: 1 },
+          context,
+          homeDir: root,
+        }),
+      ).rejects.toThrow('PRESENTATION_REVISION_LOCK_CORRUPT');
+      expect(await readFile(`${projectPath}.lock`, 'utf8')).toBe(content);
+    },
+  );
+
+  it.each(['replaced', 'appeared'])(
+    'does not recover a lock that %s after authorization',
+    async (change) => {
+      const created = await createPresentation({
+        path: path.join(workspace, 'original.pptx'),
+        deck: {
+          slides: [{ id: 'one', elements: [] }],
+          theme: {
+            colors: {
+              accent: '2F80ED',
+              background: 'FFFFFF',
+              muted: '667085',
+              primary: '17324D',
+              text: '101828',
+            },
+            fonts: { body: 'Arial', heading: 'Arial' },
+          },
+        },
+      });
+      const lockPath = `${created.projectPath}.lock`;
+      const state = {
+        createdAt: Date.now(),
+        hostname: os.hostname(),
+        pid: 2_147_483_647,
+        token: 'old',
+        version: 1,
+      };
+      if (change === 'replaced') await writeFile(lockPath, JSON.stringify(state));
+      const prepared = await prepareToolCallExecution({
+        apiName: 'revisePresentation',
+        args: {
+          projectPath: created.projectPath,
+          outputPath: 'new.pptx',
+          operations: [],
+          expectedRevision: 1,
+          authorizedRevisionLock: 'model-supplied' as string | null,
+        },
+        context,
+        homeDir: root,
+      });
+      const outside = path.join(root, 'unauthorized.pptx');
+      await writeFile(outside, 'must remain');
+      const originalProject = await readFile(created.projectPath, 'utf8');
+      const replacement = JSON.stringify({
+        ...state,
+        token: 'new',
+        transaction: {
+          id: '11111111-1111-4111-8111-111111111111',
+          mode: 'create',
+          outputPath: outside,
+          projectPath: created.projectPath,
+          oldArtifactSha256: JSON.parse(originalProject).artifact.sha256,
+          newArtifactSha256: createHash('sha256').update('must remain').digest('hex'),
+        },
+      });
+      await writeFile(lockPath, replacement);
+      await expect(revisePresentation(prepared.args)).rejects.toThrow(
+        'PRESENTATION_REVISION_TRANSACTION_CHANGED',
+      );
+      expect(await readFile(outside, 'utf8')).toBe('must remain');
+      expect(await readFile(created.projectPath, 'utf8')).toBe(originalProject);
+      expect(await readFile(lockPath, 'utf8')).toBe(replacement);
+      if (change === 'replaced') await writeFile(lockPath, JSON.stringify(state));
+      else await unlink(lockPath);
+      await expect(revisePresentation(prepared.args)).resolves.toMatchObject({ revision: 2 });
+    },
+  );
 
   it('audits the old transaction output even when a retry changes its output', async () => {
     const projectPath = path.join(workspace, 'deck.pptx.masterino.json');

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { access, readFile, realpath } from 'node:fs/promises';
 import os from 'node:os';
@@ -729,8 +730,18 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
   // Authorize the transaction paths before the engine can restore its backups.
   if (apiName === 'revisePresentation') {
     const state = await readFile(`${next.projectPath}.lock`, 'utf8').catch(() => undefined);
-    if (state) {
-      const transaction = JSON.parse(state).transaction;
+    // Always replace caller-supplied metadata, including when no lock exists.
+    (next as Record<string, unknown>).authorizedRevisionLock =
+      state === undefined ? null : createHash('sha256').update(state).digest('hex');
+    if (state !== undefined) {
+      let record;
+      try {
+        record = JSON.parse(state);
+        if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error();
+      } catch {
+        throw new Error('PRESENTATION_REVISION_LOCK_CORRUPT');
+      }
+      const transaction = record.transaction;
       if (transaction) {
         if (
           typeof transaction.id !== 'string' ||
