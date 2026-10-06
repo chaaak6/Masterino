@@ -9,7 +9,8 @@ const DEFAULT_QUOTA_POLICY: NewApiQuotaPolicy = {
 const roundMoney = (value: number) => Math.round(value * 100) / 100;
 
 const normalizePolicy = (policy?: NewApiQuotaPolicy): NewApiQuotaPolicy => ({
-  quotaDisplayType: policy?.quotaDisplayType === 'USD' ? 'USD' : DEFAULT_QUOTA_POLICY.quotaDisplayType,
+  quotaDisplayType:
+    policy?.quotaDisplayType === 'USD' ? 'USD' : DEFAULT_QUOTA_POLICY.quotaDisplayType,
   quotaPerUnit:
     policy?.quotaPerUnit && policy.quotaPerUnit > 0
       ? policy.quotaPerUnit
@@ -36,11 +37,15 @@ export const getNewApiQuotaAmount = (rawQuota?: number | null, policy?: NewApiQu
   };
 };
 
-export const formatNewApiQuota = (rawQuota?: number | null, policy?: NewApiQuotaPolicy) => {
+export const formatNewApiQuota = (
+  rawQuota?: number | null,
+  policy?: NewApiQuotaPolicy,
+  locale = 'zh-CN',
+) => {
   const amount = getNewApiQuotaAmount(rawQuota, policy);
   if (!amount) return '-';
 
-  return new Intl.NumberFormat('zh-CN', {
+  return new Intl.NumberFormat(locale, {
     currency: amount.currency,
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,

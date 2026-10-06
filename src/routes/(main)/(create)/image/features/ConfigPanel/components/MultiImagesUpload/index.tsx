@@ -540,7 +540,7 @@ const SingleImageDisplay: FC<SingleImageDisplayProps> = memo(
         <Image
           fill
           unoptimized
-          alt="Uploaded image"
+          alt={t('uploadedImage', { ns: 'components' })}
           src={imageUrl}
           style={{ objectFit: 'contain' }}
         />

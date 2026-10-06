@@ -7,7 +7,7 @@ interface BrandTextLoadingProps {
 }
 
 const BrandTextLoading = ({ debugId }: BrandTextLoadingProps) => {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const language = (i18n.resolvedLanguage || i18n.language || '').toLowerCase();
   const isChinese = language.startsWith('zh');
   const loadingSrc = isChinese
@@ -16,9 +16,9 @@ const BrandTextLoading = ({ debugId }: BrandTextLoadingProps) => {
 
   return (
     <div className={styles.container} data-debug-id={debugId}>
-      <div aria-label="Loading" className={styles.brand} role="status">
+      <div aria-label={t('loading', { ns: 'common' })} className={styles.brand} role="status">
         <img
-          alt={isChinese ? '小宗狮 loading' : 'Masterino loading'}
+          alt={t('loading', { ns: 'common' })}
           className={styles.brandLoading}
           src={loadingSrc}
         />

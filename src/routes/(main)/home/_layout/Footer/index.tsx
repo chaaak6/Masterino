@@ -63,7 +63,7 @@ interface PromotionCard {
 }
 
 const Footer = memo(() => {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'components']);
   const navigate = useNavigate();
   const { analytics } = useAnalytics();
   const { footer } = useNavLayout();
@@ -315,7 +315,9 @@ const Footer = memo(() => {
             {
               icon: <Icon icon={FlaskConical} />,
               key: 'eval',
-              label: <WorkspaceLink to="/eval">Evaluation Lab</WorkspaceLink>,
+              label: (
+                <WorkspaceLink to="/eval">{t('evaluationLab', { ns: 'components' })}</WorkspaceLink>
+              ),
             },
           ]
         : []),
@@ -369,7 +371,11 @@ const Footer = memo(() => {
             )}
             {footer.showEvalEntry && (
               <WorkspaceLink to="/eval">
-                <ActionIcon icon={FlaskConical} size={16} title="Evaluation Lab" />
+                <ActionIcon
+                  icon={FlaskConical}
+                  size={16}
+                  title={t('evaluationLab', { ns: 'components' })}
+                />
               </WorkspaceLink>
             )}
           </Flexbox>

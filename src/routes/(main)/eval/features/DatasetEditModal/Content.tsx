@@ -46,7 +46,7 @@ const DatasetEditContent: FC<DatasetEditContentProps> = ({
   onLoadingChange,
   onSuccess,
 }) => {
-  const { t } = useTranslation('eval');
+  const { t } = useTranslation(['eval', 'components']);
   const { close } = useModalContext();
   const { message } = App.useApp();
   const [form] = Form.useForm();
@@ -139,17 +139,31 @@ const DatasetEditContent: FC<DatasetEditContentProps> = ({
 
       {(evalModeValue === 'llm-rubric' || evalModeValue === 'answer-relevance') && (
         <>
-          <Form.Item initialValue="aihubmix" label={'Provider'} name={['evalConfig', 'provider']}>
-            <TextArea placeholder={'LLM provider (e.g. openai, azure)'} rows={1} />
+          <Form.Item
+            initialValue="aihubmix"
+            label={t('provider', { ns: 'components' })}
+            name={['evalConfig', 'provider']}
+          >
+            <TextArea placeholder={t('providerExample', { ns: 'components' })} rows={1} />
           </Form.Item>
-          <Form.Item initialValue="gpt-5-nano" label={'Model'} name={['evalConfig', 'model']}>
-            <TextArea placeholder={'LLM model to use for evaluation (e.g. gpt-4)'} rows={1} />
+          <Form.Item
+            initialValue="gpt-5-nano"
+            label={t('model', { ns: 'components' })}
+            name={['evalConfig', 'model']}
+          >
+            <TextArea placeholder={t('modelExample', { ns: 'components' })} rows={1} />
           </Form.Item>
-          <Form.Item label={'System Prompt'} name={['evalConfig', 'systemRole']}>
-            <TextArea placeholder={'Optional system prompt for the LLM judge'} rows={3} />
+          <Form.Item
+            label={t('systemPrompt', { ns: 'components' })}
+            name={['evalConfig', 'systemRole']}
+          >
+            <TextArea placeholder={t('judgeSystemPrompt', { ns: 'components' })} rows={3} />
           </Form.Item>
-          <Form.Item label={'Eval Prompt'} name={['evalConfig', 'criteria']}>
-            <TextArea placeholder={'Prompt template for the LLM judge'} rows={3} />
+          <Form.Item
+            label={t('evalPrompt', { ns: 'components' })}
+            name={['evalConfig', 'criteria']}
+          >
+            <TextArea placeholder={t('judgePrompt', { ns: 'components' })} rows={3} />
           </Form.Item>
           <Form.Item label={t('evalMode.prompt.label')} name={['evalConfig', 'judgePrompt']}>
             <TextArea placeholder={t('evalMode.prompt.placeholder')} rows={3} />
@@ -160,7 +174,7 @@ const DatasetEditContent: FC<DatasetEditContentProps> = ({
       <Form.Item label={t('dataset.create.preset.label')} style={{ marginBottom: 0 }}>
         <Select
           options={selectOptions}
-          placeholder="Select a preset"
+          placeholder={t('selectPreset', { ns: 'components' })}
           value={selectedPreset}
           optionRender={(option) => {
             const preset = DATASET_PRESETS[option.value as string];

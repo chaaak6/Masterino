@@ -1,4 +1,6 @@
 const common = {
+  'notification.permissionTitle': 'Notification permission',
+  'notification.permissionBody': 'Masterino can now send you notifications.',
   'actions.add': 'Add',
   'actions.back': 'Back',
   'actions.cancel': 'Cancel',

@@ -96,7 +96,7 @@ interface LinearFileCardProps {
 
 export const LinearFileCard = memo<LinearFileCardProps>(({ node }) => {
   const { styles } = useStyles();
-  const { t } = useTranslation('editor');
+  const { t } = useTranslation(['editor', 'components']);
 
   const { fileUrl, message, name, size, status } = node;
 
@@ -127,7 +127,7 @@ export const LinearFileCard = memo<LinearFileCardProps>(({ node }) => {
       </div>
       <div className={styles.download} data-lobehub-file-download="">
         <ActionIcon
-          aria-label="Download"
+          aria-label={t('download', { ns: 'components' })}
           icon={DownloadIcon}
           size={'small'}
           variant={'filled'}

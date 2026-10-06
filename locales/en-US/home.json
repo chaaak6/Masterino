@@ -45,6 +45,7 @@
   "recommendations.heteroAgent.tag": "Coding Agent",
   "recommendations.heteroAgent.title": "Add {{name}} agent",
   "recommendations.subtitle": "Some recommendations for your setup",
+  "starter.aihubDefault": "Aihub default model",
   "starter.createAgent": "Create Agent",
   "starter.createGroup": "Create Group",
   "starter.deepResearch": "Deep Research",

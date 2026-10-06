@@ -3,6 +3,16 @@ import { describe, expect, it } from 'vitest';
 import { normalizeLocale } from './resources';
 
 describe('normalizeLocale', () => {
+  it.each([
+    ['vi', 'vi-VN'],
+    ['VI_vn', 'vi-VN'],
+    ['zh-cn', 'zh-CN'],
+    ['zh-HK', 'zh-TW'],
+    ['en-GB', 'en-US'],
+    ['fr-CA', 'fr-FR'],
+  ])('normalizes %s', (input, expected) => {
+    expect(normalizeLocale(input)).toBe(expected);
+  });
   it('should return "en-US" when locale is undefined', () => {
     expect(normalizeLocale()).toBe('en-US');
   });

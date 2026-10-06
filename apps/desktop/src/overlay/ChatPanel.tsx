@@ -27,7 +27,8 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import OverlayAvatar from './Avatar';
 import * as styles from './chatPanel.css.ts';
 import { cn } from './cn';
-import { OVERLAY_COPY, OVERLAY_LAYOUT, OVERLAY_SHORTCUTS } from './constants';
+import { OVERLAY_LAYOUT, OVERLAY_SHORTCUTS } from './constants';
+import { useOverlayCopy } from './Locale';
 import {
   createDockedPanelPlacement,
   createInitialPanelPlacement,
@@ -87,7 +88,7 @@ export const resolveOverlayModelSelectionPayload = ({
 };
 
 const formatBytes = (rect: Rect): string =>
-  `${Math.round(rect.width)} × ${Math.round(rect.height)} · ${OVERLAY_COPY.selectionFormatLabel}`;
+  `${Math.round(rect.width)} × ${Math.round(rect.height)} · PNG`;
 
 const SendIcon = () => (
   <svg
@@ -112,6 +113,7 @@ const UploadStatusIndicator = ({
   iconSize?: number;
   status: OverlayCaptureUploadStatus;
 }) => {
+  const OVERLAY_COPY = useOverlayCopy();
   if (status === 'uploading') {
     return (
       <div
@@ -150,6 +152,7 @@ const ChatPanel = memo<ChatPanelProps>(
     viewportHeight,
     viewportWidth,
   }) => {
+    const OVERLAY_COPY = useOverlayCopy();
     const [prompt, setPrompt] = useState('');
     const [agentId, setAgentId] = useState<string | undefined>(initialAgentId);
     const [modelId, setModelId] = useState<string | undefined>(initialModelId);
@@ -401,7 +404,7 @@ const ChatPanel = memo<ChatPanelProps>(
           {selectionCount === 1 && activeSelection && (
             <div className={styles.selectionSummary}>
               <div
-                aria-label="screenshot thumbnail"
+                aria-label={OVERLAY_COPY.screenshotThumbnail}
                 className={styles.thumb}
                 style={{ backgroundImage: `url(${activeSelection.dataUrl})` }}
               >
@@ -449,7 +452,7 @@ const ChatPanel = memo<ChatPanelProps>(
                     >
                       <div className={styles.multiSelectionThumbFrame}>
                         <div
-                          aria-label="screenshot thumbnail"
+                          aria-label={OVERLAY_COPY.screenshotThumbnail}
                           className={styles.multiSelectionThumb}
                           style={{ backgroundImage: `url(${item.dataUrl})` }}
                         />

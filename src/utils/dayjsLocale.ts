@@ -1,12 +1,4 @@
-// dayjs registers some locales under shorter keys than the i18next language code
-// (e.g. `en` for `en-US`, `zh-cn` for `zh`). Keep the alias map alongside the
-// loader logic in `SPAGlobalProvider/Locale.tsx` so reads and writes stay in sync.
-const DAYJS_LOCALE_ALIASES: Record<string, string> = {
-  'en-us': 'en',
-  'zh': 'zh-cn',
-  'zh-cn': 'zh-cn',
-  'zh-tw': 'zh-tw',
-};
+import { normalizeLocale } from '@/locales/localeCodes';
 
 interface DayjsLocaleModule {
   default: ILocale;
@@ -21,9 +13,6 @@ export const loadDayjsLocaleModule = async (
 ): Promise<DayjsLocaleModule> => (typeof entry === 'function' ? entry() : entry);
 
 export const normalizeDayjsLocale = (lang: string): string => {
-  const lower = lang.toLowerCase();
-  if (lower.startsWith('zh-hans')) return 'zh-cn';
-  if (lower.startsWith('zh-hant')) return 'zh-tw';
-
-  return DAYJS_LOCALE_ALIASES[lower] ?? lower;
+  const locale = normalizeLocale(lang).toLowerCase();
+  return ['zh-cn', 'zh-tw', 'pt-br'].includes(locale) ? locale : locale.split('-')[0];
 };

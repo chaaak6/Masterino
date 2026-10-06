@@ -61,7 +61,7 @@ jobs:
           for attempt in $(seq 1 "$max_attempts"); do
             echo "Starting i18n update attempt ${attempt}/${max_attempts}..."
 
-            if bun run i18n; then
+            if bun run i18n && (cd apps/desktop && pnpm exec tsx scripts/i18nWorkflow/index.ts && pnpm exec lobe-i18n); then
               exit 0
             fi
 
@@ -87,6 +87,7 @@ jobs:
           token: ${{ github.token }}
           add-paths: |
             locales/**/*.json
+            apps/desktop/resources/locales/**/*.json
           labels: |
             i18n
             automated

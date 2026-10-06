@@ -4,6 +4,7 @@ import { Icon } from '@lobehub/ui';
 import { useTheme } from 'antd-style';
 import { TriangleAlert } from 'lucide-react';
 import { type CSSProperties, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface SilentFallbackProps {
   minHeight?: number;
@@ -12,6 +13,7 @@ interface SilentFallbackProps {
 
 const SilentFallback = memo<SilentFallbackProps>(({ minHeight = 36, style }) => {
   const theme = useTheme();
+  const { t } = useTranslation('components');
 
   return (
     <div
@@ -29,7 +31,7 @@ const SilentFallback = memo<SilentFallbackProps>(({ minHeight = 36, style }) => 
       }}
     >
       <Icon icon={TriangleAlert} size={'small'} />
-      <span>Render Error</span>
+      <span>{t('renderError')}</span>
     </div>
   );
 });

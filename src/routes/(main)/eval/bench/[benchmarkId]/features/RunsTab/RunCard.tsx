@@ -122,7 +122,7 @@ interface RunCardProps {
 }
 
 const RunCard = memo<RunCardProps>(({ benchmarkId, run, onRefresh, onEdit }) => {
-  const { t } = useTranslation('eval');
+  const { t } = useTranslation(['eval', 'components']);
   const { message } = App.useApp();
   const deleteRun = useEvalStore((s) => s.deleteRun);
   const startRun = useEvalStore((s) => s.startRun);
@@ -314,7 +314,7 @@ const RunCard = memo<RunCardProps>(({ benchmarkId, run, onRefresh, onEdit }) => 
           {hasStats && (
             <Flexbox align="flex-end" gap={0} style={{ minWidth: 56 }}>
               <span className={styles.passRate}>{passRate.toFixed(0)}%</span>
-              <span className={styles.passRateLabel}>pass rate</span>
+              <span className={styles.passRateLabel}>{t('passRate', { ns: 'components' })}</span>
             </Flexbox>
           )}
 

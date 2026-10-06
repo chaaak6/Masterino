@@ -18,6 +18,8 @@
   "actions.submit": "提交",
   "app.description": "你的 AI 助手协作平台",
   "app.name": "Masterino",
+  "notification.permissionBody": "Masterino 现在可以向你发送通知。",
+  "notification.permissionTitle": "通知权限",
   "status.error": "错误",
   "status.info": "信息",
   "status.loading": "加载中",

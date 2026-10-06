@@ -6,6 +6,7 @@ import { createStaticStyles, cx } from 'antd-style';
 import isEqual from 'fast-deep-equal';
 import { MoreHorizontalIcon } from 'lucide-react';
 import { memo, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 
 import { DEFAULT_AVATAR, DEFAULT_INBOX_AVATAR } from '@/const/meta';
@@ -110,6 +111,7 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
 }));
 
 const useSwitchItems = (): SwitchItem[] => {
+  const { t } = useTranslation('components');
   const inboxAgentId = useAgentStore(builtinAgentSelectors.inboxAgentId);
   const inboxMeta = useAgentStore(
     (s) => (inboxAgentId ? agentSelectors.getAgentMetaById(inboxAgentId)(s) : undefined),
@@ -125,7 +127,7 @@ const useSwitchItems = (): SwitchItem[] => {
       id: INBOX_SESSION_ID,
       isInbox: true,
       navId: INBOX_SESSION_ID,
-      title: inboxMeta?.title || 'Inbox',
+      title: inboxMeta?.title || t('quickChat.inbox'),
     };
 
     const fromAgent = (a: SidebarAgentItem): SwitchItem => ({
@@ -133,7 +135,7 @@ const useSwitchItems = (): SwitchItem[] => {
       background: a.backgroundColor || undefined,
       id: a.id,
       navId: a.id,
-      title: a.title || 'Untitled',
+      title: a.title || t('quickChat.untitled'),
     });
 
     const isAgent = (a: SidebarAgentItem): boolean => a.type === 'agent';
@@ -150,10 +152,11 @@ const useSwitchItems = (): SwitchItem[] => {
       seen.add(item.id);
       return true;
     });
-  }, [inboxMeta, pinned, recent]);
+  }, [inboxMeta, pinned, recent, t]);
 };
 
 const QuickChatAgentSwitcher = memo(() => {
+  const { t } = useTranslation('components');
   // Popup window has its own SPA boot — main sidebar's fetch never fires here,
   // so we trigger the agent list fetch ourselves.
   useFetchAgentList();
@@ -219,14 +222,14 @@ const QuickChatAgentSwitcher = memo(() => {
             <div className={styles.popoverContent}>
               <Input
                 allowClear
-                placeholder={'Search agents...'}
+                placeholder={t('quickChat.searchAgents')}
                 size={'small'}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
               <div className={styles.popoverList} style={{ marginTop: 8 }}>
                 {filteredRemaining.length === 0 ? (
-                  <div className={styles.popoverEmpty}>No agents found</div>
+                  <div className={styles.popoverEmpty}>{t('quickChat.noAgents')}</div>
                 ) : (
                   filteredRemaining.map((item) => (
                     <div
@@ -257,7 +260,7 @@ const QuickChatAgentSwitcher = memo(() => {
           }
           onOpenChange={setPopoverOpen}
         >
-          <button aria-label={'More agents'} className={styles.more} type={'button'}>
+          <button aria-label={t('quickChat.moreAgents')} className={styles.more} type={'button'}>
             <Icon icon={MoreHorizontalIcon} size={16} />
           </button>
         </Popover>

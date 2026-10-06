@@ -1,4 +1,5 @@
 export default {
+  'starter.aihubDefault': 'Aihub default model',
   'agentSelection.empty': 'No agents available',
   'agentSelection.noAvailable': 'No agents can be added at the moment',
   'agentSelection.noSelected': 'No agents selected',
