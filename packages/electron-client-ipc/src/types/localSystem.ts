@@ -91,6 +91,8 @@ export interface LocalReadFilesParams {
 }
 
 export interface WriteLocalFileParams {
+  /** App-managed intermediate file; path is relative to the current topic directory. */
+  temporary?: boolean;
   /**
    * Content to write
    */

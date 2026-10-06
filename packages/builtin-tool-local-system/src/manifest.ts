@@ -340,6 +340,11 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       name: LocalSystemApiName.writeFile,
       parameters: {
         properties: {
+          temporary: {
+            description:
+              'Set true for one-off generator/check scripts and intermediate files, not user-requested source code or final deliverables. Path must be relative (for example generate.py). The app writes into .masterino-tmp/<topic-id>/ and returns the actual path; use that path for commands. Keep command cwd at the workspace root.',
+            type: 'boolean',
+          },
           content: {
             description: 'The content to write',
             type: 'string',

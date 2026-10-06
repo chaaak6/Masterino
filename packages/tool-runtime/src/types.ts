@@ -23,6 +23,7 @@ export interface ReadFileParams {
 }
 
 export interface WriteFileParams {
+  temporary?: boolean;
   content: string;
   createDirectories?: boolean;
   path: string;

@@ -48,6 +48,10 @@ describe('bundled Python agent context', () => {
     expect(context).toContain('typing-extensions==4.16.0 (import typing_extensions)');
     expect(context).not.toContain('at startup');
     expect(context).toContain('detected');
+    expect(context).toContain('.masterino-tmp/<topic-id>/');
+    expect(context).toContain('temporary=true');
+    expect(context).toContain('cwd kept at the workspace root');
+    expect(context).toContain('source code explicitly requested by the user');
     expect(context).toContain('do not run extra discovery or import probes');
   });
 

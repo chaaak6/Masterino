@@ -659,6 +659,31 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
   }
 
   const next = structuredClone(args) as T;
+  // The trusted invocation determines the temporary directory, not model-supplied cwd/topic.
+  if (apiName === 'writeFile' || apiName === 'writeLocalFile') {
+    const requested = typeof next.path === 'string' ? next.path.replaceAll('\\', '/') : '';
+    const relative =
+      realCwd && path.isAbsolute(requested)
+        ? path.relative(realCwd, requested).replaceAll('\\', '/')
+        : requested;
+    const managed = relative.startsWith('.masterino-tmp/');
+    if (next.temporary === true || managed) {
+      if (!realCwd || !trace.topicId) throw new ExecutionBoundaryError('WORKSPACE_REQUIRED');
+      const name = managed ? relative.split('/').slice(2).join('/') : requested;
+      if (
+        !/^[\w-]{1,128}$/.test(trace.topicId) ||
+        !name ||
+        path.posix.isAbsolute(name) ||
+        path.win32.isAbsolute(name) ||
+        relative.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+      )
+        throw new ExecutionBoundaryError('SCOPE_DENIED');
+      Object.assign(next, {
+        path: path.join(realCwd, '.masterino-tmp', trace.topicId, name),
+        temporary: true,
+      });
+    }
+  }
   const warnings: PreparedToolCallExecution['warnings'] = [];
   const modelCwd = typeof args.cwd === 'string' ? args.cwd : undefined;
   if ((apiName === 'runCommand' || apiName === 'runHeteroTask') && modelCwd) {
@@ -711,6 +736,12 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     }
     const absolute = toAbsolutePath(request.value, realCwd ?? realHomeDir, realHomeDir);
     const realTarget = await realpathForAccess(absolute);
+    if (
+      next.temporary === true &&
+      (apiName === 'writeFile' || apiName === 'writeLocalFile') &&
+      realTarget !== absolute
+    )
+      throw new ExecutionBoundaryError('SCOPE_DENIED');
     const audit = await authorizePath({
       context: { ...context, cwd: realCwd },
       credentialRead: request.mode === 'read' && isCredentialPath(realTarget),
@@ -737,7 +768,8 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
       let record;
       try {
         record = JSON.parse(state);
-        if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error();
+        if (!record || typeof record !== 'object' || Array.isArray(record))
+          throw new Error('Invalid revision lock record');
       } catch {
         throw new Error('PRESENTATION_REVISION_LOCK_CORRUPT');
       }

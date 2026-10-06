@@ -68,3 +68,24 @@ Excel 工具实现和加载逻辑没有改动。内置 Python 不会替代 Excel
 测试只使用 `mlai-test.bielcrystal.com` / `masterino-test`，不部署生产。
 
 命令取消在 POSIX 上先终止整个进程组，500ms 后强制结束仍存活的子进程；真正退出 App 时等待命令清理完成。Windows 保留 `taskkill /T /F`。关闭窗口而不退出 App 的行为不变。PPT 修订恢复使用锁内记录的原事务路径，先取得跨进程恢复锁再修改备份；即使重试输出路径变化，也可恢复旧事务。
+
+
+### Temporary scripts and intermediate files
+
+`writeFile` accepts `temporary: true` with a relative name. The device execution boundary
+selects `<actual cwd>/.masterino-tmp/<bound topic id>/<name>` before path authorization;
+model-provided cwd or topic cannot select the directory. The response contains the actual
+path, which must be used for subsequent execution and edits. Ordinary writes keep their
+existing paths, including user-requested source code and PPT sidecars.
+
+Older server tool schemas can use an explicit `.masterino-tmp/<task-name>/<name>` path.
+The desktop boundary normalizes this reserved namespace to the bound topic too, and
+returns the actual path. This allows the packaged client environment instructions to
+work without a server rollout. Scripts should save intermediates beside the script
+(`Path(__file__).parent` in Python), and keep `runCommand.cwd` at the workspace root for
+input files and final deliverables. On Windows, the managed root receives the hidden
+attribute. On macOS its dot prefix makes it hidden by default.
+
+No extension-based relocation, existing-file migration, automatic deletion, Git ignore
+changes, or process-wide environment changes are performed. This is a convention plus
+a managed file-writing path, not a filesystem sandbox for arbitrary shell commands.
