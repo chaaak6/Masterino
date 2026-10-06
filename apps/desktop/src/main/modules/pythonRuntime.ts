@@ -36,6 +36,7 @@ export function formatPythonEnvironment(info?: BundledPythonInfo): string {
 Executable: "${info.executable}"
 Package directory: "${info.sitePackages}"
 Preinstalled packages: ${packages}
+This interpreter and all listed packages were already verified by the application at startup. For questions about the available Python environment, answer from this metadata (including all preinstalled packages); do not run extra discovery or import probes unless the user requests a runtime check or a real execution fails.
 Use "${info.executable}" -I -B -X utf8 <script.py>. These packages are already importable; no host Python or PATH changes are needed. Treat the application runtime as read-only: never install or upgrade packages in it, and never use its -m pip to manage dependencies.
 For additional packages, create a project-specific virtual environment under "${info.venvRoot}". Example:
 "${info.executable}" -I -B -X utf8 -m venv --without-pip --system-site-packages "${venv}"
