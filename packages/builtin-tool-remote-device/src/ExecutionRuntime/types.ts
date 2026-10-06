@@ -1,5 +1,6 @@
 /** A single live gateway connection (channel) of a device. */
 export interface DeviceChannel {
+  capabilities?: { localSystemApiVersions?: Record<string, number> };
   channel?: string;
   connectedAt: string;
   connectionId: string;

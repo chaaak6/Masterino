@@ -1,9 +1,15 @@
+import { app as electronApp } from 'electron';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Import after mocks are set up
 import { App } from '../App';
 
 const mockPathExistsSync = vi.fn();
+const { mockAppOn } = vi.hoisted(() => ({
+  mockAppOn:
+    vi.fn<(event: string, listener: (event: { preventDefault: () => void }) => void) => void>(),
+}));
 
 // Mock electron modules
 vi.mock('electron', () => ({
@@ -14,7 +20,7 @@ vi.mock('electron', () => ({
     requestSingleInstanceLock: vi.fn(() => true),
     isReady: vi.fn(() => true),
     whenReady: vi.fn(() => Promise.resolve()),
-    on: vi.fn(),
+    on: mockAppOn,
     commandLine: {
       appendSwitch: vi.fn(),
     },
@@ -22,6 +28,7 @@ vi.mock('electron', () => ({
       setIcon: vi.fn(),
     },
     exit: vi.fn(),
+    quit: vi.fn(),
   },
   ipcMain: {
     handle: vi.fn(),
@@ -186,6 +193,27 @@ describe('App', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('waits for command cleanup before completing an application quit', async () => {
+    appInstance = new App();
+    let complete!: () => void;
+    const cleanup = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    vi.spyOn(appInstance, 'getController').mockReturnValue({ cleanup } as never);
+    const handler = mockAppOn.mock.calls.find(([event]) => event === 'before-quit')![1];
+    const event = { preventDefault: vi.fn() };
+    handler(event);
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(electronApp.quit).not.toHaveBeenCalled();
+    complete();
+    await Promise.resolve();
+    expect(electronApp.quit).toHaveBeenCalledOnce();
   });
 
   describe('appStoragePath', () => {

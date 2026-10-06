@@ -2722,6 +2722,9 @@ importers:
 
   packages/file-loaders:
     dependencies:
+      proper-lockfile:
+        specifier: 4.1.2
+        version: 4.1.2
       '@napi-rs/canvas':
         specifier: ^0.1.70
         version: 0.1.100
@@ -2759,6 +2762,9 @@ importers:
         specifier: ^3.2.0
         version: 3.4.0
     devDependencies:
+      '@types/proper-lockfile':
+        specifier: 4.1.4
+        version: 4.1.4
       '@types/concat-stream':
         specifier: ^2.0.3
         version: 2.0.3
@@ -3373,6 +3379,20 @@ importers:
         version: 5.0.0
 
 packages:
+
+  '@types/proper-lockfile@4.1.4':
+    resolution:
+      {
+        integrity: sha512-uo2ABllncSqg9F1D4nugVl9v93RmjxF6LJzQLMLDdPaXCUIDPeOJ21Gbqi43xNKzBi/WQ0Q0dICqufzQbMjipQ==,
+      }
+
+
+  proper-lockfile@4.1.2:
+    resolution:
+      {
+        integrity: sha512-TjNPblN4BwAWMXU8s9AEz4JmQxnD1NNL7bNOY/AKUzyamc379FWASUhc/K1pL2noVb+XmZKLL68cjzLsiOAMaA==,
+      }
+
 
   docx@9.7.1:
     resolution: {integrity: sha512-ilXFf9Moz47ABjFpDiA5s1w9lpb4EFSp7+5iiJSbfyYDM+bpZdAgLlSr7fW4aXhVe/E+F6QCv0EvRVFEd5CsWg==}
@@ -21355,6 +21375,18 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@types/proper-lockfile@4.1.4':
+    dependencies:
+      '@types/retry': 0.12.5
+
+
+  proper-lockfile@4.1.2:
+    dependencies:
+      graceful-fs: 4.2.11
+      retry: 0.12.0
+      signal-exit: 3.0.7
+
 
   docx@9.7.1:
     dependencies:

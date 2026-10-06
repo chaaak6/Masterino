@@ -237,7 +237,10 @@ export default defineConfig({
         // bufferutil and utf-8-validate are optional peer deps of ws that may not be installed.
         external: [
           ...mainProcessRuntimeExternals,
-          ...getNativeExternalDependencies(),
+          // proper-lockfile needs signal-exit v3's callable export; the native
+          // dependency tree also ships v4 with an object export. Bundle each
+          // consumer's resolved version instead of loading one hoisted version.
+          ...getNativeExternalDependencies().filter((dependency) => dependency !== 'signal-exit'),
           'bufferutil',
           'utf-8-validate',
         ],

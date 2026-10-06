@@ -68,7 +68,7 @@ describe('getShellConfig', () => {
 
     if (process.platform === 'win32') {
       expect(config.cmd).toBe('cmd.exe');
-      expect(config.args).toEqual(['/c', 'echo hello']);
+      expect(config.args).toEqual(['/d', '/s', '/c', '"echo hello"']);
     } else {
       expect(config.cmd).toBe('/bin/sh');
       expect(config.args).toEqual(['-c', 'echo hello']);

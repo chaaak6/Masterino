@@ -12,18 +12,21 @@ export interface RunCommandOptions {
     info: (...args: any[]) => void;
   };
   processManager: ShellProcessManager;
+  executable?: { path: string; args: string[] };
+  runtimeEnv?: Record<string, string>;
 }
 
 export async function runCommand(
   {
     command,
+    runtime,
     cwd,
     description,
     env: extraEnv,
     run_in_background,
     timeout = 30_000,
   }: RunCommandParams,
-  { processManager, logger }: RunCommandOptions,
+  { processManager, logger, executable, runtimeEnv }: RunCommandOptions,
 ): Promise<RunCommandResult> {
   if (!command) {
     return { error: 'command is required', success: false };
@@ -39,19 +42,27 @@ export async function runCommand(
     timeout,
   });
 
-  const shellConfig = getShellConfig(command);
+  if (runtime && !executable) {
+    return { success: false, error: 'BUNDLED_PYTHON_UNAVAILABLE' };
+  }
+  const shellConfig = executable
+    ? { cmd: executable.path, args: executable.args }
+    : getShellConfig(command);
   const childEnv = composeChildProcessEnv({
     hostEnv: process.env,
     loginShellPath: await resolveLoginShellPath(),
     resolvedEnv: extraEnv,
+    runtimeEnv,
   });
 
   try {
     const shellId = processManager.createShellId();
     const childProcess = spawn(shellConfig.cmd, shellConfig.args, {
       cwd,
+      detached: process.platform !== 'win32',
       env: childEnv as NodeJS.ProcessEnv,
       shell: false,
+      windowsVerbatimArguments: process.platform === 'win32' && !executable,
     });
 
     const shellProcess: ShellProcess = {
@@ -59,6 +70,7 @@ export async function runCommand(
       lastReadStderr: 0,
       lastReadStdout: 0,
       process: childProcess,
+      processGroup: process.platform !== 'win32',
       stderr: [],
       stdout: [],
     };

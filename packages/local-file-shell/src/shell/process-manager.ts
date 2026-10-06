@@ -1,4 +1,5 @@
-import type { ChildProcess } from 'node:child_process';
+import { type ChildProcess, execFileSync } from 'node:child_process';
+import path from 'node:path';
 
 import type { GetCommandOutputParams, GetCommandOutputResult, KillCommandResult } from '../types';
 import { truncateOutput } from './utils';
@@ -12,6 +13,7 @@ export interface ShellProcess {
   lastReadStderr: number;
   lastReadStdout: number;
   process: ChildProcess;
+  processGroup?: boolean;
   startedAt?: number;
   stderr: string[];
   stdout: string[];
@@ -19,6 +21,8 @@ export interface ShellProcess {
 
 export class ShellProcessManager {
   private nextShellId = 1;
+
+  private terminations = new Set<Promise<void>>();
 
   private processes = new Map<string, ShellProcess>();
 
@@ -134,7 +138,7 @@ export class ShellProcessManager {
     }
 
     try {
-      shellProcess.process.kill();
+      this.stopProcessTree(shellProcess);
       this.processes.delete(shell_id);
       return { success: true };
     } catch (error) {
@@ -142,14 +146,51 @@ export class ShellProcessManager {
     }
   }
 
-  cleanupAll(): void {
+  async cleanupAll(): Promise<void> {
     for (const [id, sp] of this.processes) {
       try {
-        sp.process.kill();
+        this.stopProcessTree(sp);
       } catch {
         // Ignore
       }
       this.processes.delete(id);
+    }
+    await Promise.all(this.terminations);
+  }
+
+  private stopProcessTree(shellProcess: ShellProcess): void {
+    const child = shellProcess.process;
+    if (child.exitCode !== null || child.signalCode != null) return;
+    if (child.pid && process.platform === 'win32') {
+      execFileSync(
+        path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
+        ['/PID', String(child.pid), '/T', '/F'],
+        { stdio: 'ignore', windowsHide: true },
+      );
+    } else if (child.pid && shellProcess.processGroup) {
+      const pid = child.pid;
+      try {
+        process.kill(-pid, 'SIGTERM');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ESRCH') return;
+        throw error;
+      }
+      // A shell may exit before a descendant which ignores SIGTERM. Escalate
+      // against the whole group, even when the shell has already exited.
+      const termination = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          try {
+            process.kill(-pid, 'SIGKILL');
+          } catch {
+            // The group has normally exited during the grace period.
+          }
+          resolve();
+        }, 500);
+      });
+      this.terminations.add(termination);
+      void termination.finally(() => this.terminations.delete(termination));
+    } else {
+      child.kill();
     }
   }
 }

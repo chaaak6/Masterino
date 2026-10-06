@@ -700,6 +700,7 @@ describe('AiAgentService.execAgent - device auto-activation', () => {
     });
 
     it('uses persisted context-window rejection evidence in the next operation snapshot', async () => {
+      const verifiedAt = new Date().toISOString();
       mockFindAiModel.mockResolvedValue({
         contextWindowTokens: 32_000,
         settings: {
@@ -730,12 +731,12 @@ describe('AiAgentService.execAgent - device auto-activation', () => {
               modelId: 'gpt-4',
               modelVersion: '2026-08-31',
               providerId: 'openai',
-              verifiedAt: '2026-09-03T12:00:01.000Z',
+              verifiedAt,
             },
             observed: {
               contextWindowRejectionTokens: 32_000,
               modelVersion: '2026-08-31',
-              verifiedAt: '2026-09-03T12:00:01.000Z',
+              verifiedAt,
             },
             version: 1,
           },

@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { access, realpath } from 'node:fs/promises';
+import { access, readFile, realpath } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -53,9 +54,13 @@ const LOCAL_SYSTEM_APIS = new Set([
   'moveFiles',
   'moveLocalFiles',
   'createOfficeDocument',
+  'createPresentation',
+  'inspectPresentation',
   'inspectOfficeDocument',
   'prepareProjectSkillSnapshot',
   'readOfficeDocument',
+  'renderPresentationPreview',
+  'revisePresentation',
   'readFile',
   'readFiles',
   'readLocalFile',
@@ -66,6 +71,7 @@ const LOCAL_SYSTEM_APIS = new Set([
   'searchLocalFiles',
   'writeFile',
   'writeLocalFile',
+  'validatePresentation',
 ]);
 
 interface PathRequest {
@@ -286,8 +292,7 @@ const authorizePath = async ({
     throw new ExecutionBoundaryError('SCOPE_DENIED', [deniedAudit(trace, mode, target)]);
   }
 
-  const autoApprove =
-    context.approvalMode === 'auto-run' || context.approvalMode === 'headless';
+  const autoApprove = context.approvalMode === 'auto-run' || context.approvalMode === 'headless';
 
   const roots = [...(context.accessRoots ?? [])];
   if (!roots.some((root) => root.scope === 'primary') && context.cwd) {
@@ -402,6 +407,29 @@ const setField = (field: string) => (args: Record<string, any>, value: string) =
   args[field] = value;
 };
 
+const presentationImagePaths = (value: unknown): PathRequest[] => {
+  const requests: PathRequest[] = [];
+  const visit = (entry: unknown) => {
+    if (!entry || typeof entry !== 'object') return;
+    // updateElement patches intentionally omit the immutable element type. Treat
+    // every presentation source.path as a read target so a patched image cannot
+    // bypass the same workspace and credential checks as a complete image node.
+    if (typeof (entry as { source?: { path?: unknown } }).source?.path === 'string') {
+      const target = entry as { source: { path: string } };
+      requests.push({
+        apply: (_args, resolved) => {
+          target.source.path = resolved;
+        },
+        mode: 'read',
+        value: target.source.path,
+      });
+    }
+    for (const child of Array.isArray(entry) ? entry : Object.values(entry)) visit(child);
+  };
+  visit(value);
+  return requests;
+};
+
 const collectPathRequests = (
   apiName: string,
   args: Record<string, any>,
@@ -491,6 +519,42 @@ const collectPathRequests = (
     case 'writeLocalFile': {
       return [{ apply: setField('path'), mode: 'write', value: args.path }];
     }
+    case 'createPresentation': {
+      return [
+        { apply: setField('path'), mode: 'write', value: args.path },
+        { apply: () => {}, mode: 'write', value: `${args.path}.masterino.json` },
+        ...presentationImagePaths(args.deck),
+      ];
+    }
+    case 'revisePresentation': {
+      return [
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+        { apply: setField('projectPath'), mode: 'write', value: args.projectPath },
+        { apply: () => {}, mode: 'write', value: `${args.projectPath}.lock` },
+        { apply: () => {}, mode: 'write', value: `${args.projectPath}.lock.recovery` },
+        { apply: setField('outputPath'), mode: 'write', value: args.outputPath },
+        ...presentationImagePaths(args.operations),
+      ];
+    }
+    case 'inspectPresentation': {
+      return [{ apply: setField('projectPath'), mode: 'read', value: args.projectPath }];
+    }
+    case 'renderPresentationPreview': {
+      return [
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+        {
+          apply: () => {},
+          mode: 'write',
+          value: `${args.projectPath}.previews`,
+        },
+      ];
+    }
+    case 'validatePresentation': {
+      return [
+        { apply: setField('path'), mode: 'read', value: args.path },
+        { apply: setField('projectPath'), mode: 'read', value: args.projectPath },
+      ];
+    }
     case 'editFile':
     case 'editLocalFile': {
       return [{ apply: setField('file_path'), mode: 'write', value: args.file_path }];
@@ -517,7 +581,14 @@ const collectPathRequests = (
         { apply: () => {}, mode: 'write', value: destination },
       ];
     }
-    case 'runCommand':
+    case 'runCommand': {
+      return [
+        { apply: setField('cwd'), mode: 'exec', value: cwd },
+        ...(args.runtime === 'bundled-python'
+          ? [{ apply: setField('command'), mode: 'read' as const, value: args.command }]
+          : []),
+      ];
+    }
     case 'runHeteroTask': {
       return [{ apply: setField('cwd'), mode: 'exec', value: cwd }];
     }
@@ -588,6 +659,31 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
   }
 
   const next = structuredClone(args) as T;
+  // The trusted invocation determines the temporary directory, not model-supplied cwd/topic.
+  if (apiName === 'writeFile' || apiName === 'writeLocalFile') {
+    const requested = typeof next.path === 'string' ? next.path.replaceAll('\\', '/') : '';
+    const relative =
+      realCwd && path.isAbsolute(requested)
+        ? path.relative(realCwd, requested).replaceAll('\\', '/')
+        : requested;
+    const managed = relative.startsWith('.masterino-tmp/');
+    if (next.temporary === true || managed) {
+      if (!realCwd || !trace.topicId) throw new ExecutionBoundaryError('WORKSPACE_REQUIRED');
+      const name = managed ? relative.split('/').slice(2).join('/') : requested;
+      if (
+        !/^[\w-]{1,128}$/.test(trace.topicId) ||
+        !name ||
+        path.posix.isAbsolute(name) ||
+        path.win32.isAbsolute(name) ||
+        relative.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+      )
+        throw new ExecutionBoundaryError('SCOPE_DENIED');
+      Object.assign(next, {
+        path: path.join(realCwd, '.masterino-tmp', trace.topicId, name),
+        temporary: true,
+      });
+    }
+  }
   const warnings: PreparedToolCallExecution['warnings'] = [];
   const modelCwd = typeof args.cwd === 'string' ? args.cwd : undefined;
   if ((apiName === 'runCommand' || apiName === 'runHeteroTask') && modelCwd) {
@@ -640,6 +736,12 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     }
     const absolute = toAbsolutePath(request.value, realCwd ?? realHomeDir, realHomeDir);
     const realTarget = await realpathForAccess(absolute);
+    if (
+      next.temporary === true &&
+      (apiName === 'writeFile' || apiName === 'writeLocalFile') &&
+      realTarget !== absolute
+    )
+      throw new ExecutionBoundaryError('SCOPE_DENIED');
     const audit = await authorizePath({
       context: { ...context, cwd: realCwd },
       credentialRead: request.mode === 'read' && isCredentialPath(realTarget),
@@ -653,6 +755,95 @@ export const prepareToolCallExecution = async <T extends Record<string, any>>({
     if (warnings.length > 0 && request.mode === 'exec') audit.cwdOverridden = true;
     request.apply(next, realTarget);
     scopeAudit.push(audit);
+  }
+
+  // Recovery can touch an earlier output, distinct from this retry's output.
+  // Authorize the transaction paths before the engine can restore its backups.
+  if (apiName === 'revisePresentation') {
+    const state = await readFile(`${next.projectPath}.lock`, 'utf8').catch(() => undefined);
+    // Always replace caller-supplied metadata, including when no lock exists.
+    (next as Record<string, unknown>).authorizedRevisionLock =
+      state === undefined ? null : createHash('sha256').update(state).digest('hex');
+    if (state !== undefined) {
+      let record;
+      try {
+        record = JSON.parse(state);
+        if (!record || typeof record !== 'object' || Array.isArray(record))
+          throw new Error('Invalid revision lock record');
+      } catch {
+        throw new Error('PRESENTATION_REVISION_LOCK_CORRUPT');
+      }
+      const transaction = record.transaction;
+      if (transaction) {
+        if (
+          typeof transaction.id !== 'string' ||
+          !/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(
+            transaction.id,
+          ) ||
+          typeof transaction.outputPath !== 'string' ||
+          !path.isAbsolute(transaction.outputPath) ||
+          transaction.projectPath !== next.projectPath
+        )
+          throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+        const targets = [transaction.outputPath, transaction.projectPath];
+        for (const [file, extension] of [
+          [transaction.outputPath, 'pptx'],
+          [transaction.projectPath, 'json'],
+        ]) {
+          for (const suffix of [extension, `backup.${extension}`]) {
+            targets.push(
+              path.join(path.dirname(file), `.masterino-presentation-${transaction.id}.${suffix}`),
+            );
+          }
+        }
+        for (const target of targets) {
+          const realTarget = await realpathForAccess(target);
+          for (const mode of ['read', 'write'] as const) {
+            scopeAudit.push(
+              await authorizePath({
+                context: { ...context, cwd: realCwd },
+                credentialRead: mode === 'read' && isCredentialPath(realTarget),
+                homeDir: realHomeDir,
+                mode,
+                now,
+                allowedMountRoots: realAllowedMountRoots,
+                target: realTarget,
+                trace,
+              }),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  // Revisions and SVG previews re-render persisted elements, including images
+  // absent from the requested operation list. Audit those sidecar-controlled
+  // reads only after the project itself is authorized.
+  if (apiName === 'revisePresentation' || apiName === 'renderPresentationPreview') {
+    let stored: unknown;
+    try {
+      stored = JSON.parse(await readFile(next.projectPath, 'utf8'));
+    } catch {
+      throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+    }
+    for (const request of presentationImagePaths((stored as { deck?: unknown })?.deck)) {
+      if (!path.isAbsolute(request.value)) {
+        throw new ExecutionBoundaryError('SCOPE_DENIED', scopeAudit);
+      }
+      const realTarget = await realpathForAccess(request.value);
+      const audit = await authorizePath({
+        context: { ...context, cwd: realCwd },
+        credentialRead: isCredentialPath(realTarget),
+        homeDir: realHomeDir,
+        mode: 'read',
+        now,
+        allowedMountRoots: realAllowedMountRoots,
+        target: realTarget,
+        trace,
+      });
+      scopeAudit.push(audit);
+    }
   }
 
   return { args: next, legacy: false, scopeAudit, warnings };

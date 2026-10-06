@@ -23,6 +23,7 @@ export interface ReadFileParams {
 }
 
 export interface WriteFileParams {
+  temporary?: boolean;
   content: string;
   createDirectories?: boolean;
   path: string;
@@ -75,6 +76,8 @@ export interface GlobFilesParams {
 }
 
 export interface RunCommandParams {
+  runtime?: 'bundled-python';
+  args?: string[];
   background?: boolean;
   command: string;
   timeout?: number;

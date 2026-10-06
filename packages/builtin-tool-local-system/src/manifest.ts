@@ -1,5 +1,6 @@
 import { type BuiltinToolManifest } from '@lobechat/types';
 
+import { presentationApis } from './presentationManifest';
 import { systemPrompt } from './systemRole';
 import { LocalSystemApiName, LocalSystemIdentifier } from './types';
 
@@ -19,6 +20,7 @@ const fileSourceChoice = [{ required: ['path'] }, { required: ['attachmentId'] }
 export const LocalSystemManifest: BuiltinToolManifest = {
   executors: ['client', 'server'],
   api: [
+    ...presentationApis,
     {
       name: 'batchOfficeDocument',
       description:
@@ -338,6 +340,11 @@ export const LocalSystemManifest: BuiltinToolManifest = {
       name: LocalSystemApiName.writeFile,
       parameters: {
         properties: {
+          temporary: {
+            description:
+              'Set true for one-off generator/check scripts and intermediate files, not user-requested source code or final deliverables. Path must be relative (for example generate.py). The app writes into .masterino-tmp/<topic-id>/ and returns the actual path; use that path for commands. Keep command cwd at the workspace root.',
+            type: 'boolean',
+          },
           content: {
             description: 'The content to write',
             type: 'string',
@@ -400,13 +407,25 @@ export const LocalSystemManifest: BuiltinToolManifest = {
               'Optional attached file for code fallback. Read the managed copy using the ATTACHMENT_FILE environment variable; do not guess an absolute path.',
           },
           command: {
-            description: 'The shell command to execute',
+            description:
+              'The shell command to execute; with runtime=bundled-python, supply only the .py script path, without quotes, flags or shell syntax.',
             type: 'string',
           },
           description: {
             description:
               'Clear description of what this command does (5-10 words, in active voice). Use the same language as the user input.',
             type: 'string',
+          },
+          runtime: {
+            description:
+              'For bundled Python scripts on the desktop, select bundled-python. The application chooses the interpreter and enforces -I -B -X utf8. Omit for shell commands and existing project environments.',
+            enum: ['bundled-python'],
+            type: 'string',
+          },
+          args: {
+            description: 'Separate script arguments for bundled-python; no shell expansion.',
+            items: { type: 'string' },
+            type: 'array',
           },
           run_in_background: {
             description:

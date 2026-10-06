@@ -5,6 +5,7 @@ import { type PropsWithChildren, useEffect } from 'react';
 import { useSWRConfig } from 'swr';
 
 import { setScopedMutate } from '@/libs/swr';
+import { useElectronStore } from '@/store/electron';
 
 /**
  * Initialize scoped mutate for use outside React components (e.g., Zustand stores)
@@ -12,6 +13,8 @@ import { setScopedMutate } from '@/libs/swr';
  */
 const SWRMutateInitializer = ({ children }: PropsWithChildren) => {
   const { mutate } = useSWRConfig();
+  const useInitElectronAppState = useElectronStore((s) => s.useInitElectronAppState);
+  useInitElectronAppState();
 
   useEffect(() => {
     setScopedMutate(mutate);

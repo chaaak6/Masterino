@@ -46,6 +46,15 @@ jobs:
           node -e "const fs=require('fs'); const path='apps/desktop/package.json'; const pkg=JSON.parse(fs.readFileSync(path,'utf8')); pkg.version=process.env.DESKTOP_VERSION; fs.writeFileSync(path, JSON.stringify(pkg, null, 2)+'\n');"
           node -e "const pkg=require('./apps/desktop/package.json'); if(pkg.productName!=='Masterino'||pkg.version!==process.env.DESKTOP_VERSION) process.exit(1)"
 
+      - name: Pin runtime configuration to the test cluster
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); fs.writeFileSync('apps/desktop/resources/desktop-config.json', JSON.stringify({cloudServer:'https://mlai-test.bielcrystal.com',cloudServerAliases:[],marketBaseUrl:'https://mlai-test.bielcrystal.com/market'}, null, 2)+'\\n');"
+
+      - name: Test Windows command cancellation and temporary files
+        working-directory: packages/local-file-shell
+        run: pnpm exec vitest run --silent=passed-only src/shell/__tests__/process-tree.test.ts src/file/__tests__/temporaryFiles.test.ts
+
       - name: Build unsigned Windows test client
         working-directory: apps/desktop
         env:
@@ -57,6 +66,26 @@ jobs:
         run: |
           $installer = Get-ChildItem apps/desktop/release -Filter '*-setup.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Windows test installer was not created' }
+          $config = Get-Content apps/desktop/release/win-unpacked/desktop-config.json | ConvertFrom-Json
+          if ($config.cloudServer -ne 'https://mlai-test.bielcrystal.com') { throw 'Test installer points to the wrong server' }
+          $python = 'apps/desktop/release/win-unpacked/resources/python-runtime/python.exe'
+          if (-not (Test-Path $python)) { throw 'Bundled Python missing' }
+          $python = (Resolve-Path $python).Path
+          $originalPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32"
+            & $python -I -B apps/desktop/python/runtime/test_runtime.py
+            if ($LASTEXITCODE -ne 0) { throw 'Bundled Python failed without system Python' }
+          } finally { $env:PATH = $originalPath }
+          $env:MASTERINO_TEST_PYTHON = $python
+          Push-Location packages/local-file-shell
+          try {
+            pnpm exec vitest run --silent=passed-only src/shell/__tests__/runtime-routing.test.ts
+            if ($LASTEXITCODE -ne 0) { throw 'Packaged Python routing failed' }
+          } finally {
+            Pop-Location
+            Remove-Item Env:MASTERINO_TEST_PYTHON
+          }
           $signature = Get-AuthenticodeSignature $installer.FullName
           if ($signature.SignerCertificate) { throw 'Unexpected Authenticode signature found' }
           Write-Host "Verified isolated unsigned test installer: $($installer.Name)"

@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Create a disposable, dependency-free workspace for live presentation BDD."""
+
+from __future__ import annotations
+
+import argparse
+import binascii
+import hashlib
+import json
+import struct
+import zlib
+from pathlib import Path
+
+
+def png_chunk(kind: bytes, data: bytes) -> bytes:
+    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", binascii.crc32(kind + data) & 0xFFFFFFFF)
+
+
+def make_png(path: Path, color: bytes) -> None:
+    width = height = 32
+    row = b"\x00" + color * width
+    payload = b"\x89PNG\r\n\x1a\n"
+    payload += png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+    payload += png_chunk(b"IDAT", zlib.compress(row * height))
+    payload += png_chunk(b"IEND", b"")
+    path.write_bytes(payload)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root", nargs="?", type=Path, default=Path("/tmp/masterino-ppt-bdd"))
+    parser.add_argument(
+        "--oracle",
+        type=Path,
+        help="Write verifier expectations outside the agent-visible project directory.",
+    )
+    args = parser.parse_args()
+    root = args.root.resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    make_png(root / "bdd-logo.png", b"\x2f\x80\xed")
+    replacement = root / "replacement-logo.png"
+    make_png(replacement, b"\x12\xb7\x6a")
+    protected = root / "protected.pptx"
+    protected.write_bytes(b"MASTERINO-PPT-BDD-PROTECTED\n")
+    skill = root / ".agents" / "skills" / "bdd-smoke"
+    skill.mkdir(parents=True, exist_ok=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: bdd-smoke\ndescription: Return the fixed local BDD smoke marker.\n---\n\n"
+        "When activated, return exactly: BDD-SKILL-SMOKE-OK\n",
+        encoding="utf-8",
+    )
+    oracle = {
+        "protectedSha256": hashlib.sha256(protected.read_bytes()).hexdigest(),
+        "replacementImageSha256": hashlib.sha256(replacement.read_bytes()).hexdigest(),
+        "revision": 3,
+        "slides": 3,
+        "texts": ["LOCAL-PPT-BDD-LOCK-RECOVERED-20260929", "Revenue", "Next steps"],
+    }
+    oracle_path = (args.oracle or root / "oracle.json").resolve()
+    oracle_path.parent.mkdir(parents=True, exist_ok=True)
+    oracle_path.write_text(json.dumps(oracle, indent=2) + "\n", encoding="utf-8")
+    print(root)
+
+
+if __name__ == "__main__":
+    main()

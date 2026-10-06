@@ -1,6 +1,9 @@
 // ─── Shell Types ───
 
 export interface RunCommandParams {
+  /** In bundled-python mode, command is one script path, not shell syntax. */
+  runtime?: 'bundled-python';
+  args?: string[];
   command: string;
   cwd?: string;
   description?: string;
@@ -190,11 +193,15 @@ export interface ReadFileResult {
 }
 
 export interface WriteFileParams {
+  /** App-managed intermediate file; path is relative to the current topic directory. */
+  temporary?: boolean;
   content: string;
   path: string;
 }
 
 export interface WriteFileResult {
+  /** Actual managed path returned for temporary writes. */
+  path?: string;
   error?: string;
   success: boolean;
 }

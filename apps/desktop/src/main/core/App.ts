@@ -12,6 +12,7 @@ import { binDir, buildDir } from '@/const/dir';
 import { isDev } from '@/const/env';
 import type { IControlModule } from '@/controllers';
 import AuthCtr from '@/controllers/AuthCtr';
+import ShellCommandCtr from '@/controllers/ShellCommandCtr';
 import { generateCliWrapper, getCliWrapperDir } from '@/modules/cliEmbedding';
 import { ScreenCaptureManager } from '@/modules/screenCapture/ScreenCaptureManager';
 import {
@@ -459,7 +460,24 @@ export class App {
   }
 
   // Add before-quit handler function
-  private handleBeforeQuit = () => {
+  private commandCleanupStarted = false;
+  private commandCleanupComplete = false;
+
+  private handleBeforeQuit = (event: Electron.Event) => {
+    if (!this.commandCleanupComplete && !(process.platform === 'win32' && this.isQuiting)) {
+      event.preventDefault();
+      if (!this.commandCleanupStarted) {
+        this.commandCleanupStarted = true;
+        this.isQuiting = true;
+        void (this.getController(ShellCommandCtr)?.cleanup() ?? Promise.resolve()).finally(() => {
+          this.commandCleanupComplete = true;
+          app.quit();
+        });
+      }
+      return;
+    }
+    // Windows update installation can mark isQuiting before emitting this event.
+    void this.getController(ShellCommandCtr)?.cleanup();
     logger.info('Application is preparing to quit');
     this.isQuiting = true;
 

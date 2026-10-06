@@ -91,6 +91,8 @@ export interface LocalReadFilesParams {
 }
 
 export interface WriteLocalFileParams {
+  /** App-managed intermediate file; path is relative to the current topic directory. */
+  temporary?: boolean;
   /**
    * Content to write
    */
@@ -259,6 +261,9 @@ export interface OpenLocalFolderParams {
 
 // Shell command types
 export interface RunCommandParams {
+  /** In bundled-python mode, command is one script path, not shell syntax. */
+  runtime?: 'bundled-python';
+  args?: string[];
   command: string;
   cwd?: string;
   description?: string;

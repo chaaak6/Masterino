@@ -112,6 +112,7 @@ export class DeviceGateway {
         // `channels` may be absent if the gateway worker deploy lags behind the
         // server (separate Cloudflare deploy); tolerate the legacy flat shape.
         channels: (d.channels ?? []).map((c) => ({
+          capabilities: c.capabilities,
           channel: c.channel,
           connectedAt: new Date(c.connectedAt).toISOString(),
           connectionId: c.connectionId,

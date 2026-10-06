@@ -22,7 +22,7 @@ import {
   generateComposioServicesList,
   generateCredsList,
 } from '@lobechat/builtin-tool-creds';
-import { LocalSystemIdentifier, LocalSystemManifest } from '@lobechat/builtin-tool-local-system';
+import { LocalSystemIdentifier } from '@lobechat/builtin-tool-local-system';
 import { BRANDING_PROVIDER } from '@lobechat/business-const';
 import { COMPOSIO_APP_TYPES } from '@lobechat/const';
 import {
@@ -32,7 +32,6 @@ import {
   buildStepSkillDelta,
   buildStepToolDelta,
   countContextTokens,
-  type LobeToolManifest,
   type OnboardingContext,
   type OperationToolSet,
   type ResolvedToolSet,
@@ -1089,10 +1088,7 @@ const getFrozenExecutionContext = (state: AgentState): ExecutionContext | undefi
 const resolveExecutionApprovalMode = (state: AgentState) =>
   state.userInterventionConfig?.approvalMode ?? getFrozenExecutionContext(state)?.approvalMode;
 
-const requiresInteractivePathConsent = (
-  state: AgentState,
-  requestedPath?: string,
-): boolean =>
+const requiresInteractivePathConsent = (state: AgentState, requestedPath?: string): boolean =>
   shouldPauseForPathConsent(resolveExecutionApprovalMode(state), requestedPath);
 
 interface PreparedToolExecutionContext {
@@ -1447,7 +1443,10 @@ export const createRuntimeExecutors = (
       activeDeviceId,
       enabledToolIds: operationToolSet.enabledToolIds,
       forceFinish: state.forceFinish,
-      localSystemManifest: LocalSystemManifest as unknown as LobeToolManifest,
+      // The operation manifest was scoped to the selected desktop's advertised
+      // API versions. Reuse that exact contract here so step activation cannot
+      // reintroduce APIs that an older desktop cannot execute.
+      localSystemManifest: operationToolSet.manifestMap[LocalSystemIdentifier],
       operationManifestMap: operationToolSet.manifestMap,
     });
 
@@ -4838,9 +4837,9 @@ export const createRuntimeExecutors = (
               topicId: ctx.topicId ?? state.metadata?.topicId,
             });
             if (
-          postDispatchPathConsent &&
-          requiresInteractivePathConsent(state, postDispatchPathConsent.requestedPath)
-        ) {
+              postDispatchPathConsent &&
+              requiresInteractivePathConsent(state, postDispatchPathConsent.requestedPath)
+            ) {
               const pendingState = {
                 ...(execution.result.state && typeof execution.result.state === 'object'
                   ? execution.result.state
