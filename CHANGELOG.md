@@ -2,6 +2,31 @@
 
 # Changelog
 
+## [Version 1.3.8](https://github.com/chaaak6/Masterino/compare/v1.3.7...v1.3.8)
+
+<sup>Released on **2026-10-06**</sup>
+
+#### ✨ Features
+
+- **misc**: bundle local PPT tools and a general Python runtime.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's improved
+
+- **misc**: bundle local PPT tools and a general Python runtime, closes [#134](https://github.com/chaaak6/Masterino/issues/134) ([7e8937e](https://github.com/chaaak6/Masterino/commit/7e8937e))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.3.7](https://github.com/chaaak6/Masterino/compare/v1.3.6...v1.3.7)
 
 <sup>Released on **2026-10-06**</sup>
