@@ -251,12 +251,10 @@ limit 1
         start_time: number;
         end_time: number;
         next_reset_time: number;
-        reset_amount: number;
         allow_wallet_overflow: number | boolean;
       }>(
         `select s.id, p.title, s.status, s.amount_total, s.amount_used,
         s.start_time, s.end_time, s.next_reset_time,
-        coalesce(p.total_amount, s.amount_total) as reset_amount,
         s.allow_wallet_overflow
         from user_subscriptions s left join subscription_plans p on p.id = s.plan_id
         where s.user_id = ? order by s.end_time desc, s.id desc`,
@@ -292,7 +290,7 @@ limit 1
         startTime: Number(row.start_time),
         endTime: Number(row.end_time),
         nextResetTime: Number(row.next_reset_time),
-        resetAmount: Number(row.reset_amount),
+        resetAmount: Number(row.amount_total),
         allowWalletOverflow: Boolean(Number(row.allow_wallet_overflow)),
       })),
     };

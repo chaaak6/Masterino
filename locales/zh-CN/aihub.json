@@ -27,7 +27,7 @@
   "noExpiry": "长期有效",
   "noReset": "暂无后续重置",
   "noSubscription": "暂无有效订阅",
-  "noWalletOverflow": "此订阅不允许回退钱包",
+  "noWalletOverflow": "订阅额度不足时不允许使用钱包",
   "notBound": "当前账号尚未绑定 Aihub 用户。",
   "oauthStatus": "企业微信与 Aihub",
   "pending": "待同步",

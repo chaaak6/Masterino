@@ -96,6 +96,19 @@ describe('SubscriptionDetails user-visible behavior', () => {
     expect(screen.getByText('重置为 ¥700.00')).toBeInTheDocument();
   });
 
+  it.each([
+    ['mixed active subscriptions', { id: 2, allowWalletOverflow: false }, false],
+    ['all active subscriptions allow fallback', { id: 2 }, true],
+    ['expired restriction', { id: 2, allowWalletOverflow: false, endTime: 1 }, true],
+    ['cancelled restriction', { id: 2, allowWalletOverflow: false, status: 'cancelled' }, true],
+  ] as const)('given %s, shows the effective wallet fallback once', (_, change, allowed) => {
+    show({ ...summary, subscriptions: [subscription, { ...subscription, ...change }] });
+    const enabled = '订阅额度不足时允许使用钱包';
+    const disabled = '订阅额度不足时不允许使用钱包';
+    expect(screen.getAllByText(allowed ? enabled : disabled)).toHaveLength(1);
+    expect(screen.queryByText(allowed ? disabled : enabled)).not.toBeInTheDocument();
+  });
+
   it('given two subscriptions, keeps their reset amounts and actual billing preference', () => {
     show({
       billingPreference: 'wallet_first',

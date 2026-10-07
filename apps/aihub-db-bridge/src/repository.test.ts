@@ -336,7 +336,7 @@ describe('AihubBridgeRepository', () => {
 });
 
 it.each(['mysql', 'postgres'] as const)(
-  'reads subscriptions and payment order without writes (%s)',
+  'reads subscription quota snapshots and billing preference without writes (%s)',
   async (dialect) => {
     const query = vi
       .fn()
@@ -352,7 +352,6 @@ it.each(['mysql', 'postgres'] as const)(
             start_time: 1790730919,
             end_time: 1822266919,
             next_reset_time: 1793462400,
-            reset_amount: '50000000',
             allow_wallet_overflow: 1,
           },
         ],
@@ -360,6 +359,8 @@ it.each(['mysql', 'postgres'] as const)(
     const repo = new AihubBridgeRepository({ client: { query }, dialect });
     const result = await repo.getSubscriptionSummary(1880);
     expect(result.billingPreference).toBe('wallet_first');
+    // A later plan quota change must not replace the purchased subscription quota.
+    expect(query.mock.calls[1][0]).not.toMatch(/p\.total_amount/);
     expect(result.subscriptions[0]).toMatchObject({
       amountTotal: 50000000,
       amountUsed: 49993588,

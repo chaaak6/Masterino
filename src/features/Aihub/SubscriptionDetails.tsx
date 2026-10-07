@@ -97,6 +97,11 @@ interface Props {
 export default function SubscriptionDetails({ data, error, loading, quotaPolicy }: Props) {
   const { t, i18n } = useTranslation('aihub');
   const active = data?.subscriptions.filter((item) => isActiveSubscription(item)) || [];
+  // New API blocks wallet fallback if any active, unexpired subscription disallows it.
+  const walletFallbackBlocked = data?.subscriptions.some(
+    (item) =>
+      item.status === 'active' && item.endTime > Date.now() / 1000 && !item.allowWalletOverflow,
+  );
   const amount = (value: number) =>
     quotaPolicy ? formatNewApiQuota(value, quotaPolicy, i18n.language) : '-';
   return (
@@ -187,9 +192,6 @@ export default function SubscriptionDetails({ data, error, loading, quotaPolicy 
                     ? formatSubscriptionDate(item.endTime, i18n.language)
                     : t('noExpiry')}
                 </span>
-                {data?.billingPreference === 'subscription_first' && (
-                  <span>{t(item.allowWalletOverflow ? 'walletOverflow' : 'noWalletOverflow')}</span>
-                )}
               </div>
             </article>
           );
@@ -197,7 +199,12 @@ export default function SubscriptionDetails({ data, error, loading, quotaPolicy 
       )}
       {data && (
         <div className={styles.footer}>
-          {t('billingPreference')} · {t(data.billingPreference)}
+          <span>
+            {t('billingPreference')} · {t(data.billingPreference)}
+          </span>
+          {data.billingPreference === 'subscription_first' && active.length > 0 && (
+            <span>{t(walletFallbackBlocked ? 'noWalletOverflow' : 'walletOverflow')}</span>
+          )}
         </div>
       )}
       {data &&
