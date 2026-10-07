@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -99,6 +99,9 @@ describe('PanelContent', () => {
         'href',
         '/settings/provider/newapi',
       );
+      closePopover.mockClear();
+      fireEvent.click(screen.getByText('Mocked NewApiBalance'));
+      expect(closePopover).toHaveBeenCalledOnce();
       expect(screen.queryByText('Mocked SignInBlock')).not.toBeInTheDocument();
     });
 

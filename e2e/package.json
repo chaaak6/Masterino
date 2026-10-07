@@ -12,8 +12,7 @@
     "test:headed": "cross-env HEADLESS=false cucumber-js --config cucumber.config.js",
     "test:routes": "cucumber-js --config cucumber.config.js --tags '@routes'",
     "test:routes:ci": "cucumber-js --config cucumber.config.js --tags '@routes and not @ci-skip'",
-    "test:smoke": "cucumber-js --config cucumber.config.js --tags '@smoke'",
-    "test:subscription": "cucumber-js --config cucumber.subscription.config.js"
+    "test:smoke": "cucumber-js --config cucumber.config.js --tags '@smoke'"
   },
   "dependencies": {
     "@cucumber/cucumber": "^12.2.0",

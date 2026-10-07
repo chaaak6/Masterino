@@ -1,3 +1,4 @@
+import type { NewApiSubscriptionSummary } from '@lobechat/types';
 import { cleanup, render, screen } from '@testing-library/react';
 import i18n from 'i18next';
 import type { ReactNode } from 'react';
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   accountLoading: false,
   binding: undefined as any,
   bindingLoading: false,
+  subscription: undefined as NewApiSubscriptionSummary | undefined,
   useAccountSummary: vi.fn(),
 }));
 
@@ -42,7 +44,7 @@ vi.mock('@/components/NeuralNetworkLoading', () => ({
 
 vi.mock('@/store/newApi', () => ({
   useNewApiSubscriptionSummary: () => ({
-    data: { billingPreference: 'subscription_first', subscriptions: [] },
+    data: mocks.subscription,
   }),
   useNewApiAccountSummary: (enabled: boolean) => {
     mocks.useAccountSummary(enabled);
@@ -59,6 +61,7 @@ vi.mock('@/store/newApi', () => ({
 }));
 
 beforeEach(() => {
+  mocks.subscription = { billingPreference: 'subscription_first', subscriptions: [] };
   mocks.account = undefined;
   mocks.accountLoading = false;
   mocks.binding = undefined;
@@ -68,6 +71,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe('NewApiBalance', () => {
@@ -96,6 +100,39 @@ describe('NewApiBalance', () => {
     expect(mocks.useAccountSummary).toHaveBeenCalledWith(true);
   });
 
+  it('shows subscription remainder and reset alongside wallet and cumulative spending', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-07T04:00:00Z'));
+    mocks.binding = { isBound: true, status: 'active' };
+    mocks.account = {
+      quota: 50_000_000,
+      usedQuota: 7_685_000,
+      quotaPolicy: { quotaDisplayType: 'CNY', quotaPerUnit: 500_000, usdExchangeRate: 7 },
+    };
+    mocks.subscription = {
+      billingPreference: 'subscription_first',
+      subscriptions: [
+        {
+          id: 1,
+          title: 'Monthly quota',
+          status: 'active',
+          amountTotal: 50_000_000,
+          amountUsed: 7_685_000,
+          startTime: 0,
+          endTime: 0,
+          nextResetTime: 1793462400,
+          resetAmount: 50_000_000,
+          allowWalletOverflow: true,
+        },
+      ],
+    };
+    render(<NewApiBalance />);
+    expect(screen.getByText('订阅剩余额度').parentElement).toHaveTextContent('¥592.41');
+    expect(screen.getByText('钱包余额').parentElement).toHaveTextContent('¥700.00');
+    expect(screen.getByText('累计已用金额').parentElement).toHaveTextContent('¥107.59');
+    expect(screen.getByText('2026/11/01 00:00')).toBeInTheDocument();
+    expect(screen.getByText('重置为 ¥700.00')).toBeInTheDocument();
+  });
+
   it('does not request account balance until the Aihub binding exists', () => {
     mocks.binding = { isBound: false, status: 'missing' };
 
@@ -121,7 +158,7 @@ beforeEach(async () => {
 it.each([
   ['en-US', 'Wallet balance'],
   ['zh-CN', '钱包余额'],
-  ['vi-VN', 'Wallet balance'],
+  ['vi-VN', 'Số dư ví'],
 ])('renders balance in %s', async (lang, label) => {
   await i18n.changeLanguage(lang);
   render(<NewApiBalance />);
