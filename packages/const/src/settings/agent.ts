@@ -1,4 +1,4 @@
-import { DEFAULT_PROVIDER } from '@lobechat/business-const';
+import { DEFAULT_MODEL_ASSIGNMENT_MODEL, DEFAULT_PROVIDER } from '@lobechat/business-const';
 import {
   type LobeAgentChatConfig,
   type LobeAgentConfig,
@@ -41,7 +41,7 @@ export const DEFAULT_AGENT_CHAT_CONFIG: LobeAgentChatConfig = {
 
 export const DEFAULT_AGENT_CONFIG: LobeAgentConfig = {
   chatConfig: DEFAULT_AGENT_CHAT_CONFIG,
-  model: DEFAULT_MODEL,
+  model: DEFAULT_MODEL_ASSIGNMENT_MODEL,
   openingQuestions: [],
   params: {
     frequency_penalty: 0,

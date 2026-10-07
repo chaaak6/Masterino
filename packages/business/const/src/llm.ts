@@ -1,9 +1,12 @@
 export const DEFAULT_EMBEDDING_PROVIDER = 'newapi';
 
-// Single source of truth for the Aihub default model. All packages import
-// DEFAULT_MODEL / DEFAULT_MINI_MODEL / DEFAULT_ONBOARDING_MODEL from here;
-// do not re-read AIHUB_DEFAULT_MODEL elsewhere.
-const DEFAULT_AIHUB_MODEL = process.env.AIHUB_DEFAULT_MODEL || 'glm-5.2';
+// Keep model defaults and the explicit deployment override in one place.
+const configuredAihubModel = process.env.AIHUB_DEFAULT_MODEL;
+const DEFAULT_AIHUB_MODEL = configuredAihubModel || 'glm-5.2';
+
+// Defaults for new assistants and the five tasks under Model assignments.
+// Other tasks retain their existing defaults.
+export const DEFAULT_MODEL_ASSIGNMENT_MODEL = configuredAihubModel || 'deepseek-v4-flash';
 
 export const DEFAULT_MODEL = DEFAULT_AIHUB_MODEL;
 export const DEFAULT_PROVIDER = 'newapi';
