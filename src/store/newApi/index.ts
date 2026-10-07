@@ -1,6 +1,7 @@
 import type {
   NewApiAccountSummary,
   NewApiBindingStatus,
+  NewApiSubscriptionSummary,
   NewApiUsageSummary,
 } from '@lobechat/types';
 
@@ -38,4 +39,11 @@ export const useNewApiUsageSummary = (
     {
       shouldRetryOnError: false,
     },
+  );
+
+export const useNewApiSubscriptionSummary = (enabled = true) =>
+  useClientDataSWR<NewApiSubscriptionSummary>(
+    enabled ? ['aihub:subscriptionSummary'] : null,
+    () => newApiService.getSubscriptionSummary(),
+    { dedupingInterval: 30_000, focusThrottleInterval: 30_000, shouldRetryOnError: false },
   );

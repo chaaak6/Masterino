@@ -91,7 +91,14 @@ describe('PanelContent', () => {
       renderWithRouter(<PanelContent closePopover={closePopover} />);
 
       expect(screen.getByText('Mocked UserInfo')).toBeInTheDocument();
-      expect(screen.getByText('Mocked DataStatistics')).toBeInTheDocument();
+      expect(screen.getByText('Mocked DataStatistics').closest('a')).toHaveAttribute(
+        'href',
+        '/settings/stats',
+      );
+      expect(screen.getByText('Mocked NewApiBalance').closest('a')).toHaveAttribute(
+        'href',
+        '/settings/provider/newapi',
+      );
       expect(screen.queryByText('Mocked SignInBlock')).not.toBeInTheDocument();
     });
 

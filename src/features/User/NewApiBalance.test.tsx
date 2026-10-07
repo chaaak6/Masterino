@@ -41,6 +41,9 @@ vi.mock('@/components/NeuralNetworkLoading', () => ({
 }));
 
 vi.mock('@/store/newApi', () => ({
+  useNewApiSubscriptionSummary: () => ({
+    data: { billingPreference: 'subscription_first', subscriptions: [] },
+  }),
   useNewApiAccountSummary: (enabled: boolean) => {
     mocks.useAccountSummary(enabled);
 
@@ -84,12 +87,11 @@ describe('NewApiBalance', () => {
     render(<NewApiBalance />);
 
     expect(screen.getByText('已绑定')).toHaveAttribute('data-color', 'success');
-    expect(screen.getByText('Aihub 余额')).toBeInTheDocument();
-    expect(screen.getByText('已用金额')).toBeInTheDocument();
-    expect(screen.getByText('请求数')).toBeInTheDocument();
+    expect(screen.getByText('钱包余额')).toBeInTheDocument();
+    expect(screen.getByText('累计已用金额')).toBeInTheDocument();
+    expect(screen.queryByText('请求数')).not.toBeInTheDocument();
     expect(screen.getByText('¥0.14')).toHaveClass('value');
     expect(screen.getByText('¥0.02')).toHaveClass('value');
-    expect(screen.getByText('11')).toHaveClass('value');
     expect(screen.queryByText(/[宸鏈鐢浣楼]/)).not.toBeInTheDocument();
     expect(mocks.useAccountSummary).toHaveBeenCalledWith(true);
   });
@@ -101,7 +103,7 @@ describe('NewApiBalance', () => {
 
     expect(screen.getByText('未绑定')).toHaveAttribute('data-color', 'warning');
     expect(mocks.useAccountSummary).toHaveBeenCalledWith(false);
-    expect(screen.getAllByTestId('balance-loading')).toHaveLength(3);
+    expect(screen.getAllByTestId('balance-loading')).toHaveLength(2);
   });
 });
 
@@ -117,9 +119,9 @@ beforeEach(async () => {
 });
 
 it.each([
-  ['en-US', 'Aihub balance'],
-  ['zh-CN', 'Aihub 余额'],
-  ['vi-VN', 'Số dư Aihub'],
+  ['en-US', 'Wallet balance'],
+  ['zh-CN', '钱包余额'],
+  ['vi-VN', 'Wallet balance'],
 ])('renders balance in %s', async (lang, label) => {
   await i18n.changeLanguage(lang);
   render(<NewApiBalance />);

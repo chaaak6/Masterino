@@ -3,6 +3,7 @@ import { Pool as PgPool } from 'pg';
 
 import type {
   AihubBridgePage,
+  AihubBridgeSubscriptionSummary,
   AihubBridgeToken,
   AihubBridgeUsageLog,
   AihubBridgeUser,
@@ -233,6 +234,68 @@ limit 1
     );
 
     return rows[0];
+  }
+
+  async getSubscriptionSummary(userId: number): Promise<AihubBridgeSubscriptionSummary> {
+    const [users, rows] = await Promise.all([
+      this.query<{ setting: string | Record<string, unknown> | null }>(
+        'select setting from users where deleted_at is null and id = ? limit 1',
+        [userId],
+      ),
+      this.query<{
+        id: number;
+        title: string | null;
+        status: string;
+        amount_total: number;
+        amount_used: number;
+        start_time: number;
+        end_time: number;
+        next_reset_time: number;
+        reset_amount: number;
+        allow_wallet_overflow: number | boolean;
+      }>(
+        `select s.id, p.title, s.status, s.amount_total, s.amount_used,
+        s.start_time, s.end_time, s.next_reset_time,
+        coalesce(p.total_amount, s.amount_total) as reset_amount,
+        s.allow_wallet_overflow
+        from user_subscriptions s left join subscription_plans p on p.id = s.plan_id
+        where s.user_id = ? order by s.end_time desc, s.id desc`,
+        [userId],
+      ),
+    ]);
+    const rawSetting = users[0]?.setting;
+    let setting: Record<string, unknown> = {};
+    if (typeof rawSetting === 'string') {
+      try {
+        setting = JSON.parse(rawSetting) || {};
+      } catch {
+        /* Older accounts may have no settings. */
+      }
+    } else if (rawSetting) setting = rawSetting;
+    const preference = setting.billing_preference;
+    const billingPreference = [
+      'subscription_first',
+      'wallet_first',
+      'subscription_only',
+      'wallet_only',
+    ].includes(String(preference))
+      ? (preference as AihubBridgeSubscriptionSummary['billingPreference'])
+      : 'subscription_first';
+    return {
+      billingPreference,
+      subscriptions: rows.map((row) => ({
+        id: Number(row.id),
+        title: row.title || '',
+        status: row.status,
+        amountTotal: Number(row.amount_total),
+        amountUsed: Number(row.amount_used),
+        startTime: Number(row.start_time),
+        endTime: Number(row.end_time),
+        nextResetTime: Number(row.next_reset_time),
+        resetAmount: Number(row.reset_amount),
+        allowWalletOverflow: Boolean(Number(row.allow_wallet_overflow)),
+      })),
+    };
   }
 
   async findManagedToken(userId: number, tokenName: string) {

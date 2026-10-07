@@ -9,10 +9,12 @@ import { LinkIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import SubscriptionDetails from '@/features/Aihub/SubscriptionDetails';
 import { useAiInfraStore } from '@/store/aiInfra';
 import {
   useNewApiAccountSummary,
   useNewApiBindingStatus,
+  useNewApiSubscriptionSummary,
   useNewApiUsageSummary,
 } from '@/store/newApi';
 import { formatNewApiQuota } from '@/utils/newApiQuota';
@@ -108,6 +110,11 @@ const Page = () => {
   const isBound = !!binding?.isBound;
   const { data: account, mutate: mutateAccount } = useNewApiAccountSummary(isBound);
   const { data: usage, mutate: mutateUsage } = useNewApiUsageSummary(undefined, isBound);
+  const {
+    data: subscriptions,
+    isLoading: subscriptionLoading,
+    error: subscriptionError,
+  } = useNewApiSubscriptionSummary(isBound);
   const useFetchAiProviderList = useAiInfraStore((s) => s.useFetchAiProviderList);
   const useFetchAiProviderItem = useAiInfraStore((s) => s.useFetchAiProviderItem);
   const quotaPolicy = usage?.quotaPolicy || account?.quotaPolicy;
@@ -269,12 +276,12 @@ const Page = () => {
             <Field classNames={styles} label={t('group')} value={account?.group} />
             <Field
               classNames={styles}
-              label={t('balance')}
+              label={t('walletBalance')}
               value={formatNewApiQuota(account?.quota, quotaPolicy, i18n.language)}
             />
             <Field
               classNames={styles}
-              label={t('usedAmount')}
+              label={t('cumulativeUsed')}
               value={formatNewApiQuota(account?.usedQuota, quotaPolicy, i18n.language)}
             />
             <Field classNames={styles} label={t('requests')} value={account?.requestCount} />
@@ -284,6 +291,14 @@ const Page = () => {
               value={formatNewApiQuota(usage?.totalQuota, quotaPolicy, i18n.language)}
             />
           </Flexbox>
+          {isBound && (
+            <SubscriptionDetails
+              data={subscriptions}
+              error={subscriptionError}
+              loading={subscriptionLoading}
+              quotaPolicy={quotaPolicy}
+            />
+          )}
         </Flexbox>
       </FormGroup>
 

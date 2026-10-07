@@ -7,7 +7,16 @@ import { memo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import NeuralNetworkLoading from '@/components/NeuralNetworkLoading';
-import { useNewApiAccountSummary, useNewApiBindingStatus } from '@/store/newApi';
+import {
+  formatSubscriptionDate,
+  hasNextReset,
+  isActiveSubscription,
+} from '@/features/Aihub/subscription';
+import {
+  useNewApiAccountSummary,
+  useNewApiBindingStatus,
+  useNewApiSubscriptionSummary,
+} from '@/store/newApi';
 import { formatNewApiQuota } from '@/utils/newApiQuota';
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
@@ -24,6 +33,11 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
     min-width: 0;
     font-size: 12px;
     color: ${cssVar.colorTextDescription};
+  `,
+  reset: css`
+    padding-top: 8px;
+    margin-top: 4px;
+    border-top: 1px solid ${cssVar.colorBorderSecondary};
   `,
   row: css`
     display: flex;
@@ -50,6 +64,15 @@ const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) 
   const { data: binding, isLoading: bindingLoading } = useNewApiBindingStatus();
   const isBound = !!binding?.isBound;
   const { data: account, isLoading: accountLoading } = useNewApiAccountSummary(isBound);
+  const {
+    data: subscriptions,
+    isLoading: subscriptionLoading,
+    error: subscriptionError,
+  } = useNewApiSubscriptionSummary(isBound);
+  const active = subscriptions?.subscriptions.filter((item) => isActiveSubscription(item)) || [];
+  const nextReset = active
+    .filter(hasNextReset)
+    .sort((a, b) => a.nextResetTime - b.nextResetTime)[0];
   const loading = bindingLoading || accountLoading;
   const loadingNode = <NeuralNetworkLoading size={20} />;
 
@@ -68,8 +91,33 @@ const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) 
             {binding?.status === 'active' ? t('bound') : t('unbound')}
           </Tag>
         </Flexbox>
+        {isBound && (
+          <AmountRow
+            label={t('subscriptionRemaining')}
+            value={
+              subscriptionLoading
+                ? loadingNode
+                : subscriptionError && !subscriptions
+                  ? t('readUnavailable')
+                  : active.length === 0
+                    ? t('noSubscription')
+                    : active.some((item) => item.amountTotal === 0)
+                      ? t('unlimited')
+                      : !account?.quotaPolicy
+                        ? '-'
+                        : formatNewApiQuota(
+                            active.reduce(
+                              (sum, item) => sum + Math.max(0, item.amountTotal - item.amountUsed),
+                              0,
+                            ),
+                            account?.quotaPolicy,
+                            i18n.language,
+                          )
+            }
+          />
+        )}
         <AmountRow
-          label={t('balanceTitle')}
+          label={t('walletBalance')}
           value={
             loading || isUndefined(account?.quota)
               ? loadingNode
@@ -77,17 +125,36 @@ const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) 
           }
         />
         <AmountRow
-          label={t('usedAmount')}
+          label={t('cumulativeUsed')}
           value={
             loading || isUndefined(account?.usedQuota)
               ? loadingNode
               : formatNewApiQuota(account.usedQuota, account.quotaPolicy, i18n.language)
           }
         />
-        <AmountRow
-          label={t('requests')}
-          value={loading || isUndefined(account?.requestCount) ? loadingNode : account.requestCount}
-        />
+        {nextReset && (
+          <Flexbox className={styles.reset} gap={3}>
+            <span className={styles.label}>{t('nextReset')}</span>
+            <span className={styles.value}>
+              {nextReset.nextResetTime <= Date.now() / 1000
+                ? t('resetPending')
+                : formatSubscriptionDate(nextReset.nextResetTime, i18n.language)}
+            </span>
+            <span className={styles.label}>
+              {t('resetTo', {
+                amount:
+                  nextReset.resetAmount === 0
+                    ? t('unlimited')
+                    : account?.quotaPolicy
+                      ? formatNewApiQuota(nextReset.resetAmount, account.quotaPolicy, i18n.language)
+                      : '-',
+              })}
+            </span>
+          </Flexbox>
+        )}
+        <span className={styles.label} style={{ textAlign: 'right', paddingTop: 4 }}>
+          {t('viewAccount')} →
+        </span>
       </Flexbox>
     </Flexbox>
   );
