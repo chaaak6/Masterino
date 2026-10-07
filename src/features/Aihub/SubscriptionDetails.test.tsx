@@ -87,13 +87,13 @@ describe('SubscriptionDetails user-visible behavior', () => {
   );
 
   it.each([
-    [{ amountUsed: 50_000_000 }, '本期额度已用尽'],
-    [{ nextResetTime: subscription.startTime }, '额度重置待更新'],
-    [{ amountTotal: 0 }, '订阅额度不限'],
-  ] as const)('given changed quota state, shows %s', (change, expected) => {
+    [{ amountUsed: 50_000_000 }, '本期额度已用尽', '重置为 ¥700.00'],
+    [{ nextResetTime: subscription.startTime }, '额度重置待更新', '重置为 ¥700.00'],
+    [{ amountTotal: 0, resetAmount: 0 }, '订阅额度不限', '重置为 不限'],
+  ] as const)('given changed quota state, shows %s', (change, expected, reset) => {
     show({ ...summary, subscriptions: [{ ...subscription, ...change }] });
     expect(screen.getByText(expected)).toBeInTheDocument();
-    expect(screen.getByText('重置为 ¥700.00')).toBeInTheDocument();
+    expect(screen.getByText(reset)).toBeInTheDocument();
   });
 
   it.each([
@@ -112,7 +112,10 @@ describe('SubscriptionDetails user-visible behavior', () => {
   it('given two subscriptions, keeps their reset amounts and actual billing preference', () => {
     show({
       billingPreference: 'wallet_first',
-      subscriptions: [subscription, { ...subscription, id: 2, resetAmount: 10_000_000 }],
+      subscriptions: [
+        subscription,
+        { ...subscription, id: 2, amountTotal: 10_000_000, resetAmount: 10_000_000 },
+      ],
     });
     expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.getByText('重置为 ¥700.00')).toBeInTheDocument();
