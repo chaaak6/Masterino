@@ -3,7 +3,7 @@
 import { Flexbox, type FlexboxProps, Tag } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
 import { isUndefined } from 'es-toolkit/compat';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { memo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,46 +24,55 @@ import { formatNewApiQuota } from '@/utils/newApiQuota';
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
   card: css`
-    padding: 8px;
+    overflow: hidden;
     border-radius: ${cssVar.borderRadiusLG};
     background: ${cssVar.colorFillTertiary};
+  `,
+  body: css`
+    padding: 8px;
 
     &:hover {
       background: ${cssVar.colorFillSecondary};
     }
   `,
   actions: css`
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid ${cssVar.colorBorderSecondary};
+  `,
+  action: css`
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
-    justify-content: space-between;
-    padding-top: 8px;
-  `,
-  manage: css`
-    display: inline-flex;
-    gap: 4px;
-    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 36px;
     cursor: pointer;
-    padding: 5px 8px;
-    border: 1px solid ${cssVar.colorBorderSecondary};
-    border-radius: ${cssVar.borderRadius};
-    background: ${cssVar.colorBgContainer};
+    padding: 8px 6px;
+    border: 0;
+    background: transparent;
     color: ${cssVar.colorText};
+    font-family: inherit;
     font-size: 12px;
-    white-space: nowrap;
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: center;
 
-    &:hover {
-      border-color: ${cssVar.colorPrimary};
-      color: ${cssVar.colorPrimary};
+    & + & {
+      border-inline-start: 1px solid ${cssVar.colorBorderSecondary};
     }
-  `,
-  details: css`
-    font-size: 12px;
-    color: ${cssVar.colorTextDescription};
 
     &:hover {
-      color: ${cssVar.colorText};
+      background: ${cssVar.colorFillSecondary};
+    }
+
+    &:focus-visible {
+      outline: 2px solid ${cssVar.colorPrimary};
+      outline-offset: -2px;
+    }
+
+    svg {
+      flex-shrink: 0;
     }
   `,
   label: css`
@@ -125,8 +134,9 @@ const NewApiBalance = memo<NewApiBalanceProps>(({ style, onNavigate, ...rest }) 
       width={'100%'}
       {...rest}
     >
-      <Flexbox className={styles.card} gap={6}>
+      <Flexbox className={styles.card} gap={0}>
         <WorkspaceLink
+          className={styles.body}
           style={{ color: 'inherit', display: 'flex', flexDirection: 'column', gap: 6 }}
           to={'/settings/provider/newapi'}
           onClick={onNavigate}
@@ -206,7 +216,7 @@ const NewApiBalance = memo<NewApiBalanceProps>(({ style, onNavigate, ...rest }) 
         </WorkspaceLink>
         <div className={styles.actions}>
           <button
-            className={styles.manage}
+            className={styles.action}
             type="button"
             onClick={() => {
               window.open(AIHUB_ACCOUNT_URL, '_blank', 'noopener,noreferrer');
@@ -217,11 +227,12 @@ const NewApiBalance = memo<NewApiBalanceProps>(({ style, onNavigate, ...rest }) 
             <ArrowUpRight aria-hidden size={14} />
           </button>
           <WorkspaceLink
-            className={styles.details}
+            className={styles.action}
             to={'/settings/provider/newapi'}
             onClick={onNavigate}
           >
-            {t('viewAccount')} →
+            {t('viewAccount')}
+            <ArrowRight aria-hidden size={14} />
           </WorkspaceLink>
         </div>
       </Flexbox>

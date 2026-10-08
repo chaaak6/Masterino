@@ -164,7 +164,7 @@ describe('NewApiBalance', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/);
 
     closePopover.mockClear();
-    fireEvent.click(screen.getByRole('link', { name: '查看账户详情 →' }));
+    fireEvent.click(screen.getByRole('link', { name: '查看账户详情' }));
     expect(closePopover).toHaveBeenCalledOnce();
     expect(screen.getByTestId('location')).toHaveTextContent('/settings/provider/newapi');
   });
