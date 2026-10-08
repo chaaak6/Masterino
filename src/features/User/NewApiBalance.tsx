@@ -3,15 +3,18 @@
 import { Flexbox, type FlexboxProps, Tag } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
 import { isUndefined } from 'es-toolkit/compat';
+import { ArrowUpRight } from 'lucide-react';
 import { memo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import NeuralNetworkLoading from '@/components/NeuralNetworkLoading';
 import {
+  AIHUB_ACCOUNT_URL,
   formatSubscriptionDate,
   hasNextReset,
   isActiveSubscription,
 } from '@/features/Aihub/subscription';
+import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
 import {
   useNewApiAccountSummary,
   useNewApiBindingStatus,
@@ -27,6 +30,40 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
 
     &:hover {
       background: ${cssVar.colorFillSecondary};
+    }
+  `,
+  actions: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+  `,
+  manage: css`
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    cursor: pointer;
+    padding: 5px 8px;
+    border: 1px solid ${cssVar.colorBorderSecondary};
+    border-radius: ${cssVar.borderRadius};
+    background: ${cssVar.colorBgContainer};
+    color: ${cssVar.colorText};
+    font-size: 12px;
+    white-space: nowrap;
+
+    &:hover {
+      border-color: ${cssVar.colorPrimary};
+      color: ${cssVar.colorPrimary};
+    }
+  `,
+  details: css`
+    font-size: 12px;
+    color: ${cssVar.colorTextDescription};
+
+    &:hover {
+      color: ${cssVar.colorText};
     }
   `,
   label: css`
@@ -59,7 +96,11 @@ const AmountRow = ({ label, value }: { label: string; value: ReactNode }) => (
   </div>
 );
 
-const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) => {
+interface NewApiBalanceProps extends Omit<FlexboxProps, 'children'> {
+  onNavigate?: () => void;
+}
+
+const NewApiBalance = memo<NewApiBalanceProps>(({ style, onNavigate, ...rest }) => {
   const { t, i18n } = useTranslation('aihub');
   const { data: binding, isLoading: bindingLoading } = useNewApiBindingStatus();
   const isBound = !!binding?.isBound;
@@ -85,76 +126,104 @@ const NewApiBalance = memo<Omit<FlexboxProps, 'children'>>(({ style, ...rest }) 
       {...rest}
     >
       <Flexbox className={styles.card} gap={6}>
-        <Flexbox horizontal align={'center'} justify={'space-between'}>
-          <span className={styles.label}>AIHUB</span>
-          <Tag color={binding?.status === 'active' ? 'success' : 'warning'}>
-            {binding?.status === 'active' ? t('bound') : t('unbound')}
-          </Tag>
-        </Flexbox>
-        {isBound && (
+        <WorkspaceLink
+          style={{ color: 'inherit', display: 'flex', flexDirection: 'column', gap: 6 }}
+          to={'/settings/provider/newapi'}
+          onClick={onNavigate}
+        >
+          <Flexbox horizontal align={'center'} justify={'space-between'}>
+            <span className={styles.label}>AIHUB</span>
+            <Tag color={binding?.status === 'active' ? 'success' : 'warning'}>
+              {binding?.status === 'active' ? t('bound') : t('unbound')}
+            </Tag>
+          </Flexbox>
+          {isBound && (
+            <AmountRow
+              label={t('subscriptionRemaining')}
+              value={
+                subscriptionLoading
+                  ? loadingNode
+                  : subscriptionError && !subscriptions
+                    ? t('readUnavailable')
+                    : active.length === 0
+                      ? t('noSubscription')
+                      : active.some((item) => item.amountTotal === 0)
+                        ? t('unlimited')
+                        : !account?.quotaPolicy
+                          ? '-'
+                          : formatNewApiQuota(
+                              active.reduce(
+                                (sum, item) =>
+                                  sum + Math.max(0, item.amountTotal - item.amountUsed),
+                                0,
+                              ),
+                              account?.quotaPolicy,
+                              i18n.language,
+                            )
+              }
+            />
+          )}
           <AmountRow
-            label={t('subscriptionRemaining')}
+            label={t('walletBalance')}
             value={
-              subscriptionLoading
+              loading || isUndefined(account?.quota)
                 ? loadingNode
-                : subscriptionError && !subscriptions
-                  ? t('readUnavailable')
-                  : active.length === 0
-                    ? t('noSubscription')
-                    : active.some((item) => item.amountTotal === 0)
-                      ? t('unlimited')
-                      : !account?.quotaPolicy
-                        ? '-'
-                        : formatNewApiQuota(
-                            active.reduce(
-                              (sum, item) => sum + Math.max(0, item.amountTotal - item.amountUsed),
-                              0,
-                            ),
-                            account?.quotaPolicy,
-                            i18n.language,
-                          )
+                : formatNewApiQuota(account.quota, account.quotaPolicy, i18n.language)
             }
           />
-        )}
-        <AmountRow
-          label={t('walletBalance')}
-          value={
-            loading || isUndefined(account?.quota)
-              ? loadingNode
-              : formatNewApiQuota(account.quota, account.quotaPolicy, i18n.language)
-          }
-        />
-        <AmountRow
-          label={t('cumulativeUsed')}
-          value={
-            loading || isUndefined(account?.usedQuota)
-              ? loadingNode
-              : formatNewApiQuota(account.usedQuota, account.quotaPolicy, i18n.language)
-          }
-        />
-        {nextReset && (
-          <Flexbox className={styles.reset} gap={3}>
-            <span className={styles.label}>{t('nextReset')}</span>
-            <span className={styles.value}>
-              {nextReset.nextResetTime <= Date.now() / 1000
-                ? t('resetPending')
-                : formatSubscriptionDate(nextReset.nextResetTime, i18n.language)}
-            </span>
-            <span className={styles.label}>
-              {t('resetTo', {
-                amount:
-                  nextReset.resetAmount === 0
-                    ? t('unlimited')
-                    : account?.quotaPolicy
-                      ? formatNewApiQuota(nextReset.resetAmount, account.quotaPolicy, i18n.language)
-                      : '-',
-              })}
-            </span>
-          </Flexbox>
-        )}
-        <span className={styles.label} style={{ textAlign: 'right', paddingTop: 4 }}>
-          {t('viewAccount')} →
-        </span>
+          <AmountRow
+            label={t('cumulativeUsed')}
+            value={
+              loading || isUndefined(account?.usedQuota)
+                ? loadingNode
+                : formatNewApiQuota(account.usedQuota, account.quotaPolicy, i18n.language)
+            }
+          />
+          {nextReset && (
+            <Flexbox className={styles.reset} gap={3}>
+              <span className={styles.label}>{t('nextReset')}</span>
+              <span className={styles.value}>
+                {nextReset.nextResetTime <= Date.now() / 1000
+                  ? t('resetPending')
+                  : formatSubscriptionDate(nextReset.nextResetTime, i18n.language)}
+              </span>
+              <span className={styles.label}>
+                {t('resetTo', {
+                  amount:
+                    nextReset.resetAmount === 0
+                      ? t('unlimited')
+                      : account?.quotaPolicy
+                        ? formatNewApiQuota(
+                            nextReset.resetAmount,
+                            account.quotaPolicy,
+                            i18n.language,
+                          )
+                        : '-',
+                })}
+              </span>
+            </Flexbox>
+          )}
+        </WorkspaceLink>
+        <div className={styles.actions}>
+          <button
+            className={styles.manage}
+            type="button"
+            onClick={() => {
+              window.open(AIHUB_ACCOUNT_URL, '_blank', 'noopener,noreferrer');
+              onNavigate?.();
+            }}
+          >
+            {t('manageSubscription')}
+            <ArrowUpRight aria-hidden size={14} />
+          </button>
+          <WorkspaceLink
+            className={styles.details}
+            to={'/settings/provider/newapi'}
+            onClick={onNavigate}
+          >
+            {t('viewAccount')} →
+          </WorkspaceLink>
+        </div>
       </Flexbox>
     </Flexbox>
   );

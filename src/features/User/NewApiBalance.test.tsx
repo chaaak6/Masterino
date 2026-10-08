@@ -1,8 +1,9 @@
 import type { NewApiSubscriptionSummary } from '@lobechat/types';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderUI, screen } from '@testing-library/react';
 import i18n from 'i18next';
 import type { ReactNode } from 'react';
 import { initReactI18next } from 'react-i18next';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import en from '@/../locales/en-US/aihub.json';
@@ -10,6 +11,19 @@ import viVN from '@/../locales/vi-VN/aihub.json';
 import zh from '@/../locales/zh-CN/aihub.json';
 
 import NewApiBalance from './NewApiBalance';
+
+const Location = () => <output data-testid="location">{useLocation().pathname}</output>;
+const render = (ui: ReactNode) =>
+  renderUI(
+    <MemoryRouter>
+      {ui}
+      <Location />
+    </MemoryRouter>,
+  );
+
+vi.mock('@/business/client/hooks/useActiveWorkspaceSlug', () => ({
+  useActiveWorkspaceSlug: () => undefined,
+}));
 
 const mocks = vi.hoisted(() => ({
   account: undefined as any,
@@ -131,6 +145,36 @@ describe('NewApiBalance', () => {
     expect(screen.getByText('累计已用金额').parentElement).toHaveTextContent('¥107.59');
     expect(screen.getByText('2026/11/01 00:00')).toBeInTheDocument();
     expect(screen.getByText('重置为 ¥700.00')).toBeInTheDocument();
+  });
+
+  it('opens subscription management separately from the in-app account details', () => {
+    const closePopover = vi.fn();
+    render(<NewApiBalance onNavigate={closePopover} />);
+
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const manage = screen.getByRole('button', { name: '管理订阅' });
+    expect(manage.closest('a')).toBeNull();
+    fireEvent.click(manage);
+    expect(open).toHaveBeenCalledExactlyOnceWith(
+      'https://aihub.bielcrystal.com/wallet',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(closePopover).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/);
+
+    closePopover.mockClear();
+    fireEvent.click(screen.getByRole('link', { name: '查看账户详情 →' }));
+    expect(closePopover).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('location')).toHaveTextContent('/settings/provider/newapi');
+  });
+
+  it('keeps the account card body linked to the provider page', () => {
+    const closePopover = vi.fn();
+    render(<NewApiBalance onNavigate={closePopover} />);
+    fireEvent.click(screen.getByText('钱包余额'));
+    expect(closePopover).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('location')).toHaveTextContent('/settings/provider/newapi');
   });
 
   it('does not request account balance until the Aihub binding exists', () => {

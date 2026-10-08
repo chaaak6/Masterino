@@ -59,7 +59,7 @@ vi.mock('../DataStatistics', () => ({
 }));
 
 vi.mock('../NewApiBalance', () => ({
-  default: vi.fn(() => <div>Mocked NewApiBalance</div>),
+  default: vi.fn(({ onNavigate }) => <button onClick={onNavigate}>Mocked NewApiBalance</button>),
 }));
 
 vi.mock('@/const/version', () => ({
@@ -95,10 +95,7 @@ describe('PanelContent', () => {
         'href',
         '/settings/stats',
       );
-      expect(screen.getByText('Mocked NewApiBalance').closest('a')).toHaveAttribute(
-        'href',
-        '/settings/provider/newapi',
-      );
+      expect(screen.getByText('Mocked NewApiBalance').closest('a')).toBeNull();
       closePopover.mockClear();
       fireEvent.click(screen.getByText('Mocked NewApiBalance'));
       expect(closePopover).toHaveBeenCalledOnce();
