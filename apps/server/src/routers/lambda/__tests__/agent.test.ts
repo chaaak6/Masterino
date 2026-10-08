@@ -9,6 +9,7 @@ import { KnowledgeBaseModel } from '@/database/models/knowledgeBase';
 import { SessionModel } from '@/database/models/session';
 import { UserModel } from '@/database/models/user';
 import { AgentService } from '@/server/services/agent';
+import { getNewAgentPlugins } from '@/server/services/agent/newAgentPlugins';
 import { EditLockService } from '@/server/services/editLock';
 import { publishResourceEvent } from '@/server/services/resourceEvents';
 import { KnowledgeType } from '@/types/knowledgeBase';
@@ -58,6 +59,7 @@ describe('agentRouter', () => {
     vi.clearAllMocks();
 
     agentModelMock = {
+      create: vi.fn().mockResolvedValue({ id: 'new-agent' }),
       createAgentFiles: vi.fn(),
       createAgentKnowledgeBase: vi.fn(),
       deleteAgentFile: vi.fn(),
@@ -88,6 +90,7 @@ describe('agentRouter', () => {
 
     agentServiceMock = {
       createInbox: vi.fn(),
+      getNewAgentPlugins: vi.fn(async (plugins) => getNewAgentPlugins(plugins)),
     };
     vi.mocked(AgentService).mockImplementation(() => agentServiceMock);
 
@@ -99,6 +102,48 @@ describe('agentRouter', () => {
       knowledgeBaseModel: knowledgeBaseModelMock,
       sessionModel: sessionModelMock,
     };
+  });
+
+  describe('new agent default tools', () => {
+    it.each([
+      ['blank agent', undefined, ['lobe-user-interaction']],
+      ['empty tools', [], ['lobe-user-interaction']],
+      ['market agent', ['lobe-web-browsing'], ['lobe-web-browsing', 'lobe-user-interaction']],
+      [
+        'already enabled',
+        ['lobe-user-interaction', 'lobe-user-interaction'],
+        ['lobe-user-interaction'],
+      ],
+    ])('given %s, persists User Interaction without losing tools', async (_, plugins, expected) => {
+      const caller = agentRouter.createCaller(mockCtx);
+      const result = await caller.createAgent({ config: { plugins }, groupId: 'group-1' });
+
+      expect(result).toEqual({ agentId: 'new-agent' });
+      expect(agentModelMock.create).toHaveBeenCalledWith({
+        plugins: expected,
+        sessionGroupId: 'group-1',
+      });
+    });
+
+    it('given a virtual agent, preserves its explicit tools', async () => {
+      const caller = agentRouter.createCaller(mockCtx);
+      await caller.createAgent({ config: { virtual: true, plugins: [] } });
+
+      expect(agentModelMock.create).toHaveBeenCalledWith({
+        virtual: true,
+        plugins: [],
+        sessionGroupId: undefined,
+      });
+    });
+
+    it('given the user removes the tool, forwards an empty list without re-adding it', async () => {
+      agentServiceMock.updateAgentConfig = vi.fn().mockResolvedValue({ success: true });
+      const caller = agentRouter.createCaller(mockCtx);
+      await caller.updateAgentConfig({ agentId: 'new-agent', value: { plugins: [] } });
+
+      expect(agentServiceMock.updateAgentConfig).toHaveBeenCalledWith('new-agent', { plugins: [] });
+      expect(agentModelMock.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getAgentConfig', () => {

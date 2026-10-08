@@ -91,6 +91,9 @@ export const agentRouter = router({
       assertSafeAgentExecutionEnv(input.config);
       const agent = await ctx.agentModel.create({
         ...input.config,
+        plugins: input.config?.virtual
+          ? input.config.plugins
+          : await ctx.agentService.getNewAgentPlugins(input.config?.plugins),
         sessionGroupId: input.groupId,
       });
 
