@@ -8,6 +8,7 @@ import { memo, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { VirtuosoGrid } from 'react-virtuoso';
 
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { useToolStore } from '@/store/tool';
 import { agentSkillsSelectors } from '@/store/tool/selectors';
 import { type DiscoverMcpItem } from '@/types/discover';
@@ -66,14 +67,18 @@ export const CommunityList = memo(() => {
   }, [marketAgentSkills, keywords]);
 
   const combinedItems = useMemo<CommunityListItem[]>(() => {
-    const agentSkillItems: CommunityListItem[] = filteredMarketAgentSkills.map((skill) => ({
-      itemType: 'agentSkill' as const,
-      skill,
-    }));
-    const mcpItems: CommunityListItem[] = allItems.map((data) => ({
-      data,
-      itemType: 'mcp' as const,
-    }));
+    const agentSkillItems: CommunityListItem[] = filteredMarketAgentSkills
+      .filter((skill) => isIntegrationVisible(skill.identifier))
+      .map((skill) => ({
+        itemType: 'agentSkill' as const,
+        skill,
+      }));
+    const mcpItems: CommunityListItem[] = allItems
+      .filter((item) => isIntegrationVisible(item.identifier))
+      .map((data) => ({
+        data,
+        itemType: 'mcp' as const,
+      }));
     return [...agentSkillItems, ...mcpItems];
   }, [filteredMarketAgentSkills, allItems]);
 

@@ -82,8 +82,18 @@ const InputArea = () => {
     ) {
       candidates.push('skill');
     }
-    if (showAdvancedBanners && !isBotIntegrationBannerDismissed) candidates.push('botIntegration');
-    if (showAdvancedBanners && !isMessengerBannerDismissed) candidates.push('messenger');
+    if (
+      showAdvancedBanners &&
+      isProductFeatureEnabled('externalMessaging') &&
+      !isBotIntegrationBannerDismissed
+    )
+      candidates.push('botIntegration');
+    if (
+      showAdvancedBanners &&
+      isProductFeatureEnabled('externalMessaging') &&
+      !isMessengerBannerDismissed
+    )
+      candidates.push('messenger');
     if (candidates.length === 0) return;
 
     hasPickedRef.current = true;

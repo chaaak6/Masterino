@@ -7,6 +7,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { taskTemplateKeys } from '@/libs/swr/keys';
 import { taskTemplateService } from '@/services/taskTemplate';
 import { useBriefStore } from '@/store/brief';
@@ -107,7 +108,13 @@ export function useDailyBriefRecommendationsUI(
     [message, mutate, removeTemplateFromList, t],
   );
 
-  const templates = useMemo(() => data?.data ?? [], [data]);
+  const templates = useMemo(
+    () =>
+      (data?.data ?? []).filter((template) =>
+        template.connectors.every((provider) => isIntegrationVisible(provider.identifier)),
+      ),
+    [data],
+  );
   const requiredSources = useMemo(() => {
     const sources = new Set<TaskTemplateConnectorSource>();
     for (const tmpl of templates) {

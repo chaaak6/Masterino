@@ -4,6 +4,7 @@ import { Button, Center, Flexbox, Text } from '@lobehub/ui';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { useAgentMeta } from '@/features/Conversation/hooks/useAgentMeta';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import LobeMessage from '@/routes/onboarding/components/LobeMessage';
@@ -69,7 +70,7 @@ const CompletionPanel = memo<CompletionPanelProps>(
               <FeedbackPanel hasPriorFeedback={!!feedbackSubmitted} topicId={topicId} />
             )}
           </Flexbox>
-          <MessengerIntegrations />
+          {isProductFeatureEnabled('externalMessaging') && <MessengerIntegrations />}
         </Flexbox>
       </Center>
     );

@@ -3,9 +3,10 @@
 import { Flexbox } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 
 import Loading from '@/components/Loading/BrandTextLoading';
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import NavHeader from '@/features/NavHeader';
 import { usePermission } from '@/hooks/usePermission';
 import { useAgentStore } from '@/store/agent';
@@ -131,4 +132,13 @@ const ChannelPage = memo(() => {
   );
 });
 
-export default ChannelPage;
+const ChannelRoute = () => {
+  const { aid } = useParams<{ aid?: string }>();
+  return isProductFeatureEnabled('externalMessaging') ? (
+    <ChannelPage />
+  ) : (
+    <Navigate replace to={`/agent/${aid}/profile`} />
+  );
+};
+
+export default ChannelRoute;

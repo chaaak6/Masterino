@@ -5,6 +5,7 @@ import {
 } from '@lobechat/builtin-tools';
 import { type BuiltinSkill, type LobeToolMeta } from '@lobechat/types';
 
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import {
   isBuiltinSkillAvailableInCurrentEnv,
   isBuiltinToolAvailableInCurrentEnv,
@@ -128,7 +129,9 @@ const buildVisibleMetaList = (
     .map(toSkillMeta);
   const agentSkillMetas = agentSkillsSelectors.agentSkillMetaList(s);
 
-  return [...skillMetas, ...agentSkillMetas, ...builtinMetas, ...getComposioMetas(s)];
+  return [...skillMetas, ...agentSkillMetas, ...builtinMetas, ...getComposioMetas(s)].filter(
+    (meta) => isIntegrationVisible(meta.identifier),
+  );
 };
 
 /**
@@ -179,7 +182,12 @@ const allMetaList = (s: ToolStoreState): LobeToolMetaWithAvailability[] => {
     .agentSkillMetaList(s)
     .map((meta) => ({ ...meta, availableInWeb: true }));
 
-  return [...skillMetas, ...agentSkillMetas, ...builtinMetas, ...getComposioMetasWithAvailability(s)];
+  return [
+    ...skillMetas,
+    ...agentSkillMetas,
+    ...builtinMetas,
+    ...getComposioMetasWithAvailability(s),
+  ].filter((meta) => isIntegrationVisible(meta.identifier));
 };
 
 /**
@@ -209,7 +217,9 @@ const discoverableMetaList = (s: ToolStoreState): LobeToolMeta[] => {
     })
     .map(toBuiltinMeta);
 
-  return [...skillMetas, ...agentSkillMetas, ...builtinMetas, ...getComposioMetas(s)];
+  return [...skillMetas, ...agentSkillMetas, ...builtinMetas, ...getComposioMetas(s)].filter(
+    (meta) => isIntegrationVisible(meta.identifier),
+  );
 };
 
 /**
@@ -228,7 +238,9 @@ const installedAllMetaList = (s: ToolStoreState): LobeToolMetaWithAvailability[]
     })
     .map(toBuiltinMetaWithAvailability);
 
-  return [...builtinMetas, ...getComposioMetasWithAvailability(s)];
+  return [...builtinMetas, ...getComposioMetasWithAvailability(s)].filter((meta) =>
+    isIntegrationVisible(meta.identifier),
+  );
 };
 
 const MANUAL_MODE_EXCLUDE_TOOL_IDS = new Set(manualModeExcludeToolIds);

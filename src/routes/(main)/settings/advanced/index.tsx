@@ -10,6 +10,7 @@ import { Loader2Icon } from 'lucide-react';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { FORM_STYLE } from '@/const/layoutTokens';
 import SettingHeader from '@/routes/(main)/settings/features/SettingHeader';
 import { autoUpdateService } from '@/services/electron/autoUpdate';
@@ -179,19 +180,23 @@ const Page = memo(() => {
     },
     ...(isDesktop
       ? [
-          {
-            children: (
-              <Switch
-                checked={enableImessage}
-                loading={!isPreferenceInit}
-                onChange={(checked: boolean) => updateLab({ enableImessage: checked })}
-              />
-            ),
-            className: styles.labItem,
-            desc: tLabs('features.imessage.desc'),
-            label: tLabs('features.imessage.title'),
-            minWidth: undefined,
-          } satisfies FormItemProps,
+          ...(isProductFeatureEnabled('externalMessaging')
+            ? [
+                {
+                  children: (
+                    <Switch
+                      checked={enableImessage}
+                      loading={!isPreferenceInit}
+                      onChange={(checked: boolean) => updateLab({ enableImessage: checked })}
+                    />
+                  ),
+                  className: styles.labItem,
+                  desc: tLabs('features.imessage.desc'),
+                  label: tLabs('features.imessage.title'),
+                  minWidth: undefined,
+                } satisfies FormItemProps,
+              ]
+            : []),
           {
             children: (
               <Switch
