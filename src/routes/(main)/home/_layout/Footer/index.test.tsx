@@ -222,6 +222,16 @@ afterEach(() => {
 });
 
 describe('Footer agent onboarding promotion', () => {
+  it('Given the company help menu, When opened, Then keeps help actions and hides external social links', async () => {
+    await renderFooter({ desktop: true });
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Help' }));
+    expect(screen.getByText('Docs')).toBeInTheDocument();
+    expect(screen.getByText('Changelog')).toBeInTheDocument();
+    expect(screen.getByText('Feedback')).toBeInTheDocument();
+    expect(screen.queryByText('Discord')).not.toBeInTheDocument();
+    expect(screen.queryByText('GitHub')).not.toBeInTheDocument();
+  }, 40000);
+
   it('shows the agent onboarding promotion for eligible web users', async () => {
     await renderFooter();
 

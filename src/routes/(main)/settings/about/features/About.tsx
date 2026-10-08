@@ -1,7 +1,7 @@
 'use client';
 
-import { SiGithub, SiRss } from '@icons-pack/react-simple-icons';
-import { BRANDING_EMAIL, BRANDING_NAME, SOCIAL_URL } from '@lobechat/business-const';
+import { SiRss } from '@icons-pack/react-simple-icons';
+import { BRANDING_EMAIL, BRANDING_NAME } from '@lobechat/business-const';
 import { isDesktop } from '@lobechat/const';
 import type { UpdaterState } from '@lobechat/electron-client-ipc';
 import { useWatchBroadcast } from '@lobechat/electron-client-ipc';
@@ -92,12 +92,6 @@ const About = memo<{ mobile?: boolean }>(({ mobile }) => {
               icon: SiRss,
               label: t('blog'),
               value: 'blog',
-            },
-            {
-              href: SOCIAL_URL.github,
-              icon: SiGithub,
-              label: 'GitHub',
-              value: 'feedback',
             },
           ]}
         />
