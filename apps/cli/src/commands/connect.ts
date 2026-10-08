@@ -39,6 +39,7 @@ import { loadOrCreateConnectionId, loadSettings, normalizeUrl, saveSettings } fr
 import { executeToolCall } from '../tools';
 import { cleanupAllProcesses } from '../tools/shell';
 import { log, setVerbose } from '../utils/logger';
+import { resolveCliManagedPaths } from '../utils/managedPaths';
 
 interface ConnectOptions {
   daemon?: boolean;
@@ -603,6 +604,7 @@ function scheduleProactiveRefresh(
 
 function collectSystemInfo(): DeviceSystemInfo {
   const home = os.homedir();
+  const managedPaths = resolveCliManagedPaths();
   const platform = process.platform;
   const videosDir = platform === 'linux' ? 'Videos' : 'Movies';
 
@@ -614,14 +616,12 @@ function collectSystemInfo(): DeviceSystemInfo {
     homePath: home,
     musicPath: path.join(home, 'Music'),
     picturesPath: path.join(home, 'Pictures'),
-    userDataPath: path.join(home, '.lobehub'),
+    userDataPath: managedPaths.home,
     videosPath: path.join(home, videosDir),
     workingDirectory: process.cwd(),
   };
 }
 
 function resolveCliScratchRoot(): string {
-  const configured = process.env.LOBEHUB_CLI_HOME || '.lobehub';
-  const cliRoot = path.isAbsolute(configured) ? configured : path.join(os.homedir(), configured);
-  return path.join(cliRoot, 'scratch-workspaces');
+  return resolveCliManagedPaths().scratchRoot;
 }

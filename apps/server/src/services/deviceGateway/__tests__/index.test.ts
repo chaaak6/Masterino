@@ -630,7 +630,7 @@ describe('DeviceGateway', () => {
   });
 
   describe('cleanupScratchWorkspace', () => {
-    it('passes only the topic identity to the owning device RPC', async () => {
+    it('passes the persisted topic root to the owning device RPC', async () => {
       mockEnv.DEVICE_GATEWAY_URL = 'https://gateway.example.com';
       mockEnv.DEVICE_GATEWAY_SERVICE_TOKEN = 'token';
       mockClient.invokeRpc.mockResolvedValue({
@@ -640,6 +640,7 @@ describe('DeviceGateway', () => {
 
       const result = await new DeviceGateway().cleanupScratchWorkspace({
         deviceId: 'dev-1',
+        expectedRoot: '/legacy/scratch/topic-1',
         topicId: 'topic-1',
         userId: 'user-1',
       });
@@ -647,7 +648,10 @@ describe('DeviceGateway', () => {
       expect(result).toEqual({ removed: true, root: '/scratch/topic-1' });
       expect(mockClient.invokeRpc).toHaveBeenCalledWith(
         { deviceId: 'dev-1', timeout: 8000, userId: 'user-1' },
-        { method: 'cleanupScratchWorkspace', params: { topicId: 'topic-1' } },
+        {
+          method: 'cleanupScratchWorkspace',
+          params: { expectedRoot: '/legacy/scratch/topic-1', topicId: 'topic-1' },
+        },
       );
     });
 

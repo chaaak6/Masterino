@@ -856,6 +856,7 @@ export class AiAgentService {
       try {
         const cleaned = await deviceGateway.cleanupScratchWorkspace({
           deviceId: params.deviceId,
+          expectedRoot: params.rootPath,
           topicId: params.topicId,
           userId: this.userId,
         });

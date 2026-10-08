@@ -6,7 +6,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const tmpDir = path.join(os.tmpdir(), 'daemon-test-' + process.pid);
-const mockDir = path.join(tmpDir, '.lobehub');
+const mockDir = path.join(tmpDir, '.masterino', 'state');
+const legacyDir = path.join(tmpDir, '.lobehub');
 
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<Record<string, any>>();
@@ -57,6 +58,13 @@ describe('daemon manager', () => {
     it('should return null for invalid PID content', async () => {
       await writeFile(path.join(mockDir, 'daemon.pid'), 'not-a-number');
       expect(readPid()).toBeNull();
+    });
+
+    it('should discover a running daemon recorded by the legacy client', async () => {
+      await mkdir(legacyDir, { recursive: true });
+      await writeFile(path.join(legacyDir, 'daemon.pid'), String(process.pid));
+
+      expect(getRunningDaemonPid()).toBe(process.pid);
     });
 
     it('should remove PID file', () => {

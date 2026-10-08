@@ -32,6 +32,7 @@ import {
   type ProjectSkillSnapshotParams,
 } from './projectSkillSnapshot';
 import { type PrepareDeviceSkillPackage, prepareSkillPackage } from './skillPackage';
+import { cleanupScratchWorkspace, ensureScratchWorkspace } from './scratchWorkspace';
 import type {
   CleanupScratchWorkspaceParams,
   DeviceControlDeps,
@@ -45,8 +46,6 @@ import type {
   VerifySkillPathsParams,
 } from './types';
 import {
-  cleanupScratchWorkspace,
-  ensureScratchWorkspace,
   initWorkspace,
   listProjectSkills,
   resolveRealPath,
@@ -136,7 +135,11 @@ export const executeDeviceRpc = async (
     }
 
     case 'cleanupScratchWorkspace': {
-      return cleanupScratchWorkspace(params as CleanupScratchWorkspaceParams, deps.scratchRoot);
+      return cleanupScratchWorkspace(
+        params as CleanupScratchWorkspaceParams,
+        deps.scratchRoot,
+        deps.legacyScratchRoots,
+      );
     }
 
     case 'ensureScratchWorkspace': {

@@ -24,9 +24,9 @@ By default the CLI connects to `https://aihub.bielcrystal.com`. To point it at a
 | Method | Command | Persistence |
 | --- | --- | --- |
 | Environment variable | `LOBEHUB_SERVER=http://localhost:4000 bun run dev -- <command>` | Current command only |
-| Login flag | `lh login --server http://localhost:4000` | Saved to `~/.lobehub/settings.json` |
+| Login flag | `lh login --server http://localhost:4000` | Saved to `~/.masterino/state/settings.json` |
 
-Compatibility settings still use the legacy `LOBEHUB_SERVER` variable and `~/.lobehub/settings.json` path. Do not rename them without reviewing CLI storage and migration impact.
+The legacy `LOBEHUB_SERVER` variable remains supported. CLI state now lives under `~/.masterino/state`; existing `~/.lobehub` state is read as a compatibility fallback and is not deleted automatically.
 
 Priority: `LOBEHUB_SERVER` env var > `settings.json` > default Aihub URL.
 

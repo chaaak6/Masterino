@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { ensureScratchWorkspace } from './workspace';
+import { ensureScratchWorkspace } from './scratchWorkspace';
 
 const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
 export interface LocalAttachmentRecord {

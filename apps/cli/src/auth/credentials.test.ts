@@ -13,8 +13,10 @@ import {
 
 // Use a fixed temp path to avoid hoisting issues with vi.mock
 const tmpDir = path.join(os.tmpdir(), 'lobehub-cli-test-creds');
-const credentialsDir = path.join(tmpDir, '.lobehub');
+const credentialsDir = path.join(tmpDir, '.masterino', 'state');
 const credentialsFile = path.join(credentialsDir, 'credentials.json');
+const legacyCredentialsDir = path.join(tmpDir, '.lobehub');
+const legacyCredentialsFile = path.join(legacyCredentialsDir, 'credentials.json');
 
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<Record<string, any>>();
@@ -88,15 +90,16 @@ describe('credentials', () => {
       expect(result).toBeNull();
     });
 
-    it('should handle legacy plaintext JSON and re-encrypt', () => {
-      fs.mkdirSync(credentialsDir, { recursive: true });
-      fs.writeFileSync(credentialsFile, JSON.stringify(testCredentials));
+    it('should load legacy plaintext credentials and migrate them without deleting the old file', () => {
+      fs.mkdirSync(legacyCredentialsDir, { recursive: true });
+      fs.writeFileSync(legacyCredentialsFile, JSON.stringify(testCredentials));
 
       const loaded = loadCredentials();
 
       expect(loaded).toEqual(testCredentials);
+      expect(fs.existsSync(legacyCredentialsFile)).toBe(true);
 
-      // Should have been re-encrypted
+      // The canonical copy is encrypted under ~/.masterino/state.
       const raw = fs.readFileSync(credentialsFile, 'utf8');
       expect(() => JSON.parse(raw)).toThrow();
     });
@@ -114,11 +117,14 @@ describe('credentials', () => {
   describe('clearCredentials', () => {
     it('should remove credentials file and return true', () => {
       saveCredentials(testCredentials);
+      fs.mkdirSync(legacyCredentialsDir, { recursive: true });
+      fs.writeFileSync(legacyCredentialsFile, 'legacy');
 
       const result = clearCredentials();
 
       expect(result).toBe(true);
       expect(fs.existsSync(credentialsFile)).toBe(false);
+      expect(fs.existsSync(legacyCredentialsFile)).toBe(false);
     });
 
     it('should return false when no file exists', () => {

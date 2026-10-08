@@ -3,15 +3,22 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { resolveCliManagedPaths } from '../utils/managedPaths';
+
 export interface StoredCredentials {
   accessToken: string;
   expiresAt?: number; // Unix timestamp (seconds)
   refreshToken?: string;
 }
 
-const LOBEHUB_DIR_NAME = process.env.LOBEHUB_CLI_HOME || '.lobehub';
-const CREDENTIALS_DIR = path.join(os.homedir(), LOBEHUB_DIR_NAME);
-const CREDENTIALS_FILE = path.join(CREDENTIALS_DIR, 'credentials.json');
+const getCredentialPaths = () => {
+  const { legacyStateRoot, stateRoot } = resolveCliManagedPaths();
+  return {
+    canonical: path.join(stateRoot, 'credentials.json'),
+    legacy: path.join(legacyStateRoot, 'credentials.json'),
+    stateRoot,
+  };
+};
 
 // Derive an encryption key from machine-specific info
 // Not bulletproof, but prevents casual reading of the credentials file
@@ -43,35 +50,44 @@ function decrypt(encoded: string): string {
 }
 
 export function saveCredentials(credentials: StoredCredentials): void {
-  fs.mkdirSync(CREDENTIALS_DIR, { mode: 0o700, recursive: true });
+  const { canonical, stateRoot } = getCredentialPaths();
+  fs.mkdirSync(stateRoot, { mode: 0o700, recursive: true });
   const encrypted = encrypt(JSON.stringify(credentials));
-  fs.writeFileSync(CREDENTIALS_FILE, encrypted, { mode: 0o600 });
+  fs.writeFileSync(canonical, encrypted, { mode: 0o600 });
 }
 
 export function loadCredentials(): StoredCredentials | null {
-  try {
-    const data = fs.readFileSync(CREDENTIALS_FILE, 'utf8');
-
-    // Try decrypting first
+  const { canonical, legacy } = getCredentialPaths();
+  for (const filename of [canonical, legacy]) {
     try {
-      const decrypted = decrypt(data);
-      return JSON.parse(decrypted) as StoredCredentials;
-    } catch {
-      // Fallback: handle legacy plaintext JSON, re-save encrypted
-      const credentials = JSON.parse(data) as StoredCredentials;
-      saveCredentials(credentials);
+      const data = fs.readFileSync(filename, 'utf8');
+
+      let credentials: StoredCredentials;
+      try {
+        credentials = JSON.parse(decrypt(data)) as StoredCredentials;
+      } catch {
+        credentials = JSON.parse(data) as StoredCredentials;
+      }
+      if (filename !== canonical) saveCredentials(credentials);
+      else if (data.trimStart().startsWith('{')) saveCredentials(credentials);
       return credentials;
+    } catch {
+      // Try the compatibility location before reporting no credentials.
     }
-  } catch {
-    return null;
   }
+  return null;
 }
 
 export function clearCredentials(): boolean {
-  try {
-    fs.unlinkSync(CREDENTIALS_FILE);
-    return true;
-  } catch {
-    return false;
+  let removed = false;
+  const { canonical, legacy } = getCredentialPaths();
+  for (const filename of new Set([canonical, legacy])) {
+    try {
+      fs.unlinkSync(filename);
+      removed = true;
+    } catch {
+      // Already absent.
+    }
   }
+  return removed;
 }
