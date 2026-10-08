@@ -1,6 +1,6 @@
 import type { NewApiSubscription } from '@lobechat/types';
 
-export const AIHUB_ACCOUNT_URL = 'https://aihub.bielcrystal.com/';
+export const AIHUB_ACCOUNT_URL = 'https://aihub.bielcrystal.com/wallet';
 
 export const isActiveSubscription = (subscription: NewApiSubscription, now = Date.now() / 1000) =>
   subscription.status === 'active' &&

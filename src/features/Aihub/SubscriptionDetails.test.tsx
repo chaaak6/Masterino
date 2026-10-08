@@ -59,7 +59,7 @@ describe('SubscriptionDetails user-visible behavior', () => {
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', '已用 ¥107.59 / ¥700.00');
     expect(screen.getByRole('link', { name: '管理订阅' })).toHaveAttribute(
       'href',
-      'https://aihub.bielcrystal.com/',
+      'https://aihub.bielcrystal.com/wallet',
     );
   });
 
