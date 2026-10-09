@@ -1,3 +1,5 @@
+/// <reference path="./pdf-worker.d.ts" />
+
 import { createHash } from 'node:crypto';
 import { open, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,7 +14,6 @@ async function loadPdfModule() {
     const canvas = await import('@napi-rs/canvas');
     const globals = globalThis as unknown as Record<string, unknown>;
     for (const key of ['DOMMatrix', 'ImageData', 'Path2D'] as const) globals[key] ??= canvas[key];
-    // @ts-expect-error PDF.js has no declarations for its worker implementation.
     globals.pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
     return import('pdfjs-dist/legacy/build/pdf.mjs');
   })());
