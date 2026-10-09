@@ -4,8 +4,13 @@ import { fork, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { copyFile, link, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { app, BrowserWindow } from 'electron';
-import { type BundledPythonInfo, getBundledPythonInfo } from './pythonRuntime';
+import { BrowserWindow } from 'electron';
+import { ShellProcessManager } from '@lobechat/local-file-shell';
+import {
+  type BundledPythonInfo,
+  getBundledPythonInfo,
+  getDocumentPythonInfo,
+} from './pythonRuntime';
 
 interface Job {
   id: string;
@@ -20,6 +25,8 @@ interface Job {
   child?: ChildProcess;
   window?: BrowserWindow;
   timer?: ReturnType<typeof setTimeout>;
+  killTimer?: ReturnType<typeof setTimeout>;
+  childId?: string;
 }
 const background = new Set([
   'analyzeSpreadsheet',
@@ -40,15 +47,26 @@ export class DocumentJobs {
   private datasets = new Map<string, { owner: string; path: string; createdAt: number }>();
   private active = false;
   private lastCacheSweep = 0;
+  private readonly processes = new ShellProcessManager();
+  private readonly pendingExits = new Set<Promise<void>>();
+  private closing = false;
+  private cleanupPromise?: Promise<void>;
+  private activeDone?: Promise<void>;
   constructor(
     private readonly root: string,
     private readonly worker = path.join(__dirname, 'document-worker.js'),
-  ) {
-    app.once('before-quit', () => {
-      for (const job of this.jobs.values()) this.stop(job);
-    });
+  ) {}
+  cleanup(): Promise<void> {
+    return (this.cleanupPromise ??= (async () => {
+      this.closing = true;
+      for (const job of this.jobs.values())
+        if (['queued', 'running'].includes(job.status)) this.stop(job);
+      await this.processes.cleanupAll();
+      await Promise.all([...this.pendingExits, this.activeDone]);
+    })());
   }
   async execute(operation: string, args: Record<string, any>, owner: string, signal?: AbortSignal) {
+    if (this.closing) throw new Error('Document engine is shutting down');
     signal?.throwIfAborted();
     if (!owner) throw new Error('Document jobs require a device and topic execution context');
     this.prune();
@@ -130,14 +148,21 @@ export class DocumentJobs {
     job.status = 'cancelled';
     if (job.child?.connected) job.child.send({ type: 'cancel' }, () => {});
     if (job.window && !job.window.isDestroyed()) job.window.destroy();
-    const child = job.child;
-    if (child) setTimeout(() => child.kill('SIGKILL'), 5000).unref();
+    const childId = job.childId;
+    if (childId && !job.killTimer) {
+      job.killTimer = setTimeout(() => this.processes.kill(childId), 5000);
+      job.killTimer.unref();
+    }
   }
   private async drain() {
-    if (this.active) return;
+    if (this.active || this.closing) return;
     const job = [...this.jobs.values()].find((j) => j.status === 'queued');
     if (!job) return;
     this.active = true;
+    let finished!: () => void;
+    this.activeDone = new Promise<void>((resolve) => {
+      finished = resolve;
+    });
     job.status = 'running';
     const temporaryReports: string[] = [];
     const published: string[] = [];
@@ -172,7 +197,14 @@ export class DocumentJobs {
           })
           .catch(() => {});
       }, 5000);
-      const python = await getBundledPythonInfo();
+      const needsSpreadsheetEngine = [
+        'analyzeSpreadsheet',
+        'querySpreadsheet',
+        'exportDocumentReport',
+      ].includes(job.operation);
+      const python = needsSpreadsheetEngine ? await getDocumentPythonInfo() : undefined;
+      if (needsSpreadsheetEngine && !python)
+        throw new Error('BUNDLED_SPREADSHEET_ENGINE_UNAVAILABLE');
       if (this.isCancelled(job)) return;
       const workerArgs = { ...job.args };
       if (job.operation === 'exportDocumentReport') {
@@ -250,15 +282,19 @@ export class DocumentJobs {
         job.status = 'failed';
       }
     } finally {
-      if (this.isCancelled(job) && job.error) job.status = 'failed';
-      if (job.status !== 'completed')
-        await Promise.all(published.map((file) => rm(file, { force: true })));
-      await Promise.all(temporaryReports.map((file) => rm(file, { force: true })));
-      clearInterval(budgetTimer);
-      clearTimeout(job.timer);
-      job.child = undefined;
-      this.active = false;
-      void this.drain();
+      try {
+        if (this.isCancelled(job) && job.error) job.status = 'failed';
+        if (job.status !== 'completed')
+          await Promise.all(published.map((file) => rm(file, { force: true })));
+        await Promise.all(temporaryReports.map((file) => rm(file, { force: true })));
+      } finally {
+        clearInterval(budgetTimer);
+        clearTimeout(job.timer);
+        job.child = undefined;
+        this.active = false;
+        finished();
+        void this.drain();
+      }
     }
   }
   private async sweepInactiveCaches() {
@@ -314,11 +350,39 @@ export class DocumentJobs {
       if (process.env[key]) env[key] = process.env[key];
     return new Promise<any>((resolve, reject) => {
       const child = fork(this.worker, [], {
+        detached: process.platform !== 'win32',
         env,
         execArgv: ['--max-old-space-size=512'],
         stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
       });
       job.child = child;
+      const childId = randomUUID();
+      job.childId = childId;
+      this.processes.register(childId, {
+        process: child,
+        processGroup: process.platform !== 'win32',
+        exitCode: null,
+        stdout: [],
+        stderr: [],
+        lastReadStdout: 0,
+        lastReadStderr: 0,
+      });
+      const closed = new Promise<void>((done) => {
+        const end = () => {
+          if (job.childId === childId) {
+            clearTimeout(job.killTimer);
+            job.killTimer = undefined;
+          }
+          this.processes.kill(childId);
+          done();
+        };
+        child.once('close', end);
+        child.once('error', () => {
+          if (!child.pid) end();
+        });
+      });
+      this.pendingExits.add(closed);
+      void closed.then(() => this.pendingExits.delete(closed));
       let errorOutput = '';
       child.stderr?.on('data', (data) => {
         errorOutput = (errorOutput + data).slice(-2000);

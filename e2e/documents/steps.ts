@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { AfterAll, BeforeAll, Given, Then, When, setDefaultTimeout } from '@cucumber/cucumber';
 import { executeDocumentOperation } from '../../packages/file-loaders/src/documents';
 import { readOfficeDocument } from '../../packages/file-loaders/src/office';
@@ -14,6 +15,44 @@ const analysis = {
   metrics: [{ column: 'B', name: 'measurement', lower: 9, upper: 11 }],
   start: 2,
 };
+const documentApis = [
+  'inspectFile',
+  'analyzeSpreadsheet',
+  'querySpreadsheet',
+  'readPdfPages',
+  'searchPdf',
+  'renderPdfPages',
+  'exportDocumentReport',
+  'getDocumentJob',
+  'cancelDocumentJob',
+];
+let capabilities: Record<string, number>, scopedApis: string[];
+Given('a desktop with {word} document capabilities', (capability: string) => {
+  capabilities =
+    capability === 'complete'
+      ? Object.fromEntries(documentApis.map((name) => [name, 1]))
+      : capability === 'partial'
+        ? { inspectFile: 1 }
+        : {};
+});
+When('the server scopes its local tool manifest for that desktop', () => {
+  const { scopeLocalSystemManifestForDevice } = createRequire(import.meta.url)(
+    './.artifacts/device-manifest.js',
+  );
+  scopedApis = scopeLocalSystemManifestForDevice({
+    gatewayConfigured: true,
+    localSystemApiVersions: capabilities,
+  }).api.map((api: { name: string }) => api.name);
+});
+Then(
+  'document tools are {word} and existing Office tools remain available',
+  (visibility: string) => {
+    for (const name of documentApis)
+      assert.equal(scopedApis.includes(name), visibility === 'visible', name);
+    for (const name of ['readFile', 'readOfficeDocument', 'createOfficeDocument'])
+      assert.ok(scopedApis.includes(name), name);
+  },
+);
 BeforeAll(async () => {
   assert.equal(process.env.APP_URL, 'https://mlai-test.bielcrystal.com');
   assert.ok(python, 'Set the isolated test Python path');
@@ -30,6 +69,28 @@ const run = (operation: string, args: any) =>
     python,
     scriptPath: path.resolve('apps/desktop/python/documents.py'),
   });
+When('the agent exports the Excel analysis report', async () => {
+  await run('exportDocumentReport', {
+    datasetPath: result.datasetPath,
+    metrics: analysis.metrics,
+    outputPath: path.join(root, 'classification.xlsx'),
+  });
+});
+Then('its classification row contains only Pass 1 Fail 2 and Incomplete 2', () => {
+  execFileSync(python, [
+    '-I',
+    '-B',
+    '-c',
+    `
+import zipfile,lxml.etree as E,sys
+z=zipfile.ZipFile(sys.argv[1]);ns={'m':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+sheet=E.fromstring(z.read('xl/worksheets/sheet1.xml'))
+rows=[[(''.join(c.xpath('.//m:t/text()',namespaces=ns)) if c.get('t')=='inlineStr' else c.find('m:v',ns).text) for c in row] for row in sheet.findall('m:sheetData/m:row',ns)]
+assert next(row for row in rows if row[0]=='Pass') == ['Pass','1','Fail','2','Incomplete','2'], rows
+`,
+    path.join(root, 'classification.xlsx'),
+  ]);
+});
 Given('a workbook whose worksheet expands beyond one GiB', () => {
   file = path.join(root, 'expanded.xlsx');
 });

@@ -10,6 +10,8 @@ export interface DocumentExecutionOptions {
   scriptPath?: string;
   signal?: AbortSignal;
   progress?: (value: unknown) => void;
+  /** Desktop workers own the process group; direct callers own a separate Python group. */
+  pythonProcessGroup?: boolean;
 }
 export async function inspectFile(params: { path: string }, options: DocumentExecutionOptions) {
   options.signal?.throwIfAborted();
@@ -102,7 +104,7 @@ export async function executeDocumentOperation(
       {
         env,
         windowsHide: true,
-        detached: process.platform !== 'win32',
+        detached: process.platform !== 'win32' && options.pythonProcessGroup !== false,
         stdio: ['ignore', 'pipe', 'pipe'],
       },
     );
@@ -112,7 +114,8 @@ export async function executeDocumentOperation(
     const kill = (signal: NodeJS.Signals) => {
       if (!child.pid) return;
       try {
-        if (process.platform === 'win32') child.kill(signal);
+        if (process.platform === 'win32' || options.pythonProcessGroup === false)
+          child.kill(signal);
         else process.kill(-child.pid, signal);
       } catch {
         /* process already exited */

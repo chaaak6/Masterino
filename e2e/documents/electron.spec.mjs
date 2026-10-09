@@ -1,12 +1,26 @@
 import { test, expect, _electron } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, rm, symlink, copyFile, stat, writeFile, utimes } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  rm,
+  symlink,
+  copyFile,
+  stat,
+  writeFile,
+  utimes,
+  cp,
+  rename,
+  readdir,
+  readFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 const root = process.cwd();
 const python = process.env.MASTERINO_DOCUMENT_TEST_PYTHON;
 let app, temp;
+let electronExecutable;
 const run = (operation, args, owner = 'test-device:test-topic') =>
   app.evaluate((_, p) => globalThis.documents.execute(p.operation, p.args, p.owner), {
     operation,
@@ -61,8 +75,9 @@ test.beforeAll(async () => {
     encoding: 'utf8',
   }).trim();
   const primary = createRequire(path.join(path.dirname(common), 'apps/desktop/package.json'));
+  electronExecutable = process.env.ELECTRON_EXECUTABLE_PATH ?? primary('electron');
   app = await _electron.launch({
-    executablePath: process.env.ELECTRON_EXECUTABLE_PATH ?? primary('electron'),
+    executablePath: electronExecutable,
     args: [path.join(root, 'e2e/documents/.artifacts/electron-main.js')],
     env: {
       ...process.env,
@@ -192,4 +207,175 @@ test('cancel heavy job then continue normal selected-file reads', async () => {
   const inspected = await run('inspectFile', { path: path.join(temp, 'known.xlsx') });
   expect(inspected.sheets[0].name).toBe('Data');
   expect(Date.now() - cancelStarted).toBeLessThan(5000);
+});
+
+test('Given broken DuckDB, existing Python/PPT, Office and PDF still work', async () => {
+  await app.close();
+  const runtime = path.join(temp, 'fault-runtime');
+  await cp(path.dirname(path.dirname(python)), runtime, {
+    recursive: true,
+    verbatimSymlinks: true,
+  });
+  const packages = path.join(runtime, 'lib', 'python3.12', 'site-packages');
+  await rename(path.join(packages, 'duckdb'), path.join(packages, 'duckdb-disabled'));
+  await mkdir(path.join(packages, 'duckdb'));
+  await writeFile(
+    path.join(packages, 'duckdb', '__init__.py'),
+    'raise ImportError("synthetic DuckDB loading failure")\n',
+  );
+  const distribution = (await readdir(packages)).find(
+    (name) => name.startsWith('duckdb-') && name.endsWith('.dist-info'),
+  );
+  expect(distribution).toBeTruthy();
+  await rename(path.join(packages, distribution), path.join(packages, distribution + '-disabled'));
+  const link = path.join(root, 'e2e/documents/.artifacts/resources/python-runtime');
+  await rm(link, { recursive: true, force: true });
+  await symlink(runtime, link);
+  try {
+    app = await _electron.launch({
+      executablePath: electronExecutable,
+      args: [path.join(root, 'e2e/documents/.artifacts/electron-main.js')],
+      env: {
+        ...process.env,
+        APP_URL: 'https://mlai-test.bielcrystal.com',
+        MASTERINO_DOCUMENT_PROFILE: path.join(temp, 'fault-profile'),
+        MASTERINO_DOCUMENT_CACHE: path.join(temp, 'fault-cache'),
+        MASTERINO_DOCUMENT_WORKER: path.join(root, 'e2e/documents/.artifacts/document-worker.js'),
+      },
+    });
+    const info = await app.evaluate(() => globalThis.getBundledPythonInfo());
+    expect(info?.executable).toBeTruthy();
+    expect(info.packages['python-pptx']).toBeTruthy();
+    execFileSync(info.executable, [
+      '-I',
+      '-B',
+      '-c',
+      'from pptx import Presentation;import sys;p=Presentation();p.slides.add_slide(p.slide_layouts[6]);p.save(sys.argv[1]);assert len(Presentation(sys.argv[1]).slides)==1',
+      path.join(temp, 'fault-legacy.pptx'),
+    ]);
+    const inspected = await run('inspectFile', { path: path.join(temp, 'known.xlsx') });
+    expect(inspected.sheets[0].name).toBe('Data');
+    const evidence = await run('readPdfPages', { path: path.join(temp, 'report.pdf'), pages: [1] });
+    expect(evidence.pages[0].text).toContain('Rows: 5');
+    const searched = await done(
+      await run('searchPdf', { path: path.join(temp, 'report.pdf'), query: 'Rows' }),
+    );
+    expect(searched.matchCount).toBeGreaterThan(0);
+    const rendered = await done(
+      await run('renderPdfPages', { path: path.join(temp, 'report.pdf'), pages: [1] }),
+    );
+    expect((await stat(rendered.pages[0].path)).size).toBeGreaterThan(0);
+    await expect(
+      done(
+        await run('analyzeSpreadsheet', {
+          path: path.join(temp, 'known.xlsx'),
+          columns: ['B'],
+          metrics: [{ column: 'B' }],
+        }),
+      ),
+    ).rejects.toThrow('BUNDLED_SPREADSHEET_ENGINE_UNAVAILABLE');
+    // Repair only the disposable test copy; a failed optional probe must be retried.
+    await rm(path.join(packages, 'duckdb'), { recursive: true, force: true });
+    await rename(path.join(packages, 'duckdb-disabled'), path.join(packages, 'duckdb'));
+    await rename(
+      path.join(packages, distribution + '-disabled'),
+      path.join(packages, distribution),
+    );
+    const recovered = await done(
+      await run('analyzeSpreadsheet', {
+        path: path.join(temp, 'known.xlsx'),
+        columns: ['B'],
+        metrics: [{ column: 'B' }],
+      }),
+    );
+    expect(recovered.rowsScanned).toBe(5);
+    expect(
+      (
+        await done(
+          await run('querySpreadsheet', { datasetId: recovered.datasetId, distinct: ['B'] }),
+        )
+      ).sourceScans,
+    ).toBe(0);
+    await done(
+      await run('exportDocumentReport', {
+        datasetId: recovered.datasetId,
+        metrics: [{ column: 'B' }],
+        outputPath: path.join(temp, 'recovered.xlsx'),
+      }),
+    );
+    expect((await app.evaluate(() => globalThis.getBundledPythonInfo()))?.executable).toBeTruthy();
+  } finally {
+    await app.close();
+    await rm(link, { recursive: true, force: true });
+    await symlink(path.dirname(path.dirname(python)), link);
+  }
+});
+
+test('Given a started scan, quitting Electron reaps Python before exit', async () => {
+  const runtime = path.join(temp, 'quit-runtime');
+  await cp(path.dirname(path.dirname(python)), runtime, {
+    recursive: true,
+    verbatimSymlinks: true,
+  });
+  // A test-only TERM-resistant child makes the escalation/quit ordering observable.
+  await writeFile(
+    path.join(runtime, 'documents.py'),
+    'import signal\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\n' +
+      (await readFile('apps/desktop/python/documents.py', 'utf8')),
+  );
+  const link = path.join(root, 'e2e/documents/.artifacts/resources/python-runtime');
+  await rm(link, { recursive: true, force: true });
+  await symlink(runtime, link);
+  app = await _electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(root, 'e2e/documents/.artifacts/electron-main.js')],
+    env: {
+      ...process.env,
+      APP_URL: 'https://mlai-test.bielcrystal.com',
+      MASTERINO_DOCUMENT_PROFILE: path.join(temp, 'quit-profile'),
+      MASTERINO_DOCUMENT_CACHE: path.join(temp, 'quit-cache'),
+      MASTERINO_DOCUMENT_WORKER: path.join(root, 'e2e/documents/.artifacts/document-worker.js'),
+    },
+  });
+  const job = await run('analyzeSpreadsheet', {
+    path: path.join(temp, 'million.xlsx'),
+    columns: ['A', 'B', 'C'],
+    metrics: [{ column: 'B' }],
+  });
+  await expect
+    .poll(
+      async () => (await run('getDocumentJob', { jobId: job.jobId })).progress?.rowsScanned ?? 0,
+      { timeout: 30000 },
+    )
+    .toBeGreaterThan(0);
+  const processes = execFileSync('ps', ['-axo', 'pid,ppid,command'], { encoding: 'utf8' }).split(
+    '\n',
+  );
+  const pythonPids = processes
+    .filter((line) => line.includes('documents.py') && line.includes(path.join(temp, 'quit-cache')))
+    .map((line) => Number(line.trim().split(/\s+/)[0]));
+  expect(pythonPids.length).toBeGreaterThan(0);
+  const gone = (pid) => {
+    try {
+      process.kill(pid, 0);
+      return false;
+    } catch (error) {
+      if (error.code === 'ESRCH') return true;
+      throw error;
+    }
+  };
+  try {
+    const exited = new Promise((resolve) => app.process().once('exit', resolve));
+    await app.evaluate(({ app: electronApp }) => {
+      setTimeout(() => electronApp.quit(), 0);
+    });
+    await exited;
+    expect(pythonPids.every(gone)).toBe(true);
+    await expect(run('inspectFile', { path: path.join(temp, 'known.xlsx') })).rejects.toThrow();
+  } finally {
+    for (const pid of pythonPids) if (!gone(pid)) process.kill(pid, 'SIGKILL');
+    await app.close();
+    await rm(link, { recursive: true, force: true });
+    await symlink(path.dirname(path.dirname(python)), link);
+  }
 });

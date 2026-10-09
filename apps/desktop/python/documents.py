@@ -576,9 +576,6 @@ def main(request):
                     "Fail",
                     result["classification"]["fail"],
                     "Incomplete",
-                    "Column",
-                    "Lower limit",
-                    "Upper limit",
                     result["classification"]["incomplete"],
                 ],
             )

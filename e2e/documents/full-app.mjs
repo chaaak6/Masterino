@@ -66,6 +66,85 @@ const done = async (job) => {
   }
   throw Error('Timed out');
 };
+const verifyQuit = async () => {
+  const targets = await (await fetch('http://127.0.0.1:9334/json/list')).json();
+  const socket = new WebSocket(targets[0].webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true });
+    socket.addEventListener('error', reject, { once: true });
+  });
+  let sequence = 0;
+  const evaluate = (expression) =>
+    new Promise((resolve, reject) => {
+      const id = ++sequence;
+      const message = (event) => {
+        const response = JSON.parse(event.data);
+        if (response.id !== id) return;
+        socket.removeEventListener('message', message);
+        if (response.error || response.result.exceptionDetails)
+          reject(Error(JSON.stringify(response)));
+        else resolve(response.result.result.value);
+      };
+      socket.addEventListener('message', message);
+      socket.send(
+        JSON.stringify({
+          id,
+          method: 'Runtime.evaluate',
+          params: { expression, returnByValue: true },
+        }),
+      );
+    });
+  try {
+    const electronApp =
+      'process.getBuiltinModule("module").createRequire(process.cwd()+"/package.json")("electron").app';
+    const identity = await evaluate(
+      `({pid:process.pid,profile:${electronApp}.getPath("userData")})`,
+    );
+    assert.equal(
+      path.basename(identity.profile),
+      expectedProfile,
+      'Quit only the isolated test App',
+    );
+    const job = await invoke('analyzeSpreadsheet', {
+      path: path.join(directory, 'million.xlsx'),
+      columns: ['A', 'B', 'C'],
+      metrics: [{ column: 'B' }],
+    });
+    let started = false;
+    for (let i = 0; i < 300; i++) {
+      const state = await invoke('getDocumentJob', { jobId: job.jobId });
+      if (state.progress?.rowsScanned > 0) {
+        started = true;
+        break;
+      }
+      assert.ok(['queued', 'running'].includes(state.status), JSON.stringify(state));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.ok(started);
+    const pythonPids = execFileSync('ps', ['-axo', 'pid,command'], { encoding: 'utf8' })
+      .split('\n')
+      .filter((line) => line.includes('documents.py') && line.includes(identity.profile))
+      .map((line) => Number(line.trim().split(/\s+/)[0]));
+    assert.ok(pythonPids.length > 0);
+    await evaluate(`setTimeout(()=>${electronApp}.quit(),50);true`);
+    socket.close();
+    const gone = (pid) => {
+      try {
+        process.kill(pid, 0);
+        return false;
+      } catch (error) {
+        if (error.code === 'ESRCH') return true;
+        throw error;
+      }
+    };
+    for (let i = 0; i < 200 && !gone(identity.pid); i++)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.ok(gone(identity.pid), 'Test App must finish its quit');
+    assert.ok(pythonPids.every(gone), 'Python must be reaped before App exit');
+  } finally {
+    socket.close();
+  }
+};
 try {
   const known = path.join(directory, 'known.xlsx');
   assert.equal((await invoke('inspectFile', { path: known })).sheets[0].name, 'Data');
@@ -171,6 +250,7 @@ try {
     true,
     'Generated page must load through an exact-file preview token',
   );
+  if (process.env.MASTERINO_DOCUMENT_TEST_QUIT === '1') await verifyQuit();
   const report = {
     environment: 'test app against https://mlai-test.bielcrystal.com',
     cases: [
@@ -182,6 +262,9 @@ try {
       'structured filters and samples',
       'Chinese XLSX/PDF export and readback',
       'PDF rendering and exact-file preview token',
+      ...(process.env.MASTERINO_DOCUMENT_TEST_QUIT === '1'
+        ? ['actual App quit waits for document process tree']
+        : []),
     ],
     passed: true,
   };
@@ -192,5 +275,5 @@ try {
   console.log(JSON.stringify(report));
 } finally {
   await rm(directory, { recursive: true, force: true });
-  await browser.close();
+  await browser.close().catch(() => {});
 }

@@ -1,6 +1,18 @@
 import { type BuiltinToolManifest } from '@lobechat/types';
 
 import { presentationApis } from './presentationManifest';
+
+export const DOCUMENT_API_NAMES = [
+  'inspectFile',
+  'analyzeSpreadsheet',
+  'querySpreadsheet',
+  'readPdfPages',
+  'searchPdf',
+  'renderPdfPages',
+  'exportDocumentReport',
+  'getDocumentJob',
+  'cancelDocumentJob',
+] as const;
 import { systemPrompt } from './systemRole';
 import { LocalSystemApiName, LocalSystemIdentifier } from './types';
 

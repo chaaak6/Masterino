@@ -19,7 +19,11 @@
  *      because the manifest was still resolvable in the engine even when
  *      the rule-layer gate denied it).
  */
-import { LocalSystemManifest, PRESENTATION_API_NAMES } from '@lobechat/builtin-tool-local-system';
+import {
+  DOCUMENT_API_NAMES,
+  LocalSystemManifest,
+  PRESENTATION_API_NAMES,
+} from '@lobechat/builtin-tool-local-system';
 import type { DeviceChannel } from '@lobechat/builtin-tool-remote-device';
 import { RemoteDeviceManifest } from '@lobechat/builtin-tool-remote-device';
 import { builtinTools } from '@lobechat/builtin-tools';
@@ -34,6 +38,7 @@ export const isDeviceToolIdentifier = (identifier: string): boolean =>
   DEVICE_TOOL_IDENTIFIERS.has(identifier);
 
 const presentationApiNames = new Set<string>(PRESENTATION_API_NAMES);
+const documentApiNames = new Set<string>(DOCUMENT_API_NAMES);
 
 const channelRank = (channel?: string) => {
   switch (channel) {
@@ -66,7 +71,7 @@ export const selectGatewayDispatchChannel = (channels: DeviceChannel[] = []) =>
 /**
  * Keep the server's schema authoritative while intersecting new local APIs
  * with the selected desktop's advertised implementation. Legacy devices keep
- * all historical local-system APIs and simply do not see presentation calls.
+ * all historical local-system APIs and do not see new presentation/document calls.
  */
 export const scopeLocalSystemManifestForDevice = (params: {
   gatewayConfigured: boolean;
@@ -76,10 +81,15 @@ export const scopeLocalSystemManifestForDevice = (params: {
   const supportsPresentations = PRESENTATION_API_NAMES.every(
     (name) => (params.localSystemApiVersions?.[name] ?? 0) >= 1,
   );
+  const supportsDocuments = DOCUMENT_API_NAMES.every(
+    (name) => (params.localSystemApiVersions?.[name] ?? 0) >= 1,
+  );
   return {
     ...LocalSystemManifest,
     api: LocalSystemManifest.api.filter(
-      (api) => supportsPresentations || !presentationApiNames.has(api.name),
+      (api) =>
+        (supportsPresentations || !presentationApiNames.has(api.name)) &&
+        (supportsDocuments || !documentApiNames.has(api.name)),
     ),
   };
 };

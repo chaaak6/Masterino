@@ -49,3 +49,22 @@ Feature: Local large document processing
     When the agent analyzes the measurement columns together
     And the agent queries with a bounded group limit
     Then omitted groups are marked explicitly and counts remain exact
+
+  @report-classification
+  Scenario: Export classification labels next to their correct counts
+    Given a workbook with known measurements, missing values and cached formulas
+    When the agent analyzes the measurement columns together
+    And the agent exports the Excel analysis report
+    Then its classification row contains only Pass 1 Fail 2 and Incomplete 2
+
+  @device-capability
+  Scenario Outline: Offer document tools only to a desktop supporting the complete workflow
+    Given a desktop with <capability> document capabilities
+    When the server scopes its local tool manifest for that desktop
+    Then document tools are <visibility> and existing Office tools remain available
+
+    Examples:
+      | capability | visibility |
+      | no         | hidden     |
+      | partial    | hidden     |
+      | complete   | visible    |

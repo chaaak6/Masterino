@@ -40,3 +40,18 @@ The cold operations calculate different statistics; these are indicative timings
 The complete desktop TypeScript command remains blocked by existing errors in unchanged sources, tests and declarations; the changed document/runtime/controller files report no errors. The root check passes. Windows packaging paths are implemented but were not executed on this Mac. Unicode reports require the fixed local OS font and fail verification if unavailable. Scanned PDFs require a separate, explicitly chosen OCR workflow; Excel formula recalculation is not provided.
 
 Reproduction commands and generated artifact locations are in [README.md](README.md).
+
+## PR review fixes — 2026-10-09
+
+All four review findings were reproduced through behavior checks and fixed:
+
+- XLSX classification now contains exactly `Pass,1,Fail,2,Incomplete,2` for the known fixture, with no metric-only headers inserted between its labels and counts.
+- Document workers use the existing `ShellProcessManager`. On Unix each worker owns a process group and its Python child stays in that group; on Windows cleanup uses the existing process-tree termination. App quit awaits both Shell and document cleanup, including worker closure and active-job cleanup, and refuses new document jobs during shutdown. The Shell manager implementation itself is unchanged.
+- The legacy bundled Python probe no longer imports or requires DuckDB metadata. Only the three spreadsheet/dataset/report operations use the separate optional-engine probe. Failed optional probes can retry; PDF inspection/read/search/render do not require a Python probe.
+- The desktop advertises all nine document API contract versions. The service scopes those APIs to a selected desktop advertising the complete workflow; old or partial desktops retain historical Office and presentation behavior without receiving unsupported document calls.
+
+Final isolated-test results: Cucumber13 scenarios/43 steps passed; real Electron4 scenarios passed; full test App9 acceptance lanes passed, including actual App quit;135 shared/server regressions and150 desktop regressions passed. One Windows-specific runtime-routing check was skipped on macOS. Root TypeScript and whitespace checks pass. The separate desktop TypeScript command still reports the previously recorded baseline errors, including unchanged portions of App.ts; there are no new document-fix diagnostics.
+
+Fault injection only changes disposable runtime copies: DuckDB import raises an error and its distribution metadata is absent, while a real legacy PPT round trip and PDF read/search/render remain successful. After repairing that copy, dataset creation, query and report export work. The quit fixture ignores SIGTERM to require process-group escalation; the unfixed implementation left Python alive after Electron exit, while the fix reaps it before exit. A separate App lifecycle check verifies that completing Shell cleanup alone cannot complete quit while document cleanup is pending. The full production-entry test also starts scanning, quits the verified isolated profile and observes no residual Python process.
+
+No production App runtime, production cluster resources or production deployment were modified. The original worktree remains untouched; changes are confined to this PR worktree and temporary test artifacts.

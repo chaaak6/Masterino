@@ -640,6 +640,9 @@ export default class GatewayConnectionCtr extends ControllerModule {
   }
 
   private documentJobsInstance?: DocumentJobs;
+  cleanupDocumentJobs(): Promise<void> {
+    return this.documentJobsInstance?.cleanup() ?? Promise.resolve();
+  }
   private get documentJobs() {
     return (this.documentJobsInstance ??= new DocumentJobs(
       path.join(this.app.appStoragePath, 'document-cache'),

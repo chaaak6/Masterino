@@ -9,6 +9,7 @@ process.on('message', async (message: any) => {
   try {
     const result = await executeDocumentOperation(message.operation, message.args, {
       ...message.options,
+      pythonProcessGroup: false,
       signal: controller.signal,
       progress: (progress) => process.send?.({ type: 'progress', progress }),
     });

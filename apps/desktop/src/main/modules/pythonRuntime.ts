@@ -85,7 +85,7 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
           '-X',
           'utf8',
           '-c',
-          'import json, platform, pathlib, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter, duckdb; print(json.dumps({"version": platform.python_version(), "sitePackages": str(pathlib.Path(pptx.__file__).parent.parent), "packages": {n: m.version(n) for n in ["python-pptx", "Pillow", "lxml", "XlsxWriter", "typing-extensions", "duckdb"]}}))',
+          'import json, platform, pathlib, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter; print(json.dumps({"version": platform.python_version(), "sitePackages": str(pathlib.Path(pptx.__file__).parent.parent), "packages": {n: m.version(n) for n in ["python-pptx", "Pillow", "lxml", "XlsxWriter", "typing-extensions"]}}))',
         ],
         { timeout: 10_000, windowsHide: true },
       );
@@ -106,4 +106,35 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
 
 export async function getPythonEnvironment(): Promise<string> {
   return formatPythonEnvironment(await getBundledPythonInfo());
+}
+
+let documentInfoPromise: Promise<BundledPythonInfo | undefined> | undefined;
+
+/** Optional spreadsheet engine failure never changes the legacy runtime verdict. */
+export function getDocumentPythonInfo(): Promise<BundledPythonInfo | undefined> {
+  const pending = (documentInfoPromise ??= (async () => {
+    const info = await getBundledPythonInfo();
+    if (!info) return undefined;
+    try {
+      const { stdout } = await promisify(childProcess.execFile)(
+        info.executable,
+        [
+          '-I',
+          '-B',
+          '-X',
+          'utf8',
+          '-c',
+          'import duckdb, importlib.metadata as m; print(m.version("duckdb"))',
+        ],
+        { timeout: 10_000, windowsHide: true },
+      );
+      return { ...info, packages: { ...info.packages, duckdb: stdout.trim() } };
+    } catch {
+      return undefined;
+    }
+  })());
+  void pending.then((info) => {
+    if (!info && documentInfoPromise === pending) documentInfoPromise = undefined;
+  });
+  return pending;
 }

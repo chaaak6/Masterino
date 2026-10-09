@@ -36,6 +36,15 @@ const logger = createLogger('services:GatewayConnectionSrv');
 // not a copy of the server manifest. Bump an entry only when the matching
 // controller path and local-file-shell implementation ship in this app.
 const LOCAL_SYSTEM_API_VERSIONS = {
+  inspectFile: 1,
+  analyzeSpreadsheet: 1,
+  querySpreadsheet: 1,
+  readPdfPages: 1,
+  searchPdf: 1,
+  renderPdfPages: 1,
+  exportDocumentReport: 1,
+  getDocumentJob: 1,
+  cancelDocumentJob: 1,
   createPresentation: 1,
   inspectPresentation: 1,
   renderPresentationPreview: 1,
