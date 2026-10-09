@@ -13,6 +13,7 @@ import {
 
 import { AgentModel } from '@/database/models/agent';
 import { PluginModel } from '@/database/models/plugin';
+import { AgentService } from '@/server/services/agent';
 import { DiscoverService } from '@/server/services/discover';
 import { assertConfigurableAgentExecutionEnv } from '@/server/services/executionEnv/validation';
 
@@ -35,6 +36,7 @@ export const agentManagementRuntime: ServerRuntimeRegistration = {
     }
 
     const agentModel = new AgentModel(context.serverDB, context.userId, context.workspaceId);
+    const agentService = new AgentService(context.serverDB, context.userId, context.workspaceId);
     const pluginModel = new PluginModel(context.serverDB, context.userId, context.workspaceId);
     const discoverService = new DiscoverService();
 
@@ -125,7 +127,7 @@ export const agentManagementRuntime: ServerRuntimeRegistration = {
             model: params.model,
             openingMessage: params.openingMessage,
             openingQuestions: parseArrayParam(params.openingQuestions),
-            plugins: parseArrayParam(params.plugins),
+            plugins: await agentService.getNewAgentPlugins(parseArrayParam(params.plugins)),
             provider: params.provider,
             systemRole: params.systemRole,
             tags: parseArrayParam(params.tags),

@@ -14,6 +14,8 @@ describe('about settings convergence', () => {
 
     expect(about).not.toContain('mail.business');
     expect(about).not.toContain('SiDiscord');
+    expect(about).not.toContain('SiGithub');
+    expect(about).not.toContain('SOCIAL_URL.github');
     expect(about).not.toContain('SiX');
     expect(about).not.toContain('SiYoutube');
     expect(about).not.toContain("t('legal')");

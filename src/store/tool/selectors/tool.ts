@@ -2,6 +2,7 @@ import { getBuiltinRenderDisplayControl } from '@lobechat/builtin-tools/displayC
 import { getComposioAppByIdentifier, getLobehubSkillProviderById } from '@lobechat/const';
 import { type RenderDisplayControl, type ToolManifest } from '@lobechat/types';
 
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import {
   isToolAvailableInCurrentEnv,
   type ToolAvailabilityContext,
@@ -20,7 +21,11 @@ const metaList = (s: ToolStoreState): LobeToolMeta[] => {
   const pluginList = pluginSelectors.installedPluginMetaList(s) as LobeToolMeta[];
   const lobehubSkillList = lobehubSkillStoreSelectors.metaList(s) as LobeToolMeta[];
 
-  return builtinToolSelectors.metaList(s).concat(pluginList).concat(lobehubSkillList);
+  return builtinToolSelectors
+    .metaList(s)
+    .concat(pluginList)
+    .concat(lobehubSkillList)
+    .filter((tool) => isIntegrationVisible(tool.identifier));
 };
 
 /**
@@ -33,7 +38,11 @@ const discoverableMetaList = (s: ToolStoreState): LobeToolMeta[] => {
   const pluginList = pluginSelectors.installedPluginMetaList(s) as LobeToolMeta[];
   const lobehubSkillList = lobehubSkillStoreSelectors.metaList(s) as LobeToolMeta[];
 
-  return builtinToolSelectors.discoverableMetaList(s).concat(pluginList).concat(lobehubSkillList);
+  return builtinToolSelectors
+    .discoverableMetaList(s)
+    .concat(pluginList)
+    .concat(lobehubSkillList)
+    .filter((tool) => isIntegrationVisible(tool.identifier));
 };
 
 const getMetaById =
@@ -185,7 +194,9 @@ const availableToolsForDiscovery = (
       };
     });
 
-  return [...builtinItems, ...pluginItems, ...composioItems, ...lobehubSkillItems];
+  return [...builtinItems, ...pluginItems, ...composioItems, ...lobehubSkillItems].filter((tool) =>
+    isIntegrationVisible(tool.identifier),
+  );
 };
 
 export const toolSelectors = {

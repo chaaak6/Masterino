@@ -334,3 +334,43 @@ describe('AihubBridgeRepository', () => {
     });
   });
 });
+
+it.each(['mysql', 'postgres'] as const)(
+  'reads subscription quota snapshots and billing preference without writes (%s)',
+  async (dialect) => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ setting: '{"billing_preference":"wallet_first"}' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '765',
+            title: 'Monthly allowance',
+            status: 'active',
+            amount_total: '50000000',
+            amount_used: '49993588',
+            start_time: 1790730919,
+            end_time: 1822266919,
+            next_reset_time: 1793462400,
+            allow_wallet_overflow: 1,
+          },
+        ],
+      });
+    const repo = new AihubBridgeRepository({ client: { query }, dialect });
+    const result = await repo.getSubscriptionSummary(1880);
+    expect(result.billingPreference).toBe('wallet_first');
+    // A later plan quota change must not replace the purchased subscription quota.
+    expect(query.mock.calls[1][0]).not.toMatch(/p\.total_amount/);
+    expect(result.subscriptions[0]).toMatchObject({
+      amountTotal: 50000000,
+      amountUsed: 49993588,
+      resetAmount: 50000000,
+      allowWalletOverflow: true,
+    });
+    for (const [sql, parameters] of query.mock.calls) {
+      expect(sql.trim()).toMatch(/^select /i);
+      expect(sql).not.toMatch(/\b(insert|update|delete)\b/i);
+      expect(parameters).toEqual([1880]);
+    }
+  },
+);

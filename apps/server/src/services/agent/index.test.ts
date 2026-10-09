@@ -63,6 +63,7 @@ describe('AgentService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUserModel.getUserSettingsDefaultAgentConfig.mockResolvedValue({});
     // Setup default UserModel mock
     (UserModel as any).mockImplementation(() => mockUserModel);
     service = new AgentService(mockDb, mockUserId);
@@ -81,6 +82,32 @@ describe('AgentService', () => {
       ).rejects.toMatchObject({ code: 'RESERVED_ENV_KEY' });
 
       expect(updateConfig).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('new agent default tools', () => {
+    it('preserves personal default tools when creation omits the tool list', async () => {
+      vi.mocked(parseAgentConfig).mockReturnValue({ plugins: ['server-tool'] });
+      mockUserModel.getUserSettingsDefaultAgentConfig.mockResolvedValue({
+        config: { plugins: ['personal-tool'] },
+      });
+      expect(await new AgentService(mockDb, mockUserId).getNewAgentPlugins()).toEqual([
+        'personal-tool',
+        'lobe-user-interaction',
+      ]);
+    });
+
+    it('uses server defaults for workspace agents without inheriting personal tools', async () => {
+      vi.mocked(parseAgentConfig).mockReturnValue({ plugins: ['server-tool'] });
+      expect(
+        await new AgentService(mockDb, mockUserId, mockWorkspaceId).getNewAgentPlugins(),
+      ).toEqual(['server-tool', 'lobe-user-interaction']);
+      expect(mockUserModel.getUserSettingsDefaultAgentConfig).not.toHaveBeenCalled();
+    });
+
+    it('respects an explicit empty tool list and only adds User Interaction', async () => {
+      expect(await service.getNewAgentPlugins([])).toEqual(['lobe-user-interaction']);
+      expect(mockUserModel.getUserSettingsDefaultAgentConfig).not.toHaveBeenCalled();
     });
   });
 

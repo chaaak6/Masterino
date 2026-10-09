@@ -147,6 +147,7 @@ vi.mock('antd', () => ({
 }));
 
 vi.mock('antd-style', () => ({
+  createStaticStyles: () => ({}),
   createStyles: () => () => ({
     styles: {
       field: 'field',
@@ -174,6 +175,10 @@ vi.mock('@/store/aiInfra', () => {
 });
 
 vi.mock('@/store/newApi', () => ({
+  useNewApiSubscriptionSummary: () => ({
+    data: { billingPreference: 'subscription_first', subscriptions: [] },
+    mutate: vi.fn(),
+  }),
   useNewApiAccountSummary: () => ({ data: mocks.account, mutate: mocks.mutateAccount }),
   useNewApiBindingStatus: () => ({ data: mocks.binding, mutate: mocks.mutateBinding }),
   useNewApiUsageSummary: () => ({ data: mocks.usage, mutate: mocks.mutateUsage }),
@@ -232,7 +237,7 @@ describe('Aihub provider detail page', () => {
     expect(screen.getByRole('option', { name: 'masterlion-managed' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'backup-token' })).toBeInTheDocument();
     expect(screen.getByText('10193226')).toBeInTheDocument();
-    expect(screen.getByText('余额')).toBeInTheDocument();
+    expect(screen.getByText('钱包余额')).toBeInTheDocument();
     expect(
       screen.getAllByText('¥0.14').every((node) => node.classList.contains('fieldValue')),
     ).toBe(true);

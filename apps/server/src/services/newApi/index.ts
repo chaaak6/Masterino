@@ -1214,6 +1214,11 @@ export class NewApiService {
     };
   }
 
+  async getSubscriptionSummary() {
+    const binding = await this.getBindingOrThrow({ autoBind: false });
+    return new NewApiBridgeClient().getSubscriptionSummary(binding.newApiUserId);
+  }
+
   async getAccountSummary() {
     const binding = await this.getBindingOrThrow();
     const quotaPolicy = await this.getQuotaPolicy();

@@ -1,5 +1,6 @@
 import { type ToolManifest } from '@lobechat/types';
 
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { isInstalledPluginAvailableInCurrentEnv } from '@/helpers/toolAvailability';
 import { type InstallPluginMeta, type LobeToolCustomPlugin } from '@/types/tool/plugin';
 
@@ -42,7 +43,7 @@ const installedPluginManifestList = (s: ToolStoreState) =>
 const installedPluginMetaList = (s: ToolStoreState) =>
   installedPlugins(s)
     // Filter out Composio plugins (they have their own display location)
-    .filter((p) => !p.customParams?.composio)
+    .filter((p) => !p.customParams?.composio && isIntegrationVisible(p.identifier))
     .filter((plugin) => isInstalledPluginAvailableInCurrentEnv(plugin))
     .map<InstallPluginMeta>((p) => ({
       author: p.manifest?.author,

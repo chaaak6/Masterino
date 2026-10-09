@@ -12,6 +12,7 @@ import {
   createComposioSkillDetailModal,
   createLobehubSkillDetailModal,
 } from '@/features/SkillStore/SkillDetail';
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useToolStore } from '@/store/tool';
 import { type ToolStoreState } from '@/store/tool/initialState';
@@ -32,7 +33,7 @@ interface MasterinoListProps {
 // Selector to get only actual builtin tools (not including Composio)
 const getBuiltinToolsOnly = (s: ToolStoreState): LobeToolMeta[] => {
   return s.builtinTools
-    .filter((item) => !item.hidden)
+    .filter((item) => !item.hidden && isIntegrationVisible(item.identifier))
     .map((t) => ({
       author: 'Masterino',
       identifier: t.identifier,

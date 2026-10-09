@@ -7,6 +7,7 @@ export const DEFAULT_EMBEDDING_PROVIDER = 'newapi';
 export const DEFAULT_MINI_MODEL = 'glm-5.2';
 export const DEFAULT_MINI_PROVIDER = 'newapi';
 export const DEFAULT_MODEL = 'glm-5.2';
+export const DEFAULT_MODEL_ASSIGNMENT_MODEL = 'deepseek-v4-flash';
 export const DEFAULT_ONBOARDING_MODEL = 'glm-5.2';
 export const DEFAULT_ONBOARDING_PROVIDER = 'newapi';
 export const DEFAULT_PROVIDER = 'newapi';

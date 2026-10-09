@@ -51,7 +51,7 @@ exports[`settingsSelectors > currentSettings > should merge DEFAULT_SETTINGS and
 exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AGENT_CONFIG and s.settings.systemAgent correctly 1`] = `
 {
   "agentMeta": {
-    "model": "glm-5.2",
+    "model": "deepseek-v4-flash",
     "provider": "newapi",
   },
   "enableAutoReply": true,
@@ -61,11 +61,11 @@ exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AG
     "provider": "newapi",
   },
   "generationTopic": {
-    "model": "glm-5.2",
+    "model": "deepseek-v4-flash",
     "provider": "newapi",
   },
   "historyCompress": {
-    "model": "glm-5.2",
+    "model": "deepseek-v4-flash",
     "provider": "newapi",
   },
   "inputCompletion": {
@@ -88,11 +88,11 @@ exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AG
     "provider": "newapi",
   },
   "topic": {
-    "model": "glm-5.2",
+    "model": "deepseek-v4-flash",
     "provider": "newapi",
   },
   "translation": {
-    "model": "glm-5.2",
+    "model": "deepseek-v4-flash",
     "provider": "newapi",
   },
   "userMemoryEmbedding": {
