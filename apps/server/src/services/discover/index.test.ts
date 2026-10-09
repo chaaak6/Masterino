@@ -376,6 +376,37 @@ describe('DiscoverService', () => {
     service.market = mockMarket;
   });
 
+  describe('Existing cloud MCP compatibility', () => {
+    it.each([404, 503, 'network'])(
+      'keeps the existing gateway when company lookup returns %s',
+      async (failure) => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch');
+        if (failure === 'network') fetchSpy.mockRejectedValue(new Error('resolver unavailable'));
+        else fetchSpy.mockResolvedValue(new Response('', { status: failure as number }));
+        const previousUrl = process.env.MARKET_BASE_URL;
+        process.env.MARKET_BASE_URL = 'http://internal-market.test';
+        const expected = { content: [{ type: 'text', text: 'existing gateway result' }] };
+        mockMarket.plugins.callCloudGateway = vi.fn().mockResolvedValue(expected);
+        try {
+          const result = await service.callCloudMcpEndpoint({
+            identifier: 'existing-mcp',
+            toolName: 'search',
+            apiParams: { query: 'hello' },
+          });
+          expect(result).toEqual(expected);
+          expect(mockMarket.plugins.callCloudGateway).toHaveBeenCalledWith(
+            { identifier: 'existing-mcp', toolName: 'search', apiParams: { query: 'hello' } },
+            { headers: {} },
+          );
+        } finally {
+          fetchSpy.mockRestore();
+          if (previousUrl === undefined) delete process.env.MARKET_BASE_URL;
+          else process.env.MARKET_BASE_URL = previousUrl;
+        }
+      },
+    );
+  });
+
   describe('Assistant Market (new source)', () => {
     it('getAssistantList should transform market SDK response', async () => {
       const result = await service.getAssistantList();

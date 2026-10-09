@@ -32,7 +32,9 @@ const itemFromRow = (row: Record<string, any>) => ({
   author: { avatar: null, name: row.owner_name || row.owner_email || 'Masterino' },
   avatar: row.avatar,
   category: row.category,
-  config: row.config ? Object.fromEntries(Object.entries(row.config).filter(([key]) => key !== 'sharedConnection')) : {},
+  config: row.config
+    ? Object.fromEntries(Object.entries(row.config).filter(([key]) => key !== 'sharedConnection'))
+    : {},
   haveCloudEndpoint: row.manifest?.haveCloudEndpoint,
   createdAt: row.created_at,
   description: row.description,

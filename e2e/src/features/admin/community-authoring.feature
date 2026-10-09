@@ -11,9 +11,16 @@ Feature: Administrators extend the internal community
     Given an administrator uploads a ZIP containing SKILL.md
     When the administrator submits and publishes the Skill
     Then another employee can discover and download the Skill archive
+    And the employee can install the Skill and read its content
 
   Scenario: Invalid input remains unpublished
     Given a malformed MCP configuration or a ZIP without SKILL.md
     When an administrator submits it
     Then a readable validation error is displayed
+    And no community resource is published
+
+  Scenario: An un-installable Skill remains unpublished
+    Given a Skill ZIP with invalid frontmatter
+    When an administrator submits it
+    Then a readable Skill manifest error is displayed
     And no community resource is published

@@ -1474,11 +1474,18 @@ export const createMarketApp = (options: {
     if (!['mcp', 'skill'].includes(input.type)) throw new Error('MCP or Skill required');
     const resource = ResourceInputSchema.parse(input.resource);
     if (input.type === 'mcp') {
-      if (!input.sharedConnection?.url || !Array.isArray(resource.manifest?.tools) || !resource.manifest.tools.length)
+      if (
+        !input.sharedConnection?.url ||
+        !Array.isArray(resource.manifest?.tools) ||
+        !resource.manifest.tools.length
+      )
         throw new Error('Verify MCP connection before submitting');
       resource.config = {
         connectionType: 'http',
-        sharedConnection: encryptJson(input.sharedConnection, config.MARKET_CREDENTIAL_ENCRYPTION_KEY),
+        sharedConnection: encryptJson(
+          input.sharedConnection,
+          config.MARKET_CREDENTIAL_ENCRYPTION_KEY,
+        ),
       };
       resource.manifest = {
         ...resource.manifest,
@@ -1490,11 +1497,15 @@ export const createMarketApp = (options: {
     let hash: string | undefined;
     if (input.type === 'skill') {
       const content = Buffer.from(input.artifactBase64 || '', 'base64');
-      if (!content.length || content.length > 16 * 1024 * 1024) throw new Error('Skill ZIP must be between 1 byte and 16 MiB');
+      if (!content.length || content.length > 16 * 1024 * 1024)
+        throw new Error('Skill ZIP must be between 1 byte and 16 MiB');
       const errors = validateZipArchive(content);
       if (errors.length) throw new Error(errors.join(', '));
       const manifestErrors = validateArtifactManifest(resource.manifest || {});
-      if (manifestErrors.length || !resource.manifest?.files?.some((file: any) => file.path === 'SKILL.md'))
+      if (
+        manifestErrors.length ||
+        !resource.manifest?.files?.some((file: any) => file.path === 'SKILL.md')
+      )
         throw new Error('Skill ZIP must contain SKILL.md at its root');
       hash = sha256(content);
       artifactKey = `skill/${resource.identifier}/${resource.version || '1.0.0'}/${hash}.zip`;
@@ -1502,10 +1513,14 @@ export const createMarketApp = (options: {
     }
     await repository.createResource(input.type, resource, c.get('account'));
     const version = await repository.createVersion(input.type, resource, c.get('account'));
-    if (artifactKey) await repository.getPool().query(
-      'UPDATE market_versions SET artifact_key=$1, artifact_sha256=$2 WHERE id=$3',
-      [artifactKey, hash, version.id],
-    );
+    if (artifactKey)
+      await repository
+        .getPool()
+        .query('UPDATE market_versions SET artifact_key=$1, artifact_sha256=$2 WHERE id=$3', [
+          artifactKey,
+          hash,
+          version.id,
+        ]);
     await repository.review(input.type, resource.identifier, 'submit', undefined, c.get('account'));
     return c.json({ identifier: resource.identifier, workflowState: 'submitted' }, 201);
   });
@@ -1515,11 +1530,15 @@ export const createMarketApp = (options: {
     const result = await repository.getPool().query(
       `SELECT v.config, v.manifest FROM market_resources r JOIN market_versions v ON v.id=r.current_version_id
        WHERE r.type='mcp' AND r.identifier=$1 AND r.status='published' AND v.workflow_state='published'
-         AND r.visibility IN ('internal','public')`, [c.req.param('identifier')],
+         AND r.visibility IN ('internal','public')`,
+      [c.req.param('identifier')],
     );
     const row = result.rows[0];
     if (!row?.config?.sharedConnection) return c.json({ error: 'not_found' }, 404);
-    return c.json({ connection: decryptJson(row.config.sharedConnection, config.MARKET_CREDENTIAL_ENCRYPTION_KEY), tools: row.manifest.tools });
+    return c.json({
+      connection: decryptJson(row.config.sharedConnection, config.MARKET_CREDENTIAL_ENCRYPTION_KEY),
+      tools: row.manifest.tools,
+    });
   });
 
   app.post('/api/internal/import', requireRole('admin'), async (c) => {
