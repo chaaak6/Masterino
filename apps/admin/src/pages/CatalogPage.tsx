@@ -119,7 +119,14 @@ export default function CatalogPage({ type }: { type: CatalogResourceType }) {
           }
         />
       )}
-      {creating && type !== 'agent' && <CatalogCreate type={type} onCreated={() => void resources.refetch()} onCancel={() => setCreating(false)} />}
+      {creating && type !== 'agent' && (
+        <CatalogCreate
+          key={type}
+          type={type}
+          onCreated={() => void resources.refetch()}
+          onCancel={() => setCreating(false)}
+        />
+      )}
       <Card>
         <Flex wrap gap={12} justify="space-between" style={{ marginBottom: 16 }}>
           <Flex wrap gap={8}>
@@ -155,7 +162,11 @@ export default function CatalogPage({ type }: { type: CatalogResourceType }) {
               onChange={(value) => resetPage(() => setClientVisibility(value))}
             />
           </Flex>
-          {type !== 'agent' && <Button type="primary" onClick={() => setCreating(true)}>{type === 'mcp' ? '创建 / 导入 MCP' : '创建 / 上传 Skill'}</Button>}
+          {type !== 'agent' && (
+            <Button type="primary" onClick={() => setCreating(true)}>
+              {type === 'mcp' ? '创建 / 导入 MCP' : '创建 / 上传 Skill'}
+            </Button>
+          )}
           <Button loading={resources.isFetching} onClick={() => resources.refetch()}>
             刷新
           </Button>

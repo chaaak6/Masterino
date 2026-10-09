@@ -178,20 +178,25 @@ export class DiscoverService {
       toolName: params.toolName,
     });
 
-    const shared = await fetch(`${getInternalMarketBaseUrl()}/api/internal/mcp/${encodeURIComponent(params.identifier)}/connection`, {
-      headers: (this.market as unknown as { headers: Record<string, string> }).headers,
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (shared.ok) {
+    const shared = await fetch(
+      `${getInternalMarketBaseUrl()}/api/internal/mcp/${encodeURIComponent(params.identifier)}/connection`,
+      {
+        headers: (this.market as unknown as { headers: Record<string, string> }).headers,
+        signal: AbortSignal.timeout(15_000),
+      },
+    ).catch(() => undefined);
+    if (shared?.ok) {
       const { connection, tools } = await shared.json();
-      if (!tools.some((tool: any) => tool.name === params.toolName)) throw new Error('Tool is not published');
-      const client = new MCPClient({ type: 'http', ...connection });
+      if (!tools.some((tool: any) => tool.name === params.toolName))
+        throw new Error('Tool is not published');
+      const client = new MCPClient({ type: 'http', name: params.identifier, ...connection });
       try {
         await client.initialize();
         return await client.callTool(params.toolName, params.apiParams);
-      } finally { await client.disconnect(); }
+      } finally {
+        await client.disconnect();
+      }
     }
-    if (shared.status !== 404) throw new Error('Unable to resolve published MCP connection');
 
     try {
       // Build headers - only include Authorization if userAccessToken is provided

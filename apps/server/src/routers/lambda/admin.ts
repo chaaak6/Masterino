@@ -53,6 +53,7 @@ import {
 import { getEmbeddingInputLimit } from '@/server/services/memory/userMemory/embedding';
 import { NewApiService } from '@/server/services/newApi';
 import { createAihubReadiness } from '@/server/services/newApi/readiness/production';
+import { SkillParser } from '@/server/services/skill/parser';
 import { TaskService } from '@/server/services/task';
 import { TaskRunnerService } from '@/server/services/taskRunner';
 import { getInternalMarketBaseUrl } from '@/utils/internalMarket';
@@ -1554,7 +1555,7 @@ const adminProcedure = authedProcedure.use(serverDatabase);
 const callInternalMarketAdmin = async <T>(
   ctx: unknown,
   path: string,
-  init?: { body?: unknown; method?: 'GET' | 'PATCH' | 'POST' },
+  init?: { body?: unknown; method?: 'GET' | 'PATCH' | 'POST'; timeoutMs?: number },
 ): Promise<T> => {
   const admin = await requirePlatformAdmin(ctx);
   const db = getServerDBFromContext(ctx) as any;
@@ -1575,7 +1576,7 @@ const callInternalMarketAdmin = async <T>(
     body: init?.body === undefined ? undefined : JSON.stringify(init.body),
     headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
     method: init?.method || 'GET',
-    signal: AbortSignal.timeout(90_000),
+    signal: AbortSignal.timeout(init?.timeoutMs ?? 15_000),
   });
   if (!response.ok) {
     const message = await response.text();
@@ -2199,44 +2200,88 @@ export const adminRouter = router({
       try {
         await client.initialize();
         const tools = await client.listTools();
-        if (!tools.length) throw new TRPCError({ code: 'BAD_REQUEST', message: '连接未返回可用工具' });
+        if (!tools.length)
+          throw new TRPCError({ code: 'BAD_REQUEST', message: '连接未返回可用工具' });
         return { tools };
-      } finally { await client.disconnect(); }
+      } finally {
+        await client.disconnect();
+      }
     }),
 
   createCatalogResource: adminProcedure
-    .input(z.object({
-      type: z.enum(['mcp', 'skill']), identifier: z.string().regex(/^[a-zA-Z0-9_-]+$/),
-      name: z.string().min(1), description: z.string().default(''), category: z.string().optional(),
-      version: z.string().min(1).default('1.0.0'),
-      connection: z.object({ url: z.string().url(), headers: z.record(z.string()).optional() }).optional(),
-      artifactBase64: z.string().optional(), skillContent: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        type: z.enum(['mcp', 'skill']),
+        identifier: z.string().regex(/^[a-zA-Z0-9_-]+$/),
+        name: z.string().min(1),
+        description: z.string().default(''),
+        category: z.string().optional(),
+        version: z.string().min(1).default('1.0.0'),
+        connection: z
+          .object({ url: z.string().url(), headers: z.record(z.string()).optional() })
+          .optional(),
+        artifactBase64: z.string().optional(),
+        skillContent: z.string().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       await requirePlatformAdmin(ctx);
       const { type, connection, artifactBase64, skillContent, ...resource } = input;
       let manifest: any;
       let artifact = artifactBase64;
       if (type === 'mcp') {
-        if (!connection) throw new TRPCError({ code: 'BAD_REQUEST', message: '请填写 MCP 连接配置' });
+        if (!connection)
+          throw new TRPCError({ code: 'BAD_REQUEST', message: '请填写 MCP 连接配置' });
         const client = new MCPClient({ type: 'http', name: input.identifier, ...connection });
         try {
           await client.initialize();
           const tools = await client.listTools();
-          if (!tools.length) throw new TRPCError({ code: 'BAD_REQUEST', message: '连接未返回可用工具' });
-          manifest = { tools, identifier: input.identifier, name: input.name, version: input.version };
-        } finally { await client.disconnect(); }
+          if (!tools.length)
+            throw new TRPCError({ code: 'BAD_REQUEST', message: '连接未返回可用工具' });
+          manifest = {
+            tools,
+            identifier: input.identifier,
+            name: input.name,
+            version: input.version,
+          };
+        } finally {
+          await client.disconnect();
+        }
       } else {
-        const bytes = artifact ? Buffer.from(artifact, 'base64') : zipSync({ 'SKILL.md': strToU8(skillContent || '') });
-        if (bytes.length > 16 * 1024 * 1024) throw new TRPCError({ code: 'BAD_REQUEST', message: 'ZIP 不能超过 16 MiB' });
+        const bytes = artifact
+          ? Buffer.from(artifact, 'base64')
+          : zipSync({ 'SKILL.md': strToU8(skillContent || '') });
+        if (bytes.length > 16 * 1024 * 1024)
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'ZIP 不能超过 16 MiB' });
+        try {
+          await new SkillParser().parseZipPackage(Buffer.from(bytes));
+        } catch (error) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: (error as Error).message });
+        }
         const files = unzipSync(bytes);
-        if (!files['SKILL.md']?.length) throw new TRPCError({ code: 'BAD_REQUEST', message: 'ZIP 根目录必须包含非空 SKILL.md' });
-        manifest = { name: input.name, description: input.description, files: Object.keys(files).map(path => ({ path, type: 'file' })) };
+        if (!files['SKILL.md']?.length)
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'ZIP 根目录必须包含非空 SKILL.md' });
+        manifest = {
+          name: input.name,
+          description: input.description,
+          files: Object.keys(files).map((path) => ({ path, type: 'file' })),
+        };
         artifact = Buffer.from(bytes).toString('base64');
       }
-      return callInternalMarketAdmin<{ identifier: string; workflowState: string }>(ctx, '/api/internal/resources', {
-        method: 'POST', body: { type, resource: { ...resource, manifest }, sharedConnection: connection, artifactBase64: artifact },
-      });
+      return callInternalMarketAdmin<{ identifier: string; workflowState: string }>(
+        ctx,
+        '/api/internal/resources',
+        {
+          method: 'POST',
+          timeoutMs: 90_000,
+          body: {
+            type,
+            resource: { ...resource, manifest },
+            sharedConnection: connection,
+            artifactBase64: artifact,
+          },
+        },
+      );
     }),
 
   listCatalogResources: adminProcedure
