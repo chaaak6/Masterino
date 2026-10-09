@@ -442,3 +442,99 @@ it('serves only fixed versioned avatar artwork without authentication', async ()
   }
   expect(repository.syncAccount).not.toHaveBeenCalled();
 });
+
+describe('Admin community authoring', () => {
+  it('Given an administrator, When a MCP is submitted, Then it enters review with a server-only credential', async () => {
+    let saved: any;
+    const repository = {
+      ...createRepository(),
+      createResource: async (_type: string, data: any) => {
+        saved = data;
+        return { identifier: data.identifier };
+      },
+      createVersion: async () => ({ id: 99, workflowState: 'draft' }),
+      review: async () => ({ workflowState: 'submitted' }),
+    };
+    const app = createMarketApp({
+      config,
+      repository: repository as any,
+      redis: {} as any,
+      storage: {} as any,
+    });
+    const response = await app.request('/api/internal/resources', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
+      body: JSON.stringify({
+        type: 'mcp',
+        resource: {
+          identifier: 'legal',
+          name: 'Legal',
+          version: '1.0.0',
+          manifest: { tools: [{ name: 'search', inputSchema: { type: 'object' } }] },
+        },
+        sharedConnection: {
+          url: 'https://example.com/mcp',
+          headers: { Authorization: 'Bearer company-key' },
+        },
+      }),
+    });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      identifier: 'legal',
+      workflowState: 'submitted',
+    });
+    expect(JSON.stringify(saved)).not.toContain('company-key');
+  });
+});
+
+it('Given no authenticated administrator, When creating a catalog resource, Then access is denied', async () => {
+  const app = createMarketApp({
+    config,
+    repository: createRepository() as any,
+    redis: {} as any,
+    storage: {} as any,
+  });
+  const response = await app.request('/api/internal/resources', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}',
+  });
+  expect(response.status).toBe(401);
+});
+
+it('Given an invalid Skill archive, When submitted, Then it cannot enter review', async () => {
+  const app = createMarketApp({
+    config,
+    repository: createRepository() as any,
+    redis: {} as any,
+    storage: {} as any,
+  });
+  const response = await app.request('/api/internal/resources', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
+    body: JSON.stringify({
+      type: 'skill',
+      resource: {
+        identifier: 'broken',
+        name: 'Broken',
+        manifest: { files: [{ path: 'SKILL.md' }] },
+      },
+      artifactBase64: Buffer.from('not a ZIP').toString('base64'),
+    }),
+  });
+  expect(response.status).toBe(400);
+  expect(await response.json()).toMatchObject({ error: 'artifact is not a valid ZIP archive' });
+});
+
+it('Given an unpublished MCP, Then its shared connection cannot be resolved', async () => {
+  const app = createMarketApp({
+    config,
+    repository: createRepository() as any,
+    redis: {} as any,
+    storage: {} as any,
+  });
+  const response = await app.request('/api/internal/mcp/draft/connection', {
+    headers: { 'x-lobe-trust-token': token },
+  });
+  expect(response.status).toBe(404);
+});

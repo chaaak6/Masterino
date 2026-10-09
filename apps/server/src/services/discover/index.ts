@@ -1,3 +1,4 @@
+import { MCPClient } from '@/libs/mcp/client';
 import {
   COMPOSIO_APP_TYPES,
   CURRENT_VERSION,
@@ -176,6 +177,26 @@ export class DiscoverService {
       identifier: params.identifier,
       toolName: params.toolName,
     });
+
+    const shared = await fetch(
+      `${getInternalMarketBaseUrl()}/api/internal/mcp/${encodeURIComponent(params.identifier)}/connection`,
+      {
+        headers: (this.market as unknown as { headers: Record<string, string> }).headers,
+        signal: AbortSignal.timeout(15_000),
+      },
+    ).catch(() => undefined);
+    if (shared?.ok) {
+      const { connection, tools } = await shared.json();
+      if (!tools.some((tool: any) => tool.name === params.toolName))
+        throw new Error('Tool is not published');
+      const client = new MCPClient({ type: 'http', name: params.identifier, ...connection });
+      try {
+        await client.initialize();
+        return await client.callTool(params.toolName, params.apiParams);
+      } finally {
+        await client.disconnect();
+      }
+    }
 
     try {
       // Build headers - only include Authorization if userAccessToken is provided

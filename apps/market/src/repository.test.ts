@@ -80,3 +80,30 @@ describe('onboarding catalog visibility', () => {
     expect(query.mock.calls[0][0]).toContain('r.owner_account_id=$2');
   });
 });
+
+it('Given a published company MCP, When an employee lists the community, Then credentials remain server-only', async () => {
+  const repository = new MarketRepository({
+    query: async () => ({
+      rows: [
+        {
+          id: 1,
+          identifier: 'legal',
+          owner_account_id: 1,
+          config: { connectionType: 'http', sharedConnection: 'encrypted-company-key' },
+          manifest: { haveCloudEndpoint: 'internal' },
+          total_count: 1,
+        },
+      ],
+    }),
+  } as any);
+  const result = await repository.list(
+    'mcp',
+    {},
+    { externalUserId: 'employee', id: 2, role: 'submitter' },
+  );
+  expect(result.items[0]).toMatchObject({
+    config: { connectionType: 'http' },
+    haveCloudEndpoint: 'internal',
+  });
+  expect(JSON.stringify(result)).not.toContain('encrypted-company-key');
+});
