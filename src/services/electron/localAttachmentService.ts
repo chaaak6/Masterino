@@ -27,7 +27,7 @@ const invoke = async <T>(method: string, input: unknown): Promise<T> => {
   return window.electronAPI.invoke<T>(`localSystem.${method}`, input);
 };
 export const receiveLocalChatAttachment = async (file: File, draftId: string) => {
-  if (file.size > 100 * 1024 * 1024) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
+  if (file.size > 4 * 1024 ** 3) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
   // Capture BEFORE compression/Blob conversion, which would discard Electron's native path.
   const originalPath = window.electronAPI?.getPathForFile?.(file);
   if (file.type.startsWith('image/')) {
@@ -39,6 +39,22 @@ export const receiveLocalChatAttachment = async (file: File, draftId: string) =>
       bitmap.width > 8192 || bitmap.height > 8192 || bitmap.width * bitmap.height > 40_000_000;
     bitmap.close();
     if (tooLarge) throw new Error('LOCAL_IMAGE_RESOLUTION_EXCEEDED');
+  }
+  if (!file.type.startsWith('image/') && file.size > 10 * 1024 ** 2) {
+    const { transferId, chunkBytes } = await invoke<{ transferId: string; chunkBytes: number }>(
+      'beginAttachmentTransfer',
+      { draftId, name: file.name, mime: file.type || 'application/octet-stream', size: file.size },
+    );
+    try {
+      for (let offset = 0; offset < file.size; offset += chunkBytes) {
+        const data = new Uint8Array(await file.slice(offset, offset + chunkBytes).arrayBuffer());
+        await invoke('appendAttachmentTransfer', { transferId, offset, data });
+      }
+      return await invoke<LocalRef>('finishAttachmentTransfer', { transferId });
+    } catch (error) {
+      await invoke('cancelAttachmentTransfer', { transferId }).catch(() => {});
+      throw error;
+    }
   }
   return invoke<LocalRef>('receiveAttachment', {
     draftId,
@@ -124,7 +140,7 @@ export const resolveLocalMessageAttachments = async (
         content: [
           message.content,
           manifest.length
-            ? `<local_attachments>\n${manifest.join('\n')}\nUse attachmentId (not a file path) with inspectOfficeDocument/readOfficeDocument or readFile for bounded reading. Device paths are resolved only when executing the tool. For unsupported operations, runCommand accepts attachmentId and exposes its managed copy as ATTACHMENT_FILE in the command environment. Omit version on the first Office call; for later calls, only copy version returned by an Office tool. These are managed copies.\n</local_attachments>`
+            ? `<local_attachments>\n${manifest.join('\n')}\nStart with inspectFile using attachmentId. For large spreadsheets use analyzeSpreadsheet and poll getDocumentJob, then reuse datasetId for querySpreadsheet/exportDocumentReport. For PDFs use readPdfPages/searchPdf/renderPdfPages. For small Office content use inspectOfficeDocument/readOfficeDocument or readFile for bounded reading. Device paths are resolved only when executing the tool. For unsupported operations, runCommand accepts attachmentId and exposes its managed copy as ATTACHMENT_FILE in the command environment. Omit version on the first Office call; for later calls, only copy version returned by an Office tool. These are managed copies.\n</local_attachments>`
             : '',
         ]
           .filter(Boolean)

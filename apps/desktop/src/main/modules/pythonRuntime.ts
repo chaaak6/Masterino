@@ -85,7 +85,7 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
           '-X',
           'utf8',
           '-c',
-          'import json, platform, pathlib, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter; print(json.dumps({"version": platform.python_version(), "sitePackages": str(pathlib.Path(pptx.__file__).parent.parent), "packages": {n: m.version(n) for n in ["python-pptx", "Pillow", "lxml", "XlsxWriter", "typing-extensions"]}}))',
+          'import json, platform, pathlib, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter, duckdb; print(json.dumps({"version": platform.python_version(), "sitePackages": str(pathlib.Path(pptx.__file__).parent.parent), "packages": {n: m.version(n) for n in ["python-pptx", "Pillow", "lxml", "XlsxWriter", "typing-extensions", "duckdb"]}}))',
         ],
         { timeout: 10_000, windowsHide: true },
       );

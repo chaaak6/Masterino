@@ -303,7 +303,7 @@
   "localAttachment.added": "Added to input",
   "localAttachment.checking": "Checking local availability…",
   "localAttachment.deviceOnly": "Local attachment · available on the original device",
-  "localAttachment.errors.fileTooLarge": "Attachment exceeds 100 MiB. Select a smaller file.",
+  "localAttachment.errors.fileTooLarge": "Attachment exceeds 4 GiB. Select a smaller file.",
   "localAttachment.errors.imageResolutionExceeded": "Image exceeds 8192 pixels per dimension or 40 megapixels. Resize it before sending.",
   "localAttachment.errors.imageTooLarge": "Image exceeds 10 MiB. Resize it before sending.",
   "localAttachment.errors.invalidImage": "This image cannot be read. Select a valid image file.",

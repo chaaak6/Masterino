@@ -24,7 +24,11 @@ class GatewayConnectionService {
     options?: { signal?: AbortSignal },
   ) => {
     const ipc = ensureElectronIpc().gatewayConnection;
-    if (!['inspectOfficeDocument', 'readOfficeDocument'].includes(params.apiName))
+    if (
+      !['inspectOfficeDocument', 'readOfficeDocument', 'inspectFile', 'readPdfPages'].includes(
+        params.apiName,
+      )
+    )
       return ipc.executeLocalToolCall(params);
     const signal = options?.signal;
     signal?.throwIfAborted();

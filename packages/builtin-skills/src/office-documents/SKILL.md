@@ -9,7 +9,7 @@ Use the tools available in the current execution environment. Keep source files,
 
 ## Local documents
 
-Use `lobe-local-system` tools. Start with `inspectOfficeDocument` for a bounded sample and worksheet names, or call `readOfficeDocument` directly when the requested location is known. The read tool uses one-based `start` and `limit` for rows, paragraphs or slides. Excel selects `sheet` by name; PowerPoint follows presentation order, not filenames. Word returns paragraphs and heading styles. These are structural/text results, not visual previews.
+Use `lobe-local-system` tools. Start with `inspectFile` for metadata and a processing strategy; use `inspectOfficeDocument` for a bounded sample and worksheet names, or call `readOfficeDocument` directly when the requested location is known. The read tool uses one-based `start` and `limit` for rows, paragraphs or slides. Excel selects `sheet` by name; PowerPoint follows presentation order, not filenames. Word returns paragraphs and heading styles. These are structural/text results, not visual previews.
 
 Results include `version`, `actualRange`, `total` (possibly unknown), `hasMore` and continuation `next`. Pass the returned version for follow-up reads; inspect again if the file changed. Never describe a bounded sample as the complete document. A large first read may scan the worksheet and shared strings on disk; it does not inject the complete file into the model. For numeric Excel summaries use `aggregateColumn` (column letter, e.g. `B`) to calculate count/sum/min/max locally; add `groupByColumn` for grouped summaries. Formula results are cached values; the local reader does not recalculate formulas. Dates may be Excel serial values.
 
@@ -22,3 +22,9 @@ Use real paths granted by the current workspace or prepared attachment. Save out
 When the bound environment supplies OfficeCLI 1.0.143 tools, read one format guide before creating content: `references/word`, `references/excel`, or `references/powerpoint`. Use dedicated create/merge/batch tools, then inspect outline and issues, perform screenshot QA when supported, and validate before export. A structural validation result is not visual QA. The cloud OfficeCLI workflow uses `/tmp/masterino-office` for outputs and `/mnt/data` for prepared inputs. Never modify an uploaded original.
 
 Do not run OfficeCLI through shell, update it at runtime, or assume the local implementation has the same capabilities. Avoid macros, external resources and legacy `.doc/.xls/.ppt`. Report unavailable capabilities explicitly and keep any fallback in the same execution environment.
+
+## Large files and repeated spreadsheet analysis
+
+Use `analyzeSpreadsheet` for multicolumn metrics or large/repeated worksheet scans. Select the columns needed for every planned query, confirm their letters from a small header read, and skip the header with `start: 2`. Poll `getDocumentJob` until completed. Interpret pass/fail/incomplete separately; absent formula caches and erroneous measurements remain incomplete. Numeric values are raw cached Excel serials, including dates. Reuse the returned `datasetId` with `querySpreadsheet` for exact distinct counts, grouping, filters and bounded samples. Use `exportDocumentReport` for XLSX and optional PDF built from that same dataset and metric plan; use new workspace output paths. Completion requires matching row/classification counts and a completed export job.
+
+For PDFs, use `readPdfPages` for selected page text, `searchPdf` for relevant page evidence, and `renderPdfPages` for visual checking. Empty pages may require OCR in an explicitly selected environment. `cancelDocumentJob` stops obsolete heavy work. A queued/running job is progress; deliver conclusions only from a completed result.
