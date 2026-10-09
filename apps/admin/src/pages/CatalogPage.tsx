@@ -1,6 +1,7 @@
 import { trpc } from '@admin/lib/trpc';
 import { Alert, Button, Card, Flex, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
+import CatalogCreate from './CatalogCreate';
 
 type CatalogResourceType = 'agent' | 'mcp' | 'skill';
 
@@ -74,6 +75,7 @@ type WorkflowState =
 
 export default function CatalogPage({ type }: { type: CatalogResourceType }) {
   const config = pageConfig[type];
+  const [creating, setCreating] = useState(false);
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
@@ -117,6 +119,7 @@ export default function CatalogPage({ type }: { type: CatalogResourceType }) {
           }
         />
       )}
+      {creating && type !== 'agent' && <CatalogCreate type={type} onCreated={() => void resources.refetch()} onCancel={() => setCreating(false)} />}
       <Card>
         <Flex wrap gap={12} justify="space-between" style={{ marginBottom: 16 }}>
           <Flex wrap gap={8}>
@@ -152,6 +155,7 @@ export default function CatalogPage({ type }: { type: CatalogResourceType }) {
               onChange={(value) => resetPage(() => setClientVisibility(value))}
             />
           </Flex>
+          {type !== 'agent' && <Button type="primary" onClick={() => setCreating(true)}>{type === 'mcp' ? '创建 / 导入 MCP' : '创建 / 上传 Skill'}</Button>}
           <Button loading={resources.isFetching} onClick={() => resources.refetch()}>
             刷新
           </Button>
