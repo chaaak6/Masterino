@@ -13,6 +13,7 @@ import { isDev } from '@/const/env';
 import type { IControlModule } from '@/controllers';
 import AuthCtr from '@/controllers/AuthCtr';
 import ShellCommandCtr from '@/controllers/ShellCommandCtr';
+import GatewayConnectionCtr from '@/controllers/GatewayConnectionCtr';
 import { generateCliWrapper, getCliWrapperDir } from '@/modules/cliEmbedding';
 import { ScreenCaptureManager } from '@/modules/screenCapture/ScreenCaptureManager';
 import {
@@ -464,20 +465,21 @@ export class App {
   private commandCleanupComplete = false;
 
   private handleBeforeQuit = (event: Electron.Event) => {
-    if (!this.commandCleanupComplete && !(process.platform === 'win32' && this.isQuiting)) {
+    if (!this.commandCleanupComplete) {
       event.preventDefault();
       if (!this.commandCleanupStarted) {
         this.commandCleanupStarted = true;
         this.isQuiting = true;
-        void (this.getController(ShellCommandCtr)?.cleanup() ?? Promise.resolve()).finally(() => {
+        void Promise.allSettled([
+          this.getController(ShellCommandCtr)?.cleanup(),
+          this.getController(GatewayConnectionCtr)?.cleanupDocumentJobs(),
+        ]).finally(() => {
           this.commandCleanupComplete = true;
           app.quit();
         });
       }
       return;
     }
-    // Windows update installation can mark isQuiting before emitting this event.
-    void this.getController(ShellCommandCtr)?.cleanup();
     logger.info('Application is preparing to quit');
     this.isQuiting = true;
 

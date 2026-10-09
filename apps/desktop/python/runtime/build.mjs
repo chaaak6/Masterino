@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile, mkdir, cp } from 'node:fs/promises';
@@ -54,9 +55,18 @@ try {
     ],
     { stdio: 'inherit' },
   );
-  const packages = ['python-pptx', 'Pillow', 'lxml', 'XlsxWriter', 'typing-extensions'];
-  const probe = `import json, platform, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter; print(json.dumps({'version': platform.python_version(), 'packages': {n: m.version(n) for n in ${JSON.stringify(packages)}}}))`;
+  const packages = ['python-pptx', 'Pillow', 'lxml', 'XlsxWriter', 'typing-extensions', 'duckdb'];
+  const probe = `import json, platform, importlib.metadata as m; import pptx, PIL, lxml.etree, xlsxwriter, duckdb; print(json.dumps({'version': platform.python_version(), 'packages': {n: m.version(n) for n in ${JSON.stringify(packages)}}}))`;
   const info = JSON.parse(execFileSync(python, ['-I', '-B', '-c', probe], { encoding: 'utf8' }));
+  const require = createRequire(import.meta.url);
+  const fontRoot = path.join(
+    path.dirname(require.resolve('pdfjs-dist/package.json')),
+    'standard_fonts',
+  );
+  await mkdir(path.join(runtime, 'report-fonts'));
+  for (const file of ['LiberationSans-Regular.ttf', 'LICENSE_LIBERATION'])
+    await cp(path.join(fontRoot, file), path.join(runtime, 'report-fonts', file));
+  await cp(path.join(here, '../documents.py'), path.join(runtime, 'documents.py'));
   await writeFile(
     path.join(runtime, 'manifest.json'),
     JSON.stringify({ ...info, executable, target }, null, 2) + '\n',

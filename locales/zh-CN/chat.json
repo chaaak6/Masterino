@@ -303,7 +303,7 @@
   "localAttachment.added": "已加入输入",
   "localAttachment.checking": "正在检查本机文件…",
   "localAttachment.deviceOnly": "本机附件 · 仅原设备可用",
-  "localAttachment.errors.fileTooLarge": "附件超过 100 MiB，请选择更小的文件。",
+  "localAttachment.errors.fileTooLarge": "附件超过 4 GiB，请选择更小的文件。",
   "localAttachment.errors.imageResolutionExceeded": "图片单边超过 8192 像素或总像素超过 4000 万，请缩小后再发送。",
   "localAttachment.errors.imageTooLarge": "图片超过 10 MiB，请缩小后再发送。",
   "localAttachment.errors.invalidImage": "无法读取此图片，请选择有效的图片文件。",

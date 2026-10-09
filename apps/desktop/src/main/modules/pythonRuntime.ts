@@ -107,3 +107,34 @@ export function getBundledPythonInfo(): Promise<BundledPythonInfo | undefined> {
 export async function getPythonEnvironment(): Promise<string> {
   return formatPythonEnvironment(await getBundledPythonInfo());
 }
+
+let documentInfoPromise: Promise<BundledPythonInfo | undefined> | undefined;
+
+/** Optional spreadsheet engine failure never changes the legacy runtime verdict. */
+export function getDocumentPythonInfo(): Promise<BundledPythonInfo | undefined> {
+  const pending = (documentInfoPromise ??= (async () => {
+    const info = await getBundledPythonInfo();
+    if (!info) return undefined;
+    try {
+      const { stdout } = await promisify(childProcess.execFile)(
+        info.executable,
+        [
+          '-I',
+          '-B',
+          '-X',
+          'utf8',
+          '-c',
+          'import duckdb, importlib.metadata as m; print(m.version("duckdb"))',
+        ],
+        { timeout: 10_000, windowsHide: true },
+      );
+      return { ...info, packages: { ...info.packages, duckdb: stdout.trim() } };
+    } catch {
+      return undefined;
+    }
+  })());
+  void pending.then((info) => {
+    if (!info && documentInfoPromise === pending) documentInfoPromise = undefined;
+  });
+  return pending;
+}

@@ -144,26 +144,30 @@ export class PdfLoader implements FileLoaderInterface {
     const pdf: PDFDocumentProxy = await this.getPDFFile(filePath);
 
     log('Getting PDF metadata');
-    const pdfMetadata =
-      (await pdf.getMetadata().catch((err) => {
-        log('Error retrieving PDF metadata');
-        console.error(`Error getting PDF metadata: ${err.message}`);
-        return null;
-      })) ?? null;
+    try {
+      const pdfMetadata =
+        (await pdf.getMetadata().catch((err) => {
+          log('Error retrieving PDF metadata');
+          console.error(`Error getting PDF metadata: ${err.message}`);
+          return null;
+        })) ?? null;
 
-    const pdfInfo = pdfMetadata?.info ?? {};
-    const metadata = pdfMetadata?.metadata ?? null;
-    log('PDF metadata retrieved:', {
-      hasInfo: !!Object.keys(pdfInfo).length,
-      hasMetadata: !!metadata,
-    });
+      const pdfInfo = pdfMetadata?.info ?? {};
+      const metadata = pdfMetadata?.metadata ?? null;
+      log('PDF metadata retrieved:', {
+        hasInfo: !!Object.keys(pdfInfo).length,
+        hasMetadata: !!metadata,
+      });
 
-    return {
-      pdfInfo,
-      // PDF info (Author, Title, etc.)
-      pdfMetadata: metadata,
-      // PDF metadata
-      pdfVersion: version,
-    };
+      return {
+        pdfInfo,
+        // PDF info (Author, Title, etc.)
+        pdfMetadata: metadata,
+        // PDF metadata
+        pdfVersion: version,
+      };
+    } finally {
+      await pdf.destroy();
+    }
   }
 }

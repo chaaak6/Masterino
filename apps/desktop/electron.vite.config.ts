@@ -233,6 +233,13 @@ export default defineConfig({
       minify: !isDev,
       outDir: 'dist/main',
       rolldownOptions: {
+        input: {
+          'index': path.resolve(__dirname, 'src/main/index.ts'),
+          'document-worker': path.resolve(
+            __dirname,
+            '../../packages/file-loaders/src/documents/worker.ts',
+          ),
+        },
         // Native modules must be externalized to work correctly.
         // bufferutil and utf-8-validate are optional peer deps of ws that may not be installed.
         external: [

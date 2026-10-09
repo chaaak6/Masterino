@@ -1,6 +1,6 @@
 export default {
   'workspaceRuntime.otherDeviceProject': 'Project unavailable on this device',
-  'localAttachment.errors.fileTooLarge': 'Attachment exceeds 100 MiB. Select a smaller file.',
+  'localAttachment.errors.fileTooLarge': 'Attachment exceeds 4 GiB. Select a smaller file.',
   'localAttachment.errors.imageTooLarge': 'Image exceeds 10 MiB. Resize it before sending.',
   'localAttachment.errors.imageResolutionExceeded':
     'Image exceeds 8192 pixels per dimension or 40 megapixels. Resize it before sending.',

@@ -150,7 +150,7 @@ describe('local attachment intake error codes', () => {
   });
 
   it.each([
-    ['application/pdf', 100 * 1024 * 1024 + 1, 'LOCAL_ATTACHMENT_TOO_LARGE'],
+    ['application/pdf', 4 * 1024 ** 3 + 1, 'LOCAL_ATTACHMENT_TOO_LARGE'],
     ['image/png', 10 * 1024 * 1024 + 1, 'LOCAL_IMAGE_TOO_LARGE'],
   ])('rejects oversized %s before reading file bytes', async (type, size, code) => {
     const file = new File([], 'large', { type });

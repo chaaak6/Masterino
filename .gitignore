@@ -183,3 +183,7 @@ k8s/12-searxng.yaml
 
 # Independent local development state, credentials and logs
 .local-dev/
+
+# Generated bundled Python runtime (including local test runtime links)
+/apps/desktop/resources/python-runtime
+/e2e/documents/.artifacts/

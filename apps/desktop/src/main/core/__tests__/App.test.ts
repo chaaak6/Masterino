@@ -195,7 +195,7 @@ describe('App', () => {
     vi.clearAllMocks();
   });
 
-  it('waits for command cleanup before completing an application quit', async () => {
+  it('waits for both command and document cleanup before completing an application quit', async () => {
     appInstance = new App();
     let complete!: () => void;
     const cleanup = vi.fn(
@@ -204,15 +204,29 @@ describe('App', () => {
           complete = resolve;
         }),
     );
-    vi.spyOn(appInstance, 'getController').mockReturnValue({ cleanup } as never);
+    let completeDocuments!: () => void;
+    const cleanupDocumentJobs = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          completeDocuments = resolve;
+        }),
+    );
+    vi.spyOn(appInstance, 'getController').mockReturnValue({
+      cleanup,
+      cleanupDocumentJobs,
+    } as never);
     const handler = mockAppOn.mock.calls.find(([event]) => event === 'before-quit')![1];
     const event = { preventDefault: vi.fn() };
     handler(event);
     expect(event.preventDefault).toHaveBeenCalled();
     expect(cleanup).toHaveBeenCalledOnce();
+    expect(cleanupDocumentJobs).toHaveBeenCalledOnce();
     expect(electronApp.quit).not.toHaveBeenCalled();
     complete();
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(electronApp.quit).not.toHaveBeenCalled();
+    completeDocuments();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(electronApp.quit).toHaveBeenCalledOnce();
   });
 

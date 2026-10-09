@@ -1,10 +1,43 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID, type Hash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import { createWriteStream } from 'node:fs';
+import {
+  open,
+  type FileHandle,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 
 import { ensureScratchWorkspace } from './workspace';
 
-const MAX_ATTACHMENT_BYTES = 100 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 4 * 1024 ** 3;
+const MAX_INLINE_ATTACHMENT_BYTES = 100 * 1024 ** 2;
+const verifiedDigests = new Map<string, { signature: string; digest: string }>();
+const fileSignature = (info: Awaited<ReturnType<typeof stat>>) =>
+  `${info.dev}:${info.ino}:${info.size}:${info.mtimeMs}:${info.ctimeMs}`;
+async function fileDigest(file: string) {
+  const before = await stat(file);
+  const signature = fileSignature(before);
+  const cached = verifiedDigests.get(file);
+  if (cached?.signature === signature) return cached.digest;
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  if (fileSignature(await stat(file)) !== signature)
+    throw new Error('Attachment changed while verifying');
+  const digest = hash.digest('hex');
+  if (verifiedDigests.size >= 128) verifiedDigests.delete(verifiedDigests.keys().next().value!);
+  verifiedDigests.set(file, { signature, digest });
+  return digest;
+}
+
 export interface LocalAttachmentRecord {
   attachmentId: string;
   deviceId: string;
@@ -82,15 +115,15 @@ export async function receiveLocalAttachment(
 ): Promise<LocalAttachmentRecord> {
   if (input.data && !(input.data instanceof Uint8Array))
     throw new Error('Invalid attachment bytes');
-  if (input.data && input.data.byteLength > MAX_ATTACHMENT_BYTES)
+  if (input.data && input.data.byteLength > MAX_INLINE_ATTACHMENT_BYTES)
     throw new Error('Attachment exceeds 100 MiB');
   let bytes: Uint8Array;
   let originalPath: string | undefined;
   if (input.originalPath) {
     originalPath = await realpath(input.originalPath);
     const info = await stat(originalPath);
-    if (!info.isFile() || info.size > MAX_ATTACHMENT_BYTES)
-      throw new Error('Attachment is not a supported file or exceeds 100 MiB');
+    if (!info.isFile() || info.size > MAX_INLINE_ATTACHMENT_BYTES)
+      throw new Error('Use chunked transfer for attachments above 100 MiB');
     bytes = await readFile(originalPath);
     if (!input.data || digest(bytes) !== digest(input.data))
       throw new Error('Selected file bytes do not match the original path');
@@ -132,6 +165,7 @@ export async function resolveLocalAttachment(
   root: string,
   deviceId: string,
   ref: LocalAttachmentRecord,
+  includeBytes = true,
 ) {
   if (ref.deviceId !== deviceId)
     throw new Error('Attachment is unavailable on this device; select it again');
@@ -152,9 +186,15 @@ export async function resolveLocalAttachment(
   const info = await stat(actual);
   if (!info.isFile() || info.size !== ref.size || info.size > MAX_ATTACHMENT_BYTES)
     throw new Error('Attachment changed; select it again');
-  const bytes = await readFile(actual);
-  if (digest(bytes) !== ref.version) throw new Error('Attachment changed; select it again');
-  return { bytes, path: actual, ref: record.ref };
+  if ((await fileDigest(actual)) !== ref.version)
+    throw new Error('Attachment changed; select it again');
+  if (includeBytes && info.size > MAX_INLINE_ATTACHMENT_BYTES)
+    throw new Error('Use bounded attachment tools for a large file');
+  return {
+    bytes: includeBytes ? await readFile(actual) : Buffer.alloc(0),
+    path: actual,
+    ref: record.ref,
+  };
 }
 
 /** Scripts and Office receive a managed copy, never broader access to a selected source. */
@@ -175,11 +215,21 @@ export async function prepareLocalAttachment(
   } catch {
     /* First preparation, or a modified managed copy: restore the selected version. */
   }
-  const source = await resolveLocalAttachment(root, deviceId, ref);
+  const source = await resolveLocalAttachment(root, deviceId, ref, false);
   await bindLocalAttachment(root, deviceId, ref, topicId);
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const temporary = `${target}.${randomUUID()}.tmp`;
-  await writeFile(temporary, source.bytes, { mode: 0o600, flag: 'wx' });
+  try {
+    await pipeline(
+      createReadStream(source.path),
+      createWriteStream(temporary, { mode: 0o600, flags: 'wx' }),
+    );
+    if ((await fileDigest(temporary)) !== ref.version)
+      throw new Error('Attachment changed while copying');
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
   await rename(temporary, target);
   return { path: target, ref };
 }
@@ -190,7 +240,7 @@ export async function bindLocalAttachment(
   ref: LocalAttachmentRecord,
   topicId: string,
 ) {
-  await resolveLocalAttachment(root, deviceId, ref);
+  await resolveLocalAttachment(root, deviceId, ref, false);
   const filename = recordPath(root, ref.localResourceId);
   return serializeAttachmentMutation(filename, async () => {
     const record: StoredAttachment = JSON.parse(await readFile(filename, 'utf8'));
@@ -238,7 +288,7 @@ export async function validatePreparedLocalAttachment(
   const info = await stat(actual);
   if (!info.isFile() || info.size !== record.ref.size || info.size > MAX_ATTACHMENT_BYTES)
     throw new Error('Prepared attachment changed');
-  if (digest(await readFile(actual)) !== record.ref.version)
+  if ((await fileDigest(actual)) !== record.ref.version)
     throw new Error('Prepared attachment changed');
   return { path: actual, ref: record.ref };
 }
@@ -345,4 +395,126 @@ export async function manageLocalAttachment(
     return { available: true };
   };
   return serializeAttachmentMutation(filename, perform);
+}
+
+/** Sequential bounded IPC transfer; paths are device-owned and never supplied by renderer. */
+export class LocalAttachmentTransfers {
+  private transfers = new Map<
+    string,
+    {
+      input: { draftId: string; name: string; mime: string; size: number };
+      dir: string;
+      path: string;
+      handle: FileHandle;
+      hash: Hash;
+      received: number;
+      busy: boolean;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+  constructor(
+    private root: string,
+    private deviceId: string,
+  ) {}
+  async begin(input: { draftId: string; name: string; mime: string; size: number }) {
+    segment(input.draftId);
+    if (input.mime.startsWith('image/'))
+      throw new Error('Images use the existing validated image path');
+    if (!Number.isSafeInteger(input.size) || input.size < 0 || input.size > MAX_ATTACHMENT_BYTES)
+      throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
+    if (this.transfers.size >= 4) throw new Error('Too many attachment transfers');
+    const id = randomUUID();
+    const dir = path.join(this.root, 'attachment-drafts', input.draftId, id);
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    const filename = path.join(dir, 'snapshot');
+    const handle = await open(filename, 'wx', 0o600);
+    const timer = setTimeout(() => {
+      void this.cancel(id);
+    }, 600000);
+    timer.unref();
+    this.transfers.set(id, {
+      input,
+      dir,
+      path: filename,
+      handle,
+      hash: createHash('sha256'),
+      received: 0,
+      busy: false,
+      timer,
+    });
+    return { transferId: id, chunkBytes: 1024 * 1024 };
+  }
+  async append(id: string, offset: number, bytes: Uint8Array) {
+    const transfer = this.transfers.get(id);
+    if (
+      !transfer ||
+      transfer.busy ||
+      !(bytes instanceof Uint8Array) ||
+      bytes.length > 1024 * 1024 ||
+      offset !== transfer.received ||
+      offset + bytes.length > transfer.input.size
+    )
+      throw new Error('Invalid attachment chunk');
+    transfer.busy = true;
+    try {
+      let written = 0;
+      while (written < bytes.length)
+        written += (
+          await transfer.handle.write(bytes, written, bytes.length - written, offset + written)
+        ).bytesWritten;
+      transfer.hash.update(bytes);
+      transfer.received += bytes.length;
+      return { received: transfer.received };
+    } finally {
+      transfer.busy = false;
+    }
+  }
+  async finish(id: string): Promise<LocalAttachmentRecord> {
+    const transfer = this.transfers.get(id);
+    if (!transfer || transfer.busy || transfer.received !== transfer.input.size)
+      throw new Error('Attachment transfer is incomplete');
+    transfer.busy = true;
+    try {
+      await transfer.handle.close();
+      const ref: LocalAttachmentRecord = {
+        source: 'local',
+        attachmentId: randomUUID(),
+        localResourceId: id,
+        deviceId: this.deviceId,
+        name: path.basename(transfer.input.name) || 'attachment',
+        mime: transfer.input.mime,
+        size: transfer.received,
+        version: transfer.hash.digest('hex'),
+      };
+      await mkdir(path.join(this.root, 'attachment-index'), { recursive: true, mode: 0o700 });
+      await writeFile(
+        recordPath(this.root, id),
+        JSON.stringify({
+          ref,
+          path: await realpath(transfer.path),
+          draftId: transfer.input.draftId,
+          lifecycleVersion: 1,
+          draftIds: [transfer.input.draftId],
+          messageBindings: {},
+        }),
+        { flag: 'wx', mode: 0o600 },
+      );
+      await writeFile(attachmentLookupPath(this.root, ref.attachmentId), id, {
+        flag: 'wx',
+        mode: 0o600,
+      });
+      return ref;
+    } finally {
+      clearTimeout(transfer.timer);
+      this.transfers.delete(id);
+    }
+  }
+  async cancel(id: string) {
+    const transfer = this.transfers.get(id);
+    if (!transfer) return;
+    clearTimeout(transfer.timer);
+    this.transfers.delete(id);
+    await transfer.handle.close().catch(() => {});
+    await rm(transfer.dir, { recursive: true, force: true });
+  }
 }
