@@ -2,55 +2,6 @@
 
 # Changelog
 
-## [Version 1.3.10](https://github.com/chaaak6/Masterino/compare/v1.3.8...v1.3.10)
-
-<sup>Released on **2026-10-12**</sup>
-
-#### 🐛 Bug Fixes
-
-- **misc**: align community publishing tests with CI.
-- **misc**: export model assignment default for desktop CLI builds.
-- **misc**: align subscription reset quota and wallet fallback display.
-
-#### 💄 Styles
-
-- **misc**: unify account menu subscription actions.
-
-#### ✨ Features
-
-- **misc**: add subscription management to the account menu.
-- **misc**: default new user model assignments to DeepSeek V4 Flash.
-- **misc**: display Aihub subscription quota and renewal details.
-
-<br/>
-
-<details>
-<summary><kbd>Improvements and Fixes</kbd></summary>
-
-#### What's fixed
-
-- **misc**: align community publishing tests with CI ([6bcc5a1](https://github.com/chaaak6/Masterino/commit/6bcc5a1))
-- **misc**: export model assignment default for desktop CLI builds ([ad5c34e](https://github.com/chaaak6/Masterino/commit/ad5c34e))
-- **misc**: align subscription reset quota and wallet fallback display ([6a8e492](https://github.com/chaaak6/Masterino/commit/6a8e492))
-
-#### Styles
-
-- **misc**: unify account menu subscription actions ([a3182bd](https://github.com/chaaak6/Masterino/commit/a3182bd))
-
-#### What's improved
-
-- **misc**: add subscription management to the account menu ([fc39b74](https://github.com/chaaak6/Masterino/commit/fc39b74))
-- **misc**: default new user model assignments to DeepSeek V4 Flash ([7a24d66](https://github.com/chaaak6/Masterino/commit/7a24d66))
-- **misc**: display Aihub subscription quota and renewal details ([f7dbefc](https://github.com/chaaak6/Masterino/commit/f7dbefc))
-
-</details>
-
-<div align="right">
-
-[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
-
-</div>
-
 ## [Version 1.3.8](https://github.com/chaaak6/Masterino/compare/v1.3.7...v1.3.8)
 
 <sup>Released on **2026-10-06**</sup>
