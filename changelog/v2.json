@@ -2443,6 +2443,25 @@
   },
   {
     "children": {
+      "fixes": [
+        "align community publishing tests with CI.",
+        "export model assignment default for desktop CLI builds.",
+        "align subscription reset quota and wallet fallback display."
+      ],
+      "improvements": [
+        "unify account menu subscription actions."
+      ],
+      "features": [
+        "add subscription management to the account menu.",
+        "default new user model assignments to DeepSeek V4 Flash.",
+        "display Aihub subscription quota and renewal details."
+      ]
+    },
+    "date": "2026-10-12",
+    "version": "1.3.10"
+  },
+  {
+    "children": {
       "features": [
         "bundle local PPT tools and a general Python runtime."
       ]
