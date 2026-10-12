@@ -32,7 +32,10 @@ const itemFromRow = (row: Record<string, any>) => ({
   author: { avatar: null, name: row.owner_name || row.owner_email || 'Masterino' },
   avatar: row.avatar,
   category: row.category,
-  config: row.config || {},
+  config: row.config
+    ? Object.fromEntries(Object.entries(row.config).filter(([key]) => key !== 'sharedConnection'))
+    : {},
+  haveCloudEndpoint: row.manifest?.haveCloudEndpoint,
   createdAt: row.created_at,
   description: row.description,
   editorData: row.editor_data || {},
@@ -213,6 +216,54 @@ export class MarketRepository {
       identifier: data.identifier,
       status: result.rows[0].status,
     };
+  }
+
+  /** New catalog submissions are atomic; existing resource/version workflows stay unchanged. */
+  async submitResource(
+    type: ResourceType,
+    data: Record<string, any>,
+    account: Account,
+    artifact?: { key: string; sha256: string },
+    uploadArtifact?: () => Promise<void>,
+  ) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const resource = await client.query(
+        `INSERT INTO market_resources(type,identifier,owner_account_id,name,description,avatar,category,tags,visibility,metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'internal',$9)
+         ON CONFLICT(type,identifier) DO NOTHING RETURNING id`,
+        [type, data.identifier, account.id, data.name || data.identifier, data.description || null,
+          data.avatar || null, data.category || null, JSON.stringify(data.tags || []), JSON.stringify(data.metadata || {})],
+      );
+      if (!resource.rowCount) throw new Error(`Resource already exists: ${data.identifier}`);
+      const version = await client.query(
+        `INSERT INTO market_versions(resource_id,version,config,editor_data,manifest,localizations,changelog,created_by,
+          artifact_key,artifact_sha256,workflow_state,submitted_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'submitted',now()) RETURNING id`,
+        [resource.rows[0].id, versionFrom(data) || '1.0.0', JSON.stringify(data.config || {}),
+          JSON.stringify(data.editorData || {}), JSON.stringify(data.manifest || {}), JSON.stringify(data.localizations || {}),
+          data.changelog || null, account.id, artifact?.key || null, artifact?.sha256 || null],
+      );
+      await client.query('UPDATE market_resources SET current_version_id=$1, updated_at=now() WHERE id=$2',
+        [version.rows[0].id, resource.rows[0].id]);
+      for (const [action, details] of [
+        ['resource.create', { name: data.name }], ['version.create', { version: versionFrom(data) || '1.0.0' }], ['review.submit', {}],
+      ] as const) {
+        await client.query(
+          'INSERT INTO market_audit_logs(actor_account_id,action,target_type,target_id,details) VALUES ($1,$2,$3,$4,$5)',
+          [account.id, action, type, data.identifier, JSON.stringify(details)],
+        );
+      }
+      if (uploadArtifact) await uploadArtifact();
+      await client.query('COMMIT');
+      return { identifier: data.identifier, workflowState: 'submitted' };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async createVersion(

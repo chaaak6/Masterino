@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -47,5 +48,9 @@ export class MarketObjectStorage {
       new GetObjectCommand({ Bucket: this.config.MARKET_OBJECT_STORAGE_BUCKET, Key: key }),
       { expiresIn: 300 },
     );
+  }
+
+  async remove(key: string) {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.config.MARKET_OBJECT_STORAGE_BUCKET, Key: key }));
   }
 }

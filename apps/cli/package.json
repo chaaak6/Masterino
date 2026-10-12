@@ -43,6 +43,7 @@
     "debug": "^4.4.0",
     "diff": "^8.0.3",
     "fast-glob": "^3.3.3",
+    "fflate": "^0.8.2",
     "ignore": "^7.0.5",
     "picocolors": "^1.1.1",
     "superjson": "^2.2.6",

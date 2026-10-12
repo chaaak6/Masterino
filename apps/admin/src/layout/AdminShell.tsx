@@ -76,6 +76,11 @@ const navItems: MenuProps['items'] = [
     label: <Link to="/market">审核与发布</Link>,
   },
   {
+    icon: <KeyRound size={18} />,
+    key: '/access-keys',
+    label: <Link to="/access-keys">访问 Key</Link>,
+  },
+  {
     icon: <ScrollText size={18} />,
     key: '/audit',
     label: <Link to="/audit">审计日志</Link>,

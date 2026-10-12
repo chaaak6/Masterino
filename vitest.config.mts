@@ -12,6 +12,7 @@ if (process.env.NODE_ENV === 'production') {
 process.env.MARKET_BASE_URL ||= 'http://masterlion-market:3220';
 
 const alias = {
+  '@admin': resolve(__dirname, './apps/admin/src'),
   // Downstream workspaces sometimes pnpm-override @lobechat/business-* packages to
   // internal implementations whose source files import alias paths that only exist
   // in the outer workspace, causing vite import-analysis to fail when running tests
