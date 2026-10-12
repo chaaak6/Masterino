@@ -2,20 +2,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentModel } from '@/database/models/agent';
 import { PluginModel } from '@/database/models/plugin';
+import { AgentService } from '@/server/services/agent';
+import { getNewAgentPlugins } from '@/server/services/agent/newAgentPlugins';
 
 import { agentManagementRuntime } from '../agentManagement';
 
-const { mockCountAgents, mockGetAssistantList, mockQueryAgents, mockUpdate, mockUpdateConfig } =
-  vi.hoisted(() => ({
-    mockCountAgents: vi.fn(),
-    mockGetAssistantList: vi.fn(),
-    mockQueryAgents: vi.fn(),
-    mockUpdate: vi.fn(),
-    mockUpdateConfig: vi.fn(),
-  }));
+const {
+  mockCreate,
+  mockCountAgents,
+  mockGetAssistantList,
+  mockQueryAgents,
+  mockUpdate,
+  mockUpdateConfig,
+} = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockCountAgents: vi.fn(),
+  mockGetAssistantList: vi.fn(),
+  mockQueryAgents: vi.fn(),
+  mockUpdate: vi.fn(),
+  mockUpdateConfig: vi.fn(),
+}));
 
 vi.mock('@/database/models/agent', () => ({
   AgentModel: vi.fn(() => ({
+    create: mockCreate,
     countAgents: mockCountAgents,
     queryAgents: mockQueryAgents,
     update: mockUpdate,
@@ -65,6 +75,30 @@ describe('agentManagementRuntime', () => {
   it('declares the agent management runtime identifier', () => {
     expect(agentManagementRuntime.identifier).toBe('lobe-agent-management');
   });
+
+  it.each([
+    [undefined, ['lobe-user-interaction']],
+    [['lobe-web-browsing'], ['lobe-web-browsing', 'lobe-user-interaction']],
+    [['lobe-user-interaction', 'lobe-user-interaction'], ['lobe-user-interaction']],
+  ])(
+    'given an AI-created agent with tools %j, saves User Interaction once',
+    async (plugins, expected) => {
+      const defaultsSpy = vi
+        .spyOn(AgentService.prototype, 'getNewAgentPlugins')
+        .mockImplementation(async (tools) => getNewAgentPlugins(tools));
+      mockCreate.mockResolvedValue({ id: 'new-agent' });
+      const result = await createRuntime().createAgent({ title: 'Test Agent', plugins });
+
+      expect(result.success).toBe(true);
+      expect(mockCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Test Agent',
+          plugins: expected,
+        }),
+      );
+      defaultsSpy.mockRestore();
+    },
+  );
 
   it('throws if required server context is missing', () => {
     expect(() => agentManagementRuntime.factory({ toolManifestMap: {} })).toThrow(

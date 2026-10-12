@@ -1,3 +1,5 @@
+import type { NewApiSubscriptionSummary } from '@lobechat/types';
+
 import type { NewApiLogItem, NewApiPage, NewApiToken, NewApiUser } from './client';
 import type { NewApiReadSource } from './readSource';
 
@@ -161,6 +163,14 @@ export class NewApiBridgeClient implements NewApiReadSource {
 
   findUserById(userId: number) {
     return this.request<NewApiUser>(`/v1/users/${userId}`);
+  }
+
+  async getSubscriptionSummary(userId: number) {
+    const summary = await this.request<NewApiSubscriptionSummary>(
+      `/v1/users/${userId}/subscriptions`,
+    );
+    if (!summary) throw new NewApiBridgeError('Subscription lookup is unavailable', 503);
+    return summary;
   }
 
   findManagedToken(userId: number, tokenName: string) {

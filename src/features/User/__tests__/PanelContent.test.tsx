@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -59,7 +59,7 @@ vi.mock('../DataStatistics', () => ({
 }));
 
 vi.mock('../NewApiBalance', () => ({
-  default: vi.fn(() => <div>Mocked NewApiBalance</div>),
+  default: vi.fn(({ onNavigate }) => <button onClick={onNavigate}>Mocked NewApiBalance</button>),
 }));
 
 vi.mock('@/const/version', () => ({
@@ -91,7 +91,14 @@ describe('PanelContent', () => {
       renderWithRouter(<PanelContent closePopover={closePopover} />);
 
       expect(screen.getByText('Mocked UserInfo')).toBeInTheDocument();
-      expect(screen.getByText('Mocked DataStatistics')).toBeInTheDocument();
+      expect(screen.getByText('Mocked DataStatistics').closest('a')).toHaveAttribute(
+        'href',
+        '/settings/stats',
+      );
+      expect(screen.getByText('Mocked NewApiBalance').closest('a')).toBeNull();
+      closePopover.mockClear();
+      fireEvent.click(screen.getByText('Mocked NewApiBalance'));
+      expect(closePopover).toHaveBeenCalledOnce();
       expect(screen.queryByText('Mocked SignInBlock')).not.toBeInTheDocument();
     });
 

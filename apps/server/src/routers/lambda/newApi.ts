@@ -34,6 +34,10 @@ const bindingImportRowSchema = z.object({
 });
 
 export const newApiRouter = router({
+  getSubscriptionSummary: newApiProcedure.query(async ({ ctx }) => {
+    return ctx.newApiService.getSubscriptionSummary();
+  }),
+
   getAccountSummary: newApiProcedure.query(async ({ ctx }) => {
     return ctx.newApiService.getAccountSummary();
   }),

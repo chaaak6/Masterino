@@ -22,6 +22,9 @@ const createRepo = () => ({
   }),
   findUserById: vi.fn().mockResolvedValue({ group: 'vip', id: 7, username: 'ada' }),
   findUserByIdentity: vi.fn().mockResolvedValue({ id: 7, username: 'ada' }),
+  getSubscriptionSummary: vi
+    .fn()
+    .mockResolvedValue({ billingPreference: 'subscription_first', subscriptions: [] }),
   getUsageLogs: vi.fn().mockResolvedValue({ items: [{ id: 1 }], total: 1 }),
   inspectOAuthBinding: vi.fn().mockResolvedValue({ status: 'missing' }),
   inspectBoundToken: vi.fn().mockResolvedValue({
@@ -367,4 +370,22 @@ describe('createBridgeHandler', () => {
     expect(repo.inspectOAuthBinding).toHaveBeenCalledWith(27, 1, '768164');
     expect(repo.linkOAuthBinding).not.toHaveBeenCalled();
   });
+});
+
+it('requires authentication and scopes subscription reads to the requested user', async () => {
+  const repo = createRepo();
+  const handler = createBridgeHandler({
+    bridgeToken: 'secret',
+    repository: repo as any,
+    managedTokenName: 'managed',
+    iamProviderId: 1,
+  });
+  expect((await handler(makeRequest('/v1/users/7/subscriptions', ''))).status).toBe(401);
+  expect(repo.getSubscriptionSummary).not.toHaveBeenCalled();
+  const response = await readResponse(await handler(makeRequest('/v1/users/7/subscriptions')));
+  expect(response.body.data).toEqual({
+    billingPreference: 'subscription_first',
+    subscriptions: [],
+  });
+  expect(repo.getSubscriptionSummary).toHaveBeenCalledWith(7);
 });

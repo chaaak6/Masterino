@@ -1,11 +1,9 @@
 'use client';
 
-import { SOCIAL_URL } from '@lobechat/business-const';
 import { isDesktop } from '@lobechat/const';
 import { useAnalytics } from '@lobehub/analytics/react';
 import { type MenuProps } from '@lobehub/ui';
 import { ActionIcon, DropdownMenu, Flexbox, Icon } from '@lobehub/ui';
-import { DiscordIcon, GithubIcon } from '@lobehub/ui/icons';
 import {
   Book,
   CircleHelp,
@@ -25,7 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { openChangelogModal } from '@/components/ChangelogModal';
 import { openFeedbackModal } from '@/components/FeedbackModal';
 import HighlightNotification from '@/components/HighlightNotification';
-import { DOCUMENTS_REFER_URL, GITHUB } from '@/const/url';
+import { DOCUMENTS_REFER_URL } from '@/const/url';
 import Billboard from '@/features/Billboard';
 import { useBillboardMenuItems } from '@/features/Billboard/MenuItems';
 import { useActiveNavKey } from '@/features/NavPanel';
@@ -280,15 +278,6 @@ const Footer = memo(() => {
         onClick: handleOpenFeedbackModal,
       },
       {
-        icon: <Icon icon={DiscordIcon} />,
-        key: 'discord',
-        label: (
-          <a href={SOCIAL_URL.discord} rel="noopener noreferrer" target="_blank">
-            {t('userPanel.discord')}
-          </a>
-        ),
-      },
-      {
         type: 'divider',
       },
       {
@@ -297,19 +286,6 @@ const Footer = memo(() => {
         label: t('changelog'),
         onClick: handleOpenChangelogModal,
       },
-      ...(footer.layout === 'compact' && !footer.hideGitHub
-        ? [
-            {
-              icon: <Icon icon={GithubIcon} />,
-              key: 'github',
-              label: (
-                <a href={GITHUB} rel="noopener noreferrer" target="_blank">
-                  GitHub
-                </a>
-              ),
-            },
-          ]
-        : []),
       ...(footer.showEvalEntry && footer.layout === 'compact'
         ? [
             {
@@ -338,7 +314,6 @@ const Footer = memo(() => {
     [
       footer.showSettingsEntry,
       footer.layout,
-      footer.hideGitHub,
       footer.showEvalEntry,
       handleOpenChangelogModal,
       handleOpenFeedbackModal,
@@ -364,11 +339,6 @@ const Footer = memo(() => {
                 size={16}
               />
             </DropdownMenu>
-            {!footer.hideGitHub && (
-              <a aria-label={'GitHub'} href={GITHUB} rel="noopener noreferrer" target={'_blank'}>
-                <ActionIcon icon={GithubIcon} size={16} title={'GitHub'} />
-              </a>
-            )}
             {footer.showEvalEntry && (
               <WorkspaceLink to="/eval">
                 <ActionIcon

@@ -10,6 +10,8 @@ import type {
 import { lambdaClient } from '@/libs/trpc/client';
 
 class AihubService {
+  getSubscriptionSummary = () => lambdaClient.aihub.getSubscriptionSummary.query();
+
   getAccountSummary = async (): Promise<NewApiAccountSummary> => {
     return lambdaClient.aihub.getAccountSummary.query();
   };

@@ -248,6 +248,10 @@ export const createBridgeHandler = ({
         return success(user);
       }
 
+      if (url.pathname === `/v1/users/${userId}/subscriptions` && request.method === 'GET') {
+        return success(await repository.getSubscriptionSummary(userId));
+      }
+
       if (url.pathname === `/v1/users/${userId}/managed-token`) {
         const tokenName = url.searchParams.get('name') || managedTokenName;
         const token = await repository.findManagedToken(userId, tokenName);

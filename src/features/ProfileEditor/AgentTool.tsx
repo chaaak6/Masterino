@@ -22,6 +22,7 @@ import MarketSkillIcon from '@/features/ChatInput/ActionBar/Tools/MarketSkillIco
 import ToolItem from '@/features/ChatInput/ActionBar/Tools/ToolItem';
 import ToolItemDetailPopover from '@/features/ChatInput/ActionBar/Tools/ToolItemDetailPopover';
 import { createSkillStoreModal } from '@/features/SkillStore';
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { USER_HIDDEN_BUILTIN_SKILLS } from '@/helpers/skillFilters';
 import { useCheckPluginsIsInstalled } from '@/hooks/useCheckPluginsIsInstalled';
 import { useFetchInstalledPlugins } from '@/hooks/useFetchInstalledPlugins';
@@ -698,10 +699,14 @@ const AgentTool = memo<AgentToolProps>(
 
       // Defer cleanup to avoid race with async data loading (SWR, Composio, etc.)
       const timer = setTimeout(() => {
-        const stalePlugins = plugins.filter((id) => !validIdentifiers.has(id));
+        const stalePlugins = plugins.filter(
+          (id) => isIntegrationVisible(id) && !validIdentifiers.has(id),
+        );
 
         if (stalePlugins.length > 0 && effectiveAgentId) {
-          const cleanedPlugins = plugins.filter((id) => validIdentifiers.has(id));
+          const cleanedPlugins = plugins.filter(
+            (id) => !isIntegrationVisible(id) || validIdentifiers.has(id),
+          );
           updateAgentConfigById(effectiveAgentId, { plugins: cleanedPlugins });
         }
 
@@ -719,7 +724,9 @@ const AgentTool = memo<AgentToolProps>(
       if (showWebBrowsing && isSearchEnabled && !tools.includes(WEB_BROWSING_IDENTIFIER)) {
         tools.unshift(WEB_BROWSING_IDENTIFIER);
       }
-      return tools.filter((toolId) => !USER_HIDDEN_BUILTIN_SKILLS.has(toolId));
+      return tools.filter(
+        (toolId) => !USER_HIDDEN_BUILTIN_SKILLS.has(toolId) && isIntegrationVisible(toolId),
+      );
     }, [plugins, isSearchEnabled, showWebBrowsing]);
 
     return (

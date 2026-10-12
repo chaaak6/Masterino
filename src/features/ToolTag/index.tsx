@@ -8,6 +8,7 @@ import isEqual from 'fast-deep-equal';
 import { memo, useMemo } from 'react';
 
 import PluginAvatar from '@/components/Plugins/PluginAvatar';
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { useIsDark } from '@/hooks/useIsDark';
 import { useDiscoverStore } from '@/store/discover';
 import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
@@ -118,9 +119,12 @@ const ToolTag = memo<ToolTagProps>(({ identifier, variant = 'default' }) => {
   // Fetch from remote if not found locally
   const usePluginDetail = useDiscoverStore((s) => s.usePluginDetail);
   const { data: remoteData, isLoading } = usePluginDetail({
-    identifier: !localMeta && !isInstalled ? identifier : undefined,
+    identifier:
+      isIntegrationVisible(identifier) && !localMeta && !isInstalled ? identifier : undefined,
     withManifest: false,
   });
+
+  if (!isIntegrationVisible(identifier)) return null;
 
   // Determine final metadata
   const meta = localMeta || {

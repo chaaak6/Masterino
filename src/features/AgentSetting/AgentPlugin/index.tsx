@@ -14,6 +14,7 @@ import { FORM_STYLE } from '@/const/layoutTokens';
 import { createSkillStoreModal } from '@/features/SkillStore';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { useFetchInstalledPlugins } from '@/hooks/useFetchInstalledPlugins';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { pluginHelpers, useToolStore } from '@/store/tool';
@@ -75,6 +76,7 @@ const AgentPlugin = memo(() => {
 
   // Find plugins that are not in installedPlugins
   const deprecatedList = userEnabledPlugins
+    .filter(isIntegrationVisible)
     .filter((pluginId) => !installedPlugins.some((p) => p.identifier === pluginId))
     .map((id) => ({
       avatar: <Avatar avatar={'♻️'} shape={'square'} size={40} />,
