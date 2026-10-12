@@ -182,9 +182,11 @@ describe('createLambdaContext', () => {
     const apiKeyRecord = {
       accessedAt: new Date(),
       createdAt: new Date(),
+      description: null,
       enabled: true,
       expiresAt: null,
       id: 'key-1',
+      isAdminManaged: false,
       key: 'encrypted-key',
       keyHash: 'hashed-key',
       lastUsedAt: null,

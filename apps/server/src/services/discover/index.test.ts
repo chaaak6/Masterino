@@ -417,8 +417,7 @@ describe('DiscoverService', () => {
 
     it.each([404])('keeps the existing gateway when company lookup returns %s', async (failure) => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch');
-      if (failure === 'network') fetchSpy.mockRejectedValue(new Error('resolver unavailable'));
-      else fetchSpy.mockResolvedValue(new Response('', { status: failure as number }));
+      fetchSpy.mockResolvedValue(new Response('', { status: failure }));
       const previousUrl = process.env.MARKET_BASE_URL;
       process.env.MARKET_BASE_URL = 'http://internal-market.test';
       const expected = { content: [{ type: 'text', text: 'existing gateway result' }] };
