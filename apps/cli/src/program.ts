@@ -6,6 +6,7 @@ import { registerAgentCommand } from './commands/agent';
 import { registerAgentGroupCommand } from './commands/agent-group';
 import { registerAgentSignalCommand } from './commands/agent-signal';
 import { registerBotCommand } from './commands/bot';
+import { registerCommunityCommand } from './commands/community';
 import { registerCompletionCommand } from './commands/completion';
 import { registerConfigCommand } from './commands/config';
 import { registerConnectCommand } from './commands/connect';
@@ -66,6 +67,7 @@ export function createProgram() {
   registerFileCommand(program);
   registerHeteroCommand(program);
   registerSkillCommand(program);
+  registerCommunityCommand(program);
   registerSessionGroupCommand(program);
   registerTaskCommand(program);
   registerThreadCommand(program);
