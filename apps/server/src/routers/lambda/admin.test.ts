@@ -3056,4 +3056,27 @@ describe('adminRouter', () => {
       code: 'UNAUTHORIZED',
     });
   });
+  it('Given a regular user, Then all managed access Key operations are forbidden', async () => {
+    const caller = createCaller({
+      ...(await createContextInner({ userId: 'user-member' })),
+      user: { id: 'user-member', role: 'user' },
+    } as never) as any;
+    for (const [operation, input] of [
+      ['list', { page: 1, pageSize: 20 }],
+      ['create', { name: 'Key' }],
+      ['reveal', { id: 'key-id' }],
+      ['setEnabled', { id: 'key-id', enabled: false }],
+      ['delete', { id: 'key-id' }],
+    ] as const) {
+      await expect(caller.managedApiKeys[operation](input)).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+      });
+    }
+  });
+  it('Given an unauthenticated caller, Then the managed Key catalog requires authentication', async () => {
+    const caller = createCaller((await createContextInner()) as never) as any;
+    await expect(caller.managedApiKeys.list({ page: 1, pageSize: 20 })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
 });

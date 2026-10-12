@@ -35,6 +35,9 @@ export class ApiKeyModel {
   private ownership = () =>
     buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, apiKeys);
 
+  // Backend-managed Keys belong to the admin directory, not personal/workspace settings.
+  private settingsScope = () => and(this.ownership(), eq(apiKeys.isAdminManaged, false));
+
   private async getGateKeeper() {
     if (!this.gateKeeperPromise) {
       this.gateKeeperPromise = KeyVaultsGateKeeper.initWithEnvKey();
@@ -63,17 +66,17 @@ export class ApiKeyModel {
   };
 
   delete = async (id: string) => {
-    return this.db.delete(apiKeys).where(and(eq(apiKeys.id, id), this.ownership()));
+    return this.db.delete(apiKeys).where(and(eq(apiKeys.id, id), this.settingsScope()));
   };
 
   deleteAll = async () => {
-    return this.db.delete(apiKeys).where(this.ownership());
+    return this.db.delete(apiKeys).where(this.settingsScope());
   };
 
   query = async () => {
     const results = await this.db.query.apiKeys.findMany({
       orderBy: [desc(apiKeys.updatedAt)],
-      where: this.ownership(),
+      where: this.settingsScope(),
     });
 
     const gateKeeper = await this.getGateKeeper();
@@ -114,12 +117,12 @@ export class ApiKeyModel {
     return this.db
       .update(apiKeys)
       .set({ ...value, updatedAt: new Date() })
-      .where(and(eq(apiKeys.id, id), this.ownership()));
+      .where(and(eq(apiKeys.id, id), this.settingsScope()));
   };
 
   findById = async (id: string) => {
     return this.db.query.apiKeys.findFirst({
-      where: and(eq(apiKeys.id, id), this.ownership()),
+      where: and(eq(apiKeys.id, id), this.settingsScope()),
     });
   };
 

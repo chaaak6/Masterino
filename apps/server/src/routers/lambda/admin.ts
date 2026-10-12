@@ -58,6 +58,8 @@ import { TaskService } from '@/server/services/task';
 import { TaskRunnerService } from '@/server/services/taskRunner';
 import { getInternalMarketBaseUrl } from '@/utils/internalMarket';
 
+import { adminManagedApiKeysRouter } from './adminManagedApiKeys';
+
 interface AdminAuditLogItem {
   action: string;
   actor: string;
@@ -1864,6 +1866,7 @@ const listAdminUsers = async (db: any, input: z.infer<typeof paginationInput>) =
 };
 
 export const adminRouter = router({
+  managedApiKeys: adminManagedApiKeysRouter,
   listUsers: adminProcedure.input(paginationInput).query(async ({ ctx, input }) => {
     await requireUserManage(ctx);
     return listAdminUsers(getServerDBFromContext(ctx), input);
