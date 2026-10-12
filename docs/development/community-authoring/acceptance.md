@@ -52,7 +52,7 @@
 - 新投稿使用独立事务提交资源、版本、文件关联、审计和待审状态，现有其他资源管理方法不改。数据库检查成功后上传，上传成功后提交；失败回滚。每次上传采用唯一对象键，提交失败时只尝试清理本次对象。
 - Market 最终投稿接口直接检查实际 ZIP 内 SKILL.md 的必填 name / description，非法内容在对象上传前拒绝。
 
-针对性测试：CLI 67 项、后台 UI / 原导入解析 6 项、Market 26 项、主服务 MCP / 原后台 router 113 项，共 212 项通过。Next.js、CLI、后台 Vite 和 Market 构建通过。
+针对性测试：CLI 67 项、后台 UI / 原导入解析 6 项、Market 27 项、主服务 MCP / 原后台 router 113 项，共 213 项通过。Next.js、CLI、后台 Vite 和 Market 构建通过。
 
 真实 Cucumber：`community-review-fixes.config.cjs` 的 4 场景 / 12 步通过，覆盖构建后的 CLI 大文件拒绝、直接 Market 非法 frontmatter 拒绝、对唯一测试标识符注入版本插入失败后资源回滚及同标识符重试、发布后普通员工实际调用 Microsoft Learn MCP。服务日志确认调用用户、工具、耗时和成功状态。测试故障触发器已移除，成功测试投稿已拒绝或下架。
 
@@ -63,3 +63,5 @@
 对象存储清理为尽力执行，不承诺跨 PostgreSQL 和 S3 的原子性。测试账号的 DeleteObject 权限被 bucket ACL 拒绝；最初运行旧预览代码留下的两个小测试 ZIP 无法删除，相关数据库测试草稿已清理。未扩大存储权限，新实现的版本插入失败发生在上传前。极少数上传成功、数据库最终提交失败仍可能留下孤立对象，清理失败记录固定日志。
 
 重跑：先构建 CLI，将 `e2e/src/fixtures/community-review-control.cjs` 复制到独立测试 Market 的 `/app/dist/bdd-review-control.cjs`，测试结束移除；该 helper 仅在测试环境运行，使用既有测试管理员身份，故障只匹配当次 `bdd-review-<timestamp>-rollback` 标识符，不加入运行时镜像。设置 `COMMUNITY_CLI_CREDENTIALS`、`ADMIN_ACCEPTANCE_CREDENTIALS`、`COMMUNITY_REVIEW_KUBECONFIG`、`COMMUNITY_REVIEW_MARKET_POD` 和指向测试 Market 端口转发的 `COMMUNITY_REVIEW_MARKET_URL`，在 `e2e/` 运行 `pnpm exec cucumber-js --config community-review-fixes.config.cjs`。
+
+原有社区 BDD 也回归通过 4 场景 / 18 步，包含 Skill 发布、员工下载安装及内容读取；临时管理员权限已撤销，测试投稿已下架。新 Market 元数据校验禁用 gray-matter 的 JavaScript 执行引擎，只解析数据。

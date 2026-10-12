@@ -13,7 +13,13 @@ export function validateSkillContent(archive: Buffer) {
   if (!file?.length) throw new Error('Skill ZIP must contain non-empty SKILL.md at its root');
   let data: unknown;
   try {
-    data = matter(strFromU8(file)).data;
+    data = matter(strFromU8(file), {
+      engines: {
+        javascript: () => {
+          throw new Error('Executable frontmatter is not supported');
+        },
+      },
+    }).data;
   } catch {
     throw new Error('SKILL.md frontmatter must be valid YAML');
   }

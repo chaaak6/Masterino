@@ -540,7 +540,7 @@ it('Given an unpublished MCP, Then its shared connection cannot be resolved', as
   expect(response.status).toBe(404);
 });
 
-it.each(['---\nname: test\n---\nInstructions', '---\ndescription: test\n---\nInstructions'])('Given missing required Skill metadata, Then direct Market submission is rejected before upload', async (content) => {
+it.each(['---\nname: test\n---\nInstructions', '---\ndescription: test\n---\nInstructions', '---javascript\n({ name: \'test\', description: \'test\' })\n---\nInstructions'])('Given missing required Skill metadata, Then direct Market submission is rejected before upload', async (content) => {
   const storage = { put: vi.fn(), remove: vi.fn() };
   const repository = { ...createRepository(), submitResource: vi.fn() };
   const app = createMarketApp({ config, repository: repository as any, redis: {} as any, storage: storage as any });
