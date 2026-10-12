@@ -861,6 +861,13 @@
       "when": 1788825600000,
       "tag": "0122_message_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1791778800000,
+      "tag": "0123_admin_managed_api_keys",
+      "breakpoints": true
     }
   ],
   "version": "6"
