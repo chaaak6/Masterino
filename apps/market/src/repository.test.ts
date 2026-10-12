@@ -107,3 +107,17 @@ it('Given a published company MCP, When an employee lists the community, Then cr
   });
   expect(JSON.stringify(result)).not.toContain('encrypted-company-key');
 });
+
+describe('Atomic catalog submission', () => {
+  it('Given version creation fails, Then the resource insertion is rolled back and the connection is released', async () => {
+    const query = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 9 }] }).mockRejectedValueOnce(new Error('version insert failed')).mockResolvedValueOnce({});
+    const client = { query, release: vi.fn() };
+    const repository = new MarketRepository({ connect: async () => client } as any);
+    const upload = vi.fn(async () => {});
+    await expect(repository.submitResource('skill', { identifier: 'retryable', name: 'Test', version: '1.0.0' }, account, undefined, upload)).rejects.toThrow('version insert failed');
+    expect(upload).not.toHaveBeenCalled();
+    expect(query).toHaveBeenLastCalledWith('ROLLBACK');
+    expect(query.mock.calls.some(([sql]) => sql === 'COMMIT')).toBe(false);
+    expect(client.release).toHaveBeenCalled();
+  });
+});

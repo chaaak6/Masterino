@@ -101,14 +101,36 @@ async function skillResources(file: string, options: Metadata): Promise<Resource
       followSymbolicLinks: false,
       ignore: ['**/.git/**', '**/node_modules/**'],
     });
+    if (paths.length > 2000) throw new Error('Skill directory cannot contain more than 2000 files');
+    let totalBytes = 0;
+    for (const name of paths) {
+      const entry = await stat(path.join(file, name));
+      if (entry.size > 25 * 1024 * 1024) throw new Error(`Skill file exceeds 25 MiB: ${name}`);
+      totalBytes += entry.size;
+      if (totalBytes > 100 * 1024 * 1024)
+        throw new Error('Skill directory exceeds the 100 MiB unpacked limit');
+    }
     for (const name of paths) files[name] = await readFile(path.join(file, name));
     if (!files['SKILL.md']?.length)
       throw new Error('Skill directory must contain non-empty SKILL.md');
     bytes = Buffer.from(zipSync(files));
-  } else bytes = await readFile(file);
+  } else {
+    if (!info.size || info.size > 16 * 1024 * 1024)
+      throw new Error('Skill ZIP must be between 1 byte and 16 MiB');
+    bytes = await readFile(file);
+  }
   if (!bytes.length || bytes.length > 16 * 1024 * 1024)
     throw new Error('Skill ZIP must be between 1 byte and 16 MiB');
-  if (!unzipSync(bytes, { filter: (entry) => entry.name === 'SKILL.md' })['SKILL.md']?.length)
+  if (
+    !unzipSync(bytes, {
+      filter: (entry) => {
+        if (entry.name !== 'SKILL.md') return false;
+        if (entry.originalSize > 25 * 1024 * 1024)
+          throw new Error('SKILL.md exceeds the 25 MiB unpacked file limit');
+        return true;
+      },
+    })['SKILL.md']?.length
+  )
     throw new Error('Skill ZIP must contain non-empty SKILL.md at its root');
   const identifier = path.basename(path.resolve(file)).replace(/\.zip$/i, '');
   return [

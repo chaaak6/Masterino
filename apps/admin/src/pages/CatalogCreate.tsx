@@ -1,6 +1,6 @@
 import { trpc } from '@admin/lib/trpc';
 import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { parseCatalogMcp } from './catalogImport';
@@ -18,6 +18,16 @@ export default function CatalogCreate({
   const [json, setJson] = useState('');
   const [headers, setHeaders] = useState<Record<string, string>>({});
   const [artifact, setArtifact] = useState<string>();
+  const [fileName, setFileName] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
+  const fileReader = useRef<FileReader | null>(null);
+  const removeZip = () => {
+    fileReader.current?.abort();
+    fileReader.current = null;
+    setArtifact(undefined);
+    setFileName('');
+    if (fileInput.current) fileInput.current.value = '';
+  };
   const [error, setError] = useState('');
   const [created, setCreated] = useState('');
   const verify = trpc.admin.verifyCatalogMcp.useMutation({ onError: (e) => setError(e.message) });
@@ -105,6 +115,10 @@ export default function CatalogCreate({
           initialValues={{ version: '1.0.0' }}
           onFinish={(values) => {
             setError('');
+            if (fileName && !artifact) {
+              setError('ZIP 正在读取，请稍后提交');
+              return;
+            }
             create.mutate({
               type,
               identifier: values.identifier,
@@ -186,28 +200,44 @@ export default function CatalogCreate({
                 上传 ZIP（根目录含 SKILL.md，最多 16 MiB），或直接编写 SKILL.md。
               </Typography.Paragraph>
               <input
+                ref={fileInput}
                 aria-label="Skill ZIP"
                 type="file"
                 accept=".zip"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (!file) {
-                    setArtifact(undefined);
-                    return;
-                  }
+                  fileReader.current?.abort();
+                  fileReader.current = null;
+                  setArtifact(undefined);
+                  setFileName('');
+                  if (!file) return;
                   if (file.size > 16 * 1024 * 1024) {
                     setError('ZIP 不能超过 16 MiB');
                     e.target.value = '';
                     return;
                   }
                   const reader = new FileReader();
+                  fileReader.current = reader;
+                  setFileName(file.name);
                   reader.onload = () => {
+                    if (fileReader.current !== reader) return;
                     setArtifact(String(reader.result).split(',')[1]);
                     setError('');
+                  };
+                  reader.onerror = () => {
+                    if (fileReader.current !== reader) return;
+                    removeZip();
+                    setError('ZIP 读取失败，请重新选择');
                   };
                   reader.readAsDataURL(file);
                 }}
               />
+              {fileName && (
+                <Space>
+                  <Typography.Text>已选择：{fileName}</Typography.Text>
+                  <Button onClick={removeZip}>移除 ZIP</Button>
+                </Space>
+              )}
               <Form.Item
                 name="skillContent"
                 label="SKILL.md 内容"
@@ -222,7 +252,7 @@ export default function CatalogCreate({
               >
                 <Input.TextArea
                   rows={8}
-                  disabled={!!artifact}
+                  disabled={!!fileName}
                   placeholder={'---\nname: my-skill\ndescription: 技能描述\n---\n\n技能操作说明'}
                 />
               </Form.Item>

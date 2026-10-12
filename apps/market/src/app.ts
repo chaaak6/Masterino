@@ -32,6 +32,7 @@ import {
 import type { Account, MarketRepository } from './repository.js';
 import { runCuratedSeed } from './seed.js';
 import { CredentialVault } from './vault.js';
+import { validateSkillContent } from './skillArtifact.js';
 
 interface AppEnv extends AuthEnv {
   Variables: AuthEnv['Variables'] & { account: Account };
@@ -1495,12 +1496,15 @@ export const createMarketApp = (options: {
     }
     let artifactKey: string | undefined;
     let hash: string | undefined;
+    let uploaded = false;
+    let uploadArtifact: (() => Promise<void>) | undefined;
     if (input.type === 'skill') {
       const content = Buffer.from(input.artifactBase64 || '', 'base64');
       if (!content.length || content.length > 16 * 1024 * 1024)
         throw new Error('Skill ZIP must be between 1 byte and 16 MiB');
       const errors = validateZipArchive(content);
       if (errors.length) throw new Error(errors.join(', '));
+      validateSkillContent(content);
       const manifestErrors = validateArtifactManifest(resource.manifest || {});
       if (
         manifestErrors.length ||
@@ -1508,21 +1512,25 @@ export const createMarketApp = (options: {
       )
         throw new Error('Skill ZIP must contain SKILL.md at its root');
       hash = sha256(content);
-      artifactKey = `skill/${resource.identifier}/${resource.version || '1.0.0'}/${hash}.zip`;
-      await storage.put(artifactKey, content, hash);
+      artifactKey = `skill/${resource.identifier}/${resource.version || '1.0.0'}/${randomUUID()}-${hash}.zip`;
+      const key = artifactKey;
+      const digest = hash;
+      uploadArtifact = async () => {
+        await storage.put(key, content, digest);
+        uploaded = true;
+      };
     }
-    await repository.createResource(input.type, resource, c.get('account'));
-    const version = await repository.createVersion(input.type, resource, c.get('account'));
-    if (artifactKey)
-      await repository
-        .getPool()
-        .query('UPDATE market_versions SET artifact_key=$1, artifact_sha256=$2 WHERE id=$3', [
-          artifactKey,
-          hash,
-          version.id,
-        ]);
-    await repository.review(input.type, resource.identifier, 'submit', undefined, c.get('account'));
-    return c.json({ identifier: resource.identifier, workflowState: 'submitted' }, 201);
+    try {
+      const result = await repository.submitResource(input.type, resource, c.get('account'),
+        artifactKey ? { key: artifactKey, sha256: hash! } : undefined, uploadArtifact);
+      return c.json(result, 201);
+    } catch (error) {
+      if (uploaded && artifactKey) {
+        try { await storage.remove(artifactKey); }
+        catch { console.warn('Failed to remove artifact after catalog submission failure'); }
+      }
+      throw error;
+    }
   });
 
   // Only trusted server clients can resolve a company's credential. It is never in catalog responses.

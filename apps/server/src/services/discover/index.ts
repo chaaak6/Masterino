@@ -90,9 +90,11 @@ export class DiscoverService {
   assistantStore = new AssistantStore();
   pluginStore = new PluginStore();
   market: MarketSDK;
+  private callerUserId?: string;
 
   constructor(options: DiscoverServiceOptions = {}) {
     const { accessToken, userInfo } = options;
+    this.callerUserId = userInfo?.userId;
 
     // Use MarketService to initialize MarketSDK
     const marketService = new MarketService({ accessToken, userInfo });
@@ -171,34 +173,44 @@ export class DiscoverService {
     toolName: string;
     userAccessToken?: string;
   }) {
-    log('callCloudMcpEndpoint: params=%O', {
-      apiParams: params.apiParams,
-      hasUserAccessToken: !!params.userAccessToken,
-      identifier: params.identifier,
-      toolName: params.toolName,
-    });
-
-    const shared = await fetch(
-      `${getInternalMarketBaseUrl()}/api/internal/mcp/${encodeURIComponent(params.identifier)}/connection`,
-      {
-        headers: (this.market as unknown as { headers: Record<string, string> }).headers,
-        signal: AbortSignal.timeout(15_000),
-      },
-    ).catch(() => undefined);
-    if (shared?.ok) {
-      const { connection, tools } = await shared.json();
-      if (!tools.some((tool: any) => tool.name === params.toolName))
-        throw new Error('Tool is not published');
-      const client = new MCPClient({ type: 'http', name: params.identifier, ...connection });
-      try {
-        await client.initialize();
-        return await client.callTool(params.toolName, params.apiParams);
-      } finally {
-        await client.disconnect();
-      }
-    }
-
+    const startedAt = Date.now();
+    let success = false;
+    let errorType: string | undefined;
+    let route = 'connection';
+    let lookupStatus: number | undefined;
     try {
+      const shared = await fetch(
+        `${getInternalMarketBaseUrl()}/api/internal/mcp/${encodeURIComponent(params.identifier)}/connection`,
+        {
+          headers: (this.market as unknown as { headers: Record<string, string> }).headers,
+          signal: AbortSignal.timeout(15_000),
+        },
+      ).catch((error) => {
+        errorType = 'connection-network';
+        throw error;
+      });
+      lookupStatus = shared.status;
+      if (!shared.ok && shared.status !== 404) {
+        errorType = 'connection-http';
+        throw new Error(`MCP connection lookup failed (HTTP ${shared.status})`);
+      }
+      if (shared.ok) {
+        const { connection, tools } = await shared.json();
+        if (!tools.some((tool: any) => tool.name === params.toolName))
+          throw new Error('Tool is not published');
+        const client = new MCPClient({ type: 'http', name: params.identifier, ...connection });
+        try {
+          await client.initialize();
+          const result = await client.callTool(params.toolName, params.apiParams);
+          success = !result.isError;
+          if (!success) errorType = 'tool-error';
+          return result;
+        } finally {
+          await client.disconnect();
+        }
+      }
+
+      route = 'legacy-gateway';
       // Build headers - only include Authorization if userAccessToken is provided
       // When userAccessToken is not provided, MarketSDK will use trustedClientToken for authentication
       const headers: Record<string, string> = {};
@@ -218,11 +230,23 @@ export class DiscoverService {
         },
       );
 
-      log('callCloudMcpEndpoint: success, result=%O', result);
+      success = !result?.isError;
       return result;
     } catch (error) {
-      log('callCloudMcpEndpoint: error=%O', error);
+      success = false;
+      errorType ||= error instanceof Error ? error.name : 'UnknownError';
       throw error;
+    } finally {
+      console.info('MCP invocation', {
+        userId: this.callerUserId,
+        identifier: params.identifier,
+        toolName: params.toolName,
+        durationMs: Date.now() - startedAt,
+        success,
+        route,
+        lookupStatus,
+        ...(errorType && { errorType }),
+      });
     }
   }
 

@@ -63,3 +63,5 @@ CLI 替换 headers 中的 `${环境变量名}`；变量缺失则该项失败。�
 - CLI 构建及帮助命令正常。CLI type-check 仍有未修改的 Router 路径、task / hetero 和文档依赖诊断，本次新增命令无诊断。
 
 重跑：先构建 CLI，在 `e2e/` 执行 `pnpm exec cucumber-js --config community-cli.config.cjs`。`COMMUNITY_CLI_CREDENTIALS` 指向仓库外私有 env 文件，包含 `export LOBEHUB_SERVER=...` 和 `export LOBEHUB_CLI_API_KEY=...`。此测试会创建及清理测试投稿，不能指向生产环境。凭证不提交 GitHub。
+
+目录打包在读取文件前检查现有服务端上限：最多 2,000 个文件、单个 25 MiB、原始总量 100 MiB。已有 ZIP 读取前检查 16 MiB，根目录 SKILL.md 解压前检查 25 MiB；压缩后的 ZIP 同样不得超过 16 MiB。目录原始大小与压缩包大小是不同限制。

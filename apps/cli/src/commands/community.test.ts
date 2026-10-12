@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { createServer, type Server } from 'node:http';
-import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, mkdir, truncate } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -77,6 +77,41 @@ afterAll(async () => {
   else process.env.LOBEHUB_CLI_API_KEY = originalEnv.key;
 });
 describe('community import BDD', () => {
+  it('Given a small ZIP with an oversized expanded SKILL.md, Then CLI rejects it before unpacking', async () => {
+    const file = path.join(folder, 'oversized-expanded.zip');
+    await writeFile(file, Buffer.from(zipSync({ 'SKILL.md': new Uint8Array(26 * 1024 * 1024) })));
+    const result = await run(['skill', file, '--dry-run']);
+    expect(result.failed).toBe(1);
+    expect(result.results[0].error).toContain('25 MiB');
+    expect(requests).toHaveLength(0);
+  });
+
+  it('Given an oversized source file, Then directory import rejects it before compression', async () => {
+    const dir = path.join(folder, 'oversized-source');
+    await mkdir(dir);
+    await writeFile(path.join(dir, 'SKILL.md'), '---\nname: example\ndescription: test\n---');
+    await writeFile(path.join(dir, 'large.bin'), '');
+    await truncate(path.join(dir, 'large.bin'), 26 * 1024 * 1024);
+    const result = await run(['skill', dir]);
+    expect(result.failed).toBe(1);
+    expect(result.results[0].error).toContain('25 MiB');
+    expect(requests).toHaveLength(0);
+  });
+  it('Given a source directory beyond the unpacked limit, Then import rejects its total size', async () => {
+    const dir = path.join(folder, 'oversized-directory');
+    await mkdir(dir);
+    await writeFile(path.join(dir, 'SKILL.md'), '---\nname: example\ndescription: test\n---');
+    for (let i = 0; i < 5; i++) {
+      const file = path.join(dir, `resource-${i}.bin`);
+      await writeFile(file, '');
+      await truncate(file, 21 * 1024 * 1024);
+    }
+    const result = await run(['skill', dir]);
+    expect(result.failed).toBe(1);
+    expect(result.results[0].error).toContain('100 MiB');
+    expect(requests).toHaveLength(0);
+  });
+
   it('Given malformed JSON containing a pasted credential, Then the parser error does not print the input fragment', async () => {
     const file = path.join(folder, 'malformed.json');
     await writeFile(file, 'third-party-secret');
