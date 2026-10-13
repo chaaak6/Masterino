@@ -17,6 +17,7 @@ import type {
 import { isAiModelVisible } from 'model-bank';
 import { type SWRResponse } from 'swr';
 
+import { MODEL_CATALOG_RESET_EVENT } from '@/features/SilentModelRefresh/controller';
 import { mutate, useClientDataSWR } from '@/libs/swr';
 import { aiProviderService } from '@/services/aiProvider';
 import { type AiInfraStore } from '@/store/aiInfra/store';
@@ -129,6 +130,7 @@ export const normalizeImageModel = async (
   const { price, approximatePrice } = resolveImageSinglePrice(pricing);
 
   return {
+    aihubPricing: model.settings?.aihubPricing,
     abilities: (model.abilities || {}) as ModelAbilities,
     contextWindowTokens: model.contextWindowTokens,
     displayName: model.displayName ?? '',
@@ -137,8 +139,9 @@ export const normalizeImageModel = async (
     ...(parameters && { parameters }),
     ...(description && { description }),
     ...(pricing && { pricing }),
-    ...(typeof approximatePrice === 'number' && { approximatePricePerImage: approximatePrice }),
-    ...(typeof price === 'number' && { pricePerImage: price }),
+    ...(!model.settings?.aihubPricing &&
+      typeof approximatePrice === 'number' && { approximatePricePerImage: approximatePrice }),
+    ...(!model.settings?.aihubPricing && typeof price === 'number' && { pricePerImage: price }),
   };
 };
 
@@ -168,6 +171,7 @@ export const normalizeVideoModel = async (
   const { approximatePrice } = resolveVideoSinglePrice(pricing);
 
   return {
+    aihubPricing: model.settings?.aihubPricing,
     abilities: (model.abilities || {}) as ModelAbilities,
     contextWindowTokens: model.contextWindowTokens,
     displayName: model.displayName ?? '',
@@ -176,7 +180,8 @@ export const normalizeVideoModel = async (
     ...(parameters && { parameters }),
     ...(description && { description }),
     ...(pricing && { pricing }),
-    ...(typeof approximatePrice === 'number' && { approximatePricePerVideo: approximatePrice }),
+    ...(!model.settings?.aihubPricing &&
+      typeof approximatePrice === 'number' && { approximatePricePerVideo: approximatePrice }),
   };
 };
 
@@ -236,6 +241,7 @@ enum AiProviderSwrKey {
 }
 
 type AiProviderRuntimeStateWithBuiltinModels = AiProviderRuntimeState & {
+  silentCatalogRevision?: string;
   builtinAiModelList: LobeDefaultAiModelListItem[];
   enabledChatModelList?: EnabledProviderWithModels[];
   enabledImageModelList?: EnabledProviderWithModels[];
@@ -300,8 +306,44 @@ export class AiProviderActionImpl {
   };
 
   refreshAiProviderList = async (): Promise<void> => {
+    this.#get().clearSilentModelCatalog();
     await mutate(AiProviderSwrKey.fetchAiProviderList);
     await this.#get().refreshAiProviderRuntimeState();
+  };
+
+  applySilentModelCatalog = async (
+    models: EnabledAiModel[],
+    revision: string,
+    userId: string,
+    signal?: AbortSignal,
+  ): Promise<void> => {
+    const current = this.#get();
+    const providers = current.enabledAiProviders ?? [];
+    const enabled = models.filter((model) => model.enabled);
+    const [chat, image, video] = await Promise.all([
+      buildChatProviderModelLists(providers, enabled),
+      buildImageProviderModelLists(providers, enabled),
+      buildVideoProviderModelLists(providers, enabled),
+    ]);
+    if (signal?.aborted || useUserStore.getState().user?.id !== userId) return;
+    this.#set(
+      {
+        silentModelCatalog: { models, revision, userId },
+        enabledAiModels: enabled,
+        enabledChatModelList: chat,
+        enabledImageModelList: image,
+        enabledVideoModelList: video,
+      },
+      false,
+      'silentModelCatalog',
+    );
+  };
+
+  clearSilentModelCatalog = (): void => {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(MODEL_CATALOG_RESET_EVENT));
+    if (!this.#get().silentModelCatalog) return;
+    this.#set({ silentModelCatalog: undefined }, false, 'clearSilentModelCatalog');
+    void this.#get().refreshAiProviderRuntimeState();
   };
 
   refreshAiProviderRuntimeState = async (): Promise<void> => {
@@ -482,6 +524,19 @@ export class AiProviderActionImpl {
 
         if (isLogin) {
           const data = await aiProviderService.getAiProviderRuntimeState();
+          const overlay = this.#get().silentModelCatalog;
+          if (overlay && overlay.userId === useUserStore.getState().user?.id) {
+            data.enabledAiModels = overlay.models.filter((model) => model.enabled);
+            const forKind = (kind: string) =>
+              data.enabledAiProviders.filter((provider) =>
+                data.enabledAiModels.some(
+                  (model) => model.providerId === provider.id && model.type === kind,
+                ),
+              );
+            data.enabledChatAiProviders = forKind('chat');
+            data.enabledImageAiProviders = forKind('image');
+            data.enabledVideoAiProviders = forKind('video');
+          }
 
           // Build model lists with proper async handling
           const [enabledChatModelList, enabledImageModelList, enabledVideoModelList] =
@@ -493,6 +548,7 @@ export class AiProviderActionImpl {
 
           return {
             ...data,
+            silentCatalogRevision: overlay?.revision,
             builtinAiModelList,
             enabledChatModelList,
             enabledImageModelList,
@@ -553,6 +609,15 @@ export class AiProviderActionImpl {
       {
         onSuccess: (data) => {
           if (!data) return;
+          const overlay = this.#get().silentModelCatalog;
+          if (
+            data.silentCatalogRevision !== overlay?.revision &&
+            (data.silentCatalogRevision || overlay)
+          ) {
+            // A normal SWR read started before a newer silent snapshot was applied.
+            this.#set({ aiProviderRuntimeConfig: data.runtimeConfig }, false, 'runtimeConfigOnly');
+            return;
+          }
 
           this.#set(
             {

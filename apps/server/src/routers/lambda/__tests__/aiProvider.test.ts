@@ -175,6 +175,7 @@ describe('aiProviderRouter', () => {
         expect(result.enabledAiModels[0].settings?.aihubPricing).toEqual({
           version: 1,
           currency: 'CNY',
+          scope: 'account',
           status: 'available',
           stale: undefined,
           displayRates: { input: { min: 2, max: 2 }, output: { min: 8, max: 8 } },

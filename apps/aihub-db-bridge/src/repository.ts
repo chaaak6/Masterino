@@ -432,6 +432,13 @@ order by id desc
     return namedRows.map((token) => this.normalizeToken(token)!);
   }
 
+  async listAvailableModelIds() {
+    const rows = await this.query<{ model: string }>(
+      'select distinct model from abilities where enabled = true order by model asc',
+    );
+    return rows.map((row) => row.model).filter(Boolean);
+  }
+
   async listAccessibleModels(group?: string, token?: AihubBridgeToken) {
     const tokenLimits = token?.model_limits_enabled
       ? token.model_limits

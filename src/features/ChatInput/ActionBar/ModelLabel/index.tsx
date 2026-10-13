@@ -5,6 +5,7 @@ import { memo, useCallback } from 'react';
 
 import { useBusinessModelModeConfig } from '@/business/client/hooks/useBusinessAgentMode';
 import ModelSwitchPanel from '@/features/ModelSwitchPanel';
+import ModelAvailabilityWarning from '@/features/ModelSwitchPanel/components/ModelAvailabilityWarning';
 import { usePermission } from '@/hooks/usePermission';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
@@ -79,6 +80,7 @@ const ModelLabel = memo(() => {
     >
       <Flexbox horizontal align={'center'} gap={2}>
         <span className={styles.name}>{displayName}</span>
+        <ModelAvailabilityWarning model={model} provider={provider} />
         <ChevronDownIcon className={styles.chevron} size={12} />
       </Flexbox>
     </Center>

@@ -324,6 +324,7 @@ export interface AiModelSettings {
    */
   disabledParams?: DisabledParamType[];
   extendParams?: ExtendParamsType[];
+  managedModelCatalog?: { revision: string; description?: unknown };
   /**
    * Versioned, non-secret model catalog evidence. Its runtime shape is owned by
    * @lobechat/business-model-bank and intentionally remains unknown here to avoid
@@ -387,6 +388,7 @@ export const AiModelSettingsSchema = z.object({
   disabledParams: z.array(DisabledParamTypeSchema).optional(),
   extendParams: z.array(ExtendParamsTypeSchema).optional(),
   modelCatalog: z.unknown().optional(),
+  managedModelCatalog: z.object({ revision: z.string(), description: z.unknown() }).optional(),
   searchImpl: ModelSearchImplementTypeSchema.optional(),
   searchProvider: z.string().optional(),
 });
@@ -499,17 +501,20 @@ export interface AiProviderModelListItem {
   abilities?: ModelAbilities;
   config?: AiModelConfig;
   contextWindowTokens?: number;
+  description?: string;
   displayName?: string;
   enabled: boolean;
   family?: string;
   generation?: string;
   id: string;
   knowledgeCutoff?: string;
+  organization?: string;
   parameters?: ModelParamsSchema;
   pricing?: Pricing;
   providerId?: string;
   releasedAt?: string;
   settings?: AiModelSettings;
+  sort?: number;
   source?: AiModelSourceType;
   type: AiModelType;
   visible?: boolean;
@@ -582,12 +587,14 @@ export interface EnabledAiModel {
   abilities: ModelAbilities;
   config?: AiModelConfig;
   contextWindowTokens?: number;
+  description?: string;
   displayName?: string;
   enabled?: boolean;
   family?: string;
   generation?: string;
   id: string;
   knowledgeCutoff?: string;
+  organization?: string;
   parameters?: ModelParamsSchema;
   providerId: string;
   releasedAt?: string;

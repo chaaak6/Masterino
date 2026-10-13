@@ -20,8 +20,17 @@ export type ContextWindowSource =
   | 'provider-meta'
   | 'unknown';
 
+export type ModelCapability =
+  | 'functionCall'
+  | 'reasoning'
+  | 'structuredOutput'
+  | 'search'
+  | 'imageOutput';
+
 export interface ModelCatalogEntry {
   abilitySources: Partial<Record<InputModality, string>>;
+  /** Optional on legacy snapshots; maintained descriptions freeze explicit capability evidence. */
+  capabilities?: Partial<Record<ModelCapability, EvidenceState>>;
   contextWindowSource: ContextWindowSource;
   contextWindowTokens?: number;
   inputModalities: Record<InputModality, EvidenceState>;
