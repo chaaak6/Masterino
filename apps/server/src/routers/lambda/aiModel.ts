@@ -18,6 +18,11 @@ import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { getServerGlobalConfig } from '@/server/globalConfig';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
+import {
+  applyPublishedModelDescriptions,
+  createEffectiveModelCatalog,
+} from '@/server/services/modelCatalog';
+import { matchesEmbeddingKind } from '@/server/services/modelCatalog/projection';
 import { type ProviderConfig } from '@/types/user/settings';
 
 const AI_MODEL_UNIQUE_CONSTRAINT = 'ai_models_id_provider_id_user_id_pk';
@@ -155,12 +160,32 @@ export const aiModelRouter = router({
     )
     .query(async ({ ctx, input }): Promise<AiProviderModelListItem[]> => {
       assertNewApiProvider(input.id);
-      return ctx.aiInfraRepos.getAiProviderModelList(input.id, {
-        enabled: input.enabled,
-        limit: input.limit,
-        offset: input.offset,
-        type: input.type,
-      });
+      const snapshot = await createEffectiveModelCatalog(ctx.serverDB, ctx.userId).read(
+        undefined,
+        false,
+      );
+      if (snapshot.status === 'disabled')
+        return ctx.aiInfraRepos.getAiProviderModelList(input.id, {
+          enabled: input.enabled,
+          limit: input.limit,
+          offset: input.offset,
+          type: input.type,
+        });
+      const models =
+        snapshot.status === 'changed'
+          ? (snapshot.models as unknown as AiProviderModelListItem[])
+          : await applyPublishedModelDescriptions(
+              ctx.serverDB,
+              await ctx.aiInfraRepos.getAiProviderModelList(input.id),
+            );
+      const filtered = models.filter(
+        (model) =>
+          (input.enabled === undefined || model.enabled === input.enabled) &&
+          (!input.type ||
+            (input.type === 'embedding' ? matchesEmbeddingKind(model) : model.type === input.type)),
+      );
+      const offset = input.offset ?? 0;
+      return filtered.slice(offset, input.limit === undefined ? undefined : offset + input.limit);
     }),
 
   removeAiModel: aiModelProcedure

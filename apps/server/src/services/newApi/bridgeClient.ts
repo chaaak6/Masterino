@@ -203,14 +203,28 @@ export class NewApiBridgeClient implements NewApiReadSource {
     );
   }
 
+  async listAvailableModelIds() {
+    const models = await this.request<string[]>('/v1/models');
+    if (!Array.isArray(models)) throw new NewApiBridgeError('Model discovery is unavailable', 503);
+    return models;
+  }
+
   async listAccessibleModels(_group?: string, token?: NewApiToken) {
     if (!token?.user_id) return [];
-
-    return (
-      (await this.request<string[]>(`/v1/users/${token.user_id}/models`, {
+    const response = await this.request<{ tokenId: number; models: string[] }>(
+      `/v1/users/${token.user_id}/models`,
+      {
         tokenName: token.name,
-      })) || []
+        tokenId: token.id,
+      },
     );
+    if (
+      response?.tokenId !== token.id ||
+      !Array.isArray(response.models) ||
+      !response.models.every((model) => typeof model === 'string')
+    )
+      throw new NewApiBridgeError('Bridge does not support verified bound-token model access', 503);
+    return response.models;
   }
 
   async getUsageLogs(

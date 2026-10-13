@@ -1187,6 +1187,12 @@ importers:
 
   apps/admin:
     dependencies:
+      motion:
+        specifier: ^12.29.0
+        version: 12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@lobehub/ui':
+        specifier: ^5.15.10
+        version: 5.15.17(@lobehub/fluent-emoji@4.1.0(@types/react@19.2.13)(antd@6.3.5(date-fns@4.4.0)(luxon@3.7.2)(moment@2.30.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@lobehub/icons@5.10.0)(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(antd@6.3.5(date-fns@4.4.0)(luxon@3.7.2)(moment@2.30.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(date-fns@4.4.0)(micromark-util-types@2.0.2)(micromark@4.0.2)(motion@12.40.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vue@3.5.38(typescript@6.0.3))
       '@ant-design/icons':
         specifier: ^6.2.1
         version: 6.2.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5)

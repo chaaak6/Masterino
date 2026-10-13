@@ -141,6 +141,10 @@ export const createBridgeHandler = ({
         return success({ ok: true });
       }
 
+      if (url.pathname === '/v1/models' && request.method === 'GET') {
+        return success(await repository.listAvailableModelIds());
+      }
+
       if (url.pathname === '/v1/users/resolve') {
         const email = url.searchParams.get('email') || undefined;
         const username = url.searchParams.get('username') || undefined;
@@ -308,6 +312,29 @@ export const createBridgeHandler = ({
 
       if (url.pathname === `/v1/users/${userId}/models`) {
         const tokenName = url.searchParams.get('tokenName') || managedTokenName;
+        const exactTokenId = parsePositiveInt(url.searchParams.get('tokenId'));
+        if (url.searchParams.has('tokenId') && !exactTokenId)
+          return failure(400, 'bad_request', 'Invalid tokenId');
+        if (exactTokenId) {
+          const [user, inspection] = await Promise.all([
+            repository.findUserById(userId),
+            repository.inspectBoundToken(userId, exactTokenId),
+          ]);
+          if (inspection.availability === 'owner_mismatch')
+            return failure(409, 'owner_mismatch', 'Bound token belongs to another user');
+          if (!user || user.status === 2 || inspection.availability !== 'active')
+            return success({ tokenId: exactTokenId, models: [] });
+          if (
+            !inspection.token ||
+            inspection.token.id !== exactTokenId ||
+            inspection.token.user_id !== userId
+          )
+            return failure(409, 'owner_mismatch', 'Bound token identity mismatch');
+          return success({
+            tokenId: exactTokenId,
+            models: await repository.listAccessibleModels(user.group, inspection.token),
+          });
+        }
         const [user, token] = await Promise.all([
           repository.findUserById(userId),
           repository.findManagedToken(userId, tokenName),

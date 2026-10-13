@@ -206,6 +206,7 @@ export const resolveAihubDisplayPricing = (
   if (!pricing) return undefined;
   const result: AihubDisplayPricing = {
     version: pricing.version,
+    scope: pricing.scope,
     currency: pricing.currency,
     status: pricing.status,
     stale: pricing.stale,

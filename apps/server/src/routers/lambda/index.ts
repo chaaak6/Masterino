@@ -58,6 +58,7 @@ import { llmGenerationTracingRouter } from './llmGenerationTracing';
 import { marketRouter } from './market';
 import { messageRouter } from './message';
 import { messengerRouter } from './messenger';
+import { modelCatalogRouter } from './modelCatalog';
 import { newApiRouter } from './newApi';
 import { notebookRouter } from './notebook';
 import { notificationRouter } from './notification';
@@ -86,6 +87,7 @@ import { webBrowsingRouter } from './webBrowsing';
 
 export const lambdaRouter = router({
   admin: adminRouter,
+  modelCatalog: modelCatalogRouter,
   agent: agentRouter,
   agentBotProvider: agentBotProviderRouter,
   agentNotify: agentNotifyRouter,
