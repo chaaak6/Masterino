@@ -23,7 +23,7 @@ describe('settingsSelectors', () => {
         expect(tasks[key]).toEqual(expected);
       }
       expect(tasks.memoryAnalysisAgentConfig.model).toBe('glm-5.2');
-      expect(tasks.userMemoryEmbedding.model).toBe('text-embedding-3-small');
+      expect(tasks.userMemoryEmbedding.model).toBe('text-embedding-3-large');
       expect(tasks.inputCompletion.enabled).toBe(false);
     });
 

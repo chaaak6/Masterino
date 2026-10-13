@@ -86,6 +86,18 @@ describe('resolveAuthorizedUserMemoryEmbeddingRuntime', () => {
   });
 
   it('uses the current user memory embedding override when present', async () => {
+    mocks.getAiProviderRuntimeState.mockResolvedValue({
+      enabledAiModels: [
+        {
+          abilities: {},
+          enabled: true,
+          id: 'text-embedding-v4',
+          providerId: 'newapi',
+          type: 'embedding',
+        },
+      ],
+      runtimeConfig: { newapi: { keyVaults: { apiKey: 'managed-user-token' } } },
+    });
     mocks.getUserSettings.mockResolvedValue({
       systemAgent: {
         userMemoryEmbedding: { model: 'text-embedding-v4', provider: 'newapi' },

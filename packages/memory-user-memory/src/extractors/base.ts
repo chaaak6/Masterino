@@ -166,6 +166,7 @@ export abstract class BaseMemoryExtractor<
                     : {}),
                   trigger: RequestTrigger.Memory,
                 },
+                signal: AbortSignal.timeout(180_000),
               });
               span.addEvent('gen_ai.response.receive');
 

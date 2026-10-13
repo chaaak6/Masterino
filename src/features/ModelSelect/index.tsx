@@ -10,6 +10,7 @@ import {
   TAG_CLASSNAME,
   useChatEligibleModelList,
 } from '@/components/ModelSelect';
+import { useAiInfraStore } from '@/store/aiInfra';
 import { type EnabledProviderWithModels } from '@/types/aiProvider';
 
 const prefixCls = 'ant';
@@ -45,6 +46,7 @@ interface ModelSelectProps extends Pick<
 > {
   defaultValue?: { model: string; provider?: string };
   initialWidth?: boolean;
+  modelType?: 'chat' | 'embedding';
   onChange?: (props: { model: string; provider: string }) => void;
   popupWidth?: number;
   requiredAbilities?: (keyof EnabledProviderWithModels['children'][number]['abilities'])[];
@@ -57,6 +59,7 @@ const ModelSelect = memo<ModelSelectProps>(
     value,
     onChange,
     showAbility = true,
+    modelType = 'chat',
     requiredAbilities,
     loading,
     disabled,
@@ -67,7 +70,26 @@ const ModelSelect = memo<ModelSelectProps>(
     popupWidth,
   }) => {
     // Only B1 chat-eligible rows reach the dropdown; no local id denylist.
-    const enabledList = useChatEligibleModelList();
+    const chatModels = useChatEligibleModelList();
+    const enabledAiModels = useAiInfraStore((s) => s.enabledAiModels);
+    const enabledAiProviders = useAiInfraStore((s) => s.enabledAiProviders);
+    const embeddingModels = useMemo<EnabledProviderWithModels[]>(
+      () =>
+        (enabledAiProviders ?? []).flatMap((provider) => {
+          const children = (enabledAiModels ?? []).filter(
+            (model) =>
+              model.providerId === provider.id &&
+              model.type === 'embedding' &&
+              model.enabled !== false &&
+              model.visible !== false,
+          );
+          return children.length
+            ? [{ ...provider, children, name: provider.name || provider.id }]
+            : [];
+        }),
+      [enabledAiModels, enabledAiProviders],
+    );
+    const enabledList = modelType === 'embedding' ? embeddingModels : chatModels;
 
     const options = useMemo<SelectProps['options']>(() => {
       const getChatModels = (provider: EnabledProviderWithModels) => {

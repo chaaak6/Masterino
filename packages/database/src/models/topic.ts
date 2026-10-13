@@ -1180,6 +1180,22 @@ export class TopicModel {
     return this.matchContainer(containerId);
   };
 
+  private memoryExtractionEligibleCondition = () => sql`
+    (${topics.metadata}->>'userMemoryExtractStatus') IS DISTINCT FROM 'completed'
+    AND (
+      (${topics.metadata}->>'userMemoryExtractStatus') IS DISTINCT FROM 'failed'
+      -- Updating failure metadata also changes updated_at. Ignore that small write gap.
+      OR ${topics.updatedAt} > COALESCE(
+        NULLIF(${topics.metadata}#>>'{userMemoryExtractRunState,lastRunAt}', '')::timestamptz,
+        to_timestamp(0)
+      ) + INTERVAL '10 seconds'
+      OR COALESCE(
+        NULLIF(${topics.metadata}#>>'{userMemoryExtractRunState,lastRunAt}', '')::timestamptz,
+        to_timestamp(0)
+      ) < NOW() - INTERVAL '6 hours'
+    )
+  `;
+
   listTopicsForMemoryExtractor = async (
     options: {
       cursor?: ListTopicsForMemoryExtractorCursor;
@@ -1212,12 +1228,7 @@ export class TopicModel {
         this.ownership(),
         options.startDate ? gte(topics.createdAt, options.startDate) : undefined,
         options.endDate ? lte(topics.createdAt, options.endDate) : undefined,
-        options.ignoreExtracted
-          ? undefined
-          : or(
-              isNull(topics.metadata),
-              sql`(${topics.metadata}->>'userMemoryExtractStatus') IS DISTINCT FROM 'completed'`,
-            ),
+        options.ignoreExtracted ? undefined : this.memoryExtractionEligibleCondition(),
         cursorCondition,
       ),
     });
@@ -1238,12 +1249,7 @@ export class TopicModel {
           this.ownership(),
           options.startDate ? gte(topics.createdAt, options.startDate) : undefined,
           options.endDate ? lte(topics.createdAt, options.endDate) : undefined,
-          options.ignoreExtracted
-            ? undefined
-            : or(
-                isNull(topics.metadata),
-                sql`(${topics.metadata}->>'userMemoryExtractStatus') IS DISTINCT FROM 'completed'`,
-              ),
+          options.ignoreExtracted ? undefined : this.memoryExtractionEligibleCondition(),
         ),
       );
 

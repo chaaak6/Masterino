@@ -80,7 +80,9 @@ import { trimBasedOnBatchProbe } from '@/utils/chunkers';
 import { encodeAsync } from '@/utils/tokenizer';
 
 import { isPersonalMemoryEnabled } from './access';
+import { prepareMemoryConversationMessage } from './conversation';
 import { EmbeddingOutputCountMismatchError, embedUserMemoryTexts } from './embedding';
+import { resolveMemoryEmbeddingConfig } from './embeddingConfig';
 
 const SOURCE_ALIAS_MAP: Record<string, MemorySourceType> = {
   benchmark_locomo: MemorySourceType.BenchmarkLocomo,
@@ -757,8 +759,8 @@ export class MemoryExtractionExecutor {
         gatekeeper,
         layerExtractor,
       },
-      embeddingContextLimit: embedding.contextLimit ?? layerExtractor.contextLimit,
-      extractorContextLimit: layerExtractor.contextLimit,
+      embeddingContextLimit: Math.min(embedding.contextLimit ?? 7500, 7500),
+      extractorContextLimit: Math.min(layerExtractor.contextLimit ?? 12_000, 24_000),
       modelConfig: {
         embeddingsModel: embedding.model,
         gateModel: gatekeeper.model,
@@ -1331,17 +1333,19 @@ export class MemoryExtractionExecutor {
       )
       .orderBy(asc(messages.createdAt));
 
-    const conversation = rows
-      .filter((row) => typeof row.content === 'string' && row.content.trim().length > 0)
-      .map(
-        (row) =>
-          ({
-            content: row.content as string,
-            createdAt: row.createdAt ?? topicUpdatedAt,
-            id: row.id,
-            role: (row.role ?? 'assistant') as LLMRoleType,
-          }) satisfies OpenAIChatMessage & { createdAt: Date; id: string },
-      );
+    const conversation = rows.flatMap((row) => {
+      const prepared = prepareMemoryConversationMessage(row);
+      return prepared
+        ? [
+            {
+              ...prepared,
+              createdAt: row.createdAt ?? topicUpdatedAt,
+              id: row.id,
+              role: prepared.role as LLMRoleType,
+            } satisfies OpenAIChatMessage & { createdAt: Date; id: string },
+          ]
+        : [];
+    });
 
     if (conversation.length === 0) {
       return [];
@@ -1554,6 +1558,13 @@ export class MemoryExtractionExecutor {
           const memoryServiceConfig = this.resolveUserMemoryServiceConfig(
             userState.settings?.systemAgent as Partial<UserServiceModelConfig> | undefined,
           );
+          memoryServiceConfig.agents.embedding = resolveMemoryEmbeddingConfig(
+            aiProviderRuntimeState,
+            memoryServiceConfig.agents.embedding,
+            this.privateConfig.embedding,
+          );
+          memoryServiceConfig.modelConfig.embeddingsModel =
+            memoryServiceConfig.agents.embedding.model;
           const keyVaults = await this.resolveRuntimeKeyVaults(
             aiProviderRuntimeState,
             memoryServiceConfig,

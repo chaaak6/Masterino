@@ -9,6 +9,7 @@ import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
 
 import type { UserMemoryEmbeddingRuntime } from './embedding';
+import { resolveMemoryEmbeddingConfig } from './embeddingConfig';
 
 const normalizeProvider = (provider: string) => provider.toLowerCase();
 
@@ -42,12 +43,17 @@ export const resolveAuthorizedUserMemoryEmbeddingRuntime = async (
   db: LobeChatDatabase,
   userId: string,
 ): Promise<AuthorizedUserMemoryEmbeddingRuntime> => {
-  const config = await resolveUserMemoryEmbeddingConfig(db, userId);
-  const configuredProvider = normalizeProvider(config.provider);
+  const configured = await resolveUserMemoryEmbeddingConfig(db, userId);
   const aiInfraRepos = new AiInfraRepos(db, userId, {});
   const runtimeState = await aiInfraRepos.getAiProviderRuntimeState(
     KeyVaultsGateKeeper.getUserKeyVaults,
   );
+  const config = resolveMemoryEmbeddingConfig(
+    runtimeState,
+    configured,
+    parseMemoryExtractionConfig().embedding,
+  );
+  const configuredProvider = normalizeProvider(config.provider || 'openai');
 
   const provider = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
     fallbackProvider: configuredProvider,

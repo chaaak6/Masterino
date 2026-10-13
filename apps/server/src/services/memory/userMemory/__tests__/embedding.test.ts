@@ -71,7 +71,11 @@ describe('embedUserMemoryTexts', () => {
         input: ['two three four', 'short text'],
         model: 'text-embedding-3-large',
       },
-      { metadata: { trigger: 'memory' }, user: 'user-test' },
+      {
+        metadata: { trigger: 'memory' },
+        signal: expect.any(AbortSignal),
+        user: 'user-test',
+      },
     );
     expect(result).toEqual([[1, 2, 3], undefined, undefined, [4, 5, 6]]);
     expect(console.warn).toHaveBeenCalledWith(

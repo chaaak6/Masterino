@@ -1,5 +1,4 @@
 import {
-  DEFAULT_EMBEDDING_PROVIDER,
   DEFAULT_MINI_PROVIDER,
   DEFAULT_MODEL_ASSIGNMENT_MODEL,
   DEFAULT_PROVIDER,
@@ -10,7 +9,8 @@ import type {
   UserServiceModelConfig,
 } from '@lobechat/types';
 
-import { DEFAULT_EMBEDDING_MODEL, DEFAULT_MINI_MODEL, DEFAULT_MODEL } from './llm';
+import { DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM } from '../userMemory';
+import { DEFAULT_MINI_MODEL, DEFAULT_MODEL } from './llm';
 
 export const DEFAULT_SYSTEM_AGENT_ITEM: SystemAgentItem = {
   model: DEFAULT_MODEL,
@@ -41,8 +41,8 @@ export const DEFAULT_FOLLOW_UP_ACTION_SYSTEM_AGENT_ITEM: SystemAgentItem = {
 };
 
 export const DEFAULT_USER_MEMORY_EMBEDDING_SYSTEM_AGENT_ITEM: SystemAgentItem = {
-  model: DEFAULT_EMBEDDING_MODEL,
-  provider: DEFAULT_EMBEDDING_PROVIDER,
+  model: DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.model,
+  provider: DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.provider,
 };
 
 const DEFAULT_MODEL_ASSIGNMENT_ITEM: SystemAgentItem = {

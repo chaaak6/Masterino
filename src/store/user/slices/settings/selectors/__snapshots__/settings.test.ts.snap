@@ -96,7 +96,7 @@ exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AG
     "provider": "newapi",
   },
   "userMemoryEmbedding": {
-    "model": "text-embedding-3-small",
+    "model": "text-embedding-3-large",
     "provider": "newapi",
   },
   "userMemoryPersonaWriter": {

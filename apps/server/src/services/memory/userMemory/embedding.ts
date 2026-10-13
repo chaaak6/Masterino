@@ -190,7 +190,11 @@ export const embedUserMemoryTexts = async (
       input: requests.map((item) => item.text),
       model: params.model,
     },
-    { metadata: { trigger: RequestTrigger.Memory }, user: params.userId },
+    {
+      metadata: { trigger: RequestTrigger.Memory },
+      signal: AbortSignal.timeout(120_000),
+      user: params.userId,
+    },
   );
 
   if (!embeddings || embeddings.length !== requests.length) {

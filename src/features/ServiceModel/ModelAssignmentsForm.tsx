@@ -151,6 +151,7 @@ const ModelAssignmentsForm = memo(() => {
       children: (
         <Flexbox direction="vertical" gap={8} style={{ width: 448 }}>
           <ModelSelect
+            modelType={key === 'userMemoryEmbedding' ? 'embedding' : 'chat'}
             showAbility={false}
             style={{ minWidth: 0, width: '100%' }}
             value={value}
