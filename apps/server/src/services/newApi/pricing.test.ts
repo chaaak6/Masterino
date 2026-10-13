@@ -131,10 +131,12 @@ describe('server-side display rates', () => {
       expect(Object.keys(display).sort()).toEqual([
         'currency',
         'displayRates',
+        'scope',
         'stale',
         'status',
         'version',
       ]);
+      expect(display.scope).toBe(snapshot.scope);
       expect(snapshot.tiers.length).toBeGreaterThan(0);
       expect(snapshot.group).toBe('vip');
     },

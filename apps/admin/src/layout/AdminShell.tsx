@@ -70,6 +70,7 @@ const navItems: MenuProps['items'] = [
     key: 'catalog',
     label: '资源目录',
   },
+  { icon: <Database size={18} />, key: '/models', label: <Link to="/models">模型说明</Link> },
   {
     icon: <Store size={18} />,
     key: '/market',

@@ -29,6 +29,7 @@ export interface AIProviderState {
   initAiProviderList: boolean;
   isInitAiProviderRuntimeState: boolean;
   providerSearchKeyword: string;
+  silentModelCatalog?: { models: EnabledAiModel[]; revision: string; userId: string };
 }
 
 export const initialAIProviderState: AIProviderState = {

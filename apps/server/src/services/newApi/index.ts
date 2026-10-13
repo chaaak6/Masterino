@@ -1332,6 +1332,71 @@ export class NewApiService {
     }
   }
 
+  /** Independent read path: never provisions credentials or mutates user/provider models. */
+  async readAuthorizedModelSnapshot() {
+    const binding = await this.getBindingOrThrow({ autoBind: false });
+    if (!binding.managedTokenId)
+      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'No bound Aihub token' });
+    const bridge = new NewApiBridgeClient();
+    if (!bridge.isEnabled())
+      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Aihub bridge is required' });
+    const [account, accessibleIds, existing] = await Promise.all([
+      bridge.findUserById(binding.newApiUserId),
+      bridge.listAccessibleModels(undefined, {
+        id: binding.managedTokenId,
+        user_id: binding.newApiUserId,
+        name: getManagedTokenName(),
+      }),
+      new AiModelModel(this.db, this.userId).getModelListByProviderId(ModelProvider.NewAPI),
+    ]);
+    const ids = accessibleIds.filter((id) => !isAihubModelHidden(id));
+    if (!ids.length) return [];
+    const token = await bridge.findManagedTokenById(binding.newApiUserId, binding.managedTokenId);
+    if (!account || !token?.key || token.user_id !== binding.newApiUserId)
+      throw new TRPCError({
+        code: 'PRECONDITION_FAILED',
+        message: 'Bound Aihub credential is unavailable',
+      });
+    const [metadata, pricing] = await Promise.all([
+      this.listModelMetadataBestEffort(token.key),
+      this.readPricingContext(binding, token.group || account.group),
+    ]);
+    const metadataById = new Map(metadata.map((row) => [row.id, row]));
+    const previous = new Map(existing.map((row) => [row.id, row]));
+    const prepared = await prepareNewApiModels(ids.map((id) => metadataById.get(id) ?? { id }));
+    return prepared.map((row) => ({
+      ...materializeNewApiModel(row, previous.get(row.raw.id), pricing),
+      enabled: previous.get(row.raw.id)?.enabled ?? true,
+      sort: previous.get(row.raw.id)?.sort,
+    }));
+  }
+
+  async assertCurrentModelAccess(modelId: string, credential?: string) {
+    const binding = await this.getBindingOrThrow({ autoBind: false });
+    if (!binding.managedTokenId)
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'No bound Aihub token' });
+    const bridge = new NewApiBridgeClient();
+    const ids = await bridge.listAccessibleModels(undefined, {
+      id: binding.managedTokenId,
+      user_id: binding.newApiUserId,
+      name: getManagedTokenName(),
+    });
+    if (!ids.includes(modelId) || isAihubModelHidden(modelId))
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Aihub model is no longer available to this user',
+      });
+    if (credential) {
+      const token = await bridge.findManagedTokenById(binding.newApiUserId, binding.managedTokenId);
+      const normalize = (key: string) => (key.startsWith('sk-') ? key.slice(3) : key);
+      if (!token?.key || normalize(token.key) !== normalize(credential))
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'Bound Aihub credential changed; use the existing manual refresh to repair it',
+        });
+    }
+  }
+
   async syncModels() {
     const binding = await this.getBindingOrThrow();
     const { key } = await this.ensureManagedToken();

@@ -106,7 +106,10 @@ describe('NewApiBridgeClient', () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: ['gpt-4o-mini'], success: true }), { status: 200 }),
+        new Response(
+          JSON.stringify({ data: { tokenId: 12, models: ['gpt-4o-mini'] }, success: true }),
+          { status: 200 },
+        ),
       )
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ data: { items: [{ id: 1 }], total: 1 }, success: true }), {
@@ -128,7 +131,7 @@ describe('NewApiBridgeClient', () => {
     });
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
-      'http://bridge:3218/v1/users/7/models?tokenName=managed',
+      'http://bridge:3218/v1/users/7/models?tokenName=managed&tokenId=12',
       expect.any(Object),
     );
   });
@@ -171,4 +174,17 @@ describe('NewApiBridgeClient', () => {
       status: 409,
     } satisfies Partial<NewApiBridgeError>);
   });
+});
+
+it('rejects legacy or mismatched model responses that do not confirm the exact token', async () => {
+  for (const data of [['other-token-model'], { tokenId: 99, models: ['other-token-model'] }]) {
+    const client = new NewApiBridgeClient({
+      baseUrl: 'http://bridge:3218',
+      token: 'fixture-only',
+      fetchImpl: async () => new Response(JSON.stringify({ success: true, data })),
+    });
+    await expect(
+      client.listAccessibleModels(undefined, { id: 12, name: 'managed', user_id: 7 }),
+    ).rejects.toThrow('verified bound-token');
+  }
 });

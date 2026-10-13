@@ -3,6 +3,7 @@ import { Select, type SelectProps } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
 import { type ReactNode } from 'react';
 import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   ModelItemRender,
@@ -10,6 +11,7 @@ import {
   TAG_CLASSNAME,
   useChatEligibleModelList,
 } from '@/components/ModelSelect';
+import { useAiInfraStore } from '@/store/aiInfra';
 import { type EnabledProviderWithModels } from '@/types/aiProvider';
 
 const prefixCls = 'ant';
@@ -68,6 +70,15 @@ const ModelSelect = memo<ModelSelectProps>(
   }) => {
     // Only B1 chat-eligible rows reach the dropdown; no local id denylist.
     const enabledList = useChatEligibleModelList();
+    const { t } = useTranslation('components');
+    const catalog = useAiInfraStore((s) => s.silentModelCatalog);
+    const selectedProvider = value?.provider;
+    const selectedValue = `${selectedProvider}/${value?.model}`;
+    const unavailable =
+      catalog &&
+      selectedProvider === 'newapi' &&
+      value?.model &&
+      !catalog.models.some((model) => model.id === value.model && model.type === 'chat');
 
     const options = useMemo<SelectProps['options']>(() => {
       const getChatModels = (provider: EnabledProviderWithModels) => {
@@ -120,8 +131,18 @@ const ModelSelect = memo<ModelSelectProps>(
         .filter(Boolean) as SelectProps['options'];
     }, [enabledList, requiredAbilities, showAbility]);
 
-    const selectedProvider = value?.provider;
-    const selectedValue = `${selectedProvider}/${value?.model}`;
+    const visibleOptions = unavailable
+      ? [
+          {
+            value: selectedValue,
+            id: value!.model,
+            provider: selectedProvider!,
+            disabled: true,
+            label: `${value!.model} · ${t('ModelSwitchPanel.detail.managed.unavailable')}`,
+          },
+          ...(options ?? []),
+        ]
+      : options;
 
     return (
       <TooltipGroup>
@@ -130,21 +151,25 @@ const ModelSelect = memo<ModelSelectProps>(
           defaultValue={selectedValue}
           disabled={disabled}
           loading={loading}
-          options={options}
+          options={visibleOptions}
           popupClassName={styles.popup}
           popupMatchSelectWidth={popupWidth === undefined ? false : popupWidth}
           size={size}
           value={selectedValue}
           variant={variant}
-          optionRender={(option) => (
-            <ModelItemRender
-              {...(option as ModelOption)}
-              {...(option as ModelOption).abilities}
-              providerId={(option as ModelOption).provider}
-              showInfoTag={false}
-              showInputModality={showAbility}
-            />
-          )}
+          optionRender={(option) =>
+            option.disabled ? (
+              option.label
+            ) : (
+              <ModelItemRender
+                {...(option as ModelOption)}
+                {...(option as ModelOption).abilities}
+                providerId={(option as ModelOption).provider}
+                showInfoTag={false}
+                showInputModality={showAbility}
+              />
+            )
+          }
           style={{
             minWidth: 200,
             width: initialWidth ? 'initial' : undefined,
