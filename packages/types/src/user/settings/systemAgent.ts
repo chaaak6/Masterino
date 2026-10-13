@@ -24,7 +24,6 @@ export interface UserSystemAgentConfig {
 
 export interface UserMemoryServiceModelConfig {
   memoryAnalysisAgentConfig: SystemAgentItem;
-  userMemoryEmbedding: SystemAgentItem;
   userMemoryPersonaWriter: SystemAgentItem;
 }
 

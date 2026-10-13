@@ -146,9 +146,8 @@ const parseLayerExtractorAgent = (fallbackModel: string): MemoryLayerExtractorCo
 const parseEmbeddingAgent = (fallbackApiKey?: string): MemoryAgentConfig => {
   const { model: defaultModel, provider: defaultProvider } =
     DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM;
-  const model = process.env.MEMORY_USER_MEMORY_EMBEDDING_MODEL || defaultModel;
-  const provider =
-    process.env.MEMORY_USER_MEMORY_EMBEDDING_PROVIDER || defaultProvider || DEFAULT_MINI_PROVIDER;
+  const model = defaultModel;
+  const provider = defaultProvider;
 
   return {
     apiKey: process.env.MEMORY_USER_MEMORY_EMBEDDING_API_KEY ?? fallbackApiKey,

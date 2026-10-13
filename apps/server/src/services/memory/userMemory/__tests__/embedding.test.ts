@@ -50,10 +50,7 @@ describe('embedUserMemoryTexts', () => {
 
   it('trims each input and preserves output indexes', async () => {
     const runtime = {
-      embeddings: vi.fn(async () => [
-        [1, 2, 3],
-        [4, 5, 6],
-      ]),
+      embeddings: vi.fn(async () => [Array(2048).fill(1), Array(2048).fill(2)]),
     } satisfies UserMemoryEmbeddingRuntime;
 
     const result = await embedUserMemoryTexts({
@@ -77,7 +74,7 @@ describe('embedUserMemoryTexts', () => {
         user: 'user-test',
       },
     );
-    expect(result).toEqual([[1, 2, 3], undefined, undefined, [4, 5, 6]]);
+    expect(result).toEqual([Array(2048).fill(1), undefined, undefined, Array(2048).fill(2)]);
     expect(console.warn).toHaveBeenCalledWith(
       '[user-memory] trimmed embedding input',
       expect.objectContaining({
@@ -106,5 +103,71 @@ describe('embedUserMemoryTexts', () => {
         userId: 'user-test',
       }),
     ).rejects.toThrow('Embedding output count mismatch');
+  });
+
+  it('rejects a wrong dimension or an empty vector from the gateway', async () => {
+    const runtime = {
+      embeddings: vi.fn(async () => [[1, 2, 3]]),
+    } satisfies UserMemoryEmbeddingRuntime;
+    const params = {
+      input: ['one two'],
+      model: 'text-embedding-3-large',
+      runtime,
+      source: 'test:dimension',
+      userId: 'user-test',
+    };
+
+    await expect(embedUserMemoryTexts(params)).rejects.toThrow('expected 2048 finite values');
+    runtime.embeddings.mockResolvedValueOnce([[]]);
+    await expect(embedUserMemoryTexts(params)).rejects.toThrow('received 0');
+  });
+
+  it('rejects non-finite values and any model override', async () => {
+    const runtime = {
+      embeddings: vi.fn(async () => [Array(2048).fill(Number.NaN)]),
+    } satisfies UserMemoryEmbeddingRuntime;
+    const params = {
+      input: ['one two'],
+      model: 'text-embedding-3-large',
+      runtime,
+      source: 'test:invalid',
+      userId: 'user-test',
+    };
+
+    await expect(embedUserMemoryTexts(params)).rejects.toThrow('finite values');
+    await expect(embedUserMemoryTexts({ ...params, model: 'glm-5.2' })).rejects.toThrow(
+      'fixed model',
+    );
+    await expect(embedUserMemoryTexts({ ...params, dimensions: 1536 })).rejects.toThrow(
+      '2048 dimensions',
+    );
+  });
+
+  it('enforces the 120 second request deadline even if the runtime ignores abort', async () => {
+    vi.useFakeTimers();
+    try {
+      let signal: AbortSignal | undefined;
+      const runtime = {
+        embeddings: vi.fn((...args: unknown[]) => {
+          signal = (args[1] as { signal: AbortSignal }).signal;
+          return new Promise<number[][]>(() => {});
+        }),
+      } satisfies UserMemoryEmbeddingRuntime;
+      const request = embedUserMemoryTexts({
+        input: ['one two'],
+        model: 'text-embedding-3-large',
+        runtime,
+        source: 'test:timeout',
+        userId: 'user-test',
+      });
+      const result = expect(request).rejects.toThrow('exceeded 120 seconds');
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      await result;
+      expect(runtime.embeddings).toHaveBeenCalledTimes(1);
+      expect(signal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

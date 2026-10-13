@@ -512,6 +512,14 @@ export const userRouter = router({
       executionEnv?: unknown;
     };
 
+    // Older desktop builds may still submit this key. Keep their settings writes
+    // working, but never persist a user-selected memory embedding model again.
+    if (res.systemAgent && typeof res.systemAgent === 'object' && !Array.isArray(res.systemAgent)) {
+      const systemAgent = { ...res.systemAgent };
+      Reflect.deleteProperty(systemAgent, 'userMemoryEmbedding');
+      res.systemAgent = systemAgent;
+    }
+
     // User execution env has its own service/router boundary, which validates
     // reserved keys and encrypts values before persistence. Never allow the
     // permissive legacy settings payload to bypass that boundary.

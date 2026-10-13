@@ -81,8 +81,7 @@ import { encodeAsync } from '@/utils/tokenizer';
 
 import { isPersonalMemoryEnabled } from './access';
 import { prepareMemoryConversationMessage } from './conversation';
-import { EmbeddingOutputCountMismatchError, embedUserMemoryTexts } from './embedding';
-import { resolveMemoryEmbeddingConfig } from './embeddingConfig';
+import { embedUserMemoryTexts } from './embedding';
 
 const SOURCE_ALIAS_MAP: Record<string, MemorySourceType> = {
   benchmark_locomo: MemorySourceType.BenchmarkLocomo,
@@ -699,7 +698,7 @@ export class MemoryExtractionExecutor {
     systemAgent: Partial<UserServiceModelConfig> | undefined,
     key: keyof Pick<
       UserServiceModelConfig,
-      'userMemoryEmbedding' | 'memoryAnalysisAgentConfig' | 'userMemoryPersonaWriter'
+      'memoryAnalysisAgentConfig' | 'userMemoryPersonaWriter'
     >,
     fallback: MemoryAgentConfig,
   ): MemoryAgentConfig {
@@ -738,11 +737,13 @@ export class MemoryExtractionExecutor {
       'memoryAnalysisAgentConfig',
       this.privateConfig.agentLayerExtractor,
     );
-    const embedding = this.resolveUserMemoryAgent(
-      systemAgent,
-      'userMemoryEmbedding',
-      this.privateConfig.embedding,
-    );
+    const embedding: MemoryAgentConfig = {
+      ...this.privateConfig.embedding,
+      apiKey: undefined,
+      baseURL: undefined,
+      model: DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.model,
+      provider: DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.provider,
+    };
     const layerModels = systemAgent?.memoryAnalysisAgentConfig?.model
       ? {
           activity: layerExtractor.model,
@@ -899,9 +900,8 @@ export class MemoryExtractionExecutor {
         span.recordException(error as Error);
         console.error('[memory-extraction] failed to generate embeddings', error, 'model:', model);
 
-        if (error instanceof EmbeddingOutputCountMismatchError) throw error;
-
-        return texts.map(() => null);
+        // A nonempty text must not be persisted as a successful memory with a null vector.
+        throw error;
       } finally {
         span.end();
       }
@@ -1558,13 +1558,6 @@ export class MemoryExtractionExecutor {
           const memoryServiceConfig = this.resolveUserMemoryServiceConfig(
             userState.settings?.systemAgent as Partial<UserServiceModelConfig> | undefined,
           );
-          memoryServiceConfig.agents.embedding = resolveMemoryEmbeddingConfig(
-            aiProviderRuntimeState,
-            memoryServiceConfig.agents.embedding,
-            this.privateConfig.embedding,
-          );
-          memoryServiceConfig.modelConfig.embeddingsModel =
-            memoryServiceConfig.agents.embedding.model;
           const keyVaults = await this.resolveRuntimeKeyVaults(
             aiProviderRuntimeState,
             memoryServiceConfig,
@@ -2396,6 +2389,11 @@ export class MemoryExtractionExecutor {
       requireModelMatch: true,
       requiredModelType: 'embedding',
     });
+    if (embeddingProvider !== embeddingProviderId.toLowerCase()) {
+      throw new Error(
+        `The fixed user memory embedding provider "${embeddingProviderId}" is unavailable.`,
+      );
+    }
     const embeddingRuntime = normalizedRuntimeConfig[embeddingProvider];
     if (embeddingRuntime?.keyVaults) {
       keyVaults[embeddingProvider] = embeddingRuntime.keyVaults;

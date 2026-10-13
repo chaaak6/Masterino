@@ -6,12 +6,7 @@ import { resolveAuthorizedUserMemoryEmbeddingRuntime } from '../authorizedRuntim
 
 const mocks = vi.hoisted(() => ({
   getAiProviderRuntimeState: vi.fn(),
-  getUserSettings: vi.fn(),
   tryMatchingProviderFrom: vi.fn(),
-}));
-
-vi.mock('@/database/models/user', () => ({
-  UserModel: vi.fn(() => ({ getUserSettings: mocks.getUserSettings })),
 }));
 
 vi.mock('@/database/repositories/aiInfra', () => {
@@ -22,12 +17,6 @@ vi.mock('@/database/repositories/aiInfra', () => {
 
   return { AiInfraRepos };
 });
-
-vi.mock('@/server/globalConfig/parseMemoryExtractionConfig', () => ({
-  parseMemoryExtractionConfig: () => ({
-    embedding: { model: 'text-embedding-3-large', provider: 'newapi' },
-  }),
-}));
 
 vi.mock('@/server/modules/KeyVaultsEncrypt', () => ({
   KeyVaultsGateKeeper: { getUserKeyVaults: vi.fn() },
@@ -40,7 +29,6 @@ vi.mock('@/server/modules/ModelRuntime', () => ({
 describe('resolveAuthorizedUserMemoryEmbeddingRuntime', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getUserSettings.mockResolvedValue({});
     mocks.tryMatchingProviderFrom.mockResolvedValue('newapi');
     mocks.getAiProviderRuntimeState.mockResolvedValue({
       enabledAiModels: [
@@ -85,7 +73,7 @@ describe('resolveAuthorizedUserMemoryEmbeddingRuntime', () => {
     });
   });
 
-  it('uses the current user memory embedding override when present', async () => {
+  it('ignores legacy saved models and requires the fixed Aihub model', async () => {
     mocks.getAiProviderRuntimeState.mockResolvedValue({
       enabledAiModels: [
         {
@@ -98,19 +86,21 @@ describe('resolveAuthorizedUserMemoryEmbeddingRuntime', () => {
       ],
       runtimeConfig: { newapi: { keyVaults: { apiKey: 'managed-user-token' } } },
     });
-    mocks.getUserSettings.mockResolvedValue({
-      systemAgent: {
-        userMemoryEmbedding: { model: 'text-embedding-v4', provider: 'newapi' },
-      },
-    });
-
     const result = await resolveAuthorizedUserMemoryEmbeddingRuntime({} as any, 'user-1');
 
     expect(mocks.tryMatchingProviderFrom).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({ modelId: 'text-embedding-v4' }),
+      expect.objectContaining({ modelId: 'text-embedding-3-large' }),
     );
-    expect(result.model).toBe('text-embedding-v4');
+    expect(result.model).toBe('text-embedding-3-large');
+  });
+
+  it('rejects a provider other than the fixed Aihub route', async () => {
+    mocks.tryMatchingProviderFrom.mockResolvedValue('openai');
+
+    await expect(resolveAuthorizedUserMemoryEmbeddingRuntime({} as any, 'user-1')).rejects.toThrow(
+      'fixed user memory embedding provider',
+    );
   });
 
   it('blocks online memory operations when the managed token is missing', async () => {

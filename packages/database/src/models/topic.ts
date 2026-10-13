@@ -36,6 +36,7 @@ import { sanitizeBm25Query } from '../utils/bm25';
 import { desktopTopicCondition } from '../utils/desktopTopicCondition';
 import { genEndDateWhere, genRangeWhere, genStartDateWhere, genWhere } from '../utils/genWhere';
 import { idGenerator } from '../utils/idGenerator';
+import { updateTopicMemoryExtractMetadata } from '../utils/topicMemoryMetadata';
 import { buildWorkspacePayload, buildWorkspaceWhere } from '../utils/workspace';
 import { recomputeTopicUsage } from './topicUsage';
 
@@ -1081,31 +1082,36 @@ export class TopicModel {
    * This method merges new metadata with existing metadata instead of replacing it
    */
   updateMetadata = async (id: string, metadata: TopicMetadataPatch) => {
-    // Get existing topic to merge metadata
-    const existing = await this.db.query.topics.findFirst({
-      columns: { metadata: true },
-      where: and(eq(topics.id, id), this.ownership()),
-    });
-
-    const mergedOnboardingSession =
-      existing?.metadata?.onboardingSession && metadata.onboardingSession
-        ? {
-            ...existing.metadata.onboardingSession,
-            ...metadata.onboardingSession,
-          }
-        : metadata.onboardingSession;
-
-    const mergedMetadata = {
-      ...existing?.metadata,
-      ...metadata,
-      ...(mergedOnboardingSession && { onboardingSession: mergedOnboardingSession }),
-    } as ChatTopicMetadata;
+    // Merge against the current row in one UPDATE, so concurrent metadata writers
+    // cannot overwrite each other's changes between a SELECT and an UPDATE.
+    let mergedMetadata: SQL = sql`COALESCE(${topics.metadata}, '{}'::jsonb) || ${JSON.stringify(metadata)}::jsonb`;
+    if (metadata.onboardingSession) {
+      mergedMetadata = sql`jsonb_set(${mergedMetadata}, '{onboardingSession}', COALESCE(${topics.metadata}->'onboardingSession', '{}'::jsonb) || ${JSON.stringify(metadata.onboardingSession)}::jsonb)`;
+    }
+    if (metadata.userMemoryExtractRunState) {
+      mergedMetadata = sql`jsonb_set(${mergedMetadata}, '{userMemoryExtractRunState}', COALESCE(${topics.metadata}->'userMemoryExtractRunState', '{}'::jsonb) || ${JSON.stringify(metadata.userMemoryExtractRunState)}::jsonb)`;
+    }
 
     return this.db
       .update(topics)
       .set({ metadata: mergedMetadata })
       .where(and(eq(topics.id, id), this.ownership()))
       .returning();
+  };
+
+  updateMemoryExtractionMetadata = async (
+    id: string,
+    status: 'completed' | 'failed',
+    runStatePatch: Record<string, unknown>,
+  ) => {
+    return updateTopicMemoryExtractMetadata(
+      this.db,
+      this.userId,
+      id,
+      status,
+      runStatePatch,
+      this.workspaceId,
+    );
   };
 
   getCronTopicsGroupedByCronJob = async (

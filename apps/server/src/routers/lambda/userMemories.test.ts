@@ -39,6 +39,7 @@ vi.mock('@/database/models/userMemory', async (importOriginal) => {
 });
 
 const embeddingsMock = vi.fn();
+const vector = (value: number) => Array.from({length: 2048}).fill(value);
 const mockCtx = { userId: 'test-user' };
 const makeServerDBMock = (query: Record<string, any> = {}) => ({
   query: {
@@ -55,7 +56,7 @@ beforeEach(() => {
 
   embeddingsMock.mockImplementation(async ({ input }: { input: string[] | string }) => {
     const items = Array.isArray(input) ? input : [input];
-    return items.map((_, index) => [index + 1]);
+    return items.map((_, index) => vector(index + 1));
   });
 
   vi.mocked(resolveAuthorizedUserMemoryEmbeddingRuntime).mockResolvedValue({
@@ -210,26 +211,26 @@ describe('memoryRouter.reEmbedMemories', () => {
     expect(result.results?.activities).toEqual({ failed: 0, skipped: 0, succeeded: 1, total: 1 });
 
     expect(updateUserMemoryVectors).toHaveBeenCalledWith('memory-1', {
-      detailsVector1024: [2],
-      summaryVector1024: [1],
+      detailsVector1024: vector(2),
+      summaryVector1024: vector(1),
     });
     expect(updateContextVectors).toHaveBeenCalledWith('context-1', {
-      descriptionVector: [1],
+      descriptionVector: vector(1),
     });
     expect(updatePreferenceVectors).toHaveBeenCalledWith('preference-1', {
-      conclusionDirectivesVector: [1],
+      conclusionDirectivesVector: vector(1),
     });
     expect(updateIdentityVectors).toHaveBeenCalledWith('identity-1', {
-      descriptionVector: [1],
+      descriptionVector: vector(1),
     });
     expect(updateExperienceVectors).toHaveBeenCalledWith('experience-1', {
-      actionVector: [2],
-      keyLearningVector: [3],
-      situationVector: [1],
+      actionVector: vector(2),
+      keyLearningVector: vector(3),
+      situationVector: vector(1),
     });
     expect(updateActivityVectors).toHaveBeenCalledWith('activity-1', {
-      feedbackVector: [2],
-      narrativeVector: [1],
+      feedbackVector: vector(2),
+      narrativeVector: vector(1),
     });
 
     expect(embeddingsMock).toHaveBeenCalledTimes(6);
@@ -459,7 +460,7 @@ describe('userMemories.retrieveMemory', () => {
       queries: ['Project Atlas'],
       topK: { activities: 1, contexts: 0, experiences: 0, identities: 1, preferences: 1 },
     });
-    expect(searchMemory.mock.calls[0][1]).toStrictEqual([[1]]);
+    expect(searchMemory.mock.calls[0][1]).toStrictEqual([vector(1)]);
 
     expect(result.contexts[0]).toMatchObject({
       id: 'ctx-1',
@@ -525,7 +526,7 @@ describe('userMemories.retrieveMemory', () => {
           preferences: 3,
         },
       },
-      [[1]],
+      [vector(1)],
     );
   });
 
@@ -593,7 +594,7 @@ describe('userMemories.retrieveMemory', () => {
           preferences: 3,
         },
       },
-      [[1]],
+      [vector(1)],
     );
   });
 
@@ -661,7 +662,7 @@ describe('userMemories.retrieveMemory', () => {
           preferences: 3,
         },
       },
-      [[1]],
+      [vector(1)],
     );
   });
 });
@@ -730,7 +731,7 @@ describe('userMemories.toolAddActivityMemory', () => {
         }),
         memoryLayer: LayersEnum.Activity,
         memoryType: TypesEnum.Activity,
-        summaryEmbedding: [1],
+        summaryEmbedding: vector(1),
       }),
     );
 

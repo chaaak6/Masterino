@@ -23,8 +23,17 @@ describe('settingsSelectors', () => {
         expect(tasks[key]).toEqual(expected);
       }
       expect(tasks.memoryAnalysisAgentConfig.model).toBe('glm-5.2');
-      expect(tasks.userMemoryEmbedding.model).toBe('text-embedding-3-large');
+      expect(tasks).not.toHaveProperty('userMemoryEmbedding');
       expect(tasks.inputCompletion.enabled).toBe(false);
+    });
+
+    it('ignores a memory embedding model saved by an older client', () => {
+      const state = {
+        defaultSettings: DEFAULT_SETTINGS,
+        settings: { systemAgent: { userMemoryEmbedding: { model: 'glm-5.2', provider: 'newapi' } } },
+      } as unknown as UserStore;
+
+      expect(settingsSelectors.currentSystemAgent(state)).not.toHaveProperty('userMemoryEmbedding');
     });
 
     it('preserves existing personal model choices over the new defaults', () => {

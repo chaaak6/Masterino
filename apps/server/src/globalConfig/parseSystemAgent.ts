@@ -6,7 +6,6 @@ const protectedKeys = Object.keys(DEFAULT_SYSTEM_AGENT_CONFIG);
 const defaultTrueLey = new Set(['promptRewrite', 'autoSuggestion']);
 const memoryServiceModelKeys = new Set([
   'memoryAnalysisAgentConfig',
-  'userMemoryEmbedding',
   'userMemoryPersonaWriter',
 ]);
 const defaultModelAssignmentKeys = protectedKeys.filter((key) => !memoryServiceModelKeys.has(key));

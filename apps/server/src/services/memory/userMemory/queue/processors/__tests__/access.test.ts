@@ -16,7 +16,7 @@ const {
   mockTriggerProcessTopics,
   mockTriggerTopicFlow,
   mockTriggerProcessUserTopics,
-  mockUpdateTopicMetadata,
+  mockUpdateMemoryExtractionMetadata,
 } = vi.hoisted(() => ({
   mockComposeWriting: vi.fn(),
   mockCreateExecutor: vi.fn(),
@@ -26,7 +26,7 @@ const {
   mockTriggerProcessTopics: vi.fn(),
   mockTriggerTopicFlow: vi.fn(),
   mockTriggerProcessUserTopics: vi.fn(),
-  mockUpdateTopicMetadata: vi.fn(),
+  mockUpdateMemoryExtractionMetadata: vi.fn(),
 }));
 
 vi.mock('@/database/models/asyncTask', () => ({
@@ -41,7 +41,9 @@ vi.mock('@/database/server', () => ({
 }));
 
 vi.mock('@/database/models/topic', () => ({
-  TopicModel: vi.fn(() => ({ updateMetadata: mockUpdateTopicMetadata })),
+  TopicModel: vi.fn(() => ({
+    updateMemoryExtractionMetadata: mockUpdateMemoryExtractionMetadata,
+  })),
 }));
 
 vi.mock('@/server/services/memory/userMemory/access', () => ({
@@ -158,14 +160,12 @@ describe('queued memory workflow access checks', () => {
     await expect(processTopicHandler(createContext(basePayload))).rejects.toThrow(
       'Embedding model unavailable',
     );
-    expect(mockUpdateTopicMetadata).toHaveBeenCalledWith(
+    expect(mockUpdateMemoryExtractionMetadata).toHaveBeenCalledWith(
       'topic-1',
+      'failed',
       expect.objectContaining({
-        userMemoryExtractRunState: expect.objectContaining({
-          error: 'Embedding model unavailable',
-          lastRunAt: expect.any(String),
-        }),
-        userMemoryExtractStatus: 'failed',
+        error: 'Embedding model unavailable',
+        lastRunAt: expect.any(String),
       }),
     );
   });

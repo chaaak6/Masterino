@@ -45,9 +45,9 @@ describe('parseMemoryExtractionConfig', () => {
     expect(parseMemoryExtractionConfig().embedding.model).toBe('text-embedding-3-large');
   });
 
-  it('uses the explicitly configured Aihub embedding model', () => {
-    process.env.MEMORY_USER_MEMORY_EMBEDDING_MODEL = 'text-embedding-3-large';
-    process.env.MEMORY_USER_MEMORY_EMBEDDING_PROVIDER = 'newapi';
+  it('ignores legacy environment embedding model overrides', () => {
+    process.env.MEMORY_USER_MEMORY_EMBEDDING_MODEL = 'glm-5.2';
+    process.env.MEMORY_USER_MEMORY_EMBEDDING_PROVIDER = 'openai';
 
     expect(parseMemoryExtractionConfig().embedding).toMatchObject({
       model: 'text-embedding-3-large',

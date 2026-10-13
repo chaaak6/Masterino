@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schemas": "./src/schemas/index.ts",
+    "./topic-memory": "./src/utils/topicMemoryMetadata.ts",
     "./test-utils": "./tests/test-utils.ts"
   },
   "scripts": {

@@ -162,13 +162,14 @@ export const processTopicHandler = async (
   } catch (error) {
     try {
       const db = await getServerDB();
-      await new TopicModel(db, userId, payload.workspaceId).updateMetadata(topicId, {
-        userMemoryExtractRunState: {
+      await new TopicModel(db, userId, payload.workspaceId).updateMemoryExtractionMetadata(
+        topicId,
+        'failed',
+        {
           error: (errorMessageFrom(error) || 'Memory topic extraction failed').slice(0, 500),
           lastRunAt: new Date().toISOString(),
         },
-        userMemoryExtractStatus: 'failed',
-      });
+      );
     } catch (metadataError) {
       console.error('[memory-queue] failed to record topic extraction failure', metadataError);
     }

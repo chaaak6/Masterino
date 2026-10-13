@@ -1,4 +1,7 @@
-import { DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS } from '@lobechat/const';
+import {
+  DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS,
+  DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM,
+} from '@lobechat/const';
 import { agentExecutionEnv } from '@lobechat/env/agent';
 import type { ModelRuntime } from '@lobechat/model-runtime';
 import { RequestTrigger } from '@lobechat/types';
@@ -14,6 +17,15 @@ export class EmbeddingOutputCountMismatchError extends Error {
   constructor(expected: number, received: number) {
     super(`Embedding output count mismatch: expected ${expected}, received ${received}`);
     this.name = 'EmbeddingOutputCountMismatchError';
+  }
+}
+
+export class EmbeddingVectorInvalidError extends Error {
+  constructor(index: number, received: number | undefined) {
+    super(
+      `Invalid user memory embedding at index ${index}: expected ${DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS} finite values, received ${received ?? 'no vector'}`,
+    );
+    this.name = 'EmbeddingVectorInvalidError';
   }
 }
 
@@ -144,6 +156,14 @@ export interface EmbedUserMemoryTextsParams {
 export const embedUserMemoryTexts = async (
   params: EmbedUserMemoryTextsParams,
 ): Promise<Array<number[] | undefined>> => {
+  if (
+    params.model !== DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.model ||
+    (params.dimensions !== undefined &&
+      params.dimensions !== DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS)
+  ) {
+    throw new Error('User memory embeddings must use the fixed model and 2048 dimensions');
+  }
+
   const inputLimit = getEmbeddingInputLimit(params.model, params.provider);
   const tokenLimit = inputLimit.effectiveLimit;
   const requests: Array<{ index: number; text: string }> = [];
@@ -184,29 +204,51 @@ export const embedUserMemoryTexts = async (
   const outputs = params.input.map<number[] | undefined>(() => undefined);
   if (requests.length === 0) return outputs;
 
-  const embeddings = await params.runtime.embeddings(
-    {
-      dimensions: params.dimensions ?? DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS,
-      input: requests.map((item) => item.text),
-      model: params.model,
-    },
-    {
-      metadata: { trigger: RequestTrigger.Memory },
-      signal: AbortSignal.timeout(120_000),
-      user: params.userId,
-    },
-  );
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const deadline = new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(new Error('User memory embedding request exceeded 120 seconds'));
+      }, 120_000);
+    });
+    const embeddings = await Promise.race([
+      params.runtime.embeddings(
+        {
+          dimensions: DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS,
+          input: requests.map((item) => item.text),
+          model: DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.model,
+        },
+        {
+          metadata: { trigger: RequestTrigger.Memory },
+          signal: controller.signal,
+          user: params.userId,
+        },
+      ),
+      deadline,
+    ]);
 
-  if (!embeddings || embeddings.length !== requests.length) {
-    throw new EmbeddingOutputCountMismatchError(requests.length, embeddings?.length ?? 0);
+    if (!embeddings || embeddings.length !== requests.length) {
+      throw new EmbeddingOutputCountMismatchError(requests.length, embeddings?.length ?? 0);
+    }
+
+    for (const [requestIndex, embeddingVector] of embeddings.entries()) {
+      const request = requests[requestIndex];
+      if (
+        !request ||
+        !Array.isArray(embeddingVector) ||
+        embeddingVector.length !== DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS ||
+        !embeddingVector.every((value) => typeof value === 'number' && Number.isFinite(value))
+      ) {
+        throw new EmbeddingVectorInvalidError(requestIndex, embeddingVector?.length);
+      }
+
+      outputs[request.index] = embeddingVector;
+    }
+
+    return outputs;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
-
-  for (const [requestIndex, embeddingVector] of (embeddings ?? []).entries()) {
-    const request = requests[requestIndex];
-    if (!request || !embeddingVector) continue;
-
-    outputs[request.index] = embeddingVector;
-  }
-
-  return outputs;
 };

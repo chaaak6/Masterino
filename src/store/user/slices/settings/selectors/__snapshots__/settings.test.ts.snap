@@ -95,10 +95,6 @@ exports[`settingsSelectors > currentSystemAgent > should merge DEFAULT_SYSTEM_AG
     "model": "deepseek-v4-flash",
     "provider": "newapi",
   },
-  "userMemoryEmbedding": {
-    "model": "text-embedding-3-large",
-    "provider": "newapi",
-  },
   "userMemoryPersonaWriter": {
     "model": "glm-5.2",
     "provider": "newapi",
