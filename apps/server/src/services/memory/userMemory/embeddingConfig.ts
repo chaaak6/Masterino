@@ -1,3 +1,5 @@
+import { supportsEmbeddingDimension } from '@lobechat/business-model-bank';
+import { DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS } from '@lobechat/const';
 import type { AiProviderRuntimeState } from '@lobechat/types';
 
 import type { MemoryAgentConfig } from '@/server/globalConfig/parseMemoryExtractionConfig';
@@ -13,6 +15,7 @@ export const resolveMemoryEmbeddingConfig = (
       (model) =>
         model.enabled !== false &&
         model.type === 'embedding' &&
+        supportsEmbeddingDimension(model.id, DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS) &&
         model.id === config.model &&
         model.providerId.toLowerCase() === (config.provider || 'openai').toLowerCase(),
     );

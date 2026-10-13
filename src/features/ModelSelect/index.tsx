@@ -1,3 +1,5 @@
+import { supportsEmbeddingDimension } from '@lobechat/business-model-bank';
+import { DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS } from '@lobechat/const';
 import { TooltipGroup } from '@lobehub/ui';
 import { Select, type SelectProps } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
@@ -80,6 +82,7 @@ const ModelSelect = memo<ModelSelectProps>(
             (model) =>
               model.providerId === provider.id &&
               model.type === 'embedding' &&
+              supportsEmbeddingDimension(model.id, DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS) &&
               model.enabled !== false &&
               model.visible !== false,
           );
@@ -142,8 +145,7 @@ const ModelSelect = memo<ModelSelectProps>(
         .filter(Boolean) as SelectProps['options'];
     }, [enabledList, requiredAbilities, showAbility]);
 
-    const selectedProvider = value?.provider;
-    const selectedValue = `${selectedProvider}/${value?.model}`;
+    const selectedValue = value?.provider && value.model ? `${value.provider}/${value.model}` : null;
 
     return (
       <TooltipGroup>
@@ -158,24 +160,32 @@ const ModelSelect = memo<ModelSelectProps>(
           size={size}
           value={selectedValue}
           variant={variant}
-          optionRender={(option) => (
-            <ModelItemRender
-              {...(option as ModelOption)}
-              {...(option as ModelOption).abilities}
-              providerId={(option as ModelOption).provider}
-              showInfoTag={false}
-              showInputModality={showAbility}
-            />
-          )}
+          optionRender={(option) => {
+            // base-ui Select adds a minimal { label, value } option for a saved
+            // value missing from the available model list. It has no model id.
+            const modelOption = option as Partial<ModelOption>;
+            if (!modelOption.id || !modelOption.provider) return option.label;
+
+            return (
+              <ModelItemRender
+                {...(modelOption as ModelOption)}
+                {...modelOption.abilities}
+                providerId={modelOption.provider}
+                showInfoTag={false}
+                showInputModality={showAbility}
+              />
+            );
+          }}
           style={{
             minWidth: 200,
             width: initialWidth ? 'initial' : undefined,
             ...style,
           }}
-          onChange={(value, option) => {
-            const model = value.split('/').slice(1).join('/');
-            const provider = (option as unknown as ModelOption).provider;
-            onChange?.({ model, provider });
+          onChange={(nextValue, option) => {
+            const modelOption = option as Partial<ModelOption> | undefined;
+            // Do not persist Select's synthetic option for an unavailable model.
+            if (typeof nextValue !== 'string' || !modelOption?.id || !modelOption.provider) return;
+            onChange?.({ model: modelOption.id, provider: modelOption.provider });
           }}
         />
       </TooltipGroup>

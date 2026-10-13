@@ -14,6 +14,13 @@ const runtimeState = {
       providerId: 'newapi',
       type: 'embedding',
     },
+    {
+      abilities: {},
+      enabled: true,
+      id: 'text-embedding-3-small',
+      providerId: 'newapi',
+      type: 'embedding',
+    },
   ],
 } as AiProviderRuntimeState;
 
@@ -36,6 +43,16 @@ describe('memory extraction safety', () => {
         { model: 'other', provider: 'newapi' },
       ).model,
     ).toBe('text-embedding-3-large');
+  });
+
+  it('falls back when a known embedding cannot produce the memory vector dimension', () => {
+    expect(
+      resolveMemoryEmbeddingConfig(
+        runtimeState,
+        { model: 'text-embedding-3-small', provider: 'newapi' },
+        { model: 'text-embedding-3-large', provider: 'newapi' },
+      ),
+    ).toMatchObject({ model: 'text-embedding-3-large', provider: 'newapi' });
   });
 
   it('omits tool outputs and bounds oversized conversation messages', () => {
