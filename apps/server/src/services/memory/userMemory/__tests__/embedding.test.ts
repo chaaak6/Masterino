@@ -50,7 +50,10 @@ describe('embedUserMemoryTexts', () => {
 
   it('trims each input and preserves output indexes', async () => {
     const runtime = {
-      embeddings: vi.fn(async () => [Array(2048).fill(1), Array(2048).fill(2)]),
+      embeddings: vi.fn(async () => [
+        Array.from({ length: 2048 }, () => 1),
+        Array.from({ length: 2048 }, () => 2),
+      ]),
     } satisfies UserMemoryEmbeddingRuntime;
 
     const result = await embedUserMemoryTexts({
@@ -74,7 +77,12 @@ describe('embedUserMemoryTexts', () => {
         user: 'user-test',
       },
     );
-    expect(result).toEqual([Array(2048).fill(1), undefined, undefined, Array(2048).fill(2)]);
+    expect(result).toEqual([
+      Array.from({ length: 2048 }, () => 1),
+      undefined,
+      undefined,
+      Array.from({ length: 2048 }, () => 2),
+    ]);
     expect(console.warn).toHaveBeenCalledWith(
       '[user-memory] trimmed embedding input',
       expect.objectContaining({
@@ -124,7 +132,7 @@ describe('embedUserMemoryTexts', () => {
 
   it('rejects non-finite values and any model override', async () => {
     const runtime = {
-      embeddings: vi.fn(async () => [Array(2048).fill(Number.NaN)]),
+      embeddings: vi.fn(async () => [Array.from({ length: 2048 }, () => Number.NaN)]),
     } satisfies UserMemoryEmbeddingRuntime;
     const params = {
       input: ['one two'],
