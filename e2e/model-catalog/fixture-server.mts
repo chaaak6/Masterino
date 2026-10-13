@@ -40,14 +40,20 @@ await pool.query(
 await pool.query(
   await readFile('packages/database/migrations/0124_managed_model_catalog.sql', 'utf8'),
 );
-await pool.query(
-  'TRUNCATE managed_model_catalog_revisions, managed_model_catalog, system_configs, enterprise_audit_logs, new_api_bindings, ai_models',
-);
-await pool.query(
-  "INSERT INTO new_api_bindings (user_id,new_api_user_id,managed_token_id,status,updated_at,readiness_version) VALUES ('bdd-user',7,12,'active',now(),2)",
-);
+if (process.env.CATALOG_DEMO_PRESERVE_DB !== '1') {
+  await pool.query(
+    'TRUNCATE managed_model_catalog_revisions, managed_model_catalog, system_configs, enterprise_audit_logs, new_api_bindings, ai_models',
+  );
+  await pool.query(
+    "INSERT INTO new_api_bindings (user_id,new_api_user_id,managed_token_id,status,updated_at,readiness_version) VALUES ('bdd-user',7,12,'active',now(),2)",
+  );
+}
 
-let accessible = ['bdd-chat', 'bdd-vision'];
+const initialModels = process.env.CATALOG_DEMO_MODEL_IDS?.split(',').filter(Boolean) ?? [
+  'bdd-chat',
+  'bdd-vision',
+];
+let accessible = initialModels;
 let bridgeOffline = false;
 let empty = false;
 const calls: { path: string; method: string }[] = [];
@@ -88,7 +94,7 @@ const server = createServer(async (req, res) => {
         }),
       ],
     );
-    accessible = ['bdd-chat', 'bdd-vision'];
+    accessible = initialModels;
     bridgeOffline = false;
     empty = false;
     calls.length = 0;
@@ -149,7 +155,7 @@ const server = createServer(async (req, res) => {
       return send(res, { success: false, error: { message: 'BDD bridge unavailable' } }, 503);
     const data =
       url.pathname === '/v1/models'
-        ? ['bdd-chat', 'bdd-vision']
+        ? accessible
         : url.pathname === '/v1/users/7'
           ? { id: 7, group: 'default', status: 1 }
           : url.pathname === '/v1/users/7/managed-tokens/12'
