@@ -1,4 +1,3 @@
-import { t } from 'i18next';
 import { LOBE_CHAT_OBSERVATION_ID, LOBE_CHAT_TRACE_ID, MESSAGE_CANCEL_FLAT } from '@lobechat/const';
 import { parseToolCalls } from '@lobechat/model-runtime';
 import type {
@@ -15,6 +14,7 @@ import type {
 import { ChatErrorType } from '@lobechat/types';
 import { fetchEventSource } from '@lobechat/utils/client/fetchEventSource/index';
 import { nanoid } from '@lobechat/utils/uuid';
+import { t } from 'i18next';
 
 import { getMessageError } from './parseError';
 import { getRetryDelay, type StreamRecoveryOptions, waitForStreamRetry } from './recovery';
@@ -106,8 +106,6 @@ export interface FetchSSEOptions {
   fetcher?: typeof fetch;
   onAbort?: (text: string) => Promise<void>;
   onErrorHandle?: (error: ChatMessageError) => Promise<void> | void;
-  requireTerminalEvent?: boolean;
-  recovery?: StreamRecoveryOptions;
   onFinish?: OnFinishHandler;
   onMessageHandle?: (
     chunk:
@@ -122,7 +120,9 @@ export interface FetchSSEOptions {
       | MessageSpeedChunk
       | MessageStopChunk,
   ) => void;
+  recovery?: StreamRecoveryOptions;
   requestContext?: FetchSSERequestContext;
+  requireTerminalEvent?: boolean;
   responseAnimation?: ResponseAnimation;
 }
 

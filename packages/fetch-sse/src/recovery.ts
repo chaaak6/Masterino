@@ -8,9 +8,9 @@ export interface StreamRecoveryState {
 }
 
 export interface StreamRecoveryOptions {
+  delayMs?: number;
   /** At most three attempts of this model call, never a replay of the agent run. */
   maxAttempts?: number;
-  delayMs?: number;
   onAttemptReset?: () => Promise<void> | void;
   onRetry?: (state: StreamRecoveryState) => Promise<void> | void;
 }
@@ -25,7 +25,7 @@ export const getRetryDelay = (error: ChatMessageError, response?: Response): num
     // A quota error may also use 429. Only a bounded Retry-After proves temporary rate limiting.
     const value = response?.headers.get('retry-after');
     if (!value) return;
-    const delay = /^\d+(\.\d+)?$/.test(value)
+    const delay = /^\d+(?:\.\d+)?$/.test(value)
       ? Number(value) * 1000
       : Date.parse(value) - Date.now();
     return Number.isFinite(delay) && delay >= 0 && delay <= 30_000 ? delay : undefined;

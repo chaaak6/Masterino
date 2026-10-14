@@ -82,11 +82,29 @@ STREAM_BDD_PREBUILT=1 pnpm exec cucumber-js --config stream-recovery.config.cjs
 
 ## Evidence for this branch
 
-Initial ACK/native acceptance: 14 scenarios / 61 steps passed. Repeated acceptance adds offline
-recovery. A replaced fixture needs a fresh port-forward; browser requestfailed diagnostics are
-kept to distinguish fixture/tunnel errors from product failures. The final PR records the final
-pass counts and baseline type-check limitations after all repairs and reviews.
+Final validation after review repairs:
+
+- 340 selected unit/integration tests passed (45 transport, 141 executor/handler/subscription/
+  operation, 98 gateway processing, 56 chat service/backend ownership).
+- Native Electron + local fault server: 15 scenarios / 68 steps passed.
+- Native Electron + ACK test fixture: 15 scenarios / 68 steps passed again. Network and console
+  attachments contain only the expected injected HTTP errors, reset, offline and abort failures;
+  no additional JavaScript errors were recorded on the passing run.
+- Earlier repeated runs exposed extra `net::ERR_FAILED` requests with Playwright request routing
+  enabled. Blocking production domains through Electron's session filter instead removed these
+  extra failures in both local and cluster acceptance. Request-count assertions were retained.
+- Targeted production-file ESLint and diff whitespace checks passed. The production module graph
+  built successfully; pre-existing dynamic-import warnings remain.
+- Two independent code reviews led to cancellation finalization and final-snapshot failure
+  propagation regressions being repaired and covered.
+
+The actual development App was pointed explicitly at the test server with app updates disabled.
+Its expired login prevented an authenticated full-conversation smoke test. The native BDD lane
+above exercises production modules through an isolated acceptance surface, not a released App
+binary or a logged-in shared test deployment. No deployment or release is part of this PR.
 
 The global type check already reports unrelated failures on the pinned main baseline under the
 same dependency setup. Compare normalized diagnostics rather than presenting a failing baseline
 as a passing full type check.
+
+Normalized final type diagnostics add zero errors to the pinned main baseline.

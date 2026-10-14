@@ -1,6 +1,6 @@
-import { t } from 'i18next';
 import type { AgentStreamClientEvents, AgentStreamEvent } from '@lobechat/agent-gateway-client';
 import { fetchEventSource } from '@lobechat/utils/client';
+import { t } from 'i18next';
 
 import { aiAgentService } from '@/services/aiAgent';
 
