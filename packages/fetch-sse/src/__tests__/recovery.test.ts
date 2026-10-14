@@ -13,14 +13,33 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('Given a model stream interrupted before completion', () => {
   it('When the transport closes after a confirmed stop, Then the completed model call is not replayed', async () => {
-    const bytes = new TextEncoder().encode('event: text\ndata: "complete"\n\nevent: stop\ndata: "stop"\n\n');
-    const fetcher = vi.fn(async () => new Response(new ReadableStream({ start(controller) { controller.enqueue(bytes); setTimeout(() => controller.error(new TypeError('connection reset after stop')), 5); } }), {headers:{'Content-Type':'text/event-stream'}}));
+    const bytes = new TextEncoder().encode(
+      'event: text\ndata: "complete"\n\nevent: stop\ndata: "stop"\n\n',
+    );
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(bytes);
+              setTimeout(() => controller.error(new TypeError('connection reset after stop')), 5);
+            },
+          }),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+    );
     const finish = vi.fn();
     const error = vi.fn();
-    await fetchSSE('/test', { fetcher, onFinish:finish, onErrorHandle:error, requireTerminalEvent:true, recovery:{delayMs:0} });
+    await fetchSSE('/test', {
+      fetcher,
+      onFinish: finish,
+      onErrorHandle: error,
+      requireTerminalEvent: true,
+      recovery: { delayMs: 0 },
+    });
     expect(fetcher).toHaveBeenCalledOnce();
     expect(error).not.toHaveBeenCalled();
-    expect(finish).toHaveBeenCalledWith('complete', expect.objectContaining({type:'done'}));
+    expect(finish).toHaveBeenCalledWith('complete', expect.objectContaining({ type: 'done' }));
   });
   it.each(['length', 'max_tokens', 'content_filter'])(
     'Then provider stop(%s) is not claimed as completed',
@@ -237,16 +256,19 @@ describe('Given a model stream interrupted before completion', () => {
     const controller = new AbortController();
     let attempts = 0;
     const chunks = vi.fn();
+    const finish = vi.fn();
     await fetchSSE('/test', {
       fetcher: async () => {
         attempts++;
         return stream('partial', false);
       },
       onMessageHandle: chunks,
+      onFinish: finish,
       requireTerminalEvent: true,
       recovery: { onRetry: () => controller.abort() },
       signal: controller.signal,
     });
     expect(attempts).toBe(1);
+    expect(finish).toHaveBeenCalledWith('partial', expect.objectContaining({ type: 'abort' }));
   });
 });

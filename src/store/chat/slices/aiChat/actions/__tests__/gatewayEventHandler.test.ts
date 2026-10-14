@@ -86,6 +86,32 @@ describe('createGatewayEventHandler', () => {
     vi.clearAllMocks();
   });
 
+  it('waits for the final message snapshot before completing', async () => {
+    const store = createMockStore();
+    let release!: (messages: never[]) => void;
+    vi.mocked(messageService.getMessages).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const pending = createHandler(store)(makeEvent('agent_runtime_end'));
+    await vi.waitFor(() => expect(release).toBeDefined());
+    expect(store.completeOperation).not.toHaveBeenCalled();
+    release([]);
+    await pending;
+    expect(store.completeOperation).toHaveBeenCalledWith('op-1');
+  });
+
+  it('propagates final snapshot failures instead of completing stale content', async () => {
+    const store = createMockStore();
+    vi.mocked(messageService.getMessages).mockRejectedValueOnce(new Error('snapshot unavailable'));
+    await expect(createHandler(store)(makeEvent('agent_runtime_end'))).rejects.toThrow(
+      'snapshot unavailable',
+    );
+    expect(store.completeOperation).not.toHaveBeenCalled();
+  });
+
   describe('stream_retry', () => {
     it('rolls back partial content, reasoning and tools for a context retry', async () => {
       const store = createMockStore();

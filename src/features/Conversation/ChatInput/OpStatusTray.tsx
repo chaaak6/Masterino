@@ -326,10 +326,12 @@ const OpStatusTray = memo<OpStatusTrayProps>(({ seamless, topAttached }) => {
   const statusText = operationState.recovery
     ? operationState.recovery.offline
       ? t('opStatusTray:waitingForNetwork')
-      : t('opStatusTray:retrying', {
-          attempt: operationState.recovery.attempt,
-          total: operationState.recovery.maxAttempts - 1,
-        })
+      : operationState.recovery.maxAttempts === 0
+        ? t('opStatusTray:reconnecting')
+        : t('opStatusTray:retrying', {
+            attempt: operationState.recovery.attempt,
+            total: operationState.recovery.maxAttempts - 1,
+          })
     : operationState.activity === 'generating'
       ? randomGeneratingStatus
       : t(`chat:opStatusTray.status.${operationState.activity}`);

@@ -30,9 +30,13 @@ Given('打开使用生产运行状态的隔离测试 App', async () => {
         reason: request.failure()?.errorText ?? 'unknown',
       });
   });
-  await page.route(/https:\/\/(masterino|aihub)\.bielcrystal\.com\//, (route: any) =>
-    route.abort(),
-  );
+  await app.evaluate(({ session }: any) => {
+    session.defaultSession.webRequest.onBeforeRequest(
+      { urls: ['https://masterino.bielcrystal.com/*', 'https://aihub.bielcrystal.com/*'] },
+      (_details: unknown, callback: (result: { cancel: boolean }) => void) =>
+        callback({ cancel: true }),
+    );
+  });
   await expect(page.getByRole('button', { name: 'Run stream scenario' })).toBeVisible();
 });
 
@@ -44,6 +48,9 @@ When('运行 {string} 网络场景', async (scenario: string) => {
 Then('运行结果为 {string} 且请求次数为 {int}', async (result: string, attempts: number) => {
   await expect(page.getByTestId('stream-status')).toHaveText(result, { timeout: 30_000 });
   await expect(page.getByTestId('stream-attempts')).toHaveText(String(attempts));
+  await expect(page.getByTestId('stream-operation-status')).toHaveText(
+    result === 'stopped' ? 'cancelled' : result,
+  );
   expect(requests).toHaveLength(attempts);
   if (result === 'failed')
     await expect(page.getByRole('button', { name: 'Retry generation' })).toBeVisible();

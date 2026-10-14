@@ -278,7 +278,9 @@ describe('GatewayActionImpl', () => {
 
       action.connectToGateway({
         gatewayUrl: 'https://gateway.test.com',
-        onEvent: (e) => events.push(e),
+        onEvent: (e) => {
+          events.push(e);
+        },
         operationId: 'op-1',
         token: 'test-token',
         topicId: TEST_TOPIC_ID,

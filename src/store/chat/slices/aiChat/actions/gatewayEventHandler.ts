@@ -611,7 +611,7 @@ export const createGatewayEventHandler = (
             // messages are the only in-memory state and they need the
             // refetch to be reconciled with the server-side rows.
           } else {
-            await fetchAndReplaceMessages(get, context).catch(console.error);
+            await fetchAndReplaceMessages(get, context);
           }
           get().completeOperation(operationId);
 
@@ -635,7 +635,7 @@ export const createGatewayEventHandler = (
       case 'error': {
         enqueue(async () => {
           const messageError = toChatMessageError(event.data);
-          const errorMessage = messageError.message;
+          const errorMessage = messageError.message ?? 'Agent stream interrupted';
 
           void emitClientAgentSignalSourceEvent({
             payload: {

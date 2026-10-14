@@ -129,8 +129,8 @@ export class GatewayActionImpl {
         streamRecovery:
           status === 'reconnecting'
             ? {
-                attempt: 1,
-                maxAttempts: 3,
+                attempt: 0,
+                maxAttempts: 0,
                 offline: typeof navigator !== 'undefined' && !navigator.onLine,
               }
             : undefined,

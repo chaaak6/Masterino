@@ -1,3 +1,4 @@
+import { t } from 'i18next';
 import type { AgentStreamClientEvents, AgentStreamEvent } from '@lobechat/agent-gateway-client';
 import { fetchEventSource } from '@lobechat/utils/client';
 
@@ -126,8 +127,11 @@ export class SameOriginAgentStreamClient {
     this.terminal = true;
     this.emit('agent_event', {
       data: {
-        message:
-          'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
+        message: t('streamRecoveryExpired', {
+          ns: 'error',
+          defaultValue:
+            'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
+        }),
         type: 'AgentStreamError',
       },
       operationId: this.operationId,

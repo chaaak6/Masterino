@@ -1,3 +1,4 @@
+import { t } from 'i18next';
 import { LOBE_CHAT_OBSERVATION_ID, LOBE_CHAT_TRACE_ID, MESSAGE_CANCEL_FLAT } from '@lobechat/const';
 import { parseToolCalls } from '@lobechat/model-runtime';
 import type {
@@ -324,7 +325,13 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
       } else {
         // The model already confirmed completion. Losing only the trailing
         // transport/usage frame must not replay a completed generation.
-        if (sawTerminalEvent && finishedType === 'done' && error?.name === 'TypeError' && /fetch|network|load failed|connection|terminated/i.test(error.message)) return;
+        if (
+          sawTerminalEvent &&
+          finishedType === 'done' &&
+          error?.name === 'TypeError' &&
+          /fetch|network|load failed|connection|terminated/i.test(error.message)
+        )
+          return;
         finishedType = 'error';
 
         const elapsedMs = Date.now() - fetchStartTime;
@@ -454,8 +461,16 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
               body: { reason: data },
               message:
                 data === 'content_filter' || data === 'SAFETY'
-                  ? 'Generation was blocked by the provider. Please adjust your request.'
-                  : 'Generation reached the output limit before completing. Please shorten the request or increase the output limit.',
+                  ? t('streamProviderBlocked', {
+                      ns: 'error',
+                      defaultValue:
+                        'Generation was blocked by the provider. Please adjust your request.',
+                    })
+                  : t('streamOutputLimit', {
+                      ns: 'error',
+                      defaultValue:
+                        'Generation reached the output limit before completing. Please shorten the request or increase the output limit.',
+                    }),
               type: 'StreamChunkError',
             });
           }
@@ -563,7 +578,10 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
       ) {
         finishedType = 'error';
         await options.onErrorHandle?.({
-          message: 'The connection ended before generation completed. Please retry.',
+          message: t('streamInterrupted', {
+            ns: 'error',
+            defaultValue: 'The connection ended before generation completed. Please retry.',
+          }),
           body: { reason: 'unexpected_end' },
           type: 'StreamChunkError',
         });
@@ -658,7 +676,10 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
         continue;
       }
     }
-    if (options.signal?.aborted) return response;
+    if (options.signal?.aborted) {
+      if (finish) await options.onFinish?.(finish[0], { ...finish[1], type: 'abort' });
+      return response;
+    }
     if (error) await options.onErrorHandle?.(error);
     if (finish) await options.onFinish?.(...finish);
     return response;

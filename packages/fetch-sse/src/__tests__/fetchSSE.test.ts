@@ -525,7 +525,10 @@ describe('fetchSSE', () => {
     const allCalls = mockOnMessageHandle.mock.calls.map((call) => call[0]);
     const allTexts = allCalls.filter((c) => c.type === 'text').map((c) => c.text);
     expect(allTexts.join('')).not.toContain(' World');
-    expect(mockOnFinish).not.toHaveBeenCalled();
+    expect(mockOnFinish).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ type: 'abort' }),
+    );
   });
 
   it('should call onFinish with correct parameters for different finish types', async () => {
