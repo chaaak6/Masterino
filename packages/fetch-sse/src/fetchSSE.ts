@@ -623,7 +623,10 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
     ? Math.max(1, Math.min(3, options.recovery.maxAttempts ?? 3))
     : 1;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    if (options.signal?.aborted) return undefined;
+    if (options.signal?.aborted) {
+      await options.onFinish?.('', { type: 'abort' });
+      return undefined;
+    }
     let error: ChatMessageError | undefined;
     let finish: Parameters<OnFinishHandler> | undefined;
     let mediaDelivered = false;
@@ -677,7 +680,7 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
       }
     }
     if (options.signal?.aborted) {
-      if (finish) await options.onFinish?.(finish[0], { ...finish[1], type: 'abort' });
+      await options.onFinish?.(finish?.[0] ?? '', { ...finish?.[1], type: 'abort' });
       return response;
     }
     if (error) await options.onErrorHandle?.(error);

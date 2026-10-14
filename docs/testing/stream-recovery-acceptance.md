@@ -84,7 +84,7 @@ STREAM_BDD_PREBUILT=1 pnpm exec cucumber-js --config stream-recovery.config.cjs
 
 Final validation after review repairs:
 
-- 340 selected unit/integration tests passed (45 transport, 141 executor/handler/subscription/
+- 341 selected unit/integration tests passed (46 transport, 141 executor/handler/subscription/
   operation, 98 gateway processing, 56 chat service/backend ownership).
 - Native Electron + local fault server: 15 scenarios / 68 steps passed.
 - Native Electron + ACK test fixture: 15 scenarios / 68 steps passed again. Network and console

@@ -12,6 +12,16 @@ const stream = (text: string, ended = true) =>
 afterEach(() => vi.restoreAllMocks());
 
 describe('Given a model stream interrupted before completion', () => {
+  it('finalizes cancellation before the first request without sending it', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetcher = vi.fn();
+    const finish = vi.fn();
+    await fetchSSE('/test', { fetcher, signal: controller.signal, onFinish: finish });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledWith('', { type: 'abort' });
+  });
+
   it('When the transport closes after a confirmed stop, Then the completed model call is not replayed', async () => {
     const bytes = new TextEncoder().encode(
       'event: text\ndata: "complete"\n\nevent: stop\ndata: "stop"\n\n',
