@@ -99,7 +99,9 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
         requestSignal: req.signal,
       });
 
-    return provider === 'newapi'
+    // A recovering client owns the three-attempt budget for this model call.
+    // Avoid multiplying its retries by the provider's three attempts.
+    return provider === 'newapi' && req.headers.get('X-Masterino-Client-Recovery') !== '1'
       ? await runWithTransientRetry({
           onRetry: (error, attempt, delayMs) =>
             console.warn('[newapi_retry]', {

@@ -293,8 +293,8 @@ export class OperationActionsImpl {
 
         const now = Date.now();
 
-        // Don't override cancelled status - preserve user interruption state
-        if (operation.status !== 'cancelled') {
+        // Late cleanup cannot turn a failed or stopped run into success.
+        if (operation.status !== 'cancelled' && operation.status !== 'failed') {
           operation.status = 'completed';
         }
 

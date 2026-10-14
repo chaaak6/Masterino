@@ -27,6 +27,7 @@ import { useElectronStore } from '@/store/electron';
 import { buildDraftConversationKey } from '@/store/projectWorkspace';
 
 import { createWorkspaceRuntimeI18n } from './workspaceRuntimeI18n';
+import { StreamRecoveryHarness } from './streamRecoveryRenderer';
 import { ModelCapabilityRows } from './workspaceRuntimeModels';
 import type { ElectronAcceptanceResultMap } from './workspaceRuntimeSeams';
 import { AGENT_ID, DEVICE_ID } from './workspaceRuntimeTrpcClient';
@@ -268,6 +269,7 @@ const WorkspaceRuntimeProductHarness = () => (
       <MemoryRouter initialEntries={[`/agent/${AGENT_ID}/topic/topic-scratch`]}>
         <AntdApp>
           <main data-testid="workspace-runtime-product-ui">
+            <StreamRecoveryHarness />
             <section data-testid="production-agent-sidebar">
               <SidebarBody />
             </section>

@@ -204,6 +204,18 @@ describe('Operation Actions', () => {
   });
 
   describe('completeOperation', () => {
+    it('Given a failed run, Then late connection cleanup cannot mark it successful', () => {
+      const { result } = renderHook(() => useChatStore());
+      act(() => {
+        const { operationId } = result.current.startOperation({
+          type: 'execAgentRuntime',
+          context: { agentId: 'session1' },
+        });
+        result.current.failOperation(operationId, { type: 'network', message: 'Disconnected' });
+        result.current.completeOperation(operationId);
+      });
+      expect(Object.values(result.current.operations).at(-1)?.status).toBe('failed');
+    });
     it('should mark operation as completed with correct metadata', () => {
       const { result } = renderHook(() => useChatStore());
 

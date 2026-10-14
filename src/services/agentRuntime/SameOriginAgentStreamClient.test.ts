@@ -13,6 +13,23 @@ describe('same-origin device agent stream', () => {
     vi.useRealTimers();
     vi.clearAllMocks();
   });
+  it('Given repeated transport failures, Then it stops reconnecting without claiming server success', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
+      await options.onerror?.(new TypeError('connection reset'));
+    });
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const event = vi.fn();
+    const complete = vi.fn();
+    client.on('agent_event', event);
+    client.on('session_complete', complete);
+    client.connect();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(3);
+    expect(event).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: 'error' }));
+    expect(complete).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
   it('only completes after terminal event and reconnects from last delivered ID', async () => {
     vi.useFakeTimers();
     let resolve!: () => void;

@@ -215,6 +215,18 @@ describe('POST handler', () => {
       expect(response).toBe(mockChatResponse);
       expect(mockRuntime.chat).toHaveBeenCalledTimes(3);
     });
+    it('Given client-owned recovery, Then the server does not multiply the retry budget', async () => {
+      request.headers.set('X-Masterino-Client-Recovery', '1');
+      const chat = vi
+        .fn()
+        .mockRejectedValue(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }));
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
+        new ModelRuntime({ baseURL: 'abc', chat }),
+      );
+      const response = await POST(request, { params: Promise.resolve({ provider: 'newapi' }) });
+      expect(chat).toHaveBeenCalledOnce();
+      expect(response.status).toBe(500);
+    });
 
     it('should not retry NewAPI authentication failures', async () => {
       const mockParams = Promise.resolve({ provider: 'newapi' });

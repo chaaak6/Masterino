@@ -102,6 +102,21 @@ const mockStreamResponse = (response: {
 };
 
 describe('call_llm executor', () => {
+  it('Given a failed model stream, Then the run fails without executing partial tool calls', async () => {
+    const mockStore = createMockStore();
+    const context = createTestContext();
+    mockStore.dbMessagesMap[context.messageKey] = [];
+    mockStreamResponse({ content: '<html>partial', finishType: 'error' });
+    const result = await executeWithMockContext({
+      context,
+      executor: 'call_llm',
+      instruction: createCallLLMInstruction(),
+      mockStore,
+      state: createInitialState(),
+    });
+    expect(result.newState.status).toBe('error');
+    expect(result.nextContext?.phase).not.toBe('llm_result');
+  });
   describe('Basic Behavior', () => {
     it('should create assistant message with LOADING_FLAT content', async () => {
       // Given

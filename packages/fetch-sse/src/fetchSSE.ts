@@ -16,6 +16,7 @@ import { fetchEventSource } from '@lobechat/utils/client/fetchEventSource/index'
 import { nanoid } from '@lobechat/utils/uuid';
 
 import { getMessageError } from './parseError';
+import { getRetryDelay, type StreamRecoveryOptions, waitForStreamRetry } from './recovery';
 
 type SSEFinishType = 'done' | 'error' | 'abort' | string;
 
@@ -103,7 +104,9 @@ export interface FetchSSERequestContext {
 export interface FetchSSEOptions {
   fetcher?: typeof fetch;
   onAbort?: (text: string) => Promise<void>;
-  onErrorHandle?: (error: ChatMessageError) => void;
+  onErrorHandle?: (error: ChatMessageError) => Promise<void> | void;
+  requireTerminalEvent?: boolean;
+  recovery?: StreamRecoveryOptions;
   onFinish?: OnFinishHandler;
   onMessageHandle?: (
     chunk:
@@ -245,12 +248,13 @@ export const standardizeAnimationStyle = (
  * Fetch data using stream method
  */
 
-export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptions = {}) => {
+const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptions = {}) => {
   let toolCalls: undefined | MessageToolCall[];
   let triggerOnMessageHandler = false;
 
   let finishedType: SSEFinishType = 'done';
   let response!: Response;
+  let sawTerminalEvent = false;
   const fetchStartTime = Date.now();
 
   const { text, speed: smoothingSpeed } = standardizeAnimationStyle(
@@ -312,12 +316,15 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
     fetch: options?.fetcher,
     headers: options.headers as Record<string, string>,
     method: options.method,
-    onerror: (error) => {
+    onerror: async (error) => {
       if (error === MESSAGE_CANCEL_FLAT || (error as TypeError).name === 'AbortError') {
         finishedType = 'abort';
-        options?.onAbort?.(output);
+        await options?.onAbort?.(output);
         textController.stopAnimation();
       } else {
+        // The model already confirmed completion. Losing only the trailing
+        // transport/usage frame must not replay a completed generation.
+        if (sawTerminalEvent && finishedType === 'done' && error?.name === 'TypeError' && /fetch|network|load failed|connection|terminated/i.test(error.message)) return;
         finishedType = 'error';
 
         const elapsedMs = Date.now() - fetchStartTime;
@@ -329,7 +336,7 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
           networkStatus,
         };
 
-        options.onErrorHandle?.(
+        await options.onErrorHandle?.(
           error.type
             ? error
             : {
@@ -346,11 +353,13 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
       }
     },
     onmessage: (ev) => {
+      if (options.signal?.aborted || finishedType === 'error' || finishedType === 'abort') return;
       triggerOnMessageHandler = true;
       let data;
       try {
         data = JSON.parse(ev.data);
       } catch (e) {
+        finishedType = 'error';
         console.warn('parse error:', e);
         options.onErrorHandle?.({
           body: {
@@ -437,7 +446,19 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
         }
 
         case 'stop': {
+          sawTerminalEvent = true;
           if (data === 'abort') finishedType = 'abort';
+          if (['length', 'max_tokens', 'MAX_TOKENS', 'content_filter', 'SAFETY'].includes(data)) {
+            finishedType = 'error';
+            options.onErrorHandle?.({
+              body: { reason: data },
+              message:
+                data === 'content_filter' || data === 'SAFETY'
+                  ? 'Generation was blocked by the provider. Please adjust your request.'
+                  : 'Generation reached the output limit before completing. Please shorten the request or increase the output limit.',
+              type: 'StreamChunkError',
+            });
+          }
           options.onMessageHandle?.({ reason: data, type: 'stop' });
           break;
         }
@@ -517,24 +538,38 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
 
   // only call onFinish when response is available
   // so like abort, we don't need to call onFinish
-  if (response) {
+  {
     textController.stopAnimation();
     thinkingController.stopAnimation();
 
     // Ensure all buffered data is processed
     if (bufferTimer) {
       clearTimeout(bufferTimer);
-      flushTextBuffer();
+      if (!options.signal?.aborted) flushTextBuffer();
     }
 
     if (thinkingBufferTimer) {
       clearTimeout(thinkingBufferTimer);
-      flushThinkingBuffer();
+      if (!options.signal?.aborted) flushThinkingBuffer();
     }
 
-    if (response.ok) {
+    if (response?.ok) {
+      const isEventStream = response.headers.get('content-type')?.includes('text/event-stream');
+      if (
+        options.requireTerminalEvent &&
+        isEventStream &&
+        !sawTerminalEvent &&
+        finishedType === 'done'
+      ) {
+        finishedType = 'error';
+        await options.onErrorHandle?.({
+          message: 'The connection ended before generation completed. Please retry.',
+          body: { reason: 'unexpected_end' },
+          type: 'StreamChunkError',
+        });
+      }
       // if there is no onMessageHandler, we should call onHandleMessage first
-      if (!triggerOnMessageHandler) {
+      if (!triggerOnMessageHandler && finishedType === 'done') {
         output = await response.clone().text();
         options.onMessageHandle?.({ text: output, type: 'text' });
       }
@@ -542,8 +577,10 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
       const traceId = response.headers.get(LOBE_CHAT_TRACE_ID);
       const observationId = response.headers.get(LOBE_CHAT_OBSERVATION_ID);
 
-      textController.flushQueue();
-      thinkingController.flushQueue();
+      if (!options.signal?.aborted) {
+        textController.flushQueue();
+        thinkingController.flushQueue();
+      }
 
       await options?.onFinish?.(output, {
         grounding,
@@ -560,4 +597,70 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
   }
 
   return response;
+};
+
+/** Keep recovery inside a single model call; errors are committed only after its budget is spent. */
+export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptions = {}) => {
+  const maxAttempts = options.recovery
+    ? Math.max(1, Math.min(3, options.recovery.maxAttempts ?? 3))
+    : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (options.signal?.aborted) return undefined;
+    let error: ChatMessageError | undefined;
+    let finish: Parameters<OnFinishHandler> | undefined;
+    let mediaDelivered = false;
+    const response = await fetchSSEAttempt(url, {
+      ...options,
+      headers: options.recovery
+        ? {
+            ...Object.fromEntries(new Headers(options.headers).entries()),
+            'X-Masterino-Client-Recovery': '1',
+          }
+        : options.headers,
+      onErrorHandle: (value) => {
+        error = value;
+      },
+      onFinish: async (...args) => {
+        finish = args;
+      },
+      onMessageHandle: (chunk) => {
+        if (options.signal?.aborted) return;
+        if (
+          chunk.type === 'base64_image' ||
+          chunk.type === 'content_part' ||
+          chunk.type === 'reasoning_part'
+        )
+          mediaDelivered = true;
+        options.onMessageHandle?.(chunk);
+      },
+    });
+    const delay = error && getRetryDelay(error, response);
+    if (
+      error &&
+      options.recovery &&
+      attempt < maxAttempts &&
+      delay !== undefined &&
+      !mediaDelivered &&
+      !options.signal?.aborted
+    ) {
+      const delayMs = Math.max(
+        delay,
+        options.recovery.delayMs ?? (attempt === 1 ? 1000 : 3000) + Math.floor(Math.random() * 250),
+      );
+      await options.recovery.onRetry?.({
+        attempt,
+        delayMs,
+        maxAttempts,
+        offline: typeof navigator !== 'undefined' && !navigator.onLine,
+      });
+      if (await waitForStreamRetry(delayMs, options.signal)) {
+        await options.recovery.onAttemptReset?.();
+        continue;
+      }
+    }
+    if (options.signal?.aborted) return response;
+    if (error) await options.onErrorHandle?.(error);
+    if (finish) await options.onFinish?.(...finish);
+    return response;
+  }
 };

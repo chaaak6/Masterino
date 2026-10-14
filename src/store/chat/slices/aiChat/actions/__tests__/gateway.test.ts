@@ -135,7 +135,7 @@ function createMockClient(): GatewayConnection['client'] & {
 const TEST_TOPIC_ID = 'topic-test';
 
 function createTestAction() {
-  const state: Record<string, any> = { gatewayConnections: {} };
+  const state: Record<string, any> = { gatewayConnections: {}, updateOperationMetadata: vi.fn() };
   const set = vi.fn((updater: any) => {
     if (typeof updater === 'function') {
       Object.assign(state, updater(state));
@@ -221,6 +221,28 @@ describe('GatewayActionImpl', () => {
   });
 
   describe('connectToGateway', () => {
+    it('Given buffered stream events, Then completion waits until the last message is reconciled', async () => {
+      const { action, mockClient } = createTestAction();
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const onComplete = vi.fn();
+      action.connectToGateway({
+        gatewayUrl: 'https://gateway.test.com',
+        onEvent: () => pending,
+        onSessionComplete: onComplete,
+        operationId: 'op-1',
+        token: 'test-token',
+        topicId: TEST_TOPIC_ID,
+      });
+      mockClient.emitEvent('agent_event', { operationId: 'op-1', type: 'agent_runtime_end' });
+      mockClient.emitEvent('session_complete');
+      await Promise.resolve();
+      expect(onComplete).not.toHaveBeenCalled();
+      release();
+      await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+    });
     it('should create client and add to store', () => {
       const { action, mockClient, state } = createTestAction();
 
@@ -275,7 +297,7 @@ describe('GatewayActionImpl', () => {
       expect(events[0]).toEqual(testEvent);
     });
 
-    it('should cleanup on session_complete', () => {
+    it('should cleanup on session_complete', async () => {
       const { action, mockClient, state } = createTestAction();
       const onComplete = vi.fn();
 
@@ -289,6 +311,7 @@ describe('GatewayActionImpl', () => {
 
       mockClient.emitEvent('session_complete');
       expect(state.gatewayConnections['op-1']).toBeUndefined();
+      await Promise.resolve();
       expect(onComplete).toHaveBeenCalledOnce();
     });
 
@@ -328,7 +351,7 @@ describe('GatewayActionImpl', () => {
     // so it short-circuits. Net result: input shows the stop button forever
     // and `topic.metadata.runningOperation` stays set, so every revisit
     // re-fires the same broken reconnect.
-    it('should fire onSessionComplete on auth_failed so the local op gets completed', () => {
+    it('should fire onSessionComplete on auth_failed so the local op gets completed', async () => {
       const { action, mockClient } = createTestAction();
       const onSessionComplete = vi.fn();
 
@@ -341,7 +364,7 @@ describe('GatewayActionImpl', () => {
       });
 
       mockClient.emitEvent('auth_failed', 'invalid token');
-      expect(onSessionComplete).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(onSessionComplete).toHaveBeenCalledOnce());
     });
 
     // Same regression, but for the WS-close that follows `auth_failed`.
@@ -349,7 +372,7 @@ describe('GatewayActionImpl', () => {
     // since `receivedTerminalEvent` is false, the disconnected listener also
     // skipped onSessionComplete. The fix should still only call it once
     // (through the auth_failed path) — not twice.
-    it('should not fire onSessionComplete twice when auth_failed is followed by disconnected', () => {
+    it('should not fire onSessionComplete twice when auth_failed is followed by disconnected', async () => {
       const { action, mockClient } = createTestAction();
       const onSessionComplete = vi.fn();
 
@@ -363,7 +386,7 @@ describe('GatewayActionImpl', () => {
 
       mockClient.emitEvent('auth_failed', 'invalid token');
       mockClient.emitEvent('disconnected');
-      expect(onSessionComplete).toHaveBeenCalledOnce();
+      await vi.waitFor(() => expect(onSessionComplete).toHaveBeenCalledOnce());
     });
 
     describe('auth_expired (recoverable)', () => {
@@ -417,7 +440,7 @@ describe('GatewayActionImpl', () => {
         // No reconnect attempted — refresh failed, give up cleanly.
         expect(mockClient.reconnect).not.toHaveBeenCalled();
         expect(mockClient.disconnect).toHaveBeenCalled();
-        expect(onSessionComplete).toHaveBeenCalledOnce();
+        await vi.waitFor(() => expect(onSessionComplete).toHaveBeenCalledOnce());
       });
     });
 

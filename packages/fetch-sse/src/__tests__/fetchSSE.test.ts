@@ -500,7 +500,7 @@ describe('fetchSSE', () => {
     });
   });
 
-  it('should handle request interruption and resumption correctly', async () => {
+  it('should reject late chunks after the user stops the request', async () => {
     const mockOnMessageHandle = vi.fn();
     const mockOnFinish = vi.fn();
     const abortController = new AbortController();
@@ -524,13 +524,8 @@ describe('fetchSSE', () => {
 
     const allCalls = mockOnMessageHandle.mock.calls.map((call) => call[0]);
     const allTexts = allCalls.filter((c) => c.type === 'text').map((c) => c.text);
-    expect(allTexts.join('')).toBe('Hello World');
-
-    expect(mockOnFinish).toHaveBeenCalledWith('Hello World', {
-      type: 'done',
-      observationId: null,
-      traceId: null,
-    });
+    expect(allTexts.join('')).not.toContain(' World');
+    expect(mockOnFinish).not.toHaveBeenCalled();
   });
 
   it('should call onFinish with correct parameters for different finish types', async () => {

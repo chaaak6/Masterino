@@ -1,4 +1,6 @@
 export default {
+  retrying: 'Connection interrupted. Retrying {{attempt}}/{{total}}',
+  waitingForNetwork: 'Connection lost. Waiting for the network to recover',
   generatingPhrases: [
     'Working',
     'Drafting',

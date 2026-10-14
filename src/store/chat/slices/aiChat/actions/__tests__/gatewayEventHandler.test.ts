@@ -32,6 +32,7 @@ function createMockStore() {
   return {
     associateMessageWithOperation: vi.fn(),
     completeOperation: vi.fn(),
+    failOperation: vi.fn(),
     internal_dispatchMessage: vi.fn(),
     internal_executeClientTool: vi.fn().mockResolvedValue(undefined),
     internal_toggleToolCallingStreaming: vi.fn(),
@@ -91,9 +92,7 @@ describe('createGatewayEventHandler', () => {
       const handler = createHandler(store);
 
       handler(makeEvent('stream_chunk', { chunkType: 'text', content: 'stale partial' }));
-      handler(
-        makeEvent('stream_chunk', { chunkType: 'reasoning', reasoning: 'stale reasoning' }),
-      );
+      handler(makeEvent('stream_chunk', { chunkType: 'reasoning', reasoning: 'stale reasoning' }));
       handler(
         makeEvent('stream_chunk', {
           chunkType: 'tools_calling',
@@ -821,7 +820,10 @@ describe('createGatewayEventHandler', () => {
         'msg-initial',
         undefined,
       );
-      expect(store.completeOperation).toHaveBeenCalledWith('op-1');
+      expect(store.failOperation).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({ type: 'AgentStreamError' }),
+      );
       expect(messageService.updateMessageError).toHaveBeenCalledWith(
         'msg-initial',
         {
@@ -869,7 +871,10 @@ describe('createGatewayEventHandler', () => {
         'msg-step2',
         undefined,
       );
-      expect(store.completeOperation).toHaveBeenCalledWith('op-1');
+      expect(store.failOperation).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({ type: 'AgentStreamError' }),
+      );
       expect(messageService.updateMessageError).toHaveBeenCalledWith(
         'msg-step2',
         {
@@ -1124,15 +1129,18 @@ describe('createGatewayEventHandler', () => {
     // marked as an unread "completed" agent run. If a future refactor unifies
     // the terminal paths, revisit whether errors SHOULD mark unread —
     // changing this assertion is the signal that the contract moved.
-    it('error event completes the operation but does NOT call markUnreadCompleted (asymmetry vs agent_runtime_end)', async () => {
+    it('error event fails the operation and does NOT call markUnreadCompleted', async () => {
       const store = createMockStore();
       const handler = createHandler(store);
 
       handler(makeEvent('error', { message: 'kaboom' }));
       await flush();
 
-      // completeOperation IS called on error.
-      expect(store.completeOperation).toHaveBeenCalledWith('op-1');
+      // Error state is terminal, but it is not successful completion.
+      expect(store.failOperation).toHaveBeenCalledWith(
+        'op-1',
+        expect.objectContaining({ type: 'AgentStreamError' }),
+      );
       // markUnreadCompleted is NOT — even though operations['op-1'] has a
       // context.agentId (which WOULD trigger it on agent_runtime_end).
       expect(store.markUnreadCompleted).not.toHaveBeenCalled();

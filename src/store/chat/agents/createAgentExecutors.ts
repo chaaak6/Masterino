@@ -662,8 +662,19 @@ export const createAgentExecutors = (context: {
         };
       };
 
+      let streamError: ChatMessageError | undefined;
       await chatService.createAssistantMessageStream({
         abortController,
+        recovery: {
+          onAttemptReset: () => handler.discardAttempt(),
+          onRetry: (recovery) =>
+            context
+              .get()
+              .updateOperationMetadata(context.operationId, { streamRecovery: recovery }),
+        },
+        // newapi uses our OpenAI-compatible stop protocol. Other providers may
+        // legitimately omit stop; preserve their established completion contract.
+        requireTerminalEvent: llmPayload.provider === 'newapi',
         contextBudget: {
           attemptState: contextBudgetAttemptState,
           catalogSnapshot: state.metadata?.modelCatalogSnapshot,
@@ -699,6 +710,7 @@ export const createAgentExecutors = (context: {
           traceName: TraceNameMap.Conversation,
         },
         onErrorHandle: async (error) => {
+          streamError = error;
           const enrichedError = {
             ...error,
             body: {
@@ -764,6 +776,8 @@ export const createAgentExecutors = (context: {
           handler.handleChunk(chunk as StreamChunk);
         },
       });
+
+      context.get().updateOperationMetadata(context.operationId, { streamRecovery: undefined });
 
       const isFunctionCall = handler.getIsFunctionCall();
       const content = handler.getOutput();
@@ -838,6 +852,19 @@ export const createAgentExecutors = (context: {
 
         newState.usage = usage;
         if (cost) newState.cost = cost;
+      }
+
+      // A failed model attempt must not reach llm_result or execute incomplete tool calls.
+      if (finishType === 'error' || streamError) {
+        return {
+          events: contextBudgetEvents,
+          newState: { ...newState, status: 'error' as const },
+          nextContext: {
+            ...runtimeContext,
+            payload: { error: streamError ?? { message: 'Model stream interrupted' } },
+            phase: 'error',
+          } as AgentRuntimeContext,
+        };
       }
 
       // If operation was aborted, enter human_abort phase to let agent decide how to handle

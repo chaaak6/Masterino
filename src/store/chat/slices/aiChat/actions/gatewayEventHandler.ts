@@ -260,7 +260,7 @@ export const createGatewayEventHandler = (
   };
 
   return (event: AgentStreamEvent) => {
-    if (terminalState) return;
+    if (terminalState) return processingChain;
 
     // Subagent (`Agent`/`Task`) inner-tool events are tagged `data.subagent` and
     // belong to an isolation Thread. This handler is main-agent-only, so
@@ -579,13 +579,6 @@ export const createGatewayEventHandler = (
           });
           get().internal_toggleToolCallingStreaming(currentAssistantMessageId, undefined);
           endReasoningIfNeeded();
-          get().completeOperation(operationId);
-
-          const completedOp = get().operations[operationId];
-          if (completedOp?.context.agentId) {
-            get().markUnreadCompleted(completedOp.context.agentId, completedOp.context.topicId);
-          }
-
           // Terminal step has no later step_start to carry SoT — server
           // pushes the canonical snapshot directly on this event. Fall back
           // to a DB refetch only if the snapshot is absent (older server
@@ -620,6 +613,12 @@ export const createGatewayEventHandler = (
           } else {
             await fetchAndReplaceMessages(get, context).catch(console.error);
           }
+          get().completeOperation(operationId);
+
+          const completedOp = get().operations[operationId];
+          if (completedOp?.context.agentId) {
+            get().markUnreadCompleted(completedOp.context.agentId, completedOp.context.topicId);
+          }
         });
         break;
       }
@@ -651,7 +650,15 @@ export const createGatewayEventHandler = (
 
           get().internal_toggleToolCallingStreaming(currentAssistantMessageId, undefined);
           endReasoningIfNeeded();
-          get().completeOperation(operationId);
+          get().internal_dispatchMessage(
+            {
+              id: currentAssistantMessageId,
+              type: 'updateMessage',
+              value: { error: messageError },
+            },
+            dispatchContext,
+          );
+          get().failOperation(operationId, { message: errorMessage, type: 'AgentStreamError' });
 
           const updateResult = await messageService
             .updateMessageError(currentAssistantMessageId, messageError, {
@@ -686,5 +693,6 @@ export const createGatewayEventHandler = (
         break;
       }
     }
+    return processingChain;
   };
 };
