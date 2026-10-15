@@ -226,8 +226,7 @@ describe('App', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(electronApp.quit).not.toHaveBeenCalled();
     completeDocuments();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(electronApp.quit).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(electronApp.quit).toHaveBeenCalledOnce());
   });
 
   describe('appStoragePath', () => {

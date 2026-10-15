@@ -14,7 +14,14 @@
     "chatTests": 319,
     "presentationTests": 13,
     "markdownBoundaryTests": 6,
-    "typecheck": "passed"
+    "typecheck": "passed",
+    "fullAppWithNativeMenuQuit": 9,
+    "desktopTypecheckLinkedWorkspace": {
+      "baselineDiagnostics": 100,
+      "currentDiagnostics": 100,
+      "introducedDiagnostics": 0,
+      "finalGate": "isolated Desktop CI typecheck"
+    }
   },
   "benchmark": {
     "rows": 300000,
@@ -79,6 +86,11 @@
     "standardPptSizeEmu": {
       "width": 9144000,
       "height": 6858000
+    },
+    "nativeQuit": {
+      "before": "native menu closed windows but left main process alive after cleanup",
+      "after": "idle native menu quit and scan-ready native menu quit both exited; main/Python PID assertions passed",
+      "scheduling": "next event-loop iteration after awaited cleanup"
     }
   }
 }

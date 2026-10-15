@@ -133,7 +133,13 @@ const verifyQuit = async () => {
       .filter((line) => line.includes('documents.py') && line.includes(identity.profile))
       .map((line) => Number(line.trim().split(/\s+/)[0]));
     assert.ok(pythonPids.length > 0);
-    await evaluate(`setTimeout(()=>${electronApp}.quit(),50);true`);
+    const manualQuit = process.env.MASTERINO_DOCUMENT_TEST_MANUAL_QUIT === '1';
+    if (manualQuit) {
+      // The operator uses the native App menu through computer use. Do not substitute app.quit().
+      console.log(JSON.stringify({ nativeQuitReady: true, mainPid: identity.pid, pythonPids }));
+    } else {
+      await evaluate(`setTimeout(()=>${electronApp}.quit(),50);true`);
+    }
     socket.close();
     const gone = (pid) => {
       try {
@@ -144,7 +150,7 @@ const verifyQuit = async () => {
         throw error;
       }
     };
-    for (let i = 0; i < 200 && !gone(identity.pid); i++)
+    for (let i = 0; i < (manualQuit ? 2400 : 200) && !gone(identity.pid); i++)
       await new Promise((resolve) => setTimeout(resolve, 50));
     assert.ok(gone(identity.pid), 'Test App must finish its quit');
     assert.ok(pythonPids.every(gone), 'Python must be reaped before App exit');

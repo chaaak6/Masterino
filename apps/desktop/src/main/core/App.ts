@@ -475,7 +475,9 @@ export class App {
           this.getController(GatewayConnectionCtr)?.cleanupDocumentJobs(),
         ]).finally(() => {
           this.commandCleanupComplete = true;
-          app.quit();
+          // Leave the native menu quit callback before requesting quit again.
+          // A microtask can re-enter macOS termination while it is still in progress.
+          setImmediate(() => app.quit());
         });
       }
       return;
