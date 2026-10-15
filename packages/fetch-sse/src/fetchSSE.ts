@@ -24,6 +24,7 @@ type SSEFinishType = 'done' | 'error' | 'abort' | string;
 export type OnFinishHandler = (
   text: string,
   context: {
+    finishReason?: string;
     grounding?: GroundingSearch;
     images?: ChatImageChunk[];
     observationId?: string | null;
@@ -254,6 +255,7 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
   let triggerOnMessageHandler = false;
 
   let finishedType: SSEFinishType = 'done';
+  let finishReason: string | undefined;
   let response!: Response;
   let sawTerminalEvent = false;
   const fetchStartTime = Date.now();
@@ -455,25 +457,7 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
         case 'stop': {
           sawTerminalEvent = true;
           if (data === 'abort') finishedType = 'abort';
-          if (['length', 'max_tokens', 'MAX_TOKENS', 'content_filter', 'SAFETY'].includes(data)) {
-            finishedType = 'error';
-            options.onErrorHandle?.({
-              body: { reason: data },
-              message:
-                data === 'content_filter' || data === 'SAFETY'
-                  ? t('streamProviderBlocked', {
-                      ns: 'error',
-                      defaultValue:
-                        'Generation was blocked by the provider. Please adjust your request.',
-                    })
-                  : t('streamOutputLimit', {
-                      ns: 'error',
-                      defaultValue:
-                        'Generation reached the output limit before completing. Please shorten the request or increase the output limit.',
-                    }),
-              type: 'StreamChunkError',
-            });
-          }
+          finishReason = data;
           options.onMessageHandle?.({ reason: data, type: 'stop' });
           break;
         }
@@ -601,6 +585,7 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
       }
 
       await options?.onFinish?.(output, {
+        ...(finishReason && { finishReason }),
         grounding,
         images: images.length > 0 ? images : undefined,
         observationId,

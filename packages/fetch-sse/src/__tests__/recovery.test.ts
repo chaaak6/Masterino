@@ -51,8 +51,8 @@ describe('Given a model stream interrupted before completion', () => {
     expect(error).not.toHaveBeenCalled();
     expect(finish).toHaveBeenCalledWith('complete', expect.objectContaining({ type: 'done' }));
   });
-  it.each(['length', 'max_tokens', 'content_filter'])(
-    'Then provider stop(%s) is not claimed as completed',
+  it.each(['length', 'max_tokens', 'MAX_TOKENS', 'content_filter', 'SAFETY'])(
+    'Then explicit provider stop(%s) is a terminal response, not a transport failure',
     async (reason) => {
       const fetcher = vi.fn(
         async () =>
@@ -68,9 +68,94 @@ describe('Given a model stream interrupted before completion', () => {
         recovery: { delayMs: 0 },
       });
       expect(fetcher).toHaveBeenCalledOnce();
-      expect(finish).toHaveBeenCalledWith('', expect.objectContaining({ type: 'error' }));
+      expect(finish).toHaveBeenCalledWith(
+        '',
+        expect.objectContaining({ type: 'done', finishReason: reason }),
+      );
     },
   );
+  it.each([
+    { error: { code: 'ECONNREFUSED' } },
+    { error: { code: 'UND_ERR_CONNECT_TIMEOUT' } },
+    { error: { code: 'UND_ERR_HEADERS_TIMEOUT' } },
+    { error: { cause: { code: 'ECONNREFUSED' } } },
+    { error: { message: 'socket hang up' } },
+    { error: { status: 503 } },
+    { retryable: true, error: {} },
+  ])('recovers serialized pre-response transient errors: %j', async (body) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ errorType: 'InternalServerError', body }), { status: 500 }),
+      )
+      .mockResolvedValueOnce(stream('complete'));
+    const finish = vi.fn();
+    await fetchSSE('/test', { fetcher, recovery: { delayMs: 0 }, onFinish: finish });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(finish).toHaveBeenCalledWith('complete', expect.objectContaining({ type: 'done' }));
+  });
+
+  it('does not override the server decision that an error is not retryable', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          errorType: 'InternalServerError',
+          body: { retryable: false, error: { status: 503 } },
+        }),
+        { status: 500 },
+      ),
+    );
+    const error = vi.fn();
+    await fetchSSE('/test', { fetcher, recovery: { delayMs: 0 }, onErrorHandle: error });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledOnce();
+  });
+
+  it('honors the server rate-limit delay after an upstream 429 is wrapped in HTTP 500', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              errorType: 'InternalServerError',
+              body: { retryable: true, retryAfterMs: 2000, error: { status: 429 } },
+            }),
+            { status: 500 },
+          ),
+        )
+        .mockResolvedValueOnce(stream('complete'));
+      const run = fetchSSE('/test', { fetcher, recovery: { delayMs: 0 } });
+      await vi.advanceTimersByTimeAsync(1999);
+      expect(fetcher).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(1);
+      await run;
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([-1, 31_000])(
+    'rejects unsafe serialized Retry-After delays: %s',
+    async (retryAfterMs) => {
+      const fetcher = vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              errorType: 'InternalServerError',
+              body: { retryable: true, retryAfterMs },
+            }),
+            { status: 500 },
+          ),
+        );
+      await fetchSSE('/test', { fetcher, recovery: { delayMs: 0 } });
+      expect(fetcher).toHaveBeenCalledOnce();
+    },
+  );
+
   it('When offline recovery expires, Then no request loop occurs', async () => {
     vi.useFakeTimers();
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);

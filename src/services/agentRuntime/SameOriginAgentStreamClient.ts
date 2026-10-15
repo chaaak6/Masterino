@@ -57,6 +57,15 @@ export class SameOriginAgentStreamClient {
     }
     this.controller = new AbortController();
     const controller = this.controller;
+    let openedAt: number | undefined;
+    const resetIfHealthy = () => {
+      // Headers alone do not prove recovery: bound repeated immediate EOF.
+      if (openedAt !== undefined && Date.now() - openedAt >= 10_000) {
+        this.recoveryStartedAt = undefined;
+        this.failedConnections = 0;
+        this.retryDelay = 1000;
+      }
+    };
     const params = new URLSearchParams({
       lastEventId: this.cursor,
       operationId: this.operationId,
@@ -86,12 +95,14 @@ export class SameOriginAgentStreamClient {
         if (!response.ok || !response.headers.get('content-type')?.includes('text/event-stream')) {
           throw new Error(`Invalid stream response (${response.status})`);
         }
+        openedAt = Date.now();
         this.emit('status_changed', 'connected');
         this.emit('connected');
       },
       onmessage: (message) => {
-        if (!message.data || this.stopped || this.terminal || this.controller !== controller)
-          return;
+        if (this.stopped || this.terminal || this.controller !== controller) return;
+        resetIfHealthy();
+        if (!message.data) return;
         const event = JSON.parse(message.data) as AgentStreamEvent;
         if (event.operationId !== this.operationId) throw new Error('Stream operation mismatch');
         if (message.id && message.id === this.cursor) return;
@@ -100,7 +111,7 @@ export class SameOriginAgentStreamClient {
         this.retryDelay = 1000;
         this.emit('agent_event', event);
         this.cursor = message.id || event.id || this.cursor;
-        if (event.type === 'agent_runtime_end') {
+        if (event.type === 'agent_runtime_end' || event.type === 'error') {
           this.terminal = true;
           controller.abort();
           this.emit('session_complete');
@@ -111,6 +122,7 @@ export class SameOriginAgentStreamClient {
       signal: controller.signal,
     }).finally(() => {
       if (this.stopped || this.terminal || this.controller !== controller) return;
+      resetIfHealthy();
       this.recoveryStartedAt ??= Date.now();
       this.failedConnections += 1;
       if (this.expireRecovery()) return;

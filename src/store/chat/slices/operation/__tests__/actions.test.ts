@@ -204,6 +204,22 @@ describe('Operation Actions', () => {
   });
 
   describe('completeOperation', () => {
+    it('preserves cancellation when a late failure and completion arrive', () => {
+      const { result } = renderHook(() => useChatStore());
+      let id!: string;
+      act(() => {
+        id = result.current.startOperation({
+          type: 'execAgentRuntime',
+          context: { agentId: 'session1' },
+        }).operationId;
+        result.current.cancelOperation(id, 'User stopped');
+        result.current.failOperation(id, { type: 'AgentStreamError', message: 'late error' });
+        result.current.completeOperation(id);
+      });
+      expect(result.current.operations[id].status).toBe('cancelled');
+      expect(result.current.operations[id].metadata.error).toBeUndefined();
+    });
+
     it('Given a failed run, Then late connection cleanup cannot mark it successful', () => {
       const { result } = renderHook(() => useChatStore());
       act(() => {

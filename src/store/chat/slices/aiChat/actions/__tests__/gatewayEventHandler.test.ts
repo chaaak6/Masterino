@@ -103,13 +103,62 @@ describe('createGatewayEventHandler', () => {
     expect(store.completeOperation).toHaveBeenCalledWith('op-1');
   });
 
-  it('propagates final snapshot failures instead of completing stale content', async () => {
+  it('keeps a confirmed successful run successful when final snapshot synchronization fails', async () => {
     const store = createMockStore();
     vi.mocked(messageService.getMessages).mockRejectedValueOnce(new Error('snapshot unavailable'));
-    await expect(createHandler(store)(makeEvent('agent_runtime_end'))).rejects.toThrow(
-      'snapshot unavailable',
+    await expect(createHandler(store)(makeEvent('agent_runtime_end'))).resolves.toBeUndefined();
+    expect(store.completeOperation).toHaveBeenCalledWith('op-1');
+    expect(store.failOperation).not.toHaveBeenCalled();
+    expect(store.updateOperationMetadata).toHaveBeenCalledWith(
+      'op-1',
+      expect.objectContaining({ resultSyncError: expect.any(String) }),
     );
+  });
+
+  it('releases a completed run after five seconds when final synchronization hangs', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = createMockStore();
+      let release!: (messages: any[]) => void;
+      store.completeOperation.mockImplementation((id) => { store.operations[id].status = 'completed'; });
+      vi.mocked(messageService.getMessages).mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+      const pending = createHandler(store)(makeEvent('agent_runtime_end'));
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(store.completeOperation).toHaveBeenCalledWith('op-1');
+      await pending;
+      expect(store.failOperation).not.toHaveBeenCalled();
+      release([{ id: 'msg-initial', content: 'late snapshot' }]);
+      await Promise.resolve();
+      expect(store.replaceMessages).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('does not replace stopped content when an already-started snapshot arrives late', async () => {
+    const store = createMockStore();
+    let release!: (messages: any[]) => void;
+    vi.mocked(messageService.getMessages).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const pending = createHandler(store)(makeEvent('agent_runtime_end'));
+    await vi.waitFor(() => expect(release).toBeDefined());
+    store.operations['op-1'].status = 'cancelled';
+    release([{ id: 'msg-initial', content: 'stale snapshot' }]);
+    await pending;
+    expect(store.replaceMessages).not.toHaveBeenCalled();
     expect(store.completeOperation).not.toHaveBeenCalled();
+  });
+
+  it('ignores a queued error after the user has cancelled', async () => {
+    const store = createMockStore();
+    const pending = createHandler(store)(makeEvent('error', { message: 'late failure' }));
+    store.operations['op-1'].status = 'cancelled';
+    await pending;
+    expect(store.failOperation).not.toHaveBeenCalled();
+    expect(store.internal_dispatchMessage).not.toHaveBeenCalled();
+    expect(messageService.updateMessageError).not.toHaveBeenCalled();
   });
 
   describe('stream_retry', () => {
@@ -1267,7 +1316,7 @@ describe('createGatewayEventHandler', () => {
       handler(makeEvent('agent_runtime_end', { reason: 'interrupted' }));
       await flush();
 
-      expect(store.completeOperation).toHaveBeenCalledWith('op-1');
+      expect(store.completeOperation).not.toHaveBeenCalled();
       expect(operations['op-1'].status).toBe('cancelled');
     });
   });

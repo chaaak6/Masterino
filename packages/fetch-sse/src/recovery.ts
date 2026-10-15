@@ -16,11 +16,33 @@ export interface StreamRecoveryOptions {
 }
 
 export const getRetryDelay = (error: ChatMessageError, response?: Response): number | undefined => {
-  const status = response?.status;
-  if (/quota|balance|billing|deactivated/i.test(String(error.type))) return;
   const body = error.body as
-    | { name?: string; reason?: string; error?: { code?: string } }
+    | {
+        name?: string;
+        reason?: string;
+        retryable?: boolean;
+        retryAfterMs?: number;
+        error?: {
+          code?: string;
+          status?: number;
+          statusCode?: number;
+          message?: string;
+          cause?: { code?: string; status?: number };
+        };
+      }
     | undefined;
+  const upstream = body?.error;
+  const status =
+    upstream?.status ?? upstream?.statusCode ?? upstream?.cause?.status ?? response?.status;
+  if (/quota|balance|billing|deactivated/i.test(String(error.type))) return;
+  // The route classifies pre-response errors using the same policy as its retry wrapper.
+  if (body?.retryable === false) return;
+  if (body?.retryAfterMs !== undefined)
+    return Number.isFinite(body.retryAfterMs) &&
+      body.retryAfterMs >= 0 &&
+      body.retryAfterMs <= 30_000
+      ? body.retryAfterMs
+      : undefined;
   if (status === 429) {
     // A quota error may also use 429. Only a bounded Retry-After proves temporary rate limiting.
     const value = response?.headers.get('retry-after');
@@ -30,17 +52,28 @@ export const getRetryDelay = (error: ChatMessageError, response?: Response): num
       : Date.parse(value) - Date.now();
     return Number.isFinite(delay) && delay >= 0 && delay <= 30_000 ? delay : undefined;
   }
+  if (body?.retryable === true) return 0;
+  if (status !== undefined && [400, 401, 403, 413].includes(status)) return;
   if ([502, 503, 504].includes(Number(error.type)) || [502, 503, 504].includes(status ?? 0))
     return 0;
   if (body?.reason === 'unexpected_end') return 0;
   if (
     [
+      'ECONNREFUSED',
       'ECONNRESET',
+      'UND_ERR_CONNECT_TIMEOUT',
+      'UND_ERR_HEADERS_TIMEOUT',
       'EAI_AGAIN',
       'ETIMEDOUT',
       'UND_ERR_SOCKET',
       'UPSTREAM_FIRST_BYTE_TIMEOUT',
-    ].includes(body?.error?.code ?? '')
+    ].includes(upstream?.code ?? upstream?.cause?.code ?? '')
+  )
+    return 0;
+  if (
+    /connection reset|connect timeout|headers timeout|socket hang up|upstream first byte timeout/i.test(
+      upstream?.message ?? '',
+    )
   )
     return 0;
   if (error.type === 'UnknownChatFetchError' && body?.name === 'TypeError') return 0;

@@ -15,10 +15,116 @@ http
     }
     const url = new URL(req.url, 'http://fixture');
     const scenario = url.searchParams.get('scenario') || 'success';
-    const key = `${url.searchParams.get('run')}:${scenario}`;
+    const key = `${url.searchParams.get('run') ?? url.searchParams.get('operationId')}:${scenario}`;
     const attempt = (attempts.get(key) || 0) + 1;
     attempts.set(key, attempt);
     console.log(JSON.stringify({ scenario, attempt, event: 'request' }));
+    if (scenario === 'snapshot') {
+      res.setHeader('Content-Type', 'application/json');
+      const fail = key.includes('sync-fail') && attempt === 1;
+      setTimeout(
+        () => {
+          res.writeHead(fail ? 503 : 200);
+          res.end(
+            JSON.stringify(
+              fail
+                ? { error: 'snapshot unavailable' }
+                : [
+                    {
+                      id: 'stream-bdd-message',
+                      role: 'assistant',
+                      content: 'Saved report',
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                    },
+                  ],
+            ),
+          );
+        },
+        key.includes('snapshot-timeout') ? 6500 : key.includes('snapshot-cancel') ? 1500 : 300,
+      );
+      return;
+    }
+    if (scenario.startsWith('gateway-')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      const operationId = url.searchParams.get('operationId');
+      const send = (type, data) =>
+        res.write(
+          `id: ${attempt}-${type}\ndata: ${JSON.stringify({ id: `${attempt}-${type}`, operationId, type, data, stepIndex: 0, timestamp: Date.now() })}\n\n`,
+        );
+      if (scenario === 'gateway-immediate' || (scenario === 'gateway-quiet' && attempt === 1)) {
+        res.end(': heartbeat\n\n');
+      } else if (scenario === 'gateway-quiet' && attempt === 2) {
+        const timer = setInterval(() => res.write(': heartbeat\n\n'), 1000);
+        res.on('close', () => clearInterval(timer));
+        setTimeout(() => {
+          clearInterval(timer);
+          res.end();
+        }, 31_000);
+      } else {
+        send('stream_chunk', { chunkType: 'text', content: 'Report complete' });
+        setTimeout(
+          () => {
+            if (scenario === 'gateway-late-error' || scenario === 'gateway-error')
+              send('error', { message: 'late server failure' });
+            else
+              send(
+                'agent_runtime_end',
+                ['gateway-sync-fail', 'gateway-snapshot-cancel', 'gateway-snapshot-timeout'].includes(scenario)
+                  ? {}
+                  : {
+                      uiMessages: [
+                        { id: 'stream-bdd-message', role: 'assistant', content: 'Saved report' },
+                      ],
+                    },
+              );
+            res.end();
+          },
+          scenario === 'gateway-late-error' ? 1500 : 150,
+        );
+      }
+      return;
+    }
+    if (scenario === 'wrapped-rate-limit' && attempt === 1) {
+      res.writeHead(500, { 'Content-Type': 'application/json', 'Retry-After': '0' });
+      res.end(
+        JSON.stringify({
+          errorType: 'InternalServerError',
+          body: { retryable: true, retryAfterMs: 0, error: { status: 429 } },
+        }),
+      );
+      return;
+    }
+    if (
+      [
+        'ECONNREFUSED',
+        'UND_ERR_CONNECT_TIMEOUT',
+        'UND_ERR_HEADERS_TIMEOUT',
+        'socket-hang-up',
+        'nested-503',
+        'server-retryable',
+        'quota',
+      ].includes(scenario) &&
+      (attempt === 1 || scenario === 'quota')
+    ) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          errorType: 'InternalServerError',
+          body: {
+            ...(scenario === 'server-retryable' ? { retryable: true } : {}),
+            ...(scenario === 'quota' ? { retryable: false } : {}),
+            error:
+              scenario === 'socket-hang-up'
+                ? { message: 'socket hang up' }
+                : scenario === 'nested-503'
+                  ? { status: 503 }
+                  : { code: scenario },
+          },
+        }),
+      );
+      return;
+    }
     if (scenario === 'unauthorized') {
       res.writeHead(401);
       res.end();
@@ -67,7 +173,7 @@ http
       () => {
         if (res.destroyed) return;
         event('text', ' complete');
-        event('stop', 'stop');
+        event('stop', ['length', 'MAX_TOKENS'].includes(scenario) ? scenario : 'stop');
         res.end();
         console.log(JSON.stringify({ scenario, attempt, event: 'completed' }));
       },

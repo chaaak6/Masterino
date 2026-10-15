@@ -15,7 +15,12 @@ import { getTracePayload } from '@/utils/trace';
 
 import { resolveValidWorkspaceIdFromRequest } from '../../_utils/workspace';
 import { serializeProviderError } from './providerError';
-import { callWithUpstreamTimeouts, runWithTransientRetry } from './resilience';
+import {
+  callWithUpstreamTimeouts,
+  getProviderRetryAfterMs,
+  isRetryableProviderError,
+  runWithTransientRetry,
+} from './resilience';
 
 // If user don't use fluid compute, will build  failed
 // this enforce user to enable fluid compute
@@ -101,8 +106,9 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
 
     // A recovering client owns the three-attempt budget for this model call.
     // Avoid multiplying its retries by the provider's three attempts.
-    return provider === 'newapi' && req.headers.get('X-Masterino-Client-Recovery') !== '1'
+    return provider === 'newapi'
       ? await runWithTransientRetry({
+          maxAttempts: req.headers.get('X-Masterino-Client-Recovery') === '1' ? 1 : 3,
           onRetry: (error, attempt, delayMs) =>
             console.warn('[newapi_retry]', {
               attempt,
@@ -124,6 +130,7 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
 
     const error = errorContent || e;
     const safeError = serializeProviderError(error);
+    const retryAfterMs = provider === 'newapi' ? getProviderRetryAfterMs(e) : undefined;
 
     await recordContextWindowRejection(error);
     await traceOptions?.callback?.onError?.({ ...safeError, operationId, provider });
@@ -144,10 +151,19 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
         error: safeError,
         ...res,
         provider,
+        ...(provider === 'newapi' && {
+          retryable: retryAfterMs !== undefined || isRetryableProviderError(e),
+          ...(retryAfterMs !== undefined && { retryAfterMs }),
+        }),
         requestId: operationId,
         traceId: operationId,
       },
-      { headers: { 'X-Request-ID': operationId } },
+      {
+        headers: {
+          'X-Request-ID': operationId,
+          ...(retryAfterMs !== undefined && { 'Retry-After': String(retryAfterMs / 1000) }),
+        },
+      },
     );
   }
 });

@@ -726,7 +726,17 @@ export const createAgentExecutors = (context: {
         },
         onFinish: async (
           _content,
-          { traceId, observationId, toolCalls, reasoning, grounding, usage, speed, type },
+          {
+            traceId,
+            observationId,
+            toolCalls,
+            reasoning,
+            grounding,
+            usage,
+            speed,
+            type,
+            finishReason,
+          },
         ) => {
           void _content;
 
@@ -739,6 +749,7 @@ export const createAgentExecutors = (context: {
           }
 
           const result = await handler.handleFinish({
+            finishReason,
             traceId,
             observationId,
             toolCalls,
@@ -765,7 +776,7 @@ export const createAgentExecutors = (context: {
                 ...result.metadata.performance,
                 performance: result.metadata.performance,
                 usage: result.metadata.usage,
-                finishType: result.metadata.finishType,
+                finishType: finishReason ?? result.metadata.finishType,
                 ...(result.metadata.isMultimodal && { isMultimodal: true }),
               },
             },

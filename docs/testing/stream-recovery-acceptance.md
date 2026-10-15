@@ -15,15 +15,23 @@ connection cleanup.
 - Partial text is visible during recovery but is replaced, never concatenated with the retry.
   Discard old reasoning/tool state before the next attempt. No incomplete tool call is executed.
 - A client that owns recovery sends X-Masterino-Client-Recovery so the newapi route does not
-  multiply the budget with its own retries. Existing clients keep the existing server policy.
+  multiply the budget with its own retries. It still runs the circuit check/accounting with one
+  attempt; safe pre-response classification and bounded Retry-After survive error serialization.
+  Existing clients keep the existing server policy.
 - Require a terminal stop for the known OpenAI-compatible newapi protocol. Preserve legacy
-  provider completion contracts and complete non-streaming responses. Output-limit/filter stops
-  are interrupted output, not successful generation. A network loss after confirmed stop does
-  not replay the completed generation.
+  provider completion contracts and complete non-streaming responses. Explicit output-limit stops
+  are terminal protocol responses, not transport failures. Preserve their original reason and text,
+  discard incomplete tools, and retain native provider blocking errors (including Google metadata).
+  A network loss after confirmed stop does not replay the completed generation.
 - Server agent subscriptions reconnect to the same operation/cursor. Transport failures do not
-  mean the server task ended. Exhaustion explicitly says that the server task may still run.
-- Stream completion waits for buffered gateway events and the final message snapshot. Failed
-  subscriptions/runs must not be reclassified as successful by later session cleanup.
+  mean the server task ended. A connection healthy for at least 10s (including heartbeat-only
+  execution) resets the continuous recovery window; immediate EOF stays bounded. Terminal server
+  errors end the subscription. Exhaustion explicitly says the server task may still run.
+- Stream completion waits for buffered events and at most 5s for the final snapshot attempt. A failed snapshot
+  does not change a confirmed successful run into failure: retain streamed content, warn that
+  synchronization failed and allow the user to reopen the topic to refresh. A late snapshot cannot overwrite a completed run after timeout. Cancellation wins
+  over queued errors, completion and snapshots that were already in flight. Failed runs must
+  not be reclassified as successful by late cleanup.
 
 ## Seams and scenarios
 
@@ -84,12 +92,16 @@ STREAM_BDD_PREBUILT=1 pnpm exec cucumber-js --config stream-recovery.config.cjs
 
 Final validation after review repairs:
 
-- 341 selected unit/integration tests passed (46 transport, 141 executor/handler/subscription/
-  operation, 98 gateway processing, 56 chat service/backend ownership).
-- Native Electron + local fault server: 15 scenarios / 68 steps passed.
-- Native Electron + ACK test fixture: 15 scenarios / 68 steps passed again. Network and console
-  attachments contain only the expected injected HTTP errors, reset, offline and abort failures;
-  no additional JavaScript errors were recorded on the passing run.
+- 408 selected unit/integration tests passed: 59 transport; 323 chat, executor, subscription,
+  gateway, operation and backend; 26 native Google protocol cases. One existing chat test timed
+  out under concurrent build/type-check load, then its entire 48-test file passed unchanged
+  when rerun separately with the same timeout.
+- Initial native Electron + local fault server: 31 scenarios / 148 steps passed; final acceptance
+  adds wrapped rate limiting, cancellation during snapshot fetch and terminal server failure.
+- Initial native Electron + ACK fixture: 31 scenarios / 148 steps passed again. Network
+  attachments contain only expected injected HTTP errors, reset, offline and abort failures;
+  no additional JavaScript errors were recorded on the passing run. Final reruns also explicitly
+  assert there are no unhandled page errors.
 - Earlier repeated runs exposed extra `net::ERR_FAILED` requests with Playwright request routing
   enabled. Blocking production domains through Electron's session filter instead removed these
   extra failures in both local and cluster acceptance. Request-count assertions were retained.
@@ -108,3 +120,19 @@ same dependency setup. Compare normalized diagnostics rather than presenting a f
 as a passing full type check.
 
 Normalized final type diagnostics add zero errors to the pinned main baseline.
+
+Latest local acceptance: 34 scenarios / 163 steps passed, plus the added bounded-synchronization
+scenario / 5 steps passed separately after the final timeout repair. The final cluster run passed the full
+35-scenario / 168-step set against the same synthetic endpoint and production Electron modules.
+
+The acceptance-only “Refresh saved results” button exercises the real message service and store;
+it is not a production UI addition. Production recovery uses the warning to reopen the topic.
+The production loading/Stop controls remain available according to the real operation state.
+
+Final cluster diagnostics: zero unhandled page errors; expected injected reset/offline/abort
+request failures only. The task-owned Pod, ConfigMap, tunnel and temporary credentials were
+removed after acceptance.
+
+Console reports also retain caught errors from deliberately excluded `agentSignal.emitSourceEvent`
+and `message.update` fixture procedures. These exercise graceful telemetry/persistence fallback;
+they do not validate those backend APIs. Snapshot-failure and timeout warnings are intentional.

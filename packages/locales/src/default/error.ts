@@ -1,8 +1,7 @@
 export default {
+  'streamResultSyncFailed':
+    'Generation finished, but the saved results could not be refreshed. Reopen this topic to sync them.',
   'streamInterrupted': 'The connection ended before generation completed. Please retry.',
-  'streamOutputLimit':
-    'Generation reached the output limit before completing. Please shorten the request or increase the output limit.',
-  'streamProviderBlocked': 'Generation was blocked by the provider. Please adjust your request.',
   'streamRecoveryExpired':
     'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
 

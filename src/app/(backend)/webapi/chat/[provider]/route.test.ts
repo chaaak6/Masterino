@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth } from '@/auth';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
 
+import { resetProviderCircuitForTest } from './resilience';
 import { POST } from './route';
 
 const mockRecordContextWindowRejection = vi.hoisted(() => vi.fn());
@@ -37,6 +38,7 @@ vi.mock('@/auth', () => ({
 // 模拟请求和响应
 let request: Request;
 beforeEach(() => {
+  resetProviderCircuitForTest();
   request = new Request(new URL('https://test.com'), {
     method: 'POST',
     body: JSON.stringify({ model: 'test-model' }),
@@ -226,6 +228,76 @@ describe('POST handler', () => {
       const response = await POST(request, { params: Promise.resolve({ provider: 'newapi' }) });
       expect(chat).toHaveBeenCalledOnce();
       expect(response.status).toBe(500);
+    });
+
+    it('classifies the original wrapped provider error before serialization', async () => {
+      request.headers.set('X-Masterino-Client-Recovery', '1');
+      const chat = vi.fn().mockRejectedValue({ status: 503, error: { message: 'upstream busy' } });
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
+        new ModelRuntime({ baseURL: 'abc', chat }),
+      );
+      const response = await POST(request, { params: Promise.resolve({ provider: 'newapi' }) });
+      expect((await response.json()).body.retryable).toBe(true);
+      expect(chat).toHaveBeenCalledOnce();
+    });
+
+    it.each(['2', '0'])(
+      'preserves bounded upstream Retry-After %s for client-owned recovery',
+      async (retryAfter) => {
+        request.headers.set('X-Masterino-Client-Recovery', '1');
+        const chat = vi
+          .fn()
+          .mockRejectedValue({
+            status: 429,
+            headers: { 'retry-after': retryAfter },
+            message: 'rate limited',
+          });
+        vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
+          new ModelRuntime({ baseURL: 'abc', chat }),
+        );
+        const response = await POST(request, { params: Promise.resolve({ provider: 'newapi' }) });
+        const body = await response.json();
+        expect(body.body.retryable).toBe(true);
+        expect(body.body.retryAfterMs).toBe(Number(retryAfter) * 1000);
+        expect(response.headers.get('Retry-After')).toBe(retryAfter);
+        expect(chat).toHaveBeenCalledOnce();
+      },
+    );
+
+    it.each([undefined, '99', 'invalid'])(
+      'does not automatically retry quota or unbounded 429: %s',
+      async (retryAfter) => {
+        request.headers.set('X-Masterino-Client-Recovery', '1');
+        const chat = vi
+          .fn()
+          .mockRejectedValue({
+            status: 429,
+            headers: { 'retry-after': retryAfter },
+            message: 'rate limited',
+          });
+        vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
+          new ModelRuntime({ baseURL: 'abc', chat }),
+        );
+        const response = await POST(request, { params: Promise.resolve({ provider: 'newapi' }) });
+        expect((await response.json()).body.retryable).toBe(false);
+        expect(response.headers.has('Retry-After')).toBe(false);
+      },
+    );
+
+    it('keeps circuit protection active for client-owned recovery', async () => {
+      request.headers.set('X-Masterino-Client-Recovery', '1');
+      const chat = vi
+        .fn()
+        .mockRejectedValue(Object.assign(new Error('socket hang up'), { code: 'ECONNREFUSED' }));
+      vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
+        new ModelRuntime({ baseURL: 'abc', chat }),
+      );
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const response = await POST(request, { params: Promise.resolve({ provider: 'newapi' }) });
+        const body = await response.json();
+        expect(body.body.retryable).toBe(true);
+      }
+      expect(chat).toHaveBeenCalledTimes(5);
     });
 
     it('should not retry NewAPI authentication failures', async () => {

@@ -138,7 +138,12 @@ export class StreamingHandler {
   async handleFinish(finishData: FinishData): Promise<StreamingResult> {
     // Providers may finish without a separate stop chunk or a text chunk after reasoning.
     this.endReasoningIfNeeded();
-    if (finishData.type === 'error') {
+    if (
+      finishData.type === 'error' ||
+      ['length', 'max_tokens', 'MAX_TOKENS', 'content_filter', 'SAFETY'].includes(
+        finishData.finishReason ?? '',
+      )
+    ) {
       // Partial tool JSON is not an executable result. Release its loading state,
       // while keeping the partial text/reasoning available for the retry UI.
       this.throttledUpdateToolCalls.cancel();

@@ -71,6 +71,7 @@ export interface StreamingCallbacks {
  * Finish callback data
  */
 export interface FinishData {
+  finishReason?: string;
   grounding?: GroundingData;
   observationId?: string | null;
   reasoning?: { content?: string; signature?: string };

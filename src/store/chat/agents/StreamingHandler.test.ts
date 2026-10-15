@@ -424,6 +424,30 @@ describe('StreamingHandler', () => {
       clock.mockRestore();
     });
 
+    it.each(['length', 'MAX_TOKENS'])(
+      'keeps truncated text without executing partial tools for %s',
+      async (finishReason) => {
+        const callbacks = createMockCallbacks();
+        const handler = new StreamingHandler(mockContext, callbacks);
+        handler.handleChunk({ type: 'text', text: 'Partial report' });
+        const result = await handler.handleFinish({
+          type: 'done',
+          finishReason,
+          toolCalls: [
+            {
+              id: 'call-1',
+              type: 'function',
+              function: { name: 'tool', arguments: '{"unfinished":' },
+            },
+          ],
+        });
+        expect(result.content).toBe('Partial report');
+        expect(result.isFunctionCall).toBe(false);
+        expect(result.toolCalls).toBeUndefined();
+        expect(callbacks.transformToolCalls).not.toHaveBeenCalled();
+      },
+    );
+
     it('should return correct result for text-only content', async () => {
       const callbacks = createMockCallbacks();
       const handler = new StreamingHandler(mockContext, callbacks);

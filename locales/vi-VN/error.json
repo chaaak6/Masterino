@@ -147,6 +147,9 @@
   "response.SystemTimeNotMatchError": "Xin lỗi, thời gian hệ thống của bạn không khớp với máy chủ. Vui lòng kiểm tra lại thời gian hệ thống và thử lại.",
   "response.UnknownChatFetchError": "Xin lỗi, đã xảy ra lỗi yêu cầu không xác định. Vui lòng kiểm tra thông tin bên dưới hoặc thử lại.",
   "response.upstream_timeout": "Phản hồi của mô hình vượt quá giới hạn 300 giây. Vui lòng thử lại yêu cầu.",
+  "streamInterrupted": "Kết nối bị ngắt trước khi quá trình tạo hoàn tất. Vui lòng thử lại.",
+  "streamRecoveryExpired": "Kết nối bị ngắt. Tác vụ trên máy chủ có thể vẫn đang chạy. Hãy mở lại chủ đề để khôi phục kết quả đã lưu.",
+  "streamResultSyncFailed": "Quá trình tạo đã kết thúc nhưng chưa thể làm mới kết quả đã lưu. Hãy mở lại chủ đề để đồng bộ kết quả.",
   "stt.responseError": "Yêu cầu dịch vụ thất bại, vui lòng kiểm tra cấu hình hoặc thử lại",
   "supervisor.decisionFailed": "Chủ nhóm không thể hoạt động. Vui lòng kiểm tra cấu hình để đảm bảo mô hình, API Key và endpoint chính xác.",
   "testConnectionFailed": "Kết nối thử thất bại: {{error}}",
@@ -197,9 +200,5 @@
   "upload.storageLimitExceeded": "Dung lượng lưu trữ tệp của bạn đã đạt giới hạn của gói hiện tại. Vui lòng nâng cấp gói hoặc xóa các tệp không sử dụng để giải phóng dung lượng.",
   "upload.title": "Tải tệp thất bại. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau",
   "upload.unknownError": "Lý do lỗi: {{reason}}",
-  "upload.uploadFailed": "Tải tệp thất bại.",
-  "streamInterrupted": "Kết nối bị ngắt trước khi quá trình tạo hoàn tất. Vui lòng thử lại.",
-  "streamOutputLimit": "Quá trình tạo đạt giới hạn đầu ra trước khi hoàn tất. Vui lòng rút ngắn yêu cầu hoặc tăng giới hạn đầu ra.",
-  "streamProviderBlocked": "Nhà cung cấp đã chặn quá trình tạo. Vui lòng điều chỉnh yêu cầu.",
-  "streamRecoveryExpired": "Kết nối bị ngắt. Tác vụ trên máy chủ có thể vẫn đang chạy. Hãy mở lại chủ đề để khôi phục kết quả đã lưu."
+  "upload.uploadFailed": "Tải tệp thất bại."
 }
