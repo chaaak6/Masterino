@@ -59,9 +59,7 @@ const PanelContent: FC<{ closePopover: () => void }> = ({ closePopover }) => {
           <WorkspaceLink style={{ color: 'inherit' }} to={'/settings/stats'}>
             <DataStatistics />
           </WorkspaceLink>
-          <WorkspaceLink style={{ color: 'inherit' }} to={'/settings/stats'}>
-            <NewApiBalance />
-          </WorkspaceLink>
+          <NewApiBalance onNavigate={closePopover} />
           {enableBusinessFeatures && <BusinessPanelContent />}
           <UserPanelWorkspaceSection onSwitch={closePopover} />
         </>

@@ -135,3 +135,27 @@ export interface NewApiBindingImportResult {
   ok: boolean;
   source?: 'admin-api' | 'direct-token' | 'readonly-db';
 }
+
+export type NewApiBillingPreference =
+  | 'subscription_first'
+  | 'wallet_first'
+  | 'subscription_only'
+  | 'wallet_only';
+
+export interface NewApiSubscription {
+  allowWalletOverflow: boolean;
+  amountTotal: number;
+  amountUsed: number;
+  endTime: number;
+  id: number;
+  nextResetTime: number;
+  resetAmount: number;
+  startTime: number;
+  status: string;
+  title: string;
+}
+
+export interface NewApiSubscriptionSummary {
+  billingPreference: NewApiBillingPreference;
+  subscriptions: NewApiSubscription[];
+}

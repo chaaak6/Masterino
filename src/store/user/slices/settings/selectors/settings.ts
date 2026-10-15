@@ -42,8 +42,13 @@ const defaultAgentMeta = (s: UserStore) => merge(DEFAULT_AGENT_META, defaultAgen
 
 const exportSettings = currentSettings;
 
-const currentSystemAgent = (s: UserStore) =>
-  merge(DEFAULT_SYSTEM_AGENT_CONFIG, currentSettings(s).systemAgent);
+const currentSystemAgent = (s: UserStore) => {
+  const config = merge(DEFAULT_SYSTEM_AGENT_CONFIG, currentSettings(s).systemAgent);
+  // Older profiles may still contain this retired assignment. Keep it out of
+  // the client model catalog and never let it influence memory embedding.
+  Reflect.deleteProperty(config, 'userMemoryEmbedding');
+  return config;
+};
 
 const getHotkeyById = (id: HotkeyId) => (s: UserStore) =>
   merge(DEFAULT_HOTKEY_CONFIG, currentSettings(s).hotkey)[id];

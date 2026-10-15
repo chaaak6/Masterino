@@ -100,6 +100,50 @@ describe('NewApiService', () => {
     vi.unstubAllGlobals();
   });
 
+  it('reads subscriptions for the current binding without provisioning or model writes', async () => {
+    mocks.bindingStore.set('current-user', {
+      newApiUserId: 1880,
+      status: 'active',
+      userId: 'current-user',
+    });
+    process.env.AIHUB_BRIDGE_URL = 'http://bridge.internal';
+    process.env.AIHUB_BRIDGE_TOKEN = 'bridge-secret';
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: { billingPreference: 'subscription_first', subscriptions: [] },
+          }),
+        ),
+      );
+    vi.stubGlobal('fetch', fetchImpl);
+    const service = new NewApiService({
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      userId: 'current-user',
+    });
+    await expect(service.getSubscriptionSummary()).resolves.toEqual({
+      billingPreference: 'subscription_first',
+      subscriptions: [],
+    });
+    expect(fetchImpl.mock.calls[0][0]).toBe('http://bridge.internal/v1/users/1880/subscriptions');
+    expect(mocks.upsertBinding).not.toHaveBeenCalled();
+    expect(mocks.updateConfig).not.toHaveBeenCalled();
+    expect(mocks.batchUpdateAiModels).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-bind an unbound account when reading subscriptions', async () => {
+    const service = new NewApiService({
+      db: {} as any,
+      gateKeeper: createGateKeeper(),
+      userId: 'unbound-user',
+    });
+    await expect(service.getSubscriptionSummary()).rejects.toThrow('not bound');
+    expect(mocks.upsertBinding).not.toHaveBeenCalled();
+  });
+
   it('admin model refresh requires an existing bound token and never provisions one', async () => {
     const service = new NewApiService({
       db: {} as any,

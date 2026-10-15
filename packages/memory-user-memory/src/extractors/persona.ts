@@ -122,7 +122,10 @@ export class UserPersonaExtractor extends BaseMemoryExtractor<
         model: this.model,
         tools: this.getTools(options || {}),
       },
-      { metadata: { trigger: RequestTrigger.Memory } },
+      {
+        metadata: { trigger: RequestTrigger.Memory },
+        signal: AbortSignal.timeout(180_000),
+      },
     )) as unknown;
 
     if (Array.isArray(result)) {

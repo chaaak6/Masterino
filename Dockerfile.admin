@@ -27,7 +27,11 @@ RUN set -e; \
     if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
       pnpm config set registry "https://registry.npmmirror.com/"; \
     fi; \
-    pnpm install --frozen-lockfile --node-linker=hoisted --prefer-offline --prod=false; \
+    for attempt in 1 2 3; do \
+      if pnpm install --frozen-lockfile --ignore-scripts --node-linker=hoisted --prefer-offline --prod=false; then break; fi; \
+      if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+      sleep "$((attempt * 5))"; \
+    done; \
     pnpm --filter @masterlion/admin build
 
 FROM ${BASE_REGISTRY}/node:${NODEJS_VERSION}-slim AS production

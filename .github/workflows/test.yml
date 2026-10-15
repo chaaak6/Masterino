@@ -254,7 +254,9 @@ jobs:
 
     services:
       postgres:
-        image: paradedb/paradedb:latest
+        # Match the pinned PostgreSQL 17 image used by local development. Floating
+        # latest moved to PG18 and crashes during RecentModel UNION queries.
+        image: paradedb/paradedb@sha256:044b8cc5b40159714e88e3f546fc74de11cf215c030190cc82c6627015d728ea
         env:
           POSTGRES_PASSWORD: postgres
         options: >-

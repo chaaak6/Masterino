@@ -22,6 +22,7 @@ import {
 import { getServerDefaultAgentConfig } from '@/server/globalConfig';
 import { assertConfigurableAgentExecutionEnv } from '@/server/services/executionEnv/validation';
 
+import { getNewAgentPlugins } from './newAgentPlugins';
 import { type UpdateAgentResult } from './type';
 
 const log = debug('lobe-agent:service');
@@ -62,6 +63,15 @@ export class AgentService {
     const sessionModel = new SessionModel(this.db, this.userId, this.workspaceId);
     const defaultAgentConfig = getServerDefaultAgentConfig();
     await sessionModel.createInbox(defaultAgentConfig);
+  }
+
+  async getNewAgentPlugins(plugins?: string[]): Promise<string[]> {
+    if (plugins) return getNewAgentPlugins(plugins);
+
+    const defaults = this.workspaceId
+      ? undefined
+      : await this.userModel.getUserSettingsDefaultAgentConfig();
+    return getNewAgentPlugins(this.mergeDefaultConfig({}, defaults)?.plugins);
   }
 
   /**

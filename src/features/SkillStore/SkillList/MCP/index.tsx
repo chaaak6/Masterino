@@ -6,6 +6,7 @@ import { memo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { VirtuosoGrid } from 'react-virtuoso';
 
+import { isIntegrationVisible } from '@/helpers/integrationVisibility';
 import { useToolStore } from '@/store/tool';
 
 import Item from '../Community/Item';
@@ -55,6 +56,8 @@ export const MCPList = memo(() => {
     q: keywords,
   });
 
+  const visibleItems = allItems.filter((item) => isIntegrationVisible(item.identifier));
+
   const hasSearchKeywords = Boolean(keywords && keywords.trim());
 
   if (searchLoading || !isMcpListInit || (isLoading && allItems.length === 0)) return <Loading />;
@@ -81,7 +84,7 @@ export const MCPList = memo(() => {
   return (
     <VirtuosoGrid
       components={{ Footer: renderFooter }}
-      data={allItems}
+      data={visibleItems}
       endReached={loadMoreMCPPlugins}
       increaseViewportBy={typeof window !== 'undefined' ? window.innerHeight : 0}
       itemClassName={virtuosoGridStyles.item}

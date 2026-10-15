@@ -1,3 +1,5 @@
+import { DEFAULT_SETTINGS } from '@lobechat/config';
+
 import { type HotkeyId } from '@/types/hotkey';
 import { type GlobalLLMProviderKey } from '@/types/user/settings';
 
@@ -5,6 +7,52 @@ import { type UserStore } from '../../../store';
 import { settingsSelectors } from './settings';
 
 describe('settingsSelectors', () => {
+  describe('model assignment defaults', () => {
+    it('gives first-time users Flash for all six assignments without changing other tasks', () => {
+      const state = { defaultSettings: DEFAULT_SETTINGS, settings: {} } as UserStore;
+      const expected = { model: 'deepseek-v4-flash', provider: 'newapi' };
+      expect(settingsSelectors.defaultAgentConfig(state)).toMatchObject(expected);
+      const tasks = settingsSelectors.currentSystemAgent(state);
+      for (const key of [
+        'topic',
+        'generationTopic',
+        'translation',
+        'historyCompress',
+        'agentMeta',
+      ] as const) {
+        expect(tasks[key]).toEqual(expected);
+      }
+      expect(tasks.memoryAnalysisAgentConfig.model).toBe('glm-5.2');
+      expect(tasks).not.toHaveProperty('userMemoryEmbedding');
+      expect(tasks.inputCompletion.enabled).toBe(false);
+    });
+
+    it('ignores a memory embedding model saved by an older client', () => {
+      const state = {
+        defaultSettings: DEFAULT_SETTINGS,
+        settings: { systemAgent: { userMemoryEmbedding: { model: 'glm-5.2', provider: 'newapi' } } },
+      } as unknown as UserStore;
+
+      expect(settingsSelectors.currentSystemAgent(state)).not.toHaveProperty('userMemoryEmbedding');
+    });
+
+    it('preserves existing personal model choices over the new defaults', () => {
+      const personal = { model: 'company-chat', provider: 'newapi' };
+      const state = {
+        defaultSettings: DEFAULT_SETTINGS,
+        settings: {
+          defaultAgent: { config: { ...personal } },
+          systemAgent: { topic: { ...personal } },
+        },
+      } as UserStore;
+      expect(settingsSelectors.defaultAgentConfig(state)).toMatchObject(personal);
+      expect(settingsSelectors.currentSystemAgent(state).topic).toEqual(personal);
+      expect(settingsSelectors.currentSystemAgent(state).translation.model).toBe(
+        'deepseek-v4-flash',
+      );
+    });
+  });
+
   describe('currentSettings', () => {
     it('should merge DEFAULT_SETTINGS and s.settings correctly', () => {
       const s = {

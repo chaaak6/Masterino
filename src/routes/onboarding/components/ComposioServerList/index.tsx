@@ -4,6 +4,7 @@ import { Grid, ScrollShadow } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
 import { memo } from 'react';
 
+import { isProductFeatureEnabled } from '@/config/productFeatures';
 import { COMPOSIO_APP_TYPES } from '@/const/index';
 import { useToolStore } from '@/store/tool';
 import { composioStoreSelectors } from '@/store/tool/slices/composioStore';
@@ -14,7 +15,9 @@ const ComposioServerList = memo(() => {
   const allComposioServers = useToolStore(composioStoreSelectors.getServers, isEqual);
   const useFetchUserComposioConnections = useToolStore((s) => s.useFetchUserComposioConnections);
 
-  useFetchUserComposioConnections(true);
+  useFetchUserComposioConnections(isProductFeatureEnabled('externalApps'));
+
+  if (!isProductFeatureEnabled('externalApps')) return null;
 
   const getServerByIdentifier = (identifier: string) => {
     return allComposioServers.find((server) => server.identifier === identifier);

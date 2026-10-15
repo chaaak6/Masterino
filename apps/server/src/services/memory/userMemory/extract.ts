@@ -80,7 +80,8 @@ import { trimBasedOnBatchProbe } from '@/utils/chunkers';
 import { encodeAsync } from '@/utils/tokenizer';
 
 import { isPersonalMemoryEnabled } from './access';
-import { EmbeddingOutputCountMismatchError, embedUserMemoryTexts } from './embedding';
+import { prepareMemoryConversationMessage } from './conversation';
+import { embedUserMemoryTexts } from './embedding';
 
 const SOURCE_ALIAS_MAP: Record<string, MemorySourceType> = {
   benchmark_locomo: MemorySourceType.BenchmarkLocomo,
@@ -697,7 +698,7 @@ export class MemoryExtractionExecutor {
     systemAgent: Partial<UserServiceModelConfig> | undefined,
     key: keyof Pick<
       UserServiceModelConfig,
-      'userMemoryEmbedding' | 'memoryAnalysisAgentConfig' | 'userMemoryPersonaWriter'
+      'memoryAnalysisAgentConfig' | 'userMemoryPersonaWriter'
     >,
     fallback: MemoryAgentConfig,
   ): MemoryAgentConfig {
@@ -736,11 +737,13 @@ export class MemoryExtractionExecutor {
       'memoryAnalysisAgentConfig',
       this.privateConfig.agentLayerExtractor,
     );
-    const embedding = this.resolveUserMemoryAgent(
-      systemAgent,
-      'userMemoryEmbedding',
-      this.privateConfig.embedding,
-    );
+    const embedding: MemoryAgentConfig = {
+      ...this.privateConfig.embedding,
+      apiKey: undefined,
+      baseURL: undefined,
+      model: DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.model,
+      provider: DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM.provider,
+    };
     const layerModels = systemAgent?.memoryAnalysisAgentConfig?.model
       ? {
           activity: layerExtractor.model,
@@ -757,8 +760,8 @@ export class MemoryExtractionExecutor {
         gatekeeper,
         layerExtractor,
       },
-      embeddingContextLimit: embedding.contextLimit ?? layerExtractor.contextLimit,
-      extractorContextLimit: layerExtractor.contextLimit,
+      embeddingContextLimit: Math.min(embedding.contextLimit ?? 7500, 7500),
+      extractorContextLimit: Math.min(layerExtractor.contextLimit ?? 12_000, 24_000),
       modelConfig: {
         embeddingsModel: embedding.model,
         gateModel: gatekeeper.model,
@@ -897,9 +900,8 @@ export class MemoryExtractionExecutor {
         span.recordException(error as Error);
         console.error('[memory-extraction] failed to generate embeddings', error, 'model:', model);
 
-        if (error instanceof EmbeddingOutputCountMismatchError) throw error;
-
-        return texts.map(() => null);
+        // A nonempty text must not be persisted as a successful memory with a null vector.
+        throw error;
       } finally {
         span.end();
       }
@@ -1331,17 +1333,19 @@ export class MemoryExtractionExecutor {
       )
       .orderBy(asc(messages.createdAt));
 
-    const conversation = rows
-      .filter((row) => typeof row.content === 'string' && row.content.trim().length > 0)
-      .map(
-        (row) =>
-          ({
-            content: row.content as string,
-            createdAt: row.createdAt ?? topicUpdatedAt,
-            id: row.id,
-            role: (row.role ?? 'assistant') as LLMRoleType,
-          }) satisfies OpenAIChatMessage & { createdAt: Date; id: string },
-      );
+    const conversation = rows.flatMap((row) => {
+      const prepared = prepareMemoryConversationMessage(row);
+      return prepared
+        ? [
+            {
+              ...prepared,
+              createdAt: row.createdAt ?? topicUpdatedAt,
+              id: row.id,
+              role: prepared.role as LLMRoleType,
+            } satisfies OpenAIChatMessage & { createdAt: Date; id: string },
+          ]
+        : [];
+    });
 
     if (conversation.length === 0) {
       return [];
@@ -2385,6 +2389,11 @@ export class MemoryExtractionExecutor {
       requireModelMatch: true,
       requiredModelType: 'embedding',
     });
+    if (embeddingProvider !== embeddingProviderId.toLowerCase()) {
+      throw new Error(
+        `The fixed user memory embedding provider "${embeddingProviderId}" is unavailable.`,
+      );
+    }
     const embeddingRuntime = normalizedRuntimeConfig[embeddingProvider];
     if (embeddingRuntime?.keyVaults) {
       keyVaults[embeddingProvider] = embeddingRuntime.keyVaults;

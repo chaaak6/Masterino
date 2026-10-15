@@ -138,6 +138,13 @@ describe('Agent sidebar header nav', () => {
     useParamsMock.mockReturnValue({ aid: 'agt_eH4zL98zBx5u', topicId: 'tpc_2FCHvjS7d4CA' });
   });
 
+  it('hides third-party message channels while keeping the new-topic action', () => {
+    usePathnameMock.mockReturnValue('/agent/agt_eH4zL98zBx5u/profile');
+    render(<Nav />);
+    expect(screen.queryByRole('button', { name: 'tab.channel' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'actions.addNewTopic' })).toBeEnabled();
+  });
+
   it('captures the current topic before returning to the bare agent route', () => {
     usePathnameMock.mockReturnValue(
       '/agent/agt_eH4zL98zBx5u/tpc_2FCHvjS7d4CA/page/docs_9B8hFkmEOZyPZb60',

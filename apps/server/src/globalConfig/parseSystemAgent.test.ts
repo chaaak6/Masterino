@@ -103,12 +103,11 @@ describe('parseSystemAgent', () => {
     expect(result.agentMeta).toEqual({ provider: 'ollama', model: 'deepseek-v3' });
     expect(result.historyCompress).toEqual({ provider: 'ollama', model: 'deepseek-v3' });
     expect(result.thread).toEqual({ provider: 'ollama', model: 'deepseek-v3' });
-    expect(result.userMemoryEmbedding).toBeUndefined();
     expect(result.memoryAnalysisAgentConfig).toBeUndefined();
     expect(result.userMemoryPersonaWriter).toBeUndefined();
   });
 
-  it('should parse memory service model assignments explicitly', () => {
+  it('ignores retired memory embedding assignments while parsing other memory models', () => {
     const envValue =
       'memoryAnalysisAgentConfig=lobehub/gpt-5.4-mini,userMemoryEmbedding=openai/text-embedding-3-large';
 
@@ -118,10 +117,7 @@ describe('parseSystemAgent', () => {
       provider: 'lobehub',
       model: 'gpt-5.4-mini',
     });
-    expect(result.userMemoryEmbedding).toEqual({
-      provider: 'openai',
-      model: 'text-embedding-3-large',
-    });
+    expect(result).not.toHaveProperty('userMemoryEmbedding');
   });
 
   it('should override default setting with specific settings', () => {

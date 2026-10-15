@@ -7,6 +7,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import AdminShell from './layout/AdminShell';
 import RequireAdmin from './layout/RequireAdmin';
 import { trpc, trpcClient } from './lib/trpc';
+import AccessKeysPage from './pages/AccessKeysPage';
 import AgentsPage from './pages/AgentsPage';
 import AuditPage from './pages/AuditPage';
 import KnowledgePage from './pages/KnowledgePage';
@@ -28,6 +29,7 @@ const providerQueryClient = queryClient as unknown as React.ComponentProps<
 const router = createBrowserRouter([
   {
     children: [
+      { element: <AccessKeysPage />, path: 'access-keys' },
       {
         element: <OverviewPage />,
         index: true,

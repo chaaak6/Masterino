@@ -1,3 +1,5 @@
+import { isProductFeatureEnabled } from '@/config/productFeatures';
+
 import { type ServerConfigStore } from './store';
 
 export const featureFlagsSelectors = (s: ServerConfigStore) => s.featureFlags;
@@ -9,9 +11,11 @@ export const serverConfigSelectors = {
   enableCloudSandbox: (s: ServerConfigStore) => s.serverConfig.enableCloudSandbox || false,
   enableEmailVerification: (s: ServerConfigStore) =>
     s.serverConfig.enableEmailVerification || false,
-  enableComposio: (s: ServerConfigStore) => s.serverConfig.enableComposio || false,
+  enableComposio: (s: ServerConfigStore) =>
+    isProductFeatureEnabled('externalApps') && (s.serverConfig.enableComposio || false),
   enableGatewayMode: (s: ServerConfigStore) => s.serverConfig.enableGatewayMode || false,
-  enableLobehubSkill: (s: ServerConfigStore) => s.serverConfig.enableLobehubSkill || false,
+  enableLobehubSkill: (s: ServerConfigStore) =>
+    isProductFeatureEnabled('externalApps') && (s.serverConfig.enableLobehubSkill || false),
   enableMagicLink: (s: ServerConfigStore) => s.serverConfig.enableMagicLink || false,
   enableMarketTrustedClient: (s: ServerConfigStore) =>
     s.serverConfig.enableMarketTrustedClient || false,

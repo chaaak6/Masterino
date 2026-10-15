@@ -55,6 +55,47 @@ describe('TopicModel - Update', () => {
   });
 
   describe('updateMetadata', () => {
+    it('atomically preserves unrelated metadata and nested memory run fields', async () => {
+      const topicId = 'metadata-memory-merge';
+      await serverDB.insert(topics).values({
+        userId,
+        id: topicId,
+        metadata: {
+          model: 'gpt-4',
+          userMemoryExtractRunState: { messageCount: 3, traceId: 'trace-1' },
+        },
+      });
+
+      await Promise.all([
+        topicModel.updateMetadata(topicId, { workingDirectory: '/new/path' }),
+        topicModel.updateMemoryExtractionMetadata(topicId, 'failed', {
+          error: 'gateway timeout',
+          lastRunAt: '2026-10-13T00:00:00.000Z',
+        }),
+      ]);
+
+      const topic = await serverDB.query.topics.findFirst({ where: eq(topics.id, topicId) });
+      expect(topic?.metadata).toMatchObject({
+        model: 'gpt-4',
+        userMemoryExtractRunState: {
+          error: 'gateway timeout',
+          lastRunAt: '2026-10-13T00:00:00.000Z',
+          messageCount: 3,
+          traceId: 'trace-1',
+        },
+        userMemoryExtractStatus: 'failed',
+        workingDirectory: '/new/path',
+      });
+
+      await topicModel.updateMemoryExtractionMetadata(topicId, 'completed', {
+        processedMemoryCount: 2,
+      });
+      const completed = await serverDB.query.topics.findFirst({ where: eq(topics.id, topicId) });
+      expect(completed?.metadata?.userMemoryExtractStatus).toBe('completed');
+      expect(completed?.metadata?.userMemoryExtractRunState?.error).toBeUndefined();
+      expect(completed?.metadata?.userMemoryExtractRunState?.traceId).toBe('trace-1');
+    });
+
     it('should update metadata on a topic with no existing metadata', async () => {
       const topicId = 'metadata-test-1';
       await serverDB.insert(topics).values({ userId, id: topicId, title: 'Test' });

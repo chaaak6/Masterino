@@ -376,6 +376,71 @@ describe('DiscoverService', () => {
     service.market = mockMarket;
   });
 
+  describe('Existing cloud MCP compatibility', () => {
+    it.each([401, 403, 503, 'network'])(
+      'does not call the legacy gateway on resolver failure %s',
+      async (failure) => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch');
+        const auditSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+        if (failure === 'network') fetchSpy.mockRejectedValue(new Error('resolver unavailable'));
+        else fetchSpy.mockResolvedValue(new Response('', { status: failure as number }));
+        const previousUrl = process.env.MARKET_BASE_URL;
+        process.env.MARKET_BASE_URL = 'http://internal-market.test';
+        mockMarket.plugins.callCloudGateway = vi.fn().mockResolvedValue({});
+        try {
+          await expect(
+            service.callCloudMcpEndpoint({
+              identifier: 'company-mcp',
+              toolName: 'search',
+              apiParams: { query: 'private-query' },
+            }),
+          ).rejects.toThrow();
+          expect(mockMarket.plugins.callCloudGateway).not.toHaveBeenCalled();
+          expect(auditSpy).toHaveBeenCalledWith(
+            'MCP invocation',
+            expect.objectContaining({
+              identifier: 'company-mcp',
+              toolName: 'search',
+              success: false,
+              durationMs: expect.any(Number),
+            }),
+          );
+          expect(JSON.stringify(auditSpy.mock.calls)).not.toContain('private-query');
+        } finally {
+          fetchSpy.mockRestore();
+          auditSpy.mockRestore();
+          if (previousUrl === undefined) delete process.env.MARKET_BASE_URL;
+          else process.env.MARKET_BASE_URL = previousUrl;
+        }
+      },
+    );
+
+    it.each([404])('keeps the existing gateway when company lookup returns %s', async (failure) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      fetchSpy.mockResolvedValue(new Response('', { status: failure }));
+      const previousUrl = process.env.MARKET_BASE_URL;
+      process.env.MARKET_BASE_URL = 'http://internal-market.test';
+      const expected = { content: [{ type: 'text', text: 'existing gateway result' }] };
+      mockMarket.plugins.callCloudGateway = vi.fn().mockResolvedValue(expected);
+      try {
+        const result = await service.callCloudMcpEndpoint({
+          identifier: 'existing-mcp',
+          toolName: 'search',
+          apiParams: { query: 'hello' },
+        });
+        expect(result).toEqual(expected);
+        expect(mockMarket.plugins.callCloudGateway).toHaveBeenCalledWith(
+          { identifier: 'existing-mcp', toolName: 'search', apiParams: { query: 'hello' } },
+          { headers: {} },
+        );
+      } finally {
+        fetchSpy.mockRestore();
+        if (previousUrl === undefined) delete process.env.MARKET_BASE_URL;
+        else process.env.MARKET_BASE_URL = previousUrl;
+      }
+    });
+  });
+
   describe('Assistant Market (new source)', () => {
     it('getAssistantList should transform market SDK response', async () => {
       const result = await service.getAssistantList();

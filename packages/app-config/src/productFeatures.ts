@@ -1,6 +1,8 @@
 export type ProductFeatureStatus = 'enabled' | 'disabled' | 'hidden';
 
 export type ProductFeatureKey =
+  | 'externalApps'
+  | 'externalMessaging'
   | 'advancedSettings'
   | 'chat'
   | 'groupChat'
@@ -34,6 +36,8 @@ export const PRODUCT_FEATURES = {
   community: { key: 'community', status: 'enabled' },
   desktopApp: { disabledReasonKey: DISABLED_REASON_KEY, key: 'desktopApp', status: 'enabled' },
   devtools: { key: 'devtools', status: 'hidden' },
+  externalApps: { key: 'externalApps', status: 'hidden' },
+  externalMessaging: { key: 'externalMessaging', status: 'hidden' },
   eval: { key: 'eval', status: 'hidden' },
   fleet: { disabledReasonKey: DISABLED_REASON_KEY, key: 'fleet', status: 'disabled' },
   generation: { key: 'generation', status: 'enabled' },

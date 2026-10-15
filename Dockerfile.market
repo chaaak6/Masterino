@@ -21,7 +21,11 @@ RUN --mount=type=cache,id=masterino-market-npm-cache,target=/root/.npm,sharing=l
     if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
       pnpm config set registry "https://registry.npmmirror.com/"; \
     fi && \
-    pnpm install --frozen-lockfile --filter @masterino/market... --prefer-offline --prod=false
+    for attempt in 1 2 3; do \
+      if pnpm install --frozen-lockfile --ignore-scripts --filter @masterino/market... --prefer-offline --prod=false; then break; fi; \
+      if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+      sleep "$((attempt * 5))"; \
+    done
 COPY apps/market apps/market
 RUN pnpm --filter @masterino/market build && \
     mkdir -p apps/market/dist/migrations && \

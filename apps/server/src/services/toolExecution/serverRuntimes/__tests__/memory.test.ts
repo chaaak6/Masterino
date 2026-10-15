@@ -58,9 +58,10 @@ const createContext = (): ToolExecutionContext => ({
 describe('memoryRuntime', () => {
   it("uses the current user's authorized embedding runtime for memory search", async () => {
     mocks.getServerFeatureFlags.mockResolvedValueOnce({ enableMemory: true });
-    mocks.embeddings.mockResolvedValueOnce([[0.1, 0.2, 0.3]]);
+    const vector = Array.from({ length: 2048 }, () => 0.1);
+    mocks.embeddings.mockResolvedValueOnce([vector]);
     mocks.resolveAuthorizedEmbeddingRuntime.mockResolvedValueOnce({
-      model: 'user-authorized-embedding-model',
+      model: 'text-embedding-3-large',
       provider: 'newapi',
       runtime: {
         embeddings: mocks.embeddings,
@@ -85,14 +86,15 @@ describe('memoryRuntime', () => {
     );
     expect(mocks.embeddings).toHaveBeenCalledWith(
       expect.objectContaining({
+        dimensions: 2048,
         input: ['renewal timeline'],
-        model: 'user-authorized-embedding-model',
+        model: 'text-embedding-3-large',
       }),
       expect.objectContaining({ user: 'synthetic-user' }),
     );
     expect(mocks.searchMemory).toHaveBeenCalledWith(
       expect.objectContaining({ queries: ['renewal timeline'] }),
-      [[0.1, 0.2, 0.3]],
+      [vector],
     );
   });
 

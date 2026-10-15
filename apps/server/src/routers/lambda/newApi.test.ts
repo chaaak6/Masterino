@@ -9,6 +9,7 @@ import { newApiRouter } from './newApi';
 const {
   mockFindUserById,
   mockGetServerDB,
+  mockGetSubscriptionSummary,
   mockHasAnyPermission,
   mockImportBindings,
   mockInitWithEnvKey,
@@ -20,6 +21,7 @@ const {
 } = vi.hoisted(() => ({
   mockFindUserById: vi.fn(),
   mockGetServerDB: vi.fn(),
+  mockGetSubscriptionSummary: vi.fn(),
   mockHasAnyPermission: vi.fn(),
   mockImportBindings: vi.fn(),
   mockInitWithEnvKey: vi.fn(),
@@ -58,6 +60,7 @@ vi.mock('@/server/services/newApi', () => ({
 
     return {
       getAccountSummary: vi.fn(),
+      getSubscriptionSummary: mockGetSubscriptionSummary,
       getBindingStatus: vi.fn(),
       getUsageSummary: vi.fn(),
       importBindings: mockImportBindings,
@@ -105,6 +108,30 @@ describe('newApiRouter admin permission guard', () => {
       ok: true,
       source: 'admin-api',
     });
+  });
+
+  it('reads subscription data using the authenticated user context', async () => {
+    mockGetSubscriptionSummary.mockResolvedValue({
+      billingPreference: 'subscription_first',
+      subscriptions: [],
+    });
+    const caller = await createCallerForUser('user-member');
+    await expect(caller.getSubscriptionSummary()).resolves.toEqual({
+      billingPreference: 'subscription_first',
+      subscriptions: [],
+    });
+    expect(mockNewApiServiceConstructor).toHaveBeenCalledWith({
+      db: mockServerDB,
+      gateKeeper: mockGateKeeper,
+      userId: 'user-member',
+    });
+    expect(mockReadinessEnsure).not.toHaveBeenCalled();
+  });
+
+  it('rejects anonymous subscription reads', async () => {
+    const caller = createCaller(await createContextInner({}));
+    await expect(caller.getSubscriptionSummary()).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(mockGetSubscriptionSummary).not.toHaveBeenCalled();
   });
 
   it('allows importBindings through RBAC aihub:manage permission without legacy admin role', async () => {

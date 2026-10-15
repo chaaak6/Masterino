@@ -2197,6 +2197,45 @@ describe('TopicModel - Query', () => {
       expect(rows.map((t) => t.id)).toEqual(['et1', 'et2']);
     });
 
+    it('backs off recent failures but retries old failures or newly updated topics', async () => {
+      const now = Date.now();
+      await serverDB.insert(topics).values([
+        {
+          id: 'recent-failure',
+          metadata: {
+            userMemoryExtractRunState: { lastRunAt: new Date(now - 60_000).toISOString() },
+            userMemoryExtractStatus: 'failed',
+          },
+          updatedAt: new Date(now - 59_000),
+          userId,
+        },
+        {
+          id: 'old-failure',
+          metadata: {
+            userMemoryExtractRunState: { lastRunAt: new Date(now - 7 * 3600_000).toISOString() },
+            userMemoryExtractStatus: 'failed',
+          },
+          userId,
+        },
+        {
+          id: 'new-content',
+          metadata: {
+            userMemoryExtractRunState: { lastRunAt: new Date(now - 60_000).toISOString() },
+            userMemoryExtractStatus: 'failed',
+          },
+          updatedAt: new Date(now),
+          userId,
+        },
+      ] satisfies Array<typeof topics.$inferInsert>);
+
+      const eligible = await topicModel.listTopicsForMemoryExtractor();
+      expect(eligible.map((topic) => topic.id).sort()).toEqual(['new-content', 'old-failure']);
+      expect(await topicModel.countTopicsForMemoryExtractor()).toBe(2);
+      expect(
+        (await topicModel.listTopicsForMemoryExtractor({ ignoreExtracted: true })).length,
+      ).toBe(3);
+    });
+
     it('should paginate forward from the cursor, excluding items at or before it and including later ones', async () => {
       const createdAt = new Date('2025-01-20T18:43:33.603Z');
 

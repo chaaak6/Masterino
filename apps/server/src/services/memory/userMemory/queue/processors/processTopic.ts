@@ -2,6 +2,7 @@ import { LayersEnum, MemorySourceType } from '@lobechat/types';
 import { errorMessageFrom } from '@lobechat/utils';
 
 import { AsyncTaskModel } from '@/database/models/asyncTask';
+import { TopicModel } from '@/database/models/topic';
 import { getServerDB } from '@/database/server';
 import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
 import { AsyncTaskError, AsyncTaskErrorType, AsyncTaskStatus } from '@/types/asyncTask';
@@ -159,6 +160,20 @@ export const processTopicHandler = async (
       userId,
     };
   } catch (error) {
+    try {
+      const db = await getServerDB();
+      await new TopicModel(db, userId, payload.workspaceId).updateMemoryExtractionMetadata(
+        topicId,
+        'failed',
+        {
+          error: (errorMessageFrom(error) || 'Memory topic extraction failed').slice(0, 500),
+          lastRunAt: new Date().toISOString(),
+        },
+      );
+    } catch (metadataError) {
+      console.error('[memory-queue] failed to record topic extraction failure', metadataError);
+    }
+
     if (payload.asyncTaskId && payload.userInitiated) {
       try {
         const db = await getServerDB();

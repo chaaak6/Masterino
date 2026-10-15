@@ -13,6 +13,8 @@ export const apiKeys = pgTable(
       .$defaultFn(() => createNanoId(16)())
       .notNull()
       .primaryKey(),
+    description: text('description'),
+    isAdminManaged: boolean('is_admin_managed').notNull().default(false),
     name: varchar('name', { length: 256 }).notNull(), // name of the API key
     key: varchar('key', { length: 256 }).notNull().unique(), // encrypted API key
     keyHash: varchar('key_hash', { length: 128 }).unique(), // hash of api key for authentication lookup

@@ -88,3 +88,27 @@ export type AihubOAuthBindingResult =
   | { status: 'created' | 'existing' | 'repaired' }
   | { status: 'missing' }
   | { reason: AihubOAuthBindingConflictReason; status: 'conflict' };
+
+export type AihubBridgeBillingPreference =
+  | 'subscription_first'
+  | 'wallet_first'
+  | 'subscription_only'
+  | 'wallet_only';
+
+export interface AihubBridgeSubscription {
+  allowWalletOverflow: boolean;
+  amountTotal: number;
+  amountUsed: number;
+  endTime: number;
+  id: number;
+  nextResetTime: number;
+  resetAmount: number;
+  startTime: number;
+  status: string;
+  title: string;
+}
+
+export interface AihubBridgeSubscriptionSummary {
+  billingPreference: AihubBridgeBillingPreference;
+  subscriptions: AihubBridgeSubscription[];
+}

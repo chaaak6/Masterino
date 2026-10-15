@@ -1,8 +1,7 @@
 import type { LobeChatDatabase } from '@lobechat/database';
-import { topics } from '@lobechat/database/schemas';
+import { updateTopicMemoryExtractMetadata } from '@lobechat/database/topic-memory';
 import type { OpenAIChatMessage } from '@lobechat/model-runtime';
 import type { ChatTopicMetadata } from '@lobechat/types';
-import { and, eq } from 'drizzle-orm';
 import { u } from 'unist-builder';
 import { toXml } from 'xast-util-to-xml';
 import type { Child } from 'xastscript';
@@ -136,66 +135,37 @@ export class LobeChatTopicResultRecorder implements MemoryResultRecorder<{
     job: MemoryExtractionJob,
     result: PersistedMemoryResult & { processedMemoryCount: number },
   ): Promise<void> {
-    const existingMetadata = (this.options.currentMetadata as ChatTopicMetadata | undefined) ?? {};
-
     const now = new Date().toISOString();
-    const memoryExtraction = existingMetadata.userMemoryExtractRunState ?? {
-      error: undefined,
-      lastMessageAt: this.options.lastMessageAt,
-      lastRunAt: now,
-      messageCount: this.options.messageCount,
-      processedMemoryCount: result.processedMemoryCount,
-      traceId: this.options.traceId,
-    };
-
-    memoryExtraction.lastMessageAt = this.options.lastMessageAt;
-    memoryExtraction.lastRunAt = now;
-    memoryExtraction.messageCount = this.options.messageCount;
-    memoryExtraction.processedMemoryCount = result.processedMemoryCount;
-    memoryExtraction.traceId = this.options.traceId;
-
-    const updatedMetadata: ChatTopicMetadata = {
-      ...existingMetadata,
-      userMemoryExtractRunState: memoryExtraction,
-      userMemoryExtractStatus: 'completed',
-    };
-
-    await this.options.database
-      .update(topics)
-      .set({ metadata: updatedMetadata, updatedAt: topics.updatedAt })
-      .where(and(eq(topics.id, this.options.topicId), eq(topics.userId, job.userId)));
+    await updateTopicMemoryExtractMetadata(
+      this.options.database,
+      job.userId,
+      this.options.topicId,
+      'completed',
+      {
+        lastMessageAt: this.options.lastMessageAt,
+        lastRunAt: now,
+        messageCount: this.options.messageCount,
+        processedMemoryCount: result.processedMemoryCount,
+        traceId: this.options.traceId,
+      },
+    );
   }
 
   async recordFail(job: MemoryExtractionJob, error: Error): Promise<void> {
-    const existingMetadata = (this.options.currentMetadata as ChatTopicMetadata | undefined) ?? {};
-
     const now = new Date().toISOString();
-    const memoryExtraction = existingMetadata.userMemoryExtractRunState ?? {
-      error: error.message,
-      lastMessageAt: this.options.lastMessageAt,
-      lastRunAt: now,
-      messageCount: this.options.messageCount,
-      processedMemoryCount: 0,
-      status: 'failed' as const,
-      traceId: this.options.traceId,
-    };
-
-    memoryExtraction.error = error.message;
-    memoryExtraction.lastMessageAt = this.options.lastMessageAt;
-    memoryExtraction.lastRunAt = now;
-    memoryExtraction.messageCount = this.options.messageCount;
-    memoryExtraction.processedMemoryCount = 0;
-    memoryExtraction.traceId = this.options.traceId;
-
-    const updatedMetadata: ChatTopicMetadata = {
-      ...existingMetadata,
-      userMemoryExtractRunState: memoryExtraction,
-      userMemoryExtractStatus: 'failed',
-    };
-
-    await this.options.database
-      .update(topics)
-      .set({ metadata: updatedMetadata, updatedAt: topics.updatedAt })
-      .where(and(eq(topics.id, this.options.topicId), eq(topics.userId, job.userId)));
+    await updateTopicMemoryExtractMetadata(
+      this.options.database,
+      job.userId,
+      this.options.topicId,
+      'failed',
+      {
+        error: error.message.slice(0, 500),
+        lastMessageAt: this.options.lastMessageAt,
+        lastRunAt: now,
+        messageCount: this.options.messageCount,
+        processedMemoryCount: 0,
+        traceId: this.options.traceId,
+      },
+    );
   }
 }
