@@ -57,6 +57,18 @@ Feature: Local large document processing
     And the agent exports the Excel analysis report
     Then its classification row contains only Pass 1 Fail 2 and Incomplete 2
 
+  @quality-contract
+  Scenario: Distinguish missing and nonnumeric values without double-counting incomplete rows
+    Given a CSV file with known measurements
+    When the agent analyzes the measurement columns together
+    Then metric quality counts form a disjoint breakdown of incomplete measurements
+
+  @schema-contract
+  Scenario: Poll background document jobs without unrelated file or analysis parameters
+    Given a desktop with complete document capabilities
+    When the server scopes its local tool manifest for that desktop
+    Then job polling requires only the job handle and inspection accepts no analysis columns
+
   @device-capability
   Scenario Outline: Offer document tools only to a desktop supporting the complete workflow
     Given a desktop with <capability> document capabilities

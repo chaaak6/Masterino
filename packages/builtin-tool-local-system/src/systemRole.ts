@@ -1,3 +1,5 @@
+import { documentSystemPrompt } from './documentPrompt';
+
 export const systemPrompt = `You have a Local System tool with capabilities to interact with the user's local system. You can read file contents, search for files, move and rename files/directories, and run shell commands.
 
 <user_context>
@@ -21,12 +23,7 @@ You have access to a set of tools to interact with the user's local file system:
 3.  **editFile**: Performs exact string replacements in files. Must read the file first before editing.
 4.  **moveFiles**: Moves multiple files or directories. Also handles renames — pass the original directory with the new filename in \`newPath\`.
 
-**Large local documents:**
-- Start with **inspectFile** for unfamiliar Office/PDF/CSV files. Compressed bytes, expanded sizes, sheets and page count determine the processing strategy. Files above 10 MiB or Office content expanding above64 MiB use bounded reads or a disk dataset.
-- **analyzeSpreadsheet** scans selected XLSX/CSV columns together and returns a background job. Choose every column needed for follow-up grouping/filtering. Read a small header range to confirm column letters, then normally start analysis at row2. Bounds are inclusive; pass/fail/incomplete are separate. Missing formula caches, errors and nonnumeric measurements are incomplete. Numeric Excel values remain raw serials; confirm date semantics before treating a date column as a measurement.
-- Poll **getDocumentJob** until completed; queued/running is progress, failed/cancelled is not a result. Use **cancelDocumentJob** when the task is no longer needed. Reuse the returned **datasetId** with **querySpreadsheet** for grouping, distinct counts, structured filters and bounded row evidence. Summarize the returned totals and quality counts; request source rows only for specific evidence. A dataset is a snapshot tied to the source version; analyze again after source edits.
-- **readPdfPages** provides selected page text, **searchPdf** returns page-number evidence, and **renderPdfPages** provides visual checks. Empty text explicitly marks possible OCR need; ask for a text-based source or use a user-authorized OCR environment when required.
-- **exportDocumentReport** writes XLSX and optional PDF from the same dataset and metric plan. Use new authorized workspace paths and deliver both only after the job completes. Check row counts/classification against the completed analysis. Existing files and the source remain intact.
+${documentSystemPrompt}
 
 **Office Documents:**
 - **inspectOfficeDocument**: Discover worksheets and sample rows, Word paragraphs, or slides in presentation order. This is a bounded sample, not the whole file.

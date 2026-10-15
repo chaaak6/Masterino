@@ -346,7 +346,7 @@ def analyze(c, args, meta):
             raise ValueError("Lower bound exceeds upper bound")
         passed.extend(bounds)
         row = c.execute(
-            f"""SELECT count(*) FILTER(WHERE {ok}), avg({value}) FILTER(WHERE {ok}), min({value}) FILTER(WHERE {ok}), max({value}) FILTER(WHERE {ok}), stddev_samp({value}) FILTER(WHERE {ok}), count(*) FILTER(WHERE {state}='cacheMissing'), count(*) FILTER(WHERE {state}='error'), count(*) FILTER(WHERE NOT coalesce({ok},false)) FROM data"""
+            f"""SELECT count(*) FILTER(WHERE {ok}), avg({value}) FILTER(WHERE {ok}), min({value}) FILTER(WHERE {ok}), max({value}) FILTER(WHERE {ok}), stddev_samp({value}) FILTER(WHERE {ok}), count(*) FILTER(WHERE {state}='cacheMissing'), count(*) FILTER(WHERE {state}='error'), count(*) FILTER(WHERE NOT coalesce({ok},false)), count(*) FILTER(WHERE {state}='missing' OR ({state}='valid' AND {ident(col)} IS NULL)), count(*) FILTER(WHERE {state}='valid' AND {ident(col)} IS NOT NULL AND NOT coalesce(isfinite({value}),false)) FROM data"""
         ).fetchone()
         result[name] = dict(
             zip(
@@ -359,6 +359,8 @@ def analyze(c, args, meta):
                     "cacheMissingCount",
                     "errorCount",
                     "incompleteCount",
+                    "missingCount",
+                    "nonNumericCount",
                 ],
                 row,
             )
@@ -375,6 +377,7 @@ def analyze(c, args, meta):
     return {
         "metrics": result,
         "classification": dict(zip(["pass", "fail", "incomplete"], row)),
+        "qualitySemantics": "incompleteCount = missingCount + cacheMissingCount + errorCount + nonNumericCount. These four counts are disjoint. Errors are included in incomplete, not additional. validCount counts finite numeric values only.",
     }
 
 
@@ -586,6 +589,7 @@ def main(request):
         result.update(
             {
                 "datasetPath": str(dataset),
+                "columns": meta["columns"],
                 "rowsScanned": meta["rows"],
                 "sourceVersion": meta["sourceVersion"],
                 "sourceScans": scans,

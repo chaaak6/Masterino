@@ -27,6 +27,7 @@ const documentApis = [
   'cancelDocumentJob',
 ];
 let capabilities: Record<string, number>, scopedApis: string[];
+let scopedManifest: any;
 Given('a desktop with {word} document capabilities', (capability: string) => {
   capabilities =
     capability === 'complete'
@@ -39,10 +40,32 @@ When('the server scopes its local tool manifest for that desktop', () => {
   const { scopeLocalSystemManifestForDevice } = createRequire(import.meta.url)(
     './.artifacts/device-manifest.js',
   );
-  scopedApis = scopeLocalSystemManifestForDevice({
+  scopedManifest = scopeLocalSystemManifestForDevice({
     gatewayConfigured: true,
     localSystemApiVersions: capabilities,
-  }).api.map((api: { name: string }) => api.name);
+  });
+  scopedApis = scopedManifest.api.map((api: { name: string }) => api.name);
+});
+Then('job polling requires only the job handle and inspection accepts no analysis columns', () => {
+  const api = (name: string) => scopedManifest.api.find((item: any) => item.name === name);
+  assert.deepEqual(Object.keys(api('getDocumentJob').parameters.properties), ['jobId']);
+  assert.deepEqual(api('getDocumentJob').parameters.required, ['jobId']);
+  assert.equal(api('inspectFile').parameters.properties.columns, undefined);
+  assert.deepEqual(api('analyzeSpreadsheet').parameters.required, ['columns', 'metrics']);
+});
+Then('metric quality counts form a disjoint breakdown of incomplete measurements', () => {
+  const metric = result.metrics.measurement;
+  assert.equal(metric.validCount, 3);
+  assert.equal(metric.missingCount, 1);
+  assert.equal(metric.nonNumericCount, 1);
+  assert.equal(metric.cacheMissingCount, 0);
+  assert.equal(metric.errorCount, 0);
+  assert.equal(metric.incompleteCount, 2);
+  assert.equal(
+    metric.missingCount + metric.nonNumericCount + metric.cacheMissingCount + metric.errorCount,
+    metric.incompleteCount,
+  );
+  assert.deepEqual(result.columns, ['A', 'B', 'C']);
 });
 Then(
   'document tools are {word} and existing Office tools remain available',
