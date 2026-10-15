@@ -12,7 +12,14 @@ const expectedProfile =
   process.env.MASTERINO_DOCUMENT_TEST_PROFILE ?? 'masterino-desktop-test-server';
 assert.match(expectedProfile, /^masterino-desktop-(?:test-server|local-[a-f0-9]{12})$/);
 const root = process.cwd();
-const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const localPort = (name, fallback) => {
+  const value = Number(process.env[name] ?? fallback);
+  assert.ok(Number.isInteger(value) && value >= 1024 && value <= 65535);
+  return value;
+};
+const rendererPort = localPort('MASTERINO_DOCUMENT_TEST_RENDERER_PORT', 9333);
+const inspectorPort = localPort('MASTERINO_DOCUMENT_TEST_INSPECTOR_PORT', 9334);
+const browser = await chromium.connectOverCDP(`http://127.0.0.1:${rendererPort}`);
 const page = browser
   .contexts()
   .flatMap((c) => c.pages())
@@ -67,7 +74,7 @@ const done = async (job) => {
   throw Error('Timed out');
 };
 const verifyQuit = async () => {
-  const targets = await (await fetch('http://127.0.0.1:9334/json/list')).json();
+  const targets = await (await fetch(`http://127.0.0.1:${inspectorPort}/json/list`)).json();
   const socket = new WebSocket(targets[0].webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
     socket.addEventListener('open', resolve, { once: true });

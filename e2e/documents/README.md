@@ -21,6 +21,8 @@ For actual App/preload/controller acceptance, start the desktop in its test envi
 ```sh
 # Default expected profile: masterino-desktop-test-server.
 # For another isolated test profile, set MASTERINO_DOCUMENT_TEST_PROFILE to its directory basename.
+# Optional local ports: MASTERINO_DOCUMENT_TEST_RENDERER_PORT (9333) and
+# MASTERINO_DOCUMENT_TEST_INSPECTOR_PORT (9334). Profile identity is still checked.
 node e2e/documents/full-app.mjs
 ```
 

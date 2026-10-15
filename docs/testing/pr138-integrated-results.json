@@ -1,0 +1,84 @@
+{
+  "automated": {
+    "documentBDD": {
+      "scenarios": 15,
+      "steps": 49
+    },
+    "documentElectron": 4,
+    "fullAppWithQuit": 9,
+    "streamBDD": {
+      "scenarios": 40,
+      "steps": 195
+    },
+    "desktopTests": 1482,
+    "chatTests": 319,
+    "presentationTests": 13,
+    "markdownBoundaryTests": 6,
+    "typecheck": "passed"
+  },
+  "benchmark": {
+    "rows": 300000,
+    "inputBytes": 137324891,
+    "expandedBytes": 380537978,
+    "numericalChecksPassed": true,
+    "entries": [
+      {
+        "name": "existing grouped aggregate",
+        "elapsedMs": 6011,
+        "resultBytes": 1077,
+        "hostProcessMaxRssKiB": 150800
+      },
+      {
+        "name": "cold dataset and full quality analysis",
+        "elapsedMs": 7797,
+        "resultBytes": 1002,
+        "pythonPeakRssBytes": 131710976,
+        "hostProcessMaxRssKiB": 150992,
+        "sourceScans": 1
+      },
+      {
+        "name": "reused grouping plus exact distinct and samples",
+        "elapsedMs": 214,
+        "resultBytes": 2277,
+        "pythonPeakRssBytes": 81608704,
+        "hostProcessMaxRssKiB": 150992,
+        "sourceScans": 0
+      }
+    ],
+    "note": "Cold operations compute different statistics. Grouped means/valid counts agree. Host max RSS is cumulative; Python peak is a separate process, not total App memory."
+  },
+  "date": "2026-10-15",
+  "documentSchemaBytes": {
+    "before": 16935,
+    "after": 7328
+  },
+  "environment": "isolated local Electron App against TEST only",
+  "golden": {
+    "rows": 300000,
+    "valid": 299400,
+    "pass": 183080,
+    "fail": 116320,
+    "incomplete": 600,
+    "missing": 300,
+    "error": 300,
+    "unique": 300000,
+    "groups": 12
+  },
+  "integratedSources": {
+    "pr144": "e87df170",
+    "pr146": "04ef64cb"
+  },
+  "skipped": [
+    "memory instance extraction/retrieval",
+    "Windows manual acceptance",
+    "additional authenticated TCP fault injection in this integrated run"
+  ],
+  "verification": {
+    "xlsxClassificationRow": ["Pass", "183080", "Fail", "116320", "Incomplete", "600"],
+    "pptChartValues": [8, 10, 12],
+    "standardPptSizeEmu": {
+      "width": 9144000,
+      "height": 6858000
+    }
+  }
+}
