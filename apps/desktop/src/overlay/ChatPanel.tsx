@@ -29,6 +29,7 @@ import * as styles from './chatPanel.css.ts';
 import { cn } from './cn';
 import { OVERLAY_LAYOUT, OVERLAY_SHORTCUTS } from './constants';
 import { useOverlayCopy } from './Locale';
+import { resolveOverlayModelSelectionPayload, shouldShowOverlayModelSelector } from './modelSelection';
 import {
   createDockedPanelPlacement,
   createInitialPanelPlacement,
@@ -67,25 +68,6 @@ export interface ChatPanelProps {
   viewportHeight: number;
   viewportWidth: number;
 }
-
-export const shouldShowOverlayModelSelector = (agent?: ScreenCaptureAgentOption) =>
-  !agent?.heterogeneousType;
-
-export const resolveOverlayModelSelectionPayload = ({
-  agent,
-  model,
-  modelId,
-}: {
-  agent?: ScreenCaptureAgentOption;
-  model?: ScreenCaptureModelOption;
-  modelId?: string;
-}) => {
-  if (!shouldShowOverlayModelSelector(agent)) {
-    return { modelId: undefined, provider: undefined };
-  }
-
-  return { modelId, provider: model?.provider };
-};
 
 const formatBytes = (rect: Rect): string =>
   `${Math.round(rect.width)} × ${Math.round(rect.height)} · PNG`;

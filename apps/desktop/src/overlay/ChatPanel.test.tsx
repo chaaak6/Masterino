@@ -1,21 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { resolveOverlayModelSelectionPayload, shouldShowOverlayModelSelector } from './ChatPanel';
+import { resolveOverlayModelSelectionPayload, shouldShowOverlayModelSelector } from './modelSelection';
 import { resolvePanelPlacement } from './panelPlacement';
-
-vi.mock('./chatPanel.css.ts', () => new Proxy({}, { get: (_, key) => String(key) }));
-
-vi.mock('./cn', () => ({
-  cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(' '),
-}));
-
-vi.mock('./Avatar', () => ({
-  default: () => null,
-}));
-
-vi.mock('@lobehub/icons', () => ({
-  ModelIcon: () => null,
-}));
 
 describe('ChatPanel', () => {
   it('keeps the last selection placement while a reselection is in progress', () => {
