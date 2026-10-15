@@ -258,6 +258,26 @@ describe('GatewayActionImpl', () => {
       expect(mockClient.connect).toHaveBeenCalledOnce();
     });
 
+    it('Given different server and local IDs, Then recovery status updates the local operation', () => {
+      const { action, mockClient, state } = createTestAction();
+      action.connectToGateway({
+        gatewayUrl: 'https://gateway.test.com',
+        operationId: 'server-op',
+        localOperationId: 'local-op',
+        token: 'test-token',
+        topicId: TEST_TOPIC_ID,
+      });
+      mockClient.emitEvent('status_changed', 'reconnecting');
+      expect(state.updateOperationMetadata).toHaveBeenLastCalledWith('local-op', {
+        streamRecovery: expect.objectContaining({ attempt: 0, maxAttempts: 0 }),
+      });
+      mockClient.emitEvent('status_changed', 'connected');
+      expect(state.updateOperationMetadata).toHaveBeenLastCalledWith('local-op', {
+        streamRecovery: undefined,
+      });
+      expect(state.gatewayConnections['server-op'].status).toBe('connected');
+    });
+
     it('should wire up status_changed listener', () => {
       const { action, mockClient, state } = createTestAction();
 

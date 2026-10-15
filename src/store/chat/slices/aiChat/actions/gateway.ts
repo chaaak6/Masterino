@@ -52,6 +52,8 @@ export interface ConnectGatewayParams {
    * Gateway WebSocket URL (e.g. https://aihub.bielcrystal.com)
    */
   gatewayUrl?: string;
+  /** Local operation receiving UI status; defaults to the transport operation ID. */
+  localOperationId?: string;
   /**
    * Callback for each agent event received
    */
@@ -104,6 +106,8 @@ export class GatewayActionImpl {
     const { operationId, gatewayUrl, token, topicId, onEvent, onSessionComplete, resumeOnConnect } =
       params;
 
+    const localOperationId = params.localOperationId ?? operationId;
+
     // Disconnect existing connection for this operation if any
     this.disconnectFromGateway(operationId);
 
@@ -125,7 +129,7 @@ export class GatewayActionImpl {
 
     // Wire up status changes
     client.on('status_changed', (status) => {
-      this.#get().updateOperationMetadata(operationId, {
+      this.#get().updateOperationMetadata(localOperationId, {
         streamRecovery:
           status === 'reconnecting'
             ? {
@@ -550,6 +554,7 @@ export class GatewayActionImpl {
     });
 
     this.#get().connectToGateway({
+      localOperationId: gatewayOpId,
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
       onSessionComplete: (error) => {
@@ -686,6 +691,7 @@ export class GatewayActionImpl {
     });
 
     this.#get().connectToGateway({
+      localOperationId: gatewayOpId,
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
       onSessionComplete: (error) => {

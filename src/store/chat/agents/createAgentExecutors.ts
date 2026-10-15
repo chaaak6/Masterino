@@ -663,10 +663,14 @@ export const createAgentExecutors = (context: {
       };
 
       let streamError: ChatMessageError | undefined;
-      await chatService.createAssistantMessageStream({
+      const streamPromise = chatService.createAssistantMessageStream({
         abortController,
         recovery: {
           onAttemptReset: () => handler.discardAttempt(),
+          onRecovered: () =>
+            context
+              .get()
+              .updateOperationMetadata(context.operationId, { streamRecovery: undefined }),
           onRetry: (recovery) =>
             context
               .get()
@@ -787,8 +791,9 @@ export const createAgentExecutors = (context: {
           handler.handleChunk(chunk as StreamChunk);
         },
       });
-
-      context.get().updateOperationMetadata(context.operationId, { streamRecovery: undefined });
+      await streamPromise.finally(() => {
+        context.get().updateOperationMetadata(context.operationId, { streamRecovery: undefined });
+      });
 
       const isFunctionCall = handler.getIsFunctionCall();
       const content = handler.getOutput();

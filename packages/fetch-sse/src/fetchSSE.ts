@@ -617,6 +617,7 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
     let error: ChatMessageError | undefined;
     let finish: Parameters<OnFinishHandler> | undefined;
     let mediaDelivered = false;
+    let recoveryPending = attempt > 1;
     const response = await fetchSSEAttempt(url, {
       ...options,
       headers: options.recovery
@@ -633,6 +634,10 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
       },
       onMessageHandle: (chunk) => {
         if (options.signal?.aborted) return;
+        if (recoveryPending) {
+          recoveryPending = false;
+          options.recovery?.onRecovered?.();
+        }
         if (
           chunk.type === 'base64_image' ||
           chunk.type === 'content_part' ||

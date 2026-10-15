@@ -39,6 +39,40 @@ describe('Given a model stream interrupted before completion', () => {
     },
   );
 
+  it('clears the retry hint on recovered data before the stream finishes', async () => {
+    const recovered = vi.fn();
+    const finish = vi.fn();
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockResolvedValueOnce(stream('Recovered'));
+    await fetchSSE('/test', {
+      fetcher,
+      recovery: { delayMs: 0, onRecovered: recovered },
+      onFinish: finish,
+      onMessageHandle: () => {
+        expect(recovered).toHaveBeenCalledOnce();
+        expect(finish).not.toHaveBeenCalled();
+      },
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(recovered).toHaveBeenCalledOnce();
+    expect(finish).toHaveBeenCalledOnce();
+  });
+
+  it.each([200, 503])(
+    'does not announce recovery for an initial success or exhausted errors (%s)',
+    async (status) => {
+      const recovered = vi.fn();
+      const fetcher = vi.fn(async () =>
+        status === 200 ? stream('Initial success') : new Response('', { status }),
+      );
+      await fetchSSE('/test', { fetcher, recovery: { delayMs: 0, onRecovered: recovered } });
+      expect(recovered).not.toHaveBeenCalled();
+      expect(fetcher).toHaveBeenCalledTimes(status === 200 ? 1 : 3);
+    },
+  );
+
   it('finalizes cancellation before the first request without sending it', async () => {
     const controller = new AbortController();
     controller.abort();

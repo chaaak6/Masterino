@@ -247,7 +247,7 @@ describe('POST handler', () => {
       expect(chat).toHaveBeenCalledOnce();
     });
 
-    it.each(['2', '0'])(
+    it.each(['2', '0', '2.5'])(
       'preserves bounded upstream Retry-After %s for client-owned recovery',
       async (retryAfter) => {
         request.headers.set('X-Masterino-Client-Recovery', '1');
@@ -263,10 +263,29 @@ describe('POST handler', () => {
         const body = await response.json();
         expect(body.body.retryable).toBe(true);
         expect(body.body.retryAfterMs).toBe(Number(retryAfter) * 1000);
-        expect(response.headers.get('Retry-After')).toBe(retryAfter);
+        expect(response.headers.get('Retry-After')).toBe(String(Math.ceil(Number(retryAfter))));
         expect(chat).toHaveBeenCalledOnce();
       },
     );
+
+    it('rounds HTTP-date retry delay up to integer seconds while preserving precise body delay', async () => {
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-15T06:00:00.700Z'));
+      try {
+        request.headers.set('X-Masterino-Client-Recovery', '1');
+        const chat = vi.fn().mockRejectedValue({
+          status: 429,
+          headers: { 'retry-after': 'Thu, 15 Oct 2026 06:00:03 GMT' },
+        });
+        vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
+          new ModelRuntime({ baseURL: 'abc', chat }),
+        );
+        const response = await POST(request, { params: Promise.resolve({ provider: 'newapi' }) });
+        expect(response.headers.get('Retry-After')).toBe('3');
+        expect((await response.json()).body.retryAfterMs).toBe(2300);
+      } finally {
+        clock.mockRestore();
+      }
+    });
 
     it.each([undefined, '99', 'invalid'])(
       'does not automatically retry quota or unbounded 429: %s',

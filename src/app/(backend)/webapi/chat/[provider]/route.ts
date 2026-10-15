@@ -162,7 +162,9 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
       {
         headers: {
           'X-Request-ID': operationId,
-          ...(retryAfterMs !== undefined && { 'Retry-After': String(retryAfterMs / 1000) }),
+          ...(retryAfterMs !== undefined && {
+            'Retry-After': String(Math.ceil(retryAfterMs / 1000)),
+          }),
         },
       },
     );

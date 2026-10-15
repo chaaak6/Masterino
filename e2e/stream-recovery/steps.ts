@@ -115,7 +115,9 @@ Then('结果已同步且没有重新生成', async () => {
   expect(requests.filter((url) => url.includes('operationId='))).toHaveLength(1);
 });
 Then('补拉超时后发送区已释放', async () => {
-  await expect(page.getByTestId('stream-operation-status')).toHaveText('completed', { timeout: 7000 });
+  await expect(page.getByTestId('stream-operation-status')).toHaveText('completed', {
+    timeout: 7000,
+  });
   await page.waitForTimeout(2000);
   await expect(page.getByTestId('stream-content')).toContainText('Report complete');
 });
@@ -152,4 +154,20 @@ After(async function (scenario) {
   await app.close();
   app = undefined;
   expect(pageErrors).toEqual([]);
+});
+
+Then('恢复数据后重试提示清除但运行仍未结束', async () => {
+  await expect(page.getByTestId('stream-attempts')).toHaveText('2');
+  await expect(page.getByTestId('stream-content')).toContainText('Report');
+  await expect(page.getByTestId('stream-status')).toHaveText('generating');
+  await expect(page.getByTestId('stream-recovery')).toBeEmpty();
+  await expect(page.getByTestId('stream-message-loading')).toHaveAttribute('data-loading', 'true');
+  await expect(page.getByTestId('stream-send-state')).toHaveAttribute('data-generating', 'true');
+});
+Then('网关本地操作显示恢复中', async () => {
+  await expect(page.getByTestId('stream-recovery')).toHaveText('recovering');
+  await expect(page.getByTestId('stream-send-state')).toHaveAttribute('data-generating', 'true');
+});
+When('收到迟到的清理错误', async () => {
+  await page.getByRole('button', { name: 'Deliver late teardown error' }).click();
 });

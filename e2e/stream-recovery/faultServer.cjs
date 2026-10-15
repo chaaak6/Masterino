@@ -168,7 +168,10 @@ http
       res.end();
       return;
     }
-    if (scenario === 'always-eof' || (scenario === 'eof-recovery' && attempt === 1)) {
+    if (
+      scenario === 'always-eof' ||
+      (['eof-recovery', 'recovery-long'].includes(scenario) && attempt === 1)
+    ) {
       res.end();
       return;
     }
@@ -189,7 +192,7 @@ http
         res.end();
         console.log(JSON.stringify({ scenario, attempt, event: 'completed' }));
       },
-      scenario === 'slow' || scenario === 'stop' ? 5000 : 150,
+      ['slow', 'stop', 'recovery-long'].includes(scenario) ? 5000 : 150,
     );
   })
   .listen(14321, '0.0.0.0', () => console.log('BDD fault endpoint ready on 14321'));

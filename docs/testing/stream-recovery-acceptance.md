@@ -201,3 +201,23 @@ stop for newapi too. Nine tests traverse the actual Aihub GLM/Kimi/Qwen runtime 
 synthetic SDK stream (empty final content with usage, final text with usage, final tool arguments).
 The three Qwen terminal cases failed before that repair and passed afterward; native Qwen's 16
 existing stream tests also pass unchanged.
+
+## Crystal Review follow-up (2026-10-15)
+
+The follow-up preserves a completed operation when teardown reports a late failure, routes
+subscription recovery metadata to the local operation while retaining the server ID for the
+transport, emits integer Retry-After seconds, and clears model recovery metadata both on the
+first valid data from a retried attempt and on every stream exit. Successful headers alone do
+not announce recovery; retry budgets and cancellation behavior are unchanged.
+
+Regression tests first reproduced the completed-to-failed transition, server/local ID mismatch,
+fractional Retry-After, stale hint during recovered text/reasoning/tools, and stale metadata after
+an unexpected rejection. Coverage includes HTTP-date rounding while preserving precise body
+milliseconds, initial success without a recovery notification, and exhausted errors without a
+false recovery notification.
+
+Native Electron BDD: 40 scenarios / 195 steps passed. Gateway fixtures now use distinct local
+and server operation IDs. Added scenarios assert that recovered data clears the hint while both
+loading indicators remain active, Stop still works after recovery, gateway recovery reaches the
+local operation, and a late teardown error cannot flip a completed run. Existing cancellation,
+exhaustion, snapshot failure/timeout, quiet reconnection, and legacy EOF scenarios remain passing.

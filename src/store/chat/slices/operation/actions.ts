@@ -482,7 +482,8 @@ export class OperationActionsImpl {
     this.#set(
       produce((state: ChatStore) => {
         const operation = state.operations[operationId];
-        if (!operation || operation.status === 'cancelled') return;
+        if (!operation || operation.status === 'cancelled' || operation.status === 'completed')
+          return;
 
         const now = Date.now();
         operation.status = 'failed';

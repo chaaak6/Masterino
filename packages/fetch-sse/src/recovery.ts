@@ -12,6 +12,8 @@ export interface StreamRecoveryOptions {
   /** At most three attempts of this model call, never a replay of the agent run. */
   maxAttempts?: number;
   onAttemptReset?: () => Promise<void> | void;
+  /** First valid data from a retried attempt; headers alone do not prove recovery. */
+  onRecovered?: () => void;
   onRetry?: (state: StreamRecoveryState) => Promise<void> | void;
 }
 

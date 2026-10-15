@@ -220,6 +220,24 @@ describe('Operation Actions', () => {
       expect(result.current.operations[id].metadata.error).toBeUndefined();
     });
 
+    it('Given a completed run, Then a late teardown failure preserves its result and end time', () => {
+      const { result } = renderHook(() => useChatStore());
+      let id: string;
+      act(() => {
+        id = result.current.startOperation({
+          type: 'execAgentRuntime',
+          context: { agentId: 'session1' },
+        }).operationId;
+        result.current.completeOperation(id);
+      });
+      const completed = result.current.operations[id!];
+      act(() => {
+        result.current.failOperation(id!, { type: 'AgentStreamError', message: 'late teardown' });
+      });
+      expect(result.current.operations[id!]).toEqual(completed);
+      expect(result.current.operations[id!].status).toBe('completed');
+    });
+
     it('Given a failed run, Then late connection cleanup cannot mark it successful', () => {
       const { result } = renderHook(() => useChatStore());
       act(() => {

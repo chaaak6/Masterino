@@ -35,6 +35,9 @@ export const StreamRecoveryHarness = () => {
   const [opId, setOpId] = useState<string>();
   const [scenario, setScenario] = useState('success');
   const operationStatus = useChatStore((s) => (opId ? s.operations[opId]?.status : 'idle'));
+  const recovery = useChatStore((s) =>
+    opId ? s.operations[opId]?.metadata.streamRecovery : undefined,
+  );
   const syncError = useChatStore((s) =>
     opId ? s.operations[opId]?.metadata.resultSyncError : undefined,
   );
@@ -76,13 +79,16 @@ export const StreamRecoveryHarness = () => {
         ],
         { context: runContext },
       );
+      const serverOperationId = `server-${operationId}`;
       const handler = createGatewayEventHandler(useChatStore.getState, {
         assistantMessageId: messageId,
         context: runContext,
         operationId,
+        gatewayOperationId: serverOperationId,
       });
       store.connectToGateway({
-        operationId,
+        operationId: serverOperationId,
+        localOperationId: operationId,
         topicId: runContext.topicId,
         onEvent: handler,
         onSessionComplete: (error) => {
@@ -111,11 +117,19 @@ export const StreamRecoveryHarness = () => {
       },
       recovery: {
         onAttemptReset: () => setContent(''),
-        onRetry: ({ attempt }) => setStatus(`retrying ${attempt}/2`),
+        onRetry: (recovery) => {
+          store.updateOperationMetadata(operationId, { streamRecovery: recovery });
+          setStatus(`retrying ${recovery.attempt}/2`);
+        },
+        onRecovered: () => {
+          store.updateOperationMetadata(operationId, { streamRecovery: undefined });
+          setStatus('generating');
+        },
       },
       requireTerminalEvent: 'negotiated',
       signal: abortController.signal,
     });
+    store.updateOperationMetadata(operationId, { streamRecovery: undefined });
     if (abortController.signal.aborted) return;
     if (failed) {
       store.failOperation(operationId, {
@@ -141,6 +155,7 @@ export const StreamRecoveryHarness = () => {
           'stop',
           'eof-recovery',
           'reset-recovery',
+          'recovery-long',
           'always-eof',
           'transient',
           'rate-limit',
@@ -171,7 +186,7 @@ export const StreamRecoveryHarness = () => {
           <option key={s}>{s}</option>
         ))}
       </select>
-      <button type="button" onClick={run}>
+      <button disabled={operationStatus === 'running'} type="button" onClick={run}>
         Run stream scenario
       </button>
       <div data-loading={String(loading)} data-testid="stream-message-loading">
@@ -180,6 +195,19 @@ export const StreamRecoveryHarness = () => {
       <pre data-testid="stream-content">
         {scenario.startsWith('gateway-') ? gatewayMessage?.content : content}
       </pre>
+      <div data-testid="stream-recovery">{recovery ? 'recovering' : ''}</div>
+      <button
+        disabled={operationStatus !== 'completed'}
+        type="button"
+        onClick={() => {
+          if (opId)
+            useChatStore
+              .getState()
+              .failOperation(opId, { type: 'AgentStreamError', message: 'late teardown' });
+        }}
+      >
+        Deliver late teardown error
+      </button>
       <div data-testid="stream-sync-error">{syncError}</div>
       <div data-testid="stream-inline-error">{gatewayMessage?.error?.message}</div>
       {syncError && (
@@ -203,7 +231,7 @@ export const StreamRecoveryHarness = () => {
         <SendButton generating={showStopButton} onStop={stop} />
       </div>
       {status === 'failed' && (
-        <button type="button" onClick={run}>
+        <button disabled={operationStatus === 'running'} type="button" onClick={run}>
           Retry generation
         </button>
       )}
