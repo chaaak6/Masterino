@@ -29,7 +29,6 @@ import * as styles from './chatPanel.css.ts';
 import { cn } from './cn';
 import { OVERLAY_LAYOUT, OVERLAY_SHORTCUTS } from './constants';
 import { useOverlayCopy } from './Locale';
-import { resolveOverlayModelSelectionPayload, shouldShowOverlayModelSelector } from './modelSelection';
 import {
   resolveOverlayModelSelectionPayload,
   shouldShowOverlayModelSelector,
