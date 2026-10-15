@@ -113,7 +113,7 @@ export const StreamRecoveryHarness = () => {
         onAttemptReset: () => setContent(''),
         onRetry: ({ attempt }) => setStatus(`retrying ${attempt}/2`),
       },
-      requireTerminalEvent: true,
+      requireTerminalEvent: 'negotiated',
       signal: abortController.signal,
     });
     if (abortController.signal.aborted) return;
@@ -149,6 +149,7 @@ export const StreamRecoveryHarness = () => {
           'provider-error',
           'malformed',
           'nonstream',
+          'legacy-eof',
           'length',
           'MAX_TOKENS',
           'ECONNREFUSED',
@@ -163,7 +164,8 @@ export const StreamRecoveryHarness = () => {
           'gateway-error',
           'gateway-sync-fail',
           'gateway-late-error',
-          'gateway-snapshot-cancel', 'gateway-snapshot-timeout',
+          'gateway-snapshot-cancel',
+          'gateway-snapshot-timeout',
           'wrapped-rate-limit',
         ].map((s) => (
           <option key={s}>{s}</option>

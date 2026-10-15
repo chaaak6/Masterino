@@ -81,6 +81,7 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
 
     const responseHeaders = new Headers(traceOptions?.headers);
     responseHeaders.set('X-Request-ID', operationId);
+    if (provider === 'newapi') responseHeaders.set('X-Masterino-Stream-Protocol', 'terminal-v1');
 
     const execute = () =>
       callWithUpstreamTimeouts({

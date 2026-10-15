@@ -1,12 +1,15 @@
 // Synthetic model endpoint for isolated BDD acceptance. Contains no user data or credentials.
+// Standalone CommonJS fixture is launched directly with Node.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const http = require('node:http');
+
 const attempts = new Map();
 http
   .createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Expose-Headers', 'Retry-After');
+    res.setHeader('Access-Control-Expose-Headers', 'Retry-After, X-Masterino-Stream-Protocol');
     res.setHeader('Connection', 'close');
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -15,6 +18,7 @@ http
     }
     const url = new URL(req.url, 'http://fixture');
     const scenario = url.searchParams.get('scenario') || 'success';
+    if (scenario !== 'legacy-eof') res.setHeader('X-Masterino-Stream-Protocol', 'terminal-v1');
     const key = `${url.searchParams.get('run') ?? url.searchParams.get('operationId')}:${scenario}`;
     const attempt = (attempts.get(key) || 0) + 1;
     attempts.set(key, attempt);
@@ -70,7 +74,11 @@ http
             else
               send(
                 'agent_runtime_end',
-                ['gateway-sync-fail', 'gateway-snapshot-cancel', 'gateway-snapshot-timeout'].includes(scenario)
+                [
+                  'gateway-sync-fail',
+                  'gateway-snapshot-cancel',
+                  'gateway-snapshot-timeout',
+                ].includes(scenario)
                   ? {}
                   : {
                       uiMessages: [
@@ -156,6 +164,10 @@ http
       return;
     }
     event('text', scenario === 'eof-recovery' && attempt === 1 ? 'Discarded partial' : 'Report');
+    if (scenario === 'legacy-eof') {
+      res.end();
+      return;
+    }
     if (scenario === 'always-eof' || (scenario === 'eof-recovery' && attempt === 1)) {
       res.end();
       return;

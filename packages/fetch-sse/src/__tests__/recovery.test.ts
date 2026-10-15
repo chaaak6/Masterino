@@ -12,6 +12,33 @@ const stream = (text: string, ended = true) =>
 afterEach(() => vi.restoreAllMocks());
 
 describe('Given a model stream interrupted before completion', () => {
+  it.each([false, true])(
+    'negotiates strict EOF with the server (supported=%s)',
+    async (supported) => {
+      const fetcher = vi.fn(
+        async () =>
+          new Response('event: text\ndata: "legacy answer"\n\n', {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              ...(supported ? { 'X-Masterino-Stream-Protocol': 'terminal-v1' } : {}),
+            },
+          }),
+      );
+      const finish = vi.fn();
+      await fetchSSE('/test', {
+        fetcher,
+        requireTerminalEvent: 'negotiated',
+        recovery: { delayMs: 0 },
+        onFinish: finish,
+      });
+      expect(fetcher).toHaveBeenCalledTimes(supported ? 3 : 1);
+      expect(finish).toHaveBeenCalledWith(
+        'legacy answer',
+        expect.objectContaining({ type: supported ? 'error' : 'done' }),
+      );
+    },
+  );
+
   it('finalizes cancellation before the first request without sending it', async () => {
     const controller = new AbortController();
     controller.abort();
@@ -140,17 +167,15 @@ describe('Given a model stream interrupted before completion', () => {
   it.each([-1, 31_000])(
     'rejects unsafe serialized Retry-After delays: %s',
     async (retryAfterMs) => {
-      const fetcher = vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              errorType: 'InternalServerError',
-              body: { retryable: true, retryAfterMs },
-            }),
-            { status: 500 },
-          ),
-        );
+      const fetcher = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            errorType: 'InternalServerError',
+            body: { retryable: true, retryAfterMs },
+          }),
+          { status: 500 },
+        ),
+      );
       await fetchSSE('/test', { fetcher, recovery: { delayMs: 0 } });
       expect(fetcher).toHaveBeenCalledOnce();
     },

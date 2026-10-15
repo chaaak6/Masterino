@@ -19,6 +19,7 @@
       | provider-error | failed    | 1        |
       | malformed      | failed    | 1        |
       | nonstream      | completed | 1        |
+      | legacy-eof     | completed | 1        |
       | length                  | completed | 1 |
       | MAX_TOKENS              | completed | 1 |
       | ECONNREFUSED            | completed | 2 |

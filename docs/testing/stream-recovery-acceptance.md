@@ -7,7 +7,7 @@ about whether work is active. Retry only the current model call. Never restart a
 repeat a local tool to recover a missing result. Preserve failed/cancelled states during late
 connection cleanup.
 
-- Temporary connection failures, 502/503/504, and an unexpected newapi EOF: at most three attempts
+- Temporary connection failures, 502/503/504, and an unexpected negotiated newapi EOF: at most three attempts
   including the initial request, with interruptible 1s/3s backoff and jitter.
 - 429: retry only with a bounded Retry-After; quota, authentication, permission, malformed data,
   oversized input and provider business errors require user action.
@@ -110,8 +110,8 @@ Final validation after review repairs:
 - Two independent code reviews led to cancellation finalization and final-snapshot failure
   propagation regressions being repaired and covered.
 
-The actual development App was pointed explicitly at the test server with app updates disabled.
-Its expired login prevented an authenticated full-conversation smoke test. The native BDD lane
+The initial development App smoke test was blocked by expired login. The user later renewed
+the test login; the authenticated acceptance below supersedes that initial limitation. The native BDD lane
 above exercises production modules through an isolated acceptance surface, not a released App
 binary or a logged-in shared test deployment. No deployment or release is part of this PR.
 
@@ -136,3 +136,68 @@ removed after acceptance.
 Console reports also retain caught errors from deliberately excluded `agentSignal.emitSourceEvent`
 and `message.update` fixture procedures. These exercise graceful telemetry/persistence fallback;
 they do not validate those backend APIs. Snapshot-failure and timeout warnings are intentional.
+
+## Authenticated App acceptance — 2026-10-15
+
+Actual development Electron App 1.3.9 / Electron 41.3.0, profile `test-server`, connected only to
+`https://mlai-test.bielcrystal.com`, updates disabled. The user selected GLM-5.3-Flash after
+identifying an unrelated DeepSeek service issue. Native computer-use clicks, the App's DevTools
+Network panel, and renderer logs were used. These cases are separate from the isolated BDD lane.
+
+| Given / When                                                           | Observed result                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New short reply in `tpc_6UAlbLVjS09w`                                  | Expected Chinese acceptance response; composer and topic stopped loading together.                                                                                                                                                     |
+| Long report; click Stop after section 31                               | Partial body preserved, interrupted feedback shown, composer reusable. Revisiting after App restart retained the exact partial end.                                                                                                    |
+| New client initially requires stop from the older test backend         | **Failed acceptance:** HTTP 200 ended with usage and speed but no stop; completed-looking responses were retried and could fail.                                                                                                       |
+| After protocol compatibility repair, short reply in `tpc_WWd6YVKLJVWb` | `APP_STREAM_OK`, one model request (5.59s), no false EOF retry.                                                                                                                                                                        |
+| Generate HTML in topic scratch directory                               | One tool-call model request (12.81s), one actual write-file tool, one following model request (7.77s). Completed normally; file entry opened the generated local HTML in Chrome.                                                       |
+| Long stream with DevTools Offline selected; click Stop                 | Both loading indicators remained active while output arrived; Stop preserved section 17 partial text and released composer. Offline did **not** cut the custom `app://` upstream proxy, so this is not a validated disconnection case. |
+| Block only `renderer/webapi/chat/newapi` in DevTools                   | Exactly three `blocked:devtools` requests, final `Failed to fetch`, no remaining topic/composer loading; input reusable.                                                                                                               |
+| Block first request, disable rule while retry 1/2 is visible           | Exactly one additional blocked request, then successful retry and one `RESTORED_OK` answer; both indicators completed together.                                                                                                        |
+| Cancel before first model request                                      | Interrupted feedback, no additional blocked model request.                                                                                                                                                                             |
+| Block first request, click Stop while retry 1/2 is visible             | Blocked counter increased once (10 to 11), interrupted feedback, no subsequent request after waiting and reopening state.                                                                                                              |
+| Remove block, send next question, switch to previous topic and return  | `READY_AFTER_CANCEL` persisted on return, no active loading or stale cancellation failure.                                                                                                                                             |
+
+All test blocking patterns were removed, blocking disabled and throttling restored to No throttling.
+Only synthetic acceptance prompts and task-owned topic files were written. No production deployment,
+release, shared test-server rollout, or Docker image rebuild was performed.
+
+### Repair discovered by real acceptance
+
+The OpenAI-compatible transformer previously returned only usage when finish_reason and usage
+shared a chunk, and similarly omitted stop for final text/tool chunks. Newapi now preserves the
+original payload and appends exactly one stop carrying its actual finish reason. Other native
+providers retain their existing protocol behavior.
+
+Newapi routes advertise `X-Masterino-Stream-Protocol: terminal-v1`. The executor requests negotiated
+strict EOF checks: old servers without this header keep their established EOF completion behavior;
+updated servers require a terminal marker and still recover unexpected EOF with the bounded retry
+budget. Explicit errors and network exceptions remain errors on either server version. This avoids
+blocking otherwise successful responses during staggered client/server upgrades. The strict new
+server path must ship with the server repair; it was not deployed to the shared cluster here.
+
+Four regression cases were observed failing before repair (three missing terminal payload cases,
+one older-server compatibility case; the supported-header case was already passing). After repair,
+61 transport, 94 provider/transformer and 113 route/executor/chat tests passed (268 targeted tests).
+The BDD surface now uses the same negotiated mode as the executor, exposes the capability header
+from its fault endpoint, and adds an explicit headerless legacy EOF scenario.
+
+Limits: opening the generated HTML was observed through the App and Chrome tab inventory, but the
+browser tool disallows `file://`, so its button interaction was not automated. Real mid-stream
+network loss through Electron's custom upstream proxy remains covered by injected transport BDD,
+not by the ineffective DevTools Offline attempt. Native App DevTools request blocking did validate
+real request failure, bounded retries, recovery, cancellation and subsequent usability. Renderer
+logs include existing React/antd deprecation warnings and ResizeObserver-loop notifications under
+dev React Scan; this is not a zero-console-error acceptance claim for the full development App.
+
+Final negotiated-mode BDD rerun: **36 scenarios / 172 steps passed**, including headerless legacy
+EOF compatibility, negotiated premature EOF retry, cancellation, offline, rate limiting and result
+synchronization. An initial run correctly rejected the new legacy case because the acceptance
+surface still forced strict mode; aligning it with the production executor negotiated setting fixed
+that test configuration. No production assertion was loosened.
+
+An additional review identified Aihub Qwen's separate transformer. Its terminal payloads now preserve
+stop for newapi too. Nine tests traverse the actual Aihub GLM/Kimi/Qwen runtime adapters with a
+synthetic SDK stream (empty final content with usage, final text with usage, final tool arguments).
+The three Qwen terminal cases failed before that repair and passed afterward; native Qwen's 16
+existing stream tests also pass unchanged.

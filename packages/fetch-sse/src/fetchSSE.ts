@@ -123,7 +123,7 @@ export interface FetchSSEOptions {
   ) => void;
   recovery?: StreamRecoveryOptions;
   requestContext?: FetchSSERequestContext;
-  requireTerminalEvent?: boolean;
+  requireTerminalEvent?: boolean | 'negotiated';
   responseAnimation?: ResponseAnimation;
 }
 
@@ -555,7 +555,9 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
     if (response?.ok) {
       const isEventStream = response.headers.get('content-type')?.includes('text/event-stream');
       if (
-        options.requireTerminalEvent &&
+        (options.requireTerminalEvent === true ||
+          (options.requireTerminalEvent === 'negotiated' &&
+            response.headers.get('X-Masterino-Stream-Protocol') === 'terminal-v1')) &&
         isEventStream &&
         !sawTerminalEvent &&
         finishedType === 'done'

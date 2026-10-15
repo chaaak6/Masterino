@@ -216,6 +216,12 @@ describe('POST handler', () => {
 
       expect(response).toBe(mockChatResponse);
       expect(mockRuntime.chat).toHaveBeenCalledTimes(3);
+      expect(mockRuntime.chat).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'x-masterino-stream-protocol': 'terminal-v1' }),
+        }),
+      );
     });
     it('Given client-owned recovery, Then the server does not multiply the retry budget', async () => {
       request.headers.set('X-Masterino-Client-Recovery', '1');
@@ -245,13 +251,11 @@ describe('POST handler', () => {
       'preserves bounded upstream Retry-After %s for client-owned recovery',
       async (retryAfter) => {
         request.headers.set('X-Masterino-Client-Recovery', '1');
-        const chat = vi
-          .fn()
-          .mockRejectedValue({
-            status: 429,
-            headers: { 'retry-after': retryAfter },
-            message: 'rate limited',
-          });
+        const chat = vi.fn().mockRejectedValue({
+          status: 429,
+          headers: { 'retry-after': retryAfter },
+          message: 'rate limited',
+        });
         vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
           new ModelRuntime({ baseURL: 'abc', chat }),
         );
@@ -268,13 +272,11 @@ describe('POST handler', () => {
       'does not automatically retry quota or unbounded 429: %s',
       async (retryAfter) => {
         request.headers.set('X-Masterino-Client-Recovery', '1');
-        const chat = vi
-          .fn()
-          .mockRejectedValue({
-            status: 429,
-            headers: { 'retry-after': retryAfter },
-            message: 'rate limited',
-          });
+        const chat = vi.fn().mockRejectedValue({
+          status: 429,
+          headers: { 'retry-after': retryAfter },
+          message: 'rate limited',
+        });
         vi.mocked(initModelRuntimeFromDB).mockResolvedValue(
           new ModelRuntime({ baseURL: 'abc', chat }),
         );

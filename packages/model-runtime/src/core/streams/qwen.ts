@@ -208,8 +208,20 @@ export const QwenAIStream = (
   const readableStream =
     stream instanceof ReadableStream ? stream : convertIterableToStream(stream);
 
-  const transformWithPayload = (chunk: OpenAI.ChatCompletionChunk, streamContext: StreamContext) =>
-    transformQwenStream(chunk, streamContext, payload);
+  const transformWithPayload = (
+    chunk: OpenAI.ChatCompletionChunk,
+    streamContext: StreamContext,
+  ) => {
+    const transformed = transformQwenStream(chunk, streamContext, payload);
+    const reason = chunk.choices?.[0]?.finish_reason;
+    if (payload?.provider !== 'newapi' || !reason) return transformed;
+
+    // Aihub Qwen has its own adapter; retain completion even when the final
+    // chunk also carries content, usage or tool arguments.
+    const chunks = Array.isArray(transformed) ? transformed : [transformed];
+    if (chunks.some((item) => item.type === 'stop' || item.type === 'error')) return transformed;
+    return [...chunks, { data: reason, id: chunk.id, type: 'stop' } satisfies StreamProtocolChunk];
+  };
 
   return readableStream
     .pipeThrough(

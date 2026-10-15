@@ -672,9 +672,9 @@ export const createAgentExecutors = (context: {
               .get()
               .updateOperationMetadata(context.operationId, { streamRecovery: recovery }),
         },
-        // newapi uses our OpenAI-compatible stop protocol. Other providers may
-        // legitimately omit stop; preserve their established completion contract.
-        requireTerminalEvent: llmPayload.provider === 'newapi',
+        // Older servers may omit stop alongside usage. Enforce the terminal contract
+        // only when the server advertises the corrected protocol.
+        requireTerminalEvent: llmPayload.provider === 'newapi' ? 'negotiated' : false,
         contextBudget: {
           attemptState: contextBudgetAttemptState,
           catalogSnapshot: state.metadata?.modelCatalogSnapshot,
