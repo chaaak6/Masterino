@@ -706,3 +706,40 @@ it('keeps preview filenames inside the audited preview directory for hostile sli
   expect(path.dirname(preview.slides[0]!.path)).toBe(`${created.projectPath}.previews/r1`);
   expect(path.basename(preview.slides[0]!.path)).toBe('slide-1.svg');
 });
+
+it('creates a standard 4:3 deck using the layout advertised to agents', async () => {
+  const outputPath = await fixture('standard-layout.pptx');
+  const created = await createPresentation({
+    path: outputPath,
+    deck: {
+      page: { layout: 'standard' },
+      theme: {
+        colors: {
+          primary: '17324D',
+          accent: '2F80ED',
+          background: 'FFFFFF',
+          muted: '667085',
+          text: '101828',
+        },
+        fonts: { body: 'Arial', heading: 'Arial' },
+      },
+      slides: [
+        {
+          id: 'standard',
+          elements: [
+            {
+              id: 'title',
+              type: 'text',
+              frame: { x: 1, y: 1, w: 8, h: 1 },
+              text: 'Standard layout regression',
+            },
+          ],
+        },
+      ],
+    },
+  });
+  expect(created.validation.errors).toBe(0);
+  expect(
+    (await readOfficeDocument({ path: outputPath })).records.map((record) => record.text),
+  ).toEqual(['Standard layout regression']);
+});

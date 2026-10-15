@@ -45,7 +45,7 @@ async function buildPresentation(deck: CreatePresentationParams['deck']) {
 
   const { default: PptxGenJS } = await import('pptxgenjs');
   const presentation = new PptxGenJS();
-  presentation.layout = deck.page?.layout === 'standard' ? 'LAYOUT_4X3' : 'LAYOUT_WIDE';
+  presentation.layout = deck.page?.layout === 'standard' ? 'LAYOUT_4x3' : 'LAYOUT_WIDE';
   presentation.author = deck.metadata?.author ?? 'Masterino';
   presentation.subject = deck.metadata?.subject ?? '';
   presentation.title = deck.metadata?.title ?? '';
