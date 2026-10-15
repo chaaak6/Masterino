@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveOverlayModelSelectionPayload, shouldShowOverlayModelSelector } from './modelSelection';
+import {
+  resolveOverlayModelSelectionPayload,
+  shouldShowOverlayModelSelector,
+} from './modelSelection';
 import { resolvePanelPlacement } from './panelPlacement';
 
 describe('ChatPanel', () => {

@@ -13,6 +13,61 @@ describe('same-origin device agent stream', () => {
     vi.useRealTimers();
     vi.clearAllMocks();
   });
+  it('Given repeated transport failures, Then it stops reconnecting without claiming server success', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
+      await options.onerror?.(new TypeError('connection reset'));
+    });
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const event = vi.fn();
+    const complete = vi.fn();
+    client.on('agent_event', event);
+    client.on('session_complete', complete);
+    client.connect();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(3);
+    expect(event).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: 'error' }));
+    expect(complete).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
+  it('recovers again after a healthy heartbeat-only connection outlives the old recovery window', async () => {
+    vi.useFakeTimers();
+    const closes: Array<() => void> = [];
+    vi.mocked(fetchEventSource).mockImplementation((_url, options) => {
+      void options.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+      return new Promise<void>((resolve) => closes.push(resolve));
+    });
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const complete = vi.fn();
+    client.on('session_complete', complete);
+    client.connect();
+    closes[0]();
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(31_000);
+    vi.mocked(fetchEventSource).mock.calls[1][1].onmessage!({ data: '', event: '', id: '' });
+    closes[1]();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(3);
+    expect(complete).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
+  it('bounds repeated immediate EOF even when headers and empty frames arrive', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
+      await options.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+      options.onmessage!({ data: '', event: '', id: '' });
+    });
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const complete = vi.fn();
+    client.on('session_complete', complete);
+    client.connect();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(3);
+    expect(complete).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
+
   it('only completes after terminal event and reconnects from last delivered ID', async () => {
     vi.useFakeTimers();
     let resolve!: () => void;
@@ -53,6 +108,30 @@ describe('same-origin device agent stream', () => {
     expect(fetchEventSource).toHaveBeenCalledTimes(2);
     client.disconnect();
   });
+  it('releases the UI after a terminal server error without reconnecting the failed task', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
+      await options.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+      options.onmessage!({
+        data: JSON.stringify({
+          operationId: 'op',
+          type: 'error',
+          data: { message: 'server failed' },
+        }),
+        event: '',
+        id: 'error-1',
+      });
+    });
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const complete = vi.fn();
+    client.on('session_complete', complete);
+    client.connect();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(complete).toHaveBeenCalledOnce();
+    expect(fetchEventSource).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
+
   it('does not retry authorization rejection or an intentional disconnect', async () => {
     vi.useFakeTimers();
     vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {

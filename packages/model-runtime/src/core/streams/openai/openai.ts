@@ -692,8 +692,20 @@ export const OpenAIStream = (
     id: '',
   };
 
-  const transformWithProvider = (chunk: OpenAI.ChatCompletionChunk, streamContext: StreamContext) =>
-    transformOpenAIStream(chunk, streamContext, payload);
+  const transformWithProvider = (
+    chunk: OpenAI.ChatCompletionChunk,
+    streamContext: StreamContext,
+  ) => {
+    const transformed = transformOpenAIStream(chunk, streamContext, payload);
+    const reason = chunk.choices?.[0]?.finish_reason;
+    if (payload?.provider !== 'newapi' || !reason) return transformed;
+
+    // A terminal provider chunk can also carry text, tool arguments or usage.
+    // Those branches must not swallow its completion marker.
+    const chunks = Array.isArray(transformed) ? transformed : [transformed];
+    if (chunks.some((item) => item.type === 'stop' || item.type === 'error')) return transformed;
+    return [...chunks, { data: reason, id: chunk.id, type: 'stop' } satisfies StreamProtocolChunk];
+  };
 
   const readableStream =
     stream instanceof ReadableStream

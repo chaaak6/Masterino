@@ -31,6 +31,10 @@ import { OVERLAY_LAYOUT, OVERLAY_SHORTCUTS } from './constants';
 import { useOverlayCopy } from './Locale';
 import { resolveOverlayModelSelectionPayload, shouldShowOverlayModelSelector } from './modelSelection';
 import {
+  resolveOverlayModelSelectionPayload,
+  shouldShowOverlayModelSelector,
+} from './modelSelection';
+import {
   createDockedPanelPlacement,
   createInitialPanelPlacement,
   type PanelPlacement,

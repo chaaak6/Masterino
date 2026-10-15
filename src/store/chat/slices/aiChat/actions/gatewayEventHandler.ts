@@ -14,6 +14,8 @@ import type {
   UIChatMessage,
 } from '@lobechat/types';
 import { AgentRuntimeErrorType } from '@lobechat/types';
+import { toast } from '@lobehub/ui/base-ui';
+import { t } from 'i18next';
 
 import { messageService } from '@/services/message';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
@@ -35,9 +37,15 @@ const loadGetExecutor = async () => {
  * This updates the ConversationArea component via React subscription:
  *   dbMessagesMap → ConversationArea (messages prop) → ConversationStore → UI
  */
-const fetchAndReplaceMessages = async (get: () => ChatStore, context: ConversationContext) => {
+const fetchAndReplaceMessages = async (
+  get: () => ChatStore,
+  context: ConversationContext,
+  operationId: string,
+) => {
   const messages = await messageService.getMessages(context);
-  get().replaceMessages(messages, { context });
+  const status = get().operations[operationId]?.status;
+  if (status !== 'cancelled' && status !== 'completed')
+    get().replaceMessages(messages, { context });
   return messages;
 };
 
@@ -256,11 +264,16 @@ export const createGatewayEventHandler = (
   let processingChain: Promise<void> = Promise.resolve();
 
   const enqueue = (fn: () => Promise<void> | void): void => {
-    processingChain = processingChain.then(fn, fn);
+    const runUnlessCancelled = () => {
+      if (get().operations[operationId]?.status === 'cancelled') return;
+      return fn();
+    };
+    processingChain = processingChain.then(runUnlessCancelled, runUnlessCancelled);
   };
 
   return (event: AgentStreamEvent) => {
-    if (terminalState) return;
+    if (terminalState || get().operations[operationId]?.status === 'cancelled')
+      return processingChain;
 
     // Subagent (`Agent`/`Task`) inner-tool events are tagged `data.subagent` and
     // belong to an isolation Thread. This handler is main-agent-only, so
@@ -314,10 +327,12 @@ export const createGatewayEventHandler = (
           // dispatch to it, and (b) resolves the next-step assistant id for
           // the `newStep` fallback.
           if (!newAssistantMessageId) {
-            const messages = await fetchAndReplaceMessages(get, context).catch((error) => {
-              console.error(error);
-              return undefined;
-            });
+            const messages = await fetchAndReplaceMessages(get, context, operationId).catch(
+              (error) => {
+                console.error(error);
+                return undefined;
+              },
+            );
 
             if (data?.newStep) {
               const resolvedAssistantMessageId = findNextAssistantMessageId(
@@ -411,7 +426,7 @@ export const createGatewayEventHandler = (
             // waiting for `agent_runtime_end` (which won't fire while paused
             // in `waiting_for_human`).
             if ((data as any).toolMessageIds) {
-              fetchAndReplaceMessages(get, context).catch(console.error);
+              fetchAndReplaceMessages(get, context, operationId).catch(console.error);
             }
           }
         });
@@ -529,7 +544,7 @@ export const createGatewayEventHandler = (
         const data = event.data as ToolEndData | undefined;
         enqueue(async () => {
           await Promise.all([
-            fetchAndReplaceMessages(get, context).catch(console.error),
+            fetchAndReplaceMessages(get, context, operationId).catch(console.error),
             dispatchOnAfterCall(data).catch(console.error),
           ]);
         });
@@ -552,7 +567,7 @@ export const createGatewayEventHandler = (
               sourceId: `${operationId}:gateway:step_complete:${event.stepIndex}`,
               sourceType: 'client.gateway.step_complete',
             });
-            await fetchAndReplaceMessages(get, context).catch(console.error);
+            await fetchAndReplaceMessages(get, context, operationId).catch(console.error);
           });
         }
         break;
@@ -579,13 +594,6 @@ export const createGatewayEventHandler = (
           });
           get().internal_toggleToolCallingStreaming(currentAssistantMessageId, undefined);
           endReasoningIfNeeded();
-          get().completeOperation(operationId);
-
-          const completedOp = get().operations[operationId];
-          if (completedOp?.context.agentId) {
-            get().markUnreadCompleted(completedOp.context.agentId, completedOp.context.topicId);
-          }
-
           // Terminal step has no later step_start to carry SoT — server
           // pushes the canonical snapshot directly on this event. Fall back
           // to a DB refetch only if the snapshot is absent (older server
@@ -618,7 +626,39 @@ export const createGatewayEventHandler = (
             // messages are the only in-memory state and they need the
             // refetch to be reconciled with the server-side rows.
           } else {
-            await fetchAndReplaceMessages(get, context).catch(console.error);
+            let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
+            try {
+              // Sync is best-effort after the server confirms completion; never hold the composer indefinitely.
+              await Promise.race([
+                fetchAndReplaceMessages(get, context, operationId),
+                new Promise<never>((_resolve, reject) => {
+                  refreshTimeout = setTimeout(
+                    () => reject(new Error('Final snapshot refresh timed out')),
+                    5000,
+                  );
+                }),
+              ]);
+            } catch (error) {
+              console.error('[Gateway] Final result synchronization failed:', error);
+              if (get().operations[operationId]?.status !== 'cancelled') {
+                const message = t('streamResultSyncFailed', {
+                  ns: 'error',
+                  defaultValue:
+                    'Generation finished, but the saved results could not be refreshed. Reopen this topic to sync them.',
+                });
+                get().updateOperationMetadata(operationId, { resultSyncError: message });
+                toast.warning(message);
+              }
+            } finally {
+              clearTimeout(refreshTimeout);
+            }
+          }
+          if (get().operations[operationId]?.status === 'cancelled') return;
+          get().completeOperation(operationId);
+
+          const completedOp = get().operations[operationId];
+          if (completedOp?.context.agentId) {
+            get().markUnreadCompleted(completedOp.context.agentId, completedOp.context.topicId);
           }
         });
         break;
@@ -628,7 +668,7 @@ export const createGatewayEventHandler = (
         // Remote hetero agent (openclaw / hermes) wrote a message to DB via
         // `lh notify`. DB is the source of truth — just refresh the message list.
         enqueue(async () => {
-          await fetchAndReplaceMessages(get, context).catch(console.error);
+          await fetchAndReplaceMessages(get, context, operationId).catch(console.error);
         });
         break;
       }
@@ -636,7 +676,7 @@ export const createGatewayEventHandler = (
       case 'error': {
         enqueue(async () => {
           const messageError = toChatMessageError(event.data);
-          const errorMessage = messageError.message;
+          const errorMessage = messageError.message ?? 'Agent stream interrupted';
 
           void emitClientAgentSignalSourceEvent({
             payload: {
@@ -651,7 +691,15 @@ export const createGatewayEventHandler = (
 
           get().internal_toggleToolCallingStreaming(currentAssistantMessageId, undefined);
           endReasoningIfNeeded();
-          get().completeOperation(operationId);
+          get().internal_dispatchMessage(
+            {
+              id: currentAssistantMessageId,
+              type: 'updateMessage',
+              value: { error: messageError },
+            },
+            dispatchContext,
+          );
+          get().failOperation(operationId, { message: errorMessage, type: 'AgentStreamError' });
 
           const updateResult = await messageService
             .updateMessageError(currentAssistantMessageId, messageError, {
@@ -662,13 +710,15 @@ export const createGatewayEventHandler = (
             })
             .catch(console.error);
 
+          if (get().operations[operationId]?.status === 'cancelled') return;
           if (updateResult?.success && updateResult.messages) {
             get().replaceMessages(updateResult.messages, { context });
           } else {
             // Fallback when the mutation response doesn't include messages.
-            await fetchAndReplaceMessages(get, context).catch(console.error);
+            await fetchAndReplaceMessages(get, context, operationId).catch(console.error);
           }
 
+          if (get().operations[operationId]?.status === 'cancelled') return;
           // Then overlay the inline error. This ensures the UI always shows the
           // error even if the server hasn't persisted it into the message yet
           // (the DB fetch would have returned a message with no error field).
@@ -686,5 +736,6 @@ export const createGatewayEventHandler = (
         break;
       }
     }
+    return processingChain;
   };
 };

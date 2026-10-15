@@ -102,6 +102,77 @@ const mockStreamResponse = (response: {
 };
 
 describe('call_llm executor', () => {
+  it('Given a failed model stream, Then the run fails without executing partial tool calls', async () => {
+    const mockStore = createMockStore();
+    const context = createTestContext();
+    mockStore.dbMessagesMap[context.messageKey] = [];
+    mockStreamResponse({ content: '<html>partial', finishType: 'error' });
+    const result = await executeWithMockContext({
+      context,
+      executor: 'call_llm',
+      instruction: createCallLLMInstruction(),
+      mockStore,
+      state: createInitialState(),
+    });
+    expect(result.newState.status).toBe('error');
+    expect(result.nextContext?.phase).not.toBe('llm_result');
+  });
+  it.each(['text', 'reasoning', 'tool_calls'])(
+    'Given a recovered %s stream, Then the retry hint clears before completion',
+    async (type) => {
+      const mockStore = createMockStore();
+      const context = createTestContext();
+      mockStore.dbMessagesMap[context.messageKey] = [];
+      vi.mocked(chatService.createAssistantMessageStream).mockImplementation(
+        async (params: any) => {
+          await params.recovery.onRetry({
+            attempt: 1,
+            maxAttempts: 3,
+            offline: false,
+            delayMs: 1000,
+          });
+          expect(mockStore.operations[context.operationId].metadata.streamRecovery).toBeDefined();
+          params.recovery.onRecovered();
+          await params.onMessageHandle(
+            type === 'tool_calls'
+              ? { type, tool_calls: [], isAnimationActives: [] }
+              : { type, text: 'Recovered output' },
+          );
+          expect(mockStore.operations[context.operationId].metadata.streamRecovery).toBeUndefined();
+          expect(mockStore.operations[context.operationId].status).toBe('running');
+          await params.onFinish('Recovered output', { type: 'done' });
+        },
+      );
+      await executeWithMockContext({
+        context,
+        executor: 'call_llm',
+        instruction: createCallLLMInstruction(),
+        mockStore,
+        state: createInitialState(),
+      });
+    },
+  );
+
+  it('Given a retry followed by an unexpected stream rejection, Then recovery metadata is cleared', async () => {
+    const mockStore = createMockStore();
+    const context = createTestContext();
+    mockStore.dbMessagesMap[context.messageKey] = [];
+    vi.mocked(chatService.createAssistantMessageStream).mockImplementation(async (params: any) => {
+      await params.recovery.onRetry({ attempt: 2, maxAttempts: 3, offline: false, delayMs: 3000 });
+      throw new Error('stream callback failed');
+    });
+    await expect(
+      executeWithMockContext({
+        context,
+        executor: 'call_llm',
+        instruction: createCallLLMInstruction(),
+        mockStore,
+        state: createInitialState(),
+      }),
+    ).rejects.toThrow('stream callback failed');
+    expect(mockStore.operations[context.operationId].metadata.streamRecovery).toBeUndefined();
+  });
+
   describe('Basic Behavior', () => {
     it('should create assistant message with LOADING_FLAT content', async () => {
       // Given
@@ -188,20 +259,22 @@ describe('call_llm executor', () => {
         type: 'function',
       };
 
-      vi.mocked(chatService.createAssistantMessageStream).mockImplementation(async (params: any) => {
-        await params.onMessageHandle?.({ text: 'stale partial', type: 'text' });
-        await params.onMessageHandle?.({ text: 'stale reasoning', type: 'reasoning' });
-        await params.onMessageHandle?.({ tool_calls: [staleTool], type: 'tool_calls' });
+      vi.mocked(chatService.createAssistantMessageStream).mockImplementation(
+        async (params: any) => {
+          await params.onMessageHandle?.({ text: 'stale partial', type: 'text' });
+          await params.onMessageHandle?.({ text: 'stale reasoning', type: 'reasoning' });
+          await params.onMessageHandle?.({ tool_calls: [staleTool], type: 'tool_calls' });
 
-        await params.contextBudget.onProviderAttemptDiscard({
-          attempt: 1,
-          error: { type: 'ExceededContextWindow' },
-          willRetry: true,
-        });
+          await params.contextBudget.onProviderAttemptDiscard({
+            attempt: 1,
+            error: { type: 'ExceededContextWindow' },
+            willRetry: true,
+          });
 
-        await params.onMessageHandle?.({ text: 'final only', type: 'text' });
-        await params.onFinish?.('final only', { type: 'stop' });
-      });
+          await params.onMessageHandle?.({ text: 'final only', type: 'text' });
+          await params.onFinish?.('final only', { type: 'stop' });
+        },
+      );
 
       const result = await executeWithMockContext({
         context,

@@ -1,4 +1,7 @@
-import type { ScreenCaptureAgentOption, ScreenCaptureModelOption } from '@lobechat/electron-client-ipc';
+import type {
+  ScreenCaptureAgentOption,
+  ScreenCaptureModelOption,
+} from '@lobechat/electron-client-ipc';
 
 export const shouldShowOverlayModelSelector = (agent?: ScreenCaptureAgentOption) =>
   !agent?.heterogeneousType;

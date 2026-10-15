@@ -52,7 +52,7 @@ const resolveElectronExecutable = () => {
 };
 
 export const launchElectronTestApp = async (options = {}) => {
-  await buildProductionLifecycle();
+  if (!options.skipBuild) await buildProductionLifecycle();
 
   return electron.launch({
     args: [path.resolve(electronRoot, 'app/main.cjs')],

@@ -410,7 +410,7 @@ class ChatService {
             contextWindowError = error;
             return;
           }
-          providerOptions.onErrorHandle?.(error);
+          return providerOptions.onErrorHandle?.(error);
         },
         onFinish: async (...args) => {
           if (contextWindowError) return;
@@ -449,7 +449,7 @@ class ChatService {
       message: `The final request exceeds the context window for model "${finalPayload.model}".`,
       type: AgentRuntimeErrorType.ExceededContextWindow,
     };
-    providerOptions.onErrorHandle?.(error);
+    await providerOptions.onErrorHandle?.(error);
     await providerOptions.onFinish?.('', { type: 'error' });
     return undefined;
   };
@@ -462,6 +462,8 @@ class ChatService {
     onMessageHandle,
     onErrorHandle,
     onFinish,
+    recovery,
+    requireTerminalEvent,
     metadata,
     trace,
     historySummary,
@@ -476,6 +478,8 @@ class ChatService {
       onErrorHandle,
       onFinish,
       onMessageHandle,
+      recovery,
+      requireTerminalEvent,
       metadata,
       signal: abortController?.signal,
       stepContext,
@@ -613,6 +617,8 @@ class ChatService {
       onErrorHandle: options?.onErrorHandle,
       onFinish: options?.onFinish,
       onMessageHandle: options?.onMessageHandle,
+      recovery: options?.recovery,
+      requireTerminalEvent: options?.requireTerminalEvent,
       requestContext: {
         apiMode,
         fetchOnClient: enableFetchOnClient,

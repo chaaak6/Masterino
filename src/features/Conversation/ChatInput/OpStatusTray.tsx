@@ -247,6 +247,7 @@ const OpStatusTray = memo<OpStatusTrayProps>(({ seamless, topAttached }) => {
     let latestActivityStart = -1;
     let statusSeed: string | undefined;
     let stepCount = 0;
+    let recovery: { attempt: number; maxAttempts: number; offline: boolean } | undefined;
     const runtimeOperationIds: string[] = [];
 
     for (const op of ops) {
@@ -263,6 +264,7 @@ const OpStatusTray = memo<OpStatusTrayProps>(({ seamless, topAttached }) => {
       }
 
       runtimeOperationIds.push(op.id);
+      recovery = op.metadata.streamRecovery ?? recovery;
       stepCount = Math.max(stepCount, normalizeStepCount(op.metadata.stepCount));
 
       if (earliestStart === undefined || op.metadata.startTime < earliestStart) {
@@ -272,6 +274,7 @@ const OpStatusTray = memo<OpStatusTrayProps>(({ seamless, topAttached }) => {
     }
     return {
       activity: activity ?? 'generating',
+      recovery,
       operationIdsKey: runtimeOperationIds.join('|'),
       startTime: earliestStart,
       statusSeed,
@@ -320,8 +323,16 @@ const OpStatusTray = memo<OpStatusTrayProps>(({ seamless, topAttached }) => {
       operationState.statusSeed ?? String(operationState.startTime),
       rotationStep,
     ) ?? t('chat:opStatusTray.status.generating');
-  const statusText =
-    operationState.activity === 'generating'
+  const statusText = operationState.recovery
+    ? operationState.recovery.offline
+      ? t('opStatusTray:waitingForNetwork')
+      : operationState.recovery.maxAttempts === 0
+        ? t('opStatusTray:reconnecting')
+        : t('opStatusTray:retrying', {
+            attempt: operationState.recovery.attempt,
+            total: operationState.recovery.maxAttempts - 1,
+          })
+    : operationState.activity === 'generating'
       ? randomGeneratingStatus
       : t(`chat:opStatusTray.status.${operationState.activity}`);
 

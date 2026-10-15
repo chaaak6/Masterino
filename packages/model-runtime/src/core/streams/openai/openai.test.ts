@@ -5,6 +5,37 @@ import { FIRST_CHUNK_ERROR_KEY } from '../protocol';
 import { OpenAIStream } from './openai';
 
 describe('OpenAIStream', () => {
+  it.each([
+    { delta: {}, usage: { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3 } },
+    { delta: { content: 'last text' } },
+    {
+      delta: {
+        tool_calls: [
+          {
+            index: 0,
+            id: 'call-1',
+            type: 'function',
+            function: { name: 'write', arguments: '{}' },
+          },
+        ],
+      },
+    },
+  ])('preserves newapi terminal reason alongside the final payload: %j', async (final) => {
+    async function* source() {
+      yield {
+        id: 'completion-final',
+        choices: [{ index: 0, delta: final.delta, finish_reason: 'stop' }],
+        ...('usage' in final ? { usage: final.usage } : {}),
+      };
+    }
+    const response = new Response(
+      OpenAIStream(source() as any, { payload: { provider: 'newapi' } }),
+    );
+    const output = await response.text();
+    expect(output.match(/event: stop\n/g)).toHaveLength(1);
+    expect(output).toContain('data: "stop"');
+  });
+
   it('should emit upstream_timeout after partial output when the total timeout aborts', async () => {
     const requestController = new AbortController();
     const totalTimeoutController = new AbortController();
