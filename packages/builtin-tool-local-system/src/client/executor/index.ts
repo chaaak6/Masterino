@@ -34,6 +34,15 @@ const LocalSystemApiEnum = {
   mergeOfficeTemplate: 'mergeOfficeTemplate' as const,
   validateOfficeDocument: 'validateOfficeDocument' as const,
   createOfficeDocument: 'createOfficeDocument' as const,
+  inspectFile: 'inspectFile' as const,
+  analyzeSpreadsheet: 'analyzeSpreadsheet' as const,
+  querySpreadsheet: 'querySpreadsheet' as const,
+  readPdfPages: 'readPdfPages' as const,
+  searchPdf: 'searchPdf' as const,
+  renderPdfPages: 'renderPdfPages' as const,
+  exportDocumentReport: 'exportDocumentReport' as const,
+  getDocumentJob: 'getDocumentJob' as const,
+  cancelDocumentJob: 'cancelDocumentJob' as const,
   inspectOfficeDocument: 'inspectOfficeDocument' as const,
   readOfficeDocument: 'readOfficeDocument' as const,
   createPresentation: 'createPresentation' as const,
@@ -77,6 +86,60 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
   createOfficeDocument = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
     (await this.executeOnDesktopBoundary('createOfficeDocument', args, ctx)) ?? {
       content: 'Office tools require a bound device execution context',
+      success: false,
+    };
+
+  inspectFile = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('inspectFile', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  analyzeSpreadsheet = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('analyzeSpreadsheet', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  querySpreadsheet = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('querySpreadsheet', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  readPdfPages = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('readPdfPages', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  searchPdf = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('searchPdf', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  renderPdfPages = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('renderPdfPages', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  exportDocumentReport = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('exportDocumentReport', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  getDocumentJob = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('getDocumentJob', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
+      success: false,
+    };
+
+  cancelDocumentJob = async (args: Record<string, unknown>, ctx?: BuiltinToolContext) =>
+    (await this.executeOnDesktopBoundary('cancelDocumentJob', args, ctx)) ?? {
+      content: 'Document tools require a bound device execution context',
       success: false,
     };
 
@@ -181,6 +244,8 @@ class LocalSystemExecutor extends BaseExecutor<typeof LocalSystemApiEnum> {
       },
     };
     const output = [
+      'inspectFile',
+      'readPdfPages',
       'inspectOfficeDocument',
       'readOfficeDocument',
       'inspectPresentation',

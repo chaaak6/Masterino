@@ -1,4 +1,4 @@
-import { MemorySourceType } from '@lobechat/types';
+import { LayersEnum, MemorySourceType } from '@lobechat/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { personaUpdateHandler } from '../personaUpdate';
@@ -16,6 +16,9 @@ const {
   mockTriggerProcessTopics,
   mockTriggerTopicFlow,
   mockTriggerProcessUserTopics,
+  mockUpdateMemoryExtractionMetadata,
+  mockUpdateAsyncTask,
+  mockIncrementExtractionProgress,
 } = vi.hoisted(() => ({
   mockComposeWriting: vi.fn(),
   mockCreateExecutor: vi.fn(),
@@ -25,17 +28,27 @@ const {
   mockTriggerProcessTopics: vi.fn(),
   mockTriggerTopicFlow: vi.fn(),
   mockTriggerProcessUserTopics: vi.fn(),
+  mockUpdateMemoryExtractionMetadata: vi.fn(),
+  mockUpdateAsyncTask: vi.fn(),
+  mockIncrementExtractionProgress: vi.fn(),
 }));
 
 vi.mock('@/database/models/asyncTask', () => ({
   AsyncTaskModel: vi.fn(() => ({
-    incrementUserMemoryExtractionProgress: vi.fn(),
+    incrementUserMemoryExtractionProgress: mockIncrementExtractionProgress,
+    update: mockUpdateAsyncTask,
     isUserMemoryExtractionCancellationRequested: vi.fn().mockResolvedValue(false),
   })),
 }));
 
 vi.mock('@/database/server', () => ({
   getServerDB: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/database/models/topic', () => ({
+  TopicModel: vi.fn(() => ({
+    updateMemoryExtractionMetadata: mockUpdateMemoryExtractionMetadata,
+  })),
 }));
 
 vi.mock('@/server/services/memory/userMemory/access', () => ({
@@ -144,6 +157,69 @@ describe('queued memory workflow access checks', () => {
 
     expect(result).toEqual({ message: 'Memory was disabled before identity extraction.' });
     expect(mockExtractTopic).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a failed topic so hourly extraction can back off', async () => {
+    mockExtractTopic.mockRejectedValueOnce(new Error('Embedding model unavailable'));
+
+    await expect(processTopicHandler(createContext(basePayload))).rejects.toThrow(
+      'Embedding model unavailable',
+    );
+    expect(mockUpdateMemoryExtractionMetadata).toHaveBeenCalledWith(
+      'topic-1',
+      'failed',
+      expect.objectContaining({
+        error: 'Embedding model unavailable',
+        lastRunAt: expect.any(String),
+      }),
+    );
+  });
+
+  it.each([LayersEnum.Preference, LayersEnum.Identity])(
+    'does not execute an empty stage when only %s is requested',
+    async (layer) => {
+      await processTopicHandler(createContext({ ...basePayload, layers: [layer] }));
+      expect(mockExtractTopic).toHaveBeenCalledTimes(1);
+      expect(mockExtractTopic).toHaveBeenCalledWith(expect.objectContaining({ layers: [layer] }));
+    },
+  );
+
+  it('reports the combined memory count when identity extracts nothing after CEPA succeeds', async () => {
+    mockExtractTopic
+      .mockResolvedValueOnce({
+        extracted: true,
+        layers: { preference: 2 },
+        memoryIds: ['preference-1', 'preference-2'],
+      })
+      .mockResolvedValueOnce({ extracted: false, layers: {}, memoryIds: [] });
+
+    await processTopicHandler(createContext(basePayload));
+
+    expect(mockUpdateMemoryExtractionMetadata).toHaveBeenCalledWith('topic-1', 'completed', {
+      processedMemoryCount: 2,
+    });
+  });
+
+  it('leaves retryable topic failures to the worker without advancing task progress', async () => {
+    mockExtractTopic.mockRejectedValueOnce(new Error('temporary gateway failure'));
+
+    await expect(
+      processTopicHandler(
+        createContext({
+          ...basePayload,
+          asyncTaskId: 'task-1',
+          userInitiated: true,
+        }),
+      ),
+    ).rejects.toThrow('temporary gateway failure');
+
+    expect(mockUpdateAsyncTask).not.toHaveBeenCalled();
+    expect(mockIncrementExtractionProgress).not.toHaveBeenCalled();
+    expect(mockUpdateMemoryExtractionMetadata).toHaveBeenCalledWith(
+      'topic-1',
+      'failed',
+      expect.objectContaining({ error: 'temporary gateway failure' }),
+    );
   });
 
   it('skips queued persona writing after memory is disabled', async () => {

@@ -40,7 +40,6 @@ const OPTIONAL_FEATURE_ITEMS: SystemAgentModelItem[] = [
 const MEMORY_MODEL_ITEMS: SystemAgentModelItem[] = [
   { contextLimit: true, key: 'memoryAnalysisAgentConfig' },
   { contextLimit: true, key: 'userMemoryPersonaWriter' },
-  { contextLimit: true, key: 'userMemoryEmbedding' },
 ];
 
 const ModelAssignmentsForm = memo(() => {
@@ -151,6 +150,7 @@ const ModelAssignmentsForm = memo(() => {
       children: (
         <Flexbox direction="vertical" gap={8} style={{ width: 448 }}>
           <ModelSelect
+            modelType="chat"
             showAbility={false}
             style={{ minWidth: 0, width: '100%' }}
             value={value}

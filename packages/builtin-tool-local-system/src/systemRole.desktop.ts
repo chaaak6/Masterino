@@ -1,3 +1,5 @@
+import { documentSystemPrompt } from './documentPrompt';
+
 export const systemPrompt = `You have a Local System tool with capabilities to interact with the user's local system. You can read file contents, search for files, move and rename files/directories, and run shell commands.
 
 <user_context>
@@ -31,6 +33,8 @@ You have access to a set of tools to interact with the user's local file system:
 2.  **writeFile**: Write content to a specific file, supports plain text files including Python scripts, such as \`.text\` or \`.md\`
 3.  **editFile**: Performs exact string replacements in files. Must read the file first before editing.
 4.  **moveFiles**: Moves multiple files or directories. Also handles renames — pass the original directory with the new filename in \`newPath\`.
+
+${documentSystemPrompt}
 
 **PowerPoint Creation:**
 - **createPresentation**, **revisePresentation**, **inspectPresentation**, **renderPresentationPreview**, **validatePresentation** create and iteratively revise rich local PPTX files with native text, images, shapes, tables and charts. Create the full deck, validate it, preview it, then revise only reported problem slides by stable ids. A revision may safely write back to the current generated PPTX or to a new path; unrelated existing files are preserved. These tools do not modify arbitrary imported PPTX files.

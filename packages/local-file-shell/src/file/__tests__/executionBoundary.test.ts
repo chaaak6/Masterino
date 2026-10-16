@@ -921,4 +921,46 @@ describe('prepareToolCallExecution', () => {
       }),
     ).rejects.toMatchObject({ code: 'WORKSPACE_REQUIRED' });
   });
+  it('applies existing read boundaries and both report write paths to document tools', async () => {
+    for (const apiName of [
+      'inspectFile',
+      'analyzeSpreadsheet',
+      'readPdfPages',
+      'searchPdf',
+      'renderPdfPages',
+    ]) {
+      await expect(
+        prepareToolCallExecution({
+          apiName,
+          args: { path: path.join(workspace, 'README.md') },
+          context: primaryContext(),
+          homeDir,
+        }),
+      ).resolves.toMatchObject({ legacy: false });
+      await expect(
+        prepareToolCallExecution({
+          apiName,
+          args: { path: path.join(workspace, 'link', 'id_ed25519') },
+          context: primaryContext(),
+          homeDir,
+        }),
+      ).rejects.toMatchObject({ code: 'SCOPE_DENIED' });
+    }
+    await expect(
+      prepareToolCallExecution({
+        apiName: 'exportDocumentReport',
+        args: {
+          datasetId: 'opaque',
+          outputPath: path.join(workspace, 'report.xlsx'),
+          pdfPath: path.join(homeDir, '.ssh', 'id_ed25519'),
+        },
+        context: primaryContext(),
+        homeDir,
+      }),
+    ).rejects.toMatchObject({ code: 'SCOPE_DENIED' });
+    for (const apiName of ['querySpreadsheet', 'getDocumentJob', 'cancelDocumentJob'])
+      await expect(prepareToolCallExecution({ apiName, args: {}, homeDir })).rejects.toMatchObject({
+        code: 'WORKSPACE_REQUIRED',
+      });
+  });
 });

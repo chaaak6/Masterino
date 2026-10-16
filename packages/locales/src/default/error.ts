@@ -1,4 +1,10 @@
 export default {
+  'streamResultSyncFailed':
+    'Generation finished, but the saved results could not be refreshed. Reopen this topic to sync them.',
+  'streamInterrupted': 'The connection ended before generation completed. Please retry.',
+  'streamRecoveryExpired':
+    'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
+
   'contextBudget.action.detachAttachments': 'Remove attachments',
   'contextBudget.action.forkTopic': 'New branch topic',
   'contextBudget.action.retryCompression': 'Retry summary',

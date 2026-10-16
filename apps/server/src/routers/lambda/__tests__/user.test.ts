@@ -356,5 +356,21 @@ describe('userRouter', () => {
         }),
       );
     });
+
+    it('ignores legacy memory embedding settings while preserving other agent settings', async () => {
+      const updateSetting = vi.fn().mockResolvedValue({ rowCount: 1 });
+      vi.mocked(UserModel).mockImplementation(() => ({ updateSetting }) as any);
+
+      await userRouter.createCaller({ ...mockCtx }).updateSettings({
+        systemAgent: {
+          topic: { model: 'glm-5.2' },
+          userMemoryEmbedding: { model: 'text-embedding-3-small', provider: 'newapi' },
+        },
+      });
+
+      expect(updateSetting).toHaveBeenCalledWith(
+        expect.objectContaining({ systemAgent: { topic: { model: 'glm-5.2' } } }),
+      );
+    });
   });
 });

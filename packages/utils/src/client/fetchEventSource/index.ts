@@ -33,7 +33,7 @@ export interface FetchEventSourceInit extends RequestInit {
    * If this callback is not specified, or it returns undefined, fetchEventSource
    * will treat every error as retriable and will try again after 1 second.
    */
-  onerror?: (err: any) => number | null | undefined | void;
+  onerror?: (err: any) => number | null | undefined | void | Promise<void>;
 
   /**
    * Called when a message is received. NOTE: Unlike the default browser
@@ -63,7 +63,7 @@ export function fetchEventSource(
     ...rest
   }: FetchEventSourceInit,
 ) {
-  return new Promise<void>((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     // make a copy of the input headers since we may modify it below:
     const headers = { ...inputHeaders };
     if (!headers.accept) {
@@ -99,8 +99,12 @@ export function fetchEventSource(
         onclose?.();
         resolve();
       } catch (err) {
-        onerror?.(err);
-        resolve();
+        try {
+          await onerror?.(err);
+          resolve();
+        } catch (callbackError) {
+          reject(callbackError);
+        }
       }
     }
 

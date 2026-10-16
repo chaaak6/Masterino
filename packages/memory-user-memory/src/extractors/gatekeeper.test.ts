@@ -95,7 +95,10 @@ describe('UserMemoryGateKeeper', () => {
         model: 'gpt-mock',
         schema: expect.any(Object),
       }),
-      expect.objectContaining({ metadata: { trigger: 'memory' } }),
+      expect.objectContaining({
+        metadata: { trigger: 'memory' },
+        signal: expect.any(AbortSignal),
+      }),
     );
   });
 });

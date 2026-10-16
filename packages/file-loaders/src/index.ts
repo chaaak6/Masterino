@@ -4,3 +4,4 @@ export * from './office';
 export * from './types';
 export * from './utils/isBinaryContent';
 export * from './utils/isTextReadableFile';
+export * from './documents';

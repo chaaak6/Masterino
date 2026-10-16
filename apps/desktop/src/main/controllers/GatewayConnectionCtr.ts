@@ -65,6 +65,8 @@ import {
 } from '@lobechat/local-file-shell';
 import { type ILocalSystemService, LocalSystemExecutionRuntime } from '@lobechat/tool-runtime';
 
+import { DocumentJobs } from '@/modules/documentJobs';
+
 import ExecutionEnvService from '@/services/executionEnvSrv';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import ImessageBridgeService from '@/services/imessageBridgeSrv';
@@ -360,7 +362,12 @@ export default class GatewayConnectionCtr extends ControllerModule {
     const pending = this.pendingLocalToolCalls.get(key);
     if (pending) return pending;
     // Local read cancellation does not apply to file publication or remote gateway calls.
-    const cancellable = ['inspectOfficeDocument', 'readOfficeDocument'].includes(params.apiName);
+    const cancellable = [
+      'inspectOfficeDocument',
+      'readOfficeDocument',
+      'inspectFile',
+      'readPdfPages',
+    ].includes(params.apiName);
     const controller = cancellable ? new AbortController() : undefined;
     if (controller) this.localOfficeReads.set(key, controller);
     const timer = controller
@@ -632,6 +639,16 @@ export default class GatewayConnectionCtr extends ControllerModule {
     return runDeviceRpc(method, params, this.deviceControlDeps);
   }
 
+  private documentJobsInstance?: DocumentJobs;
+  cleanupDocumentJobs(): Promise<void> {
+    return this.documentJobsInstance?.cleanup() ?? Promise.resolve();
+  }
+  private get documentJobs() {
+    return (this.documentJobsInstance ??= new DocumentJobs(
+      path.join(this.app.appStoragePath, 'document-cache'),
+    ));
+  }
+
   private attachmentShellPaths = new Map<string, { path: string; id: string }>();
 
   private async executeToolCall(
@@ -659,6 +676,11 @@ export default class GatewayConnectionCtr extends ControllerModule {
         trace.deviceId !== this.service.getDeviceId() ||
         ![
           'readFile',
+          'inspectFile',
+          'analyzeSpreadsheet',
+          'readPdfPages',
+          'searchPdf',
+          'renderPdfPages',
           'inspectOfficeDocument',
           'readOfficeDocument',
           'validateOfficeDocument',
@@ -804,6 +826,11 @@ export default class GatewayConnectionCtr extends ControllerModule {
       [
         'readFile',
         'readFiles',
+        'inspectFile',
+        'analyzeSpreadsheet',
+        'readPdfPages',
+        'searchPdf',
+        'renderPdfPages',
         'inspectOfficeDocument',
         'readOfficeDocument',
         'validateOfficeDocument',
@@ -1010,6 +1037,46 @@ export default class GatewayConnectionCtr extends ControllerModule {
                         args as unknown as RenderPresentationPreviewParams,
                       )
                     : await validatePresentation(args as unknown as ValidatePresentationParams);
+          return finish({ content: JSON.stringify(state), state, success: true });
+        } catch (error) {
+          return finish({
+            content: error instanceof Error ? error.message : String(error),
+            success: false,
+          });
+        }
+      }
+      case 'inspectFile':
+      case 'analyzeSpreadsheet':
+      case 'querySpreadsheet':
+      case 'readPdfPages':
+      case 'searchPdf':
+      case 'renderPdfPages':
+      case 'exportDocumentReport':
+      case 'getDocumentJob':
+      case 'cancelDocumentJob': {
+        try {
+          if (!trace?.deviceId || !trace.topicId)
+            throw new Error('DOCUMENT_EXECUTION_CONTEXT_REQUIRED');
+          const state = await this.documentJobs.execute(
+            normalized,
+            args as Record<string, any>,
+            JSON.stringify([trace.deviceId, trace.topicId]),
+            signal,
+          );
+          if (state.operation === 'renderPdfPages' && state.status === 'completed') {
+            for (const page of state.result.pages) {
+              // Only completed, conversation-owned worker outputs receive exact-file tokens.
+              page.previewUrl = await this.app.localFileProtocolManager.createPreviewUrl({
+                accept: 'image',
+                allowExternalFile: true,
+                filePath: page.path,
+                workspaceRoot:
+                  resolvedExecutionContext?.workspaceRootPath ??
+                  resolvedExecutionContext?.cwd ??
+                  '',
+              });
+            }
+          }
           return finish({ content: JSON.stringify(state), state, success: true });
         } catch (error) {
           return finish({

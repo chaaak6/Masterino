@@ -131,6 +131,13 @@ const getTopics = async (input: GetTopicsInput = {}) => {
 };
 
 const procedures: Record<string, (input: any) => Promise<unknown>> = {
+  'message.getMessages': async (input) => {
+    if (input.agentId !== 'stream-bdd-agent')
+      throw new Error('Message query is outside the stream recovery fixture');
+    const response = await fetch(`http://127.0.0.1:14321/?scenario=snapshot&run=${input.topicId}`);
+    if (!response.ok) throw new Error('Fixture snapshot unavailable');
+    return response.json();
+  },
   'projectWorkspace.list': async () => WORKSPACE_ROWS,
   // The sidebar Task module shares the mounted Accordion with Topic. It has its
   // own suite; here it only has to stay empty and independent of Topic.

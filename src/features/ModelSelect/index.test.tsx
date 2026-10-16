@@ -1,6 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
+import { classifyModelKindById } from '@lobechat/business-model-bank';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -23,7 +24,7 @@ vi.mock('@lobehub/ui', () => ({
 vi.mock('@lobehub/ui/base-ui', () => ({
   Select: (props: any) => {
     selectMock(props);
-    return <button onClick={() => props.onChange('newapi/glm-5.1', { provider: 'newapi' })} />;
+    return <button onClick={() => props.onChange('newapi/glm-5.1', { id: 'glm-5.1', provider: 'newapi' })} />;
   },
   Tooltip: () => null,
 }));
@@ -46,6 +47,7 @@ vi.mock('@/components/ModelSelect', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   ModelItemRender: (props: { displayName?: string; id: string; providerId?: string }) => {
     modelItemMock(props);
+    classifyModelKindById(props.id);
     return <span>{props.displayName || props.id}</span>;
   },
   ProviderItemRender: ({ name }: { name: string }) => <span>{name}</span>,
@@ -56,8 +58,11 @@ const storeState = {
     { abilities: { functionCall: true }, id: 'glm-5.1', providerId: 'newapi', type: 'chat' },
     // legacy remote rows whose type still says chat; B1 reclassifies them from the id
     { abilities: {}, id: 'qwen3-vl-rerank', providerId: 'newapi', type: 'chat' },
-    { abilities: {}, id: 'text-embedding-3-small', providerId: 'newapi', type: 'chat' },
+    { abilities: {}, id: 'text-embedding-3-small', providerId: 'newapi', type: 'embedding' },
+    { abilities: {}, id: 'text-embedding-3-large', providerId: 'newapi', type: 'embedding' },
+    { abilities: {}, id: 'qwen3-vl-rerank', providerId: 'newapi', type: 'embedding' },
   ],
+  enabledAiProviders: [{ id: 'newapi', name: 'Aihub' }],
 };
 
 vi.mock('@/store/aiInfra', () => ({
@@ -114,5 +119,31 @@ describe('ModelSelect', () => {
       options.map((option: { label: { props: { id: string } } }) => option.label.props.id),
     ).toEqual(['glm-5.1']);
     expect(options[0].label.props).toMatchObject({ id: 'glm-5.1', providerId: 'newapi' });
+  });
+
+  it('renders a saved embedding that is absent from available options without crashing', () => {
+    const onChange = vi.fn();
+    render(
+      <ModelSelect
+        modelType="embedding"
+        value={{ model: 'text-embedding-3-small', provider: 'newapi' }}
+        onChange={onChange}
+      />,
+    );
+
+    const { onChange: selectOnChange, optionRender, options } = selectMock.mock.calls.at(-1)![0];
+    expect(options.map((option: { value: string }) => option.value)).toEqual([
+      'newapi/text-embedding-3-large',
+    ]);
+    // base-ui Select synthesizes this minimal option when the controlled value
+    // is missing from its current options (for example, a stale saved model).
+    expect(() =>
+      render(optionRender({ label: 'newapi/text-embedding-3-small', value: 'newapi/text-embedding-3-small' })),
+    ).not.toThrow();
+    selectOnChange('newapi/text-embedding-3-small', {
+      label: 'newapi/text-embedding-3-small',
+      value: 'newapi/text-embedding-3-small',
+    });
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

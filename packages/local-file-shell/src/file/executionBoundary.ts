@@ -56,6 +56,15 @@ const LOCAL_SYSTEM_APIS = new Set([
   'createOfficeDocument',
   'createPresentation',
   'inspectPresentation',
+  'inspectFile',
+  'analyzeSpreadsheet',
+  'querySpreadsheet',
+  'readPdfPages',
+  'searchPdf',
+  'renderPdfPages',
+  'exportDocumentReport',
+  'getDocumentJob',
+  'cancelDocumentJob',
   'inspectOfficeDocument',
   'prepareProjectSkillSnapshot',
   'readOfficeDocument',
@@ -438,6 +447,11 @@ const collectPathRequests = (
   switch (apiName) {
     case 'listFiles':
     case 'listLocalFiles':
+    case 'inspectFile':
+    case 'analyzeSpreadsheet':
+    case 'readPdfPages':
+    case 'searchPdf':
+    case 'renderPdfPages':
     case 'inspectOfficeDocument':
     case 'prepareProjectSkillSnapshot':
     case 'readOfficeDocument':
@@ -445,6 +459,11 @@ const collectPathRequests = (
     case 'readFile':
     case 'readLocalFile': {
       return [{ apply: setField('path'), mode: 'read', value: args.path || cwd }];
+    }
+    case 'exportDocumentReport': {
+      return ['outputPath', 'pdfPath']
+        .filter((field) => typeof args[field] === 'string')
+        .map((field) => ({ apply: setField(field), mode: 'write' as const, value: args[field] }));
     }
     case 'readFiles': {
       return Array.isArray(args.paths)

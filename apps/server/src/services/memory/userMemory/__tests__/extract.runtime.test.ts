@@ -64,7 +64,13 @@ const createExecutor = (privateOverrides?: Partial<MemoryExtractionPrivateConfig
 
 const defaultAuthorizedModels: EnabledAiModel[] = [
   { abilities: {}, enabled: true, id: 'gate-2', providerId: 'provider-b', type: 'chat' },
-  { abilities: {}, enabled: true, id: 'embed-1', providerId: 'provider-e', type: 'embedding' },
+  {
+    abilities: {},
+    enabled: true,
+    id: 'text-embedding-3-large',
+    providerId: 'newapi',
+    type: 'embedding',
+  },
   { abilities: {}, enabled: true, id: 'layer-act', providerId: 'provider-l', type: 'chat' },
   { abilities: {}, enabled: true, id: 'layer-ctx', providerId: 'provider-l', type: 'chat' },
   { abilities: {}, enabled: true, id: 'layer-exp', providerId: 'provider-l', type: 'chat' },
@@ -74,7 +80,7 @@ const defaultAuthorizedModels: EnabledAiModel[] = [
 
 const defaultKeyVaults = {
   'provider-b': { apiKey: 'b-key' },
-  'provider-e': { apiKey: 'e-key' },
+  newapi: { apiKey: 'aih-key' },
   'provider-l': { apiKey: 'l-key' },
 };
 
@@ -88,7 +94,7 @@ const resolveRuntimeKeyVaults = async (
 };
 
 describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
-  it('drops fallback credentials when user memory provider is overridden', () => {
+  it('ignores a legacy user memory embedding provider override', () => {
     const executor = createExecutor({
       embedding: {
         apiKey: 'openai-system-key',
@@ -106,14 +112,14 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
     });
 
     expect(memoryServiceConfig.agents.embedding).toMatchObject({
-      model: 'embed-2',
-      provider: 'anthropic',
+      model: 'text-embedding-3-large',
+      provider: 'newapi',
     });
     expect(memoryServiceConfig.agents.embedding.apiKey).toBeUndefined();
     expect(memoryServiceConfig.agents.embedding.baseURL).toBeUndefined();
   });
 
-  it('keeps fallback credentials when user memory provider is unchanged', () => {
+  it('ignores a legacy user memory embedding model override', () => {
     const executor = createExecutor({
       embedding: {
         apiKey: 'openai-system-key',
@@ -131,10 +137,10 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
     });
 
     expect(memoryServiceConfig.agents.embedding).toMatchObject({
-      apiKey: 'openai-system-key',
-      baseURL: 'https://openai.example.com',
-      model: 'embed-2',
-      provider: 'openai',
+      apiKey: undefined,
+      baseURL: undefined,
+      model: 'text-embedding-3-large',
+      provider: 'newapi',
     });
   });
 
@@ -191,7 +197,7 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
     });
   });
 
-  it('uses ServiceModel provider before env preferred providers when provider is overridden', async () => {
+  it('rejects another embedding provider even when a legacy setting requests it', async () => {
     const executor = createExecutor({
       agentGateKeeper: {
         model: 'gate-1',
@@ -263,15 +269,9 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
       },
     );
 
-    const keyVaults = await (executor as any).resolveRuntimeKeyVaults(
-      runtimeState,
-      memoryServiceConfig,
-    );
-
-    expect(keyVaults).toMatchObject({
-      'provider-a': { apiKey: 'a-key' },
-    });
-    expect(keyVaults).not.toHaveProperty('provider-b');
+    await expect(
+      (executor as any).resolveRuntimeKeyVaults(runtimeState, memoryServiceConfig),
+    ).rejects.toThrow('enabled embedding provider');
   });
 
   it('uses only the exact configured providers and models for every memory runtime', async () => {
@@ -305,7 +305,7 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
 
     expect(keyVaults).toMatchObject({
       'provider-b': { apiKey: 'b-key' },
-      'provider-e': { apiKey: 'e-key' },
+      newapi: { apiKey: 'aih-key' },
       'provider-l': { apiKey: 'l-key' },
     });
     expect(keyVaults).not.toHaveProperty('provider-a');
@@ -316,12 +316,12 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
     const executor = createExecutor();
     const runtimeState = createRuntimeState(
       [
-        ...defaultAuthorizedModels.filter((model) => model.id !== 'embed-1'),
+        ...defaultAuthorizedModels.filter((model) => model.id !== 'text-embedding-3-large'),
         {
           abilities: {},
           enabled: true,
           id: 'other-embedding',
-          providerId: 'provider-e',
+          providerId: 'newapi',
           type: 'embedding',
         },
       ],
@@ -340,18 +340,18 @@ describe('MemoryExtractionExecutor.resolveRuntimeKeyVaults', () => {
 
     const runtimeState = createRuntimeState(
       [
-        ...defaultAuthorizedModels.filter((model) => model.id !== 'embed-1'),
+        ...defaultAuthorizedModels.filter((model) => model.id !== 'text-embedding-3-large'),
         {
           abilities: {},
           enabled: false,
-          id: 'embed-1',
+          id: 'text-embedding-3-large',
           type: 'embedding',
-          providerId: 'provider-e',
+          providerId: 'newapi',
         },
         {
           abilities: {},
           enabled: true,
-          id: 'embed-1',
+          id: 'text-embedding-3-large',
           type: 'embedding',
           providerId: 'provider-a',
         },

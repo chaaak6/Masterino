@@ -86,6 +86,24 @@ export const isRetryableProviderError = (error: unknown) => {
   );
 };
 
+/** Only a short, explicit upstream rate-limit delay is safe to replay automatically. */
+export const getProviderRetryAfterMs = (error: unknown): number | undefined => {
+  if (readStatus(error) !== 429) return;
+  const record = asRecord(error);
+  const nested = asRecord(record?.error);
+  for (const headers of [record?.headers, nested?.headers]) {
+    const value =
+      headers instanceof Headers
+        ? headers.get('retry-after')
+        : (asRecord(headers)?.['retry-after'] ?? asRecord(headers)?.['Retry-After']);
+    if (typeof value !== 'string') continue;
+    const delay = /^\d+(?:\.\d+)?$/.test(value)
+      ? Number(value) * 1000
+      : Date.parse(value) - Date.now();
+    if (Number.isFinite(delay) && delay >= 0 && delay <= 30_000) return delay;
+  }
+};
+
 export class UpstreamCircuitOpenError extends Error {
   code = 'UPSTREAM_CIRCUIT_OPEN';
   status = 503;

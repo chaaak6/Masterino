@@ -1,5 +1,6 @@
 import type { AgentStreamClientEvents, AgentStreamEvent } from '@lobechat/agent-gateway-client';
 import { fetchEventSource } from '@lobechat/utils/client';
+import { t } from 'i18next';
 
 import { aiAgentService } from '@/services/aiAgent';
 
@@ -12,6 +13,8 @@ export class SameOriginAgentStreamClient {
   private stopped = true;
   private terminal = false;
   private retryDelay = 1000;
+  private recoveryStartedAt?: number;
+  private failedConnections = 0;
 
   constructor(
     private readonly operationId: string,
@@ -42,8 +45,27 @@ export class SameOriginAgentStreamClient {
 
   private open(): void {
     if (this.stopped || this.terminal) return;
+    if (
+      this.recoveryStartedAt !== undefined &&
+      typeof navigator !== 'undefined' &&
+      !navigator.onLine
+    ) {
+      if (this.expireRecovery()) return;
+      this.emit('status_changed', 'reconnecting');
+      this.retry = setTimeout(() => this.open(), 1000);
+      return;
+    }
     this.controller = new AbortController();
     const controller = this.controller;
+    let openedAt: number | undefined;
+    const resetIfHealthy = () => {
+      // Headers alone do not prove recovery: bound repeated immediate EOF.
+      if (openedAt !== undefined && Date.now() - openedAt >= 10_000) {
+        this.recoveryStartedAt = undefined;
+        this.failedConnections = 0;
+        this.retryDelay = 1000;
+      }
+    };
     const params = new URLSearchParams({
       lastEventId: this.cursor,
       operationId: this.operationId,
@@ -53,6 +75,7 @@ export class SameOriginAgentStreamClient {
     void fetchEventSource(`/api/agent/events?${params}`, {
       credentials: 'same-origin',
       onopen: async (response) => {
+        if (this.stopped || this.terminal || this.controller !== controller) return;
         if ([400, 401, 403, 404].includes(response.status)) {
           this.stopped = true;
           controller.abort();
@@ -72,37 +95,64 @@ export class SameOriginAgentStreamClient {
         if (!response.ok || !response.headers.get('content-type')?.includes('text/event-stream')) {
           throw new Error(`Invalid stream response (${response.status})`);
         }
-        this.retryDelay = 1000;
+        openedAt = Date.now();
         this.emit('status_changed', 'connected');
         this.emit('connected');
       },
       onmessage: (message) => {
-        if (!message.data || this.stopped) return;
+        if (this.stopped || this.terminal || this.controller !== controller) return;
+        resetIfHealthy();
+        if (!message.data) return;
         const event = JSON.parse(message.data) as AgentStreamEvent;
         if (event.operationId !== this.operationId) throw new Error('Stream operation mismatch');
+        if (message.id && message.id === this.cursor) return;
+        this.recoveryStartedAt = undefined;
+        this.failedConnections = 0;
+        this.retryDelay = 1000;
         this.emit('agent_event', event);
         this.cursor = message.id || event.id || this.cursor;
-        if (event.type === 'agent_runtime_end') {
+        if (event.type === 'agent_runtime_end' || event.type === 'error') {
           this.terminal = true;
           controller.abort();
           this.emit('session_complete');
         }
       },
-      onerror: (error: unknown) => {
-        if (!this.stopped && !this.terminal)
-          this.emit(
-            'error',
-            error instanceof Error ? error : new Error('Stream connection failed'),
-          );
-      },
+      // A transport failure is recoverable. Only an exhausted subscription is a task/UI error.
+      onerror: () => {},
       signal: controller.signal,
     }).finally(() => {
       if (this.stopped || this.terminal || this.controller !== controller) return;
+      resetIfHealthy();
+      this.recoveryStartedAt ??= Date.now();
+      this.failedConnections += 1;
+      if (this.expireRecovery()) return;
       this.emit('status_changed', 'reconnecting');
       this.emit('reconnecting', this.retryDelay);
       this.retry = setTimeout(() => this.open(), this.retryDelay);
       this.retryDelay = Math.min(30_000, this.retryDelay * 2);
     });
+  }
+
+  private expireRecovery(): boolean {
+    if (this.failedConnections < 3 && Date.now() - (this.recoveryStartedAt ?? Date.now()) < 30_000)
+      return false;
+    this.terminal = true;
+    this.emit('agent_event', {
+      data: {
+        message: t('streamRecoveryExpired', {
+          ns: 'error',
+          defaultValue:
+            'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
+        }),
+        type: 'AgentStreamError',
+      },
+      operationId: this.operationId,
+      stepIndex: 0,
+      timestamp: Date.now(),
+      type: 'error',
+    });
+    this.emit('session_complete');
+    return true;
   }
 
   disconnect(): void {

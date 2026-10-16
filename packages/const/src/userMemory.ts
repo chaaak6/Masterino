@@ -23,9 +23,8 @@ export interface UserMemoryConfig {
 }
 
 export const DEFAULT_USER_MEMORY_EMBEDDING_MODEL_ITEM: UserMemoryConfigItem = {
-  // User-memory vectors are stored at 2,048 dimensions. The generic
-  // text-embedding-3-small default tops out below that size, while
-  // text-embedding-3-large supports the requested reduced dimension.
+  // User-memory vectors are stored at 2,048 dimensions. Aihub currently maps
+  // this API model id to qwen3.7-text-embedding; keep that gateway mapping pinned.
   model: 'text-embedding-3-large',
   provider: DEFAULT_EMBEDDING_PROVIDER,
 };

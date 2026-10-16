@@ -4,6 +4,49 @@ import { presentationApis } from './presentationManifest';
 import { systemPrompt } from './systemRole';
 import { LocalSystemApiName, LocalSystemIdentifier } from './types';
 
+export const DOCUMENT_API_NAMES = [
+  'inspectFile',
+  'analyzeSpreadsheet',
+  'querySpreadsheet',
+  'readPdfPages',
+  'searchPdf',
+  'renderPdfPages',
+  'exportDocumentReport',
+  'getDocumentJob',
+  'cancelDocumentJob',
+] as const;
+
+const documentFields: Record<(typeof DOCUMENT_API_NAMES)[number], readonly string[]> = {
+  inspectFile: ['attachmentId', 'path'],
+  analyzeSpreadsheet: ['attachmentId', 'path', 'sheet', 'start', 'columns', 'metrics'],
+  querySpreadsheet: [
+    'datasetId',
+    'groupBy',
+    'distinct',
+    'metrics',
+    'filters',
+    'limit',
+    'sampleLimit',
+  ],
+  readPdfPages: ['attachmentId', 'path', 'pages', 'maxChars'],
+  searchPdf: ['attachmentId', 'path', 'query', 'topK'],
+  renderPdfPages: ['attachmentId', 'path', 'pages', 'scale'],
+  exportDocumentReport: ['datasetId', 'metrics', 'outputPath', 'pdfPath'],
+  getDocumentJob: ['jobId'],
+  cancelDocumentJob: ['jobId'],
+};
+const documentRequired: Record<(typeof DOCUMENT_API_NAMES)[number], string[]> = {
+  inspectFile: [],
+  analyzeSpreadsheet: ['columns', 'metrics'],
+  querySpreadsheet: ['datasetId'],
+  readPdfPages: [],
+  searchPdf: ['query'],
+  renderPdfPages: [],
+  exportDocumentReport: ['datasetId', 'metrics', 'outputPath'],
+  getDocumentJob: ['jobId'],
+  cancelDocumentJob: ['jobId'],
+};
+
 const officeVersionParameter = {
   type: 'string' as const,
   description:
@@ -127,6 +170,134 @@ export const LocalSystemManifest: BuiltinToolManifest = {
         },
       },
     },
+    ...(
+      [
+        [
+          'inspectFile',
+          'Inspect metadata without reading whole content. OOXML includes expanded sizes and sheets; PDF includes page count. Start here before handling a large file.',
+        ],
+        [
+          'analyzeSpreadsheet',
+          'Analyze selected XLSX/UTF-8 CSV columns into a disk dataset. Confirm headers first; include metric, requested grouping/filter and record-ID columns together, omit noise. Returns jobId; poll getDocumentJob. Full scan from start (default2), cached formulas only. Bounds inclusive; stddev uses ddof1. incomplete includes missing, error, cacheMissing and nonNumeric; use the disjoint quality counts directly. Reuse datasetId; no recalculation.',
+        ],
+        [
+          'querySpreadsheet',
+          'Query an existing conversation-owned dataset with exact distinct counts and grouped numeric means. No source reparsing or caller SQL. Returns jobId. Group output is bounded; truncated indicates omitted groups.',
+        ],
+        [
+          'readPdfPages',
+          'Read at most20 selected one-based PDF pages, with bounded text and page evidence. Uses ranged local reads. Empty text explicitly indicates OCR may be needed; OCR is not installed.',
+        ],
+        [
+          'searchPdf',
+          'Search local PDF text page by page. Returns background jobId, total match count and bounded page-number excerpts. Empty scanned pages indicate possible OCR need.',
+        ],
+        [
+          'renderPdfPages',
+          'Render selected PDF pages to local PNG evidence, using the existing PDF engine. At most20 pages and24million total pixels. Returns background jobId.',
+        ],
+        [
+          'exportDocumentReport',
+          'Export statistics from datasetId to a new XLSX outputPath. Optional pdfPath produces the same analysis through Electron PDF printing. Both paths must be authorized workspace paths; existing outputs are never overwritten. Returns background jobId.',
+        ],
+        [
+          'getDocumentJob',
+          'Get a conversation-owned document job status, progress, result or error. Poll while queued/running, use results only after completed.',
+        ],
+        [
+          'cancelDocumentJob',
+          'Cancel a queued or running conversation-owned document job and release its worker.',
+        ],
+      ] as const
+    ).map(([name, description]) => ({
+      name,
+      description,
+      defaultTimeoutMs: 120_000,
+      humanIntervention: {
+        dynamic: {
+          default: 'never' as const,
+          policy: 'required' as const,
+          type: 'pathScopeAudit' as const,
+        },
+      },
+      parameters: {
+        type: 'object' as const,
+        ...([
+          'inspectFile',
+          'analyzeSpreadsheet',
+          'readPdfPages',
+          'searchPdf',
+          'renderPdfPages',
+        ].includes(name)
+          ? { oneOf: fileSourceChoice }
+          : {}),
+        required: documentRequired[name],
+        properties: Object.fromEntries(
+          Object.entries({
+            attachmentId: attachmentIdParameter,
+            path: { type: 'string' as const },
+            datasetId: { type: 'string' as const },
+            jobId: { type: 'string' as const },
+            sheet: { type: 'string' as const },
+            start: { type: 'integer' as const, minimum: 1 },
+            columns: {
+              type: 'array' as const,
+              maxItems: 128,
+              items: { type: 'string' as const },
+              description:
+                'Union of metric, requested group/filter, and record-ID columns. Confirm headers first; do not include unrelated noise. Example: A=ID, B=measurement, C=category -> [A,B,C], even when the first metric uses only B.',
+            },
+            metrics: {
+              type: 'array' as const,
+              maxItems: 32,
+              items: {
+                type: 'object' as const,
+                required: ['column'],
+                properties: {
+                  column: { type: 'string' as const },
+                  name: { type: 'string' as const },
+                  lower: { type: 'number' as const },
+                  upper: { type: 'number' as const },
+                },
+              },
+            },
+            sampleLimit: { type: 'integer' as const, maximum: 20 },
+            filters: {
+              type: 'array' as const,
+              maxItems: 32,
+              items: {
+                type: 'object' as const,
+                required: ['column', 'op'],
+                properties: {
+                  column: { type: 'string' as const },
+                  op: {
+                    type: 'string' as const,
+                    enum: ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'isMissing'],
+                    description:
+                      'isMissing matches stored missing/error/uncached states, not only blank cells. Use analysis missingCount for exact blanks; numeric text conversion is not part of this filter.',
+                  },
+                  value: { oneOf: [{ type: 'string' as const }, { type: 'number' as const }] },
+                },
+              },
+            },
+            groupBy: { type: 'array' as const, items: { type: 'string' as const } },
+            distinct: { type: 'array' as const, items: { type: 'string' as const } },
+            limit: { type: 'integer' as const, maximum: 1000 },
+            pages: {
+              type: 'array' as const,
+              maxItems: 20,
+              items: { type: 'integer' as const, minimum: 1 },
+            },
+            maxChars: { type: 'integer' as const, maximum: 64000 },
+            query: { type: 'string' as const },
+            topK: { type: 'integer' as const, maximum: 100 },
+            scale: { type: 'number' as const, maximum: 2 },
+            outputPath: { type: 'string' as const },
+            pdfPath: { type: 'string' as const },
+          }).filter(([key]) => documentFields[name].includes(key)),
+        ),
+      },
+    })),
     ...(['inspectOfficeDocument', 'readOfficeDocument'] as const).map((name) => ({
       name,
       defaultTimeoutMs: 120_000,

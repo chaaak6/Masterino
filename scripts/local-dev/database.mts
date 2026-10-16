@@ -1,12 +1,12 @@
 import path from 'node:path';
-import pg from 'pg';
+
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-
-import { refreshedDefaultAgent } from './model-settings.mjs';
+import pg from 'pg';
 
 import { type LocalConfig, localEnvironment, root } from './config.mjs';
 import { verifyDatabaseOwner } from './infrastructure.mjs';
+import { refreshedDefaultAgent } from './model-settings.mjs';
 
 export async function migrateLocal(config: LocalConfig) {
   verifyDatabaseOwner(config);
@@ -91,7 +91,6 @@ export async function seedLocal(config: LocalConfig) {
         'topic',
       ].map((k) => [k, chat]),
     );
-    systemAgent.userMemoryEmbedding = { model: config.c.EMBEDDING_MODEL, provider: 'newapi' };
     await db
       .insert(schema.userSettings)
       .values({

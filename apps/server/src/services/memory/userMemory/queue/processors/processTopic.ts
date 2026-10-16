@@ -2,9 +2,9 @@ import { LayersEnum, MemorySourceType } from '@lobechat/types';
 import { errorMessageFrom } from '@lobechat/utils';
 
 import { AsyncTaskModel } from '@/database/models/asyncTask';
+import { TopicModel } from '@/database/models/topic';
 import { getServerDB } from '@/database/server';
 import { isPersonalMemoryEnabled } from '@/server/services/memory/userMemory/access';
-import { AsyncTaskError, AsyncTaskErrorType, AsyncTaskStatus } from '@/types/asyncTask';
 
 import {
   MemoryExtractionExecutor,
@@ -77,22 +77,27 @@ export const processTopicHandler = async (
       ? payload.layers.filter((layer) => CEPA_LAYERS.includes(layer))
       : CEPA_LAYERS;
 
-    await context.run(`memory:user-memory:extract:users:${userId}:topics:${topicId}:cepa`, () =>
-      executor.extractTopic({
-        asyncTaskId: payload.asyncTaskId,
-        forceAll: payload.forceAll,
-        forceTopics: payload.forceTopics,
-        from: payload.from,
-        layers: cepaLayers,
-        reportProgress: false,
-        source: MemorySourceType.ChatTopic,
-        to: payload.to,
-        topicId,
-        userId,
-        userInitiated: payload.userInitiated,
-        workspaceId: payload.workspaceId,
-      }),
-    );
+    const cepaResult =
+      cepaLayers.length > 0
+        ? await context.run(
+            `memory:user-memory:extract:users:${userId}:topics:${topicId}:cepa`,
+            () =>
+              executor.extractTopic({
+                asyncTaskId: payload.asyncTaskId,
+                forceAll: payload.forceAll,
+                forceTopics: payload.forceTopics,
+                from: payload.from,
+                layers: cepaLayers,
+                reportProgress: false,
+                source: MemorySourceType.ChatTopic,
+                to: payload.to,
+                topicId,
+                userId,
+                userInitiated: payload.userInitiated,
+                workspaceId: payload.workspaceId,
+              }),
+          )
+        : undefined;
 
     const identityMemoryEnabled = await context.run(
       `memory:user-memory:extract:users:${userId}:topics:${topicId}:consent-check:identity`,
@@ -121,22 +126,45 @@ export const processTopicHandler = async (
       ? payload.layers.filter((layer) => IDENTITY_LAYERS.includes(layer))
       : IDENTITY_LAYERS;
 
-    await context.run(`memory:user-memory:extract:users:${userId}:topics:${topicId}:identity`, () =>
-      executor.extractTopic({
-        asyncTaskId: payload.asyncTaskId,
-        forceAll: payload.forceAll,
-        forceTopics: payload.forceTopics,
-        from: payload.from,
-        layers: identityLayers,
-        reportProgress: false,
-        source: MemorySourceType.ChatTopic,
-        to: payload.to,
-        topicId,
-        userId,
-        userInitiated: payload.userInitiated,
-        workspaceId: payload.workspaceId,
-      }),
-    );
+    const identityResult =
+      identityLayers.length > 0
+        ? await context.run(
+            `memory:user-memory:extract:users:${userId}:topics:${topicId}:identity`,
+            () =>
+              executor.extractTopic({
+                asyncTaskId: payload.asyncTaskId,
+                forceAll: payload.forceAll,
+                forceTopics: payload.forceTopics,
+                from: payload.from,
+                layers: identityLayers,
+                reportProgress: false,
+                source: MemorySourceType.ChatTopic,
+                to: payload.to,
+                topicId,
+                userId,
+                userInitiated: payload.userInitiated,
+                workspaceId: payload.workspaceId,
+              }),
+          )
+        : undefined;
+
+    // Each stage records its own result. Restore the topic-wide count after both finish.
+    if (cepaResult?.extracted || identityResult?.extracted) {
+      await context.run(
+        `memory:user-memory:extract:users:${userId}:topics:${topicId}:summary`,
+        async () => {
+          const db = await getServerDB();
+          return new TopicModel(db, userId, payload.workspaceId).updateMemoryExtractionMetadata(
+            topicId,
+            'completed',
+            {
+              processedMemoryCount:
+                (cepaResult?.memoryIds.length ?? 0) + (identityResult?.memoryIds.length ?? 0),
+            },
+          );
+        },
+      );
+    }
 
     if (payload.asyncTaskId && payload.userInitiated) {
       await context.run(
@@ -159,22 +187,22 @@ export const processTopicHandler = async (
       userId,
     };
   } catch (error) {
-    if (payload.asyncTaskId && payload.userInitiated) {
-      try {
-        const db = await getServerDB();
-        const asyncTaskModel = new AsyncTaskModel(db, userId, payload.workspaceId);
-        await asyncTaskModel.update(payload.asyncTaskId, {
-          error: new AsyncTaskError(
-            AsyncTaskErrorType.ServerError,
-            errorMessageFrom(error) || 'Memory topic extraction failed',
-          ),
-          status: AsyncTaskStatus.Error,
-        });
-        await asyncTaskModel.incrementUserMemoryExtractionProgress(payload.asyncTaskId);
-      } catch (taskError) {
-        console.error('[memory-queue] failed to record topic job failure', taskError);
-      }
+    try {
+      const db = await getServerDB();
+      await new TopicModel(db, userId, payload.workspaceId).updateMemoryExtractionMetadata(
+        topicId,
+        'failed',
+        {
+          error: (errorMessageFrom(error) || 'Memory topic extraction failed').slice(0, 500),
+          lastRunAt: new Date().toISOString(),
+        },
+      );
+    } catch (metadataError) {
+      console.error('[memory-queue] failed to record topic extraction failure', metadataError);
     }
+
+    // BullMQ may retry this topic. Only the worker's exhausted-attempt handler
+    // marks the task failed; counting failed attempts would overstate progress.
 
     throw error;
   }

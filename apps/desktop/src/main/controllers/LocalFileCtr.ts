@@ -3,6 +3,7 @@ import { access, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  LocalAttachmentTransfers,
   bindLocalAttachment,
   type LocalAttachmentLifecycleInput,
   type LocalAttachmentRecord,
@@ -264,6 +265,35 @@ export default class LocalFileCtr extends ControllerModule {
         if (key.startsWith(`${input.ref.localResourceId}:`)) this.attachmentImageCache.delete(key);
       }
     return result;
+  }
+
+  private attachmentTransfersInstance?: LocalAttachmentTransfers;
+  private get attachmentTransfers() {
+    return (this.attachmentTransfersInstance ??= new LocalAttachmentTransfers(
+      path.join(this.app.appStoragePath, 'scratch-workspaces'),
+      this.app.getService(GatewayConnectionService).getDeviceId(),
+    ));
+  }
+  @IpcMethod()
+  async beginAttachmentTransfer(input: {
+    draftId: string;
+    name: string;
+    mime: string;
+    size: number;
+  }) {
+    return this.attachmentTransfers.begin(input);
+  }
+  @IpcMethod()
+  async appendAttachmentTransfer(input: { transferId: string; offset: number; data: Uint8Array }) {
+    return this.attachmentTransfers.append(input.transferId, input.offset, input.data);
+  }
+  @IpcMethod()
+  async finishAttachmentTransfer(input: { transferId: string }) {
+    return this.attachmentTransfers.finish(input.transferId);
+  }
+  @IpcMethod()
+  async cancelAttachmentTransfer(input: { transferId: string }) {
+    return this.attachmentTransfers.cancel(input.transferId);
   }
 
   @IpcMethod()

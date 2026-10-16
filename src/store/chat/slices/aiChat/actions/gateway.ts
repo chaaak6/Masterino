@@ -52,14 +52,16 @@ export interface ConnectGatewayParams {
    * Gateway WebSocket URL (e.g. https://aihub.bielcrystal.com)
    */
   gatewayUrl?: string;
+  /** Local operation receiving UI status; defaults to the transport operation ID. */
+  localOperationId?: string;
   /**
    * Callback for each agent event received
    */
-  onEvent?: (event: AgentStreamEvent) => void;
+  onEvent?: (event: AgentStreamEvent) => Promise<void> | void;
   /**
    * Called when the session completes (agent_runtime_end or session_complete)
    */
-  onSessionComplete?: () => void;
+  onSessionComplete?: (error?: Error) => void;
   /**
    * The operation ID returned by execAgent
    */
@@ -104,6 +106,8 @@ export class GatewayActionImpl {
     const { operationId, gatewayUrl, token, topicId, onEvent, onSessionComplete, resumeOnConnect } =
       params;
 
+    const localOperationId = params.localOperationId ?? operationId;
+
     // Disconnect existing connection for this operation if any
     this.disconnectFromGateway(operationId);
 
@@ -125,6 +129,16 @@ export class GatewayActionImpl {
 
     // Wire up status changes
     client.on('status_changed', (status) => {
+      this.#get().updateOperationMetadata(localOperationId, {
+        streamRecovery:
+          status === 'reconnecting'
+            ? {
+                attempt: 0,
+                maxAttempts: 0,
+                offline: typeof navigator !== 'undefined' && !navigator.onLine,
+              }
+            : undefined,
+      });
       this.#set(
         (state) => {
           const conn = state.gatewayConnections[operationId];
@@ -143,10 +157,13 @@ export class GatewayActionImpl {
     // session_complete is handled separately as an explicit server signal.
     let receivedTerminalEvent = false;
     let sessionCompleted = false;
-    const fireSessionComplete = () => {
+    let pendingEvents: Promise<void> = Promise.resolve();
+    let processingError: Error | undefined;
+    const fireSessionComplete = (error?: Error) => {
       if (sessionCompleted) return;
       sessionCompleted = true;
-      onSessionComplete?.();
+      // Drain queued chunks and the terminal snapshot before clearing the root loading state.
+      void pendingEvents.then(() => onSessionComplete?.(error ?? processingError));
     };
 
     // Forward agent events to caller, and track terminal events
@@ -154,7 +171,13 @@ export class GatewayActionImpl {
       if (event.type === 'agent_runtime_end' || event.type === 'error') {
         receivedTerminalEvent = true;
       }
-      onEvent?.(event);
+      pendingEvents = Promise.all([pendingEvents, Promise.resolve(onEvent?.(event))])
+        .then(() => {})
+        .catch((error) => {
+          processingError =
+            error instanceof Error ? error : new Error('Unable to reconcile streamed messages');
+          console.error('[Gateway] Event processing failed:', processingError);
+        });
     });
 
     // Handle session completion
@@ -183,7 +206,7 @@ export class GatewayActionImpl {
     client.on('auth_failed', (reason) => {
       console.error(`[Gateway] Auth failed for operation ${operationId}: ${reason}`);
       this.internal_cleanupGatewayConnection(operationId);
-      fireSessionComplete();
+      fireSessionComplete(new Error(`Agent connection unavailable: ${reason}`));
     });
 
     // Handle expired-but-recoverable auth: the JWT is past `exp` but the op
@@ -531,10 +554,16 @@ export class GatewayActionImpl {
     });
 
     this.#get().connectToGateway({
+      localOperationId: gatewayOpId,
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
-      onSessionComplete: () => {
-        this.#get().completeOperation(gatewayOpId);
+      onSessionComplete: (error) => {
+        if (error)
+          this.#get().failOperation(gatewayOpId, {
+            message: error.message,
+            type: 'AgentStreamError',
+          });
+        else this.#get().completeOperation(gatewayOpId);
         if (result.topicId) {
           this.#get().internal_updateTopicLoading(result.topicId, false);
           void this.#get().updateTopicStatus?.({
@@ -662,10 +691,16 @@ export class GatewayActionImpl {
     });
 
     this.#get().connectToGateway({
+      localOperationId: gatewayOpId,
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
-      onSessionComplete: () => {
-        this.#get().completeOperation(gatewayOpId);
+      onSessionComplete: (error) => {
+        if (error)
+          this.#get().failOperation(gatewayOpId, {
+            message: error.message,
+            type: 'AgentStreamError',
+          });
+        else this.#get().completeOperation(gatewayOpId);
         this.#get().internal_updateTopicLoading(topicId, false);
         void this.#get().updateTopicStatus?.({
           agentId: context.agentId,

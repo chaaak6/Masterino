@@ -80,12 +80,12 @@ const processMemoryJob = async (job: Job<MemoryQueueJobData, unknown, MemoryQueu
   }
 };
 
-const markJobFailed = async (
+export const markJobFailed = async (
   job: Job<MemoryQueueJobData, unknown, MemoryQueueJobName> | undefined,
   error: Error,
 ) => {
   const data = job?.data as
-    | { asyncTaskId?: string; userId?: string; userIds?: string[] }
+    | { asyncTaskId?: string; userId?: string; userIds?: string[]; workspaceId?: string }
     | undefined;
   const asyncTaskId = data?.asyncTaskId;
   const userId = data?.userId || data?.userIds?.[0];
@@ -93,7 +93,7 @@ const markJobFailed = async (
 
   try {
     const db = await getServerDB();
-    await new AsyncTaskModel(db, userId).update(asyncTaskId, {
+    await new AsyncTaskModel(db, userId, data?.workspaceId).update(asyncTaskId, {
       error: new AsyncTaskError(AsyncTaskErrorType.ServerError, error.message),
       status: AsyncTaskStatus.Error,
     });

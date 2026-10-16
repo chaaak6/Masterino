@@ -662,8 +662,23 @@ export const createAgentExecutors = (context: {
         };
       };
 
-      await chatService.createAssistantMessageStream({
+      let streamError: ChatMessageError | undefined;
+      const streamPromise = chatService.createAssistantMessageStream({
         abortController,
+        recovery: {
+          onAttemptReset: () => handler.discardAttempt(),
+          onRecovered: () =>
+            context
+              .get()
+              .updateOperationMetadata(context.operationId, { streamRecovery: undefined }),
+          onRetry: (recovery) =>
+            context
+              .get()
+              .updateOperationMetadata(context.operationId, { streamRecovery: recovery }),
+        },
+        // Older servers may omit stop alongside usage. Enforce the terminal contract
+        // only when the server advertises the corrected protocol.
+        requireTerminalEvent: llmPayload.provider === 'newapi' ? 'negotiated' : false,
         contextBudget: {
           attemptState: contextBudgetAttemptState,
           catalogSnapshot: state.metadata?.modelCatalogSnapshot,
@@ -699,6 +714,7 @@ export const createAgentExecutors = (context: {
           traceName: TraceNameMap.Conversation,
         },
         onErrorHandle: async (error) => {
+          streamError = error;
           const enrichedError = {
             ...error,
             body: {
@@ -714,7 +730,17 @@ export const createAgentExecutors = (context: {
         },
         onFinish: async (
           _content,
-          { traceId, observationId, toolCalls, reasoning, grounding, usage, speed, type },
+          {
+            traceId,
+            observationId,
+            toolCalls,
+            reasoning,
+            grounding,
+            usage,
+            speed,
+            type,
+            finishReason,
+          },
         ) => {
           void _content;
 
@@ -727,6 +753,7 @@ export const createAgentExecutors = (context: {
           }
 
           const result = await handler.handleFinish({
+            finishReason,
             traceId,
             observationId,
             toolCalls,
@@ -753,7 +780,7 @@ export const createAgentExecutors = (context: {
                 ...result.metadata.performance,
                 performance: result.metadata.performance,
                 usage: result.metadata.usage,
-                finishType: result.metadata.finishType,
+                finishType: finishReason ?? result.metadata.finishType,
                 ...(result.metadata.isMultimodal && { isMultimodal: true }),
               },
             },
@@ -763,6 +790,9 @@ export const createAgentExecutors = (context: {
         onMessageHandle: async (chunk) => {
           handler.handleChunk(chunk as StreamChunk);
         },
+      });
+      await streamPromise.finally(() => {
+        context.get().updateOperationMetadata(context.operationId, { streamRecovery: undefined });
       });
 
       const isFunctionCall = handler.getIsFunctionCall();
@@ -838,6 +868,19 @@ export const createAgentExecutors = (context: {
 
         newState.usage = usage;
         if (cost) newState.cost = cost;
+      }
+
+      // A failed model attempt must not reach llm_result or execute incomplete tool calls.
+      if (finishType === 'error' || streamError) {
+        return {
+          events: contextBudgetEvents,
+          newState: { ...newState, status: 'error' as const },
+          nextContext: {
+            ...runtimeContext,
+            payload: { error: streamError ?? { message: 'Model stream interrupted' } },
+            phase: 'error',
+          } as AgentRuntimeContext,
+        };
       }
 
       // If operation was aborted, enter human_abort phase to let agent decide how to handle

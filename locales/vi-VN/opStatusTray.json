@@ -30,5 +30,8 @@
     "Đang suy luận",
     "Đang tinh chỉnh",
     "Đang zigzag"
-  ]
+  ],
+  "retrying": "Kết nối bị gián đoạn. Đang thử lại {{attempt}}/{{total}}",
+  "waitingForNetwork": "Mất kết nối. Đang chờ mạng khôi phục",
+  "reconnecting": "Kết nối bị gián đoạn. Đang kết nối lại"
 }
