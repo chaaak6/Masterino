@@ -17,6 +17,9 @@ vi.mock('@lobehub/icons', () => ({
   ModelIcon: () => null,
 }));
 
+// These helper tests do not render controls; keep renderer-only UI dependencies out of Node.
+vi.mock('@lobehub/ui/base-ui', () => ({}));
+
 describe('ChatPanel', () => {
   it('keeps the last selection placement while a reselection is in progress', () => {
     expect(
