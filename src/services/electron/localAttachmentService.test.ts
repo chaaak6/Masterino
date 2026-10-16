@@ -138,6 +138,58 @@ describe('local attachment model context', () => {
 });
 
 describe('local attachment intake error codes', () => {
+  it('streams a 1 GiB document without reading the whole file into renderer memory', async () => {
+    const size = 1024 ** 3;
+    const readWholeFile = vi.fn();
+    const readChunk = vi.fn().mockResolvedValue(new ArrayBuffer(0));
+    const slice = vi.fn(() => ({ arrayBuffer: readChunk }));
+    const file = new File([], 'boundary.txt', { type: 'text/plain' });
+    Object.defineProperties(file, {
+      size: { value: size },
+      arrayBuffer: { value: readWholeFile },
+      slice: { value: slice },
+    });
+    const ref = { ...localImage, name: file.name, mime: file.type, size };
+    const invoke = vi.fn(async (method: string) => {
+      if (method === 'localSystem.beginAttachmentTransfer')
+        return { transferId: 'transfer', chunkBytes: 1024 ** 2 };
+      if (method === 'localSystem.finishAttachmentTransfer') return ref;
+      return {};
+    });
+    window.electronAPI = { invoke: invoke as any, onStreamInvoke: vi.fn() };
+
+    expect(await receiveLocalChatAttachment(file, 'draft')).toEqual(ref);
+    expect(readWholeFile).not.toHaveBeenCalled();
+    expect(slice).toHaveBeenCalledTimes(1024);
+    expect(slice).toHaveBeenLastCalledWith(size - 1024 ** 2, size);
+    expect(
+      invoke.mock.calls.filter(([method]) => method.endsWith('appendAttachmentTransfer')),
+    ).toHaveLength(1024);
+  });
+
+  it('cancels an unfinished transfer when a chunk fails', async () => {
+    const file = new File([], 'large.txt', { type: 'text/plain' });
+    Object.defineProperties(file, {
+      size: { value: 11 * 1024 ** 2 },
+      slice: { value: () => ({ arrayBuffer: async () => new ArrayBuffer(0) }) },
+    });
+    const invoke = vi.fn(async (method: string) => {
+      if (method === 'localSystem.beginAttachmentTransfer')
+        return { transferId: 'transfer', chunkBytes: 1024 ** 2 };
+      if (method === 'localSystem.appendAttachmentTransfer') throw new Error('Disk write failed');
+      return {};
+    });
+    window.electronAPI = { invoke: invoke as any, onStreamInvoke: vi.fn() };
+
+    await expect(receiveLocalChatAttachment(file, 'draft')).rejects.toThrow('Disk write failed');
+    expect(invoke).toHaveBeenLastCalledWith('localSystem.cancelAttachmentTransfer', {
+      transferId: 'transfer',
+    });
+    expect(invoke.mock.calls.some(([method]) => method.endsWith('finishAttachmentTransfer'))).toBe(
+      false,
+    );
+  });
+
   it.each([
     ['LOCAL_ATTACHMENT_TOO_LARGE', 'fileTooLarge'],
     ['LOCAL_IMAGE_TOO_LARGE', 'imageTooLarge'],
@@ -150,7 +202,7 @@ describe('local attachment intake error codes', () => {
   });
 
   it.each([
-    ['application/pdf', 4 * 1024 ** 3 + 1, 'LOCAL_ATTACHMENT_TOO_LARGE'],
+    ['application/pdf', 1024 ** 3 + 1, 'LOCAL_ATTACHMENT_TOO_LARGE'],
     ['image/png', 10 * 1024 * 1024 + 1, 'LOCAL_IMAGE_TOO_LARGE'],
   ])('rejects oversized %s before reading file bytes', async (type, size, code) => {
     const file = new File([], 'large', { type });

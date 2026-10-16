@@ -1,10 +1,12 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import {
+  LocalAttachmentTransfers,
   manageLocalAttachment,
   prepareLocalAttachment,
   prepareLocalAttachmentById,
@@ -13,7 +15,129 @@ import {
   validatePreparedLocalAttachment,
 } from './localAttachments';
 
+describe('chunked device attachments', () => {
+  it('removes an unfinished snapshot when publishing its index fails', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-failed-finish-'));
+    const transfers = new LocalAttachmentTransfers(root, 'device');
+    try {
+      await writeFile(path.join(root, 'attachment-index'), 'index path unavailable');
+      const { transferId } = await transfers.begin({
+        draftId: 'draft',
+        name: 'test.txt',
+        mime: 'text/plain',
+        size: 3,
+      });
+      await transfers.append(transferId, 0, Buffer.from('abc'));
+      await expect(transfers.finish(transferId)).rejects.toThrow();
+      // Renderer cancellation follows a rejected finish call.
+      await transfers.cancel(transferId);
+      expect(await readdir(path.join(root, 'attachment-drafts', 'draft'))).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('accepts the 1 GiB boundary, rejects larger files, and removes cancelled bytes', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-boundary-'));
+    const transfers = new LocalAttachmentTransfers(root, 'device');
+    try {
+      await expect(
+        transfers.begin({
+          draftId: 'draft',
+          name: 'too-large.txt',
+          mime: 'text/plain',
+          size: 1024 ** 3 + 1,
+        }),
+      ).rejects.toThrow('LOCAL_ATTACHMENT_TOO_LARGE');
+      const { transferId } = await transfers.begin({
+        draftId: 'draft',
+        name: 'boundary.txt',
+        mime: 'text/plain',
+        size: 1024 ** 3,
+      });
+      await transfers.append(transferId, 0, Buffer.from('partial'));
+      await expect(transfers.finish(transferId)).rejects.toThrow('incomplete');
+      await transfers.cancel(transferId);
+      expect(await readdir(path.join(root, 'attachment-drafts', 'draft'))).toEqual([]);
+      await expect(transfers.append(transferId, 7, Buffer.from('later'))).rejects.toThrow(
+        'Invalid attachment chunk',
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('binds and prepares a streamed snapshot with its full content hash', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-stream-'));
+    const transfers = new LocalAttachmentTransfers(root, 'device');
+    const first = Buffer.alloc(1024 ** 2, 'a');
+    const last = Buffer.from('PR144_CHUNK_END');
+    try {
+      const { transferId } = await transfers.begin({
+        draftId: 'draft',
+        name: 'stream.txt',
+        mime: 'text/plain',
+        size: first.length + last.length,
+      });
+      await expect(transfers.append(transferId, 1, first)).rejects.toThrow(
+        'Invalid attachment chunk',
+      );
+      await transfers.append(transferId, 0, first);
+      await transfers.append(transferId, first.length, last);
+      const ref = await transfers.finish(transferId);
+      expect(ref.version).toBe(createHash('sha256').update(first).update(last).digest('hex'));
+      expect(JSON.stringify(ref)).not.toContain(root);
+      await manageLocalAttachment(root, 'device', {
+        action: 'bindMessage',
+        ref,
+        topicId: 'topic',
+        messageId: 'message',
+        draftId: 'draft',
+      });
+      const prepared = await prepareLocalAttachmentById(root, 'device', 'topic', ref.attachmentId);
+      expect(await readFile(prepared.path)).toEqual(Buffer.concat([first, last]));
+      await expect(
+        prepareLocalAttachmentById(root, 'other', 'topic', ref.attachmentId),
+      ).rejects.toThrow('ATTACHMENT_NOT_AVAILABLE');
+      await expect(
+        prepareLocalAttachmentById(root, 'device', 'other', ref.attachmentId),
+      ).rejects.toThrow('ATTACHMENT_NOT_AVAILABLE');
+      await writeFile(prepared.path, Buffer.alloc(first.length + last.length, 'b'));
+      await expect(
+        validatePreparedLocalAttachment(root, 'device', 'topic', prepared.path),
+      ).rejects.toThrow('Prepared attachment changed');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('device attachments', () => {
+  it.each([false, true])(
+    'cleans failed inline intake without removing the original (native path: %s)',
+    async (nativePath) => {
+      const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-failed-inline-'));
+      const original = path.join(root, 'original.txt');
+      try {
+        await writeFile(original, 'original');
+        await writeFile(path.join(root, 'attachment-index'), 'index path unavailable');
+        await expect(
+          receiveLocalAttachment(root, 'device', {
+            draftId: 'draft',
+            name: 'test.txt',
+            mime: 'text/plain',
+            originalPath: nativePath ? original : undefined,
+            data: Buffer.from('original'),
+          }),
+        ).rejects.toThrow();
+        expect(await readdir(path.join(root, 'attachment-drafts', 'draft'))).toEqual([]);
+        expect(await readFile(original, 'utf8')).toBe('original');
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
   it('persists device IDs and prepares a copy without granting parent directories', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'attachment-test-'));
     const source = path.join(root, 'original.txt');

@@ -1,11 +1,9 @@
-import { createHash, randomUUID, type Hash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { pipeline } from 'node:stream/promises';
-import { createWriteStream } from 'node:fs';
+import { createHash, type Hash, randomUUID } from 'node:crypto';
+import { createReadStream, createWriteStream } from 'node:fs';
 import {
-  open,
   type FileHandle,
   mkdir,
+  open,
   readdir,
   readFile,
   realpath,
@@ -15,10 +13,11 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 import { ensureScratchWorkspace } from './workspace';
 
-const MAX_ATTACHMENT_BYTES = 4 * 1024 ** 3;
+const MAX_ATTACHMENT_BYTES = 1024 ** 3;
 const MAX_INLINE_ATTACHMENT_BYTES = 100 * 1024 ** 2;
 const verifiedDigests = new Map<string, { signature: string; digest: string }>();
 const fileSignature = (info: Awaited<ReturnType<typeof stat>>) =>
@@ -133,7 +132,6 @@ export async function receiveLocalAttachment(
   const dir = path.join(root, 'attachment-drafts', segment(input.draftId), localResourceId);
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const filePath = originalPath ?? path.join(dir, path.basename(input.name) || 'attachment');
-  if (!originalPath) await writeFile(filePath, bytes, { flag: 'wx', mode: 0o600 });
   const ref: LocalAttachmentRecord = {
     source: 'local',
     attachmentId: randomUUID(),
@@ -144,21 +142,32 @@ export async function receiveLocalAttachment(
     size: bytes.byteLength,
     version: digest(bytes),
   };
-  await mkdir(path.join(root, 'attachment-index'), { recursive: true, mode: 0o700 });
-  await writeFile(
-    recordPath(root, localResourceId),
-    JSON.stringify({
-      ref,
-      path: await realpath(filePath),
-      draftId: input.draftId,
-      lifecycleVersion: 1,
-      draftIds: [input.draftId],
-      messageBindings: {},
-    }),
-    { flag: 'wx', mode: 0o600 },
-  );
-  await writeFile(attachmentLookupPath(root, ref.attachmentId), localResourceId, { mode: 0o600 });
-  return ref;
+  try {
+    if (!originalPath) await writeFile(filePath, bytes, { flag: 'wx', mode: 0o600 });
+    await mkdir(path.join(root, 'attachment-index'), { recursive: true, mode: 0o700 });
+    await writeFile(
+      recordPath(root, localResourceId),
+      JSON.stringify({
+        ref,
+        path: await realpath(filePath),
+        draftId: input.draftId,
+        lifecycleVersion: 1,
+        draftIds: [input.draftId],
+        messageBindings: {},
+      }),
+      { flag: 'wx', mode: 0o600 },
+    );
+    await writeFile(attachmentLookupPath(root, ref.attachmentId), localResourceId, { mode: 0o600 });
+    return ref;
+  } catch (error) {
+    // Never remove filePath: native selections can point at the user's original.
+    await Promise.allSettled([
+      rm(dir, { recursive: true, force: true }),
+      rm(recordPath(root, localResourceId), { force: true }),
+      rm(attachmentLookupPath(root, ref.attachmentId), { force: true }),
+    ]);
+    throw error;
+  }
 }
 
 export async function resolveLocalAttachment(
@@ -474,11 +483,12 @@ export class LocalAttachmentTransfers {
     if (!transfer || transfer.busy || transfer.received !== transfer.input.size)
       throw new Error('Attachment transfer is incomplete');
     transfer.busy = true;
+    const attachmentId = randomUUID();
     try {
       await transfer.handle.close();
       const ref: LocalAttachmentRecord = {
         source: 'local',
-        attachmentId: randomUUID(),
+        attachmentId,
         localResourceId: id,
         deviceId: this.deviceId,
         name: path.basename(transfer.input.name) || 'attachment',
@@ -504,6 +514,13 @@ export class LocalAttachmentTransfers {
         mode: 0o600,
       });
       return ref;
+    } catch (error) {
+      await Promise.allSettled([
+        this.cancel(id),
+        rm(recordPath(this.root, id), { force: true }),
+        rm(attachmentLookupPath(this.root, attachmentId), { force: true }),
+      ]);
+      throw error;
     } finally {
       clearTimeout(transfer.timer);
       this.transfers.delete(id);

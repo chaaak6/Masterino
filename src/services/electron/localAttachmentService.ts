@@ -27,7 +27,7 @@ const invoke = async <T>(method: string, input: unknown): Promise<T> => {
   return window.electronAPI.invoke<T>(`localSystem.${method}`, input);
 };
 export const receiveLocalChatAttachment = async (file: File, draftId: string) => {
-  if (file.size > 4 * 1024 ** 3) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
+  if (file.size > 1024 ** 3) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
   // Capture BEFORE compression/Blob conversion, which would discard Electron's native path.
   const originalPath = window.electronAPI?.getPathForFile?.(file);
   if (file.type.startsWith('image/')) {
