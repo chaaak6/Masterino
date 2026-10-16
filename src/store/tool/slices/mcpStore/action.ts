@@ -583,26 +583,37 @@ export class PluginMCPStoreActionImpl {
       // Calculate installation duration
       const installDurationMs = Date.now() - installStartTime;
 
-      discoverService.reportMcpEvent({
-        event: 'install',
-        identifier: plugin.identifier,
-        source: 'self',
-      });
+      discoverService
+        .reportMcpEvent({
+          event: 'install',
+          identifier: plugin.identifier,
+          source: 'self',
+        })
+        .catch((error) => {
+          console.warn('Failed to report MCP event:', error);
+        });
 
-      discoverService.reportMcpInstallResult({
-        identifier: plugin.identifier,
-        installDurationMs,
-        installParams: connection,
-        manifest: {
-          prompts: (manifest as any).prompts,
-          resources: (manifest as any).resources,
-          tools: (manifest as any).tools,
-        },
-        platform: result?.platform || process.platform,
-        success: true,
-        userAgent,
-        version: manifest.version || data.version,
-      });
+      discoverService
+        .reportMcpInstallResult({
+          identifier: plugin.identifier,
+          installDurationMs,
+          installParams: connection,
+          manifest: {
+            prompts: (manifest as any).prompts,
+            resources: (manifest as any).resources,
+            tools: (manifest as any).tools,
+          },
+          platform:
+            result?.platform ||
+            (typeof window !== 'undefined' && window.lobeEnv?.platform) ||
+            'web',
+          success: true,
+          userAgent,
+          version: manifest.version || data.version,
+        })
+        .catch((error) => {
+          console.warn('Failed to report MCP installation result:', error);
+        });
 
       // Show completed status briefly then clear progress
       await sleep(1000);
@@ -679,18 +690,25 @@ export class PluginMCPStoreActionImpl {
       });
 
       // Report installation failure result
-      discoverService.reportMcpInstallResult({
-        errorCode: errorInfo.type,
-        errorMessage: errorInfo.message,
-        identifier: plugin.identifier,
-        installDurationMs,
-        installParams: connection,
-        metadata: errorInfo.metadata,
-        platform: result?.platform || process.platform,
-        success: false,
-        userAgent,
-        version: data?.version,
-      });
+      discoverService
+        .reportMcpInstallResult({
+          errorCode: errorInfo.type,
+          errorMessage: errorInfo.message,
+          identifier: plugin.identifier,
+          installDurationMs,
+          installParams: connection,
+          metadata: errorInfo.metadata,
+          platform:
+            result?.platform ||
+            (typeof window !== 'undefined' && window.lobeEnv?.platform) ||
+            'web',
+          success: false,
+          userAgent,
+          version: data?.version,
+        })
+        .catch((reportError) => {
+          console.warn('Failed to report MCP installation result:', reportError);
+        });
 
       updateInstallLoadingState(identifier, undefined);
 
