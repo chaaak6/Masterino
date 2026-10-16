@@ -739,6 +739,151 @@ describe('mcpStore actions', () => {
       vi.spyOn(discoverService, 'getMcpDetail').mockResolvedValue(mockPlugin as any);
     });
 
+    describe('renderer installation result', () => {
+      beforeEach(() => {
+        vi.spyOn(mcpService, 'getStreamableMcpServerManifest').mockResolvedValue(
+          mockServerManifest,
+        );
+        vi.spyOn(discoverService, 'getMCPPluginManifest').mockResolvedValue({
+          ...mockManifest,
+          deploymentOptions: [{ connection: { type: 'http', url: 'https://example.com/mcp' } }],
+          tools: [],
+        } as any);
+        useToolStore.setState({ mcpPluginItems: [mockPlugin] });
+      });
+
+      it.each(['http', 'cloud'])(
+        'Given a %s MCP and no Node platform, when installed, then it succeeds and clears pending state',
+        async (type) => {
+          if (type === 'cloud') {
+            const cloudPlugin = { ...mockPlugin, haveCloudEndpoint: true };
+            useToolStore.setState({ mcpPluginItems: [cloudPlugin] });
+            vi.spyOn(discoverService, 'getMCPPluginManifest').mockResolvedValue({
+              ...mockManifest,
+              deploymentOptions: [{ connection: { type: 'stdio' } }],
+              tools: [],
+            } as any);
+          }
+          const descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
+          const originalEnv = window.lobeEnv;
+          window.lobeEnv = { platform: 'win32' };
+          Object.defineProperty(process, 'platform', {
+            configurable: true,
+            get: () => {
+              throw new ReferenceError('process is not defined');
+            },
+          });
+          try {
+            expect(await useToolStore.getState().installMCPPlugin('test-plugin')).toBe(true);
+            expect(pluginService.installPlugin).toHaveBeenCalled();
+            expect(discoverService.reportMcpInstallResult).toHaveBeenCalledWith(
+              expect.objectContaining({ platform: 'win32', success: true }),
+            );
+            expect(useToolStore.getState().mcpInstallProgress['test-plugin']).toBeUndefined();
+            expect(
+              useToolStore.getState().mcpInstallAbortControllers['test-plugin'],
+            ).toBeUndefined();
+          } finally {
+            Object.defineProperty(process, 'platform', descriptor);
+            window.lobeEnv = originalEnv;
+          }
+        },
+      );
+    });
+
+    it('Given a browser HTTP install fails, then it reports the original failure without a Node runtime', async () => {
+      vi.spyOn(discoverService, 'getMCPPluginManifest').mockResolvedValue({
+        ...mockManifest,
+        deploymentOptions: [{ connection: { type: 'http', url: 'https://example.com/mcp' } }],
+      } as any);
+      vi.spyOn(mcpService, 'getStreamableMcpServerManifest').mockRejectedValue(
+        new Error('MCP connection failed'),
+      );
+      useToolStore.setState({ mcpPluginItems: [mockPlugin] });
+      const descriptor = Object.getOwnPropertyDescriptor(process, 'platform')!;
+      const originalEnv = window.lobeEnv;
+      window.lobeEnv = undefined;
+      Object.defineProperty(process, 'platform', {
+        configurable: true,
+        get: () => {
+          throw new ReferenceError('process is not defined');
+        },
+      });
+      try {
+        await useToolStore.getState().installMCPPlugin('test-plugin');
+        expect(pluginService.installPlugin).not.toHaveBeenCalled();
+        expect(discoverService.reportMcpInstallResult).toHaveBeenCalledWith(
+          expect.objectContaining({
+            platform: 'web',
+            success: false,
+            errorMessage: 'MCP connection failed',
+          }),
+        );
+        expect(useToolStore.getState().mcpInstallProgress['test-plugin']?.errorInfo?.message).toBe(
+          'MCP connection failed',
+        );
+        expect(useToolStore.getState().mcpInstallAbortControllers['test-plugin']).toBeUndefined();
+        expect(useToolStore.getState().updateInstallLoadingState).toHaveBeenLastCalledWith(
+          'test-plugin',
+          undefined,
+        );
+      } finally {
+        Object.defineProperty(process, 'platform', descriptor);
+        window.lobeEnv = originalEnv;
+      }
+    });
+
+    describe('installation reporting isolation', () => {
+      it('Given reporting rejects, when installation succeeds, then success and cleanup are preserved', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(discoverService, 'reportMcpEvent').mockRejectedValue(
+          new Error('Telemetry unavailable'),
+        );
+        vi.spyOn(discoverService, 'reportMcpInstallResult').mockRejectedValue(
+          new Error('Telemetry unavailable'),
+        );
+        useToolStore.setState({ mcpPluginItems: [mockPlugin] });
+
+        expect(await useToolStore.getState().installMCPPlugin('test-plugin')).toBe(true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(discoverService.reportMcpInstallResult).toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledWith(
+          'Failed to report MCP installation result:',
+          expect.any(Error),
+        );
+        expect(warn).toHaveBeenCalledWith('Failed to report MCP event:', expect.any(Error));
+        expect(useToolStore.getState().mcpInstallProgress['test-plugin']).toBeUndefined();
+        expect(useToolStore.getState().mcpInstallAbortControllers['test-plugin']).toBeUndefined();
+        expect(useToolStore.getState().updateInstallLoadingState).toHaveBeenLastCalledWith(
+          'test-plugin',
+          undefined,
+        );
+      });
+
+      it('Given persistence fails and reporting rejects, then the original error is retained and cleanup completes', async () => {
+        vi.spyOn(pluginService, 'installPlugin').mockRejectedValue(new Error('Cannot save plugin'));
+        vi.spyOn(discoverService, 'reportMcpInstallResult').mockRejectedValue(
+          new Error('Telemetry unavailable'),
+        );
+        useToolStore.setState({ mcpPluginItems: [mockPlugin] });
+
+        await useToolStore.getState().installMCPPlugin('test-plugin');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(discoverService.reportMcpInstallResult).toHaveBeenCalled();
+        expect(useToolStore.getState().mcpInstallProgress['test-plugin']).toEqual(
+          expect.objectContaining({
+            step: MCPInstallStep.ERROR,
+            errorInfo: expect.objectContaining({ message: 'Cannot save plugin' }),
+          }),
+        );
+        expect(useToolStore.getState().mcpInstallAbortControllers['test-plugin']).toBeUndefined();
+        expect(useToolStore.getState().updateInstallLoadingState).toHaveBeenLastCalledWith(
+          'test-plugin',
+          undefined,
+        );
+      });
+    });
+
     describe('normal installation flow', () => {
       it('should successfully install MCP plugin', async () => {
         const { result } = renderHook(() => useToolStore());
