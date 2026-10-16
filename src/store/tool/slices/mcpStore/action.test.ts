@@ -836,28 +836,32 @@ describe('mcpStore actions', () => {
     describe('installation reporting isolation', () => {
       it('Given reporting rejects, when installation succeeds, then success and cleanup are preserved', async () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        vi.spyOn(discoverService, 'reportMcpEvent').mockRejectedValue(
-          new Error('Telemetry unavailable'),
-        );
-        vi.spyOn(discoverService, 'reportMcpInstallResult').mockRejectedValue(
-          new Error('Telemetry unavailable'),
-        );
-        useToolStore.setState({ mcpPluginItems: [mockPlugin] });
+        try {
+          vi.spyOn(discoverService, 'reportMcpEvent').mockRejectedValue(
+            new Error('Telemetry unavailable'),
+          );
+          vi.spyOn(discoverService, 'reportMcpInstallResult').mockRejectedValue(
+            new Error('Telemetry unavailable'),
+          );
+          useToolStore.setState({ mcpPluginItems: [mockPlugin] });
 
-        expect(await useToolStore.getState().installMCPPlugin('test-plugin')).toBe(true);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(discoverService.reportMcpInstallResult).toHaveBeenCalled();
-        expect(warn).toHaveBeenCalledWith(
-          'Failed to report MCP installation result:',
-          expect.any(Error),
-        );
-        expect(warn).toHaveBeenCalledWith('Failed to report MCP event:', expect.any(Error));
-        expect(useToolStore.getState().mcpInstallProgress['test-plugin']).toBeUndefined();
-        expect(useToolStore.getState().mcpInstallAbortControllers['test-plugin']).toBeUndefined();
-        expect(useToolStore.getState().updateInstallLoadingState).toHaveBeenLastCalledWith(
-          'test-plugin',
-          undefined,
-        );
+          expect(await useToolStore.getState().installMCPPlugin('test-plugin')).toBe(true);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          expect(discoverService.reportMcpInstallResult).toHaveBeenCalled();
+          expect(warn).toHaveBeenCalledWith(
+            'Failed to report MCP installation result:',
+            expect.any(Error),
+          );
+          expect(warn).toHaveBeenCalledWith('Failed to report MCP event:', expect.any(Error));
+          expect(useToolStore.getState().mcpInstallProgress['test-plugin']).toBeUndefined();
+          expect(useToolStore.getState().mcpInstallAbortControllers['test-plugin']).toBeUndefined();
+          expect(useToolStore.getState().updateInstallLoadingState).toHaveBeenLastCalledWith(
+            'test-plugin',
+            undefined,
+          );
+        } finally {
+          warn.mockRestore();
+        }
       });
 
       it('Given persistence fails and reporting rejects, then the original error is retained and cleanup completes', async () => {
