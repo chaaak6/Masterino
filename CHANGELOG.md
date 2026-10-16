@@ -2,6 +2,65 @@
 
 # Changelog
 
+## [Version 1.3.10](https://github.com/chaaak6/Masterino/compare/v1.3.9...v1.3.10)
+
+<sup>Released on **2026-10-16**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: retain workspace ownership when memory retries are exhausted.
+- **misc**: carry verified attachment and memory worker corrections into integration.
+- **misc**: preserve successful MCP installation status.
+- **misc**: finish native macOS quit after document cleanup.
+- **misc**: create standard aspect ratio presentations.
+- **misc**: improve document analysis guidance and desktop previews.
+- **misc**: stabilize memory worker extraction.
+- **misc**: declare PDF worker module for desktop type checks.
+- **misc**: isolate document capabilities and await shutdown.
+
+#### 👷 Build System
+
+- **misc**: retry transient service dependency downloads.
+- **misc**: skip unrelated install hooks in service images.
+
+#### ✨ Features
+
+- **misc**: add bounded local document processing.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: retain workspace ownership when memory retries are exhausted ([05b4921](https://github.com/chaaak6/Masterino/commit/05b4921))
+- **misc**: carry verified attachment and memory worker corrections into integration ([58dd39f](https://github.com/chaaak6/Masterino/commit/58dd39f))
+- **misc**: preserve successful MCP installation status ([014725b](https://github.com/chaaak6/Masterino/commit/014725b))
+- **misc**: finish native macOS quit after document cleanup ([e2393be](https://github.com/chaaak6/Masterino/commit/e2393be))
+- **misc**: create standard aspect ratio presentations ([fe72330](https://github.com/chaaak6/Masterino/commit/fe72330))
+- **misc**: improve document analysis guidance and desktop previews ([e4a0ce8](https://github.com/chaaak6/Masterino/commit/e4a0ce8))
+- **misc**: stabilize memory worker extraction ([86216e5](https://github.com/chaaak6/Masterino/commit/86216e5))
+- **misc**: declare PDF worker module for desktop type checks ([49367d4](https://github.com/chaaak6/Masterino/commit/49367d4))
+- **misc**: isolate document capabilities and await shutdown ([b3a3b48](https://github.com/chaaak6/Masterino/commit/b3a3b48))
+
+#### Build System
+
+- **misc**: retry transient service dependency downloads ([aaa2610](https://github.com/chaaak6/Masterino/commit/aaa2610))
+- **misc**: skip unrelated install hooks in service images ([5dde58f](https://github.com/chaaak6/Masterino/commit/5dde58f))
+
+#### What's improved
+
+- **misc**: add bounded local document processing ([b15ddba](https://github.com/chaaak6/Masterino/commit/b15ddba))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.3.8](https://github.com/chaaak6/Masterino/compare/v1.3.7...v1.3.8)
 
 <sup>Released on **2026-10-06**</sup>

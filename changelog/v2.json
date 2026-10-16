@@ -2443,6 +2443,30 @@
   },
   {
     "children": {
+      "fixes": [
+        "retain workspace ownership when memory retries are exhausted.",
+        "carry verified attachment and memory worker corrections into integration.",
+        "preserve successful MCP installation status.",
+        "finish native macOS quit after document cleanup.",
+        "create standard aspect ratio presentations.",
+        "improve document analysis guidance and desktop previews.",
+        "stabilize memory worker extraction.",
+        "declare PDF worker module for desktop type checks.",
+        "isolate document capabilities and await shutdown."
+      ],
+      "improvements": [
+        "retry transient service dependency downloads.",
+        "skip unrelated install hooks in service images."
+      ],
+      "features": [
+        "add bounded local document processing."
+      ]
+    },
+    "date": "2026-10-16",
+    "version": "1.3.10"
+  },
+  {
+    "children": {
       "features": [
         "bundle local PPT tools and a general Python runtime."
       ]
