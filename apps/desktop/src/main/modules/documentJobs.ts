@@ -169,8 +169,8 @@ export class DocumentJobs {
     let budgetTimer: ReturnType<typeof setInterval> | undefined;
     job.timer = setTimeout(() => {
       this.stop(job);
-      job.error = 'Document job exceeded ten minute time budget';
-    }, 600000);
+      job.error = 'Document job exceeded fifteen minute time budget';
+    }, 900000);
     try {
       await this.sweepInactiveCaches();
       const root = path.join(this.root, createHash('sha256').update(job.owner).digest('hex'));

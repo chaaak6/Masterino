@@ -125,7 +125,7 @@ export async function executeDocumentOperation(
       kill('SIGTERM');
       killTimer = setTimeout(() => kill('SIGKILL'), 500);
     };
-    const timer = setTimeout(abort, 600000);
+    const timer = setTimeout(abort, 900000);
     options.signal?.addEventListener('abort', abort, { once: true });
     if (options.signal?.aborted) abort();
     child.stderr.on('data', (chunk) => {
