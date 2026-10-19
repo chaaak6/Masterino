@@ -6,9 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getChatModelList,
   getImageModelList,
+  mergeSilentCatalogModels,
   normalizeChatModel,
   normalizeImageModel,
-  mergeSilentCatalogModels,
 } from '../action';
 
 const createChatModel = (overrides: Partial<EnabledAiModel> = {}): EnabledAiModel => ({
