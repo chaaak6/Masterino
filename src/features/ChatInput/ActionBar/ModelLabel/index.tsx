@@ -10,6 +10,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { aiModelSelectors, useAiInfraStore } from '@/store/aiInfra';
+import { modelDisplayName } from '@/utils/modelDisplayName';
 
 import { useAgentId } from '../../hooks/useAgentId';
 import { useActionBarContext } from '../context';
@@ -59,7 +60,7 @@ const ModelLabel = memo(() => {
   const applyBusinessModelModeConfig = useBusinessModelModeConfig();
 
   const enabledModel = useAiInfraStore(aiModelSelectors.getEnabledModelById(model, provider));
-  const displayName = enabledModel?.displayName || model;
+  const displayName = modelDisplayName(enabledModel?.displayName, model);
 
   const handleModelChange = useCallback(
     async (params: { model: string; provider: string }) => {

@@ -26,10 +26,12 @@ import { useTranslation } from 'react-i18next';
 import { useAiInfraStore } from '@/store/aiInfra';
 import { type AiProviderSourceType } from '@/types/aiProvider';
 import { formatTokenNumber } from '@/utils/format';
+import { modelDisplayName } from '@/utils/modelDisplayName';
 
 import { useChatModelCatalog } from './hooks';
 import { InputModalityTags } from './InputModalityTags';
 import NewModelBadgeI18n, { NewModelBadge as NewModelBadgeCore } from './NewModelBadge';
+import { getVisualCapabilities } from './visualCapabilities';
 
 export const TAG_CLASSNAME = 'lobe-model-info-tags';
 
@@ -61,6 +63,8 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
 type TooltipStyles = typeof styles;
 
 interface ModelInfoTagsProps extends ModelAbilities {
+  compactVideo?: boolean;
+  compactVision?: boolean;
   contextWindowTokens?: number | null;
   directionReverse?: boolean;
   disableTooltip?: boolean;
@@ -73,10 +77,7 @@ interface ModelInfoTagsProps extends ModelAbilities {
   isCustom?: boolean;
   managedImageState?: EvidenceState;
   placement?: 'top' | 'right';
-  /**
-   * Whether to render the non-modality ability tags (tool calling, image output) and
-   * the context window tag. Compact chat rows keep only the modality conclusion.
-   */
+  /** Whether to render the non-modality ability tags and context window. */
   showAbilityTags?: boolean;
   style?: CSSProperties;
   visualOnly?: boolean;
@@ -106,7 +107,7 @@ const FeatureTagItem = memo<FeatureTagItemProps>(
     if (!enabled) return null;
 
     const tag = (
-      <Tag className={className} color={color} size={'small'}>
+      <Tag aria-label={title} className={className} color={color} role="img" size={'small'}>
         <Icon icon={icon} />
       </Tag>
     );
@@ -228,6 +229,8 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
     disableTooltip,
     inputModality,
     managedImageState,
+    compactVision,
+    compactVideo,
     visualOnly,
     placement = 'top',
     showAbilityTags = true,
@@ -247,7 +250,33 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
         style={{ marginLeft: 'auto', ...style }}
         width={'fit-content'}
       >
-        {inputModality && (
+        {visualOnly && (
+          <>
+            <FeatureTagItem
+              className={styles.tag}
+              color="success"
+              disableTooltip={disableTooltip}
+              enabled={compactVision}
+              icon={LucideEye}
+              placement={placement}
+              title={t('ModelSelect.inputModality.supported.image', {
+                defaultValue: 'Supports image input',
+              })}
+            />
+            <FeatureTagItem
+              className={styles.tag}
+              color="magenta"
+              disableTooltip={disableTooltip}
+              enabled={compactVideo}
+              icon={Video}
+              placement={placement}
+              title={t('ModelSelect.inputModality.supported.video', {
+                defaultValue: 'Supports video input',
+              })}
+            />
+          </>
+        )}
+        {!visualOnly && inputModality && (
           <InputModalityTags
             conclusion={inputModality}
             disableTooltip={disableTooltip}
@@ -256,7 +285,7 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
             visualOnly={visualOnly}
           />
         )}
-        {managedImageState && managedImageState !== 'unknown' && (
+        {!visualOnly && managedImageState && managedImageState !== 'unknown' && (
           <Tag
             className={styles.tag}
             color={managedImageState === 'supported' ? 'success' : undefined}
@@ -278,8 +307,8 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
             imageOutput={model.imageOutput}
             placement={placement}
             tagClassName={styles.tag}
-            video={hasEvidence ? undefined : model.video}
-            vision={hasEvidence ? undefined : model.vision}
+            video={visualOnly || hasEvidence ? undefined : model.video}
+            vision={visualOnly || hasEvidence ? undefined : model.vision}
           />
         )}
         {showAbilityTags && typeof model.contextWindowTokens === 'number' && (
@@ -339,7 +368,7 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
     style,
   }) => {
     const { mobile } = useResponsive();
-    const displayNameOrId = displayName || id;
+    const displayNameOrId = modelDisplayName(displayName, id);
     const rowAbilities = useMemo<ModelAbilities>(
       () => abilities ?? { files, functionCall, imageOutput, reasoning, search, video, vision },
       [abilities, files, functionCall, imageOutput, reasoning, search, video, vision],
@@ -361,6 +390,9 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
     const managedImageState = parsedDescription.success
       ? parsedDescription.data.inputModalities.image
       : undefined;
+    const managedVideoState = parsedDescription.success
+      ? parsedDescription.data.inputModalities.video
+      : undefined;
     const hasManagedImageState =
       showInputModality &&
       (managedImageState === 'supported' || managedImageState === 'unsupported');
@@ -368,6 +400,14 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
       showInputModality && catalog.chatEligible && !hasManagedImageState
         ? catalog.inputModality
         : undefined;
+    const compactCapabilities = getVisualCapabilities(
+      id,
+      providerId,
+      rowAbilities,
+      catalog.inputModality,
+      managedImageState,
+      managedVideoState,
+    );
 
     return (
       <Flexbox
@@ -410,8 +450,13 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
             </Tag>
           )}
         </Flexbox>
-        {(showInfoTag || inputModality || hasManagedImageState) && (
+        {(showInfoTag ||
+          inputModality ||
+          hasManagedImageState ||
+          (visualOnly && (compactCapabilities.image || compactCapabilities.video))) && (
           <ModelInfoTags
+            compactVideo={compactCapabilities.video}
+            compactVision={compactCapabilities.image}
             contextWindowTokens={contextWindowTokens}
             disableTooltip={disableTooltip}
             files={files ?? abilities?.files}

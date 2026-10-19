@@ -32,11 +32,6 @@ const AihubPricing = memo<{ pricing?: AihubDisplayPricing }>(({ pricing }) => {
       }
     >
       <Flexbox gap={8} style={{ padding: '0 8px', fontSize: 12 }}>
-        {pricing?.scope && (
-          <span style={{ color: 'var(--ant-color-text-tertiary)' }}>
-            {label(pricing.scope === 'account' ? 'accountScope' : 'publicScope')}
-          </span>
-        )}
         {!pricing || pricing.stale || pricing.status !== 'available' ? (
           <span>{label('unavailable')}</span>
         ) : !rates || !Object.keys(rates).length ? (
