@@ -6,11 +6,20 @@ import moonshotModels from 'model-bank/moonshot';
 import qwenModels from 'model-bank/qwen';
 import zhipuModels from 'model-bank/zhipu';
 
-const knownNewApiModels = new Map(
-  [...deepseekModels, ...minimaxModels, ...moonshotModels, ...qwenModels, ...zhipuModels]
-    .filter((model) => model.type === 'chat')
-    .map((model) => [model.id.toLowerCase(), model.abilities] as const),
-);
+const knownNewApiModels = new Map<string, ModelAbilities>();
+for (const model of [
+  ...deepseekModels,
+  ...minimaxModels,
+  ...moonshotModels,
+  ...qwenModels,
+  ...zhipuModels,
+]) {
+  if (model.type !== 'chat') continue;
+  const id = model.id.toLowerCase();
+  // Some aggregators repeat another vendor's ID with incomplete abilities.
+  // The owning provider appears first and must keep its capability evidence.
+  if (!knownNewApiModels.has(id)) knownNewApiModels.set(id, model.abilities ?? {});
+}
 
 const resolveVisualSupport = (
   published: EvidenceState | undefined,

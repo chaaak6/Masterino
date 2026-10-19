@@ -448,7 +448,16 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
 
     const hasContext = typeof model.contextWindowTokens === 'number';
     const enabledAbilities = (catalog.chatEligible ? CHAT_ABILITY_CONFIG : ABILITY_CONFIG).filter(
-      (a) => model.abilities[a.key as keyof typeof model.abilities],
+      (ability) => {
+        const published = parsedDescription.success
+          ? parsedDescription.data.capabilities[
+              ability.key as keyof typeof parsedDescription.data.capabilities
+            ]
+          : undefined;
+        if (published === 'supported') return true;
+        if (published === 'unsupported') return false;
+        return model.abilities[ability.key as keyof typeof model.abilities];
+      },
     );
     const visualInputs = (['image', 'video'] as const).filter((modality) =>
       modality === 'image' ? visualCapabilities.image : visualCapabilities.video,

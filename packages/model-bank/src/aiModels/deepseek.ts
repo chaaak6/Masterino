@@ -19,11 +19,12 @@ const deepseekChatModels: AIChatModelCard[] = [
       reasoning: true,
       structuredOutput: true,
       video: false,
-      vision: false,
+      // DeepSeek now routes this legacy ID to the vision-capable V4.1 Flash.
+      vision: true,
     },
     contextWindowTokens: 1_048_576,
     description:
-      'DeepSeek V4 Flash is DeepSeek’s fast 1M-context flagship model, supporting both non-thinking and thinking modes with strong agent capabilities.',
+      'Legacy DeepSeek V4 Flash ID, currently served by DeepSeek V4.1 Flash with text and image input, thinking modes, and tool calling.',
     displayName: 'DeepSeek V4 Flash',
     enabled: true,
     family: 'deepseek',
@@ -55,7 +56,7 @@ const deepseekChatModels: AIChatModelCard[] = [
     },
     contextWindowTokens: 1_048_576,
     description:
-      'DeepSeek V4 Pro is DeepSeek’s most capable 1M-context flagship model, supporting both non-thinking and thinking modes for advanced reasoning and tool use.',
+      'DeepSeek V4 Pro supports long-context text reasoning and tool calling. The current DeepSeek API model table does not list image input for this model.',
     displayName: 'DeepSeek V4 Pro',
     enabled: true,
     family: 'deepseek',
