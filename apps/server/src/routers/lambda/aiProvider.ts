@@ -142,15 +142,6 @@ export const aiProviderRouter = router({
       );
       if (publishedModels !== state.enabledAiModels) {
         state.enabledAiModels = publishedModels;
-        const providersForKind = (kind: string) =>
-          state.enabledAiProviders.filter((provider) =>
-            state.enabledAiModels.some(
-              (model) => model.providerId === provider.id && model.type === kind,
-            ),
-          );
-        state.enabledChatAiProviders = providersForKind('chat');
-        state.enabledImageAiProviders = providersForKind('image');
-        state.enabledVideoAiProviders = providersForKind('video');
       }
       return {
         ...state,

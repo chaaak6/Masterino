@@ -1,6 +1,4 @@
 import {
-  MANAGED_MODEL_CAPABILITIES,
-  MANAGED_MODEL_MODALITIES,
   type ManagedModelDescription,
   ManagedModelDescriptionSchema,
   type ManagedModelRecord,
@@ -170,7 +168,10 @@ export default function ModelCatalogEditor({
           <Form.Item label="使用限制 / 参数说明" name="limitations">
             <Input.TextArea maxLength={10000} rows={2} />
           </Form.Item>
-          <Divider titlePlacement="start">能力范围</Divider>
+          <Divider titlePlacement="start">能力说明</Divider>
+          <Typography.Paragraph type="secondary">
+            文本、图片仅用于展示。聊天模型默认支持工具调用；只有明确标记“不支持”并发布后，才会影响工具调用。
+          </Typography.Paragraph>
           <div
             style={{
               display: 'grid',
@@ -178,12 +179,12 @@ export default function ModelCatalogEditor({
               gap: '0 16px',
             }}
           >
-            {MANAGED_MODEL_MODALITIES.map((key) => (
+            {(['text', 'image'] as const).map((key) => (
               <Form.Item key={key} label={capabilityLabels[key]} name={['inputModalities', key]}>
                 <Select options={evidenceOptions} />
               </Form.Item>
             ))}
-            {MANAGED_MODEL_CAPABILITIES.map((key) => (
+            {(['functionCall'] as const).map((key) => (
               <Form.Item key={key} label={capabilityLabels[key]} name={['capabilities', key]}>
                 <Select options={evidenceOptions} />
               </Form.Item>

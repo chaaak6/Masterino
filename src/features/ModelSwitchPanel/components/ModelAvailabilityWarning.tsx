@@ -1,3 +1,4 @@
+import { isAiProviderModelChatEligible } from '@lobechat/business-model-bank';
 import { createStaticStyles } from 'antd-style';
 import { CircleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +26,9 @@ export default function ModelAvailabilityWarning({
       provider === 'newapi' &&
       !!model &&
       !!s.silentModelCatalog &&
-      !s.silentModelCatalog.models.some((item) => item.id === model),
+      !s.silentModelCatalog.models.some(
+        (item) => item.id === model && item.enabled && isAiProviderModelChatEligible(item),
+      ),
   );
   if (!unavailable) return null;
   const label = t('ModelSwitchPanel.detail.managed.unavailable');

@@ -67,6 +67,15 @@ const getModelProperty = async <T>(
 
 const dedupeById = (models: ProviderModelListItem[]) => uniqBy(models, 'id');
 
+/** A silent catalog response owns only newapi models. Other providers keep their runtime state. */
+export const mergeSilentCatalogModels = (
+  current: EnabledAiModel[],
+  incoming: EnabledAiModel[],
+): EnabledAiModel[] => [
+  ...current.filter((model) => model.providerId !== 'newapi'),
+  ...incoming.filter((model) => model.providerId === 'newapi' && model.enabled),
+];
+
 const createProviderModelCollector = (
   type: EnabledAiModel['type'],
   normalizer: ModelNormalizer,
@@ -139,9 +148,10 @@ export const normalizeImageModel = async (
     ...(parameters && { parameters }),
     ...(description && { description }),
     ...(pricing && { pricing }),
-    ...(!model.settings?.aihubPricing &&
+    ...(model.settings?.aihubPricing?.status !== 'available' &&
       typeof approximatePrice === 'number' && { approximatePricePerImage: approximatePrice }),
-    ...(!model.settings?.aihubPricing && typeof price === 'number' && { pricePerImage: price }),
+    ...(model.settings?.aihubPricing?.status !== 'available' &&
+      typeof price === 'number' && { pricePerImage: price }),
   };
 };
 
@@ -180,7 +190,7 @@ export const normalizeVideoModel = async (
     ...(parameters && { parameters }),
     ...(description && { description }),
     ...(pricing && { pricing }),
-    ...(!model.settings?.aihubPricing &&
+    ...(model.settings?.aihubPricing?.status !== 'available' &&
       typeof approximatePrice === 'number' && { approximatePricePerVideo: approximatePrice }),
   };
 };
@@ -306,7 +316,7 @@ export class AiProviderActionImpl {
   };
 
   refreshAiProviderList = async (): Promise<void> => {
-    this.#get().clearSilentModelCatalog();
+    this.#get().clearSilentModelCatalog(false);
     await mutate(AiProviderSwrKey.fetchAiProviderList);
     await this.#get().refreshAiProviderRuntimeState();
   };
@@ -319,7 +329,7 @@ export class AiProviderActionImpl {
   ): Promise<void> => {
     const current = this.#get();
     const providers = current.enabledAiProviders ?? [];
-    const enabled = models.filter((model) => model.enabled);
+    const enabled = mergeSilentCatalogModels(current.enabledAiModels ?? [], models);
     const [chat, image, video] = await Promise.all([
       buildChatProviderModelLists(providers, enabled),
       buildImageProviderModelLists(providers, enabled),
@@ -339,11 +349,11 @@ export class AiProviderActionImpl {
     );
   };
 
-  clearSilentModelCatalog = (): void => {
+  clearSilentModelCatalog = (refreshRuntime = true): void => {
     if (typeof window !== 'undefined') window.dispatchEvent(new Event(MODEL_CATALOG_RESET_EVENT));
     if (!this.#get().silentModelCatalog) return;
     this.#set({ silentModelCatalog: undefined }, false, 'clearSilentModelCatalog');
-    void this.#get().refreshAiProviderRuntimeState();
+    if (refreshRuntime) void this.#get().refreshAiProviderRuntimeState();
   };
 
   refreshAiProviderRuntimeState = async (): Promise<void> => {
@@ -526,7 +536,7 @@ export class AiProviderActionImpl {
           const data = await aiProviderService.getAiProviderRuntimeState();
           const overlay = this.#get().silentModelCatalog;
           if (overlay && overlay.userId === useUserStore.getState().user?.id) {
-            data.enabledAiModels = overlay.models.filter((model) => model.enabled);
+            data.enabledAiModels = mergeSilentCatalogModels(data.enabledAiModels, overlay.models);
             const forKind = (kind: string) =>
               data.enabledAiProviders.filter((provider) =>
                 data.enabledAiModels.some(

@@ -22,8 +22,8 @@ const needsMoreInformation = (record?: ManagedModelRecord) => {
     (value.kind === 'chat' &&
       (value.contextWindowTokens === null ||
         value.maxOutput === null ||
-        Object.values(value.capabilities).includes('unknown') ||
-        Object.values(value.inputModalities).includes('unknown')))
+        value.inputModalities.text === 'unknown' ||
+        value.inputModalities.image === 'unknown'))
   );
 };
 
@@ -317,15 +317,16 @@ export default function ModelCatalogPage() {
                     label: '能力',
                     children: (
                       <Space wrap>
-                        {Object.entries({
-                          ...description.inputModalities,
-                          ...description.capabilities,
-                        }).map(([key, state]) => (
+                        {(['text', 'image', 'functionCall'] as const).map((key) => (
                           <Tag key={key}>
                             {capabilityLabels[key]}：
-                            {state === 'supported'
+                            {(key === 'functionCall'
+                              ? description.capabilities.functionCall
+                              : description.inputModalities[key]) === 'supported'
                               ? '支持'
-                              : state === 'unsupported'
+                              : (key === 'functionCall'
+                                    ? description.capabilities.functionCall
+                                    : description.inputModalities[key]) === 'unsupported'
                                 ? '不支持'
                                 : '待确认'}
                           </Tag>
@@ -338,6 +339,11 @@ export default function ModelCatalogPage() {
                     label: 'Aihub 公共计费价',
                     children: pricing.isFetching ? (
                       '读取中…'
+                    ) : pricing.error ? (
+                      <Space>
+                        <Typography.Text type="danger">价格读取失败</Typography.Text>
+                        <Button onClick={() => void pricing.refetch()}>重试</Button>
+                      </Space>
                     ) : pricing.data?.status !== 'available' ? (
                       '暂无可靠价格'
                     ) : (

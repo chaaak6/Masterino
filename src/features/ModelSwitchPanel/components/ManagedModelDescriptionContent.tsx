@@ -26,6 +26,12 @@ export default function ManagedModelDescriptionContent({ description }: { descri
           {value.organization && <span>{value.organization}</span>}
           {value.description && <span>{value.description}</span>}
           <span>
+            {t('ModelSwitchPanel.detail.context')}：
+            {value.contextWindowTokens?.toLocaleString() ??
+              t('ModelSwitchPanel.detail.managed.unknown')}{' '}
+            tokens
+          </span>
+          <span>
             {t('ModelSwitchPanel.detail.managed.maxOutput')}：
             {value.maxOutput?.toLocaleString() ?? t('ModelSwitchPanel.detail.managed.unknown')}
           </span>
@@ -35,18 +41,16 @@ export default function ManagedModelDescriptionContent({ description }: { descri
             </span>
           )}
           <Flexbox horizontal gap={4} wrap={'wrap'}>
-            {Object.entries(value.inputModalities).map(([key, state]) => (
+            {(['text', 'image'] as const).map((key) => (
               <Tag key={`input-${key}`}>
                 {t(`ModelSwitchPanel.detail.managed.${key}Input` as any)}：
-                {t(`ModelSwitchPanel.detail.managed.${state}` as any)}
+                {t(`ModelSwitchPanel.detail.managed.${value.inputModalities[key]}` as any)}
               </Tag>
             ))}
-            {Object.entries(value.capabilities).map(([key, state]) => (
-              <Tag key={key}>
-                {t(`ModelSwitchPanel.detail.managed.${key}` as any)}：
-                {t(`ModelSwitchPanel.detail.managed.${state}` as any)}
-              </Tag>
-            ))}
+            <Tag>
+              {t('ModelSwitchPanel.detail.managed.functionCall')}：
+              {t(`ModelSwitchPanel.detail.managed.${value.capabilities.functionCall}` as any)}
+            </Tag>
           </Flexbox>
           {value.referencePricing && (
             <span>

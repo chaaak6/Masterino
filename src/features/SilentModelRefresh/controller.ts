@@ -30,7 +30,7 @@ interface RefreshOptions {
     knownRevision: string | undefined,
     signal: AbortSignal,
   ) => Promise<SilentModelCatalogResponse>;
-  clear: () => void;
+  clear: (refreshRuntime?: boolean) => void;
 }
 
 /** One scheduler per mounted main interface. Does not wait for chat/CPU idleness. */
@@ -76,6 +76,7 @@ export class SilentModelRefreshController {
     if (!this.stopped) this.timer = setTimeout(() => void this.check(), delay);
   }
   private onResume = () => {
+    if (this.lastAttempt && Date.now() - this.lastAttempt < SILENT_MODEL_REFRESH_INTERVAL) return;
     if (!this.lastSuccess || Date.now() - this.lastSuccess >= SILENT_MODEL_REFRESH_INTERVAL)
       void this.requestCheck('resume');
   };
@@ -94,7 +95,7 @@ export class SilentModelRefreshController {
     this.epoch++;
     this.request?.abort();
     this.revision = undefined;
-    this.options.clear();
+    this.options.clear(false);
     this.lastAttempt = Date.now();
     this.lastSuccess = 0;
     this.lastFailure = 0;
@@ -104,10 +105,18 @@ export class SilentModelRefreshController {
   requestCheck(reason: 'panel' | 'resume' | 'retry' | 'scheduled' = 'scheduled') {
     if (reason === 'panel') {
       if (this.lastFailure && Date.now() - this.lastFailure < FAILED_PANEL_RETRY_COOLDOWN) return;
-      if (catalogCheckStatus !== 'error' && this.lastSuccess && Date.now() - this.lastSuccess < PANEL_MODEL_REFRESH_COOLDOWN)
+      if (
+        catalogCheckStatus !== 'error' &&
+        this.lastSuccess &&
+        Date.now() - this.lastSuccess < PANEL_MODEL_REFRESH_COOLDOWN
+      )
         return;
     }
-    if (reason === 'resume' && this.lastAttempt && Date.now() - this.lastAttempt < 60_000)
+    if (
+      reason === 'resume' &&
+      this.lastAttempt &&
+      Date.now() - this.lastAttempt < SILENT_MODEL_REFRESH_INTERVAL
+    )
       return;
     void this.check();
   }
@@ -141,6 +150,11 @@ export class SilentModelRefreshController {
       }
       if (response.status === 'changed') {
         await this.options.apply(response, request.signal);
+        if (request.signal.aborted) {
+          this.lastFailure = Date.now();
+          setCatalogCheckStatus('error');
+          return;
+        }
         if (!request.signal.aborted && epoch === this.epoch) {
           this.revision = response.revision;
           if (!response.stale) this.lastSuccess = Date.now();

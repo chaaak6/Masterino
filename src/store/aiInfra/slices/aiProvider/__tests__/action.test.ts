@@ -8,6 +8,7 @@ import {
   getImageModelList,
   normalizeChatModel,
   normalizeImageModel,
+  mergeSilentCatalogModels,
 } from '../action';
 
 const createChatModel = (overrides: Partial<EnabledAiModel> = {}): EnabledAiModel => ({
@@ -35,6 +36,13 @@ const createImageModel = (overrides: Partial<ImageEnabledModel> = {}): ImageEnab
 });
 
 describe('aiProvider action helpers', () => {
+  it('updates only newapi models when the silent directory changes', () => {
+    const other = createChatModel({ id: 'other', providerId: 'openai' });
+    const old = createChatModel({ id: 'old', providerId: 'newapi' });
+    const fresh = createChatModel({ id: 'fresh', providerId: 'newapi' });
+    expect(mergeSilentCatalogModels([other, old], [fresh])).toEqual([other, fresh]);
+    expect(mergeSilentCatalogModels([other, old], [])).toEqual([other]);
+  });
   beforeEach(() => {
     vi.spyOn(runtimeModule, 'getModelPropertyWithFallback').mockResolvedValue(undefined);
   });

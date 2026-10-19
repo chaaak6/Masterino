@@ -5,7 +5,11 @@ import {
   createModelCatalogSnapshot,
   getModelCatalogFromSettings,
 } from '@lobechat/business-model-bank';
-import { createEmptyModelDescription, type ManagedModelRecord } from '@lobechat/types';
+import {
+  createEmptyModelDescription,
+  ManagedModelDescriptionSchema,
+  type ManagedModelRecord,
+} from '@lobechat/types';
 import type { AiProviderModelListItem } from 'model-bank';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -133,7 +137,7 @@ describe('effective catalog business scenarios', () => {
     expect(projected.enabled).toBe(false);
     expect(projected.sort).toBe(7);
     expect(projected.pricing).toEqual(previous.pricing);
-    expect(projected.abilities?.functionCall).toBeUndefined();
+    expect(projected.abilities?.functionCall).toBe(true);
   });
   it('Given published tool capabilities, Then a running snapshot keeps them when the description is later changed', () => {
     const entry = record('a');
@@ -151,13 +155,59 @@ describe('effective catalog business scenarios', () => {
   });
 });
 
-it('keeps rerank and moderation models out of embedding consumers despite the legacy DTO type', () => {
+it('keeps editorial model kinds from changing execution routing or embedding eligibility', () => {
   for (const kind of ['rerank', 'moderation', 'embedding'] as const) {
     const item = record('a');
     item.published = { ...item.draft, kind };
     item.publishedRevision = 'v1';
     const projected = projectPublishedDescription(model('a'), item);
-    expect(projected.type).toBe('embedding');
-    expect(matchesEmbeddingKind(projected)).toBe(kind === 'embedding');
+    expect(projected.type).toBe('chat');
+    expect(matchesEmbeddingKind(projected)).toBe(false);
   }
+});
+
+it('uses published descriptions for display without shrinking runtime context or modalities', () => {
+  const entry = record('a');
+  entry.published = {
+    ...entry.draft,
+    contextWindowTokens: 1024,
+    inputModalities: { ...entry.draft.inputModalities, image: 'unsupported' },
+    capabilities: { ...entry.draft.capabilities, functionCall: 'unknown' },
+  };
+  entry.publishedRevision = 'v1';
+  const projected = projectPublishedDescription(
+    {
+      ...model('a'),
+      abilities: { functionCall: false, vision: true },
+      contextWindowTokens: 128000,
+    },
+    entry,
+  );
+  expect(projected.contextWindowTokens).toBe(128000);
+  expect(projected.abilities).toMatchObject({ functionCall: true, vision: true });
+  expect(
+    ManagedModelDescriptionSchema.parse(projected.settings?.managedModelCatalog?.description)
+      .contextWindowTokens,
+  ).toBe(1024);
+  expect(getModelCatalogFromSettings(projected.settings)?.entry.contextWindowTokens).toBe(128000);
+});
+
+it('allows an explicit published tool restriction without changing image understanding', () => {
+  const entry = record('a');
+  entry.published = {
+    ...entry.draft,
+    capabilities: { ...entry.draft.capabilities, functionCall: 'unsupported' },
+  };
+  entry.publishedRevision = 'v1';
+  const projected = projectPublishedDescription(
+    {
+      ...model('a'),
+      abilities: { functionCall: true, vision: true },
+    },
+    entry,
+  );
+  expect(projected.abilities).toMatchObject({ functionCall: false, vision: true });
+  expect(getModelCatalogFromSettings(projected.settings)?.entry.capabilities?.functionCall).toBe(
+    'unsupported',
+  );
 });

@@ -1,10 +1,10 @@
-import { MotionProvider,ThemeProvider } from '@lobehub/ui';
+import { MotionProvider, ThemeProvider } from '@lobehub/ui';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import i18n from 'i18next';
 import { motion } from 'motion/react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-import { I18nextProvider,initReactI18next } from 'react-i18next';
+import { I18nextProvider, initReactI18next } from 'react-i18next';
 import superjson from 'superjson';
 
 import components from '../../locales/zh-CN/components.json';
@@ -18,14 +18,12 @@ import {
   subscribeCatalogCheckStatus,
 } from '../../src/features/SilentModelRefresh/controller';
 
-i18n
-  .use(initReactI18next)
-  .init({
-    lng: 'zh-CN',
-    keySeparator: false,
-    resources: { 'zh-CN': { components } },
-    interpolation: { escapeValue: false },
-  });
+i18n.use(initReactI18next).init({
+  lng: 'zh-CN',
+  keySeparator: false,
+  resources: { 'zh-CN': { components } },
+  interpolation: { escapeValue: false },
+});
 
 const client = createTRPCClient<any>({
   links: [httpBatchLink({ url: '/trpc/lambda', transformer: superjson })],
@@ -82,13 +80,24 @@ function Harness() {
       </button>
       {panelOpen && (
         <section aria-label="模型面板" data-testid="model-panel">
-          <input aria-label="搜索面板模型" value={search} onChange={(event) => setSearch(event.target.value)} />
-          {checkStatus === 'error' && <button onClick={retryPanelModelCatalogCheck}>模型信息暂未更新 · 重试</button>}
+          <input
+            aria-label="搜索面板模型"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {checkStatus === 'error' && (
+            <button onClick={retryPanelModelCatalogCheck}>模型信息暂未更新 · 重试</button>
+          )}
           {models
-            .filter((model) => (model.displayName ?? model.id).toLowerCase().includes(search.toLowerCase()))
-            .map((model) => <p key={model.id}>{model.displayName ?? model.id}</p>)}
+            .filter((model) =>
+              (model.displayName ?? model.id).toLowerCase().includes(search.toLowerCase()),
+            )
+            .map((model) => (
+              <p key={model.id}>{model.displayName ?? model.id}</p>
+            ))}
           <p data-testid="panel-detail">
-            {models.find((model) => model.id === selected)?.contextWindowTokens ?? '待确认'}
+            {models.find((model) => model.id === selected)?.settings?.managedModelCatalog
+              ?.description?.contextWindowTokens ?? '待确认'}
           </p>
         </section>
       )}

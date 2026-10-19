@@ -2489,7 +2489,8 @@ export class AiAgentService {
         if (
           entry.modelId === m &&
           entry.providerId === p &&
-          entry.capabilities?.functionCall !== undefined
+          entry.capabilities?.functionCall !== undefined &&
+          entry.capabilities.functionCall !== 'unknown'
         )
           return entry.capabilities.functionCall === 'supported';
         const info = builtinModels.find((item) => item.id === m && item.providerId === p);

@@ -1943,7 +1943,8 @@ export const createRuntimeExecutors = (
               if (
                 operationCatalogEntry?.modelId === m &&
                 operationCatalogEntry.providerId === p &&
-                operationCatalogEntry.capabilities?.functionCall !== undefined
+                operationCatalogEntry.capabilities?.functionCall !== undefined &&
+                operationCatalogEntry.capabilities.functionCall !== 'unknown'
               )
                 return operationCatalogEntry.capabilities.functionCall === 'supported';
               const info = builtinModels.find((item) => item.id === m && item.providerId === p);
@@ -1953,8 +1954,7 @@ export const createRuntimeExecutors = (
               if (
                 operationCatalogEntry?.modelId === m &&
                 operationCatalogEntry.providerId === p &&
-                (operationCatalogEntry.capabilities ||
-                  operationCatalogEntry.inputModalities.video !== 'unknown')
+                operationCatalogEntry.inputModalities.video !== 'unknown'
               )
                 return operationCatalogEntry.inputModalities.video === 'supported';
               const info =
@@ -1966,8 +1966,7 @@ export const createRuntimeExecutors = (
               if (
                 operationCatalogEntry?.modelId === m &&
                 operationCatalogEntry.providerId === p &&
-                (operationCatalogEntry.capabilities ||
-                  operationCatalogEntry.inputModalities.image !== 'unknown')
+                operationCatalogEntry.inputModalities.image !== 'unknown'
               )
                 return operationCatalogEntry.inputModalities.image === 'supported';
               // Aggregator providers (e.g. lobehub) route to upstream model cards

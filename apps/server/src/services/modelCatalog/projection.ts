@@ -8,63 +8,74 @@ export const projectPublishedDescription = (
   record?: ManagedModelRecord,
 ): AiProviderModelListItem => {
   const published = record?.published;
-  if (!published) return model;
+  if (!published && model.type !== 'chat') return model;
   const previous = getModelCatalogFromSettings(model.settings);
-  const catalog = mergeModelCatalogEntry({
-    modelId: model.id,
-    providerId: 'newapi',
-    catalog: {
-      kind: model.type,
-      abilities: model.abilities,
-      contextWindowTokens: model.contextWindowTokens,
+  const catalog =
+    previous ??
+    mergeModelCatalogEntry({
+      modelId: model.id,
+      providerId: 'newapi',
+      catalog: {
+        kind: model.type,
+        abilities: model.abilities,
+        contextWindowTokens: model.contextWindowTokens,
+      },
+    });
+  // Descriptions and reference prices are editorial data. They must not alter
+  // routing, context limits, modalities, or any other execution capability.
+  const explicitToolSupport = published?.capabilities.functionCall;
+  const hasToolDecision =
+    model.type === 'chat' ||
+    explicitToolSupport === 'supported' ||
+    explicitToolSupport === 'unsupported';
+  const toolSupport = explicitToolSupport === 'unsupported' ? false : model.type === 'chat';
+  const abilities = {
+    ...model.abilities,
+    ...(hasToolDecision
+      ? { functionCall: explicitToolSupport === 'supported' || toolSupport }
+      : {}),
+  };
+  const projectedCatalog = {
+    ...catalog,
+    entry: {
+      ...catalog.entry,
+      ...(hasToolDecision
+        ? {
+            capabilities: {
+              ...catalog.entry.capabilities,
+              functionCall: abilities.functionCall
+                ? ('supported' as const)
+                : ('unsupported' as const),
+            },
+          }
+        : {}),
     },
-    providerMetadata: { modelVersion: previous?.entry.modelVersion },
-    observed: previous?.observed,
-    manual: {
-      createdAt: record.updatedAt.toISOString(),
-      owner: 'managed-model-catalog',
-      reason: record.publishedRevision!,
-      kind: published.kind === 'video' ? 'unknown' : published.kind,
-      inputModalities: published.inputModalities,
-      contextWindowTokens: published.contextWindowTokens ?? undefined,
-      maxOutput: published.maxOutput ?? undefined,
-    },
-  });
-  catalog.entry.capabilities = { ...published.capabilities };
-  const abilities = { ...model.abilities };
-  for (const [key, state] of Object.entries(published.capabilities)) {
-    abilities[key as keyof typeof abilities] =
-      state === 'unknown' ? undefined : state === 'supported';
-  }
-  for (const [key, modality] of [
-    ['vision', 'image'],
-    ['video', 'video'],
-    ['files', 'file'],
-  ] as const) {
-    const state = catalog.entry.inputModalities[modality];
-    abilities[key] = state === 'unknown' ? undefined : state === 'supported';
-  }
+  };
   return {
     ...model,
-    displayName: published.displayName,
-    organization: published.organization,
-    description: published.description,
+    ...(published
+      ? {
+          displayName: published.displayName,
+          organization: published.organization,
+          description: published.description,
+        }
+      : {}),
     abilities,
-    contextWindowTokens: catalog.entry.contextWindowTokens,
-    type:
-      published.kind === 'rerank' || published.kind === 'moderation' || published.kind === 'unknown'
-        ? 'embedding'
-        : published.kind,
     settings: {
       ...model.settings,
-      modelCatalog: catalog,
-      managedModelCatalog: { revision: record.publishedRevision!, description: published },
+      modelCatalog: projectedCatalog,
+      ...(published
+        ? { managedModelCatalog: { revision: record!.publishedRevision!, description: published } }
+        : {}),
     },
   };
 };
 
-/** Rerank/moderation use a legacy embedding DTO type but cannot produce embedding vectors. */
+/** Runtime model kind, rather than editorial metadata, determines embedding access. */
 export const matchesEmbeddingKind = (model: { id: string; type: string; settings?: unknown }) => {
   const entry = getModelCatalogFromSettings(model.settings)?.entry;
-  return entry?.modelId === model.id ? entry.kind === 'embedding' : model.type === 'embedding';
+  return (
+    model.type === 'embedding' &&
+    (!entry || entry.modelId !== model.id || entry.kind === 'embedding')
+  );
 };

@@ -373,7 +373,7 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
     );
     const isAihubTariff =
       provider === BRANDING_PROVIDER &&
-      ((catalog.chatEligible && !pricingMode) || !!model?.aihubPricing);
+      ((catalog.chatEligible && !pricingMode) || model?.aihubPricing?.status === 'available');
     const isCreditPricing = provider === BRANDING_PROVIDER;
     const hasPricing = !!displayPricing;
     const formatPrice = displayPricing ? getPrice(displayPricing, isCreditPricing) : null;

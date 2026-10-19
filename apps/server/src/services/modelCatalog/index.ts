@@ -186,6 +186,7 @@ export const applyPublishedModelDescriptions = async <
   T extends {
     id: string;
     abilities?: AiProviderModelListItem['abilities'];
+    providerId?: string;
     type: AiProviderModelListItem['type'];
   },
 >(
@@ -199,11 +200,15 @@ export const applyPublishedModelDescriptions = async <
   if (publishedCache?.generation !== settings.generation)
     publishedCache = { generation: settings.generation, records: await repository.list() };
   const byId = new Map(publishedCache.records.map((record) => [record.modelId, record]));
-  return models.map(
-    (model) =>
-      projectPublishedDescription(
-        model as unknown as AiProviderModelListItem,
-        byId.get(model.id),
-      ) as unknown as T,
-  );
+  let changed = false;
+  const projected = models.map((model) => {
+    if (model.providerId !== 'newapi') return model;
+    const next = projectPublishedDescription(
+      model as unknown as AiProviderModelListItem,
+      byId.get(model.id),
+    ) as unknown as T;
+    if (next !== model) changed = true;
+    return next;
+  });
+  return changed ? projected : models;
 };

@@ -1,5 +1,8 @@
-import { type ChatModelCard } from '@lobechat/types';
-import { type ChatInputModalityConclusion } from '@lobechat/types/src/modelCatalog';
+import { type ChatModelCard, ManagedModelDescriptionSchema } from '@lobechat/types';
+import {
+  type ChatInputModalityConclusion,
+  type EvidenceState,
+} from '@lobechat/types/src/modelCatalog';
 import { type IconAvatarProps } from '@lobehub/icons';
 import { LobeHub, ModelIcon, ProviderIcon } from '@lobehub/icons';
 import { type FlexboxProps } from '@lobehub/ui';
@@ -10,6 +13,7 @@ import {
   LucideEye,
   LucideImage,
   LucidePaperclip,
+  Type,
   Video,
   Wrench,
 } from 'lucide-react';
@@ -19,6 +23,7 @@ import { type CSSProperties, type FC } from 'react';
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAiInfraStore } from '@/store/aiInfra';
 import { type AiProviderSourceType } from '@/types/aiProvider';
 import { formatTokenNumber } from '@/utils/format';
 
@@ -66,6 +71,7 @@ interface ModelInfoTagsProps extends ModelAbilities {
    */
   inputModality?: ChatInputModalityConclusion;
   isCustom?: boolean;
+  managedImageState?: EvidenceState;
   placement?: 'top' | 'right';
   /**
    * Whether to render the non-modality ability tags (tool calling, image output) and
@@ -221,12 +227,14 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
     directionReverse,
     disableTooltip,
     inputModality,
+    managedImageState,
     visualOnly,
     placement = 'top',
     showAbilityTags = true,
     style,
     ...model
   }) => {
+    const { t } = useTranslation('components');
     // With catalog evidence in hand, image/audio/video/file come from `inputModalities`;
     // the raw ability booleans only back the legacy path for callers without evidence.
     const hasEvidence = !!inputModality;
@@ -247,6 +255,20 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
             tagClassName={styles.tag}
             visualOnly={visualOnly}
           />
+        )}
+        {managedImageState && managedImageState !== 'unknown' && (
+          <Tag
+            className={styles.tag}
+            color={managedImageState === 'supported' ? 'success' : undefined}
+            role="img"
+            size="small"
+            variant={managedImageState === 'unsupported' ? 'outlined' : undefined}
+            aria-label={`${t('ModelSwitchPanel.detail.managed.imageInput')}：${t(
+              `ModelSwitchPanel.detail.managed.${managedImageState}`,
+            )}`}
+          >
+            <Icon icon={managedImageState === 'supported' ? LucideEye : Type} />
+          </Tag>
         )}
         {showAbilityTags && (
           <FeatureTags
@@ -296,6 +318,7 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
     visualOnly,
     disableTooltip,
     abilities,
+    className,
     contextWindowTokens,
     files,
     functionCall,
@@ -313,7 +336,7 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
     id,
     displayName,
     releasedAt,
-    ...rest
+    style,
   }) => {
     const { mobile } = useResponsive();
     const displayNameOrId = displayName || id;
@@ -328,21 +351,36 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
       settings,
       type,
     });
+    const managedDescription = useAiInfraStore((state) =>
+      providerId === 'newapi'
+        ? state.enabledAiModels?.find((model) => model.id === id && model.providerId === providerId)
+            ?.settings?.managedModelCatalog?.description
+        : undefined,
+    );
+    const parsedDescription = ManagedModelDescriptionSchema.safeParse(managedDescription);
+    const managedImageState = parsedDescription.success
+      ? parsedDescription.data.inputModalities.image
+      : undefined;
+    const hasManagedImageState =
+      showInputModality &&
+      (managedImageState === 'supported' || managedImageState === 'unsupported');
     const inputModality =
-      showInputModality && catalog.chatEligible ? catalog.inputModality : undefined;
+      showInputModality && catalog.chatEligible && !hasManagedImageState
+        ? catalog.inputModality
+        : undefined;
 
     return (
       <Flexbox
         horizontal
         align={'center'}
+        className={className}
         gap={32}
         justify={'space-between'}
-        {...rest}
         style={{
           overflow: 'hidden',
           position: 'relative',
           width: '100%',
-          ...rest.style,
+          ...style,
         }}
       >
         <Flexbox
@@ -372,7 +410,7 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
             </Tag>
           )}
         </Flexbox>
-        {(showInfoTag || inputModality) && (
+        {(showInfoTag || inputModality || hasManagedImageState) && (
           <ModelInfoTags
             contextWindowTokens={contextWindowTokens}
             disableTooltip={disableTooltip}
@@ -380,10 +418,11 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
             functionCall={functionCall ?? abilities?.functionCall}
             imageOutput={imageOutput ?? abilities?.imageOutput}
             inputModality={inputModality}
+            managedImageState={hasManagedImageState ? managedImageState : undefined}
             showAbilityTags={showInfoTag}
             style={{ zoom: 0.9 }}
             video={video ?? abilities?.video}
-            vision={vision ?? abilities?.vision}
+            vision={hasManagedImageState ? undefined : (vision ?? abilities?.vision)}
             visualOnly={visualOnly}
           />
         )}
