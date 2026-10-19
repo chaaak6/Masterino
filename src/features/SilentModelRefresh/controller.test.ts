@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  getCatalogCheckStatus,
   MANUAL_MODEL_REFRESH_EVENT,
   SILENT_MODEL_REFRESH_INTERVAL,
+  SILENT_MODEL_REFRESH_TIMEOUT,
   SilentModelRefreshController,
 } from './controller';
 
@@ -82,5 +84,28 @@ describe('silent refresh scheduling and races', () => {
     resolve({ status: 'changed', revision: 'late', models: [] });
     await vi.advanceTimersByTimeAsync(1);
     expect(apply).not.toHaveBeenCalled();
+  });
+  it('keeps the last catalog and offers retry when a timed-out check resolves late', async () => {
+    let resolve!: (value: any) => void;
+    const source = {
+      check: () =>
+        new Promise<any>((r) => {
+          resolve = r;
+        }),
+      clear: () => {},
+    };
+    const clear = vi.spyOn(source, 'clear');
+    const controller = new SilentModelRefreshController({
+      check: source.check,
+      apply: () => {},
+      clear: source.clear,
+    });
+    stop = controller.start();
+    await vi.advanceTimersByTimeAsync(1001);
+    await vi.advanceTimersByTimeAsync(SILENT_MODEL_REFRESH_TIMEOUT);
+    resolve({ status: 'unchanged', revision: 'late', stale: false });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(getCatalogCheckStatus()).toBe('error');
+    expect(clear).not.toHaveBeenCalled();
   });
 });

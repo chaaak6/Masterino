@@ -153,6 +153,8 @@
   "ModelSwitchPanel.aihubPricing.unavailable": "价格暂未获取",
   "ModelSwitchPanel.byModel": "按模型",
   "ModelSwitchPanel.byProvider": "按提供商",
+  "ModelSwitchPanel.catalogCheckFailed": "模型信息暂未更新 ·",
+  "ModelSwitchPanel.catalogRetry": "重试",
   "ModelSwitchPanel.detail.abilities": "能力",
   "ModelSwitchPanel.detail.abilities.files": "文件上传",
   "ModelSwitchPanel.detail.abilities.functionCall": "工具调用",

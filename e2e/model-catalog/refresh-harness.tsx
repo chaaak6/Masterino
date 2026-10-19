@@ -1,13 +1,23 @@
-import { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
+import { MotionProvider,ThemeProvider } from '@lobehub/ui';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
-import superjson from 'superjson';
-import { ThemeProvider, MotionProvider } from '@lobehub/ui';
-import { motion } from 'motion/react';
 import i18n from 'i18next';
-import { initReactI18next, I18nextProvider } from 'react-i18next';
+import { motion } from 'motion/react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { createRoot } from 'react-dom/client';
+import { I18nextProvider,initReactI18next } from 'react-i18next';
+import superjson from 'superjson';
+
 import components from '../../locales/zh-CN/components.json';
 import ManagedModelDescriptionContent from '../../src/features/ModelSwitchPanel/components/ManagedModelDescriptionContent';
+import {
+  getCatalogCheckStatus,
+  MANUAL_MODEL_REFRESH_EVENT,
+  requestPanelModelCatalogCheck,
+  retryPanelModelCatalogCheck,
+  SilentModelRefreshController,
+  subscribeCatalogCheckStatus,
+} from '../../src/features/SilentModelRefresh/controller';
+
 i18n
   .use(initReactI18next)
   .init({
@@ -16,10 +26,6 @@ i18n
     resources: { 'zh-CN': { components } },
     interpolation: { escapeValue: false },
   });
-import {
-  SilentModelRefreshController,
-  MANUAL_MODEL_REFRESH_EVENT,
-} from '../../src/features/SilentModelRefresh/controller';
 
 const client = createTRPCClient<any>({
   links: [httpBatchLink({ url: '/trpc/lambda', transformer: superjson })],
@@ -30,6 +36,9 @@ function Harness() {
   const [checks, setChecks] = useState(0);
   const [selected, setSelected] = useState('bdd-chat');
   const [running, setRunning] = useState('');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const checkStatus = useSyncExternalStore(subscribeCatalogCheckStatus, getCatalogCheckStatus);
   useEffect(() => {
     const controller = new SilentModelRefreshController({
       check: (knownRevision, signal) => {
@@ -63,6 +72,26 @@ function Harness() {
         开始任务
       </button>
       <p data-testid="running">{running}</p>
+      <button
+        onClick={() => {
+          setPanelOpen((value) => !value);
+          if (!panelOpen) requestPanelModelCatalogCheck();
+        }}
+      >
+        {panelOpen ? '关闭模型面板' : '打开模型面板'}
+      </button>
+      {panelOpen && (
+        <section aria-label="模型面板" data-testid="model-panel">
+          <input aria-label="搜索面板模型" value={search} onChange={(event) => setSearch(event.target.value)} />
+          {checkStatus === 'error' && <button onClick={retryPanelModelCatalogCheck}>模型信息暂未更新 · 重试</button>}
+          {models
+            .filter((model) => (model.displayName ?? model.id).toLowerCase().includes(search.toLowerCase()))
+            .map((model) => <p key={model.id}>{model.displayName ?? model.id}</p>)}
+          <p data-testid="panel-detail">
+            {models.find((model) => model.id === selected)?.contextWindowTokens ?? '待确认'}
+          </p>
+        </section>
+      )}
       <button
         onClick={() =>
           window.dispatchEvent(new CustomEvent(MANUAL_MODEL_REFRESH_EVENT, { detail: true }))

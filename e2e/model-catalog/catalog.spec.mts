@@ -122,6 +122,73 @@ test('Given the main interface, Then check once after mount, every 30 minutes, a
   await page.screenshot({ path: '/tmp/masterino-model-catalog-bdd/refresh.png', fullPage: true });
 });
 
+test('Given an open model panel, When a published version changes, Then it shows the old list immediately and updates in place without duplicate checks', async ({ page }) => {
+  const initial = await api.modelCatalog.check.query();
+  const oldName = initial.models.find((model: any) => model.id === 'bdd-chat').displayName ?? 'bdd-chat';
+  await page.clock.install();
+  await page.goto('http://127.0.0.1:19329/refresh-harness.html');
+  await page.clock.runFor(1001);
+  await expect(page.getByTestId('checks')).toHaveText('1');
+  await page.getByRole('button', { name: '打开模型面板' }).click();
+  await expect(page.getByTestId('checks')).toHaveText('1');
+  const panel = page.getByTestId('model-panel');
+  await expect(panel).toContainText(oldName);
+  await panel.getByLabel('搜索面板模型').fill('bdd');
+  const list = await api.modelCatalog.list.query();
+  const entry = list.records.find((record: any) => record.modelId === 'bdd-chat');
+  const saved = await api.modelCatalog.saveDraft.mutate({
+    modelId: entry.modelId,
+    expectedVersion: entry.version,
+    draft: { ...entry.draft, displayName: 'BDD Panel Fresh', contextWindowTokens: 32000 },
+  });
+  await api.modelCatalog.publish.mutate({
+    modelId: entry.modelId,
+    expectedVersion: saved.version,
+    reason: 'BDD 面板打开刷新',
+  });
+  await page.clock.runFor(2 * 60_000 + 1);
+  await page.getByRole('button', { name: '关闭模型面板' }).click();
+  await page.route('**/trpc/lambda/**', async (route) => {
+    if (route.request().url().includes('modelCatalog.check')) await new Promise((r) => setTimeout(r, 300));
+    await route.continue();
+  });
+  await page.getByRole('button', { name: '打开模型面板' }).click();
+  await expect(panel).toContainText(oldName);
+  await expect(page.getByTestId('checks')).toHaveText('2');
+  await expect(panel).toContainText('BDD Panel Fresh');
+  await expect(panel.getByLabel('搜索面板模型')).toHaveValue('bdd');
+  await expect(page.getByTestId('panel-detail')).toHaveText('32000');
+  await expect(page.getByTestId('selected')).toHaveText('bdd-chat');
+  await page.getByRole('button', { name: '关闭模型面板' }).click();
+  await page.getByRole('button', { name: '打开模型面板' }).click();
+  await expect(page.getByTestId('checks')).toHaveText('2');
+});
+
+test('Given a panel check fails, Then the old models remain and retry uses the same controller', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('http://127.0.0.1:19329/refresh-harness.html');
+  await page.clock.runFor(1001);
+  await expect(page.getByTestId('checks')).toHaveText('1');
+  await expect(page.getByRole('button', { name: 'BDD Panel Fresh', exact: true })).toBeVisible();
+  await page.clock.runFor(2 * 60_000 + 1);
+  let blocked = false;
+  await page.route('**/trpc/lambda/**', async (route) => {
+    if (!blocked && route.request().url().includes('modelCatalog.check')) {
+      blocked = true;
+      await route.abort();
+    } else await route.continue();
+  });
+  await page.getByRole('button', { name: '打开模型面板' }).click();
+  const panel = page.getByTestId('model-panel');
+  await expect(panel).toContainText('BDD Panel Fresh');
+  await expect(page.getByRole('button', { name: '模型信息暂未更新 · 重试' })).toBeVisible();
+  await expect(page.getByTestId('checks')).toHaveText('2');
+  await page.getByRole('button', { name: '模型信息暂未更新 · 重试' }).click();
+  await expect(page.getByTestId('checks')).toHaveText('3');
+  await expect(page.getByRole('button', { name: '模型信息暂未更新 · 重试' })).toHaveCount(0);
+  await expect(panel).toContainText('BDD Panel Fresh');
+});
+
 test('Given an unauthenticated caller, Then catalog reads and writes are rejected', async () => {
   const anonymous = createTRPCClient<any>({
     links: [

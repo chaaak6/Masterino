@@ -153,6 +153,8 @@
   "ModelSwitchPanel.aihubPricing.unavailable": "Price not available yet",
   "ModelSwitchPanel.byModel": "By Model",
   "ModelSwitchPanel.byProvider": "By Provider",
+  "ModelSwitchPanel.catalogCheckFailed": "Model information could not be updated ·",
+  "ModelSwitchPanel.catalogRetry": "Retry",
   "ModelSwitchPanel.detail.abilities": "Abilities",
   "ModelSwitchPanel.detail.abilities.files": "Files",
   "ModelSwitchPanel.detail.abilities.functionCall": "Tool Calling",

@@ -305,6 +305,8 @@ export default {
   'ModelSwitchPanel.manageProvider': 'Manage Provider',
   'ModelSwitchPanel.provider': 'Provider',
   'ModelSwitchPanel.searchPlaceholder': 'Search models...',
+  'ModelSwitchPanel.catalogCheckFailed': 'Model information could not be updated ·',
+  'ModelSwitchPanel.catalogRetry': 'Retry',
   'ModelSwitchPanel.title': 'Model',
   'ModelSwitchPanel.useModelFrom': 'Use this model from:',
   'MultiImagesUpload.actions.uploadMore': 'Click or drag to upload more',
