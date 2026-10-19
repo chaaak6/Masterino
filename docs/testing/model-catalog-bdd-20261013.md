@@ -1,6 +1,6 @@
 # 模型说明维护与静默刷新验收
 
-基于 `main` 的 `87705b4166292b5366af272eb56ec3149fc1cfb4`，分支 `codex/model-catalog-maintenance`。实现与验收均在独立 worktree 中，未部署或写入线上/测试集群。
+分支 `codex/model-catalog-maintenance` 已于 2026-10-19 rebase 到 `main` 的 `7394fbeb4ca5aa89f5e533f9264305a75ecb1aa0`。实现与验收均在独立 worktree 中，未部署或写入线上/测试集群。
 
 ## 实现范围
 
@@ -73,5 +73,7 @@ Playwright 配置自动启动本地后端、后台构建预览和刷新 harness�
 - 独立 PostgreSQL 的发布、回滚、并发编辑与事务失败恢复：3/3 通过。
 - `bun run type-check`、Admin type-check、Admin build、刷新 harness build、`git diff --check` 通过。针对改动文件 ESLint 无错误，已有两条未使用变量警告保持原样。
 - 缓存命中路径的 100 次 HTTP 探测没有新增 Aihub 请求；多次本机观测约 0.5–1.2 秒，不作为生产压测结论。30 分钟定时检查若碰到服务端 5 分钟缓存过期，会按需读取上游以发现变动，而不是盲目信任旧版本。
+
+2026-10-19 rebase 后复核：主语言资源契约 56080 项通过；旧服务路由、Agent、记忆与目录服务 84 项定向测试通过；模型选择器与静默调度 10 项通过；根项目及 Admin 类型检查通过。修复了越南语新键缺失，并让仅覆盖旧目录行为的测试显式关闭新目录开关。
 
 截图：[后台](model-catalog-bdd/admin.png)、[客户端说明与调度 harness](model-catalog-bdd/refresh.png)。

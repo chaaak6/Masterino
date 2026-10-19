@@ -97,7 +97,8 @@ const ModelSelect = memo<ModelSelectProps>(
     const { t } = useTranslation('components');
     const catalog = useAiInfraStore((s) => s.silentModelCatalog);
     const selectedProvider = value?.provider;
-    const selectedValue = value?.provider && value.model ? `${value.provider}/${value.model}` : null;
+    const selectedValue =
+      value?.provider && value.model ? `${value.provider}/${value.model}` : null;
     const unavailable =
       modelType === 'chat' &&
       catalog &&

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { ModelProvider } from 'model-bank';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AiProviderModel } from '@/database/models/aiProvider';
 import { AiInfraRepos } from '@/database/repositories/aiInfra';
@@ -47,6 +47,7 @@ describe('aiProviderRouter', () => {
   };
 
   beforeEach(() => {
+    vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false');
     vi.clearAllMocks();
 
     vi.mocked(getServerGlobalConfig).mockReturnValue({
@@ -55,6 +56,8 @@ describe('aiProviderRouter', () => {
 
     vi.mocked(KeyVaultsGateKeeper.initWithEnvKey).mockResolvedValue(mockGateKeeper as any);
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   const createMockContext = () => ({
     userId: mockUserId,
