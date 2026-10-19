@@ -155,6 +155,8 @@
   "ModelSwitchPanel.aihubPricing.unavailable": "Chưa có giá",
   "ModelSwitchPanel.byModel": "Theo Mô Hình",
   "ModelSwitchPanel.byProvider": "Theo Nhà Cung Cấp",
+  "ModelSwitchPanel.catalogCheckFailed": "Thông tin mô hình chưa được cập nhật ·",
+  "ModelSwitchPanel.catalogRetry": "Thử lại",
   "ModelSwitchPanel.detail.abilities": "Khả năng",
   "ModelSwitchPanel.detail.abilities.files": "Tệp",
   "ModelSwitchPanel.detail.abilities.functionCall": "Gọi công cụ",
