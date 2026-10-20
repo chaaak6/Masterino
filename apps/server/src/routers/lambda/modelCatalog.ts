@@ -1,4 +1,5 @@
 import { ManagedModelDescriptionSchema } from '@lobechat/types';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { authedProcedure, router } from '@/libs/trpc/lambda';
@@ -39,7 +40,10 @@ export const modelCatalogRouter = router({
     settings: await ctx.catalog.settings(),
   })),
   pricing: manage.input(z.object({ modelId })).query(async ({ input }) => {
-    const client = new NewApiClient({ baseUrl: process.env.AIHUB_PROXY_URL! });
+    const baseUrl = process.env.AIHUB_PROXY_URL;
+    if (!baseUrl)
+      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'AIHUB_PROXY_URL is required' });
+    const client = new NewApiClient({ baseUrl });
     const [response, status] = await Promise.all([client.getPricing(), client.getStatus()]);
     return resolveAihubDisplayPricing(
       buildAihubPricing(input.modelId, {

@@ -108,4 +108,48 @@ describe('silent refresh scheduling and races', () => {
     expect(getCatalogCheckStatus()).toBe('error');
     expect(clear).not.toHaveBeenCalled();
   });
+  it('retries a failed check on window resume after a short cooldown', async () => {
+    const check = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({
+      status: 'unchanged',
+      revision: 'latest',
+      stale: false,
+    });
+    const controller = new SilentModelRefreshController({
+      check,
+      apply: () => {},
+      clear: () => {},
+    });
+    stop = controller.start();
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(check).toHaveBeenCalledTimes(1);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(check).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60_001);
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(check).toHaveBeenCalledTimes(2);
+    expect(getCatalogCheckStatus()).toBe('idle');
+  });
+  it('retries after a panel check fails even when an earlier successful check is recent', async () => {
+    const check = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 'unchanged', revision: 'old', stale: false })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ status: 'unchanged', revision: 'new', stale: false });
+    const controller = new SilentModelRefreshController({
+      check,
+      apply: () => {},
+      clear: () => {},
+    });
+    stop = controller.start();
+    await vi.advanceTimersByTimeAsync(1001);
+    await vi.advanceTimersByTimeAsync(2 * 60_000);
+    controller.requestCheck('panel');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(check).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(60_001);
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(check).toHaveBeenCalledTimes(3);
+  });
 });

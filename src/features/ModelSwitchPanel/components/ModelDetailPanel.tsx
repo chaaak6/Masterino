@@ -377,9 +377,11 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
       () => applyBusinessModelPricing({ model: modelId, pricing, provider }),
       [applyBusinessModelPricing, modelId, pricing, provider],
     );
+    // Generation views use the separate approximate per-image/video price.
     const isAihubTariff =
       provider === BRANDING_PROVIDER &&
-      ((catalog.chatEligible && !pricingMode) || model?.aihubPricing?.status === 'available');
+      !pricingMode &&
+      (catalog.chatEligible || !!model?.aihubPricing);
     const isCreditPricing = provider === BRANDING_PROVIDER;
     const hasPricing = !!displayPricing;
     const formatPrice = displayPricing ? getPrice(displayPricing, isCreditPricing) : null;

@@ -34,6 +34,7 @@ const record = (id: string): ManagedModelRecord => ({
 const fixture = () => {
   const identity = randomUUID();
   const source = {
+    identity: identity as string,
     settings: { enabled: true, silentRefreshEnabled: true, generation: 'a' },
     records: [] as ManagedModelRecord[],
     models: [model('a')],
@@ -44,7 +45,7 @@ const fixture = () => {
   };
   const service = new EffectiveModelCatalog({
     settings: async () => source.settings,
-    identity: async () => identity,
+    identity: async () => source.identity,
     records: async () => source.records,
     readModels: () => source.readModels(),
     now: () => source.now,
@@ -96,6 +97,20 @@ describe('effective catalog business scenarios', () => {
     const stale = await service.read();
     expect(stale.status === 'changed' && stale.stale).toBe(true);
     expect(stale.status === 'changed' && stale.models.map((m) => m.id)).toEqual(['a']);
+  });
+  it('keeps a prior snapshot after preference changes without crossing token bindings', async () => {
+    const { source, service } = fixture();
+    source.identity = 'user:7:12:binding-old:models-old';
+    await service.read();
+    vi.spyOn(source, 'readModels').mockRejectedValue(new Error('bridge offline'));
+    source.identity = 'user:7:12:binding-new:models-new';
+    const stale = await service.read();
+    expect(stale.status).toBe('changed');
+    if (stale.status !== 'changed') return;
+    expect(stale.stale).toBe(true);
+    expect(stale.models.map((item) => item.id)).toEqual(['a']);
+    source.identity = 'user:7:13:binding-new:models-new';
+    expect(await service.read()).toEqual({ status: 'unavailable' });
   });
   it('Given a disabled switch, Then no upstream request happens', async () => {
     const { source, service } = fixture();
@@ -190,6 +205,21 @@ it('uses published descriptions for display without shrinking runtime context or
       .contextWindowTokens,
   ).toBe(1024);
   expect(getModelCatalogFromSettings(projected.settings)?.entry.contextWindowTokens).toBe(128000);
+});
+
+it('replaces obsolete catalog execution limits with current model limits', () => {
+  const current = projectPublishedDescription({ ...model('a'), contextWindowTokens: 128_000 });
+  const previous = getModelCatalogFromSettings(current.settings)!;
+  previous.entry.contextWindowTokens = 1024;
+  previous.entry.kind = 'embedding';
+  const projected = projectPublishedDescription({
+    ...current,
+    settings: { modelCatalog: previous },
+  });
+  expect(getModelCatalogFromSettings(projected.settings)?.entry).toMatchObject({
+    kind: 'chat',
+    contextWindowTokens: 128_000,
+  });
 });
 
 it('allows an explicit published tool restriction without changing image understanding', () => {

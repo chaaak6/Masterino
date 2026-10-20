@@ -25,7 +25,7 @@ interface RefreshOptions {
   apply: (
     response: Extract<SilentModelCatalogResponse, { status: 'changed' }>,
     signal: AbortSignal,
-  ) => Promise<void> | void;
+  ) => Promise<boolean | void> | boolean | void;
   check: (
     knownRevision: string | undefined,
     signal: AbortSignal,
@@ -35,7 +35,6 @@ interface RefreshOptions {
 
 /** One scheduler per mounted main interface. Does not wait for chat/CPU idleness. */
 export class SilentModelRefreshController {
-  private lastAttempt = 0;
   private lastSuccess = 0;
   private lastFailure = 0;
   private disabled = false;
@@ -76,15 +75,18 @@ export class SilentModelRefreshController {
     if (!this.stopped) this.timer = setTimeout(() => void this.check(), delay);
   }
   private onResume = () => {
-    if (this.lastAttempt && Date.now() - this.lastAttempt < SILENT_MODEL_REFRESH_INTERVAL) return;
-    if (!this.lastSuccess || Date.now() - this.lastSuccess >= SILENT_MODEL_REFRESH_INTERVAL)
-      void this.requestCheck('resume');
+    if (
+      this.lastFailure ||
+      !this.lastSuccess ||
+      Date.now() - this.lastSuccess >= SILENT_MODEL_REFRESH_INTERVAL
+    )
+      this.requestCheck('resume');
   };
   private onReset = () => {
+    if (this.manual) return;
     this.epoch++;
     this.request?.abort();
     this.revision = undefined;
-    this.lastAttempt = Date.now();
     this.lastSuccess = 0;
     this.lastFailure = 0;
     setCatalogCheckStatus('idle');
@@ -96,7 +98,6 @@ export class SilentModelRefreshController {
     this.request?.abort();
     this.revision = undefined;
     this.options.clear(false);
-    this.lastAttempt = Date.now();
     this.lastSuccess = 0;
     this.lastFailure = 0;
     setCatalogCheckStatus('idle');
@@ -112,12 +113,12 @@ export class SilentModelRefreshController {
       )
         return;
     }
-    if (
-      reason === 'resume' &&
-      this.lastAttempt &&
-      Date.now() - this.lastAttempt < SILENT_MODEL_REFRESH_INTERVAL
-    )
-      return;
+    if (reason === 'resume') {
+      if (this.lastFailure) {
+        if (Date.now() - this.lastFailure < FAILED_PANEL_RETRY_COOLDOWN) return;
+      } else if (this.lastSuccess && Date.now() - this.lastSuccess < SILENT_MODEL_REFRESH_INTERVAL)
+        return;
+    }
     void this.check();
   }
   isAvailable() {
@@ -139,7 +140,6 @@ export class SilentModelRefreshController {
     setCatalogCheckStatus('checking');
     const deadline = setTimeout(() => request.abort(), SILENT_MODEL_REFRESH_TIMEOUT);
     const epoch = this.epoch;
-    this.lastAttempt = Date.now();
     try {
       const response = await this.options.check(this.revision, request.signal);
       if (this.stopped || epoch !== this.epoch) return;
@@ -149,17 +149,16 @@ export class SilentModelRefreshController {
         return;
       }
       if (response.status === 'changed') {
-        await this.options.apply(response, request.signal);
-        if (request.signal.aborted) {
+        const applied = await this.options.apply(response, request.signal);
+        if (this.stopped || epoch !== this.epoch) return;
+        if (applied === false) {
           this.lastFailure = Date.now();
           setCatalogCheckStatus('error');
           return;
         }
-        if (!request.signal.aborted && epoch === this.epoch) {
-          this.revision = response.revision;
-          if (!response.stale) this.lastSuccess = Date.now();
-          this.disabled = false;
-        }
+        this.revision = response.revision;
+        if (!response.stale) this.lastSuccess = Date.now();
+        this.disabled = false;
       } else if (response.status === 'unchanged') {
         this.revision = response.revision;
         if (!response.stale) this.lastSuccess = Date.now();

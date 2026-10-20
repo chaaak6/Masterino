@@ -176,7 +176,10 @@ export const aiModelRouter = router({
           ? (snapshot.models as unknown as AiProviderModelListItem[])
           : await applyPublishedModelDescriptions(
               ctx.serverDB,
-              await ctx.aiInfraRepos.getAiProviderModelList(input.id),
+              (await ctx.aiInfraRepos.getAiProviderModelList(input.id)).map((model) => ({
+                ...model,
+                providerId: input.id,
+              })),
             );
       const filtered = models.filter(
         (model) =>

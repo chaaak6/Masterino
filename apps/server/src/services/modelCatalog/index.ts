@@ -28,6 +28,8 @@ const snapshots = new Map<string, Snapshot>();
 const failedUntil = new Map<string, number>();
 const inFlight = new Map<string, Promise<Snapshot>>();
 let publishedCache: { generation: string; records: ManagedModelRecord[] } | undefined;
+// A binding's update time and model preferences may change without changing its token identity.
+const snapshotScope = (identity: string) => identity.split(':').slice(0, 3).join(':');
 
 export interface CatalogReadDependencies {
   identity: () => Promise<string>;
@@ -118,7 +120,7 @@ export class EffectiveModelCatalog {
         // After publication, retain prior-generation data for display on a transient outage.
         snapshot ??= [...snapshots.entries()]
           .reverse()
-          .find(([entry]) => entry.startsWith(`${identity}:`))?.[1];
+          .find(([entry]) => entry.startsWith(`${snapshotScope(identity)}:`))?.[1];
         if (!snapshot) return { status: 'unavailable' };
       } finally {
         inFlight.delete(key);

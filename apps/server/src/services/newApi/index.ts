@@ -1376,6 +1376,8 @@ export class NewApiService {
     if (!binding.managedTokenId)
       throw new TRPCError({ code: 'FORBIDDEN', message: 'No bound Aihub token' });
     const bridge = new NewApiBridgeClient();
+    if (!bridge.isEnabled())
+      throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Aihub bridge is required' });
     const ids = await bridge.listAccessibleModels(undefined, {
       id: binding.managedTokenId,
       user_id: binding.newApiUserId,

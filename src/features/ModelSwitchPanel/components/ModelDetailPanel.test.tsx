@@ -178,6 +178,25 @@ describe('ModelDetailPanel pricing', () => {
     expect(container).not.toHaveTextContent('5.00');
   });
 
+  it('does not label a non-chat catalog fallback as an available Aihub tariff', () => {
+    const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
+    (enabledList[0].children[0] as any).type = 'image';
+    enabledList[0].children[0].aihubPricing = {
+      version: 1,
+      currency: 'CNY',
+      status: 'unavailable',
+    };
+    const { container } = render(
+      <ModelDetailPanel
+        enabledList={enabledList}
+        model="test-model"
+        provider={BRANDING_PROVIDER}
+      />,
+    );
+    expect(container).toHaveTextContent('ModelSwitchPanel.aihubPricing.unavailable');
+    expect(container).not.toHaveTextContent('credits');
+  });
+
   it('shows the persisted Aihub CNY tariff including a zero cache rate', () => {
     const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
     enabledList[0].children[0].aihubPricing = {

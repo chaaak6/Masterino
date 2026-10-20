@@ -15,6 +15,20 @@ const modelCallMethods = new Set([
   'createVideo',
   'textToSpeech',
 ]);
+const SETTINGS_TTL = 5_000;
+const settingsCache = new WeakMap<
+  LobeChatDatabase,
+  { expiresAt: number; enabled: Promise<boolean> }
+>();
+const catalogEnabled = (db: LobeChatDatabase): Promise<boolean> => {
+  const now = Date.now();
+  const cached = settingsCache.get(db);
+  if (cached && cached.expiresAt > now) return cached.enabled;
+  const enabled = new ModelCatalogRepository(db).settings().then((settings) => settings.enabled);
+  settingsCache.set(db, { enabled, expiresAt: now + SETTINGS_TTL });
+  void enabled.catch(() => settingsCache.delete(db));
+  return enabled;
+};
 
 /** Specs can be frozen for an operation; authorization is checked at every new upstream call. */
 export const withCurrentModelAccess = (
@@ -32,7 +46,7 @@ export const withCurrentModelAccess = (
       if (typeof value !== 'function') return value;
       if (!modelCallMethods.has(String(property))) return value.bind(target);
       return async (payload: { model?: string }, ...args: unknown[]) => {
-        if ((await new ModelCatalogRepository(db).settings()).enabled && payload.model) {
+        if ((await catalogEnabled(db)) && payload.model) {
           if (!credential)
             throw new TRPCError({
               code: 'PRECONDITION_FAILED',

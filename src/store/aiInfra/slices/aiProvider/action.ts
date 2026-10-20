@@ -326,7 +326,7 @@ export class AiProviderActionImpl {
     revision: string,
     userId: string,
     signal?: AbortSignal,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     const current = this.#get();
     const providers = current.enabledAiProviders ?? [];
     const enabled = mergeSilentCatalogModels(current.enabledAiModels ?? [], models);
@@ -335,7 +335,7 @@ export class AiProviderActionImpl {
       buildImageProviderModelLists(providers, enabled),
       buildVideoProviderModelLists(providers, enabled),
     ]);
-    if (signal?.aborted || useUserStore.getState().user?.id !== userId) return;
+    if (signal?.aborted || useUserStore.getState().user?.id !== userId) return false;
     this.#set(
       {
         silentModelCatalog: { models, revision, userId },
@@ -347,11 +347,12 @@ export class AiProviderActionImpl {
       false,
       'silentModelCatalog',
     );
+    return true;
   };
 
   clearSilentModelCatalog = (refreshRuntime = true): void => {
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event(MODEL_CATALOG_RESET_EVENT));
     if (!this.#get().silentModelCatalog) return;
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(MODEL_CATALOG_RESET_EVENT));
     this.#set({ silentModelCatalog: undefined }, false, 'clearSilentModelCatalog');
     if (refreshRuntime) void this.#get().refreshAiProviderRuntimeState();
   };

@@ -1,3 +1,4 @@
+import { ManagedModelDescriptionSchema } from '@lobechat/types';
 import { MotionProvider, ThemeProvider } from '@lobehub/ui';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import i18n from 'i18next';
@@ -8,7 +9,6 @@ import { I18nextProvider, initReactI18next } from 'react-i18next';
 import superjson from 'superjson';
 
 import components from '../../locales/zh-CN/components.json';
-import ManagedModelDescriptionContent from '../../src/features/ModelSwitchPanel/components/ManagedModelDescriptionContent';
 import {
   getCatalogCheckStatus,
   MANUAL_MODEL_REFRESH_EVENT,
@@ -28,6 +28,25 @@ i18n.use(initReactI18next).init({
 const client = createTRPCClient<any>({
   links: [httpBatchLink({ url: '/trpc/lambda', transformer: superjson })],
 });
+function HarnessDescription({ description }: { description: unknown }) {
+  const parsed = ManagedModelDescriptionSchema.safeParse(description);
+  if (!parsed.success) return null;
+  const value = parsed.data;
+  return (
+    <details>
+      <summary>模型说明</summary>
+      <p>最大输出 tokens：{value.maxOutput?.toLocaleString() ?? '待确认'}</p>
+      <p>
+        工具调用：
+        {value.capabilities.functionCall === 'unknown'
+          ? '待确认'
+          : value.capabilities.functionCall === 'supported'
+            ? '支持'
+            : '不支持'}
+      </p>
+    </details>
+  );
+}
 function Harness() {
   const [models, setModels] = useState<any[]>([{ id: 'old', displayName: '原有模型' }]);
   const [revision, setRevision] = useState('');
@@ -115,7 +134,7 @@ function Harness() {
       >
         结束手动刷新
       </button>
-      <ManagedModelDescriptionContent
+      <HarnessDescription
         description={
           models.find((m) => m.id === selected)?.settings?.managedModelCatalog?.description
         }

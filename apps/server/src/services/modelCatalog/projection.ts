@@ -39,6 +39,9 @@ export const projectPublishedDescription = (
     ...catalog,
     entry: {
       ...catalog.entry,
+      providerId: 'newapi',
+      kind: model.type,
+      contextWindowTokens: model.contextWindowTokens,
       ...(hasToolDecision
         ? {
             capabilities: {
