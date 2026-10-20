@@ -178,9 +178,8 @@ describe('ModelDetailPanel pricing', () => {
     expect(container).not.toHaveTextContent('5.00');
   });
 
-  it('does not label a non-chat catalog fallback as an available Aihub tariff', () => {
+  it('shows an unavailable persisted Aihub tariff instead of fallback credits', () => {
     const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
-    (enabledList[0].children[0] as any).type = 'image';
     enabledList[0].children[0].aihubPricing = {
       version: 1,
       currency: 'CNY',

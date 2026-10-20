@@ -17,7 +17,10 @@ import type {
 import { isAiModelVisible } from 'model-bank';
 import { type SWRResponse } from 'swr';
 
-import { MODEL_CATALOG_RESET_EVENT } from '@/features/SilentModelRefresh/controller';
+import {
+  getCatalogCheckStatus,
+  MODEL_CATALOG_RESET_EVENT,
+} from '@/features/SilentModelRefresh/controller';
 import { mutate, useClientDataSWR } from '@/libs/swr';
 import { aiProviderService } from '@/services/aiProvider';
 import { type AiInfraStore } from '@/store/aiInfra/store';
@@ -351,8 +354,10 @@ export class AiProviderActionImpl {
   };
 
   clearSilentModelCatalog = (refreshRuntime = true): void => {
-    if (!this.#get().silentModelCatalog) return;
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event(MODEL_CATALOG_RESET_EVENT));
+    const hasCatalog = !!this.#get().silentModelCatalog;
+    if (typeof window !== 'undefined' && (hasCatalog || getCatalogCheckStatus() === 'checking'))
+      window.dispatchEvent(new Event(MODEL_CATALOG_RESET_EVENT));
+    if (!hasCatalog) return;
     this.#set({ silentModelCatalog: undefined }, false, 'clearSilentModelCatalog');
     if (refreshRuntime) void this.#get().refreshAiProviderRuntimeState();
   };

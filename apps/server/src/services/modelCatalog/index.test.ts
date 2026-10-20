@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import {
   createModelCatalogSnapshot,
   getModelCatalogFromSettings,
+  mergeModelCatalogEntry,
 } from '@lobechat/business-model-bank';
 import {
   createEmptyModelDescription,
@@ -220,6 +221,29 @@ it('replaces obsolete catalog execution limits with current model limits', () =>
     kind: 'chat',
     contextWindowTokens: 128_000,
   });
+});
+
+it('preserves a precise rerank kind and a known context when the legacy model omits it', () => {
+  const entry = record('reranker');
+  entry.published = entry.draft;
+  entry.publishedRevision = 'published';
+  const modelWithPreciseKind = {
+    ...model('reranker'),
+    type: 'embedding' as const,
+    settings: {
+      modelCatalog: mergeModelCatalogEntry({
+        modelId: 'reranker',
+        providerId: 'newapi',
+        catalog: { kind: 'rerank', contextWindowTokens: 32_000 },
+      }),
+    },
+  };
+  const projected = projectPublishedDescription(modelWithPreciseKind, entry);
+  expect(getModelCatalogFromSettings(projected.settings)?.entry).toMatchObject({
+    kind: 'rerank',
+    contextWindowTokens: 32_000,
+  });
+  expect(matchesEmbeddingKind(projected)).toBe(false);
 });
 
 it('allows an explicit published tool restriction without changing image understanding', () => {

@@ -3,7 +3,11 @@ import * as runtimeModule from '@lobechat/model-runtime';
 import type { AIImageModelCard, EnabledAiModel, ModelParamsSchema, Pricing } from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { SilentModelRefreshController } from '@/features/SilentModelRefresh/controller';
+import type { AiInfraStore } from '@/store/aiInfra/store';
+
 import {
+  AiProviderActionImpl,
   getChatModelList,
   getImageModelList,
   mergeSilentCatalogModels,
@@ -36,6 +40,29 @@ const createImageModel = (overrides: Partial<ImageEnabledModel> = {}): ImageEnab
 });
 
 describe('aiProvider action helpers', () => {
+  it('aborts an in-flight silent check when a manual refresh clears an empty catalog', () => {
+    let signal: AbortSignal | undefined;
+    const controller = new SilentModelRefreshController({
+      check: (_, currentSignal) => {
+        signal = currentSignal;
+        return new Promise(() => {});
+      },
+      apply: () => {},
+      clear: () => {},
+    });
+    controller.start();
+    try {
+      controller.requestCheck('retry');
+      const action = new AiProviderActionImpl(
+        vi.fn() as any,
+        () => ({ silentModelCatalog: undefined }) as AiInfraStore,
+      );
+      action.clearSilentModelCatalog(false);
+      expect(signal?.aborted).toBe(true);
+    } finally {
+      controller.stop();
+    }
+  });
   it('updates only newapi models when the silent directory changes', () => {
     const other = createChatModel({ id: 'other', providerId: 'openai' });
     const old = createChatModel({ id: 'old', providerId: 'newapi' });

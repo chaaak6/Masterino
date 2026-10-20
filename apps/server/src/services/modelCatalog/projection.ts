@@ -40,8 +40,10 @@ export const projectPublishedDescription = (
     entry: {
       ...catalog.entry,
       providerId: 'newapi',
-      kind: model.type,
-      contextWindowTokens: model.contextWindowTokens,
+      ...(model.type !== 'embedding' ? { kind: model.type } : {}),
+      ...(model.contextWindowTokens !== undefined
+        ? { contextWindowTokens: model.contextWindowTokens }
+        : {}),
       ...(hasToolDecision
         ? {
             capabilities: {
