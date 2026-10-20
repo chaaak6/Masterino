@@ -91,6 +91,26 @@ describe('Aihub tariff projection', () => {
     });
     expect(result.tiers[1].when?.outsideHours).toBe(true);
   });
+  it('shows the DeepSeek weekday peak rate only during the Shanghai weekday time windows', () => {
+    const snapshot = buildAihubPricing(
+      'deepseek-v4-pro',
+      context({
+        ...row,
+        model_name: 'deepseek-v4-pro',
+        billing_mode: 'tiered_expr',
+        billing_expr:
+          '(weekday("Asia/Shanghai") >= 1 && weekday("Asia/Shanghai") <= 5 && ((hour("Asia/Shanghai") >= 9 && hour("Asia/Shanghai") < 12) || (hour("Asia/Shanghai") >= 14 && hour("Asia/Shanghai") < 18))) ? tier("peak", p * 0.285714 + c * 1.142856 + cr * 0.0057143) : tier("off", p * 0.142858 + c * 0.571428 + cr * 0.0028571)',
+      }),
+    );
+    expect(snapshot.status).toBe('available');
+    expect(snapshot.tiers[0].when?.weekdays).toEqual([1, 5]);
+    const weekdayPeak = resolveAihubDisplayPricing(snapshot, new Date('2026-10-20T02:00:00Z'));
+    const weekdayOff = resolveAihubDisplayPricing(snapshot, new Date('2026-10-20T04:00:00Z'));
+    const weekendPeakHour = resolveAihubDisplayPricing(snapshot, new Date('2026-10-24T02:00:00Z'));
+    expect(weekdayPeak?.displayRates?.input?.min).toBeCloseTo(0.999999);
+    expect(weekdayOff?.displayRates?.input?.min).toBeCloseTo(0.500003);
+    expect(weekendPeakHour?.displayRates).toEqual(weekdayOff?.displayRates);
+  });
   it('projects the actual reachable context ranges and flags a broken upstream tier', () => {
     const parsed = parseAihubTariff(
       'len <= 512000 ? tier("short", p * 0.3 + c * 6) : len < 200000 ? tier("unreachable", p * 0.6) : tier("fallback", p * 0.6 + c * 2.4)',

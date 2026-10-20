@@ -8,6 +8,7 @@ export interface AihubPriceTier {
     maxContext?: number;
     timezone?: string;
     hours?: [number, number][];
+    weekdays?: [number, number];
     outsideHours?: boolean;
   };
 }
