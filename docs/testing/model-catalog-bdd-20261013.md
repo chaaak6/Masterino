@@ -1,5 +1,7 @@
 # 模型说明维护与静默刷新验收
 
+2026-10-20 的真实测试环境逐条结果、用例校正与回滚草稿修复见 [PR145 手工验收记录](model-catalog-manual-20261020.md)。本文保留此前 fixture / harness 的历史验证范围，不代表全部手工场景均已通过。
+
 分支 `codex/model-catalog-maintenance` 已于 2026-10-19 rebase 到 `main` 的 `7394fbeb4ca5aa89f5e533f9264305a75ecb1aa0`。实现仍在独立 worktree；后续验收只写入 `masterino-test` 测试集群，不涉及生产环境。
 
 ## 实现范围

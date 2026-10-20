@@ -27,7 +27,7 @@ describe.skipIf(!url)('catalog publication against isolated PostgreSQL', () => {
     );
   });
   afterAll(() => pool.end());
-  it('Given saved drafts, When publish/edit/rollback, Then active content and audited history remain independent of the draft', async () => {
+  it('Given saved drafts, When publish/edit/rollback, Then rollback restores the draft and publishing again keeps the restored content', async () => {
     const first = await repository.save('admin', 'bdd-chat', 0, {
       ...createEmptyModelDescription('bdd-chat'),
       displayName: 'First',
@@ -59,13 +59,21 @@ describe.skipIf(!url)('catalog publication against isolated PostgreSQL', () => {
       published.publishedRevision!,
     );
     expect(restored.published?.displayName).toBe('First');
-    expect(restored.draft.displayName).toBe('Second');
+    expect(restored.draft).toEqual(restored.published);
     expect((await repository.history('bdd-chat')).length).toBe(3);
     expect((await repository.settings()).generation).not.toBe(head.generation);
     const audit = await pool.query(
       "select action from enterprise_audit_logs where action = 'model_catalog.rollback'",
     );
     expect(audit.rowCount).toBe(1);
+    const republished = await repository.publish(
+      'admin',
+      'bdd-chat',
+      restored.version,
+      'publish after rollback',
+    );
+    expect(republished.published).toEqual(restored.published);
+    expect(republished.draft).toEqual(restored.published);
   });
   it('Given two editors with the same revision, Then exactly one draft save succeeds', async () => {
     const draft = createEmptyModelDescription('bdd-concurrent');

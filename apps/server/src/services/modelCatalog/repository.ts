@@ -50,16 +50,14 @@ export class ModelCatalogRepository {
     target: string,
     metadata: Record<string, unknown>,
   ) {
-    await db
-      .insert(enterpriseAuditLogs)
-      .values({
-        actorUserId: actor,
-        action,
-        targetId: target,
-        targetType: 'model',
-        metadata,
-        result: 'success',
-      });
+    await db.insert(enterpriseAuditLogs).values({
+      actorUserId: actor,
+      action,
+      targetId: target,
+      targetType: 'model',
+      metadata,
+      result: 'success',
+    });
   }
   private async bump(
     db: LobeChatDatabase,
@@ -171,6 +169,8 @@ export class ModelCatalogRepository {
       const [updated] = await db
         .update(managedModelCatalog)
         .set({
+          // Rollback becomes the editing baseline, so a later publish cannot revive the old draft.
+          draft: description,
           published: description,
           publishedRevision: id,
           version: row.version + 1,
