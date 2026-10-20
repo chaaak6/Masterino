@@ -1,10 +1,16 @@
 import { Flexbox } from '@lobehub/ui';
 import { type ComponentType, type FC } from 'react';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Rnd } from 'react-rnd';
 
 import { useBusinessModelPricingPrefetch } from '@/business/client/hooks/useBusinessModelPricing';
 import { useChatEligibleModelList } from '@/components/ModelSelect';
+import {
+  getCatalogCheckStatus,
+  retryPanelModelCatalogCheck,
+  subscribeCatalogCheckStatus,
+} from '@/features/SilentModelRefresh/controller';
 import { useUserStore } from '@/store/user';
 import { userGeneralSettingsSelectors } from '@/store/user/slices/settings/selectors/general';
 import type { EnabledProviderWithModels } from '@/types/aiProvider';
@@ -12,6 +18,7 @@ import type { EnabledProviderWithModels } from '@/types/aiProvider';
 import { DEFAULT_WIDTH, ENABLE_RESIZING, MAX_WIDTH, MIN_WIDTH } from '../const';
 import { usePanelSize } from '../hooks/usePanelSize';
 import { usePanelState } from '../hooks/usePanelState';
+import { styles } from '../styles';
 import { List } from './List';
 import type { PricingMode } from './ModelDetailPanel';
 import { Toolbar } from './Toolbar';
@@ -39,6 +46,8 @@ export const PanelContent: FC<PanelContentProps> = ({
   const chatEnabledList = useChatEligibleModelList();
   const enabledList = enabledListProp ?? chatEnabledList;
   const [searchKeyword, setSearchKeyword] = useState('');
+  const { t } = useTranslation('components');
+  const catalogCheckStatus = useSyncExternalStore(subscribeCatalogCheckStatus, getCatalogCheckStatus);
   const isDevMode = useUserStore((s) => userGeneralSettingsSelectors.config(s).isDevMode);
   const { groupMode, handleGroupModeChange } = usePanelState();
   const { panelHeight, panelWidth, handlePanelWidthChange } = usePanelSize(enabledList.length);
@@ -54,6 +63,14 @@ export const PanelContent: FC<PanelContentProps> = ({
         onGroupModeChange={handleGroupModeChange}
         onSearchKeywordChange={setSearchKeyword}
       />
+      {catalogCheckStatus === 'error' && enabledListProp === undefined && !pricingMode && (
+        <div className={styles.catalogStatus}>
+          {t('ModelSwitchPanel.catalogCheckFailed')}{' '}
+          <button className={styles.catalogRetry} type="button" onClick={retryPanelModelCatalogCheck}>
+            {t('ModelSwitchPanel.catalogRetry')}
+          </button>
+        </div>
+      )}
       <List
         ModelItemComponent={ModelItemComponent}
         enabledList={enabledList}

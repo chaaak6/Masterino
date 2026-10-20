@@ -4,6 +4,8 @@ import { AiInfraRepos } from '@/database/repositories/aiInfra';
 import type { LobeChatDatabase } from '@/database/type';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { createEffectiveModelCatalog } from '@/server/services/modelCatalog';
+import { matchesEmbeddingKind } from '@/server/services/modelCatalog/projection';
 
 import type { UserMemoryEmbeddingRuntime } from './embedding';
 
@@ -32,6 +34,18 @@ export const resolveAuthorizedUserMemoryEmbeddingRuntime = async (
     KeyVaultsGateKeeper.getUserKeyVaults,
   );
   const configuredProvider = normalizeProvider(configured.provider);
+
+  if (configuredProvider === 'newapi') {
+    const catalog = await createEffectiveModelCatalog(db, userId).read(undefined, false);
+    if (catalog.status === 'changed' && !catalog.stale) {
+      runtimeState.enabledAiModels = [
+        ...runtimeState.enabledAiModels.filter((model) => model.providerId !== 'newapi'),
+        ...catalog.models.filter((model) => model.enabled && matchesEmbeddingKind(model)),
+      ];
+    } else if (catalog.status !== 'disabled') {
+      throw new Error('Current Aihub model catalog is unavailable for personal memory embedding.');
+    }
+  }
 
   const provider = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
     fallbackProvider: configuredProvider,

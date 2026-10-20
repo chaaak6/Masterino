@@ -1,6 +1,7 @@
 import { defineConfig } from './src/libs/next/config/define-config';
 
 const isVercel = !!process.env.VERCEL_ENV;
+const buildCpus = Number(process.env.MASTERINO_BUILD_CPUS);
 
 const vercelConfig = {
   // Vercel serverless optimization: exclude musl binaries from all routes
@@ -21,6 +22,7 @@ const vercelConfig = {
 };
 const nextConfig = defineConfig({
   ...(isVercel ? vercelConfig : {}),
+  ...(Number.isInteger(buildCpus) && buildCpus > 0 ? { experimental: { cpus: buildCpus } } : {}),
 });
 
 if (process.env.NODE_ENV === 'development' && process.env.MASTERINO_DEV_ENV === 'local') {

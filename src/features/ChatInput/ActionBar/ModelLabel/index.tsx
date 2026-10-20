@@ -5,10 +5,12 @@ import { memo, useCallback } from 'react';
 
 import { useBusinessModelModeConfig } from '@/business/client/hooks/useBusinessAgentMode';
 import ModelSwitchPanel from '@/features/ModelSwitchPanel';
+import ModelAvailabilityWarning from '@/features/ModelSwitchPanel/components/ModelAvailabilityWarning';
 import { usePermission } from '@/hooks/usePermission';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { aiModelSelectors, useAiInfraStore } from '@/store/aiInfra';
+import { modelDisplayName } from '@/utils/modelDisplayName';
 
 import { useAgentId } from '../../hooks/useAgentId';
 import { useActionBarContext } from '../context';
@@ -58,7 +60,7 @@ const ModelLabel = memo(() => {
   const applyBusinessModelModeConfig = useBusinessModelModeConfig();
 
   const enabledModel = useAiInfraStore(aiModelSelectors.getEnabledModelById(model, provider));
-  const displayName = enabledModel?.displayName || model;
+  const displayName = modelDisplayName(enabledModel?.displayName, model);
 
   const handleModelChange = useCallback(
     async (params: { model: string; provider: string }) => {
@@ -79,6 +81,7 @@ const ModelLabel = memo(() => {
     >
       <Flexbox horizontal align={'center'} gap={2}>
         <span className={styles.name}>{displayName}</span>
+        <ModelAvailabilityWarning model={model} provider={provider} />
         <ChevronDownIcon className={styles.chevron} size={12} />
       </Flexbox>
     </Center>

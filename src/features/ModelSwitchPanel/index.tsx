@@ -9,6 +9,7 @@ import {
 } from '@lobehub/ui';
 import { memo, useCallback, useState } from 'react';
 
+import { requestPanelModelCatalogCheck } from '@/features/SilentModelRefresh/controller';
 import { useAiInfraStore } from '@/store/aiInfra';
 
 import { PanelContent } from './components/PanelContent';
@@ -35,14 +36,18 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
     const handleOpenChange = useCallback(
       (nextOpen: boolean) => {
         setInternalOpen(nextOpen);
-        if (nextOpen && !pricingMode)
+        if (
+          nextOpen &&
+          !pricingMode &&
+          (enabledList !== undefined || !requestPanelModelCatalogCheck())
+        )
           void useAiInfraStore
             .getState()
             .refreshAiProviderRuntimeState()
             .catch(() => {});
         onOpenChange?.(nextOpen);
       },
-      [onOpenChange, pricingMode],
+      [enabledList, onOpenChange, pricingMode],
     );
 
     return (

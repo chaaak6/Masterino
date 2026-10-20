@@ -1,5 +1,8 @@
-import { type ChatModelCard } from '@lobechat/types';
-import { type ChatInputModalityConclusion } from '@lobechat/types/src/modelCatalog';
+import { type ChatModelCard, ManagedModelDescriptionSchema } from '@lobechat/types';
+import {
+  type ChatInputModalityConclusion,
+  type EvidenceState,
+} from '@lobechat/types/src/modelCatalog';
 import { type IconAvatarProps } from '@lobehub/icons';
 import { LobeHub, ModelIcon, ProviderIcon } from '@lobehub/icons';
 import { type FlexboxProps } from '@lobehub/ui';
@@ -10,6 +13,7 @@ import {
   LucideEye,
   LucideImage,
   LucidePaperclip,
+  Type,
   Video,
   Wrench,
 } from 'lucide-react';
@@ -19,12 +23,15 @@ import { type CSSProperties, type FC } from 'react';
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAiInfraStore } from '@/store/aiInfra';
 import { type AiProviderSourceType } from '@/types/aiProvider';
 import { formatTokenNumber } from '@/utils/format';
+import { modelDisplayName } from '@/utils/modelDisplayName';
 
 import { useChatModelCatalog } from './hooks';
 import { InputModalityTags } from './InputModalityTags';
 import NewModelBadgeI18n, { NewModelBadge as NewModelBadgeCore } from './NewModelBadge';
+import { getVisualCapabilities } from './visualCapabilities';
 
 export const TAG_CLASSNAME = 'lobe-model-info-tags';
 
@@ -56,6 +63,8 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
 type TooltipStyles = typeof styles;
 
 interface ModelInfoTagsProps extends ModelAbilities {
+  compactVideo?: boolean;
+  compactVision?: boolean;
   contextWindowTokens?: number | null;
   directionReverse?: boolean;
   disableTooltip?: boolean;
@@ -66,11 +75,9 @@ interface ModelInfoTagsProps extends ModelAbilities {
    */
   inputModality?: ChatInputModalityConclusion;
   isCustom?: boolean;
+  managedImageState?: EvidenceState;
   placement?: 'top' | 'right';
-  /**
-   * Whether to render the non-modality ability tags (tool calling, image output) and
-   * the context window tag. Compact chat rows keep only the modality conclusion.
-   */
+  /** Whether to render the non-modality ability tags and context window. */
   showAbilityTags?: boolean;
   style?: CSSProperties;
   visualOnly?: boolean;
@@ -100,7 +107,7 @@ const FeatureTagItem = memo<FeatureTagItemProps>(
     if (!enabled) return null;
 
     const tag = (
-      <Tag className={className} color={color} size={'small'}>
+      <Tag aria-label={title} className={className} color={color} role="img" size={'small'}>
         <Icon icon={icon} />
       </Tag>
     );
@@ -221,12 +228,16 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
     directionReverse,
     disableTooltip,
     inputModality,
+    managedImageState,
+    compactVision,
+    compactVideo,
     visualOnly,
     placement = 'top',
     showAbilityTags = true,
     style,
     ...model
   }) => {
+    const { t } = useTranslation('components');
     // With catalog evidence in hand, image/audio/video/file come from `inputModalities`;
     // the raw ability booleans only back the legacy path for callers without evidence.
     const hasEvidence = !!inputModality;
@@ -239,7 +250,33 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
         style={{ marginLeft: 'auto', ...style }}
         width={'fit-content'}
       >
-        {inputModality && (
+        {visualOnly && (
+          <>
+            <FeatureTagItem
+              className={styles.tag}
+              color="success"
+              disableTooltip={disableTooltip}
+              enabled={compactVision}
+              icon={LucideEye}
+              placement={placement}
+              title={t('ModelSelect.inputModality.supported.image', {
+                defaultValue: 'Supports image input',
+              })}
+            />
+            <FeatureTagItem
+              className={styles.tag}
+              color="magenta"
+              disableTooltip={disableTooltip}
+              enabled={compactVideo}
+              icon={Video}
+              placement={placement}
+              title={t('ModelSelect.inputModality.supported.video', {
+                defaultValue: 'Supports video input',
+              })}
+            />
+          </>
+        )}
+        {!visualOnly && inputModality && (
           <InputModalityTags
             conclusion={inputModality}
             disableTooltip={disableTooltip}
@@ -247,6 +284,20 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
             tagClassName={styles.tag}
             visualOnly={visualOnly}
           />
+        )}
+        {!visualOnly && managedImageState && managedImageState !== 'unknown' && (
+          <Tag
+            className={styles.tag}
+            color={managedImageState === 'supported' ? 'success' : undefined}
+            role="img"
+            size="small"
+            variant={managedImageState === 'unsupported' ? 'outlined' : undefined}
+            aria-label={`${t('ModelSwitchPanel.detail.managed.imageInput')}：${t(
+              `ModelSwitchPanel.detail.managed.${managedImageState}`,
+            )}`}
+          >
+            <Icon icon={managedImageState === 'supported' ? LucideEye : Type} />
+          </Tag>
         )}
         {showAbilityTags && (
           <FeatureTags
@@ -256,8 +307,8 @@ export const ModelInfoTags = memo<ModelInfoTagsProps>(
             imageOutput={model.imageOutput}
             placement={placement}
             tagClassName={styles.tag}
-            video={hasEvidence ? undefined : model.video}
-            vision={hasEvidence ? undefined : model.vision}
+            video={visualOnly || hasEvidence ? undefined : model.video}
+            vision={visualOnly || hasEvidence ? undefined : model.vision}
           />
         )}
         {showAbilityTags && typeof model.contextWindowTokens === 'number' && (
@@ -296,6 +347,7 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
     visualOnly,
     disableTooltip,
     abilities,
+    className,
     contextWindowTokens,
     files,
     functionCall,
@@ -313,10 +365,10 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
     id,
     displayName,
     releasedAt,
-    ...rest
+    style,
   }) => {
     const { mobile } = useResponsive();
-    const displayNameOrId = displayName || id;
+    const displayNameOrId = modelDisplayName(displayName, id);
     const rowAbilities = useMemo<ModelAbilities>(
       () => abilities ?? { files, functionCall, imageOutput, reasoning, search, video, vision },
       [abilities, files, functionCall, imageOutput, reasoning, search, video, vision],
@@ -328,21 +380,47 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
       settings,
       type,
     });
+    const managedDescription = useAiInfraStore((state) =>
+      providerId === 'newapi'
+        ? state.enabledAiModels?.find((model) => model.id === id && model.providerId === providerId)
+            ?.settings?.managedModelCatalog?.description
+        : undefined,
+    );
+    const parsedDescription = ManagedModelDescriptionSchema.safeParse(managedDescription);
+    const managedImageState = parsedDescription.success
+      ? parsedDescription.data.inputModalities.image
+      : undefined;
+    const managedVideoState = parsedDescription.success
+      ? parsedDescription.data.inputModalities.video
+      : undefined;
+    const hasManagedImageState =
+      showInputModality &&
+      (managedImageState === 'supported' || managedImageState === 'unsupported');
     const inputModality =
-      showInputModality && catalog.chatEligible ? catalog.inputModality : undefined;
+      showInputModality && catalog.chatEligible && !hasManagedImageState
+        ? catalog.inputModality
+        : undefined;
+    const compactCapabilities = getVisualCapabilities(
+      id,
+      providerId,
+      rowAbilities,
+      catalog.inputModality,
+      managedImageState,
+      managedVideoState,
+    );
 
     return (
       <Flexbox
         horizontal
         align={'center'}
+        className={className}
         gap={32}
         justify={'space-between'}
-        {...rest}
         style={{
           overflow: 'hidden',
           position: 'relative',
           width: '100%',
-          ...rest.style,
+          ...style,
         }}
       >
         <Flexbox
@@ -372,18 +450,24 @@ export const ModelItemRender = memo<ModelItemRenderProps>(
             </Tag>
           )}
         </Flexbox>
-        {(showInfoTag || inputModality) && (
+        {(showInfoTag ||
+          inputModality ||
+          hasManagedImageState ||
+          (visualOnly && (compactCapabilities.image || compactCapabilities.video))) && (
           <ModelInfoTags
+            compactVideo={compactCapabilities.video}
+            compactVision={compactCapabilities.image}
             contextWindowTokens={contextWindowTokens}
             disableTooltip={disableTooltip}
             files={files ?? abilities?.files}
             functionCall={functionCall ?? abilities?.functionCall}
             imageOutput={imageOutput ?? abilities?.imageOutput}
             inputModality={inputModality}
+            managedImageState={hasManagedImageState ? managedImageState : undefined}
             showAbilityTags={showInfoTag}
             style={{ zoom: 0.9 }}
             video={video ?? abilities?.video}
-            vision={vision ?? abilities?.vision}
+            vision={hasManagedImageState ? undefined : (vision ?? abilities?.vision)}
             visualOnly={visualOnly}
           />
         )}

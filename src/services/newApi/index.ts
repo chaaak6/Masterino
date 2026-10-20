@@ -7,9 +7,11 @@ import type {
   NewApiUsageSummary,
 } from '@lobechat/types';
 
+import { MANUAL_MODEL_REFRESH_EVENT } from '@/features/SilentModelRefresh/controller';
 import { lambdaClient } from '@/libs/trpc/client';
 
 class AihubService {
+  private modelSyncsInFlight = 0;
   getSubscriptionSummary = () => lambdaClient.aihub.getSubscriptionSummary.query();
 
   getAccountSummary = async (): Promise<NewApiAccountSummary> => {
@@ -36,7 +38,16 @@ class AihubService {
   };
 
   syncModels = async () => {
-    return lambdaClient.aihub.syncModels.mutate();
+    if (typeof window !== 'undefined' && this.modelSyncsInFlight === 0)
+      window.dispatchEvent(new CustomEvent(MANUAL_MODEL_REFRESH_EVENT, { detail: true }));
+    this.modelSyncsInFlight++;
+    try {
+      return await lambdaClient.aihub.syncModels.mutate();
+    } finally {
+      this.modelSyncsInFlight--;
+      if (typeof window !== 'undefined' && this.modelSyncsInFlight === 0)
+        window.dispatchEvent(new CustomEvent(MANUAL_MODEL_REFRESH_EVENT, { detail: false }));
+    }
   };
 
   validateBinding = async (row: NewApiBindingImportRow): Promise<NewApiAccountSummary> => {

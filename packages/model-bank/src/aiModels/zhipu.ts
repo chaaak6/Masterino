@@ -19,6 +19,8 @@ const zhipuChatModels: AIChatModelCard[] = [
     },
     // Reasoning is mandatory; the API does not accept thinking.type=disabled.
     contextWindowTokens: 1_000_000,
+    description:
+      'GLM-5.3 is a text-input model for complex coding and long-running agent tasks, with reasoning and tool calling.',
     displayName: 'GLM-5.3',
     id: 'glm-5.3',
     settings: { extendParams: ['glm5_2ReasoningEffort'] },
@@ -52,7 +54,7 @@ const zhipuChatModels: AIChatModelCard[] = [
     },
     contextWindowTokens: 1_000_000,
     description:
-      'GLM-5.2 is Zhipu’s latest flagship model, matching GLM-5.1 in agentic and coding capabilities while extending the context window to 1 million tokens. It inherits GLM-5.1’s long-horizon planning, autonomous execution, and iterative refinement for up to 8 hours in a single task, and adds native reasoning-effort control for finer-grained quality/latency trade-offs, making it an ideal foundation for Autonomous Agents and long-context Coding Agents.',
+      'GLM-5.2 is a text-input model for long-context coding and agent tasks, with reasoning and tool calling.',
     displayName: 'GLM-5.2',
     enabled: true,
     family: 'glm',
