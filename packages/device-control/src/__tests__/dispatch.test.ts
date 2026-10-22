@@ -163,6 +163,40 @@ describe('executeDeviceRpc', () => {
     ).resolves.toMatchObject({ removed: false, root: scratch.root });
   });
 
+  it('cleans a persisted legacy scratch path only when it belongs to an allowed legacy root', async () => {
+    const topicId = 'legacy-topic';
+    const legacyScratchRoot = path.join(root, '.legacy-scratch-host');
+    const legacyScratch = (await executeDeviceRpc(
+      'ensureScratchWorkspace',
+      { topicId },
+      { ...makeDeps(), scratchRoot: legacyScratchRoot },
+    )) as { root: string };
+    await writeFile(path.join(legacyScratch.root, 'result.txt'), 'temporary');
+
+    const deps = {
+      ...makeDeps(),
+      legacyScratchRoots: [legacyScratchRoot],
+      scratchRoot: path.join(root, '.new-scratch-host'),
+    };
+
+    await expect(
+      executeDeviceRpc(
+        'cleanupScratchWorkspace',
+        { expectedRoot: legacyScratch.root, topicId },
+        deps,
+      ),
+    ).resolves.toMatchObject({ removed: true, root: legacyScratch.root });
+    await expect(access(legacyScratch.root)).rejects.toBeDefined();
+
+    await expect(
+      executeDeviceRpc(
+        'cleanupScratchWorkspace',
+        { expectedRoot: path.join(root, 'unmanaged', 'topic'), topicId },
+        deps,
+      ),
+    ).rejects.toThrow('SCOPE_DENIED');
+  });
+
   it('cannot use scratch cleanup as an arbitrary recursive-delete primitive', async () => {
     const deps = makeDeps();
     await expect(executeDeviceRpc('cleanupScratchWorkspace', {}, deps)).rejects.toThrow(

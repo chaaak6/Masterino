@@ -50,6 +50,7 @@ vi.mock('@/utils/logger', () => ({
 }));
 
 describe('GatewayConnectionCtr execution context boundary', () => {
+  let masterinoHome: string;
   let tempRoot: string;
   let workspace: string;
   const handleRunCommand = vi.fn(async (_args: { cwd?: string }) => ({
@@ -122,6 +123,8 @@ describe('GatewayConnectionCtr execution context boundary', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     tempRoot = await mkdtemp(path.join(tmpdir(), 'desktop-execution-context-'));
+    masterinoHome = path.join(tempRoot, '.masterino');
+    vi.stubEnv('MASTERINO_HOME', masterinoHome);
     workspace = path.join(tempRoot, 'workspace');
     await mkdir(workspace);
     workspace = await realpath(workspace);
@@ -129,6 +132,7 @@ describe('GatewayConnectionCtr execution context boundary', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
     await rm(tempRoot, { force: true, recursive: true });
   });
@@ -198,7 +202,7 @@ describe('GatewayConnectionCtr execution context boundary', () => {
 
   it('authorizes the first absolute write in prepared topic scratch, without sibling grants', async () => {
     const controller = makeController();
-    const scratch = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    const scratch = path.join(masterinoHome, 'workspaces', 'scratch');
     const source = path.join(workspace, 'source.xlsx');
     await writeFile(source, 'fixture');
     const ref = await receiveLocalAttachment(scratch, 'device-1', {
@@ -259,7 +263,7 @@ describe('GatewayConnectionCtr execution context boundary', () => {
 
   it('rejects scratch topic aliases and symlink escapes', async () => {
     const controller = makeController();
-    const scratch = path.join(tempRoot, 'app-storage', 'scratch-workspaces');
+    const scratch = path.join(masterinoHome, 'workspaces', 'scratch');
     await mkdir(path.join(scratch, 'topic-b'), { recursive: true });
     await symlink(path.join(scratch, 'topic-b'), path.join(scratch, 'topic-a'));
     await symlink(workspace, path.join(scratch, 'topic-external'));
@@ -294,7 +298,7 @@ describe('GatewayConnectionCtr execution context boundary', () => {
     });
     expect(result.success).toBe(true);
     const cwd = handleRunCommand.mock.calls.at(-1)?.[0]?.cwd;
-    expect(cwd).toContain('scratch-workspaces');
+    expect(cwd).toContain(path.join(masterinoHome, 'workspaces', 'scratch'));
     expect(result.state).toMatchObject({ localScratch: { root: cwd } });
     const evidence = await (controller as any).executeDeviceRpc('getLocalScratchExecution', trace);
     expect(evidence).toEqual({ root: cwd });

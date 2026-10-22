@@ -1,25 +1,48 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+
+import { resolveCliManagedPaths } from '../utils/managedPaths';
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB
 
-function getLobehubDir() {
-  return path.join(os.homedir(), '.lobehub');
+function getStateDirs() {
+  const { legacyStateRoot, stateRoot } = resolveCliManagedPaths();
+  return { current: stateRoot, legacy: legacyStateRoot };
 }
 
 function getPidPath() {
-  return path.join(getLobehubDir(), 'daemon.pid');
+  return path.join(getStateDirs().current, 'daemon.pid');
 }
 
 function getStatusPath() {
-  return path.join(getLobehubDir(), 'daemon.status.json');
+  return path.join(getStateDirs().current, 'daemon.status.json');
 }
 
 function getLogFilePath() {
-  return path.join(getLobehubDir(), 'daemon.log');
+  return path.join(getStateDirs().current, 'daemon.log');
 }
+
+const readCompatibleFile = (name: string): string => {
+  const { current, legacy } = getStateDirs();
+  for (const root of [current, legacy])
+    try {
+      return fs.readFileSync(path.join(root, name), 'utf8');
+    } catch {
+      // Try the compatibility location.
+    }
+  throw new Error(`${name} not found`);
+};
+
+const removeCompatibleFile = (name: string) => {
+  const { current, legacy } = getStateDirs();
+  for (const root of new Set([current, legacy]))
+    try {
+      fs.unlinkSync(path.join(root, name));
+    } catch {
+      // Already absent.
+    }
+};
 
 export interface DaemonStatus {
   connectionStatus: string;
@@ -30,14 +53,14 @@ export interface DaemonStatus {
 }
 
 function ensureDir() {
-  fs.mkdirSync(getLobehubDir(), { mode: 0o700, recursive: true });
+  fs.mkdirSync(getStateDirs().current, { mode: 0o700, recursive: true });
 }
 
 // --- PID file ---
 
 export function readPid(): number | null {
   try {
-    const raw = fs.readFileSync(getPidPath(), 'utf8').trim();
+    const raw = readCompatibleFile('daemon.pid').trim();
     const pid = Number.parseInt(raw, 10);
     return Number.isNaN(pid) ? null : pid;
   } catch {
@@ -51,11 +74,7 @@ export function writePid(pid: number): void {
 }
 
 export function removePid(): void {
-  try {
-    fs.unlinkSync(getPidPath());
-  } catch {
-    // ignore
-  }
+  removeCompatibleFile('daemon.pid');
 }
 
 /**
@@ -95,18 +114,14 @@ export function writeStatus(status: DaemonStatus): void {
 
 export function readStatus(): DaemonStatus | null {
   try {
-    return JSON.parse(fs.readFileSync(getStatusPath(), 'utf8')) as DaemonStatus;
+    return JSON.parse(readCompatibleFile('daemon.status.json')) as DaemonStatus;
   } catch {
     return null;
   }
 }
 
 export function removeStatus(): void {
-  try {
-    fs.unlinkSync(getStatusPath());
-  } catch {
-    // ignore
-  }
+  removeCompatibleFile('daemon.status.json');
 }
 
 // --- Log file ---

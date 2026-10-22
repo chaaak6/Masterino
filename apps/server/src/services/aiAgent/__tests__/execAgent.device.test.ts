@@ -416,6 +416,7 @@ describe('AiAgentService.execAgent - device auto-activation', () => {
       expect(mockDeleteScratch).toHaveBeenCalledWith('scratch-workspace');
       expect(mockDeviceProxy.cleanupScratchWorkspace).toHaveBeenCalledWith({
         deviceId: 'device-001',
+        expectedRoot: '/tmp/masterino/topic-1',
         topicId: 'topic-1',
         userId,
       });
