@@ -17,7 +17,11 @@ describe('model picker visual capabilities', () => {
       video: false,
     });
     expect(getVisualCapabilities('deepseek-v4-pro', 'newapi', {}, unknown)).toEqual({
-      image: false,
+      image: true,
+      video: false,
+    });
+    expect(getVisualCapabilities('deepseek-flash', 'newapi', {}, unknown)).toEqual({
+      image: true,
       video: false,
     });
     expect(getVisualCapabilities('glm-5.2', 'newapi', {}, unknown)).toEqual({
