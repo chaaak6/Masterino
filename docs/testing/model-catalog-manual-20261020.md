@@ -72,4 +72,4 @@ CATALOG_BDD_DATABASE_URL=postgresql://postgres@127.0.0.1:15436/catalog_bdd \
 - 主助理恢复 `newapi/deepseek-v4-pro`；完整退出重开后原话题返回 `PR145_REOPEN_OK`。
 - 临时验证集群资源已删除，原测试工作负载未替换。
 
-[修复后回滚](model-catalog-bdd-20261020/rollback-fixed-admin.png) · [恢复后的聊天详情](model-catalog-bdd-20261020/detail-restored.png) · [真实识图](model-catalog-bdd-20261020/vision-ok.png) · [图片按次价格](model-catalog-bdd-20261020/image-price.png)
+回滚修复、恢复后的聊天详情、真实识图与图片按次价格均已按上述步骤验证。

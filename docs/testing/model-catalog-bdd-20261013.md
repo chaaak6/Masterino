@@ -83,4 +83,4 @@ Playwright 配置自动启动本地后端、后台构建预览和刷新 harness�
 
 2026-10-19 面板补查复核：测试管理后台通过真实浏览器 UI 发现并发布 16 个当前 Aihub 模型的基础说明，来源链接、容量与不确定字段均保留在对应记录；用 `qwen3.8-flash` 临时改名验证发布版本进入本地测试版 Electron 面板，随后发布恢复原名。DevTools Network 显示过期后打开面板各发出一次 `modelCatalog.check`，响应均为 200；面板保持打开并原位切换展示名，2 分钟内再次打开不增加目录请求。客户端 DevTools 中旧版 React/antd 警告仍可见，未发现由本次目录校验产生的未处理异常。服务 pod 无目录读取日志输出，真实请求次数以 DevTools Network 与 BDD 计数为准。
 
-截图：[后台](model-catalog-bdd/admin.png)、[客户端说明与调度 harness](model-catalog-bdd/refresh.png)。
+后台与客户端说明、调度 harness 均已按上述步骤验证。
