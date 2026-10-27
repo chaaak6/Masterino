@@ -304,6 +304,7 @@
     "@lobechat/prompts": "workspace:*",
     "@lobechat/python-interpreter": "workspace:*",
     "@lobechat/shared-tool-ui": "workspace:*",
+    "@lobechat/skill-package": "workspace:*",
     "@lobechat/ssrf-safe-fetch": "workspace:*",
     "@lobechat/tool-runtime": "workspace:*",
     "@lobechat/utils": "workspace:*",

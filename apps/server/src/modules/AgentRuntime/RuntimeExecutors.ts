@@ -152,6 +152,7 @@ import {
   buildPendingWorkspacePathConsent,
   getPostDispatchWorkspacePathConsent,
   requiresPrimaryCwdForTool,
+  withPrimaryScratchRoot,
 } from './workspacePathConsent';
 
 const log = debug('lobe-server:agent-runtime:streaming-executors');
@@ -1096,27 +1097,6 @@ interface PreparedToolExecutionContext {
   scratchRoot?: string;
 }
 
-const withPrimaryScratchRoot = (
-  executionContext: ExecutionContext,
-  deviceId: string,
-  rootPath: string,
-): ExecutionContext => ({
-  ...executionContext,
-  accessRoots: [
-    ...(executionContext.accessRoots ?? []).filter((root) => root.scope !== 'primary'),
-    {
-      deviceId,
-      modes: ['exec', 'read', 'write'],
-      rootPath,
-      scope: 'primary',
-      source: 'workspace',
-    },
-  ],
-  cwd: rootPath,
-  unresolvedReason: undefined,
-  workspace: { deviceId, kind: 'scratch', rootPath },
-});
-
 /**
  * Lazily materialize a deterministic topic scratch root only for a tool that
  * actually needs a default cwd. Explicit absolute-path operations use their
@@ -1940,16 +1920,35 @@ export const createRuntimeExecutors = (
           userTimezone: ctx.userTimezone,
           capabilities: {
             isCanUseFC: (m: string, p: string) => {
+              if (
+                operationCatalogEntry?.modelId === m &&
+                operationCatalogEntry.providerId === p &&
+                operationCatalogEntry.capabilities?.functionCall !== undefined &&
+                operationCatalogEntry.capabilities.functionCall !== 'unknown'
+              )
+                return operationCatalogEntry.capabilities.functionCall === 'supported';
               const info = builtinModels.find((item) => item.id === m && item.providerId === p);
               return info?.abilities?.functionCall ?? true;
             },
             isCanUseVideo: (m: string, p: string) => {
+              if (
+                operationCatalogEntry?.modelId === m &&
+                operationCatalogEntry.providerId === p &&
+                operationCatalogEntry.inputModalities.video !== 'unknown'
+              )
+                return operationCatalogEntry.inputModalities.video === 'supported';
               const info =
                 builtinModels.find((item) => item.id === m && item.providerId === p) ??
                 builtinModels.find((item) => item.id === m);
               return info?.abilities?.video ?? false;
             },
             isCanUseVision: (m: string, p: string) => {
+              if (
+                operationCatalogEntry?.modelId === m &&
+                operationCatalogEntry.providerId === p &&
+                operationCatalogEntry.inputModalities.image !== 'unknown'
+              )
+                return operationCatalogEntry.inputModalities.image === 'supported';
               // Aggregator providers (e.g. lobehub) route to upstream model cards
               // that live under the original provider's id in the registry, so
               // fall back to a cross-provider lookup by model id when the

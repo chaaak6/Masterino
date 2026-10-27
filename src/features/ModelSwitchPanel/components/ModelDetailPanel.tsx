@@ -1,4 +1,5 @@
 import { BRANDING_PROVIDER } from '@lobechat/business-const';
+import { ManagedModelDescriptionSchema } from '@lobechat/types';
 import { getCachedTextInputUnitRate } from '@lobechat/utils';
 import { Accordion, AccordionItem, Flexbox, Icon, Tag, Tooltip } from '@lobehub/ui';
 import { createStaticStyles } from 'antd-style';
@@ -29,12 +30,12 @@ import { useTranslation } from 'react-i18next';
 
 import { useBusinessModelPricing } from '@/business/client/hooks/useBusinessModelPricing';
 import {
-  InputModalityTags,
   MODALITY_ICONS,
   useChatEligibleModelList,
   useChatModelCatalog,
-  useInputModalityLabels,
 } from '@/components/ModelSelect';
+import { getVisualCapabilities } from '@/components/ModelSelect/visualCapabilities';
+import { useAiInfraStore } from '@/store/aiInfra';
 import { useGlobalStore } from '@/store/global';
 import type { ModelDetailPanelExpandedKey } from '@/store/global/initialState';
 import { systemStatusSelectors } from '@/store/global/selectors';
@@ -62,11 +63,6 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   `,
   container: css`
     padding-block-end: 8px;
-  `,
-  evidenceText: css`
-    font-size: 11px;
-    color: ${cssVar.colorTextTertiary};
-    text-align: end;
   `,
   row: css`
     padding-block: 4px;
@@ -324,13 +320,10 @@ const ABILITY_CONFIG: AbilityItem[] = [
   { color: 'cyan', icon: GlobeIcon, key: 'search' },
 ];
 
-/**
- * For chat models image/file/video come from the B1 `inputModalities` evidence, so only
- * the independent abilities stay in this list.
- */
-const EVIDENCE_DERIVED_ABILITIES = new Set(['files', 'video', 'vision']);
+/** The chat picker keeps the detail focused on useful, confirmed abilities. */
+const HIDDEN_CHAT_ABILITIES = new Set(['files', 'search', 'video', 'vision']);
 const CHAT_ABILITY_CONFIG = ABILITY_CONFIG.filter(
-  (ability) => !EVIDENCE_DERIVED_ABILITIES.has(ability.key),
+  (ability) => !HIDDEN_CHAT_ABILITIES.has(ability.key),
 );
 
 export type PricingMode = 'image' | 'video';
@@ -363,14 +356,32 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
       id: modelId ?? '',
       providerId: provider,
     });
-    const modalityLabels = useInputModalityLabels();
+    const managedDescription = useAiInfraStore((state) =>
+      provider === 'newapi'
+        ? state.enabledAiModels?.find((item) => item.id === modelId && item.providerId === provider)
+            ?.settings?.managedModelCatalog?.description
+        : undefined,
+    );
+    const parsedDescription = ManagedModelDescriptionSchema.safeParse(managedDescription);
+    const visualCapabilities = getVisualCapabilities(
+      modelId ?? '',
+      provider,
+      model?.abilities,
+      catalog.inputModality,
+      parsedDescription.success ? parsedDescription.data.inputModalities.image : undefined,
+      parsedDescription.success ? parsedDescription.data.inputModalities.video : undefined,
+    );
 
     const pricing = model?.pricing;
     const displayPricing = useMemo(
       () => applyBusinessModelPricing({ model: modelId, pricing, provider }),
       [applyBusinessModelPricing, modelId, pricing, provider],
     );
-    const isAihubChat = provider === BRANDING_PROVIDER && catalog.chatEligible && !pricingMode;
+    // Generation views use the separate approximate per-image/video price.
+    const isAihubTariff =
+      provider === BRANDING_PROVIDER &&
+      !pricingMode &&
+      (catalog.chatEligible || !!model?.aihubPricing);
     const isCreditPricing = provider === BRANDING_PROVIDER;
     const hasPricing = !!displayPricing;
     const formatPrice = displayPricing ? getPrice(displayPricing, isCreditPricing) : null;
@@ -438,16 +449,27 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
     if (!model) return null;
 
     const hasContext = typeof model.contextWindowTokens === 'number';
-    const showInputModality = catalog.chatEligible;
-    const enabledAbilities = (showInputModality ? CHAT_ABILITY_CONFIG : ABILITY_CONFIG).filter(
-      (a) => model.abilities[a.key as keyof typeof model.abilities],
+    const enabledAbilities = (catalog.chatEligible ? CHAT_ABILITY_CONFIG : ABILITY_CONFIG).filter(
+      (ability) => {
+        const published = parsedDescription.success
+          ? parsedDescription.data.capabilities[
+              ability.key as keyof typeof parsedDescription.data.capabilities
+            ]
+          : undefined;
+        if (published === 'supported') return true;
+        if (published === 'unsupported') return false;
+        return model.abilities[ability.key as keyof typeof model.abilities];
+      },
     );
-    const hasAbilities = showInputModality || enabledAbilities.length > 0;
+    const visualInputs = (['image', 'video'] as const).filter((modality) =>
+      modality === 'image' ? visualCapabilities.image : visualCapabilities.video,
+    );
+    const hasAbilities = visualInputs.length > 0 || enabledAbilities.length > 0;
 
     return (
       <Flexbox className={styles.container}>
         {/* Sections */}
-        {(hasPricing || hasContext || hasAbilities || isAihubChat) && (
+        {(hasPricing || hasContext || hasAbilities || isAihubTariff) && (
           <Accordion
             expandedKeys={expandedKeys}
             gap={8}
@@ -496,14 +518,15 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
                 action={
                   !expandedKeys.includes('abilities') && (
                     <Flexbox horizontal gap={2}>
-                      {showInputModality && (
-                        <InputModalityTags
-                          disableTooltip
-                          visualOnly
-                          conclusion={catalog.inputModality}
-                          tagClassName={styles.abilityTag}
-                        />
-                      )}
+                      {visualInputs.map((modality) => (
+                        <Tag
+                          className={styles.abilityTag}
+                          color={modality === 'image' ? 'success' : 'magenta'}
+                          key={modality}
+                        >
+                          <Icon icon={MODALITY_ICONS[modality]} style={{ fontSize: 12 }} />
+                        </Tag>
+                      ))}
                       {enabledAbilities.map((ability) => (
                         <Tag
                           color={ability.color}
@@ -534,36 +557,20 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
                 }
               >
                 <Flexbox gap={4}>
-                  {showInputModality && (
-                    <>
-                      {(['image', 'video'] as const).map((modality) => {
-                        const evidence = catalog.inputModality.evidence[modality];
-
-                        return (
-                          <Flexbox
-                            horizontal
-                            align={'center'}
-                            className={styles.row}
-                            justify={'space-between'}
-                            key={modality}
-                          >
-                            <Flexbox horizontal align={'center'} gap={6}>
-                              <Icon icon={MODALITY_ICONS[modality]} style={{ fontSize: 12 }} />
-                              <span>{t(`ModelSwitchPanel.detail.visualInput.${modality}`)}</span>
-                            </Flexbox>
-                            <span
-                              className={styles.evidenceText}
-                              data-evidence-state={evidence.state}
-                            >
-                              {evidence.state === 'unknown'
-                                ? t('ModelSwitchPanel.detail.visualInput.unknown')
-                                : modalityLabels.stateLabel(evidence.state)}
-                            </span>
-                          </Flexbox>
-                        );
-                      })}
-                    </>
-                  )}
+                  {visualInputs.map((modality) => (
+                    <Flexbox
+                      horizontal
+                      align={'center'}
+                      className={styles.row}
+                      justify={'space-between'}
+                      key={modality}
+                    >
+                      <Flexbox horizontal align={'center'} gap={6}>
+                        <Icon icon={MODALITY_ICONS[modality]} style={{ fontSize: 12 }} />
+                        <span>{t(`ModelSwitchPanel.detail.visualInput.${modality}`)}</span>
+                      </Flexbox>
+                    </Flexbox>
+                  ))}
                   {enabledAbilities.map((ability) => (
                     <Flexbox
                       horizontal
@@ -587,9 +594,9 @@ const ModelDetailPanel: FC<ModelDetailPanelProps> = memo(
               </AccordionItem>
             )}
 
-            {isAihubChat && <AihubPricing pricing={model.aihubPricing} />}
+            {isAihubTariff && <AihubPricing pricing={model.aihubPricing} />}
             {/* Pricing */}
-            {!isAihubChat && hasPricing && (formatPrice || approximatePriceLabel) && (
+            {!isAihubTariff && hasPricing && (formatPrice || approximatePriceLabel) && (
               <AccordionItem
                 alwaysShowAction
                 itemKey="pricing"

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
 import { ModelProvider } from 'model-bank';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AiModelModel } from '@/database/models/aiModel';
 import { AiInfraRepos } from '@/database/repositories/aiInfra';
@@ -24,6 +24,9 @@ vi.mock('@/server/modules/KeyVaultsEncrypt', () => ({
 }));
 
 describe('aiModelRouter', () => {
+  beforeEach(() => vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false'));
+  afterEach(() => vi.unstubAllEnvs());
+
   const mockCtx = {
     userId: 'test-user',
   };

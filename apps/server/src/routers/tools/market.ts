@@ -432,7 +432,7 @@ export const marketRouter = router({
           );
         }
         case 'execScript': {
-          return runtime.execScript(
+          const result = await runtime.execScript(
             z
               .object({
                 skillId: z.string().optional(),
@@ -441,6 +441,17 @@ export const marketRouter = router({
               })
               .parse(binding.args),
           );
+          const plan = binding.context.executionContext.plan;
+          if (result.success && binding.scratchRoot && plan.kind === 'device') {
+            await service.bindScratchAfterToolSuccess({
+              deviceId: plan.deviceId,
+              rootPath: binding.scratchRoot,
+              target: plan.target === 'local' ? 'local' : 'device',
+              toolSucceeded: true,
+              topicId: input.topicId,
+            });
+          }
+          return result;
         }
       }
     }),

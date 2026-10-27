@@ -1,10 +1,12 @@
 import { LocalSystemIdentifier } from '@lobechat/builtin-tool-local-system';
+import { SkillsIdentifier } from '@lobechat/builtin-tool-skills';
 import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { describe, expect, it } from 'vitest';
 
 import {
   buildPendingWorkspacePathConsent,
   getPostDispatchWorkspacePathConsent,
+  requiresPrimaryCwdForTool,
   tagWorkspacePathInterventionAudits,
   workspacePathInterventionAudits,
 } from '../workspacePathConsent';
@@ -26,6 +28,32 @@ const executionContext: ExecutionContext = {
 };
 
 describe('runtime workspace path consent', () => {
+  it.each(['activateSkill', 'readReference', 'execScript'])(
+    'prepares default scratch for %s only when executing a skill script',
+    (apiName) => {
+      const tool = {
+        apiName,
+        arguments: '{}',
+        id: 'call-skill',
+        identifier: SkillsIdentifier,
+        type: 'builtin' as const,
+      };
+      expect(
+        requiresPrimaryCwdForTool({
+          executionContext: { ...executionContext, cwd: undefined, workspace: undefined },
+          tool,
+        }),
+      ).toBe(apiName === 'execScript');
+      expect(requiresPrimaryCwdForTool({ executionContext, tool })).toBe(false);
+      expect(
+        requiresPrimaryCwdForTool({
+          executionContext: { ...executionContext, cwd: undefined, plan: { kind: 'none', target: 'none' } },
+          tool,
+        }),
+      ).toBe(false);
+    },
+  );
+
   it('authors a read intervention from typed local-system args and frozen context', () => {
     expect(
       buildPendingWorkspacePathConsent({

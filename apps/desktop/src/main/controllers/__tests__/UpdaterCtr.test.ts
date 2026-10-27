@@ -84,11 +84,11 @@ describe('UpdaterCtr', () => {
   });
 
   describe('automatic downloads', () => {
-    it('returns the stored preference and defaults to enabled', async () => {
+    it('keeps downloads manual regardless of legacy preference', async () => {
       mockStoreGet.mockReturnValueOnce(false);
       await expect(updaterCtr.getAutoDownloadEnabled()).resolves.toBe(false);
       mockStoreGet.mockReturnValueOnce(undefined);
-      await expect(updaterCtr.getAutoDownloadEnabled()).resolves.toBe(true);
+      await expect(updaterCtr.getAutoDownloadEnabled()).resolves.toBe(false);
     });
 
     it('persists and applies the preference', async () => {

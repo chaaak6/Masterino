@@ -766,6 +766,7 @@ export const createModelCatalogSnapshot = (
   capturedAt,
   entry: {
     ...entry,
+    ...(entry.capabilities ? { capabilities: { ...entry.capabilities } } : {}),
     abilitySources: { ...entry.abilitySources },
     inputModalities: { ...entry.inputModalities },
   },

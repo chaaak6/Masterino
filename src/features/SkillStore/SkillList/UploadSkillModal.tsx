@@ -1,6 +1,7 @@
 'use client';
 
 import { LoadingOutlined } from '@ant-design/icons';
+import { SKILL_SOURCE_MAX_BYTES } from '@lobechat/skill-package';
 import { Alert, Flexbox, Icon } from '@lobehub/ui';
 import { App, Modal, Spin, Typography, Upload } from 'antd';
 import { sha256 } from 'js-sha256';
@@ -33,6 +34,10 @@ const UploadSkillModal = memo<UploadSkillModalProps>(({ open, onOpenChange }) =>
 
   const handleUploadFile = async (file: File) => {
     if (!canCreate) return;
+    if (file.size > SKILL_SOURCE_MAX_BYTES) {
+      setError(t('agentSkillModal.upload.sizeLimit', { size: 64 }));
+      return;
+    }
     setLoading(true);
     setError(null);
 

@@ -178,6 +178,24 @@ describe('ModelDetailPanel pricing', () => {
     expect(container).not.toHaveTextContent('5.00');
   });
 
+  it('shows an unavailable persisted Aihub tariff instead of fallback credits', () => {
+    const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
+    enabledList[0].children[0].aihubPricing = {
+      version: 1,
+      currency: 'CNY',
+      status: 'unavailable',
+    };
+    const { container } = render(
+      <ModelDetailPanel
+        enabledList={enabledList}
+        model="test-model"
+        provider={BRANDING_PROVIDER}
+      />,
+    );
+    expect(container).toHaveTextContent('ModelSwitchPanel.aihubPricing.unavailable');
+    expect(container).not.toHaveTextContent('credits');
+  });
+
   it('shows the persisted Aihub CNY tariff including a zero cache rate', () => {
     const enabledList = createEnabledList(BRANDING_PROVIDER, textPricing);
     enabledList[0].children[0].aihubPricing = {
@@ -273,7 +291,7 @@ describe('ModelDetailPanel pricing', () => {
 });
 
 describe('ModelDetailPanel input modality', () => {
-  it('shows separate image and video states without diagnostic text', () => {
+  it('shows confirmed image input and hides unknown video input', () => {
     globalState.status.modelDetailPanelExpandedKeys = ['abilities'];
 
     const { container } = render(
@@ -284,10 +302,8 @@ describe('ModelDetailPanel input modality', () => {
       />,
     );
 
-    const evidenceRows = container.querySelectorAll('[data-evidence-state]');
-    expect(evidenceRows).toHaveLength(2);
-    expect(evidenceRows[0]).toHaveTextContent('Supported');
-    expect(evidenceRows[1]).toHaveAttribute('data-evidence-state', 'unknown');
+    expect(container).toHaveTextContent('ModelSwitchPanel.detail.visualInput.image');
+    expect(container).not.toHaveTextContent('ModelSwitchPanel.detail.visualInput.video');
     expect(container).not.toHaveTextContent('No evidence');
   });
 

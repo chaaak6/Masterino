@@ -138,7 +138,7 @@ export class ShellProcessManager {
     }
 
     try {
-      this.stopProcessTree(shellProcess);
+      this.stopProcessTree(shellProcess, () => this.processes.set(shell_id, shellProcess));
       this.processes.delete(shell_id);
       return { success: true };
     } catch (error) {
@@ -147,25 +147,28 @@ export class ShellProcessManager {
   }
 
   async cleanupAll(): Promise<void> {
+    const failures: unknown[] = [];
     for (const [id, sp] of this.processes) {
       try {
-        this.stopProcessTree(sp);
-      } catch {
-        // Ignore
+        this.stopProcessTree(sp, () => this.processes.set(id, sp));
+        this.processes.delete(id);
+      } catch (error) {
+        failures.push(error);
       }
-      this.processes.delete(id);
     }
-    await Promise.all(this.terminations);
+    const results = await Promise.allSettled(this.terminations);
+    failures.push(...results.filter((r) => r.status === 'rejected').map((r) => r.reason));
+    if (failures.length) throw new AggregateError(failures, 'Managed commands did not stop');
   }
 
-  private stopProcessTree(shellProcess: ShellProcess): void {
+  private stopProcessTree(shellProcess: ShellProcess, onFailure: () => void): void {
     const child = shellProcess.process;
-    if (child.exitCode !== null || child.signalCode != null) return;
+    if (!shellProcess.processGroup && (child.exitCode !== null || child.signalCode != null)) return;
     if (child.pid && process.platform === 'win32') {
       execFileSync(
         path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
         ['/PID', String(child.pid), '/T', '/F'],
-        { stdio: 'ignore', windowsHide: true },
+        { stdio: 'ignore', windowsHide: true, timeout: 5000 },
       );
     } else if (child.pid && shellProcess.processGroup) {
       const pid = child.pid;
@@ -177,18 +180,46 @@ export class ShellProcessManager {
       }
       // A shell may exit before a descendant which ignores SIGTERM. Escalate
       // against the whole group, even when the shell has already exited.
-      const termination = new Promise<void>((resolve) => {
+      const termination = new Promise<void>((resolve, reject) => {
         setTimeout(() => {
           try {
             process.kill(-pid, 'SIGKILL');
           } catch {
             // The group has normally exited during the grace period.
           }
-          resolve();
+          const deadline = Date.now() + 5000;
+          const wait = () => {
+            try {
+              const rows = execFileSync('/bin/ps', ['-axo', 'pgid=,stat='], {
+                encoding: 'utf8',
+                timeout: 5000,
+              });
+              const live = rows
+                .trim()
+                .split('\n')
+                .some((row) => {
+                  const [group, state] = row.trim().split(/\s+/);
+                  return Number(group) === pid && !state.startsWith('Z');
+                });
+              if (!live) return resolve();
+              if (Date.now() >= deadline)
+                return reject(new Error('Managed command group did not exit'));
+              setTimeout(wait, 50);
+            } catch (error) {
+              reject(error);
+            }
+          };
+          wait();
         }, 500);
       });
       this.terminations.add(termination);
-      void termination.finally(() => this.terminations.delete(termination));
+      void termination.then(
+        () => this.terminations.delete(termination),
+        () => {
+          onFailure();
+          this.terminations.delete(termination);
+        },
+      );
     } else {
       child.kill();
     }

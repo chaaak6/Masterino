@@ -1,10 +1,14 @@
-import { supportsEmbeddingDimension } from '@lobechat/business-model-bank';
+import {
+  isAiProviderModelChatEligible,
+  supportsEmbeddingDimension,
+} from '@lobechat/business-model-bank';
 import { DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS } from '@lobechat/const';
 import { TooltipGroup } from '@lobehub/ui';
 import { Select, type SelectProps } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
 import { type ReactNode } from 'react';
 import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   ModelItemRender,
@@ -93,6 +97,20 @@ const ModelSelect = memo<ModelSelectProps>(
       [enabledAiModels, enabledAiProviders],
     );
     const enabledList = modelType === 'embedding' ? embeddingModels : chatModels;
+    const { t } = useTranslation('components');
+    const catalog = useAiInfraStore((s) => s.silentModelCatalog);
+    const selectedProvider = value?.provider;
+    const selectedValue =
+      value?.provider && value.model ? `${value.provider}/${value.model}` : null;
+    const unavailable =
+      modelType === 'chat' &&
+      catalog &&
+      selectedProvider === 'newapi' &&
+      value?.model &&
+      !catalog.models.some(
+        (model) =>
+          model.id === value.model && model.enabled && isAiProviderModelChatEligible(model),
+      );
 
     const options = useMemo<SelectProps['options']>(() => {
       const getChatModels = (provider: EnabledProviderWithModels) => {
@@ -145,7 +163,18 @@ const ModelSelect = memo<ModelSelectProps>(
         .filter(Boolean) as SelectProps['options'];
     }, [enabledList, requiredAbilities, showAbility]);
 
-    const selectedValue = value?.provider && value.model ? `${value.provider}/${value.model}` : null;
+    const visibleOptions = unavailable
+      ? [
+          {
+            value: selectedValue,
+            id: value!.model,
+            provider: selectedProvider!,
+            disabled: true,
+            label: `${value!.model} · ${t('ModelSwitchPanel.detail.managed.unavailable')}`,
+          },
+          ...(options ?? []),
+        ]
+      : options;
 
     return (
       <TooltipGroup>
@@ -154,7 +183,7 @@ const ModelSelect = memo<ModelSelectProps>(
           defaultValue={selectedValue}
           disabled={disabled}
           loading={loading}
-          options={options}
+          options={visibleOptions}
           popupClassName={styles.popup}
           popupMatchSelectWidth={popupWidth === undefined ? false : popupWidth}
           size={size}
@@ -164,7 +193,7 @@ const ModelSelect = memo<ModelSelectProps>(
             // base-ui Select adds a minimal { label, value } option for a saved
             // value missing from the available model list. It has no model id.
             const modelOption = option as Partial<ModelOption>;
-            if (!modelOption.id || !modelOption.provider) return option.label;
+            if (option.disabled || !modelOption.id || !modelOption.provider) return option.label;
 
             return (
               <ModelItemRender

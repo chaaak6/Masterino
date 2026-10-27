@@ -671,7 +671,7 @@ describe('HeterogeneousAgentCtr', () => {
 
     it('sniffs image bytes when MIME and URL do not expose a usable extension', async () => {
       const pngBytes = Buffer.concat([
-        Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
         Buffer.from('PNG_TEST'),
       ]);
       const imageList = [
@@ -1183,6 +1183,21 @@ describe('HeterogeneousAgentCtr', () => {
 
       processOnSpy.mockRestore();
       processExitSpy.mockRestore();
+    });
+
+    it('retries cleanup after a transient server shutdown failure', async () => {
+      const ctr = new HeterogeneousAgentCtr({
+        appStoragePath,
+        storeManager: { get: vi.fn() },
+      } as any);
+      const stop = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('temporary failure'))
+        .mockResolvedValueOnce(undefined);
+      (ctr as any).askUserMcpServer = { stop };
+      await expect(ctr.cleanup()).rejects.toThrow('temporary failure');
+      await expect(ctr.cleanup()).resolves.toBeUndefined();
+      expect(stop).toHaveBeenCalledTimes(2);
     });
 
     it('cleanup is idempotent — already-deleted files do not throw', async () => {

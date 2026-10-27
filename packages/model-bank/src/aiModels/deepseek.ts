@@ -2,6 +2,19 @@ import type { AIChatModelCard } from '../types/aiModel';
 
 // https://api-docs.deepseek.com/zh-cn/quick_start/pricing
 const deepseekChatModels: AIChatModelCard[] = [
+  {
+    abilities: { functionCall: true, reasoning: true, structuredOutput: true, vision: true },
+    contextWindowTokens: 1_048_576,
+    description: 'DeepSeek V4.1 Flash supports text and image input, reasoning, and tool calling.',
+    displayName: 'DeepSeek V4.1 Flash',
+    enabled: true,
+    family: 'deepseek',
+    generation: 'deepseek-v4.1',
+    id: 'deepseek-flash',
+    maxOutput: 393_216,
+    settings: { extendParams: ['deepseekV4ReasoningEffort'] },
+    type: 'chat',
+  },
   // https://api-docs.deepseek.com/guides/vision/
   // https://api-docs.deepseek.com/quick_start/pricing/
   {
@@ -19,11 +32,12 @@ const deepseekChatModels: AIChatModelCard[] = [
       reasoning: true,
       structuredOutput: true,
       video: false,
-      vision: false,
+      // DeepSeek now routes this legacy ID to the vision-capable V4.1 Flash.
+      vision: true,
     },
     contextWindowTokens: 1_048_576,
     description:
-      'DeepSeek V4 Flash is DeepSeek’s fast 1M-context flagship model, supporting both non-thinking and thinking modes with strong agent capabilities.',
+      'Legacy DeepSeek V4 Flash ID, currently served by DeepSeek V4.1 Flash with text and image input, thinking modes, and tool calling.',
     displayName: 'DeepSeek V4 Flash',
     enabled: true,
     family: 'deepseek',
@@ -46,16 +60,17 @@ const deepseekChatModels: AIChatModelCard[] = [
     type: 'chat',
   },
   {
+    // This deployment's Aihub route accepts image input for V4 Pro.
     abilities: {
       functionCall: true,
       reasoning: true,
       structuredOutput: true,
       video: false,
-      vision: false,
+      vision: true,
     },
     contextWindowTokens: 1_048_576,
     description:
-      'DeepSeek V4 Pro is DeepSeek’s most capable 1M-context flagship model, supporting both non-thinking and thinking modes for advanced reasoning and tool use.',
+      'DeepSeek V4 Pro supports text and image input, long-context reasoning, and tool calling through the configured Aihub route.',
     displayName: 'DeepSeek V4 Pro',
     enabled: true,
     family: 'deepseek',

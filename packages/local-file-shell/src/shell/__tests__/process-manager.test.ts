@@ -1,9 +1,15 @@
+import * as childProcess from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type ShellProcess, ShellProcessManager } from '../process-manager';
+
+vi.mock('node:child_process', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:child_process')>()),
+  execFileSync: vi.fn(),
+}));
 
 function createMockProcess(exitCode: number | null = null): ChildProcess {
   const process = new EventEmitter() as ChildProcess;
@@ -285,13 +291,39 @@ describe('ShellProcessManager', () => {
   });
 
   describe('cleanupAll', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    it('retries a failed process group termination when the group later exits', async () => {
+      vi.useFakeTimers();
+      const child = createMockProcess();
+      Object.defineProperty(child, 'pid', { value: 424242 });
+      const shell = { ...createShellProcess(child), processGroup: true };
+      const kill = vi.spyOn(process, 'kill').mockReturnValue(true);
+      const ps = vi.spyOn(childProcess, 'execFileSync').mockReturnValue('424242 S' as never);
+      manager.register('test-1', shell);
+      const first = manager.cleanupAll();
+      const failure = expect(first).rejects.toThrow('Managed commands did not stop');
+      await vi.advanceTimersByTimeAsync(6000);
+      await failure;
+      kill.mockImplementation(() => {
+        throw Object.assign(new Error('gone'), { code: 'ESRCH' });
+      });
+      await expect(manager.cleanupAll()).resolves.toBeUndefined();
+      ps.mockRestore();
+      kill.mockRestore();
+      vi.useRealTimers();
+    });
+
     it('should kill all registered processes', async () => {
       const p1 = createMockProcess();
       const p2 = createMockProcess();
       manager.register('test-1', createShellProcess(p1));
       manager.register('test-2', createShellProcess(p2));
 
-      manager.cleanupAll();
+      await manager.cleanupAll();
 
       expect(p1.kill).toHaveBeenCalled();
       expect(p2.kill).toHaveBeenCalled();
@@ -299,14 +331,14 @@ describe('ShellProcessManager', () => {
       expect((await manager.getOutput({ shell_id: 'test-2' })).success).toBe(false);
     });
 
-    it('should handle kill errors during cleanup', () => {
+    it('should report kill errors during cleanup', async () => {
       const p1 = createMockProcess();
       (p1.kill as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => {
         throw new Error('fail');
       });
       manager.register('test-1', createShellProcess(p1));
 
-      expect(() => manager.cleanupAll()).not.toThrow();
+      await expect(manager.cleanupAll()).rejects.toThrow('Managed commands did not stop');
     });
   });
 });

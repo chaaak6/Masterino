@@ -25,7 +25,6 @@ import { isDev } from '@/const/env';
 import { getDesktopEnv } from '@/env';
 import { resolveGatewayUrl } from '@/modules/gateway/configs';
 import { getPythonEnvironment } from '@/modules/pythonRuntime';
-
 import { createLogger } from '@/utils/logger';
 
 import { ServiceModule } from './index';
@@ -351,6 +350,7 @@ export default class GatewayConnectionService extends ServiceModule {
     verifiedUserId?: string,
     identityRetry = false,
   ): Promise<{ error?: string; success: boolean }> {
+    if (this.app.isQuiting) return { success: false, error: 'Application is shutting down' };
     // Clean up any existing client
     if (this.client) {
       await this.client.disconnect();

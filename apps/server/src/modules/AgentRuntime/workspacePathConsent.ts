@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { LocalSystemIdentifier, pathScopeAudit } from '@lobechat/builtin-tool-local-system';
+import { SkillsIdentifier } from '@lobechat/builtin-tool-skills';
 import type { LobeToolManifest } from '@lobechat/context-engine';
 import type { ChatToolPayload, DynamicInterventionResolver } from '@lobechat/types';
 import type {
@@ -197,7 +198,7 @@ const areToolPathRequestsCovered = (params: {
 };
 
 /**
- * Decide whether an unbound local-system call genuinely needs a default cwd.
+ * Decide whether an unbound execution call genuinely needs a default cwd.
  * Explicit absolute (or home-relative) targets use their operation/topic grant
  * directly and must not create scratch as a side effect.
  */
@@ -206,14 +207,11 @@ export const requiresPrimaryCwdForTool = (params: {
   tool: ChatToolPayload;
 }): boolean => {
   const { executionContext, tool } = params;
-  if (
-    tool.identifier !== LocalSystemIdentifier ||
-    !executionContext ||
-    executionContext.plan.kind !== 'device' ||
-    executionContext.cwd
-  ) {
+  if (!executionContext || executionContext.plan.kind !== 'device' || executionContext.cwd) {
     return false;
   }
+  if (tool.identifier === SkillsIdentifier) return tool.apiName === 'execScript';
+  if (tool.identifier !== LocalSystemIdentifier) return false;
   if (tool.apiName === 'runCommand' || tool.apiName === 'runHeteroTask') return true;
   if (!(WORKSPACE_PATH_APIS as readonly string[]).includes(tool.apiName)) return false;
 
@@ -370,3 +368,24 @@ export const getPostDispatchWorkspacePathConsent = (params: {
   }
   return request;
 };
+
+export const withPrimaryScratchRoot = (
+  executionContext: ExecutionContext,
+  deviceId: string,
+  rootPath: string,
+): ExecutionContext => ({
+  ...executionContext,
+  accessRoots: [
+    ...(executionContext.accessRoots ?? []).filter((root) => root.scope !== 'primary'),
+    {
+      deviceId,
+      modes: ['exec', 'read', 'write'],
+      rootPath,
+      scope: 'primary',
+      source: 'workspace',
+    },
+  ],
+  cwd: rootPath,
+  unresolvedReason: undefined,
+  workspace: { deviceId, kind: 'scratch', rootPath },
+});

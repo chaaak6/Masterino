@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY patches patches
 COPY apps/market/package.json apps/market/package.json
+COPY packages/skill-package/package.json packages/skill-package/package.json
 RUN --mount=type=cache,id=masterino-market-npm-cache,target=/root/.npm,sharing=locked \
     set -e && \
     if [ "${USE_CN_MIRROR:-false}" = "true" ]; then \
@@ -27,6 +28,7 @@ RUN --mount=type=cache,id=masterino-market-npm-cache,target=/root/.npm,sharing=l
       sleep "$((attempt * 5))"; \
     done
 COPY apps/market apps/market
+COPY packages/skill-package/src packages/skill-package/src
 RUN pnpm --filter @masterino/market build && \
     mkdir -p apps/market/dist/migrations && \
     cp apps/market/src/migrations/*.sql apps/market/dist/migrations/ && \

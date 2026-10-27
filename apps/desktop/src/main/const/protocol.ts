@@ -10,7 +10,13 @@ export const LOCAL_FILE_PROTOCOL_HOST = 'file';
  * `shell.openExternal` as fully-qualified web URLs and never reach renderer
  * `fetch`.
  */
-export const BACKEND_PATH_PREFIXES = ['/trpc', '/webapi', '/api/auth', '/market'];
+export const BACKEND_PATH_PREFIXES = [
+  '/trpc',
+  '/webapi',
+  '/api/auth',
+  '/api/market/skills',
+  '/market',
+];
 export const BACKEND_EXACT_PATHS = ['/api/upload/s3-proxy', '/api/agent/events'];
 
 export const isBackendPath = (pathname: string) =>

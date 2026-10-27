@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -74,4 +76,42 @@ describe('S3 upload proxy route', () => {
     );
     expect(mocks.uploadBuffer.mock.calls[0][1].toString()).toBe('hello');
   });
+  it('rejects truncated skill bytes before storing or confirming them', async () => {
+    mocks.verifyS3UploadProxySignature.mockReturnValue(true);
+    const hash = createHash('sha256').update('complete body').digest('hex');
+    const response = await PUT(
+      new Request(
+        `http://localhost/api/upload/s3-proxy?key=skills/a.zip&expires=3600&signature=good&source=skill&size=13&hash=${hash}`,
+        { method: 'PUT', body: 'short' },
+      ),
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.uploadBuffer).not.toHaveBeenCalled();
+    expect(response.headers.has('x-masterino-upload-confirmed')).toBe(false);
+  });
+  it('distinguishes an unreadable body from an oversized skill upload', async () => {
+    mocks.verifyS3UploadProxySignature.mockReturnValue(true);
+    const hash = createHash('sha256').update('a').digest('hex');
+    const url = `http://localhost/api/upload/s3-proxy?key=skills/a.zip&expires=3600&signature=good&source=skill&size=1&hash=${hash}`;
+    const unreadable = new Request(url, { method: 'PUT' });
+    expect((await PUT(unreadable)).status).toBe(400);
+    const oversized = new Request(url, { method: 'PUT', body: 'ab' });
+    expect((await PUT(oversized)).status).toBe(413);
+    expect(mocks.uploadBuffer).not.toHaveBeenCalled();
+  });
+  it.each(['source=', 'source=&source=skill'])(
+    'rejects an empty source claim even with a legacy signature: %s',
+    async (query) => {
+      mocks.verifyS3UploadProxySignature.mockReturnValue(true);
+      const response = await PUT(
+        new Request(
+          `http://localhost/api/upload/s3-proxy?key=files/a.txt&expires=3600&signature=good&${query}`,
+          { method: 'PUT', body: 'hello' },
+        ),
+      );
+      expect(response.status).toBe(403);
+      expect(mocks.verifyS3UploadProxySignature).not.toHaveBeenCalled();
+      expect(mocks.uploadBuffer).not.toHaveBeenCalled();
+    },
+  );
 });

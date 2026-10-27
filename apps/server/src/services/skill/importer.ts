@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { type LobeChatDatabase } from '@lobechat/database';
+import { SKILL_PACKAGE_MAX_BYTES, SKILL_SOURCE_MAX_BYTES } from '@lobechat/skill-package';
 import { ssrfSafeFetch } from '@lobechat/ssrf-safe-fetch';
 import {
   type CreateSkillInput,
@@ -87,7 +88,9 @@ export class SkillImporter {
     log('importFromZip: starting with zipFileId=%s', input.zipFileId);
 
     // 1. Download ZIP file to local
-    const { filePath, cleanup } = await this.fileService.downloadFileToLocal(input.zipFileId);
+    const { filePath, cleanup } = await this.fileService.downloadFileToLocal(input.zipFileId, {
+      maxBytes: SKILL_SOURCE_MAX_BYTES,
+    });
     log('importFromZip: downloaded to filePath=%s', filePath);
 
     try {
@@ -102,33 +105,21 @@ export class SkillImporter {
 
   /** Import an already-authorized in-memory ZIP (for project-skill promotion). */
   async importFromZipBuffer(buffer: Uint8Array): Promise<SkillImportResult> {
-    if (buffer.byteLength > MAX_REMOTE_SKILL_BYTES) {
-      throw new Error('Skill ZIP exceeds the size limit');
-    }
-
-    const { manifest, content, resources, zipHash } = await this.parser.parseZipPackage(
-      Buffer.from(buffer),
-    );
-    const existingByName = await this.skillModel.findByName(manifest.name);
-    if (existingByName) {
-      throw new SkillImportError(`Skill with name "${manifest.name}" already exists`, 'CONFLICT');
-    }
-
-    const resourceIds = zipHash
-      ? await this.resourceService.storeResources(zipHash, resources)
-      : {};
-    const identifier = `user.${nanoid(12)}`;
-    const skill = await this.skillModel.create({
-      content,
-      description: manifest.description,
-      identifier,
-      manifest,
-      name: manifest.name,
-      resources: resourceIds,
+    const parsed = await this.parser.parseZipPackage(Buffer.from(buffer), { repackSkillZip: true });
+    if (await this.skillModel.findByName(parsed.manifest.name))
+      throw new SkillImportError(
+        `Skill with name "${parsed.manifest.name}" already exists`,
+        'CONFLICT',
+      );
+    return this.persistImportedSkill({
+      identifier: `user.${nanoid(12)}`,
+      manifest: parsed.manifest,
+      skillContent: parsed.content,
+      resources: parsed.resources,
       source: 'user',
-      zipFileHash: zipHash,
+      zipBuffer: parsed.skillZipBuffer,
+      zipHash: parsed.zipHash,
     });
-    return { skill, status: 'created' };
   }
 
   /**
@@ -285,6 +276,12 @@ export class SkillImporter {
     const { identifier, manifest, resources, skillContent, source, sourceUrl, zipBuffer, zipHash } =
       input;
     const existing = await this.skillModel.findByIdentifier(identifier);
+    const sameName = await this.skillModel.findByName(manifest.name);
+    if (sameName && sameName.identifier !== identifier)
+      throw new SkillImportError(
+        `A skill named "${manifest.name}" already exists. Remove it before installing this skill.`,
+        'CONFLICT',
+      );
     const fullManifest: SkillManifest = {
       ...manifest,
       ...(sourceUrl && { sourceUrl }),
@@ -353,9 +350,9 @@ export class SkillImporter {
     buffer: Buffer;
     identifier: string;
   }): Promise<SkillImportResult> {
-    if (input.buffer.length > MAX_REMOTE_SKILL_BYTES) {
+    if (input.buffer.length > SKILL_PACKAGE_MAX_BYTES) {
       throw new SkillImportError(
-        'Market skill package exceeds the 16 MiB limit',
+        'Market skill package exceeds the 32 MiB limit',
         'DOWNLOAD_FAILED',
       );
     }

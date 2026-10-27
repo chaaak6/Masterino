@@ -12,6 +12,7 @@ import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { getServerGlobalConfig } from '@/server/globalConfig';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { applyPublishedModelDescriptions } from '@/server/services/modelCatalog';
 import { resolveAihubDisplayPricing } from '@/server/services/newApi/pricing';
 import { type AiProviderDetailItem, type AiProviderRuntimeState } from '@/types/aiProvider';
 import {
@@ -135,6 +136,13 @@ export const aiProviderRouter = router({
       const state = await ctx.aiInfraRepos.getAiProviderRuntimeState(
         KeyVaultsGateKeeper.getUserKeyVaults,
       );
+      const publishedModels = await applyPublishedModelDescriptions(
+        ctx.serverDB,
+        state.enabledAiModels,
+      );
+      if (publishedModels !== state.enabledAiModels) {
+        state.enabledAiModels = publishedModels;
+      }
       return {
         ...state,
         enabledAiModels: state.enabledAiModels.map((model) =>

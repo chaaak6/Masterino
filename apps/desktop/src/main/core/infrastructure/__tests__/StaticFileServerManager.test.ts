@@ -15,6 +15,7 @@ vi.mock('get-port-please', () => ({
 const mockServerHandler = { current: null as any };
 const mockServer = {
   close: vi.fn((cb?: () => void) => cb?.()),
+  closeAllConnections: vi.fn(),
   listen: vi.fn((_port: number, _host: string, cb: () => void) => cb()),
   on: vi.fn(),
 };
@@ -77,10 +78,10 @@ describe('StaticFileServerManager', () => {
     manager = new StaticFileServerManager(mockApp);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Ensure cleanup
     if ((manager as any).isInitialized) {
-      manager.destroy();
+      await manager.destroy();
     }
   });
 
@@ -465,7 +466,7 @@ describe('StaticFileServerManager', () => {
       mockServer.listen.mockImplementation((_port, _host, cb) => cb());
       await manager.initialize();
 
-      manager.destroy();
+      await manager.destroy();
 
       expect(mockServer.close).toHaveBeenCalled();
       expect((manager as any).httpServer).toBeNull();
@@ -473,8 +474,8 @@ describe('StaticFileServerManager', () => {
       expect((manager as any).isInitialized).toBe(false);
     });
 
-    it('should do nothing if not initialized', () => {
-      manager.destroy();
+    it('should do nothing if not initialized', async () => {
+      await manager.destroy();
 
       expect(mockServer.close).not.toHaveBeenCalled();
     });

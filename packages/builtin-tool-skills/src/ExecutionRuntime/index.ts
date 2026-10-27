@@ -762,6 +762,9 @@ export class SkillsExecutionRuntime {
       if (hasResources && skill.resources) {
         content += '\n\n' + resourcesTreePrompt(skillId, skill.resources);
       }
+      if (skill.zipFileHash) {
+        content += `\n\nUse execScript with skillId=${JSON.stringify(skillId)} to prepare this installed package automatically. In that command, SKILL_DIR is the absolute skill resource directory and WORKSPACE_DIR is the task output directory. Use readReference for relative resource paths. Do not search the home directory for an unprepared package.`;
+      }
 
       return {
         content,

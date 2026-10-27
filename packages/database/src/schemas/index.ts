@@ -19,6 +19,7 @@ export * from './enterprise';
 export * from './file';
 export * from './generation';
 export * from './llmGenerationTracing';
+export * from './managedModelCatalog';
 export * from './message';
 export * from './messengerAccountLink';
 export * from './messengerInstallation';

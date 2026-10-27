@@ -13,6 +13,12 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 
+import {
+  readBoundedSkillBody,
+  SKILL_EXPANDED_MAX_BYTES,
+  SKILL_MAX_ENTRIES,
+  SKILL_PACKAGE_MAX_BYTES,
+} from '@lobechat/skill-package';
 import { unzipSync } from 'fflate';
 
 export interface PrepareDeviceSkillPackage {
@@ -75,8 +81,8 @@ export async function prepareSkillPackage(
     }
     const response = await download(input.url);
     if (!response.ok) throw new Error(`Skill package download failed (${response.status})`);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.length > 32 * 1024 * 1024) throw new Error('Skill package is too large');
+    const bytes = await readBoundedSkillBody(response.body, SKILL_PACKAGE_MAX_BYTES);
+    if (bytes.length > SKILL_PACKAGE_MAX_BYTES) throw new Error('Skill package is too large');
     if (createHash('sha256').update(bytes).digest('hex') !== input.zipHash.toLowerCase())
       throw new Error('Skill package hash mismatch');
     let size = 0;
@@ -85,7 +91,7 @@ export async function prepareSkillPackage(
       filter: (entry) => {
         size += entry.originalSize;
         count++;
-        if (count > 2000 || size > 128 * 1024 * 1024)
+        if (count > SKILL_MAX_ENTRIES || size > SKILL_EXPANDED_MAX_BYTES)
           throw new Error('Skill package expands beyond the allowed size');
         return true;
       },

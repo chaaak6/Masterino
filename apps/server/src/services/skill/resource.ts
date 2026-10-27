@@ -7,6 +7,7 @@ import {
 import { getMimeType } from '@lobechat/utils';
 import debug from 'debug';
 import { sha256 } from 'js-sha256';
+import pMap from 'p-map';
 
 import { FileService } from '@/server/services/file';
 
@@ -51,12 +52,16 @@ export class SkillResourceService {
     log('storeResources: starting with zipHash=%s, resourceCount=%d', zipHash, resources.size);
     const result: Record<string, SkillResourceMeta> = {};
 
-    for (const [virtualPath, buffer] of resources) {
-      log('storeResources: storing resource path=%s, size=%d bytes', virtualPath, buffer.length);
-      const fileHash = await this.storeResource(zipHash, virtualPath, buffer);
-      result[virtualPath] = { fileHash, size: buffer.length };
-      log('storeResources: stored resource path=%s, fileHash=%s', virtualPath, fileHash);
-    }
+    await pMap(
+      resources,
+      async ([virtualPath, buffer]) => {
+        log('storeResources: storing resource path=%s, size=%d bytes', virtualPath, buffer.length);
+        const fileHash = await this.storeResource(zipHash, virtualPath, buffer);
+        result[virtualPath] = { fileHash, size: buffer.length };
+        log('storeResources: stored resource path=%s, fileHash=%s', virtualPath, fileHash);
+      },
+      { concurrency: 8 },
+    );
 
     log('storeResources: completed, stored %d resources', Object.keys(result).length);
     return result;
@@ -155,20 +160,41 @@ export class SkillResourceService {
     };
     collectFiles(nodes);
 
-    await Promise.all(
-      fileNodes.map(async (node) => {
+    // Reserve the budget before starting concurrent reads. Bound even empty files.
+    let remainingBytes = 8 * 1024 * 1024;
+    const previewNodes = fileNodes
+      .filter((node) => {
+        const meta = resources[node.path];
+        if (
+          !meta ||
+          !isTextMimeType(getMimeType(node.path)) ||
+          meta.size > 256 * 1024 ||
+          meta.size < 0 ||
+          meta.size > remainingBytes
+        )
+          return false;
+        remainingBytes -= meta.size;
+        return true;
+      })
+      .slice(0, 1000);
+
+    await pMap(
+      previewNodes,
+      async (node) => {
         const meta = resources[node.path];
         if (!meta) return;
 
         const mimeType = getMimeType(node.path);
-        if (!isTextMimeType(mimeType)) return;
+        if (!isTextMimeType(mimeType) || meta.size > 256 * 1024) return;
 
         try {
-          node.content = await this.fileService.getFileContentByHash(meta.fileHash);
+          const content = await this.fileService.getFileContentByHash(meta.fileHash);
+          if (Buffer.byteLength(content) <= meta.size) node.content = content;
         } catch (error) {
           log('populateContent: failed to read content for %s: %o', node.path, error);
         }
-      }),
+      },
+      { concurrency: 8 },
     );
   }
 

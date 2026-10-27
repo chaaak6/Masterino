@@ -1,212 +1,75 @@
-# 本地更新测试指南
+# 手动更新的本地验收
 
-本目录包含用于在本地测试 Desktop 应用更新功能的工具和脚本，支持 stable/nightly/canary 三渠道切换测试。
+当前更新器使用 Ed25519 签名 JSON 清单及已校验的 DMG / NSIS 安装包。
+本目录旧的 YAML / Squirrel `.sh` 工具仅保留作历史参考，不适用于当前更新器；不要用它们验收本次功能。
+完整操作与预期见 `docs/testing/desktop-update-lifecycle-acceptance.md`。
 
-## 目录结构
+## 准备两个隔离测试包
 
-```
-scripts/update-test/
-├── README.md                    # 本文档
-├── setup.sh                     # 一键设置脚本
-├── run-test.sh                  # 一键启动测试（推荐）
-├── start-server.sh              # 启动本地更新服务器
-├── stop-server.sh               # 停止本地更新服务器
-├── generate-manifest.sh         # 生成 manifest 和目录结构
-├── dev-app-update.local.yml     # 本地测试用的更新配置模板
-└── server/                      # 本地服务器文件目录 (自动生成)
-    ├── stable/                  # stable 渠道
-    │   ├── stable-mac.yml
-    │   └── {version}/
-    │       ├── xxx.dmg
-    │       └── xxx.zip
-    ├── nightly/                 # nightly 渠道
-    │   ├── nightly-mac.yml
-    │   └── {version}/
-    │       └── ...
-    └── canary/                  # canary 渠道
-        ├── canary-mac.yml
-        └── {version}/
-            └── ...
-```
-
-## 快速开始
-
-### 一键测试（推荐）
+从仓库根目录执行：
 
 ```bash
-cd apps/desktop/scripts/update-test
-chmod +x *.sh
-./run-test.sh
+node apps/desktop/scripts/update-test/signed-fixture.mjs --init
 ```
 
-此脚本会自动：为三个渠道生成不同版本号的 manifest → 启动本地服务器 → 配置应用 → 启动应用。
-
-### 手动步骤
-
-#### 1. 首次设置
+默认目录为系统临时目录下的 `masterino-update-fixture`。`session.json` 只有公钥、keyId、回源地址；
+`keys.json` 含本次测试私钥，权限 0600，不提交、上传或用于正式发布。
+在构建 A、B 两个包前，将 session 中三个值设置为：
 
 ```bash
-cd apps/desktop/scripts/update-test
-chmod +x *.sh
-./setup.sh
+export DESKTOP_BUILD_FLAVOR=test
+export DESKTOP_TEST_PROFILE=local-abcdef123456
+export DESKTOP_TEST_UPDATE_ORIGIN=http://127.0.0.1:19381
+export DESKTOP_TEST_UPDATE_KEY_ID='<session.keyId>'
+export DESKTOP_TEST_UPDATE_PUBLIC_KEY='<session.publicKey>'
+export UPDATE_CHANNEL=canary
+export NEXT_PUBLIC_DESKTOP_CLOUD_SERVER=https://mlai-test.bielcrystal.com
+export NEXT_PUBLIC_MARKET_BASE_URL=https://mlai-test.bielcrystal.com/market
+export APP_URL=https://mlai-test.bielcrystal.com
+export DEVICE_GATEWAY_URL=https://mlai-test.bielcrystal.com/device-gateway
 ```
 
-#### 2. 构建测试包
+在专门测试分支中设置两个递增版本（例如 A=1.3.11、B=1.3.12），分别按桌面打包流程生成目标平台安装包。
+同一轮 A/B 必须具有相同测试应用 ID、测试 profile 和公钥，不能更改 Electron 可执行文件及 Helper 名称。
+保留 A 的安装路径，B 只作为待下载安装包。不要覆盖 `/Applications/Masterino.app` 或正式 Windows 安装路径。
+测试构建使用独立用户目录、`Masterino Test` 产品名和 `masterino-test` 协议。
+上述公钥注入和 HTTP 本地更新源只在 test 构建生效，正式构建不会接受。
+
+## 启动本地下载服务
 
 ```bash
-cd ../..
-# 构建 DMG + ZIP (macOS 自动更新需要 ZIP)
-bun run package:mac:local
+node apps/desktop/scripts/update-test/signed-fixture.mjs \
+  --installer /absolute/path/to/B.dmg --version 1.3.12 --platform darwin-arm64
 ```
 
-> **注意**: 不要使用 `package:local`，它只输出目录结构不产出 DMG/ZIP 安装包。
+Windows 使用 `--platform win32-x64 --installer /absolute/path/to/B.exe`；Intel Mac 使用 `darwin-x64`。
+此服务仅监听 127.0.0.1，其他平台包返回 404。每个请求及传输字节数记录在 `requests.ndjson`，不记录认证信息。
+清单在 `/desktop/releases/canary/canary.json`。
 
-#### 3. 生成更新文件
+打开已安装的 A，点击“检查更新”。此时日志应只有清单 GET，没有安装包 GET。
+点击“下载新版本”才开始下载；核对应用进度、Dock / 任务栏进度及取消操作。
+下载后选择“稍后”，普通退出不会安装；重新打开并检查应复用已校验缓存。
+点击“退出并安装”，核对受管子进程退出，再观察独立安装窗口和新版本启动。
+
+## 注入故障
+
+另一个终端执行以下命令切换模式；下一次请求生效，不需要重启服务：
 
 ```bash
-cd scripts/update-test
-
-# 为所有渠道生成（推荐，会自动分配不同版本号）
-./generate-manifest.sh --from-release --all-channels
-
-# 或指定单个渠道
-./generate-manifest.sh --from-release -c nightly -v 2.1.0-nightly.1
+node apps/desktop/scripts/update-test/signed-fixture.mjs --mode invalid-signature
+node apps/desktop/scripts/update-test/signed-fixture.mjs --mode 503
+node apps/desktop/scripts/update-test/signed-fixture.mjs --mode cut
+node apps/desktop/scripts/update-test/signed-fixture.mjs --mode stall
+node apps/desktop/scripts/update-test/signed-fixture.mjs --mode corrupt
+node apps/desktop/scripts/update-test/signed-fixture.mjs --mode normal
 ```
 
-#### 4. 启动本地服务器
+签名错误：重新检查更新，必须不能下载或安装。503：点击下载后反馈网络错误。
+cut：传输 2 MiB 后断开。stall：连接建立后无数据，约 60 秒无活动应超时。
+corrupt：重新检查清单后手动下载，2 MiB 内容的 SHA-512 故意不匹配，应报完整性错误并清理临时文件。
+恢复 normal 后需要用户再次点击重试，不能自动循环下载。
+缓存命中会跳过下载；故障测试请用新 B 版本或备份并移走本次隔离 profile 的对应缓存，不能操作正式用户目录。
 
-```bash
-./start-server.sh
-# 服务器默认在 http://localhost:8787 启动
-```
-
-#### 5. 启动应用
-
-```bash
-cd ../..
-UPDATE_SERVER_URL=http://localhost:8787 bun run dev
-```
-
-**重要**: 必须设置 `UPDATE_SERVER_URL` 环境变量，否则 channel 切换时 `configureUpdateProvider()` 会回退到 GitHub。
-
-#### 6. 测试 Channel 切换
-
-1. 进入 **设置 > Beta**
-2. 在 **Update Channel** 下拉框中选择不同渠道
-3. 切换后应用会自动检查对应渠道的更新
-4. 查看日志确认 feed URL 切换正确：`tail -f ~/Library/Logs/masterlion-desktop-dev/main.log`
-
-#### 7. 测试完成后
-
-```bash
-cd scripts/update-test
-./stop-server.sh
-
-# 恢复默认的 dev-app-update.yml（可选）
-cd ../..
-git checkout dev-app-update.yml
-```
-
----
-
-## generate-manifest.sh 用法
-
-```bash
-用法: ./generate-manifest.sh [选项]
-
-选项:
-  -v, --version VERSION    指定版本号 (例如: 2.0.1)
-  -c, --channel CHANNEL    指定渠道 (stable|nightly|canary, 默认: stable)
-  -a, --all-channels       为所有渠道生成 manifest (stable/nightly/canary)
-  -d, --dmg FILE           指定 DMG 文件名
-  -z, --zip FILE           指定 ZIP 文件名
-  -n, --notes TEXT         指定 release notes
-  -f, --from-release       从 release 目录自动复制文件
-  -h, --help               显示帮助信息
-
-示例:
-  ./generate-manifest.sh --from-release --all-channels
-  ./generate-manifest.sh -v 2.0.1 -c stable --from-release
-  ./generate-manifest.sh -v 2.1.0-nightly.1 -c nightly --from-release
-```
-
----
-
-## 测试场景
-
-| 场景                 | 操作                                                    |
-| -------------------- | ------------------------------------------------------- |
-| 有新版本可用         | manifest 中 `version` 大于当前应用版本                  |
-| 无新版本             | `version` 小于或等于当前版本                            |
-| Channel 切换（升级） | 从 Stable 切到 Nightly/Canary，应检测到更高版本         |
-| Channel 切换（降级） | 从 Canary 切到 Stable，`allowDowngrade` 应自动设为 true |
-| 下载失败             | 删除 server/{channel}/{version}/ 中的 DMG 文件          |
-| 网络错误             | 停止本地服务器                                          |
-| Manifest 不存在      | 删除对应的 {channel}-mac.yml                            |
-
----
-
-## 关于 macOS 签名验证
-
-### Gatekeeper
-
-本地测试包只有 ad-hoc 完整性签名，没有 Apple Developer ID 签名或公证，macOS 会阻止运行。解决方法：
-
-仅对确认来自 Masterino 公司内部可信发布渠道的应用移除隔离属性：
-
-```bash
-xattr -dr com.apple.quarantine /Applications/Masterino.app
-```
-
-不要全局关闭 Gatekeeper。
-
-### Squirrel.Mac 更新安装限制
-
-**本地未签名构建无法完成更新的安装步骤。** Squirrel.Mac 要求更新包的签名与当前运行 app 的 designated requirement 匹配。ad-hoc 签名的 DR 包含 `cdhash`（二进制哈希），不同构建的哈希必定不同，因此校验必然失败。
-
-这意味着本地测试能验证到 **下载完成** 为止，但无法自动安装。当前 CI 产物同样只有 ad-hoc 签名，没有 Apple Developer ID 签名或公证，只能按上述内部测试流程手动安装。
-
-**可验证的部分（通过日志）：**
-
-```bash
-tail -f ~/Library/Logs/masterlion-desktop-dev/main.log | grep -E 'Switching|Configuring|channel|checking'
-```
-
-- Channel 切换: `Switching update channel: stable -> canary`
-- Feed URL 切换: `Configuring generic provider for canary channel`
-- Manifest 匹配: `Channel set to: canary (will look for canary-mac.yml)`
-- 更新检测: `Update available: x.y.z` 或 `Update not available`
-
----
-
-## 故障排除
-
-### 1. Channel 切换后仍请求旧渠道
-
-- 确认启动应用时设置了 `UPDATE_SERVER_URL=http://localhost:8787`
-- 查看日志确认 `configureUpdateProvider` 被调用：`grep 'Configuring generic' ~/Library/Logs/masterlion-desktop-dev/main.log`
-
-### 2. 更新检测不到
-
-- 确认对应渠道的 manifest 存在：`curl http://localhost:8787/stable/stable-mac.yml`
-- 确认 manifest 中的版本号大于当前版本
-
-### 3. 服务器启动失败
-
-```bash
-# 检查端口是否被占用
-lsof -i :8787
-
-# 使用其他端口
-PORT=9000 ./start-server.sh
-```
-
----
-
-## 注意事项
-
-⚠️ **安全提醒**：
-
-1. 测试完成后务必重新启用 Gatekeeper
-2. 这些脚本仅用于本地开发测试
-3. 不要将未签名的包分发给其他用户
+macOS 安装回退：另做版本更高、身份相同、签名有效但主进程启动后退出的隔离 B；
+确认独立安装窗口等待启动回执，超时后还原 A 并提示失败。不要故意制造系统崩溃或修改正式应用。
+测试后退出本地服务及隔离 App。此流程不发布 OSS、不改 CDN、不操作生产服务。

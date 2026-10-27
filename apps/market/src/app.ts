@@ -1,5 +1,6 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 
+import { SKILL_PACKAGE_MAX_BYTES } from '@lobechat/skill-package';
 import { type Context, Hono } from 'hono';
 import { Redis } from 'ioredis';
 
@@ -16,8 +17,8 @@ import {
   ReviewActionSchema,
 } from './contracts.js';
 import {
-  encryptJson,
   decryptJson,
+  encryptJson,
   sha256,
   validateArtifactManifest,
   validateZipArchive,
@@ -31,8 +32,8 @@ import {
 } from './onboardingCatalog.js';
 import type { Account, MarketRepository } from './repository.js';
 import { runCuratedSeed } from './seed.js';
-import { CredentialVault } from './vault.js';
 import { validateSkillContent } from './skillArtifact.js';
+import { CredentialVault } from './vault.js';
 
 interface AppEnv extends AuthEnv {
   Variables: AuthEnv['Variables'] & { account: Account };
@@ -665,13 +666,16 @@ export const createMarketApp = (options: {
   });
   app.get('/api/v1/skills/:identifier/download', async (c) => {
     const result = await repository.getPool().query(
-      `SELECT v.artifact_key FROM market_versions v JOIN market_resources r ON r.id=v.resource_id
+      `SELECT v.artifact_key, v.artifact_sha256 FROM market_versions v JOIN market_resources r ON r.id=v.resource_id
        WHERE r.type='skill' AND r.identifier=$1 AND v.workflow_state='published'
-         AND ($2::text IS NULL OR v.version=$2) ORDER BY v.created_at DESC LIMIT 1`,
+         AND ($2::text IS NULL OR v.version=$2)
+       ORDER BY (v.id=r.current_version_id) DESC, v.created_at DESC LIMIT 1`,
       [c.req.param('identifier'), c.req.query('version') || null],
     );
     if (!result.rowCount || !result.rows[0].artifact_key)
       return c.json({ error: 'artifact_not_found' }, 404);
+    if (result.rows[0].artifact_sha256)
+      c.header('X-Artifact-SHA256', result.rows[0].artifact_sha256);
     return c.redirect(await storage.signedDownloadUrl(result.rows[0].artifact_key));
   });
 
@@ -775,7 +779,7 @@ export const createMarketApp = (options: {
     const form = await c.req.formData();
     const file = form.get('file');
     if (!(file instanceof File)) return c.json({ error: 'skill_zip_required' }, 400);
-    if (file.size > 16 * 1024 * 1024) return c.json({ error: 'skill_zip_too_large' }, 413);
+    if (file.size > SKILL_PACKAGE_MAX_BYTES) return c.json({ error: 'skill_zip_too_large' }, 413);
     const manifest = JSON.parse(String(form.get('manifest') || '{}')) as Record<string, unknown>;
     const metadata = JSON.parse(String(form.get('metadata') || '{}')) as Record<string, unknown>;
     const manifestErrors = validateArtifactManifest(manifest);
@@ -1500,16 +1504,14 @@ export const createMarketApp = (options: {
     let uploadArtifact: (() => Promise<void>) | undefined;
     if (input.type === 'skill') {
       const content = Buffer.from(input.artifactBase64 || '', 'base64');
-      if (!content.length || content.length > 16 * 1024 * 1024)
-        throw new Error('Skill ZIP must be between 1 byte and 16 MiB');
+      if (!content.length || content.length > SKILL_PACKAGE_MAX_BYTES)
+        throw new Error('Skill ZIP must be between 1 byte and 32 MiB');
       const errors = validateZipArchive(content);
       if (errors.length) throw new Error(errors.join(', '));
       validateSkillContent(content);
       const manifestErrors = validateArtifactManifest(resource.manifest || {});
-      if (
-        manifestErrors.length ||
-        !resource.manifest?.files?.some((file: any) => file.path === 'SKILL.md')
-      )
+      if (manifestErrors.length) throw new Error(manifestErrors.join(', '));
+      if (!resource.manifest?.files?.some((file: any) => file.path === 'SKILL.md'))
         throw new Error('Skill ZIP must contain SKILL.md at its root');
       hash = sha256(content);
       artifactKey = `skill/${resource.identifier}/${resource.version || '1.0.0'}/${randomUUID()}-${hash}.zip`;
@@ -1521,13 +1523,21 @@ export const createMarketApp = (options: {
       };
     }
     try {
-      const result = await repository.submitResource(input.type, resource, c.get('account'),
-        artifactKey ? { key: artifactKey, sha256: hash! } : undefined, uploadArtifact);
+      const result = await repository.submitResource(
+        input.type,
+        resource,
+        c.get('account'),
+        artifactKey ? { key: artifactKey, sha256: hash! } : undefined,
+        uploadArtifact,
+      );
       return c.json(result, 201);
     } catch (error) {
       if (uploaded && artifactKey) {
-        try { await storage.remove(artifactKey); }
-        catch { console.warn('Failed to remove artifact after catalog submission failure'); }
+        try {
+          await storage.remove(artifactKey);
+        } catch {
+          console.warn('Failed to remove artifact after catalog submission failure');
+        }
       }
       throw error;
     }

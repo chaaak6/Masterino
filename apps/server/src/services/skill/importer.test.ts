@@ -380,10 +380,10 @@ describe('SkillImporter', () => {
       expect(mockSsrfSafeFetch).not.toHaveBeenCalled();
     });
 
-    it('rejects Market archives larger than 16 MiB before parsing', async () => {
+    it('rejects Market archives larger than 32 MiB before parsing', async () => {
       await expect(
         importer.importFromMarketArchive({
-          buffer: Buffer.alloc(16 * 1024 * 1024 + 1),
+          buffer: Buffer.alloc(32 * 1024 * 1024 + 1),
           identifier: 'oversized-market-skill',
         }),
       ).rejects.toMatchObject({ code: 'DOWNLOAD_FAILED' });
@@ -1081,8 +1081,8 @@ description: A nested skill
     });
   });
 
-  describe('importFromZip without repacking', () => {
-    it('should NOT pass repackSkillZip option for user uploaded ZIP', async () => {
+  describe('importFromZip normalization', () => {
+    it('normalizes uploaded ZIPs before persistence', async () => {
       // Reset the mock to ensure it returns non-empty content (previous tests may have overwritten it)
       const { createFileServiceModule } = await import('@/server/services/file/impls');
       (createFileServiceModule as any).mockReturnValue({
@@ -1138,8 +1138,8 @@ description: A nested skill
       expect(mockParserInstance.parseZipPackage).toHaveBeenCalledTimes(1);
       const callArgs = mockParserInstance.parseZipPackage.mock.calls[0];
       expect(callArgs[0]).toBeInstanceOf(Buffer);
-      // Second argument should be undefined (no options passed)
-      expect(callArgs[1]).toBeUndefined();
+      // Local imports share the same canonical resource root as Market and GitHub imports.
+      expect(callArgs[1]).toEqual({ repackSkillZip: true });
     });
   });
 

@@ -25,6 +25,7 @@ import { account as authAccount, externalIdentities, newApiBindings } from '@/da
 import { type LobeChatDatabase } from '@/database/type';
 import { getLLMConfig } from '@/envs/llm';
 import { createLLMGenerationTracingHook } from '@/server/services/llmGenerationTracing/hook';
+import { withCurrentModelAccess } from '@/server/services/modelCatalog/runtimeGuard';
 import type {
   AihubReadinessErrorKind,
   AihubReadinessState,
@@ -566,5 +567,11 @@ export const initModelRuntimeFromDB = async (
   const hooks = mergeModelRuntimeHooks(businessHooks, tracingHooks);
 
   // 6. Initialize ModelRuntime with the payload and hooks
-  return initModelRuntimeWithUserPayload(provider, payload, { userId }, hooks, options);
+  return withCurrentModelAccess(
+    initModelRuntimeWithUserPayload(provider, payload, { userId }, hooks, options),
+    db,
+    userId,
+    provider,
+    payload.apiKey,
+  );
 };

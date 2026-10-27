@@ -270,7 +270,7 @@ describe('GitHub', () => {
     it('should download repository ZIP successfully', async () => {
       const mockBuffer = new ArrayBuffer(100);
       mockFetch.mockResolvedValueOnce({
-        arrayBuffer: () => Promise.resolve(mockBuffer),
+        body: new Response(mockBuffer).body,
         ok: true,
       });
 
@@ -283,7 +283,9 @@ describe('GitHub', () => {
       expect(result).toBeInstanceOf(Buffer);
       expect(mockFetch).toHaveBeenCalledWith(
         'https://github.com/lobehub/lobe-chat/archive/refs/heads/main.zip',
-        { headers: expect.objectContaining({ 'User-Agent': 'Masterino' }) },
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'User-Agent': 'Masterino' }),
+        }),
       );
     });
 
@@ -323,7 +325,7 @@ describe('GitHub', () => {
       const customGh = new GitHub({ userAgent: 'CustomAgent/1.0' });
       const mockBuffer = new ArrayBuffer(100);
       mockFetch.mockResolvedValueOnce({
-        arrayBuffer: () => Promise.resolve(mockBuffer),
+        body: new Response(mockBuffer).body,
         ok: true,
       });
 
@@ -333,9 +335,12 @@ describe('GitHub', () => {
         repo: 'lobe-chat',
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(expect.any(String), {
-        headers: expect.objectContaining({ 'User-Agent': 'CustomAgent/1.0' }),
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'User-Agent': 'CustomAgent/1.0' }),
+        }),
+      );
     });
   });
 

@@ -28,20 +28,25 @@ export default class UpdaterCtr extends ControllerModule {
   }
 
   @IpcMethod()
+  cancelDownload() {
+    this.app.updaterManager.cancelDownload();
+  }
+
+  @IpcMethod()
   applyDownloadedUpdate() {
     logger.info('Apply downloaded update requested');
-    this.app.updaterManager.applyDownloadedUpdate();
+    return this.app.updaterManager.applyDownloadedUpdate();
   }
 
   @IpcMethod()
   async getAutoDownloadEnabled(): Promise<boolean> {
-    return this.app.storeManager.get('autoDownloadUpdates') ?? true;
+    return false;
   }
 
   @IpcMethod()
   async setAutoDownloadEnabled(enabled: boolean): Promise<void> {
     logger.info(`Set automatic update downloads: ${enabled}`);
-    this.app.storeManager.set('autoDownloadUpdates', enabled);
+    this.app.storeManager.set('autoDownloadUpdates', false);
     await this.app.updaterManager.setAutoDownloadEnabled(enabled);
   }
 
@@ -51,7 +56,7 @@ export default class UpdaterCtr extends ControllerModule {
   @IpcMethod()
   quitAndInstallUpdate() {
     logger.info('Quit and install update requested');
-    this.app.updaterManager.installNow();
+    return this.app.updaterManager.installNow();
   }
 
   /**

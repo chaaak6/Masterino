@@ -1,4 +1,5 @@
 export default {
+  'tab.advanced.manualUpdateOnly': 'Download only when clicked',
   'workspaceSkills.scanError':
     'Could not scan project skills. Check the device connection and retry.',
   'workspaceSkills.retry': 'Retry',
@@ -152,6 +153,7 @@ export default {
   'agentInfoDescription.value.untitled': 'Untitled Agent',
   'agentSkillDetail.addedAt': 'Added',
   'agentSkillDetail.publishedAt': 'Published',
+  'agentSkillDetail.previewFailed': 'Could not load skill files. Retry to download the preview.',
   'agentSkillDetail.repository': 'GitHub Repository',
   'agentSkillDetail.skillContent': 'Skill Content',
   'agentSkillDetail.sourceUrl': 'Skill Import Source',
@@ -187,6 +189,7 @@ export default {
     'SKILL.md contains skill name and description in YAML format',
   'agentSkillModal.upload.requirementZip': '.zip or .skill file with SKILL.md in root directory',
   'agentSkillModal.upload.requirements': 'File Requirements',
+  'agentSkillModal.upload.sizeLimit': 'Skill ZIP exceeds the {{size}} MiB limit',
   'agentSkillModal.upload.title': 'Upload Skill',
   'agentSkillModal.upload.uploading': 'Uploading...',
   'agentSkillModal.url.desc': 'Import a skill by providing a direct link to a SKILL.md file.',
@@ -1157,8 +1160,8 @@ When I am ___, I need ___
   'tab.advanced': 'Advanced',
   'tab.advanced.appUpdates.title': 'App updates',
   'tab.advanced.autoDownloadUpdates.desc':
-    'Download verified updates from Alibaba Cloud OSS in the background. You will still choose when to install.',
-  'tab.advanced.autoDownloadUpdates.title': 'Automatically download updates',
+    'Checking for updates only fetches version information. Installers download only after you click Download.',
+  'tab.advanced.autoDownloadUpdates.title': 'Update downloads',
   'tab.advanced.gatewayMode.desc':
     'Run supported agent tasks through the cloud Gateway by default. Individual agents can override this from the chat menu.',
   'tab.advanced.gatewayMode.title': 'Gateway Mode',

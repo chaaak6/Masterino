@@ -4,6 +4,14 @@ import type { McpSchema } from '../../types/protocol';
 import { generateRFCProtocolUrl, parseProtocolUrl } from '../protocol';
 
 describe('Protocol', () => {
+  it('parses the isolated test build protocol', () => {
+    expect(parseProtocolUrl('masterino-test://plugin/install?id=demo')).toMatchObject({
+      urlType: 'plugin',
+      action: 'install',
+      params: { id: 'demo' },
+    });
+  });
+
   describe('generateRFCProtocolUrl', () => {
     it('should generate valid RFC protocol URL for stdio type', () => {
       const schema: McpSchema = {

@@ -1,6 +1,19 @@
 import { createStaticStyles } from 'antd-style';
 
 export const styles = createStaticStyles(({ css, cssVar }) => ({
+  catalogRetry: css`
+    cursor: pointer;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: ${cssVar.colorPrimary};
+  `,
+  catalogStatus: css`
+    padding-block: 4px;
+    padding-inline: 12px;
+    color: ${cssVar.colorTextSecondary};
+    font-size: 12px;
+  `,
   container: css`
     pointer-events: auto;
     user-select: none;

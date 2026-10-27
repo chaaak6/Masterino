@@ -17,6 +17,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "~3.932.0",
     "@aws-sdk/s3-request-presigner": "~3.932.0",
+    "@lobechat/skill-package": "workspace:*",
     "fflate": "^0.8.2",
     "gray-matter": "^4.0.3",
     "hono": "^4.11.1",

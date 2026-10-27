@@ -7,12 +7,13 @@
 import { builtinSkills } from '@lobechat/builtin-skills';
 import { SkillsExecutionRuntime } from '@lobechat/builtin-tool-skills/executionRuntime';
 import { SkillsExecutor } from '@lobechat/builtin-tool-skills/executor';
-import type { BuiltinToolContext, BuiltinToolResult } from '@lobechat/types';
+import type { BuiltinToolContext } from '@lobechat/types';
 
 import { filterBuiltinSkills } from '@/helpers/skillFilters';
-import { toolsClient } from '@/libs/trpc/client';
 import { cloudSandboxService } from '@/services/cloudSandbox';
 import { agentSkillService } from '@/services/skill';
+
+import { invokeBoundSkill } from './skillServerExecution';
 
 // Create runtime with client-side service
 const createRuntime = (ctx: BuiltinToolContext) =>
@@ -101,25 +102,6 @@ const createRuntime = (ctx: BuiltinToolContext) =>
   });
 
 // Create executor instance with the runtime
-const invokeBoundSkill = async (
-  apiName: 'activateSkill' | 'readReference' | 'execScript',
-  ctx: BuiltinToolContext,
-): Promise<BuiltinToolResult> => {
-  if (ctx.signal?.aborted) return { success: false, stop: true };
-  if (!ctx.topicId || !ctx.messageId)
-    return { success: false, content: 'SKILL_OPERATION_BINDING_REQUIRED' };
-  try {
-    return await toolsClient.market.executeSkillTool.mutate({
-      apiName,
-      topicId: ctx.topicId,
-      messageId: ctx.messageId,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, content: message, error: { message, type: 'PluginServerError' } };
-  }
-};
-
 // Skill identity, version and package execution share the server Runtime.
 // General commands and file export retain their existing sandbox service.
 export const skillsExecutor = Object.assign(new SkillsExecutor(createRuntime), {

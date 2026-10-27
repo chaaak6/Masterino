@@ -1,3 +1,4 @@
+import { readBoundedSkillBody, SKILL_SOURCE_MAX_BYTES } from '@lobechat/skill-package';
 import debug from 'debug';
 
 const log = debug('lobe-chat:module:github');
@@ -187,6 +188,7 @@ export class GitHub {
 
     const response = await fetch(zipUrl, {
       headers: this.headers,
+      signal: AbortSignal.timeout(120_000),
     });
 
     log('downloadRepoZip: response status=%d, ok=%s', response.status, response.ok);
@@ -205,13 +207,12 @@ export class GitHub {
     }
 
     const contentLength = Number(response.headers?.get?.('content-length') || 0);
-    if (contentLength > 16 * 1024 * 1024) {
-      throw new GitHubDownloadError('Repository archive exceeds the 16 MiB limit');
+    if (contentLength > SKILL_SOURCE_MAX_BYTES) {
+      throw new GitHubDownloadError('Repository archive exceeds the 64 MiB limit');
     }
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    if (buffer.length > 16 * 1024 * 1024) {
-      throw new GitHubDownloadError('Repository archive exceeds the 16 MiB limit');
+    const buffer = Buffer.from(await readBoundedSkillBody(response.body, SKILL_SOURCE_MAX_BYTES));
+    if (buffer.length > SKILL_SOURCE_MAX_BYTES) {
+      throw new GitHubDownloadError('Repository archive exceeds the 64 MiB limit');
     }
     log('downloadRepoZip: downloaded %d bytes', buffer.length);
     return buffer;

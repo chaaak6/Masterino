@@ -15,6 +15,8 @@ import { gatewayConnectionService } from '@/services/electron/gatewayConnection'
 import { localFileService } from '@/services/electron/localFileService';
 import { agentSkillService } from '@/services/skill';
 
+import { invokeBoundSkill } from './skillServerExecution';
+
 const createRuntime = (ctx: BuiltinToolContext) => {
   const readFromDevice = async (apiName: string, args: Record<string, unknown>) => {
     const execution = ctx.executionContext;
@@ -178,4 +180,14 @@ const createRuntime = (ctx: BuiltinToolContext) => {
   });
 };
 
-export const skillsExecutor = new SkillsExecutor(createRuntime);
+const desktopExecutor = new SkillsExecutor(createRuntime);
+const execPreparedScript = desktopExecutor.execScript.bind(desktopExecutor);
+export const skillsExecutor = Object.assign(desktopExecutor, {
+  execScript: (
+    params: Parameters<typeof desktopExecutor.execScript>[0],
+    ctx: BuiltinToolContext,
+  ) =>
+    ctx.executionContext?.plan.kind === 'device' && !ctx.executionContext.cwd
+      ? invokeBoundSkill('execScript', ctx)
+      : execPreparedScript(params, ctx),
+});

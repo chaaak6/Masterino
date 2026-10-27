@@ -105,6 +105,22 @@ describe('FileModel', () => {
   });
 
   describe('createGlobalFile', () => {
+    it('deduplicates concurrent resources with the same content hash', async () => {
+      const file = {
+        hashId: 'concurrent-skill-resource',
+        fileType: 'image/svg+xml',
+        size: 614,
+        url: 'skills/source_files/qa/icon.svg',
+        creator: userId,
+      };
+      await Promise.all(Array.from({ length: 8 }, () => fileModel.createGlobalFile(file)));
+      const rows = await serverDB
+        .select()
+        .from(globalFiles)
+        .where(eq(globalFiles.hashId, file.hashId));
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject(file);
+    });
     it('should create a global file', async () => {
       const globalFile = {
         hashId: 'test-hash',

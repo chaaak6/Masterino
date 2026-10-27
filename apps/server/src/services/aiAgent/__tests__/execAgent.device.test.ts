@@ -260,6 +260,7 @@ describe('AiAgentService.execAgent - device auto-activation', () => {
   );
 
   beforeEach(() => {
+    vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false');
     vi.clearAllMocks();
     topicMock.create.mockResolvedValue({ id: 'topic-1', metadata: undefined });
     topicMock.findById.mockResolvedValue(undefined);
@@ -295,6 +296,7 @@ describe('AiAgentService.execAgent - device auto-activation', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
 

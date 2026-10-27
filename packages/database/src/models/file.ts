@@ -134,7 +134,11 @@ export class FileModel {
   };
 
   createGlobalFile = async (file: Omit<NewGlobalFile, 'id' | 'userId'>) => {
-    return this.db.insert(globalFiles).values(file).returning();
+    return this.db
+      .insert(globalFiles)
+      .values(file)
+      .onConflictDoNothing({ target: globalFiles.hashId })
+      .returning();
   };
 
   updateGlobalFile = async (

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
 
@@ -28,6 +28,7 @@ vi.mock('@/server/modules/ModelRuntime', () => ({
 
 describe('resolveAuthorizedUserMemoryEmbeddingRuntime', () => {
   beforeEach(() => {
+    vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false');
     vi.clearAllMocks();
     mocks.tryMatchingProviderFrom.mockResolvedValue('newapi');
     mocks.getAiProviderRuntimeState.mockResolvedValue({
@@ -50,6 +51,8 @@ describe('resolveAuthorizedUserMemoryEmbeddingRuntime', () => {
     });
     vi.mocked(initModelRuntimeFromDB).mockResolvedValue({ embeddings: vi.fn() } as any);
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it('requires the exact configured Aihub embedding model and current user token', async () => {
     const db = {} as any;

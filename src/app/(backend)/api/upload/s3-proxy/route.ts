@@ -1,3 +1,11 @@
+import { createHash } from 'node:crypto';
+
+import {
+  readBoundedSkillBody,
+  SKILL_SOURCE_MAX_BYTES,
+  SkillBodyTooLargeError,
+} from '@lobechat/skill-package';
+
 import { UPLOAD_CONFIRMATION_HEADER, UPLOAD_CONFIRMATION_VALUE } from '@/const/fileUpload';
 import { FileS3 } from '@/server/modules/S3';
 import { verifyS3UploadProxySignature } from '@/server/services/file/uploadProxyToken';
@@ -23,14 +31,58 @@ export const PUT = async (req: Request) => {
   const expires = Number(url.searchParams.get('expires'));
   const signature = url.searchParams.get('signature') || '';
 
-  if (!verifyS3UploadProxySignature(key, expires, signature)) {
+  const source = url.searchParams.get('source');
+  const size = Number(url.searchParams.get('size'));
+  const hash = url.searchParams.get('hash') || '';
+  const claim = source === 'skill' ? { source: 'skill' as const, size, hash } : undefined;
+  if (
+    url.searchParams.has('source') &&
+    (!claim ||
+      !Number.isSafeInteger(size) ||
+      size < 1 ||
+      size > SKILL_SOURCE_MAX_BYTES ||
+      !/^[a-f0-9]{64}$/.test(hash) ||
+      !key.startsWith('skills/'))
+  )
+    return new Response('Invalid skill upload claim', { status: 403, headers: corsHeaders });
+  const valid = claim
+    ? verifyS3UploadProxySignature(key, expires, signature, Date.now(), claim)
+    : verifyS3UploadProxySignature(key, expires, signature);
+  if (!valid) {
     return new Response('Invalid or expired upload URL', {
       headers: corsHeaders,
       status: 403,
     });
   }
 
-  const body = Buffer.from(await req.arrayBuffer());
+  let body: Buffer;
+  try {
+    body = claim
+      ? Buffer.from(await readBoundedSkillBody(req.body, claim.size))
+      : Buffer.from(await req.arrayBuffer());
+  } catch (error) {
+    return new Response(
+      error instanceof SkillBodyTooLargeError
+        ? 'Skill upload exceeds the signed size limit'
+        : 'Unable to read upload. Please retry.',
+      {
+        status: error instanceof SkillBodyTooLargeError ? 413 : 400,
+        headers: corsHeaders,
+      },
+    );
+  }
+  const contentLength = req.headers.get('content-length');
+  if (
+    (contentLength && Number(contentLength) !== body.length) ||
+    (claim &&
+      (body.length !== claim.size ||
+        createHash('sha256').update(body).digest('hex') !== claim.hash))
+  ) {
+    return new Response('Upload is incomplete or its checksum does not match. Please retry.', {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
   const contentType = req.headers.get('content-type') || undefined;
   const s3 = new FileS3();
 

@@ -98,6 +98,7 @@ export class AiModelActionImpl {
   };
 
   refreshAiModelList = async (): Promise<void> => {
+    this.#get().clearSilentModelCatalog(false);
     await mutate(aiModelKeys.list(this.#get().activeAiProvider));
     // make refresh provide runtime state async, not block
     this.#get().refreshAiProviderRuntimeState();

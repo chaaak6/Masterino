@@ -1,14 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 
+import { createS3UploadProxyUrl, verifyS3UploadProxySignature } from './uploadProxyToken';
+
 vi.mock('@/envs/file', () => ({
   fileEnv: {
     S3_ACCESS_KEY_ID: 'test-access-key',
     S3_SECRET_ACCESS_KEY: 'test-secret-key',
   },
 }));
-
-import { createS3UploadProxyUrl, verifyS3UploadProxySignature } from './uploadProxyToken';
 
 describe('S3 upload proxy token', () => {
   it('creates a same-origin upload proxy URL signed for one hour', () => {
@@ -37,5 +37,26 @@ describe('S3 upload proxy token', () => {
       verifyS3UploadProxySignature('files/2026/06/example.txt', expires, signature, 6_000_000),
     ).toBe(false);
   });
+  it('binds skill purpose, byte count and checksum into the existing upload signature', () => {
+    const claim = { source: 'skill' as const, size: 12 * 1024 * 1024, hash: 'a'.repeat(64) };
+    const url = new URL(
+      createS3UploadProxyUrl('skills/example.zip', 1_800_000, claim),
+      'http://localhost',
+    );
+    const expires = Number(url.searchParams.get('expires'));
+    const signature = url.searchParams.get('signature')!;
+    expect(url.searchParams.get('source')).toBe('skill');
+    expect(
+      verifyS3UploadProxySignature('skills/example.zip', expires, signature, 1_800_000, claim),
+    ).toBe(true);
+    expect(
+      verifyS3UploadProxySignature('skills/example.zip', expires, signature, 1_800_000, {
+        ...claim,
+        size: claim.size + 1,
+      }),
+    ).toBe(false);
+    expect(verifyS3UploadProxySignature('skills/example.zip', expires, signature, 1_800_000)).toBe(
+      false,
+    );
+  });
 });
-
