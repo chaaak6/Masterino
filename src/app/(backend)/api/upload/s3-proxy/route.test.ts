@@ -89,6 +89,16 @@ describe('S3 upload proxy route', () => {
     expect(mocks.uploadBuffer).not.toHaveBeenCalled();
     expect(response.headers.has('x-masterino-upload-confirmed')).toBe(false);
   });
+  it('distinguishes an unreadable body from an oversized skill upload', async () => {
+    mocks.verifyS3UploadProxySignature.mockReturnValue(true);
+    const hash = createHash('sha256').update('a').digest('hex');
+    const url = `http://localhost/api/upload/s3-proxy?key=skills/a.zip&expires=3600&signature=good&source=skill&size=1&hash=${hash}`;
+    const unreadable = new Request(url, { method: 'PUT' });
+    expect((await PUT(unreadable)).status).toBe(400);
+    const oversized = new Request(url, { method: 'PUT', body: 'ab' });
+    expect((await PUT(oversized)).status).toBe(413);
+    expect(mocks.uploadBuffer).not.toHaveBeenCalled();
+  });
   it.each(['source=', 'source=&source=skill'])(
     'rejects an empty source claim even with a legacy signature: %s',
     async (query) => {
