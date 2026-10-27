@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { type EnabledProviderWithModels } from '@/types/aiProvider';
+import { modelDisplayName } from '@/utils/modelDisplayName';
 
 import { type GroupMode, type ListItem, type ModelWithProviders } from '../types';
 
@@ -34,7 +35,7 @@ export const useBuildListItems = (
 
       for (const providerItem of sortedProviders) {
         for (const modelItem of providerItem.children) {
-          const displayName = modelItem.displayName || modelItem.id;
+          const displayName = modelDisplayName(modelItem.displayName, modelItem.id);
 
           if (
             !matchesSearch(displayName) &&
@@ -87,7 +88,7 @@ export const useBuildListItems = (
       for (const providerItem of sortedProviders) {
         const filteredModels = providerItem.children.filter(
           (modelItem) =>
-            matchesSearch(modelItem.displayName || modelItem.id) ||
+            matchesSearch(modelDisplayName(modelItem.displayName, modelItem.id)) ||
             matchesSearch(modelItem.id) ||
             matchesSearch(providerItem.name),
         );

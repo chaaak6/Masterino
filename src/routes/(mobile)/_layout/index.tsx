@@ -8,6 +8,7 @@ import WorkspaceContextSlot from '@/business/client/WorkspaceContextSlot';
 import Loading from '@/components/Loading/BrandTextLoading';
 import MobileAuthGuard from '@/features/MobileAuthGuard';
 import { RouteMetaBridge } from '@/features/RouteMeta';
+import SilentModelRefresh from '@/features/SilentModelRefresh';
 import { MarketAuthProvider } from '@/layout/AuthProvider/MarketAuth';
 import dynamic from '@/libs/next/dynamic';
 import { featureFlagsSelectors, useServerConfigStore } from '@/store/serverConfig';
@@ -33,6 +34,7 @@ const MobileMainLayout: FC = () => {
   const showNav = MOBILE_NAV_ROUTES.has(pathname);
   return (
     <WorkspaceContextSlot>
+      <SilentModelRefresh />
       <RouteMetaBridge />
       <Suspense fallback={null}>{showCloudPromotion && <CloudBanner mobile />}</Suspense>
       <MarketAuthProvider isDesktop={false}>

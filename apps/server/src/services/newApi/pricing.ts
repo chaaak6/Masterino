@@ -95,24 +95,41 @@ export const parseAihubTariff = (
         ...parse(no, less ? high : low, depth + 1),
       ];
     }
-    // Canonical hour ranges: (hour("Zone") >= A && hour("Zone") < B) || ...
+    // Canonical weekday + hour tariff, or hour ranges alone.
     const compact = condition.replaceAll(/\s/g, '');
+    const weekday =
+      /^\(weekday\("([A-Za-z_+\-/]+)"\)>=(\d+)&&weekday\("\1"\)<=(\d+)&&\((.*)\)\)$/.exec(compact);
+    const hourCondition = weekday ? weekday[4] : compact;
     const hourPattern = /hour\("([A-Za-z_+\-/]+)"\)>=(\d+)&&hour\("\1"\)<(\d+)/g;
-    const matches = [...compact.matchAll(hourPattern)];
-    const residue = compact.replaceAll(hourPattern, '').replaceAll(/[()|]/g, '');
+    const matches = [...hourCondition.matchAll(hourPattern)];
+    const residue = hourCondition.replaceAll(hourPattern, '').replaceAll(/[()|]/g, '');
     // Reconstruct the accepted boolean shape; don't accept adjacent ranges or && between ranges.
-    const shape = compact.replaceAll(hourPattern, 'R').replaceAll(/[()]/g, '');
+    const shape = hourCondition.replaceAll(hourPattern, 'R').replaceAll(/[()]/g, '');
     if (residue || !/^R(?:\|\|R)*$/.test(shape) || when.hours)
       throw new Error('Unsupported condition');
     const timezone = matches[0]?.[1];
-    if (!timezone || matches.some((m) => m[1] !== timezone)) throw new Error('Mixed timezone');
+    if (!timezone || matches.some((m) => m[1] !== timezone) || (weekday && weekday[1] !== timezone))
+      throw new Error('Mixed timezone');
     new Intl.DateTimeFormat('en', { timeZone: timezone });
     const hours = matches.map((m): [number, number] => [Number(m[2]), Number(m[3])]);
     if (hours.some(([start, end]) => start < 0 || end > 24 || start >= end))
       throw new Error('Invalid hours');
+    const weekdays: [number, number] | undefined = weekday
+      ? [Number(weekday[2]), Number(weekday[3])]
+      : undefined;
+    if (weekdays && (weekdays[0] < 1 || weekdays[1] > 7 || weekdays[0] > weekdays[1]))
+      throw new Error('Invalid weekdays');
     return [
-      ...parse(yes, { ...when, timezone, hours, outsideHours: false }, depth + 1),
-      ...parse(no, { ...when, timezone, hours, outsideHours: true }, depth + 1),
+      ...parse(
+        yes,
+        { ...when, timezone, hours, ...(weekdays && { weekdays }), outsideHours: false },
+        depth + 1,
+      ),
+      ...parse(
+        no,
+        { ...when, timezone, hours, ...(weekdays && { weekdays }), outsideHours: true },
+        depth + 1,
+      ),
     ];
   };
   const tiers = parse(expression.replace(/^v1:/, ''));
@@ -206,6 +223,7 @@ export const resolveAihubDisplayPricing = (
   if (!pricing) return undefined;
   const result: AihubDisplayPricing = {
     version: pricing.version,
+    scope: pricing.scope,
     currency: pricing.currency,
     status: pricing.status,
     stale: pricing.stale,
@@ -224,7 +242,21 @@ export const resolveAihubDisplayPricing = (
         }).format(now),
       );
       const inside = when.hours.some(([start, end]) => hour >= start && hour < end);
-      return when.outsideHours ? !inside : inside;
+      const weekday = when.weekdays
+        ? new Intl.DateTimeFormat('en-US', { timeZone: when.timezone, weekday: 'short' }).format(
+            now,
+          )
+        : undefined;
+      const weekdayNumber = weekday
+        ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(weekday) + 1
+        : undefined;
+      const inWeekdays =
+        !when.weekdays ||
+        (weekdayNumber !== undefined &&
+          weekdayNumber >= when.weekdays[0] &&
+          weekdayNumber <= when.weekdays[1]);
+      const inSchedule = inWeekdays && inside;
+      return when.outsideHours ? !inSchedule : inSchedule;
     });
     const displayRates: NonNullable<AihubModelPricing['displayRates']> = {};
     for (const unit of ['input', 'output', 'cacheRead', 'cacheWrite', 'request'] as const) {

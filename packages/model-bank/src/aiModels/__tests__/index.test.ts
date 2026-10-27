@@ -92,7 +92,10 @@ describe('knowledgeCutoff backfill', () => {
 
 describe('Aihub visual model catalog', () => {
   it.each([
+    ['deepseek-flash', true, undefined],
+    ['deepseek-v4-flash', true, false],
     ['deepseek-v4-flash-vision-exp', true, undefined],
+    ['deepseek-v4-pro', true, false],
     ['glm-5.3-flash', true, true],
     ['glm-5.3', false, false],
     ['kimi-k2.7-code', true, true],

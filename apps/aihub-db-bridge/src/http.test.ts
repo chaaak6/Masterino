@@ -389,3 +389,55 @@ it('requires authentication and scopes subscription reads to the requested user'
   });
   expect(repo.getSubscriptionSummary).toHaveBeenCalledWith(7);
 });
+
+it('uses the exact bound token and never reselects a same-name token', async () => {
+  const repo = createRepo();
+  repo.inspectBoundToken.mockResolvedValue({
+    availability: 'active',
+    token: { id: 11, name: 'managed', status: 1, user_id: 7 },
+  });
+  const handler = createBridgeHandler({
+    bridgeToken: 'secret',
+    managedTokenName: 'managed',
+    iamProviderId: 1,
+    repository: repo as any,
+  });
+  expect(
+    (await readResponse(await handler(makeRequest('/v1/users/7/models?tokenId=11')))).body.data
+      .models,
+  ).toEqual(['gpt-4o-mini']);
+  expect(repo.inspectBoundToken).toHaveBeenCalledWith(7, 11);
+  expect(repo.findManagedToken).not.toHaveBeenCalled();
+  expect(repo.listAccessibleModels).toHaveBeenCalledWith(
+    'vip',
+    expect.objectContaining({ id: 11 }),
+  );
+});
+it('returns a successful empty directory for a disabled bound token', async () => {
+  const repo = createRepo();
+  const handler = createBridgeHandler({
+    bridgeToken: 'secret',
+    managedTokenName: 'managed',
+    iamProviderId: 1,
+    repository: repo as any,
+  });
+  const response = await readResponse(await handler(makeRequest('/v1/users/7/models?tokenId=12')));
+  expect(response.status).toBe(200);
+  expect(response.body.data).toEqual({ tokenId: 12, models: [] });
+  expect(repo.listAccessibleModels).not.toHaveBeenCalled();
+});
+it('refuses a token owned by another user rather than falling back to another token', async () => {
+  const repo = createRepo();
+  repo.inspectBoundToken.mockResolvedValue({ availability: 'owner_mismatch' } as any);
+  const handler = createBridgeHandler({
+    bridgeToken: 'secret',
+    managedTokenName: 'managed',
+    iamProviderId: 1,
+    repository: repo as any,
+  });
+  expect(
+    (await readResponse(await handler(makeRequest('/v1/users/7/models?tokenId=12')))).status,
+  ).toBe(409);
+  expect(repo.findManagedToken).not.toHaveBeenCalled();
+  expect(repo.listAccessibleModels).not.toHaveBeenCalled();
+});

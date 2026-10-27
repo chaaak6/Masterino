@@ -132,31 +132,23 @@ vi.mock('@lobehub/ui/base-ui', () => ({
 
 const cases = [
   {
-    detailLabel: 'Image input',
     id: 'qwen3-vl-plus',
-    imageEvidence: 'Supported · Provider metadata · Verified 2026-09-01',
     kind: 'supported',
     rowLabel: 'Supports image input',
   },
   {
-    detailLabel: 'Text only',
     id: 'glm-5.1',
-    imageEvidence: 'Unsupported · Provider metadata · Verified 2026-09-01',
     kind: 'text-only',
-    rowLabel: 'Text only',
   },
   {
-    detailLabel: 'Unverified',
     id: 'deepseek-v4',
-    imageEvidence: 'Unverified · No evidence · Not verified yet',
     kind: 'unknown',
-    rowLabel: 'Unverified',
   },
 ];
 
 describe('ModelSwitchPanel row and detail input modality', () => {
   it.each(cases)(
-    '$id: the list row and the detail panel state the same $kind conclusion',
+    '$id: the list row and concise detail agree on $kind image support',
     ({ id, kind, rowLabel }) => {
       const row = render(
         <SingleProviderModelItem
@@ -175,13 +167,17 @@ describe('ModelSwitchPanel row and detail input modality', () => {
         expect(within(row.container).queryByRole('img')).toBeNull();
       }
       expect(row.container.querySelector('[data-testid="tooltip"]')).toBeNull();
-      const detail = render(<ModelDetailPanel model={id} provider={PROVIDER} />);
-      const evidenceRows = detail.container.querySelectorAll('[data-evidence-state]');
-      expect(evidenceRows).toHaveLength(2);
-      expect(evidenceRows[0]).toHaveAttribute(
-        'data-evidence-state',
-        kind === 'text-only' ? 'unsupported' : kind,
+      const detail = render(
+        <ModelDetailPanel enabledList={enabledList} model={id} provider={PROVIDER} />,
       );
+      const imageAbility = within(detail.container).queryByText(
+        'ModelSwitchPanel.detail.visualInput.image',
+      );
+      if (kind === 'supported') {
+        expect(imageAbility).toBeInTheDocument();
+      } else {
+        expect(imageAbility).toBeNull();
+      }
     },
   );
 
@@ -197,13 +193,14 @@ describe('ModelSwitchPanel row and detail input modality', () => {
         }}
       />,
     );
-    const detail = render(<ModelDetailPanel model="deepseek-v4" provider={PROVIDER} />);
+    const detail = render(
+      <ModelDetailPanel enabledList={enabledList} model="deepseek-v4" provider={PROVIDER} />,
+    );
 
     expect(within(row.container).queryByRole('img', { name: 'Text only' })).toBeNull();
     expect(detail.container.querySelector('[data-input-modality="text-only"]')).toBeNull();
-    expect(detail.container.querySelector('[data-evidence-state]')).toHaveAttribute(
-      'data-evidence-state',
-      'unknown',
-    );
+    expect(
+      within(detail.container).queryByText('ModelSwitchPanel.detail.visualInput.image'),
+    ).toBeNull();
   });
 });

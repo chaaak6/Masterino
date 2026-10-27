@@ -8,12 +8,14 @@ export interface AihubPriceTier {
     maxContext?: number;
     timezone?: string;
     hours?: [number, number][];
+    weekdays?: [number, number];
     outsideHours?: boolean;
   };
 }
 export interface AihubDisplayPricing {
   currency: 'CNY';
   displayRates?: Partial<Record<AihubPriceUnit, { min: number; max: number }>>;
+  scope?: 'account' | 'public';
   stale?: boolean;
   status: 'available' | 'unavailable' | 'unsupported';
   version: 1;

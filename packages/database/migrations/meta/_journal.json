@@ -868,6 +868,13 @@
       "when": 1791778800000,
       "tag": "0123_admin_managed_api_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1791856800000,
+      "tag": "0124_managed_model_catalog",
+      "breakpoints": true
     }
   ],
   "version": "6"

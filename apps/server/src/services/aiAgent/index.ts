@@ -132,6 +132,7 @@ import { resolveAttachmentsByFileIds } from '@/server/services/file/resolveAttac
 import { HeterogeneousAgentService } from '@/server/services/heterogeneousAgent';
 import type { ConversationHistoryEntry } from '@/server/services/heterogeneousAgent/cloudHeteroContext';
 import { MarketService } from '@/server/services/market';
+import { createEffectiveModelCatalog } from '@/server/services/modelCatalog';
 import { ProjectWorkspaceService } from '@/server/services/projectWorkspace';
 import {
   DatabaseTopicWorkspaceBindingStore,
@@ -772,6 +773,22 @@ export class AiAgentService {
     requireChatEligibility?: boolean;
   }): Promise<ModelCatalogSnapshot> {
     const { builtinModels, model, operationId, provider, requireChatEligibility = true } = params;
+    if (provider === 'newapi' && process.env.MASTERINO_MODEL_CATALOG_ENABLED !== 'false') {
+      const effective = await createEffectiveModelCatalog(this.db, this.userId).read(
+        undefined,
+        false,
+      );
+      if (effective.status === 'changed' && !effective.stale) {
+        const selected = effective.models.find((item) => item.id === model);
+        if (!selected) throw new Error(`MODEL_UNAVAILABLE: ${provider}/${model}`);
+        const catalog = getModelCatalogFromSettings(selected.settings);
+        if (!catalog || (requireChatEligibility && !isPersistedModelChatEligible(catalog)))
+          throw new Error(`MODEL_NOT_CHAT_ELIGIBLE: ${provider}/${model}`);
+        return createModelCatalogSnapshot(catalog.entry, operationId);
+      }
+      if (effective.status === 'unavailable' || (effective.status === 'changed' && effective.stale))
+        throw new Error(`MODEL_CATALOG_UNAVAILABLE: ${provider}/${model}`);
+    }
     let persistedModel: Awaited<ReturnType<AiModelModel['findByIdAndProvider']>>;
     try {
       persistedModel = await new AiModelModel(this.db, this.userId).findByIdAndProvider(
@@ -2481,6 +2498,14 @@ export class AiAgentService {
 
       // 5b. Get model abilities from model-bank for function calling support check
       const isModelSupportToolUse = (m: string, p: string) => {
+        const entry = modelCatalogSnapshot.entry;
+        if (
+          entry.modelId === m &&
+          entry.providerId === p &&
+          entry.capabilities?.functionCall !== undefined &&
+          entry.capabilities.functionCall !== 'unknown'
+        )
+          return entry.capabilities.functionCall === 'supported';
         const info = builtinModels.find((item) => item.id === m && item.providerId === p);
         return info?.abilities?.functionCall ?? true;
       };

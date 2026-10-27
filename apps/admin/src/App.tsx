@@ -13,6 +13,7 @@ import AuditPage from './pages/AuditPage';
 import KnowledgePage from './pages/KnowledgePage';
 import MarketPage from './pages/MarketPage';
 import McpPage from './pages/McpPage';
+import ModelCatalogPage from './pages/ModelCatalogPage';
 import OverviewPage from './pages/OverviewPage';
 import RolesPage from './pages/RolesPage';
 import SkillsPage from './pages/SkillsPage';
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
   {
     children: [
       { element: <AccessKeysPage />, path: 'access-keys' },
+      { element: <ModelCatalogPage />, path: 'models' },
       {
         element: <OverviewPage />,
         index: true,
