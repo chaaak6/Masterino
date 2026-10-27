@@ -137,6 +137,20 @@ describe('SkillResourceService', () => {
     });
   });
 
+  it('bounds concurrent preview reads while preserving the complete tree', async () => {
+    mockGetFileContentByHash.mockClear();
+    const service = new SkillResourceService({} as any, 'user-1');
+    const resources = Object.fromEntries(
+      Array.from({ length: 40 }, (_, i) => [
+        `file${i}.txt`,
+        { fileHash: `hash${i}`, size: 256 * 1024 },
+      ]),
+    );
+    const tree = await service.listResources(resources, true);
+    expect(tree).toHaveLength(40);
+    expect(mockGetFileContentByHash).toHaveBeenCalledTimes(32);
+  });
+
   describe('storeResources', () => {
     beforeEach(() => {
       mockCreateGlobalFile.mockClear();

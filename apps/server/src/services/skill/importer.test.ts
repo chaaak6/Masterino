@@ -380,7 +380,7 @@ describe('SkillImporter', () => {
       expect(mockSsrfSafeFetch).not.toHaveBeenCalled();
     });
 
-    it('rejects Market archives larger than 16 MiB before parsing', async () => {
+    it('rejects Market archives larger than 32 MiB before parsing', async () => {
       await expect(
         importer.importFromMarketArchive({
           buffer: Buffer.alloc(32 * 1024 * 1024 + 1),

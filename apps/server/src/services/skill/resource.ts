@@ -160,8 +160,26 @@ export class SkillResourceService {
     };
     collectFiles(nodes);
 
+    // Reserve the budget before starting concurrent reads. Bound even empty files.
+    let remainingBytes = 8 * 1024 * 1024;
+    const previewNodes = fileNodes
+      .filter((node) => {
+        const meta = resources[node.path];
+        if (
+          !meta ||
+          !isTextMimeType(getMimeType(node.path)) ||
+          meta.size > 256 * 1024 ||
+          meta.size < 0 ||
+          meta.size > remainingBytes
+        )
+          return false;
+        remainingBytes -= meta.size;
+        return true;
+      })
+      .slice(0, 1000);
+
     await pMap(
-      fileNodes,
+      previewNodes,
       async (node) => {
         const meta = resources[node.path];
         if (!meta) return;
@@ -170,7 +188,8 @@ export class SkillResourceService {
         if (!isTextMimeType(mimeType) || meta.size > 256 * 1024) return;
 
         try {
-          node.content = await this.fileService.getFileContentByHash(meta.fileHash);
+          const content = await this.fileService.getFileContentByHash(meta.fileHash);
+          if (Buffer.byteLength(content) <= meta.size) node.content = content;
         } catch (error) {
           log('populateContent: failed to read content for %s: %o', node.path, error);
         }

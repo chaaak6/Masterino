@@ -5,6 +5,8 @@ export const SKILL_MAX_ENTRIES = 20_000;
 export const SKILL_EXPANDED_MAX_BYTES = 100 * 1024 * 1024;
 export const SKILL_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
+export class SkillBodyTooLargeError extends Error {}
+
 /** Bound memory even when Content-Length is absent or untrusted. */
 /** @param {ReadableStream<Uint8Array> | null} body @param {number} maxBytes */
 export async function readBoundedSkillBody(body, maxBytes) {
@@ -19,7 +21,9 @@ export async function readBoundedSkillBody(body, maxBytes) {
       if (done) break;
       size += value.byteLength;
       if (size > maxBytes)
-        throw new Error(`Skill package exceeds the ${maxBytes / 1024 / 1024} MiB limit`);
+        throw new SkillBodyTooLargeError(
+          `Skill package exceeds the ${maxBytes / 1024 / 1024} MiB limit`,
+        );
       chunks.push(value);
     }
   } catch (error) {

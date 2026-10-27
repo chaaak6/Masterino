@@ -203,7 +203,7 @@ const MarketSkillDetail = memo<MarketSkillDetailProps>(({ identifier }) => {
           </Flexbox>
         </Flexbox>
       </div>
-      {previewError && (
+      {previewError && !installedSkill && (
         <Flexbox horizontal align={'center'} gap={8} padding={16}>
           <span>{t('agentSkillDetail.previewFailed')}</span>
           <Button size={'small'} onClick={() => setPreviewAttempt((value) => value + 1)}>

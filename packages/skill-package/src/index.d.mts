@@ -7,3 +7,5 @@ export function readBoundedSkillBody(
   body: ReadableStream<Uint8Array> | null,
   maxBytes: number,
 ): Promise<Uint8Array<ArrayBuffer>>;
+
+export declare class SkillBodyTooLargeError extends Error {}

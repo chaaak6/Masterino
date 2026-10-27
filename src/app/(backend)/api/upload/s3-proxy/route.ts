@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 
-import { readBoundedSkillBody, SKILL_SOURCE_MAX_BYTES } from '@lobechat/skill-package';
+import {
+  readBoundedSkillBody,
+  SKILL_SOURCE_MAX_BYTES,
+  SkillBodyTooLargeError,
+} from '@lobechat/skill-package';
 
 import { UPLOAD_CONFIRMATION_HEADER, UPLOAD_CONFIRMATION_VALUE } from '@/const/fileUpload';
 import { FileS3 } from '@/server/modules/S3';
@@ -56,11 +60,16 @@ export const PUT = async (req: Request) => {
     body = claim
       ? Buffer.from(await readBoundedSkillBody(req.body, claim.size))
       : Buffer.from(await req.arrayBuffer());
-  } catch {
-    return new Response('Skill upload exceeds the signed size limit', {
-      status: 413,
-      headers: corsHeaders,
-    });
+  } catch (error) {
+    return new Response(
+      error instanceof SkillBodyTooLargeError
+        ? 'Skill upload exceeds the signed size limit'
+        : 'Unable to read upload. Please retry.',
+      {
+        status: error instanceof SkillBodyTooLargeError ? 413 : 400,
+        headers: corsHeaders,
+      },
+    );
   }
   const contentLength = req.headers.get('content-length');
   if (
