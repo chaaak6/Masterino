@@ -47,7 +47,9 @@ export const uploadRouter = router({
       const claim = input.source
         ? { source: input.source, size: input.size!, hash: input.hash! }
         : undefined;
-      const proxyUrl = createS3UploadProxyUrl(input.pathname, Date.now(), claim);
+      const proxyUrl = claim
+        ? createS3UploadProxyUrl(input.pathname, Date.now(), claim)
+        : createS3UploadProxyUrl(input.pathname);
       const upload: {
         headers?: Record<string, string>;
         requiresConfirmation?: true;
