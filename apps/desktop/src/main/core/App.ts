@@ -12,12 +12,10 @@ import { binDir, buildDir } from '@/const/dir';
 import { isDev } from '@/const/env';
 import type { IControlModule } from '@/controllers';
 import AuthCtr from '@/controllers/AuthCtr';
-import ShellCommandCtr from '@/controllers/ShellCommandCtr';
 import GatewayConnectionCtr from '@/controllers/GatewayConnectionCtr';
 import HeterogeneousAgentCtr from '@/controllers/HeterogeneousAgentCtr';
+import ShellCommandCtr from '@/controllers/ShellCommandCtr';
 import { MCPClient } from '@/libs/mcp/client';
-import GatewayConnectionService from '@/services/gatewayConnectionSrv';
-import { acknowledgeInstalledUpdate } from '@/modules/updater/installUpdate';
 import { generateCliWrapper, getCliWrapperDir } from '@/modules/cliEmbedding';
 import { ScreenCaptureManager } from '@/modules/screenCapture/ScreenCaptureManager';
 import {
@@ -30,7 +28,9 @@ import {
   runtimeEnvironmentDetectors,
   type ToolCategory,
 } from '@/modules/toolDetectors';
+import { acknowledgeInstalledUpdate } from '@/modules/updater/installUpdate';
 import type { IServiceModule } from '@/services';
+import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import { createLogger } from '@/utils/logger';
 
 import { BrowserManager } from './browser/BrowserManager';
@@ -474,17 +474,26 @@ export class App {
     return (this.quitPreparation ??= (async () => {
       this.isQuiting = true;
       await this.getService(GatewayConnectionService)?.disconnect();
-      await Promise.all([
+      const cleanup = await Promise.allSettled([
         this.getController(ShellCommandCtr)?.cleanup(),
         this.getController(GatewayConnectionCtr)?.cleanupDocumentJobs(),
         this.getController(HeterogeneousAgentCtr)?.cleanup(),
         MCPClient.cleanupAll(),
       ]);
+      const failures = cleanup
+        .filter((result) => result.status === 'rejected')
+        .map((result) => result.reason);
+      if (failures.length) throw new AggregateError(failures, 'Managed task cleanup failed');
       await this.staticFileServerManager.destroy();
       this.commandCleanupComplete = true;
     })().catch((error) => {
       this.quitPreparation = undefined;
       this.isQuiting = false;
+      void this.getService(GatewayConnectionService)
+        ?.connect()
+        .catch((reconnectError) =>
+          logger.warn('Gateway reconnect after cancelled cleanup failed', reconnectError),
+        );
       throw error;
     }));
   }

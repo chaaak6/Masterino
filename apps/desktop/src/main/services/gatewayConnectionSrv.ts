@@ -25,7 +25,6 @@ import { isDev } from '@/const/env';
 import { getDesktopEnv } from '@/env';
 import { resolveGatewayUrl } from '@/modules/gateway/configs';
 import { getPythonEnvironment } from '@/modules/pythonRuntime';
-
 import { createLogger } from '@/utils/logger';
 
 import { ServiceModule } from './index';

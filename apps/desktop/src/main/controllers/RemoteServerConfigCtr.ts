@@ -4,9 +4,8 @@ import { URL } from 'node:url';
 import type { DataSyncConfig } from '@lobechat/electron-client-ipc';
 import { safeStorage, session as electronSession } from 'electron';
 
-import { AuthStorage } from '@/modules/authStorage';
-
 import { OFFICIAL_CLOUD_SERVER } from '@/const/env';
+import { AuthStorage } from '@/modules/authStorage';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import { appendVercelCookie } from '@/utils/http-headers';
 import { createLogger } from '@/utils/logger';

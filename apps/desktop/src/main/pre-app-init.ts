@@ -20,7 +20,7 @@ if (electronIs.dev() || testBuild) {
   const profile = testBuild
     ? process.env.DESKTOP_TEST_PROFILE
     : !app.isPackaged && process.env.MASTERINO_DESKTOP_PROFILE;
-  if (profile && !/^(local-[a-f0-9]{12}|test-server)$/.test(profile)) {
+  if (profile && !/^(?:local-[a-f0-9]{12}|test-server)$/.test(profile)) {
     throw new Error('Invalid isolated development desktop profile');
   }
   const directoryName = profile

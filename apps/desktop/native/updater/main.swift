@@ -76,9 +76,27 @@ final class UpdateWindow: NSObject, NSApplicationDelegate {
             guard request.parent > 1, target.pathExtension == "app", fm.fileExists(atPath: target.path) else {
                 throw NSError(domain: "MasterinoUpdate", code: 2, userInfo: [NSLocalizedDescriptionKey: "找不到原应用 / Original App missing"])
             }
-            let waitUntil = Date().addingTimeInterval(120)
+            // This helper is launched only after managed task cleanup succeeds.
+            // Electron can still hang in Node filesystem teardown after its windows close.
+            let waitUntil = Date().addingTimeInterval(30)
             while kill(request.parent, 0) == 0 {
-                if Date() > waitUntil { throw NSError(domain: "MasterinoUpdate", code: 3, userInfo: [NSLocalizedDescriptionKey: "原应用尚未退出 / Original App is still running"]) }
+                if Date() > waitUntil {
+                    guard let parent = NSRunningApplication(processIdentifier: request.parent),
+                          parent.bundleURL?.resolvingSymlinksInPath() == target.resolvingSymlinksInPath() else {
+                        throw NSError(domain: "MasterinoUpdate", code: 3, userInfo: [NSLocalizedDescriptionKey: "无法确认原应用进程 / Cannot identify the previous App process"])
+                    }
+                    state("正在结束旧版后台进程… / Closing previous App process…")
+                    kill(request.parent, SIGTERM)
+                    let gracefulDeadline = Date().addingTimeInterval(5)
+                    while kill(request.parent, 0) == 0 && Date() < gracefulDeadline { Thread.sleep(forTimeInterval: 0.1) }
+                    if kill(request.parent, 0) == 0 { parent.forceTerminate() }
+                    let forcedDeadline = Date().addingTimeInterval(5)
+                    while kill(request.parent, 0) == 0 && Date() < forcedDeadline { Thread.sleep(forTimeInterval: 0.1) }
+                    guard kill(request.parent, 0) != 0 else {
+                        throw NSError(domain: "MasterinoUpdate", code: 3, userInfo: [NSLocalizedDescriptionKey: "原应用尚未退出 / Original App is still running"])
+                    }
+                    break
+                }
                 Thread.sleep(forTimeInterval: 0.1)
             }
             state("正在校验安装包… / Verifying update…")
@@ -100,6 +118,22 @@ final class UpdateWindow: NSObject, NSApplicationDelegate {
                   info["CFBundleIdentifier"] as? String == oldInfo["CFBundleIdentifier"] as? String,
                   info["CFBundleShortVersionString"] as? String == request.version else {
                 throw NSError(domain: "MasterinoUpdate", code: 6, userInfo: [NSLocalizedDescriptionKey: "安装包身份或版本不匹配 / App identity or version mismatch"])
+            }
+            // Electron resolves helpers using the original product name, then CFBundleName.
+            // Validate those exact executable paths before replacing a working App.
+            guard let executable = info["CFBundleExecutable"] as? String,
+                  fm.isExecutableFile(atPath: source.appendingPathComponent("Contents/MacOS/\(executable)").path),
+                  fm.fileExists(atPath: source.appendingPathComponent("Contents/Frameworks/Electron Framework.framework").path) else {
+                throw NSError(domain: "MasterinoUpdate", code: 9, userInfo: [NSLocalizedDescriptionKey: "应用运行时不完整 / App runtime is incomplete"])
+            }
+            let names = ["Electron", info["CFBundleName"] as? String ?? ""]
+            for suffix in ["", " (Renderer)", " (GPU)"] {
+                guard names.contains(where: { name in
+                    let helper = "\(name) Helper\(suffix)"
+                    return fm.isExecutableFile(atPath: source.appendingPathComponent("Contents/Frameworks/\(helper).app/Contents/MacOS/\(helper)").path)
+                }) else {
+                    throw NSError(domain: "MasterinoUpdate", code: 10, userInfo: [NSLocalizedDescriptionKey: "安装包的 Electron Helper 不匹配 / Electron Helper mismatch: \(suffix)"])
+                }
             }
             let stage = target.deletingLastPathComponent().appendingPathComponent(".masterino-stage-\(UUID().uuidString).app")
             staged = stage

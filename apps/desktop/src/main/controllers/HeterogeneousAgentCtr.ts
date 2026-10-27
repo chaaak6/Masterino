@@ -50,7 +50,6 @@ import type {
 import { buildProxyEnv } from '@/modules/networkProxy/envBuilder';
 import { detectHeterogeneousCliCommand } from '@/modules/toolDetectors';
 import { createLogger } from '@/utils/logger';
-
 import { stopProcessTree } from '@/utils/stopProcessTree';
 
 import { ControllerModule, IpcMethod } from './index';
@@ -1463,7 +1462,7 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
       void this.cleanup().catch((error) => logger.error('Agent cleanup failed', error));
     });
 
-    const onSignal = (signal: NodeJS.Signals) => {
+    const onSignal = (_signal: NodeJS.Signals) => {
       this.unlinkPendingInterventionConfigsSync();
       // Defer to Electron's normal quit flow so the rest of the app gets a
       // chance to tear down. The `before-quit` handler above is idempotent.

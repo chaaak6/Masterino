@@ -34,17 +34,16 @@ import {
   UPDATE_SERVER_URL,
   updaterConfig,
 } from '@/modules/updater/configs';
+import { launchUpdateInstaller, preflightUpdateInstaller } from '@/modules/updater/installUpdate';
 import {
   type DesktopUpdateArtifact,
   type DesktopUpdateManifest,
   resolveArtifactUrl,
   selectUpdateArtifact,
   SignedManifestError,
-  verifySignedManifest,
   updateRequestUrl,
+  verifySignedManifest,
 } from '@/modules/updater/signedManifest';
-import { launchUpdateInstaller, preflightUpdateInstaller } from '@/modules/updater/installUpdate';
-
 import { extractRestoreRoute } from '@/modules/updater/utils';
 import { createLogger } from '@/utils/logger';
 import { netFetch } from '@/utils/net-fetch';
@@ -214,6 +213,7 @@ export class UpdaterManager {
 
   public checkForUpdates = async ({ manual = false }: { manual?: boolean } = {}) => {
     if (this.checking || this.downloading || this.installing) return;
+    this.resetPendingUpdate();
     this.startDiagnostic(manual ? 'manual' : 'automatic');
     if (!UPDATE_SERVER_URL) {
       this.fail('Update server is not configured', 'network');
@@ -255,10 +255,10 @@ export class UpdaterManager {
         'success',
         `${artifact.platform}/${artifact.arch} ${artifact.path} (${artifact.size} bytes)`,
       );
-      this.updateAvailable = true;
       this.installMode = isWindows ? 'restart' : 'native-helper';
       const cached = await findCachedArtifact(artifact, this.cacheDirectory(manifest.version));
       if (this.isStaleCheck()) return;
+      this.updateAvailable = true;
       if (cached) {
         this.downloadedArtifactPath = cached;
       }
@@ -281,9 +281,18 @@ export class UpdaterManager {
   };
 
   public downloadUpdate = async () => {
-    if (this.downloading || !this.updateAvailable || !this.pendingArtifact || !this.pendingManifest)
+    if (
+      this.installing ||
+      this.checking ||
+      this.downloading ||
+      !this.updateAvailable ||
+      !this.pendingArtifact ||
+      !this.pendingManifest
+    )
       return;
     this.downloading = true;
+    this.latestProgress = null;
+    this.mainWindow.browserWindow?.setProgressBar(0);
     this.downloadAbortController = new AbortController();
     this.recordDiagnosticStep(
       'download-started',
@@ -352,8 +361,27 @@ export class UpdaterManager {
       this.app.isQuiting = true;
       electronApp.quit();
     } catch (error) {
-      if (prepared) await this.app.resumeAfterCancelledQuit?.();
+      if (prepared) {
+        try {
+          await this.app.resumeAfterCancelledQuit?.();
+        } catch (recoveryError) {
+          logger.warn('Unable to resume after cancelled installation', recoveryError);
+        }
+      }
       this.installing = false;
+      if (
+        (error instanceof ArtifactDownloadError && error.code === 'integrity') ||
+        (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ) {
+        this.downloadedArtifactPath = null;
+        this.handleError(
+          new ArtifactDownloadError(
+            'The cached installer is missing or damaged; download it again',
+            'integrity',
+          ),
+        );
+        return;
+      }
       this.handleError(
         new ArtifactDownloadError(
           error instanceof Error ? error.message : 'Unable to start installer',
@@ -409,7 +437,10 @@ export class UpdaterManager {
     const baseUrl = UPDATE_SERVER_URL!.replace(/\/$/, '');
     const url = new URL(`${baseUrl}/${this.currentChannel}/${this.currentChannel}.json`);
     this.recordDiagnosticStep('manifest-requested', 'info', url.toString());
-    const response = await netFetch(updateRequestUrl(url.toString()), { redirect: 'manual' });
+    const response = await netFetch(updateRequestUrl(url.toString()), {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15000),
+    });
     if (this.latestDiagnostic) {
       this.latestDiagnostic.manifestHttpStatus = response.status;
       this.persistDiagnostic();
@@ -466,7 +497,7 @@ export class UpdaterManager {
     }
     const code = (error as NodeJS.ErrnoException)?.code;
     const message = error instanceof Error ? error.message : 'Unknown updater error';
-    if (code === 'ENOSPC') this.fail(message, 'disk');
+    if (['ENOSPC', 'EACCES', 'EROFS'].includes(code ?? '')) this.fail(message, 'disk');
     else if (
       ['ECONNABORTED', 'ECONNREFUSED', 'ECONNRESET', 'ENETUNREACH', 'ETIMEDOUT'].includes(
         code ?? '',

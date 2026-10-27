@@ -168,7 +168,7 @@ export class ShellProcessManager {
       execFileSync(
         path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
         ['/PID', String(child.pid), '/T', '/F'],
-        { stdio: 'ignore', windowsHide: true },
+        { stdio: 'ignore', windowsHide: true, timeout: 5000 },
       );
     } else if (child.pid && shellProcess.processGroup) {
       const pid = child.pid;
@@ -190,7 +190,10 @@ export class ShellProcessManager {
           const deadline = Date.now() + 5000;
           const wait = () => {
             try {
-              const rows = execFileSync('/bin/ps', ['-axo', 'pgid=,stat='], { encoding: 'utf8' });
+              const rows = execFileSync('/bin/ps', ['-axo', 'pgid=,stat='], {
+                encoding: 'utf8',
+                timeout: 5000,
+              });
               const live = rows
                 .trim()
                 .split('\n')

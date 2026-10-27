@@ -7,7 +7,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Snapshot descendants before their parent exits, then wait for actual termination. */
 export async function stopProcessTree(pid: number, graceful: () => Promise<unknown>) {
-  let children: number[] = [];
+  let children: number[];
   if (process.platform === 'win32') {
     const { stdout } = await execute(
       'powershell.exe',
@@ -17,7 +17,7 @@ export async function stopProcessTree(pid: number, graceful: () => Promise<unkno
         '-Command',
         'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress',
       ],
-      { windowsHide: true },
+      { windowsHide: true, timeout: 10000 },
     );
     const rows = JSON.parse(stdout) as { ProcessId: number; ParentProcessId: number }[];
     const owned = new Set([pid]);
@@ -31,7 +31,7 @@ export async function stopProcessTree(pid: number, graceful: () => Promise<unkno
     }
     children = [...owned].filter((child) => child !== pid);
   } else {
-    const { stdout } = await execute('/bin/ps', ['-axo', 'pid=,ppid=']);
+    const { stdout } = await execute('/bin/ps', ['-axo', 'pid=,ppid='], { timeout: 5000 });
     const rows = stdout
       .trim()
       .split('\n')
@@ -66,7 +66,7 @@ export async function stopProcessTree(pid: number, graceful: () => Promise<unkno
         await execute(
           path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
           ['/PID', String(owned), '/T', '/F'],
-          { windowsHide: true },
+          { windowsHide: true, timeout: 5000 },
         );
       } catch {
         /* graceful close may already have exited */
@@ -104,7 +104,7 @@ export async function stopProcessTree(pid: number, graceful: () => Promise<unkno
       )
         return;
     } else {
-      const { stdout } = await execute('/bin/ps', ['-axo', 'pid=,stat=']);
+      const { stdout } = await execute('/bin/ps', ['-axo', 'pid=,stat='], { timeout: 5000 });
       const live = stdout
         .trim()
         .split('\n')

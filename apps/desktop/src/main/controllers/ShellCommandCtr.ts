@@ -9,7 +9,6 @@ import type {
 import { runCommand, ShellProcessManager } from '@lobechat/local-file-shell';
 
 import { getBundledPythonInfo, prepareProjectPythonEnvironment } from '@/modules/pythonRuntime';
-
 import { createLogger } from '@/utils/logger';
 
 import CliCtr from './CliCtr';

@@ -9,9 +9,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { Progress } from '@modelcontextprotocol/sdk/types.js';
 
-import { stopProcessTree } from '@/utils/stopProcessTree';
-
 import { getDesktopEnv } from '@/env';
+import { stopProcessTree } from '@/utils/stopProcessTree';
 
 import type { MCPClientParams, McpPrompt, McpResource, McpTool, ToolCallResult } from './types';
 

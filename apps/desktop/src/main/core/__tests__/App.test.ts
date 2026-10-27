@@ -1,5 +1,4 @@
 import { app as electronApp } from 'electron';
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Import after mocks are set up
@@ -246,6 +245,37 @@ describe('App', () => {
     expect(electronApp.quit).not.toHaveBeenCalled();
     completeDocuments();
     await vi.waitFor(() => expect(electronApp.quit).toHaveBeenCalledOnce());
+  });
+
+  it('waits for every cleanup even if another fails, then keeps the App open', async () => {
+    appInstance = new App();
+    const reconnect = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(appInstance, 'getService').mockReturnValue({
+      connect: reconnect,
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    } as never);
+    let complete!: () => void;
+    const documents = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
+    const cleanup = vi.fn().mockRejectedValue(new Error('process still alive'));
+    vi.spyOn(appInstance, 'getController').mockReturnValue({
+      cleanup,
+      cleanupDocumentJobs: () => documents,
+    } as never);
+    const preparation = appInstance.prepareForQuit();
+    let rejected = false;
+    void preparation.catch(() => {
+      rejected = true;
+    });
+    await vi.waitFor(() => expect(cleanup).toHaveBeenCalled());
+    expect(rejected).toBe(false);
+    expect(appInstance.isQuiting).toBe(true);
+    complete();
+    await expect(preparation).rejects.toThrow('Managed task cleanup failed');
+    expect(electronApp.quit).not.toHaveBeenCalled();
+    expect(appInstance.isQuiting).toBe(false);
+    expect(reconnect).toHaveBeenCalledOnce();
   });
 
   describe('appStoragePath', () => {

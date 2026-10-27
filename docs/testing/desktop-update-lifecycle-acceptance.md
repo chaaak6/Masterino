@@ -52,3 +52,45 @@
 每条记录包含：日期、平台/架构、源码提交、App A/B 版本、ID、操作结果、网络计数、进程证据、截图路径、发现及修复。区分真实 App/真实安装、隔离故障注入、单测；不可将模拟安装或 macOS 测试写成 Windows 实机通过。
 
 开发完成后在此补充实际结果与尚未具备条件的平台验证。
+
+### 2026-10-27 实际执行（PR #149）
+
+平台：macOS 27 / Apple Silicon。使用独立测试 bundle `com.masterino.desktop.update-acceptance`、
+独立 profile `masterino-desktop-local-272026aabbcc`，连接 `mlai-test.bielcrystal.com`；
+A/B 是复制完整 Electron 运行时并替换本分支编译产物的 ad-hoc 测试包，不覆盖正式安装。
+正式版本号未调整。测试发布版本 1.3.11 → 1.3.12；故障注入版本 1.3.13。
+本地源签名、公钥注入、请求统计使用 `apps/desktop/scripts/update-test/signed-fixture.mjs`，
+可操作步骤在同目录 README。测试私钥及认证 Token 不进入仓库或报告。
+
+| 范围 | 实际结果 / 证据 |
+|---|---|
+| U01/U03 | 多次真实检查只有清单 GET；点击后才有安装包 GET。实际下载 347.3 MiB 的 DMG，界面观察到 1%、90%、完成等状态，显示字节数、速度及取消按钮。 |
+| U04/U05 | 实际取消会中断请求并清理 `.part`；注入 HTTP 503、传输 2 MiB 断连，均显示网络错误；停滞无字节约 60 秒后超时。恢复源后必须再次手动点击。 |
+| U06/U10 | 下载完成后普通退出、重新启动仍是旧版；检查后直接显示“退出并安装”。把待装包 mtime 改为 14 天前，重启后仍保留且校验复用；1.3.13 安装包 GET 总数保持 1。 |
+| U07/U08/U09 | 无效 Ed25519 签名在真实 App 被拒；2 MiB 错误内容显示完整性错误且不保留待装文件；同版本更换内容后，旧缓存不能通过新清单校验。单测补充下载后缓存损坏及清单失败不能沿用旧安装动作。 |
+| I01/I03 | 真实 IPC 创建忽略 TERM 的 Shell 父子任务（PID 94574/94575），安装前均已退出；安装器独立窗口在主 App 退出后存在。受管树及退出屏障另有真实 OS 进程测试、失败清理等待测试。 |
+| I06 | 完整安装 1.3.11 → 1.3.12，原生作业 `2d7b19c7-26e7-40cf-b3a5-1ed019cd942b` 的 `result=success`、`started` 存在；实际 About 显示 1.3.12，登录仍为测试账号，备份副本已清理。 |
+| A01/A03/A06 | 用户通过测试企微二维码授权 10507479，真实聊天返回 `PR149 desktop update regression passed.`；多次重启与升级保留登录。只检查 auth.json 字段及 0600 权限，不输出值。实际原应用 Cookie encryption fuse 已为关闭，不做 Cookie/LocalStorage/IndexedDB 清空。 |
+| 测试集群 | 只读确认 masterino-test 中 Web 与 Device Gateway 均为 1/1 available；未更新 Deployment。Web 镜像摘要 42186721c71d…；Gateway 09485c35d03f…。 |
+
+发现并修复：重试沿用上次进度；待装缓存过早按年龄删除；检查期间状态竞争；
+安装前清理失败时必须等其他清理完毕再取消安装并恢复网关；安装器启动失败后恢复主流程；
+下载/清单缺少超时；静态文件服务异步清理的旧测试未等待。
+
+11:49 的崩溃日志对应 PID 88577、EXC_BREAKPOINT/SIGTRAP，现场 stdout 为
+`Unable to find helper app`。原因是验收包改了 CFBundleName / 主二进制名却未同步 Electron Helper，
+修正测试打包后消失；不是从 stripped 栈里的 `ares_dns_*` 名字推断 DNS 故障。
+原生安装器另外增加主二进制、Framework 及 Electron Helper 路径校验，替换前拒绝不完整运行时。
+
+安装实测还发现 Electron 在文件扫描退出收尾时可能卡于 Node `Environment::CleanupHandles`；
+首次旧安装器正确中止且保留原 App。修复后，仅在受管任务已完成清理且显式确认安装后，
+独立 helper 等待旧进程 30 秒，再核对 PID 对应同一 App 路径，TERM、等待、必要时强制终止该旧主进程，
+确认消失后才替换；不会按进程名结束其他应用。随后真实安装成功。
+
+### 平台与验收限制
+
+- Windows x64 已通过 CI 构建与进程树测试；本机没有 Windows GUI 会话，**I07 的真实 NSIS 界面及 Windows 旧资料交互迁移仍需测试同学实机执行**。
+- Intel Mac helper 交叉编译通过，本机只真实运行 arm64。
+- I02 的每一种外部 Agent / MCP / Python 组合未逐一在 GUI 执行；相关等待/终止逻辑及实际 Shell 父子树已测，不将其写成所有工具集成均通过。
+- R01 真实模型聊天通过；原生文件选择器在此 CUA 会话中出现 Open 不可用，未将附件全链路列为通过，也未修改附件业务逻辑。
+- 全量 type-check 有原有初始化/unknown catch/历史测试类型问题；不宣称全量类型检查通过。以相关测试、构建、lint 和 CI 结果分别记录。

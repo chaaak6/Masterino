@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   broadcast: vi.fn(),
   progress: vi.fn(),
   cleanup: vi.fn(),
+  resume: vi.fn(),
   quit: vi.fn(),
   isWindows: true,
   releaseSingleInstanceLock: vi.fn(),
@@ -120,6 +121,7 @@ describe('UpdaterManager signed OSS flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.cleanup.mockResolvedValue(undefined);
+    mocks.resume.mockResolvedValue(undefined);
     vi.mocked(artifactDownloaderModule.findCachedArtifact).mockResolvedValue(undefined);
     vi.mocked(installers.preflightUpdateInstaller).mockResolvedValue(undefined);
     vi.mocked(installers.launchUpdateInstaller).mockResolvedValue(undefined);
@@ -160,6 +162,7 @@ describe('UpdaterManager signed OSS flow', () => {
       },
       isQuiting: false,
       prepareForQuit: mocks.cleanup,
+      resumeAfterCancelledQuit: mocks.resume,
       menuManager: { rebuildAppMenu: vi.fn() },
       storeManager: { get: mocks.storeGet, set: mocks.storeSet },
     } as unknown as AppCore;
@@ -172,7 +175,7 @@ describe('UpdaterManager signed OSS flow', () => {
 
     expect(netFetch).toHaveBeenCalledWith(
       'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/canary.json',
-      { redirect: 'manual' },
+      expect.objectContaining({ redirect: 'manual', signal: expect.any(AbortSignal) }),
     );
     expect(signedManifestModule.verifySignedManifest).toHaveBeenCalled();
 
@@ -355,6 +358,38 @@ describe('UpdaterManager signed OSS flow', () => {
     expect(autoUpdater.setFeedURL).not.toHaveBeenCalled();
   });
 
+  it('discards previous actionable metadata if a subsequent manifest check fails', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    vi.mocked(signedManifestModule.verifySignedManifest).mockImplementationOnce(() => {
+      throw new signedManifestModule.SignedManifestError('bad signature', 'signature');
+    });
+    await manager.checkForUpdates();
+    expect(manager.getUpdaterState()).toMatchObject({
+      stage: 'error',
+      manualDownloadAvailable: false,
+    });
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockClear();
+    await manager.downloadUpdate();
+    await manager.applyDownloadedUpdate();
+    expect(artifactDownloaderModule.downloadArtifact).not.toHaveBeenCalled();
+    expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
+  });
+  it('offers a fresh manual download if an installer is damaged after download', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    vi.mocked(artifactDownloaderModule.verifyArtifact).mockRejectedValueOnce(
+      new artifactDownloaderModule.ArtifactDownloadError('damaged', 'integrity'),
+    );
+    await manager.applyDownloadedUpdate();
+    expect(manager.getUpdaterState()).toMatchObject({ stage: 'error', errorCode: 'integrity' });
+    expect(mocks.cleanup).not.toHaveBeenCalled();
+    await manager.downloadUpdate();
+    expect(manager.getUpdaterState().stage).toBe('downloaded');
+    expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
+  });
   it('reuses a verified cached installer when checking after restart', async () => {
     vi.mocked(artifactDownloaderModule.findCachedArtifact).mockResolvedValue('/cached/installer');
     await manager.initialize();
@@ -380,6 +415,22 @@ describe('UpdaterManager signed OSS flow', () => {
     expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
     expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
   });
+  it('clears previous transfer progress before retrying a failed download', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockImplementationOnce(async (options) => {
+      options.onProgress?.({ percent: 50, transferred: 50, total: 100, bytesPerSecond: 10 });
+      throw new Error('network connection interrupted');
+    });
+    await manager.downloadUpdate();
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockImplementationOnce(async () => {
+      expect(manager.getUpdaterState().progress).toBeUndefined();
+      expect(mocks.progress).toHaveBeenLastCalledWith(0);
+      return '/cached/installer';
+    });
+    await manager.downloadUpdate();
+    expect(manager.getUpdaterState().stage).toBe('downloaded');
+  });
   it('waits for managed tasks and starts only one installer', async () => {
     await manager.initialize();
     await manager.checkForUpdates();
@@ -397,6 +448,20 @@ describe('UpdaterManager signed OSS flow', () => {
     finish();
     await installing;
     expect(installers.launchUpdateInstaller).toHaveBeenCalledOnce();
+    expect(mocks.quit).toHaveBeenCalledOnce();
+  });
+  it('restores normal operation when the installer fails after tasks have stopped', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    vi.mocked(installers.launchUpdateInstaller).mockRejectedValueOnce(
+      new Error('helper launch failed'),
+    );
+    await manager.applyDownloadedUpdate();
+    expect(mocks.resume).toHaveBeenCalledOnce();
+    expect(mocks.quit).not.toHaveBeenCalled();
+    expect(manager.getUpdaterState()).toMatchObject({ stage: 'error', errorCode: 'install' });
+    await manager.applyDownloadedUpdate();
     expect(mocks.quit).toHaveBeenCalledOnce();
   });
   it('keeps the App open when cleanup fails', async () => {

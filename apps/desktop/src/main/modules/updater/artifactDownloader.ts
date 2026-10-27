@@ -77,8 +77,16 @@ export const downloadArtifact = async ({
   const partialPath = `${finalPath}.part`;
   await fs.rm(partialPath, { force: true });
 
+  const stalled = new AbortController();
+  const downloadSignal = signal ? AbortSignal.any([signal, stalled.signal]) : stalled.signal;
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const noteActivity = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => stalled.abort(new Error('Update download stalled')), 60_000);
+  };
+  noteActivity();
   try {
-    const response = await netFetch(url.toString(), { redirect: 'manual', signal });
+    const response = await netFetch(url.toString(), { redirect: 'manual', signal: downloadSignal });
     // Do not read Electron's unreliable Response.url; manual redirects are not followed.
     if (response.status >= 300 && response.status < 400) {
       throw new ArtifactDownloadError('Update downloads may not redirect', 'network');
@@ -93,7 +101,10 @@ export const downloadArtifact = async ({
     const startedAt = Date.now();
     const tracked = new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
+        noteActivity();
         transferred += chunk.byteLength;
+        if (transferred > artifact.size)
+          throw new ArtifactDownloadError('Downloaded update exceeds its signed size', 'integrity');
         const seconds = Math.max((Date.now() - startedAt) / 1000, 0.001);
         onProgress?.({
           bytesPerSecond: transferred / seconds,
@@ -106,6 +117,7 @@ export const downloadArtifact = async ({
     });
     const readable = Readable.fromWeb(response.body.pipeThrough(tracked) as any);
     await pipeline(readable, createWriteStream(partialPath, { flags: 'wx' }));
+    clearTimeout(idleTimer);
     signal?.throwIfAborted();
     onVerifying?.();
     await verifyArtifact(partialPath, artifact);
@@ -122,5 +134,7 @@ export const downloadArtifact = async ({
       throw new ArtifactDownloadError('Unable to write the update to disk', 'disk');
     }
     throw new ArtifactDownloadError('Unable to download the update from OSS', 'network');
+  } finally {
+    clearTimeout(idleTimer);
   }
 };

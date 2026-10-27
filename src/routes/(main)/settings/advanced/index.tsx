@@ -68,7 +68,7 @@ const Page = memo(() => {
 
   useEffect(() => {
     if (!isDesktop) return;
-    void Promise.all([autoUpdateService.getUpdateChannel().then(setChannel)]).catch(() => {});
+    void autoUpdateService.getUpdateChannel().then(setChannel).catch(() => {});
   }, []);
 
   const handleChannelChange = useCallback((value: UpdateChannelValue) => {

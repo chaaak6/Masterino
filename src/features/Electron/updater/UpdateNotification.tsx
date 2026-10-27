@@ -165,8 +165,8 @@ export const UpdateNotification = () => {
           <Icon icon={CircleFadingArrowUp} size={18} />
           <Button
             size="small"
-            type="text"
             style={{ minWidth: 0, height: 'auto', whiteSpace: 'normal', textAlign: 'start' }}
+            type="text"
             onClick={() => setDetails(true)}
           >
             {title}
