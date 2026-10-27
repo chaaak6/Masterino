@@ -89,4 +89,19 @@ describe('S3 upload proxy route', () => {
     expect(mocks.uploadBuffer).not.toHaveBeenCalled();
     expect(response.headers.has('x-masterino-upload-confirmed')).toBe(false);
   });
+  it.each(['source=', 'source=&source=skill'])(
+    'rejects an empty source claim even with a legacy signature: %s',
+    async (query) => {
+      mocks.verifyS3UploadProxySignature.mockReturnValue(true);
+      const response = await PUT(
+        new Request(
+          `http://localhost/api/upload/s3-proxy?key=files/a.txt&expires=3600&signature=good&${query}`,
+          { method: 'PUT', body: 'hello' },
+        ),
+      );
+      expect(response.status).toBe(403);
+      expect(mocks.verifyS3UploadProxySignature).not.toHaveBeenCalled();
+      expect(mocks.uploadBuffer).not.toHaveBeenCalled();
+    },
+  );
 });

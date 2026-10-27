@@ -32,7 +32,7 @@ export const PUT = async (req: Request) => {
   const hash = url.searchParams.get('hash') || '';
   const claim = source === 'skill' ? { source: 'skill' as const, size, hash } : undefined;
   if (
-    source &&
+    url.searchParams.has('source') &&
     (!claim ||
       !Number.isSafeInteger(size) ||
       size < 1 ||
