@@ -278,7 +278,7 @@ export default function CatalogCreate({
                 rules={[
                   {
                     validator: async (_, value) => {
-                      if (!artifact && !value?.trim())
+                      if (!artifact && !fileName && !value?.trim())
                         throw new Error('请上传 ZIP 或填写 SKILL.md');
                     },
                   },
