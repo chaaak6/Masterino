@@ -171,6 +171,9 @@ export const UpdateNotification = () => {
           >
             {title}
             {state.updateInfo?.version ? ` · ${state.updateInfo.version}` : ''}
+            {state.diagnostic?.artifact?.size
+              ? ` · ${megabytes(state.diagnostic.artifact.size)} MB`
+              : ''}
           </Button>
         </Flexbox>
         {status}

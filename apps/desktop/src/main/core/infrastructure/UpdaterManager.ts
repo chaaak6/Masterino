@@ -552,7 +552,13 @@ export class UpdaterManager {
           }
           if (!entry.isDirectory()) continue;
           const metadata = await stat(entryPath);
-          if (metadata.mtimeMs < staleBefore) await rm(entryPath, { force: true, recursive: true });
+          // A downloaded, not-yet-installed update must remain reusable even weeks later.
+          if (
+            semver.valid(entry.name) &&
+            semver.lte(entry.name, electronApp.getVersion()) &&
+            metadata.mtimeMs < staleBefore
+          )
+            await rm(entryPath, { force: true, recursive: true });
         }
       }
     } catch (error) {
