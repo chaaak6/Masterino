@@ -1,17 +1,10 @@
 'use client';
 
-import {
-  readBoundedSkillBody,
-  SKILL_EXPANDED_MAX_BYTES,
-  SKILL_MAX_ENTRIES,
-  SKILL_PACKAGE_MAX_BYTES,
-} from '@lobechat/skill-package';
 import { type SkillResourceTreeNode } from '@lobechat/types';
 import { Github } from '@lobehub/icons';
 import { ActionIcon, Avatar, Button, Flexbox, Icon } from '@lobehub/ui';
 import { Skeleton } from 'antd';
 import { createStaticStyles, cssVar } from 'antd-style';
-import { unzip } from 'fflate';
 import { DotIcon, ExternalLinkIcon } from 'lucide-react';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +17,8 @@ import { useDiscoverStore } from '@/store/discover';
 import { useToolStore } from '@/store/tool';
 import { agentSkillsSelectors } from '@/store/tool/selectors';
 import { type DiscoverSkillDetail as DiscoverSkillDetailType } from '@/types/discover';
+
+import { fetchZipContents } from './skillPreview';
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
   description: css`
@@ -96,71 +91,6 @@ const buildMarketResourceTree = (
       path,
       type: 'file' as const,
     }));
-};
-
-/**
- * Fetch zip from downloadUrl and extract text file contents
- */
-const fetchZipContents = async (
-  url: string,
-): Promise<{ contentMap: Record<string, string>; tree: SkillResourceTreeNode[] }> => {
-  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
-  if (!res.ok) throw new Error('Skill preview download failed');
-  const buf = await readBoundedSkillBody(res.body, SKILL_PACKAGE_MAX_BYTES);
-
-  return new Promise((resolve, reject) => {
-    let count = 0;
-    let expanded = 0;
-    unzip(
-      new Uint8Array(buf),
-      {
-        filter: (entry) => {
-          if (
-            ++count > SKILL_MAX_ENTRIES ||
-            (expanded += entry.originalSize) > SKILL_EXPANDED_MAX_BYTES
-          )
-            throw new Error('Skill preview exceeds package limits');
-          return (
-            /(?:SKILL\.md|\.(?:md|txt|json|yaml|yml))$/i.test(entry.name) &&
-            entry.originalSize <= 256 * 1024
-          );
-        },
-      },
-      (err, files) => {
-        if (err) return reject(err);
-
-        const contentMap: Record<string, string> = {};
-        const tree: SkillResourceTreeNode[] = [];
-        const decoder = new TextDecoder();
-
-        const root = files['SKILL.md']
-          ? ''
-          : Object.keys(files)
-              .find((path) => path.endsWith('/SKILL.md'))
-              ?.slice(0, -8) || '';
-        for (const [rawPath, data] of Object.entries(files)) {
-          if (rawPath.endsWith('/') || rawPath.includes('__MACOSX')) continue;
-
-          // Strip the top-level directory prefix (e.g. "skill-name/")
-          const path = root && rawPath.startsWith(root) ? rawPath.slice(root.length) : rawPath;
-          if (!path) continue;
-
-          const content = decoder.decode(data);
-          contentMap[path] = content;
-          if (path === 'SKILL.md') continue;
-          tree.push({
-            content,
-            name: path.split('/').pop() || path,
-            path,
-            type: 'file',
-          });
-        }
-
-        tree.sort((a, b) => a.path.localeCompare(b.path));
-        resolve({ contentMap, tree });
-      },
-    );
-  });
 };
 
 const MarketSkillDetail = memo<MarketSkillDetailProps>(({ identifier }) => {
