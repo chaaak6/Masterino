@@ -298,11 +298,25 @@ export default defineConfig({
       sourcemap: isDev ? 'inline' : false,
     },
     define: {
+      'process.env.DESKTOP_TEST_PROFILE': JSON.stringify(
+        isTestDesktopBuild ? process.env.DESKTOP_TEST_PROFILE : undefined,
+      ),
+      'process.env.DESKTOP_TEST_UPDATE_ORIGIN': JSON.stringify(
+        isTestDesktopBuild ? process.env.DESKTOP_TEST_UPDATE_ORIGIN : undefined,
+      ),
+      'process.env.DESKTOP_TEST_UPDATE_KEY_ID': JSON.stringify(
+        isTestDesktopBuild ? process.env.DESKTOP_TEST_UPDATE_KEY_ID : undefined,
+      ),
+      'process.env.DESKTOP_TEST_UPDATE_PUBLIC_KEY': JSON.stringify(
+        isTestDesktopBuild ? process.env.DESKTOP_TEST_UPDATE_PUBLIC_KEY : undefined,
+      ),
       'process.env.DESKTOP_BUILD_FLAVOR': JSON.stringify(process.env.DESKTOP_BUILD_FLAVOR),
       'process.env.DESKTOP_EXTERNAL_NAVIGATION_HOSTS': JSON.stringify(externalNavigationHosts),
       'process.env.DEVICE_GATEWAY_URL': JSON.stringify(process.env.DEVICE_GATEWAY_URL),
       'process.env.DISABLE_APP_UPDATE': JSON.stringify(
-        isTestDesktopBuild ? '1' : process.env.DISABLE_APP_UPDATE,
+        isTestDesktopBuild && !process.env.DESKTOP_TEST_UPDATE_ORIGIN
+          ? '1'
+          : process.env.DISABLE_APP_UPDATE,
       ),
       'process.env.UPDATE_CHANNEL': JSON.stringify(process.env.UPDATE_CHANNEL),
       'process.env.UPDATE_SERVER_URL': JSON.stringify(process.env.UPDATE_SERVER_URL),

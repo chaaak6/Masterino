@@ -27,6 +27,23 @@ const {
   };
 });
 
+const auth = vi.hoisted(() => ({ record: undefined as any, write: vi.fn(), clear: vi.fn() }));
+vi.mock('@/modules/authStorage', () => ({
+  AuthStorage: class {
+    read() {
+      return auth.record;
+    }
+    write(value: unknown) {
+      auth.write(value);
+      auth.record = value;
+    }
+    clear() {
+      auth.clear();
+      auth.record = undefined;
+    }
+  },
+}));
+
 vi.mock('@/utils/net-fetch', () => ({
   netFetch: mockFetch,
 }));
@@ -94,6 +111,8 @@ describe('RemoteServerConfigCtr', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    auth.record = undefined;
+    auth.write.mockReset();
     ipcMainHandleMock.mockClear();
     const { safeStorage } = await import('electron');
     const getSelectedStorageBackend = (
@@ -230,285 +249,65 @@ describe('RemoteServerConfigCtr', () => {
     });
   });
 
-  describe('saveTokens', () => {
-    it('should save encrypted tokens with expiration', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true);
-
-      await controller.saveTokens('access-token', 'refresh-token', 3600);
-
-      expect(safeStorage.encryptString).toHaveBeenCalledWith('access-token');
-      expect(safeStorage.encryptString).toHaveBeenCalledWith('refresh-token');
-      expect(mockStoreManager.set).toHaveBeenCalledWith(
-        'encryptedTokens',
-        expect.objectContaining({
-          accessToken: expect.any(String),
-          expiresAt: expect.any(Number),
-          issuerOrigin: 'https://masterino.bielcrystal.com',
-          refreshToken: expect.any(String),
-        }),
-      );
-    });
-
-    it('should save tokens without expiration', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true);
-
-      await controller.saveTokens('access-token', 'refresh-token');
-
-      expect(mockStoreManager.set).toHaveBeenCalledWith(
-        'encryptedTokens',
-        expect.objectContaining({
-          accessToken: expect.any(String),
-          expiresAt: undefined,
-          issuerOrigin: 'https://masterino.bielcrystal.com',
-          refreshToken: expect.any(String),
-        }),
-      );
-    });
-
-    it('should fail closed and clear old tokens when encryption is not available', async () => {
-      const { safeStorage } = await import('electron');
-
-      // Seed old encrypted in-memory and persisted state first.
-      await controller.saveTokens('old-access-token', 'old-refresh-token', 3600);
-      vi.clearAllMocks();
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false);
-
-      await expect(
-        controller.saveTokens('new-access-token', 'new-refresh-token', 3600),
-      ).rejects.toThrow('Secure token storage is unavailable');
-
-      expect(safeStorage.encryptString).not.toHaveBeenCalled();
-      expect(mockStoreManager.set).not.toHaveBeenCalled();
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-      expect(mockGatewayConnectionSrv.disconnect).toHaveBeenCalled();
-      expect(controller.getTokenExpiresAt()).toBeUndefined();
-      expect(controller.getLastTokenRefreshAt()).toBeUndefined();
-      await expect(controller.getAccessToken()).resolves.toBeNull();
-    });
-
-    it('should reject Linux basic_text storage as insecure', async () => {
-      const { safeStorage } = await import('electron');
-      const getSelectedStorageBackend = (
-        safeStorage as typeof safeStorage & { getSelectedStorageBackend: () => string }
-      ).getSelectedStorageBackend;
-      const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
-      vi.mocked(getSelectedStorageBackend).mockReturnValue('basic_text');
-
-      try {
-        await expect(controller.saveTokens('access-token', 'refresh-token')).rejects.toThrow(
-          'Secure token storage is unavailable',
-        );
-        expect(safeStorage.encryptString).not.toHaveBeenCalled();
-        expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-      } finally {
-        platformSpy.mockRestore();
-      }
-    });
-
-    it('should fail closed when the Linux storage backend cannot be verified', async () => {
-      const { safeStorage } = await import('electron');
-      const getSelectedStorageBackend = (
-        safeStorage as typeof safeStorage & { getSelectedStorageBackend: () => string }
-      ).getSelectedStorageBackend;
-      const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
-      vi.mocked(getSelectedStorageBackend).mockImplementation(() => {
-        throw new Error('backend unavailable');
-      });
-
-      try {
-        await expect(controller.saveTokens('access-token', 'refresh-token')).rejects.toThrow(
-          'Secure token storage is unavailable',
-        );
-        expect(safeStorage.encryptString).not.toHaveBeenCalled();
-        expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-      } finally {
-        platformSpy.mockRestore();
-      }
-    });
-
-    it.each(['win32', 'darwin'] as const)(
-      'should not apply the Linux backend restriction on %s',
+  describe('plaintext credentials', () => {
+    it.each(['darwin', 'win32'])(
+      'migrates legacy credentials without touching macOS Keychain (%s)',
       async (platform) => {
+        const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
         const { safeStorage } = await import('electron');
-        const getSelectedStorageBackend = (
-          safeStorage as typeof safeStorage & { getSelectedStorageBackend: () => string }
-        ).getSelectedStorageBackend;
-        const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue(platform);
-        vi.mocked(getSelectedStorageBackend).mockReturnValue('basic_text');
-
+        const legacy = {
+          accessToken: Buffer.from('old-access').toString('base64'),
+          refreshToken: Buffer.from('old-refresh').toString('base64'),
+          issuerOrigin: 'https://masterino.bielcrystal.com',
+          expiresAt: Date.now() + 3600000,
+        };
+        mockStoreManager.get.mockImplementation((key: string) =>
+          key === 'encryptedTokens' ? legacy : { active: true, storageMode: 'cloud' },
+        );
         try {
-          await expect(controller.saveTokens('access-token', 'refresh-token')).resolves.toBe(
-            undefined,
-          );
-          expect(safeStorage.encryptString).toHaveBeenCalled();
+          Object.defineProperty(process, 'platform', { value: platform });
+          controller = new RemoteServerConfigCtr(mockApp);
+          const token = await controller.getAccessToken();
+          if (platform === 'win32') {
+            expect(token).toBe('old-access');
+            expect(auth.write).toHaveBeenCalledWith(
+              expect.objectContaining({ accessToken: 'old-access', refreshToken: 'old-refresh' }),
+            );
+            expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
+          } else {
+            expect(token).toBeNull();
+            expect(safeStorage.isEncryptionAvailable).not.toHaveBeenCalled();
+            expect(safeStorage.decryptString).not.toHaveBeenCalled();
+            expect(mockStoreManager.delete).not.toHaveBeenCalledWith('encryptedTokens');
+          }
         } finally {
-          platformSpy.mockRestore();
+          Object.defineProperty(process, 'platform', original);
         }
       },
     );
 
-    it('should clear old tokens when encryption itself fails', async () => {
+    it('persists both tokens and reuses them without OS encryption', async () => {
       const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.encryptString).mockImplementation(() => {
-        throw new Error('Keychain failure');
-      });
-
-      await expect(controller.saveTokens('access-token', 'refresh-token')).rejects.toThrow(
-        'Keychain failure',
+      await controller.saveTokens('access', 'refresh', 3600);
+      expect(auth.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accessToken: 'access',
+          refreshToken: 'refresh',
+          issuerOrigin: 'https://masterino.bielcrystal.com',
+        }),
       );
-
-      expect(mockStoreManager.set).not.toHaveBeenCalled();
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
+      await expect(controller.getAccessToken()).resolves.toBe('access');
+      await expect(controller.getRefreshToken()).resolves.toBe('refresh');
+      expect(safeStorage.encryptString).not.toHaveBeenCalled();
+      expect(safeStorage.decryptString).not.toHaveBeenCalled();
     });
-  });
-
-  describe('getAccessToken', () => {
-    it('should return decrypted access token', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true);
-
-      // First save a token
-      await controller.saveTokens('test-access-token', 'test-refresh-token');
-
-      const result = await controller.getAccessToken();
-
-      expect(result).toBe('test-access-token');
-    });
-
-    it('should load token from store if not in memory', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true);
-      vi.mocked(safeStorage.decryptString).mockReturnValue('stored-access-token');
-
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: Buffer.from('stored-access-token').toString('base64'),
-            issuerOrigin: 'https://masterino.bielcrystal.com',
-            refreshToken: Buffer.from('stored-refresh-token').toString('base64'),
-          };
-        }
-        return { active: true, storageMode: 'cloud' };
+    it('keeps previously committed credentials if a write fails', async () => {
+      await controller.saveTokens('previous', 'previous-refresh');
+      auth.write.mockImplementationOnce(() => {
+        throw new Error('disk unavailable');
       });
-
-      // Create new controller to test loading from store
-      const newController = new RemoteServerConfigCtr(mockApp);
-      const result = await newController.getAccessToken();
-
-      expect(result).toBe('stored-access-token');
-    });
-
-    it('should return null when no token exists', async () => {
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return null;
-        }
-        return { active: false, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      const result = await newController.getAccessToken();
-
-      expect(result).toBeNull();
-    });
-
-    it('should delete persisted plaintext and return null when encryption is not available', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false);
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'legacy-plaintext-access-token',
-            refreshToken: 'legacy-plaintext-refresh-token',
-          };
-        }
-        return { active: false, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      const result = await newController.getAccessToken();
-
-      expect(result).toBeNull();
-      expect(mockStoreManager.get).not.toHaveBeenCalledWith('encryptedTokens');
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-    });
-
-    it('should return null on decryption error', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true);
-      vi.mocked(safeStorage.decryptString).mockImplementation(() => {
-        throw new Error('Decryption failed');
-      });
-
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'invalid-encrypted-token',
-            issuerOrigin: 'https://masterino.bielcrystal.com',
-            refreshToken: 'invalid-encrypted-token',
-          };
-        }
-        return { active: true, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      const result = await newController.getAccessToken();
-
-      expect(result).toBeNull();
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-    });
-  });
-
-  describe('getRefreshToken', () => {
-    it('should return decrypted refresh token', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true);
-      vi.mocked(safeStorage.decryptString).mockImplementation((buffer: Buffer) =>
-        buffer.toString(),
-      );
-
-      await controller.saveTokens('test-access-token', 'test-refresh-token');
-
-      const result = await controller.getRefreshToken();
-
-      expect(result).toBe('test-refresh-token');
-    });
-
-    it('should return null when no token exists', async () => {
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return null;
-        }
-        return { active: false, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      const result = await newController.getRefreshToken();
-
-      expect(result).toBeNull();
-    });
-
-    it('should delete persisted plaintext and return null when encryption is not available', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false);
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'legacy-plaintext-access-token',
-            refreshToken: 'legacy-plaintext-refresh-token',
-          };
-        }
-        return { active: false, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      const result = await newController.getRefreshToken();
-
-      expect(result).toBeNull();
-      expect(mockStoreManager.get).not.toHaveBeenCalledWith('encryptedTokens');
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
+      await expect(controller.saveTokens('new', 'new-refresh')).rejects.toThrow('disk unavailable');
+      await expect(controller.getAccessToken()).resolves.toBe('previous');
     });
   });
 
@@ -1050,142 +849,26 @@ describe('RemoteServerConfigCtr', () => {
   });
 
   describe('afterAppReady', () => {
-    it('should load tokens from store when issuerOrigin matches the active server', () => {
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'stored-access',
-            expiresAt: Date.now() + 3600000,
-            issuerOrigin: 'https://masterino.bielcrystal.com',
-            refreshToken: 'stored-refresh',
-          };
-        }
-        return { active: true, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      newController.afterAppReady();
-
-      // Verify tokens were loaded by checking getTokenExpiresAt
-      expect(newController.getTokenExpiresAt()).toBeDefined();
-      expect(mockStoreManager.delete).not.toHaveBeenCalledWith('encryptedTokens');
+    it('restores auth.json when its issuer matches', async () => {
+      auth.record = {
+        accessToken: 'stored',
+        refreshToken: 'refresh',
+        issuerOrigin: 'https://masterino.bielcrystal.com',
+        lastRefreshAt: 42,
+      };
+      controller.afterAppReady();
+      await expect(controller.getAccessToken()).resolves.toBe('stored');
+      expect(controller.getLastTokenRefreshAt()).toBe(42);
     });
-
-    it('should clear legacy tokens without issuerOrigin and deactivate the config', () => {
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'legacy-access',
-            expiresAt: Date.now() + 3600000,
-            refreshToken: 'legacy-refresh',
-          };
-        }
-        return { active: true, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      newController.afterAppReady();
-
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-      expect(mockStoreManager.set).toHaveBeenCalledWith('dataSyncConfig', {
-        active: false,
-        storageMode: 'cloud',
-      });
-      expect(newController.getTokenExpiresAt()).toBeUndefined();
-    });
-
-    it('should clear tokens from a different issuer and deactivate the config', () => {
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'old-aihub-access',
-            expiresAt: Date.now() + 3600000,
-            issuerOrigin: 'https://aihub.bielcrystal.com',
-            refreshToken: 'old-aihub-refresh',
-          };
-        }
-        return { active: true, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      newController.afterAppReady();
-
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-      expect(mockStoreManager.set).toHaveBeenCalledWith('dataSyncConfig', {
-        active: false,
-        storageMode: 'cloud',
-      });
-      expect(newController.getTokenExpiresAt()).toBeUndefined();
-    });
-
-    it('should load lastRefreshAt from store', () => {
-      const lastRefreshTime = Date.now() - 3600000; // 1 hour ago
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'stored-access',
-            expiresAt: Date.now() + 3600000,
-            issuerOrigin: 'https://masterino.bielcrystal.com',
-            lastRefreshAt: lastRefreshTime,
-            refreshToken: 'stored-refresh',
-          };
-        }
-        return { active: true, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      newController.afterAppReady();
-
-      // Verify lastRefreshAt was loaded
-      expect(newController.getLastTokenRefreshAt()).toBe(lastRefreshTime);
-    });
-
-    it('should delete old persisted tokens without loading them when encryption is unavailable', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false);
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'legacy-plaintext-access-token',
-            expiresAt: Date.now() + 3600000,
-            lastRefreshAt: Date.now(),
-            refreshToken: 'legacy-plaintext-refresh-token',
-          };
-        }
-        return { active: false, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      newController.afterAppReady();
-
-      expect(mockStoreManager.get).not.toHaveBeenCalledWith('encryptedTokens');
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-      expect(newController.getTokenExpiresAt()).toBeUndefined();
-      expect(newController.getLastTokenRefreshAt()).toBeUndefined();
-    });
-
-    it('should delete stored values that cannot be decrypted', async () => {
-      const { safeStorage } = await import('electron');
-      vi.mocked(safeStorage.decryptString).mockImplementation(() => {
-        throw new Error('Invalid encrypted payload');
-      });
-      mockStoreManager.get.mockImplementation((key) => {
-        if (key === 'encryptedTokens') {
-          return {
-            accessToken: 'legacy-plaintext-access-token',
-            expiresAt: Date.now() + 3600000,
-            issuerOrigin: 'https://masterino.bielcrystal.com',
-            refreshToken: 'legacy-plaintext-refresh-token',
-          };
-        }
-        return { active: true, storageMode: 'cloud' };
-      });
-
-      const newController = new RemoteServerConfigCtr(mockApp);
-      newController.afterAppReady();
-
-      expect(mockStoreManager.delete).toHaveBeenCalledWith('encryptedTokens');
-      expect(newController.getTokenExpiresAt()).toBeUndefined();
+    it('does not expose credentials to a different server', async () => {
+      auth.record = {
+        accessToken: 'other-server',
+        refreshToken: 'refresh',
+        issuerOrigin: 'https://other.example',
+      };
+      controller.afterAppReady();
+      await expect(controller.getAccessToken()).resolves.toBeNull();
+      expect(auth.clear).not.toHaveBeenCalled();
     });
   });
 
@@ -1209,11 +892,8 @@ describe('RemoteServerConfigCtr', () => {
     it('should persist lastRefreshAt to store when saving tokens', async () => {
       await controller.saveTokens('access', 'refresh', 3600);
 
-      expect(mockStoreManager.set).toHaveBeenCalledWith(
-        'encryptedTokens',
-        expect.objectContaining({
-          lastRefreshAt: expect.any(Number),
-        }),
+      expect(auth.write).toHaveBeenCalledWith(
+        expect.objectContaining({ lastRefreshAt: expect.any(Number) }),
       );
     });
   });

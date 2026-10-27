@@ -24,7 +24,7 @@ env:
   DEVICE_GATEWAY_URL: https://mlai-test.bielcrystal.com/device-gateway
   NODE_VERSION: 24.11.1
   UPDATE_CHANNEL: canary
-  UPDATE_SERVER_URL: https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases
+  UPDATE_SERVER_URL: https://masterino-file.bielcrystal.com/desktop/releases
 
 jobs:
   build-windows:
@@ -54,6 +54,10 @@ jobs:
       - name: Test Windows command cancellation and temporary files
         working-directory: packages/local-file-shell
         run: pnpm exec vitest run --silent=passed-only src/shell/__tests__/process-tree.test.ts src/file/__tests__/temporaryFiles.test.ts
+
+      - name: Test manual updates, credential migration and shutdown on Windows
+        working-directory: apps/desktop
+        run: pnpm exec vitest run --config vitest.config.mts --silent=passed-only src/main/utils/stopProcessTree.test.ts src/main/modules/authStorage.test.ts src/main/modules/updater/artifactDownloader.test.ts src/main/controllers/__tests__/RemoteServerConfigCtr.test.ts src/main/controllers/__tests__/UpdaterCtr.test.ts src/main/core/infrastructure/__tests__/UpdaterManager.test.ts src/main/core/__tests__/App.test.ts
 
       - name: Build unsigned Windows test client
         working-directory: apps/desktop

@@ -17,8 +17,10 @@ app.setName('Masterino');
 // directory so a test executable cannot take over launches of the installed app.
 const testBuild = process.env.DESKTOP_BUILD_FLAVOR === 'test';
 if (electronIs.dev() || testBuild) {
-  const profile = !app.isPackaged && process.env.MASTERINO_DESKTOP_PROFILE;
-  if (profile && !/^(local-[a-f0-9]{12}|test-server)$/.test(profile)) {
+  const profile = testBuild
+    ? process.env.DESKTOP_TEST_PROFILE
+    : !app.isPackaged && process.env.MASTERINO_DESKTOP_PROFILE;
+  if (profile && !/^(?:local-[a-f0-9]{12}|test-server)$/.test(profile)) {
     throw new Error('Invalid isolated development desktop profile');
   }
   const directoryName = profile
@@ -27,4 +29,5 @@ if (electronIs.dev() || testBuild) {
       ? 'masterino-desktop-test'
       : 'masterino-desktop-dev';
   app.setPath('userData', path.join(app.getPath('appData'), directoryName));
+  if (testBuild && profile) app.setAppLogsPath(path.join(app.getPath('userData'), 'logs'));
 }

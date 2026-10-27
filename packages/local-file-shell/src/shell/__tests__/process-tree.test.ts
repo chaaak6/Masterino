@@ -57,12 +57,12 @@ describe('command process trees', () => {
           );
         }
         if (action === 'kill') expect(manager.kill(result.shell_id!).success).toBe(true);
-        else manager.cleanupAll();
+        else await manager.cleanupAll();
         await new Promise((resolve) => setTimeout(resolve, 1800));
         expect(await readFile(unexpected, 'utf8').catch(() => undefined)).toBeUndefined();
         expect(await readFile(independent, 'utf8')).toBe('ok');
       } finally {
-        manager.cleanupAll();
+        await manager.cleanupAll();
         control.kill();
         if (childPid) {
           try {

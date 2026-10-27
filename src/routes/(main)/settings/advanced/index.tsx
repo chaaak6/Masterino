@@ -65,24 +65,15 @@ const Page = memo(() => {
   const hasGatewayUrl = useServerConfigStore((s) => !!s.serverConfig.agentGatewayUrl);
 
   const [channel, setChannel] = useState<UpdateChannelValue>('stable');
-  const [autoDownloadUpdates, setAutoDownloadUpdates] = useState(true);
 
   useEffect(() => {
     if (!isDesktop) return;
-    void Promise.all([
-      autoUpdateService.getUpdateChannel().then(setChannel),
-      autoUpdateService.getAutoDownloadEnabled().then(setAutoDownloadUpdates),
-    ]).catch(() => {});
+    void autoUpdateService.getUpdateChannel().then(setChannel).catch(() => {});
   }, []);
 
   const handleChannelChange = useCallback((value: UpdateChannelValue) => {
     setChannel(value);
     autoUpdateService.setUpdateChannel(value);
-  }, []);
-
-  const handleAutoDownloadChange = useCallback((checked: boolean) => {
-    setAutoDownloadUpdates(checked);
-    void autoUpdateService.setAutoDownloadEnabled(checked);
   }, []);
 
   const handleGatewayModeChange = useCallback(
@@ -135,7 +126,7 @@ const Page = memo(() => {
   const updateChannelGroup: FormGroupItemType = {
     children: [
       {
-        children: <Switch checked={autoDownloadUpdates} onChange={handleAutoDownloadChange} />,
+        children: <span>{t('tab.advanced.manualUpdateOnly')}</span>,
         desc: t('tab.advanced.autoDownloadUpdates.desc'),
         label: t('tab.advanced.autoDownloadUpdates.title'),
         minWidth: undefined,

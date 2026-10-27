@@ -184,6 +184,7 @@ export default class McpCtr extends ControllerModule {
   }
 
   private async createClient(params: MCPClientParams) {
+    if (this.app.isQuiting) throw new Error('Application is shutting down');
     const client = new MCPClient(params);
     await client.initialize();
     return client;

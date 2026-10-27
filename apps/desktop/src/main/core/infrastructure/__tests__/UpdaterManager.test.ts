@@ -2,6 +2,7 @@ import { autoUpdater } from 'electron-updater';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as artifactDownloaderModule from '@/modules/updater/artifactDownloader';
+import * as installers from '@/modules/updater/installUpdate';
 import * as signedManifestModule from '@/modules/updater/signedManifest';
 import { netFetch } from '@/utils/net-fetch';
 
@@ -10,6 +11,10 @@ import { UpdaterManager } from '../UpdaterManager';
 
 const mocks = vi.hoisted(() => ({
   broadcast: vi.fn(),
+  progress: vi.fn(),
+  cleanup: vi.fn(),
+  resume: vi.fn(),
+  quit: vi.fn(),
   isWindows: true,
   releaseSingleInstanceLock: vi.fn(),
   shellOpenExternal: vi.fn(),
@@ -47,6 +52,7 @@ vi.mock('builder-util-runtime', () => ({
 
 vi.mock('electron', () => ({
   app: {
+    quit: mocks.quit,
     getPath: vi.fn().mockReturnValue('C:/updates'),
     getVersion: vi.fn().mockReturnValue('1.1.3'),
     releaseSingleInstanceLock: mocks.releaseSingleInstanceLock,
@@ -65,7 +71,7 @@ vi.mock('@/modules/updater/configs', () => ({
   BUILD_CHANNEL: 'canary',
   resolveInitialUpdateChannel: (channel?: string) => (channel === 'canary' ? 'canary' : 'stable'),
   UPDATE_CHANNEL: 'canary',
-  UPDATE_SERVER_URL: 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases',
+  UPDATE_SERVER_URL: 'https://masterino-file.bielcrystal.com/desktop/releases',
   updaterConfig: {
     app: { autoCheckUpdate: false, checkUpdateInterval: 3_600_000 },
     enableAppUpdate: true,
@@ -74,8 +80,17 @@ vi.mock('@/modules/updater/configs', () => ({
 vi.mock('@/utils/net-fetch', () => ({ netFetch: vi.fn() }));
 vi.mock('@/modules/updater/artifactDownloader', async (importOriginal) => {
   const actual = await importOriginal<typeof artifactDownloaderModule>();
-  return { ...actual, downloadArtifact: vi.fn(), verifyArtifact: vi.fn() };
+  return {
+    ...actual,
+    downloadArtifact: vi.fn(),
+    verifyArtifact: vi.fn(),
+    findCachedArtifact: vi.fn(),
+  };
 });
+vi.mock('@/modules/updater/installUpdate', () => ({
+  preflightUpdateInstaller: vi.fn(),
+  launchUpdateInstaller: vi.fn(),
+}));
 vi.mock('@/modules/updater/signedManifest', async (importOriginal) => {
   const actual = await importOriginal<typeof signedManifestModule>();
   return { ...actual, selectUpdateArtifact: vi.fn(), verifySignedManifest: vi.fn() };
@@ -105,6 +120,11 @@ describe('UpdaterManager signed OSS flow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.cleanup.mockResolvedValue(undefined);
+    mocks.resume.mockResolvedValue(undefined);
+    vi.mocked(artifactDownloaderModule.findCachedArtifact).mockResolvedValue(undefined);
+    vi.mocked(installers.preflightUpdateInstaller).mockResolvedValue(undefined);
+    vi.mocked(installers.launchUpdateInstaller).mockResolvedValue(undefined);
     events = new Map();
     vi.mocked(autoUpdater.on).mockImplementation((name: string, handler: any) => {
       events.set(name, handler);
@@ -136,10 +156,13 @@ describe('UpdaterManager signed OSS flow', () => {
       browserManager: {
         getMainWindow: () => ({
           broadcast: mocks.broadcast,
+          browserWindow: { setProgressBar: mocks.progress },
           webContents: { getURL: () => 'https://masterino.bielcrystal.com/' },
         }),
       },
       isQuiting: false,
+      prepareForQuit: mocks.cleanup,
+      resumeAfterCancelledQuit: mocks.resume,
       menuManager: { rebuildAppMenu: vi.fn() },
       storeManager: { get: mocks.storeGet, set: mocks.storeSet },
     } as unknown as AppCore;
@@ -151,14 +174,11 @@ describe('UpdaterManager signed OSS flow', () => {
     await manager.checkForUpdates({ manual: true });
 
     expect(netFetch).toHaveBeenCalledWith(
-      'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/canary.json',
-      { redirect: 'manual' },
+      'https://masterino-file.bielcrystal.com/desktop/releases/canary/canary.json',
+      expect.objectContaining({ redirect: 'manual', signal: expect.any(AbortSignal) }),
     );
     expect(signedManifestModule.verifySignedManifest).toHaveBeenCalled();
-    expect(autoUpdater.setFeedURL).toHaveBeenCalledWith({
-      provider: 'generic',
-      url: 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/1.1.4',
-    });
+
     expect(manager.getUpdaterState()).toMatchObject({
       diagnostic: {
         artifact: {
@@ -193,7 +213,7 @@ describe('UpdaterManager signed OSS flow', () => {
 
     await expect(manager.openManualDownload()).resolves.toBe('opened');
     expect(mocks.shellOpenExternal).toHaveBeenCalledWith(
-      'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/1.1.4/Masterino-1.1.4-setup.exe',
+      'https://masterino-file.bielcrystal.com/desktop/releases/canary/1.1.4/Masterino-1.1.4-setup.exe',
     );
   });
 
@@ -309,27 +329,6 @@ describe('UpdaterManager signed OSS flow', () => {
     });
   });
 
-  it('downloads and verifies Windows artifacts when Electron returns an empty response URL', async () => {
-    await manager.initialize();
-    await manager.checkForUpdates();
-    await events.get('update-available')?.({ version: '1.1.4' });
-    await vi.waitFor(() =>
-      expect(artifactDownloaderModule.verifyArtifact).toHaveBeenCalledWith(
-        expect.any(String),
-        artifact,
-      ),
-    );
-    expect(netFetch).toHaveBeenCalledWith(
-      'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/1.1.4/Masterino-1.1.4-setup.exe',
-      { method: 'HEAD', redirect: 'manual' },
-    );
-    expect(manager.getUpdaterState()).toMatchObject({
-      autoDownloadEnabled: true,
-      installMode: 'restart',
-      stage: 'downloaded',
-    });
-  });
-
   it('keeps the update available when automatic downloads are disabled', async () => {
     mocks.storeGet.mockImplementation((key: string) =>
       key === 'updateChannel' ? 'canary' : false,
@@ -342,29 +341,6 @@ describe('UpdaterManager signed OSS flow', () => {
       autoDownloadEnabled: false,
       stage: 'available',
     });
-  });
-
-  it('cancels an active automatic download when disabled', async () => {
-    let finishDownload!: (paths: string[]) => void;
-    vi.mocked(autoUpdater.downloadUpdate).mockReturnValue(
-      new Promise((resolve) => {
-        finishDownload = resolve;
-      }),
-    );
-    await manager.initialize();
-    await manager.checkForUpdates();
-    events.get('update-available')?.({ version: '1.1.4' });
-    await vi.waitFor(() => expect(manager.getUpdaterState().stage).toBe('downloading'));
-
-    await manager.setAutoDownloadEnabled(false);
-    finishDownload(['C:/updates/Masterino-1.1.4-setup.exe']);
-    await vi.waitFor(() =>
-      expect(manager.getUpdaterState()).toMatchObject({
-        autoDownloadEnabled: false,
-        stage: 'available',
-      }),
-    );
-    expect(artifactDownloaderModule.verifyArtifact).not.toHaveBeenCalled();
   });
 
   it('surfaces manifest verification failures without configuring a download feed', async () => {
@@ -382,78 +358,120 @@ describe('UpdaterManager signed OSS flow', () => {
     expect(autoUpdater.setFeedURL).not.toHaveBeenCalled();
   });
 
-  it('records a checksum failure and keeps the verified manual artifact available', async () => {
+  it('discards previous actionable metadata if a subsequent manifest check fails', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    vi.mocked(signedManifestModule.verifySignedManifest).mockImplementationOnce(() => {
+      throw new signedManifestModule.SignedManifestError('bad signature', 'signature');
+    });
+    await manager.checkForUpdates();
+    expect(manager.getUpdaterState()).toMatchObject({
+      stage: 'error',
+      manualDownloadAvailable: false,
+    });
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockClear();
+    await manager.downloadUpdate();
+    await manager.applyDownloadedUpdate();
+    expect(artifactDownloaderModule.downloadArtifact).not.toHaveBeenCalled();
+    expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
+  });
+  it('offers a fresh manual download if an installer is damaged after download', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
     vi.mocked(artifactDownloaderModule.verifyArtifact).mockRejectedValueOnce(
-      new artifactDownloaderModule.ArtifactDownloadError(
-        'Downloaded update checksum mismatch',
-        'integrity',
-      ),
+      new artifactDownloaderModule.ArtifactDownloadError('damaged', 'integrity'),
     );
+    await manager.applyDownloadedUpdate();
+    expect(manager.getUpdaterState()).toMatchObject({ stage: 'error', errorCode: 'integrity' });
+    expect(mocks.cleanup).not.toHaveBeenCalled();
+    await manager.downloadUpdate();
+    expect(manager.getUpdaterState().stage).toBe('downloaded');
+    expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
+  });
+  it('reuses a verified cached installer when checking after restart', async () => {
+    vi.mocked(artifactDownloaderModule.findCachedArtifact).mockResolvedValue('/cached/installer');
     await manager.initialize();
     await manager.checkForUpdates();
-    await events.get('update-available')?.({ version: '1.1.4' });
-    await vi.waitFor(() => expect(manager.getUpdaterState().stage).toBe('error'));
-
-    expect(manager.getUpdaterState()).toMatchObject({
-      diagnostic: {
-        errorCode: 'integrity',
-        errorMessage: 'Downloaded update checksum mismatch',
-      },
-      manualDownloadAvailable: true,
-    });
+    expect(manager.getUpdaterState().stage).toBe('downloaded');
+    expect(artifactDownloaderModule.downloadArtifact).not.toHaveBeenCalled();
   });
-
-  it('records a macOS installer-open failure without persisting the local path', async () => {
-    mocks.isWindows = false;
-    mocks.shellOpenPath.mockResolvedValueOnce('Unable to open');
-    const macArtifact = {
-      ...artifact,
-      arch: 'arm64' as const,
-      path: 'canary/1.1.4/Masterino-1.1.4-unsigned-arm64.dmg',
-      platform: 'darwin' as const,
-    };
-    vi.mocked(signedManifestModule.selectUpdateArtifact).mockReturnValueOnce(macArtifact);
-
-    await manager.initialize();
-    await manager.checkForUpdates({ manual: true });
-    manager.applyDownloadedUpdate();
-    await vi.waitFor(() => expect(manager.getUpdaterState().stage).toBe('error'));
-
-    expect(manager.getUpdaterState()).toMatchObject({
-      diagnostic: {
-        errorCode: 'install',
-        errorMessage: 'Unable to open',
-      },
-    });
-    expect(JSON.stringify(manager.getUpdaterState().diagnostic)).not.toContain('/updates/');
-  });
-
-  it('rejects an artifact redirect before electron-updater downloads it', async () => {
+  it('downloads explicitly, reports progress, and never installs on quit', async () => {
     await manager.initialize();
     await manager.checkForUpdates();
-    vi.mocked(netFetch).mockResolvedValueOnce({
-      headers: new Headers(),
-      ok: false,
-      status: 302,
-      url: 'https://example.com/update.exe',
-    } as any);
-    events.get('update-available')?.({ version: '1.1.4' });
-    await vi.waitFor(() =>
-      expect(manager.getUpdaterState()).toMatchObject({
-        errorCode: 'signature',
-        stage: 'error',
+    expect(artifactDownloaderModule.downloadArtifact).not.toHaveBeenCalled();
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockImplementationOnce(async (options) => {
+      options.onProgress?.({ percent: 50, transferred: 50, total: 100, bytesPerSecond: 10 });
+      expect(mocks.progress).toHaveBeenCalledWith(0.5);
+      options.onVerifying?.();
+      expect(manager.getUpdaterState().stage).toBe('verifying');
+      return '/cached/installer';
+    });
+    await manager.downloadUpdate();
+    expect(manager.getUpdaterState().stage).toBe('downloaded');
+    expect(mocks.progress).toHaveBeenLastCalledWith(-1);
+    manager.installLater();
+    expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
+    expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
+  });
+  it('clears previous transfer progress before retrying a failed download', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockImplementationOnce(async (options) => {
+      options.onProgress?.({ percent: 50, transferred: 50, total: 100, bytesPerSecond: 10 });
+      throw new Error('network connection interrupted');
+    });
+    await manager.downloadUpdate();
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockImplementationOnce(async () => {
+      expect(manager.getUpdaterState().progress).toBeUndefined();
+      expect(mocks.progress).toHaveBeenLastCalledWith(0);
+      return '/cached/installer';
+    });
+    await manager.downloadUpdate();
+    expect(manager.getUpdaterState().stage).toBe('downloaded');
+  });
+  it('waits for managed tasks and starts only one installer', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    let finish!: () => void;
+    mocks.cleanup.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
       }),
     );
-    expect(autoUpdater.downloadUpdate).not.toHaveBeenCalled();
+    const installing = manager.applyDownloadedUpdate();
+    await vi.waitFor(() => expect(mocks.cleanup).toHaveBeenCalledOnce());
+    await manager.applyDownloadedUpdate();
+    expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
+    finish();
+    await installing;
+    expect(installers.launchUpdateInstaller).toHaveBeenCalledOnce();
+    expect(mocks.quit).toHaveBeenCalledOnce();
   });
-
-  it('enables install on quit only after a verified download', async () => {
+  it('restores normal operation when the installer fails after tasks have stopped', async () => {
     await manager.initialize();
     await manager.checkForUpdates();
-    await events.get('update-available')?.({ version: '1.1.4' });
-    await vi.waitFor(() => expect(manager.getUpdaterState().stage).toBe('downloaded'));
-    manager.installLater();
-    expect(autoUpdater.autoInstallOnAppQuit).toBe(true);
-    expect(mocks.broadcast).toHaveBeenCalledWith('updateWillInstallLater');
+    await manager.downloadUpdate();
+    vi.mocked(installers.launchUpdateInstaller).mockRejectedValueOnce(
+      new Error('helper launch failed'),
+    );
+    await manager.applyDownloadedUpdate();
+    expect(mocks.resume).toHaveBeenCalledOnce();
+    expect(mocks.quit).not.toHaveBeenCalled();
+    expect(manager.getUpdaterState()).toMatchObject({ stage: 'error', errorCode: 'install' });
+    await manager.applyDownloadedUpdate();
+    expect(mocks.quit).toHaveBeenCalledOnce();
+  });
+  it('keeps the App open when cleanup fails', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    mocks.cleanup.mockRejectedValue(new Error('owned process still running'));
+    await manager.applyDownloadedUpdate();
+    expect(manager.getUpdaterState()).toMatchObject({ stage: 'error', errorCode: 'install' });
+    expect(installers.launchUpdateInstaller).not.toHaveBeenCalled();
+    expect(mocks.quit).not.toHaveBeenCalled();
   });
 });

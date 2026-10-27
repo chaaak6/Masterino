@@ -23,6 +23,8 @@ class AutoUpdateService {
     return ensureElectronIpc().autoUpdate.downloadUpdate();
   }
 
+  cancelDownload = async () => ensureElectronIpc().autoUpdate.cancelDownload();
+
   getUpdateChannel = async (): Promise<UpdateChannel> => {
     return ensureElectronIpc().autoUpdate.getUpdateChannel();
   };

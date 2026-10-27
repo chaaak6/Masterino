@@ -1,4 +1,5 @@
 export default {
+  'tab.advanced.manualUpdateOnly': 'Download only when clicked',
   'workspaceSkills.scanError':
     'Could not scan project skills. Check the device connection and retry.',
   'workspaceSkills.retry': 'Retry',
@@ -1159,8 +1160,8 @@ When I am ___, I need ___
   'tab.advanced': 'Advanced',
   'tab.advanced.appUpdates.title': 'App updates',
   'tab.advanced.autoDownloadUpdates.desc':
-    'Download verified updates from Alibaba Cloud OSS in the background. You will still choose when to install.',
-  'tab.advanced.autoDownloadUpdates.title': 'Automatically download updates',
+    'Checking for updates only fetches version information. Installers download only after you click Download.',
+  'tab.advanced.autoDownloadUpdates.title': 'Update downloads',
   'tab.advanced.gatewayMode.desc':
     'Run supported agent tasks through the cloud Gateway by default. Individual agents can override this from the chat menu.',
   'tab.advanced.gatewayMode.title': 'Gateway Mode',

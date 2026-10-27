@@ -28,7 +28,7 @@ export const defaultProxySettings: NetworkProxySettings = {
  */
 export const STORE_DEFAULTS: ElectronMainStore = {
   appTrayVisible: true,
-  autoDownloadUpdates: true,
+  autoDownloadUpdates: false,
   dataSyncConfig: { storageMode: 'cloud' },
   encryptedTokens: {},
   gatewayDeviceDescription: '',

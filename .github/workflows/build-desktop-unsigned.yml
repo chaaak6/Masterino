@@ -37,7 +37,7 @@ env:
   DESKTOP_OSS_ENDPOINT: https://oss-cn-shenzhen.aliyuncs.com
   DESKTOP_OSS_PREFIX: desktop/releases
   DESKTOP_DEVICE_GATEWAY_URL: https://masterino.bielcrystal.com/device-gateway
-  DESKTOP_UPDATE_SERVER_URL: https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases
+  DESKTOP_UPDATE_SERVER_URL: https://masterino-file.bielcrystal.com/desktop/releases
   NODE_VERSION: 24.11.1
 
 jobs:

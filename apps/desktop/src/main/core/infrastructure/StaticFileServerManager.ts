@@ -258,14 +258,14 @@ export class StaticFileServerManager {
   /**
    * Destroy the static file manager
    */
-  destroy() {
+  async destroy() {
     logger.info('Destroying StaticFileServerManager');
 
     if (this.httpServer) {
       logger.debug('Closing HTTP file server');
-      this.httpServer.close(() => {
-        logger.debug('HTTP file server closed');
-      });
+      const server = this.httpServer;
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
       this.httpServer = null;
       this.serverPort = 0;
     }

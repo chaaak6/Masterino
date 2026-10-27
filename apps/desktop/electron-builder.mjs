@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -24,6 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageJSON = JSON.parse(await fs.readFile(path.join(__dirname, 'package.json'), 'utf8'));
 
 const channel = process.env.UPDATE_CHANNEL;
+const isTestBuild = process.env.DESKTOP_BUILD_FLAVOR === 'test';
 const arch = os.arch();
 const hasAppleCertificate = Boolean(process.env.CSC_LINK);
 const unsignedMacArtifactName = '${productName}-${version}-unsigned-${arch}.${ext}';
@@ -49,7 +50,7 @@ const isCanary = channel === 'canary';
 const stripChannelSuffix = (url) => url.replace(/\/(stable|nightly|canary|beta)\/?$/, '');
 
 // 根据 channel 配置 publish provider
-// 所有桌面更新只允许使用国内 OSS generic provider。
+// 桌面更新使用国内 CDN generic provider，安装包仍上传到 OSS。
 const getPublishConfig = () => {
   const channelPath = isStable ? 'stable' : isNightly ? 'nightly' : channel || 'stable';
 
@@ -88,6 +89,7 @@ if (!hasAppleCertificate) {
 
 // 根据版本类型确定协议 scheme
 const getProtocolScheme = () => {
+  if (isTestBuild) return 'masterino-test';
   if (isCanary) return 'lobehub-canary';
   if (isNightly) return 'lobehub-nightly';
   return 'lobehub';
@@ -161,6 +163,35 @@ const config = {
     const unpackedNodeModules = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules');
     await copyNativeModules(unpackedNodeModules);
 
+    if (isMac) {
+      const helperContents = path.join(
+        resourcesPath,
+        'updater',
+        'Masterino Update.app',
+        'Contents',
+      );
+      const helperDir = path.join(helperContents, 'MacOS');
+      await fs.mkdir(helperDir, { recursive: true });
+      await fs.copyFile(
+        path.join(__dirname, 'native/updater/Info.plist'),
+        path.join(helperContents, 'Info.plist'),
+      );
+      const targetArch = context.arch === 3 ? 'arm64' : 'x86_64';
+      execFileSync(
+        'xcrun',
+        [
+          'swiftc',
+          '-O',
+          '-target',
+          `${targetArch}-apple-macos12.0`,
+          path.join(__dirname, 'native/updater/main.swift'),
+          '-o',
+          path.join(helperDir, 'MasterinoUpdate'),
+        ],
+        { stdio: 'inherit' },
+      );
+    }
+
     // macOS-specific post-processing
     if (!isMac) {
       return;
@@ -194,7 +225,9 @@ const config = {
       // Non-critical: folder may not exist depending on packaging details
     }
   },
-  appId: 'com.masterion.desktop',
+  appId: isTestBuild ? 'com.masterion.desktop.test' : 'com.masterion.desktop',
+  ...(isTestBuild ? { productName: 'Masterino Test' } : {}),
+  electronFuses: { enableCookieEncryption: false },
   appImage: {
     artifactName: '${productName}-${version}.${ext}',
   },
@@ -325,7 +358,7 @@ const config = {
   extraFiles: process.platform === 'darwin' ? [] : desktopConfigFiles,
 
   win: {
-    executableName: 'Masterino',
+    executableName: isTestBuild ? 'MasterinoTest' : 'Masterino',
     icon: 'build/icon.ico',
   },
 };

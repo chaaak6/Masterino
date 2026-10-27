@@ -5,6 +5,7 @@ import type { McpSchema, ProtocolUrlParsed } from '../types/protocol';
 export type AppChannel = 'stable' | 'beta' | 'nightly';
 
 export const getProtocolScheme = (): string => {
+  if (process.env.DESKTOP_BUILD_FLAVOR === 'test') return 'masterino-test';
   // In Electron environment, version can be determined in multiple ways
   const bundleId = app.name;
   const appPath = app.getPath('exe');

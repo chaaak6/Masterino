@@ -29,11 +29,13 @@ export type UpdaterStage =
   | 'checking'
   | 'available'
   | 'downloading'
+  | 'verifying'
+  | 'preparing-install'
   | 'downloaded'
   | 'latest'
   | 'error';
 
-export type UpdaterInstallMode = 'open-dmg' | 'restart';
+export type UpdaterInstallMode = 'open-dmg' | 'restart' | 'native-helper';
 
 export type UpdaterErrorCode =
   | 'disk'
