@@ -138,7 +138,7 @@ export class ShellProcessManager {
     }
 
     try {
-      this.stopProcessTree(shellProcess);
+      this.stopProcessTree(shellProcess, () => this.processes.set(shell_id, shellProcess));
       this.processes.delete(shell_id);
       return { success: true };
     } catch (error) {
@@ -150,7 +150,7 @@ export class ShellProcessManager {
     const failures: unknown[] = [];
     for (const [id, sp] of this.processes) {
       try {
-        this.stopProcessTree(sp);
+        this.stopProcessTree(sp, () => this.processes.set(id, sp));
         this.processes.delete(id);
       } catch (error) {
         failures.push(error);
@@ -161,7 +161,7 @@ export class ShellProcessManager {
     if (failures.length) throw new AggregateError(failures, 'Managed commands did not stop');
   }
 
-  private stopProcessTree(shellProcess: ShellProcess): void {
+  private stopProcessTree(shellProcess: ShellProcess, onFailure: () => void): void {
     const child = shellProcess.process;
     if (!shellProcess.processGroup && (child.exitCode !== null || child.signalCode != null)) return;
     if (child.pid && process.platform === 'win32') {
@@ -215,7 +215,10 @@ export class ShellProcessManager {
       this.terminations.add(termination);
       void termination.then(
         () => this.terminations.delete(termination),
-        () => undefined,
+        () => {
+          onFailure();
+          this.terminations.delete(termination);
+        },
       );
     } else {
       child.kill();

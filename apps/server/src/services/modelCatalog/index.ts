@@ -203,7 +203,7 @@ export const applyPublishedModelDescriptions = async <
     publishedCache = { generation: settings.generation, records: await repository.list() };
   const byId = new Map(publishedCache.records.map((record) => [record.modelId, record]));
   let changed = false;
-  const projected = models.filter(isAiModelVisible).map((model) => {
+  const projected = models.map((model) => {
     if (model.providerId !== 'newapi') return model;
     const next = projectPublishedDescription(
       model as unknown as AiProviderModelListItem,
