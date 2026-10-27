@@ -161,6 +161,17 @@ export class UpdaterManager {
     const storedDiagnostic = this.app.storeManager.get('lastUpdaterDiagnostic');
     if (storedDiagnostic?.schemaVersion === 1 && Array.isArray(storedDiagnostic.steps)) {
       this.latestDiagnostic = storedDiagnostic;
+      if (
+        storedDiagnostic.stage === 'preparing-install' &&
+        storedDiagnostic.targetVersion === electronApp.getVersion()
+      ) {
+        this.latestDiagnostic = {
+          ...storedDiagnostic,
+          stage: 'latest',
+          finishedAt: new Date().toISOString(),
+        };
+        this.persistDiagnostic();
+      }
     }
     const storedChannel = this.app.storeManager.get('updateChannel');
     this.currentChannel = resolveInitialUpdateChannel(storedChannel);

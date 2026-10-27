@@ -24,6 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageJSON = JSON.parse(await fs.readFile(path.join(__dirname, 'package.json'), 'utf8'));
 
 const channel = process.env.UPDATE_CHANNEL;
+const isTestBuild = process.env.DESKTOP_BUILD_FLAVOR === 'test';
 const arch = os.arch();
 const hasAppleCertificate = Boolean(process.env.CSC_LINK);
 const unsignedMacArtifactName = '${productName}-${version}-unsigned-${arch}.${ext}';
@@ -88,6 +89,7 @@ if (!hasAppleCertificate) {
 
 // 根据版本类型确定协议 scheme
 const getProtocolScheme = () => {
+  if (isTestBuild) return 'masterino-test';
   if (isCanary) return 'lobehub-canary';
   if (isNightly) return 'lobehub-nightly';
   return 'lobehub';
@@ -223,7 +225,8 @@ const config = {
       // Non-critical: folder may not exist depending on packaging details
     }
   },
-  appId: 'com.masterion.desktop',
+  appId: isTestBuild ? 'com.masterion.desktop.test' : 'com.masterion.desktop',
+  ...(isTestBuild ? { productName: 'Masterino Test' } : {}),
   electronFuses: { enableCookieEncryption: false },
   appImage: {
     artifactName: '${productName}-${version}.${ext}',
@@ -355,7 +358,7 @@ const config = {
   extraFiles: process.platform === 'darwin' ? [] : desktopConfigFiles,
 
   win: {
-    executableName: 'Masterino',
+    executableName: isTestBuild ? 'MasterinoTest' : 'Masterino',
     icon: 'build/icon.ico',
   },
 };

@@ -195,6 +195,8 @@
   "updater.diagnostic.stageValue.error": "检测失败",
   "updater.diagnostic.stageValue.idle": "尚未检测",
   "updater.diagnostic.stageValue.latest": "已是最新版本",
+  "updater.diagnostic.stageValue.preparing-install": "正在结束任务以便安装",
+  "updater.diagnostic.stageValue.verifying": "正在校验安装包",
   "updater.diagnostic.step.artifactSelected": "选择当前平台安装包",
   "updater.diagnostic.step.artifactVerified": "验证安装包",
   "updater.diagnostic.step.checkCompleted": "完成更新检测",

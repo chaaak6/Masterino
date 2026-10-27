@@ -203,6 +203,8 @@ export default {
   'updater.diagnostic.stageValue.downloading': 'Downloading',
   'updater.diagnostic.stageValue.error': 'Failed',
   'updater.diagnostic.stageValue.idle': 'Not checked',
+  'updater.diagnostic.stageValue.verifying': 'Verifying installer',
+  'updater.diagnostic.stageValue.preparing-install': 'Stopping tasks before installation',
   'updater.diagnostic.stageValue.latest': 'Latest version',
   'updater.diagnostic.step.artifactSelected': 'Selected platform artifact',
   'updater.diagnostic.step.artifactVerified': 'Verified artifact',

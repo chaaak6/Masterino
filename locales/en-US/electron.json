@@ -195,6 +195,8 @@
   "updater.diagnostic.stageValue.error": "Failed",
   "updater.diagnostic.stageValue.idle": "Not checked",
   "updater.diagnostic.stageValue.latest": "Latest version",
+  "updater.diagnostic.stageValue.preparing-install": "Stopping tasks before installation",
+  "updater.diagnostic.stageValue.verifying": "Verifying installer",
   "updater.diagnostic.step.artifactSelected": "Selected platform artifact",
   "updater.diagnostic.step.artifactVerified": "Verified artifact",
   "updater.diagnostic.step.checkCompleted": "Completed update check",
