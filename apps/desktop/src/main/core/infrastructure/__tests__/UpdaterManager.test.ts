@@ -358,6 +358,15 @@ describe('UpdaterManager signed OSS flow', () => {
     expect(autoUpdater.setFeedURL).not.toHaveBeenCalled();
   });
 
+  it('checks the newly selected channel after an update has downloaded', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    vi.mocked(netFetch).mockClear();
+    manager.switchChannel('stable');
+    await vi.waitFor(() => expect(netFetch).toHaveBeenCalled());
+  });
+
   it('keeps a downloaded update installable when an automatic check would fail', async () => {
     await manager.initialize();
     await manager.checkForUpdates();

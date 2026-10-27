@@ -206,6 +206,7 @@ export class UpdaterManager {
     this.checkGeneration++;
     this.downloadAbortController?.abort();
     this.resetPendingUpdate();
+    this.setStage('idle');
     this.mainWindow.broadcast('updateChannelChanged', channel);
     if (this.checking) this.pendingRecheck = true;
     else void this.checkForUpdates();

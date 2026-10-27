@@ -2,7 +2,7 @@ import * as childProcess from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type ShellProcess, ShellProcessManager } from '../process-manager';
 
@@ -291,6 +291,11 @@ describe('ShellProcessManager', () => {
   });
 
   describe('cleanupAll', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
     it('retries a failed process group termination when the group later exits', async () => {
       vi.useFakeTimers();
       const child = createMockProcess();
