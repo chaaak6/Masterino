@@ -1,0 +1,10 @@
+{
+  "name": "@lobechat/skill-package",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "types": "./src/index.d.mts",
+    "default": "./src/index.mjs"
+  }
+}

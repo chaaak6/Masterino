@@ -47,6 +47,14 @@ describe('defineConfig locale path-traversal hardening', () => {
     expect(rewrite).toBeNull();
   });
 
+  it('leaves skill downloads to their session/OIDC handler without a signin redirect', async () => {
+    const response = await middleware(
+      new NextRequest('http://localhost:3010/api/market/skills/qa-skill/download'),
+    );
+    expect(response?.headers.get('location')).toBeNull();
+    expect(response?.headers.get('x-middleware-rewrite')).toBeNull();
+  });
+
   it.each(['success', 'social', 'error'])(
     'serves the public OAuth callback %s page from the auth SPA',
     async (page) => {

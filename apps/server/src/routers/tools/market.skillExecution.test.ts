@@ -1,7 +1,12 @@
 // @vitest-environment node
 import { beforeEach, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ resolve: vi.fn(), factory: vi.fn(), execute: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  resolve: vi.fn(),
+  factory: vi.fn(),
+  execute: vi.fn(),
+  bind: vi.fn(),
+}));
 vi.mock('@/libs/trpc/lambda', async () => {
   const { initTRPC } = await import('@trpc/server');
   const t = initTRPC.context<any>().create();
@@ -26,7 +31,10 @@ vi.mock('@/server/services/sandbox', () => ({
   createSandboxService: vi.fn(),
 }));
 vi.mock('@/server/services/aiAgent', () => ({
-  AiAgentService: vi.fn(() => ({ resolveClientSkillToolContext: mocks.resolve })),
+  AiAgentService: vi.fn(() => ({
+    resolveClientSkillToolContext: mocks.resolve,
+    bindScratchAfterToolSuccess: mocks.bind,
+  })),
 }));
 vi.mock('@/server/services/toolExecution/serverRuntimes/skills', () => ({
   skillsRuntime: { factory: mocks.factory },
@@ -39,7 +47,7 @@ it('the router runs only persisted server-resolved arguments through the shared 
   const { marketRouter } = await import('./market');
   mocks.resolve.mockResolvedValue({
     args: { skillId: 'user:demo', command: 'python owned.py', description: 'run' },
-    context: { marker: 'server-owned' },
+    context: { marker: 'server-owned', executionContext: { plan: { kind: 'sandbox' } } },
   });
   mocks.execute.mockResolvedValue({ success: true, content: 'ok' });
   const caller = marketRouter.createCaller({ userId: 'user', serverDB: {} } as never);
@@ -55,7 +63,10 @@ it('the router runs only persisted server-resolved arguments through the shared 
     messageId: 'message',
     topicId: 'topic',
   });
-  expect(mocks.factory).toHaveBeenCalledWith({ marker: 'server-owned' });
+  expect(mocks.factory).toHaveBeenCalledWith({
+    marker: 'server-owned',
+    executionContext: { plan: { kind: 'sandbox' } },
+  });
   expect(mocks.execute).toHaveBeenCalledWith({
     skillId: 'user:demo',
     command: 'python owned.py',
@@ -173,3 +184,33 @@ it('desktop activation retains the original runtime failure', async () => {
     }),
   ).toEqual(failure);
 });
+
+it.each([true, false])(
+  'binds prepared scratch only after successful script execution: %s',
+  async (success) => {
+    const { marketRouter } = await import('./market');
+    mocks.resolve.mockResolvedValue({
+      args: { command: 'pwd' },
+      scratchRoot: '/scratch/topic',
+      context: {
+        executionContext: { plan: { kind: 'device', deviceId: 'device', target: 'local' } },
+      },
+    });
+    mocks.execute.mockResolvedValue({ success });
+    const caller = marketRouter.createCaller({ userId: 'user', serverDB: {} } as never);
+    await caller.executeSkillTool({
+      apiName: 'execScript',
+      messageId: 'message',
+      topicId: 'topic',
+    });
+    if (success)
+      expect(mocks.bind).toHaveBeenCalledWith({
+        deviceId: 'device',
+        rootPath: '/scratch/topic',
+        target: 'local',
+        toolSucceeded: true,
+        topicId: 'topic',
+      });
+    else expect(mocks.bind).not.toHaveBeenCalled();
+  },
+);

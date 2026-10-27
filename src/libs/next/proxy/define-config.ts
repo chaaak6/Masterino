@@ -195,6 +195,8 @@ export function defineConfig() {
     '/api/agent(.*)',
     '/api/dev(.*)',
     '/api/upload/s3-proxy',
+    // The download handler validates web sessions and desktop OIDC itself.
+    '/api/market/skills/(.*)/download',
     '/webapi(.*)',
     '/trpc(.*)',
     // version

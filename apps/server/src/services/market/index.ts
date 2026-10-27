@@ -1,4 +1,7 @@
+import { createHash } from 'node:crypto';
+
 import { type LobeToolManifest } from '@lobechat/context-engine';
+import { readBoundedSkillBody, SKILL_PACKAGE_MAX_BYTES } from '@lobechat/skill-package';
 import { MarketSDK, type OrgRef, orgRefToPathSegment } from '@lobehub/market-sdk';
 import debug from 'debug';
 import { type NextRequest } from 'next/server';
@@ -476,7 +479,25 @@ export class MarketService {
   async downloadSkill(identifier: string, version?: string) {
     log('downloadSkill: %s, version: %s', identifier, version);
 
-    return this.market.marketSkills.downloadSkill(identifier, version);
+    const sdk = this.market as unknown as { headers: Record<string, string> };
+    const url = new URL(
+      `${getInternalMarketBaseUrl()}/api/v1/skills/${encodeURIComponent(identifier)}/download`,
+    );
+    if (version) url.searchParams.set('version', version);
+    const signal = AbortSignal.timeout(120_000);
+    // Do not forward internal authentication headers to the object-store redirect.
+    const response = await fetch(url, { headers: sdk.headers, signal, redirect: 'manual' });
+    const expectedHash = response.headers.get('x-artifact-sha256');
+    const location = response.headers.get('location');
+    const archive =
+      location && response.status >= 300 && response.status < 400
+        ? await fetch(new URL(location, url), { signal })
+        : response;
+    if (!archive.ok) throw new Error(`Market skill download failed (${archive.status})`);
+    const bytes = await readBoundedSkillBody(archive.body, SKILL_PACKAGE_MAX_BYTES);
+    if (expectedHash && createHash('sha256').update(bytes).digest('hex') !== expectedHash)
+      throw new Error('Market skill checksum mismatch');
+    return { buffer: bytes.buffer as ArrayBuffer, filename: `${identifier}.zip` };
   }
 
   /**

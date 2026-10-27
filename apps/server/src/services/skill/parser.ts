@@ -2,6 +2,12 @@
 import { readFile } from 'node:fs/promises';
 
 import {
+  SKILL_EXPANDED_MAX_BYTES,
+  SKILL_MAX_ENTRIES,
+  SKILL_PACKAGE_MAX_BYTES,
+  SKILL_SOURCE_MAX_BYTES,
+} from '@lobechat/skill-package';
+import {
   type ParsedSkill,
   type ParsedZipSkill,
   type SkillManifest,
@@ -13,16 +19,16 @@ import { sha256 } from 'js-sha256';
 
 import { SkillManifestError, SkillParseError } from './errors';
 
-const MAX_SKILL_ZIP_BYTES = 16 * 1024 * 1024;
-const MAX_SKILL_ZIP_FILES = 2000;
-const MAX_SKILL_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
+const MAX_SKILL_ZIP_BYTES = SKILL_SOURCE_MAX_BYTES;
+const MAX_SKILL_ZIP_FILES = SKILL_MAX_ENTRIES;
+const MAX_SKILL_UNCOMPRESSED_BYTES = SKILL_EXPANDED_MAX_BYTES;
 // Script sources are skill resources; import never executes them. Execution
 // remains subject to the selected runtime and its approval/path boundary.
 const forbiddenSkillFile = /\.(?:com|dll|docm|exe|msi|scr|xlsm)$/i;
 
 const assertSafeZipArchive = (archive: Buffer) => {
   if (archive.length > MAX_SKILL_ZIP_BYTES) {
-    throw new SkillParseError('Skill ZIP exceeds the 16 MiB limit');
+    throw new SkillParseError('Skill source ZIP exceeds the 64 MiB limit');
   }
   const eocd = archive.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
   if (eocd < 0 || eocd + 22 > archive.length) {
@@ -168,6 +174,8 @@ export class SkillParser {
       // If repackSkillZip is true, create a new ZIP with only the skill files
       if (options?.repackSkillZip) {
         const skillZipBuffer = await this.repackSkillZip(skillMdContent, resources);
+        if (skillZipBuffer.length > SKILL_PACKAGE_MAX_BYTES)
+          throw new SkillParseError('Normalized skill ZIP exceeds the 32 MiB limit');
         const zipHash = sha256(skillZipBuffer);
         return { content, manifest, resources, skillZipBuffer, zipHash };
       }
@@ -308,6 +316,18 @@ export class SkillParser {
       };
     }
 
+    const candidates = Object.keys(unzipped).filter(
+      (path) => path.endsWith('/SKILL.md') && !path.includes('__MACOSX/'),
+    );
+    if (candidates.length > 1)
+      throw new SkillParseError(
+        'Multiple skills found. Upload one skill directory or specify its GitHub directory URL.',
+      );
+    if (candidates.length === 1)
+      return {
+        skillMdContent: decoder.decode(unzipped[candidates[0]]),
+        skillMdPath: candidates[0],
+      };
     return { skillMdContent: '', skillMdPath: null };
   }
 
@@ -342,21 +362,18 @@ export class SkillParser {
       : '';
 
     for (const [path, data] of Object.entries(unzipped)) {
+      // Apply the same policy before and after removing a repository wrapper.
+      if (basePath && !path.startsWith(basePath)) continue;
+      const relativePath = basePath ? path.slice(basePath.length) : path;
       // Skip directories, hidden files, __MACOSX and SKILL.md
       if (
         path.endsWith('/') ||
-        path.startsWith('.') ||
+        (relativePath.startsWith('.') && relativePath !== '.env.example') ||
         path.includes('__MACOSX') ||
         path === skillMdPath
       ) {
         continue;
       }
-
-      // Skip files outside base path
-      if (basePath && !path.startsWith(basePath)) continue;
-
-      // Calculate relative path
-      const relativePath = basePath ? path.slice(basePath.length) : path;
 
       // Skip empty paths
       if (!relativePath) continue;

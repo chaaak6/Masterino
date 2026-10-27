@@ -275,7 +275,12 @@ class UploadService {
     // Generate file path metadata
     const { date, dirname, filename, pathname } = generateFilePathMetadata(file.name, options);
 
-    const upload = await lambdaClient.upload.createS3PreSignedUpload.mutate({ pathname });
+    const upload = await lambdaClient.upload.createS3PreSignedUpload.mutate({
+      pathname,
+      ...(options.directory === 'skills'
+        ? { source: 'skill' as const, size: file.size, hash: sha256(await file.arrayBuffer()) }
+        : {}),
+    });
 
     return {
       date,

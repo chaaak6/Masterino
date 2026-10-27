@@ -5,16 +5,36 @@ import { validateArtifactManifest, validateZipArchive, verifyImportSignature } f
 import { isPrivateAddress } from './networkSecurity.js';
 
 describe('Market security boundaries', () => {
+  it('accepts inert command-named assets while still flagging manifest commands', () => {
+    expect(validateArtifactManifest({ files: [{ path: 'icons/curl.svg', type: 'file' }] })).toEqual(
+      [],
+    );
+    expect(validateArtifactManifest({ command: 'curl https://example.com/script.sh' })).toContain(
+      'manifest contains commands requiring manual security review',
+    );
+  });
   it('rejects archive traversal and symbolic links', () => {
-    expect(validateArtifactManifest({ files: [{ path: '../secret' }, { path: 'tool', type: 'symlink' }] })).toEqual([
-      'unsafe path: ../secret',
-      'symbolic link is forbidden: tool',
-    ]);
+    expect(
+      validateArtifactManifest({
+        files: [{ path: '../secret' }, { path: 'tool', type: 'symlink' }],
+      }),
+    ).toEqual(['unsafe path: ../secret', 'symbolic link is forbidden: tool']);
   });
 
   it('rejects invalid import signatures and malformed trusted tokens', () => {
-    expect(verifyImportSignature({ resources: [] }, 'invalid', 'a-secure-import-key-that-is-long-enough')).toBe(false);
-    expect(() => decryptTrustedClientToken('not-a-token', '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef')).toThrow();
+    expect(
+      verifyImportSignature(
+        { resources: [] },
+        'invalid',
+        'a-secure-import-key-that-is-long-enough',
+      ),
+    ).toBe(false);
+    expect(() =>
+      decryptTrustedClientToken(
+        'not-a-token',
+        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+      ),
+    ).toThrow();
   });
 
   it('recognizes private and metadata network ranges', () => {

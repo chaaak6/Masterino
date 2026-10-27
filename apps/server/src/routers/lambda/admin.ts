@@ -1,9 +1,13 @@
 import { getTaskExecutionBudget } from '@lobechat/env/agent';
+import {
+  SKILL_MAX_ENTRIES,
+  SKILL_PACKAGE_MAX_BYTES,
+  SKILL_SOURCE_MAX_BYTES,
+} from '@lobechat/skill-package';
 import { TRPCError } from '@trpc/server';
 import { and, count, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
+import { strToU8, unzipSync, zipSync } from 'fflate';
 import { z } from 'zod';
-import { unzipSync, zipSync, strToU8 } from 'fflate';
-import { MCPClient } from '@/libs/mcp/client';
 
 import { UserModel } from '@/database/models/user';
 import {
@@ -31,6 +35,7 @@ import {
   workspaces,
 } from '@/database/schemas';
 import { provisionWecomLoginAccount } from '@/libs/better-auth/wecom-login-provisioning';
+import { MCPClient } from '@/libs/mcp/client';
 import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { generateTrustedClientToken } from '@/libs/trusted-client';
@@ -50,6 +55,7 @@ import {
   upsertWecomSsoConfig,
   wecomSsoUpdateInputSchema,
 } from '@/server/services/enterprise/wecomSsoService';
+import { FileService } from '@/server/services/file';
 import { getEmbeddingInputLimit } from '@/server/services/memory/userMemory/embedding';
 import { NewApiService } from '@/server/services/newApi';
 import { createAihubReadiness } from '@/server/services/newApi/readiness/production';
@@ -441,6 +447,9 @@ const defaultSystemConfig = {
   upload: {
     allowedTypes: [] as string[],
     maxFileSizeMb: 0,
+    skillSourceMaxMiB: SKILL_SOURCE_MAX_BYTES / 1024 / 1024,
+    skillPackageMaxMiB: SKILL_PACKAGE_MAX_BYTES / 1024 / 1024,
+    skillMaxEntries: SKILL_MAX_ENTRIES,
     retentionDays: 0,
   },
 };
@@ -2215,7 +2224,7 @@ export const adminRouter = router({
     .input(
       z.object({
         type: z.enum(['mcp', 'skill']),
-        identifier: z.string().regex(/^[a-zA-Z0-9_-]+$/),
+        identifier: z.string().regex(/^[\w-]+$/),
         name: z.string().min(1),
         description: z.string().default(''),
         category: z.string().optional(),
@@ -2224,12 +2233,13 @@ export const adminRouter = router({
           .object({ url: z.string().url(), headers: z.record(z.string()).optional() })
           .optional(),
         artifactBase64: z.string().optional(),
+        artifactFileId: z.string().optional(),
         skillContent: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       await requirePlatformAdmin(ctx);
-      const { type, connection, artifactBase64, skillContent, ...resource } = input;
+      const { type, connection, artifactBase64, artifactFileId, skillContent, ...resource } = input;
       let manifest: any;
       let artifact = artifactBase64;
       if (type === 'mcp') {
@@ -2251,13 +2261,26 @@ export const adminRouter = router({
           await client.disconnect();
         }
       } else {
-        const bytes = artifact
-          ? Buffer.from(artifact, 'base64')
-          : zipSync({ 'SKILL.md': strToU8(skillContent || '') });
-        if (bytes.length > 16 * 1024 * 1024)
-          throw new TRPCError({ code: 'BAD_REQUEST', message: 'ZIP 不能超过 16 MiB' });
+        const fileService = new FileService(getServerDBFromContext(ctx), ctx.userId);
+        let source: Buffer;
+        if (artifactFileId) {
+          const downloaded = await fileService.downloadFileToLocal(artifactFileId, {
+            maxBytes: SKILL_SOURCE_MAX_BYTES,
+          });
+          try {
+            source = await (await import('node:fs/promises')).readFile(downloaded.filePath);
+          } finally {
+            downloaded.cleanup();
+          }
+        } else {
+          source = artifact
+            ? Buffer.from(artifact, 'base64')
+            : Buffer.from(zipSync({ 'SKILL.md': strToU8(skillContent || '') }));
+        }
+        let bytes: Buffer;
         try {
-          await new SkillParser().parseZipPackage(Buffer.from(bytes));
+          const parsed = await new SkillParser().parseZipPackage(source, { repackSkillZip: true });
+          bytes = parsed.skillZipBuffer!;
         } catch (error) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: (error as Error).message });
         }

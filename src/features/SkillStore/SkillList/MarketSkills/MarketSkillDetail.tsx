@@ -1,8 +1,14 @@
 'use client';
 
+import {
+  readBoundedSkillBody,
+  SKILL_EXPANDED_MAX_BYTES,
+  SKILL_MAX_ENTRIES,
+  SKILL_PACKAGE_MAX_BYTES,
+} from '@lobechat/skill-package';
 import { type SkillResourceTreeNode } from '@lobechat/types';
 import { Github } from '@lobehub/icons';
-import { ActionIcon, Avatar, Flexbox, Icon } from '@lobehub/ui';
+import { ActionIcon, Avatar, Button, Flexbox, Icon } from '@lobehub/ui';
 import { Skeleton } from 'antd';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { unzip } from 'fflate';
@@ -98,38 +104,62 @@ const buildMarketResourceTree = (
 const fetchZipContents = async (
   url: string,
 ): Promise<{ contentMap: Record<string, string>; tree: SkillResourceTreeNode[] }> => {
-  const res = await fetch(url);
-  const buf = await res.arrayBuffer();
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error('Skill preview download failed');
+  const buf = await readBoundedSkillBody(res.body, SKILL_PACKAGE_MAX_BYTES);
 
   return new Promise((resolve, reject) => {
-    unzip(new Uint8Array(buf), (err, files) => {
-      if (err) return reject(err);
+    let count = 0;
+    let expanded = 0;
+    unzip(
+      new Uint8Array(buf),
+      {
+        filter: (entry) => {
+          if (
+            ++count > SKILL_MAX_ENTRIES ||
+            (expanded += entry.originalSize) > SKILL_EXPANDED_MAX_BYTES
+          )
+            throw new Error('Skill preview exceeds package limits');
+          return (
+            /(?:SKILL\.md|\.(?:md|txt|json|yaml|yml))$/i.test(entry.name) &&
+            entry.originalSize <= 256 * 1024
+          );
+        },
+      },
+      (err, files) => {
+        if (err) return reject(err);
 
-      const contentMap: Record<string, string> = {};
-      const tree: SkillResourceTreeNode[] = [];
-      const decoder = new TextDecoder();
+        const contentMap: Record<string, string> = {};
+        const tree: SkillResourceTreeNode[] = [];
+        const decoder = new TextDecoder();
 
-      for (const [rawPath, data] of Object.entries(files)) {
-        if (rawPath.endsWith('/') || rawPath.includes('__MACOSX')) continue;
+        const root = files['SKILL.md']
+          ? ''
+          : Object.keys(files)
+              .find((path) => path.endsWith('/SKILL.md'))
+              ?.slice(0, -8) || '';
+        for (const [rawPath, data] of Object.entries(files)) {
+          if (rawPath.endsWith('/') || rawPath.includes('__MACOSX')) continue;
 
-        // Strip the top-level directory prefix (e.g. "skill-name/")
-        const slashIdx = rawPath.indexOf('/');
-        const path = slashIdx >= 0 ? rawPath.slice(slashIdx + 1) : rawPath;
-        if (!path || path === 'SKILL.md') continue;
+          // Strip the top-level directory prefix (e.g. "skill-name/")
+          const path = root && rawPath.startsWith(root) ? rawPath.slice(root.length) : rawPath;
+          if (!path) continue;
 
-        const content = decoder.decode(data);
-        contentMap[path] = content;
-        tree.push({
-          content,
-          name: path.split('/').pop() || path,
-          path,
-          type: 'file',
-        });
-      }
+          const content = decoder.decode(data);
+          contentMap[path] = content;
+          if (path === 'SKILL.md') continue;
+          tree.push({
+            content,
+            name: path.split('/').pop() || path,
+            path,
+            type: 'file',
+          });
+        }
 
-      tree.sort((a, b) => a.path.localeCompare(b.path));
-      resolve({ contentMap, tree });
-    });
+        tree.sort((a, b) => a.path.localeCompare(b.path));
+        resolve({ contentMap, tree });
+      },
+    );
   });
 };
 
@@ -150,21 +180,31 @@ const MarketSkillDetail = memo<MarketSkillDetailProps>(({ identifier }) => {
   // Zip-based content for uninstalled skills
   const [zipContentMap, setZipContentMap] = useState<Record<string, string>>({});
   const [zipTree, setZipTree] = useState<SkillResourceTreeNode[]>([]);
+  const [previewError, setPreviewError] = useState(false);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
 
   const downloadUrl = marketApiService.getSkillDownloadUrl(identifier);
 
   useEffect(() => {
     if (installedSkill) return;
 
+    let cancelled = false;
+    setPreviewError(false);
     fetchZipContents(downloadUrl)
       .then(({ contentMap, tree }) => {
+        if (cancelled) return;
         setZipContentMap(contentMap);
         setZipTree(tree);
       })
-      .catch(() => {
-        // fall back to metadata-only view
+      .catch((error) => {
+        if (cancelled) return;
+        setPreviewError(true);
+        console.error('[MarketSkillPreview] Download failed', error);
       });
-  }, [downloadUrl, installedSkill]);
+    return () => {
+      cancelled = true;
+    };
+  }, [downloadUrl, installedSkill, previewAttempt]);
 
   const installedResourceTree = useMemo(
     () => installedData?.resourceTree ?? [],
@@ -190,7 +230,7 @@ const MarketSkillDetail = memo<MarketSkillDetailProps>(({ identifier }) => {
   const { name, icon, version, description, homepage, github } = data;
 
   const skillDetailForViewer = {
-    content: installedData?.skillDetail?.content || data.content,
+    content: installedData?.skillDetail?.content || zipContentMap['SKILL.md'] || data.content,
   } as any;
 
   return (
@@ -233,6 +273,14 @@ const MarketSkillDetail = memo<MarketSkillDetailProps>(({ identifier }) => {
           </Flexbox>
         </Flexbox>
       </div>
+      {previewError && (
+        <Flexbox horizontal align={'center'} gap={8} padding={16}>
+          <span>{t('agentSkillDetail.previewFailed')}</span>
+          <Button size={'small'} onClick={() => setPreviewAttempt((value) => value + 1)}>
+            {t('workspaceSkills.retry')}
+          </Button>
+        </Flexbox>
+      )}
       <Flexbox horizontal style={{ flex: 1, overflow: 'hidden' }}>
         <div className={styles.left}>
           <FileTree

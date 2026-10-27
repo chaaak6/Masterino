@@ -1,3 +1,4 @@
+import { SKILL_SOURCE_MAX_BYTES } from '@lobechat/skill-package';
 import { z } from 'zod';
 
 import { withScopedPermission } from '@/business/server/trpc-middlewares/rbacPermission';
@@ -29,9 +30,24 @@ const getBrowserUploadUrl = (proxyUrl: string): string => {
 export const uploadRouter = router({
   createS3PreSignedUpload: authedProcedure
     .use(withScopedPermission('file:upload'))
-    .input(z.object({ pathname: z.string() }))
+    .input(
+      z.object({
+        pathname: z.string(),
+        source: z.literal('skill').optional(),
+        size: z.number().int().positive().max(SKILL_SOURCE_MAX_BYTES).optional(),
+        hash: z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .optional(),
+      }),
+    )
     .mutation(async ({ input }) => {
-      const proxyUrl = createS3UploadProxyUrl(input.pathname);
+      if (input.source && (!input.size || !input.hash || !input.pathname.startsWith('skills/')))
+        throw new Error('Invalid skill upload claim');
+      const claim = input.source
+        ? { source: input.source, size: input.size!, hash: input.hash! }
+        : undefined;
+      const proxyUrl = createS3UploadProxyUrl(input.pathname, Date.now(), claim);
       const upload: {
         headers?: Record<string, string>;
         requiresConfirmation?: true;

@@ -4,10 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { skillsExecutor } from './lobe-skills.desktop';
 
-const { executeLocalToolCall, resolveExecutionDirectory, resolveRealPath } = vi.hoisted(() => ({
-  executeLocalToolCall: vi.fn(),
-  resolveExecutionDirectory: vi.fn(),
-  resolveRealPath: vi.fn(),
+const { executeBound, executeLocalToolCall, resolveExecutionDirectory, resolveRealPath } =
+  vi.hoisted(() => ({
+    executeBound: vi.fn(),
+    executeLocalToolCall: vi.fn(),
+    resolveExecutionDirectory: vi.fn(),
+    resolveRealPath: vi.fn(),
+  }));
+
+vi.mock('@/libs/trpc/client', () => ({
+  toolsClient: { market: { executeSkillTool: { mutate: executeBound } } },
 }));
 
 vi.mock('@/services/electron/gatewayConnection', () => ({
@@ -205,5 +211,21 @@ describe('desktop skills execution', () => {
         purpose: 'skill-script',
       }),
     );
+  });
+});
+
+// The first script must use the existing server-owned topic scratch binding.
+it('prepares the first device script through persisted server execution without trusting client commands', async () => {
+  executeBound.mockResolvedValue({ content: 'ok', success: true });
+  const { cwd: _cwd, workspace: _workspace, ...unbound } = context.executionContext;
+  const result = await skillsExecutor.execScript(
+    { command: 'untrusted', description: '' },
+    { ...context, executionContext: unbound },
+  );
+  expect(result.success).toBe(true);
+  expect(executeBound).toHaveBeenCalledWith({
+    apiName: 'execScript',
+    messageId: 'message-a',
+    topicId: 'topic-a',
   });
 });

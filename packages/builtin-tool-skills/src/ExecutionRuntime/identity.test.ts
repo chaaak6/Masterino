@@ -32,6 +32,7 @@ describe('operation skill identity', () => {
           description: '',
           content: '# Guide',
           source: source === 'user' ? 'user' : 'builtin',
+          zipFileHash: source === 'user' ? 'archive-hash' : undefined,
           resources: { 'ref.md': { content: 'reference', size: 9, fileHash: 'hash' } },
         };
         const backend = service();
@@ -64,6 +65,12 @@ describe('operation skill identity', () => {
         expect(activated.success).toBe(true);
         expect(activated.content).toContain(`id=${JSON.stringify(activated.state?.id)}`);
         expect(activated.content).not.toContain('skillName=');
+        if (source === 'user') {
+          expect(activated.content).toContain(
+            `execScript with skillId=${JSON.stringify(activated.state?.id)}`,
+          );
+          expect(activated.content).toContain('SKILL_DIR');
+        }
       }
     },
   );

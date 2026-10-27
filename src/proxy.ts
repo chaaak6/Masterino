@@ -6,7 +6,10 @@ const { middleware } = defineConfig();
 export const config = {
   matcher: [
     // include any files in the api or trpc folders that might have an extension
-    '/(api|trpc|webapi)(.*)',
+    '/api',
+    '/api/((?!upload/s3-proxy$).*)',
+    '/(trpc|webapi)(.*)',
+    { source: '/api/upload/s3-proxy', missing: [{ type: 'query', key: 'source', value: 'skill' }] },
     // include the /
     '/',
     '/community',

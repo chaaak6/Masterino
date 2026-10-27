@@ -10,13 +10,13 @@ export interface Account {
 }
 
 export interface ListOptions {
-  /** Restrict discovery to published originals, excluding personal forks and drafts. */
-  publishedOriginalsOnly?: boolean;
   category?: string;
   identifiers?: readonly string[];
   locale?: string;
   page?: number;
   pageSize?: number;
+  /** Restrict discovery to published originals, excluding personal forks and drafts. */
+  publishedOriginalsOnly?: boolean;
   q?: string;
   sort?: string;
 }
@@ -27,6 +27,15 @@ const versionFrom = (data: Record<string, any>): string | undefined => {
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   return undefined;
 };
+
+// A submission advances the owner's review pointer. Other readers must keep
+// seeing the published skill until that submission is actually published.
+const visibleVersionId = (accountParameter: '$2' | '$3') => `CASE
+  WHEN r.type='skill' AND r.status='published' AND r.owner_account_id<>${accountParameter}
+  THEN (SELECT pv.id FROM market_versions pv
+        WHERE pv.resource_id=r.id AND pv.workflow_state='published'
+        ORDER BY (pv.id=r.current_version_id) DESC, pv.created_at DESC LIMIT 1)
+  ELSE r.current_version_id END`;
 
 const itemFromRow = (row: Record<string, any>) => ({
   author: { avatar: null, name: row.owner_name || row.owner_email || 'Masterino' },
@@ -131,7 +140,7 @@ export class MarketRepository {
         (SELECT count(*) FROM market_resources f WHERE f.forked_from_id=r.id AND f.status='published') forks_count,
         count(*) OVER() total_count
        FROM market_resources r
-       LEFT JOIN market_versions v ON v.id=r.current_version_id
+       LEFT JOIN market_versions v ON v.id=${type === 'skill' ? visibleVersionId('$2') : 'r.current_version_id'}
        JOIN market_accounts a ON a.id=r.owner_account_id
        WHERE ${filters.join(' AND ')} ORDER BY ${order}, r.id DESC
        LIMIT $${values.length - 1} OFFSET $${values.length}`,
@@ -156,8 +165,9 @@ export class MarketRepository {
   ) {
     const values: unknown[] = [type, identifier, account.id, workspaceId || null];
     const versionJoin = version
-      ? `JOIN market_versions v ON v.resource_id=r.id AND v.version=$5`
-      : 'LEFT JOIN market_versions v ON v.id=r.current_version_id';
+      ? `JOIN market_versions v ON v.resource_id=r.id AND v.version=$5
+         AND (r.type<>'skill' OR r.owner_account_id=$3 OR v.workflow_state='published')`
+      : `LEFT JOIN market_versions v ON v.id=${type === 'skill' ? visibleVersionId('$3') : 'r.current_version_id'}`;
     if (version) values.push(version);
     const result = await this.pool.query(
       `SELECT r.*, v.version, v.workflow_state, v.config, v.editor_data, v.manifest,
@@ -229,26 +239,62 @@ export class MarketRepository {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      const resource = await client.query(
+      let resource = await client.query(
         `INSERT INTO market_resources(type,identifier,owner_account_id,name,description,avatar,category,tags,visibility,metadata)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'internal',$9)
          ON CONFLICT(type,identifier) DO NOTHING RETURNING id`,
-        [type, data.identifier, account.id, data.name || data.identifier, data.description || null,
-          data.avatar || null, data.category || null, JSON.stringify(data.tags || []), JSON.stringify(data.metadata || {})],
+        [
+          type,
+          data.identifier,
+          account.id,
+          data.name || data.identifier,
+          data.description || null,
+          data.avatar || null,
+          data.category || null,
+          JSON.stringify(data.tags || []),
+          JSON.stringify(data.metadata || {}),
+        ],
       );
-      if (!resource.rowCount) throw new Error(`Resource already exists: ${data.identifier}`);
+      const newResource = !!resource.rowCount;
+      if (!newResource) {
+        if (type !== 'skill') throw new Error(`Resource already exists: ${data.identifier}`);
+        resource = await client.query(
+          'SELECT id FROM market_resources WHERE type=$1 AND identifier=$2 AND owner_account_id=$3 FOR UPDATE',
+          [type, data.identifier, account.id],
+        );
+        if (!resource.rowCount) throw new Error('Resource not found or not owned by caller');
+        const duplicate = await client.query(
+          'SELECT 1 FROM market_versions WHERE resource_id=$1 AND version=$2',
+          [resource.rows[0].id, versionFrom(data) || '1.0.0'],
+        );
+        if (duplicate.rowCount)
+          throw new Error(`Resource version already exists: ${data.identifier}`);
+      }
       const version = await client.query(
         `INSERT INTO market_versions(resource_id,version,config,editor_data,manifest,localizations,changelog,created_by,
           artifact_key,artifact_sha256,workflow_state,submitted_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'submitted',now()) RETURNING id`,
-        [resource.rows[0].id, versionFrom(data) || '1.0.0', JSON.stringify(data.config || {}),
-          JSON.stringify(data.editorData || {}), JSON.stringify(data.manifest || {}), JSON.stringify(data.localizations || {}),
-          data.changelog || null, account.id, artifact?.key || null, artifact?.sha256 || null],
+        [
+          resource.rows[0].id,
+          versionFrom(data) || '1.0.0',
+          JSON.stringify(data.config || {}),
+          JSON.stringify(data.editorData || {}),
+          JSON.stringify(data.manifest || {}),
+          JSON.stringify(data.localizations || {}),
+          data.changelog || null,
+          account.id,
+          artifact?.key || null,
+          artifact?.sha256 || null,
+        ],
       );
-      await client.query('UPDATE market_resources SET current_version_id=$1, updated_at=now() WHERE id=$2',
-        [version.rows[0].id, resource.rows[0].id]);
+      await client.query(
+        'UPDATE market_resources SET current_version_id=$1, updated_at=now() WHERE id=$2',
+        [version.rows[0].id, resource.rows[0].id],
+      );
       for (const [action, details] of [
-        ['resource.create', { name: data.name }], ['version.create', { version: versionFrom(data) || '1.0.0' }], ['review.submit', {}],
+        [newResource ? 'resource.create' : 'resource.update', { name: data.name }],
+        ['version.create', { version: versionFrom(data) || '1.0.0' }],
+        ['review.submit', {}],
       ] as const) {
         await client.query(
           'INSERT INTO market_audit_logs(actor_account_id,action,target_type,target_id,details) VALUES ($1,$2,$3,$4,$5)',

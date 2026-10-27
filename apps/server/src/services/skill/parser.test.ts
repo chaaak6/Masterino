@@ -513,6 +513,21 @@ Root content`;
   });
 
   describe('parseZipPackage with repackSkillZip', () => {
+    it('preserves example configuration across normalization while excluding hidden private files', async () => {
+      const encode = (value: string) => new TextEncoder().encode(value);
+      const archive = await createZip({
+        'repo-main/SKILL.md': encode('---\nname: example\ndescription: Example\n---\nGuide'),
+        'repo-main/.env.example': encode('API_KEY=your-key'),
+        'repo-main/.env': encode('private configuration'),
+        'repo-main/scripts/check.py': encode('print("ok")'),
+      });
+      const first = await parser.parseZipPackage(Buffer.from(archive), { repackSkillZip: true });
+      const second = await parser.parseZipPackage(first.skillZipBuffer!, { repackSkillZip: true });
+      expect([...first.resources.keys()].sort()).toEqual(['.env.example', 'scripts/check.py']);
+      expect([...second.resources.keys()].sort()).toEqual([...first.resources.keys()].sort());
+      expect(second.zipHash).toBe(first.zipHash);
+    });
+
     it('should not return skillZipBuffer when repackSkillZip is false/undefined', async () => {
       const skillMd = `---
 name: user-skill

@@ -1,7 +1,7 @@
 'use client';
 
 import { ActionIcon, Avatar, Block, DropdownMenu, Flexbox, Icon, Modal, Tag } from '@lobehub/ui';
-import { confirmModal } from '@lobehub/ui/base-ui';
+import { confirmModal, toast } from '@lobehub/ui/base-ui';
 import { SkillsIcon } from '@lobehub/ui/icons';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { DownloadIcon, Loader2, MoreVerticalIcon, Plus, Trash2 } from 'lucide-react';
@@ -54,17 +54,17 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
   ]);
 
   const handleInstall = useCallback(async () => {
-    if (!canCreate || installing || installed) return;
+    if (!canCreate || installing) return;
     setInstalling(true);
     try {
       await agentSkillService.importFromMarket(identifier);
       await refreshAgentSkills();
-    } catch {
-      // silently fail
+    } catch (error) {
+      toast.error(`${t('error.installError', { name })}: ${(error as Error).message}`);
     } finally {
       setInstalling(false);
     }
-  }, [canCreate, identifier, installing, installed, refreshAgentSkills]);
+  }, [canCreate, identifier, installing, name, refreshAgentSkills, t]);
 
   const handleUninstall = useCallback(() => {
     if (!canEdit || !installedSkill) return;
@@ -100,6 +100,13 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
           nativeButton={false}
           placement="bottomRight"
           items={[
+            {
+              key: 'update',
+              label: tc('update'),
+              icon: <Icon icon={Plus} />,
+              onClick: handleInstall,
+              disabled: !canCreate || installing,
+            },
             ...(installedSkill?.zipFileHash
               ? [
                   {

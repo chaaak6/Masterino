@@ -34,6 +34,9 @@ importers:
 
   .:
     dependencies:
+      '@lobechat/skill-package':
+        specifier: workspace:*
+        version: link:packages/skill-package
       '@ant-design/icons':
         specifier: ^6.2.1
         version: 6.2.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1187,6 +1190,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@lobechat/skill-package':
+        specifier: workspace:*
+        version: link:../../packages/skill-package
       '@ant-design/icons':
         specifier: ^6.2.1
         version: 6.2.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1263,6 +1269,9 @@ importers:
 
   apps/market:
     dependencies:
+      '@lobechat/skill-package':
+        specifier: workspace:*
+        version: link:../../packages/skill-package
       '@aws-sdk/client-s3':
         specifier: ~3.932.0
         version: 3.932.0
@@ -2581,6 +2590,9 @@ importers:
 
   packages/device-control:
     dependencies:
+      '@lobechat/skill-package':
+        specifier: workspace:*
+        version: link:../skill-package
       '@lobechat/local-file-shell':
         specifier: workspace:*
         version: link:../local-file-shell
@@ -3383,6 +3395,8 @@ importers:
       url-join:
         specifier: ^5
         version: 5.0.0
+
+  packages/skill-package: {}
 
 packages:
 

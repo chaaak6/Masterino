@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.1",
+    "@lobechat/skill-package": "workspace:*",
     "@tanstack/react-query": "^5.90.20",
     "@trpc/client": "^11.8.1",
     "@trpc/react-query": "^11.8.1",

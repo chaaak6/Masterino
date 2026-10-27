@@ -12,16 +12,28 @@ const getUploadProxySecret = () => {
   return secret;
 };
 
-const signPayload = (key: string, expires: number) =>
-  createHmac('sha256', getUploadProxySecret()).update(`${key}.${expires}`).digest('hex');
+export interface SkillUploadClaim {
+  hash: string;
+  size: number;
+  source: 'skill';
+}
+const signPayload = (key: string, expires: number, claim?: SkillUploadClaim) =>
+  createHmac('sha256', getUploadProxySecret())
+    .update(
+      claim
+        ? JSON.stringify([key, expires, claim.source, claim.size, claim.hash])
+        : `${key}.${expires}`,
+    )
+    .digest('hex');
 
-export const createS3UploadProxyUrl = (key: string, now = Date.now()) => {
+export const createS3UploadProxyUrl = (key: string, now = Date.now(), claim?: SkillUploadClaim) => {
   const expires = Math.floor(now / 1000) + UPLOAD_PROXY_TTL_SECONDS;
-  const signature = signPayload(key, expires);
+  const signature = signPayload(key, expires, claim);
   const params = new URLSearchParams({
     expires: String(expires),
     key,
     signature,
+    ...(claim ? { source: claim.source, size: String(claim.size), hash: claim.hash } : {}),
   });
 
   return `${UPLOAD_PROXY_PATH}?${params.toString()}`;
@@ -32,11 +44,12 @@ export const verifyS3UploadProxySignature = (
   expires: number,
   signature: string,
   now = Date.now(),
+  claim?: SkillUploadClaim,
 ) => {
   if (!key || !signature || !Number.isFinite(expires)) return false;
   if (expires < Math.floor(now / 1000)) return false;
 
-  const expected = signPayload(key, expires);
+  const expected = signPayload(key, expires, claim);
   const expectedBuffer = Buffer.from(expected);
   const signatureBuffer = Buffer.from(signature);
 
@@ -45,4 +58,3 @@ export const verifyS3UploadProxySignature = (
     timingSafeEqual(expectedBuffer, signatureBuffer)
   );
 };
-

@@ -91,6 +91,7 @@ import { shouldEnableBuiltinSkill } from '@/helpers/skillFilters';
 import { buildConnectorManifests } from '@/libs/mcp/buildConnectorManifests';
 import { signOperationJwt, signUserJWT } from '@/libs/trpc/utils/internalJwt';
 import { getServerFeatureFlagsStateFromRuntimeConfig } from '@/server/featureFlags';
+import { withPrimaryScratchRoot } from '@/server/modules/AgentRuntime/workspacePathConsent';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import type { EvalContext, ServerAgentToolsContext } from '@/server/modules/Mecha';
 import { createServerAgentToolsEngine } from '@/server/modules/Mecha';
@@ -646,7 +647,18 @@ export class AiAgentService {
       operationId,
       topicId: topic.id,
     });
-    const executionContext = resolveClientSkillExecutionContext(frozen.input);
+    let executionContext = resolveClientSkillExecutionContext(frozen.input);
+    let scratchRoot: string | undefined;
+    if (
+      input.apiName === 'execScript' &&
+      executionContext.plan.kind === 'device' &&
+      !executionContext.cwd
+    ) {
+      const deviceId = executionContext.plan.deviceId;
+      const prepared = await this.ensureScratchWorkspace({ deviceId, topicId: topic.id });
+      scratchRoot = prepared.root;
+      executionContext = withPrimaryScratchRoot(executionContext, deviceId, scratchRoot);
+    }
     const skillRegistryResult = await this.resolveFrozenSkillRegistry({
       activeDeviceId:
         executionContext.plan.kind === 'device' ? executionContext.plan.deviceId : undefined,
@@ -657,6 +669,7 @@ export class AiAgentService {
       topicId: topic.id,
     });
     return {
+      scratchRoot,
       args: args as Record<string, unknown>,
       context: {
         agentId,

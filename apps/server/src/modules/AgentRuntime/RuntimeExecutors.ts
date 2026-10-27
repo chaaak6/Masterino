@@ -152,6 +152,7 @@ import {
   buildPendingWorkspacePathConsent,
   getPostDispatchWorkspacePathConsent,
   requiresPrimaryCwdForTool,
+  withPrimaryScratchRoot,
 } from './workspacePathConsent';
 
 const log = debug('lobe-server:agent-runtime:streaming-executors');
@@ -1095,27 +1096,6 @@ interface PreparedToolExecutionContext {
   executionContext?: ExecutionContext;
   scratchRoot?: string;
 }
-
-const withPrimaryScratchRoot = (
-  executionContext: ExecutionContext,
-  deviceId: string,
-  rootPath: string,
-): ExecutionContext => ({
-  ...executionContext,
-  accessRoots: [
-    ...(executionContext.accessRoots ?? []).filter((root) => root.scope !== 'primary'),
-    {
-      deviceId,
-      modes: ['exec', 'read', 'write'],
-      rootPath,
-      scope: 'primary',
-      source: 'workspace',
-    },
-  ],
-  cwd: rootPath,
-  unresolvedReason: undefined,
-  workspace: { deviceId, kind: 'scratch', rootPath },
-});
 
 /**
  * Lazily materialize a deterministic topic scratch root only for a tool that

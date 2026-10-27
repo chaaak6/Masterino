@@ -78,7 +78,16 @@ export const resourcesTreePrompt = (
   skillId: string,
   resources: Record<string, SkillResourceMeta>,
 ): string => {
-  const treeText = buildResourcesTreeText(resources);
+  const paths = Object.keys(resources).sort();
+  const previewLimit = 200;
+  const preview = Object.fromEntries(
+    paths.slice(0, previewLimit).map((path) => [path, resources[path]]),
+  );
+  const treeText = buildResourcesTreeText(preview);
+  const omitted =
+    paths.length > previewLimit
+      ? `\nShowing ${previewLimit} of ${paths.length} files. All files remain available; inspect the skill directory through execScript when needed.\n`
+      : '';
 
   return `## Available Resources
 
@@ -86,5 +95,5 @@ Use \`readReference\` with id=${JSON.stringify(skillId)} and the file path to re
 
 \`\`\`
 ${treeText}
-\`\`\``;
+\`\`\`${omitted}`;
 };

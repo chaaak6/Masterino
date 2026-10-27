@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -73,5 +75,18 @@ describe('S3 upload proxy route', () => {
       'text/plain',
     );
     expect(mocks.uploadBuffer.mock.calls[0][1].toString()).toBe('hello');
+  });
+  it('rejects truncated skill bytes before storing or confirming them', async () => {
+    mocks.verifyS3UploadProxySignature.mockReturnValue(true);
+    const hash = createHash('sha256').update('complete body').digest('hex');
+    const response = await PUT(
+      new Request(
+        `http://localhost/api/upload/s3-proxy?key=skills/a.zip&expires=3600&signature=good&source=skill&size=13&hash=${hash}`,
+        { method: 'PUT', body: 'short' },
+      ),
+    );
+    expect(response.status).toBe(400);
+    expect(mocks.uploadBuffer).not.toHaveBeenCalled();
+    expect(response.headers.has('x-masterino-upload-confirmed')).toBe(false);
   });
 });
