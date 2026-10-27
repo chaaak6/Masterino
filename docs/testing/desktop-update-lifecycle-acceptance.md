@@ -1,6 +1,6 @@
 # 客户端更新、登录存储与退出清理验收
 
-状态：开发前测试基线；执行结果在文末逐项记录。适用于 Windows x64、macOS arm64/x64。
+状态：开发前建立的测试基线；实际执行结果及待测项在文末记录。适用于 Windows x64、macOS arm64/x64。
 
 ## 环境与准备
 
@@ -94,3 +94,21 @@ A/B 是复制完整 Electron 运行时并替换本分支编译产物的 ad-hoc �
 - I02 的每一种外部 Agent / MCP / Python 组合未逐一在 GUI 执行；相关等待/终止逻辑及实际 Shell 父子树已测，不将其写成所有工具集成均通过。
 - R01 真实模型聊天通过；原生文件选择器在此 CUA 会话中出现 Open 不可用，未将附件全链路列为通过，也未修改附件业务逻辑。
 - 全量 type-check 有原有初始化/unknown catch/历史测试类型问题；不宣称全量类型检查通过。以相关测试、构建、lint 和 CI 结果分别记录。
+
+### 启动失败回退实测
+
+12:27–12:29，使用主进程立即 `process.exit(42)` 的合成 1.3.13 安装包，
+身份、版本和签名有效，不故意触发系统崩溃。
+原生作业 `e72f55c5-a667-49fc-8454-5aeb0a8e027e` 替换后等待 120 秒启动回执；
+新版未提供回执，自动还原 1.3.12 并重新打开，弹窗明确报告“新版启动未完成 / 原应用已保留”。
+旧版保留测试账号登录，无需再次扫码；随后真实聊天返回 `Update rollback regression passed.`。
+独立原生进度窗与失败提示截图保存在本机测试目录 `evidence/native-startup-wait.png`、`evidence/rollback-alert.png`。
+
+固定认证文件位置为 `path.join(app.getPath('userData'), 'auth.json')`。
+正式包沿用现有 Masterino 用户目录：macOS `~/Library/Application Support/Masterino/auth.json`；
+Windows `%APPDATA%\Masterino\auth.json`。测试包默认目录为同级 `masterino-desktop-test`，
+此次验收指定独立 local profile，不读写正式资料。
+
+最终本地验证：桌面相关 9 文件 159 项通过；界面 2 文件 8 项通过；真实进程树 2 项通过；
+主语言 56,000 项键/占位符契约通过；修改的 TS/TSX/MJS lint 与 diff 空白检查通过；
+原生安装 helper 的 arm64 / x86_64 编译通过。CI 单独记录最终提交结果。

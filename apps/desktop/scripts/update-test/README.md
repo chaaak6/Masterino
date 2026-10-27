@@ -18,7 +18,7 @@ node apps/desktop/scripts/update-test/signed-fixture.mjs --init
 
 ```bash
 export DESKTOP_BUILD_FLAVOR=test
-export DESKTOP_TEST_PROFILE=manual-update-acceptance
+export DESKTOP_TEST_PROFILE=local-abcdef123456
 export DESKTOP_TEST_UPDATE_ORIGIN=http://127.0.0.1:19381
 export DESKTOP_TEST_UPDATE_KEY_ID='<session.keyId>'
 export DESKTOP_TEST_UPDATE_PUBLIC_KEY='<session.publicKey>'
