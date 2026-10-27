@@ -208,7 +208,7 @@ export class UpdaterManager {
     this.resetPendingUpdate();
     this.setStage('idle');
     this.mainWindow.broadcast('updateChannelChanged', channel);
-    if (this.checking) this.pendingRecheck = true;
+    if (this.checking || this.downloading) this.pendingRecheck = true;
     else void this.checkForUpdates();
   };
 
@@ -299,6 +299,7 @@ export class UpdaterManager {
     )
       return;
     this.downloading = true;
+    const generation = this.checkGeneration;
     this.latestProgress = null;
     this.mainWindow.browserWindow?.setProgressBar(0);
     this.downloadAbortController = new AbortController();
@@ -309,31 +310,41 @@ export class UpdaterManager {
     );
     this.setStage('downloading');
     try {
-      this.downloadedArtifactPath = await downloadArtifact({
+      const downloadedPath = await downloadArtifact({
         artifact: this.pendingArtifact,
         baseUrl: UPDATE_SERVER_URL!,
         destinationDir: this.cacheDirectory(this.pendingManifest.version),
-        onProgress: (progress) => this.onDownloadProgress(progress),
-        onVerifying: () => this.setStage('verifying'),
+        onProgress: (progress) => {
+          if (generation === this.checkGeneration) this.onDownloadProgress(progress);
+        },
+        onVerifying: () => {
+          if (generation === this.checkGeneration) this.setStage('verifying');
+        },
         signal: this.downloadAbortController.signal,
       });
+      if (generation !== this.checkGeneration) return;
+      this.downloadedArtifactPath = downloadedPath;
       this.recordDiagnosticStep('artifact-verified', 'success', 'SHA-512 and size verified');
       this.recordDiagnosticStep('download-completed', 'success', 'The update is ready to install');
-      this.downloading = false;
-      this.downloadAbortController = null;
       this.setStage('downloaded', {
         installMode: this.installMode!,
         updateInfo: this.toUpdateInfo(this.pendingManifest),
       });
       this.mainWindow.broadcast('updateDownloaded', this.toUpdateInfo(this.pendingManifest));
     } catch (error) {
-      this.downloading = false;
-      this.downloadAbortController = null;
+      if (generation !== this.checkGeneration) return;
       if (['AbortError', 'CancellationError'].includes((error as Error)?.name)) {
         this.setStage('available');
         return;
       }
       this.handleError(error);
+    } finally {
+      this.downloading = false;
+      this.downloadAbortController = null;
+      if (this.pendingRecheck) {
+        this.pendingRecheck = false;
+        void this.checkForUpdates();
+      }
     }
   };
 

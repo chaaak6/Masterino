@@ -358,6 +358,25 @@ describe('UpdaterManager signed OSS flow', () => {
     expect(autoUpdater.setFeedURL).not.toHaveBeenCalled();
   });
 
+  it('checks the selected channel when a download is cancelled by switching channels', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    vi.mocked(artifactDownloaderModule.downloadArtifact).mockImplementationOnce(
+      ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+        }),
+    );
+    const download = manager.downloadUpdate();
+    vi.mocked(netFetch).mockClear();
+    manager.switchChannel('stable');
+    await download;
+    await vi.waitFor(() => expect(netFetch).toHaveBeenCalled());
+    expect(vi.mocked(netFetch).mock.calls[0][0]).toContain('/stable/stable.json');
+  });
+
   it('checks the newly selected channel after an update has downloaded', async () => {
     await manager.initialize();
     await manager.checkForUpdates();
@@ -365,6 +384,7 @@ describe('UpdaterManager signed OSS flow', () => {
     vi.mocked(netFetch).mockClear();
     manager.switchChannel('stable');
     await vi.waitFor(() => expect(netFetch).toHaveBeenCalled());
+    expect(vi.mocked(netFetch).mock.calls[0][0]).toContain('/stable/stable.json');
   });
 
   it('keeps a downloaded update installable when an automatic check would fail', async () => {
