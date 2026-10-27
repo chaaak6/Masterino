@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -161,6 +161,35 @@ const config = {
     const unpackedNodeModules = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules');
     await copyNativeModules(unpackedNodeModules);
 
+    if (isMac) {
+      const helperContents = path.join(
+        resourcesPath,
+        'updater',
+        'Masterino Update.app',
+        'Contents',
+      );
+      const helperDir = path.join(helperContents, 'MacOS');
+      await fs.mkdir(helperDir, { recursive: true });
+      await fs.copyFile(
+        path.join(__dirname, 'native/updater/Info.plist'),
+        path.join(helperContents, 'Info.plist'),
+      );
+      const targetArch = context.arch === 3 ? 'arm64' : 'x86_64';
+      execFileSync(
+        'xcrun',
+        [
+          'swiftc',
+          '-O',
+          '-target',
+          `${targetArch}-apple-macos12.0`,
+          path.join(__dirname, 'native/updater/main.swift'),
+          '-o',
+          path.join(helperDir, 'MasterinoUpdate'),
+        ],
+        { stdio: 'inherit' },
+      );
+    }
+
     // macOS-specific post-processing
     if (!isMac) {
       return;
@@ -195,6 +224,7 @@ const config = {
     }
   },
   appId: 'com.masterion.desktop',
+  electronFuses: { enableCookieEncryption: false },
   appImage: {
     artifactName: '${productName}-${version}.${ext}',
   },

@@ -31,6 +31,7 @@ export default class ShellCommandCtr extends ControllerModule {
 
   @IpcMethod()
   async handleRunCommand(params: RunCommandParams): Promise<RunCommandResult> {
+    if (this.app.isQuiting) return { success: false, error: 'Application is shutting down' };
     if (params.runtime === 'bundled-python') {
       const info = await getBundledPythonInfo();
       if (!info) return { success: false, error: 'BUNDLED_PYTHON_UNAVAILABLE' };

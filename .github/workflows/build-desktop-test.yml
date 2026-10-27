@@ -55,6 +55,10 @@ jobs:
         working-directory: packages/local-file-shell
         run: pnpm exec vitest run --silent=passed-only src/shell/__tests__/process-tree.test.ts src/file/__tests__/temporaryFiles.test.ts
 
+      - name: Test manual updates, credential migration and shutdown on Windows
+        working-directory: apps/desktop
+        run: pnpm exec vitest run --config vitest.config.mts --silent=passed-only src/main/utils/stopProcessTree.test.ts src/main/modules/authStorage.test.ts src/main/modules/updater/artifactDownloader.test.ts src/main/controllers/__tests__/RemoteServerConfigCtr.test.ts src/main/controllers/__tests__/UpdaterCtr.test.ts src/main/core/infrastructure/__tests__/UpdaterManager.test.ts src/main/core/__tests__/App.test.ts
+
       - name: Build unsigned Windows test client
         working-directory: apps/desktop
         env:

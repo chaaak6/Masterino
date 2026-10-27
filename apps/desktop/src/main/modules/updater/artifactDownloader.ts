@@ -15,7 +15,7 @@ import { resolveArtifactUrl } from './signedManifest';
 export class ArtifactDownloadError extends Error {
   constructor(
     message: string,
-    public readonly code: 'disk' | 'integrity' | 'network',
+    public readonly code: 'disk' | 'integrity' | 'install' | 'network',
   ) {
     super(message);
     this.name = 'ArtifactDownloadError';
@@ -34,19 +34,43 @@ export const verifyArtifact = async (filePath: string, artifact: DesktopUpdateAr
   }
 };
 
+export const findCachedArtifact = async (
+  artifact: DesktopUpdateArtifact,
+  destinationDir: string,
+) => {
+  const file = path.join(destinationDir, path.basename(artifact.path));
+  try {
+    await verifyArtifact(file, artifact);
+    return file;
+  } catch (error) {
+    if (
+      (error as NodeJS.ErrnoException).code === 'ENOENT' ||
+      error instanceof ArtifactDownloadError
+    )
+      return;
+    throw error;
+  }
+};
+
 export const downloadArtifact = async ({
   artifact,
   baseUrl,
   destinationDir,
   onProgress,
+  onVerifying,
   signal,
 }: {
   artifact: DesktopUpdateArtifact;
   baseUrl: string;
   destinationDir: string;
   onProgress?: (progress: ProgressInfo) => void;
+  onVerifying?: () => void;
   signal?: AbortSignal;
 }): Promise<string> => {
+  signal?.throwIfAborted();
+  const cached = await findCachedArtifact(artifact, destinationDir);
+  signal?.throwIfAborted();
+  if (cached) return cached;
   const url = resolveArtifactUrl(baseUrl, artifact.path);
   await fs.mkdir(destinationDir, { recursive: true });
   const finalPath = path.join(destinationDir, path.basename(artifact.path));
@@ -82,12 +106,16 @@ export const downloadArtifact = async ({
     });
     const readable = Readable.fromWeb(response.body.pipeThrough(tracked) as any);
     await pipeline(readable, createWriteStream(partialPath, { flags: 'wx' }));
+    signal?.throwIfAborted();
+    onVerifying?.();
     await verifyArtifact(partialPath, artifact);
+    signal?.throwIfAborted();
     await fs.rm(finalPath, { force: true });
     await fs.rename(partialPath, finalPath);
     return finalPath;
   } catch (error) {
     await fs.rm(partialPath, { force: true }).catch(() => undefined);
+    if (signal?.aborted) throw new DOMException('Update download cancelled', 'AbortError');
     if (error instanceof ArtifactDownloadError) throw error;
     const code = (error as NodeJS.ErrnoException)?.code;
     if (code === 'ENOSPC' || code === 'EACCES' || code === 'EROFS') {

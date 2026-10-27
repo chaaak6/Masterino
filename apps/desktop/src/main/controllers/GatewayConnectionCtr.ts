@@ -636,12 +636,15 @@ export default class GatewayConnectionCtr extends ControllerModule {
    * desktop main process and the CLI daemon share one device RPC surface.
    */
   private async executeDeviceRpc(method: string, params: unknown): Promise<unknown> {
+    if (this.app.isQuiting) throw new Error('Application is shutting down');
     return runDeviceRpc(method, params, this.deviceControlDeps);
   }
 
   private documentJobsInstance?: DocumentJobs;
-  cleanupDocumentJobs(): Promise<void> {
-    return this.documentJobsInstance?.cleanup() ?? Promise.resolve();
+  async cleanupDocumentJobs(): Promise<void> {
+    const jobs = this.documentJobsInstance;
+    await jobs?.cleanup();
+    if (this.documentJobsInstance === jobs) this.documentJobsInstance = undefined;
   }
   private get documentJobs() {
     return (this.documentJobsInstance ??= new DocumentJobs(

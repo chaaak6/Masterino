@@ -87,6 +87,33 @@ describe('verifyArtifact', () => {
     await expect(fs.access(path.join(dir, 'update.dmg'))).rejects.toThrow();
   });
 
+  it('reuses a verified installer across downloader instances without a second GET', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'masterino-update-'));
+    created.push(dir);
+    const body = Buffer.from('small synthetic installation package');
+    const artifact = {
+      arch: 'arm64' as const,
+      platform: 'darwin' as const,
+      path: 'canary/1.1.4/update.dmg',
+      size: body.length,
+      sha512: createHash('sha512').update(body).digest('base64'),
+    };
+    vi.mocked(netFetch).mockClear();
+    vi.mocked(netFetch).mockResolvedValue(new Response(body));
+    const options = {
+      artifact,
+      baseUrl: 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases',
+      destinationDir: dir,
+    };
+    await downloadArtifact(options);
+    await downloadArtifact(options);
+    expect(netFetch).toHaveBeenCalledTimes(1);
+    await fs.writeFile(path.join(dir, 'update.dmg'), 'damaged');
+    vi.mocked(netFetch).mockResolvedValue(new Response(body));
+    await downloadArtifact(options);
+    expect(netFetch).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects cross-origin redirects without writing a file', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'masterino-update-'));
     created.push(dir);

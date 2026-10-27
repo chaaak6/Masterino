@@ -53,6 +53,27 @@ vi.mock('electron', () => ({
 
 // electron-devtools-installer accesses electron.app.getPath at import-time in node env;
 // mock it to avoid side effects in unit tests
+vi.mock('@/controllers/HeterogeneousAgentCtr', () => ({ default: class HeterogeneousAgentCtr {} }));
+vi.mock('@/libs/mcp/client', () => ({
+  MCPClient: { cleanupAll: vi.fn().mockResolvedValue(undefined) },
+}));
+vi.mock('@/services/gatewayConnectionSrv', () => ({
+  default: class GatewayConnectionService {
+    disconnect = vi.fn().mockResolvedValue(undefined);
+  },
+}));
+vi.mock('@/modules/updater/installUpdate', () => ({
+  acknowledgeInstalledUpdate: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@lobechat/local-file-shell', () => ({
+  ShellProcessManager: class {
+    cleanupAll = vi.fn();
+  },
+  createContentSearchImpl: vi.fn(() => ({})),
+  createFileSearchModule: vi.fn(() => ({})),
+}));
+vi.mock('@lobechat/device-control', () => ({}));
 vi.mock('electron-devtools-installer', () => ({
   REACT_DEVELOPER_TOOLS: 'REACT_DEVELOPER_TOOLS',
   default: vi.fn(),
@@ -198,12 +219,10 @@ describe('App', () => {
   it('waits for both command and document cleanup before completing an application quit', async () => {
     appInstance = new App();
     let complete!: () => void;
-    const cleanup = vi.fn(
-      () =>
-        new Promise<void>((resolve) => {
-          complete = resolve;
-        }),
-    );
+    const pending = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
+    const cleanup = vi.fn(() => pending);
     let completeDocuments!: () => void;
     const cleanupDocumentJobs = vi.fn(
       () =>
@@ -219,7 +238,7 @@ describe('App', () => {
     const event = { preventDefault: vi.fn() };
     handler(event);
     expect(event.preventDefault).toHaveBeenCalled();
-    expect(cleanup).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(cleanup).toHaveBeenCalled());
     expect(cleanupDocumentJobs).toHaveBeenCalledOnce();
     expect(electronApp.quit).not.toHaveBeenCalled();
     complete();

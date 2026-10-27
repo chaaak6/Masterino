@@ -4,6 +4,8 @@ import { URL } from 'node:url';
 import type { DataSyncConfig } from '@lobechat/electron-client-ipc';
 import { safeStorage, session as electronSession } from 'electron';
 
+import { AuthStorage } from '@/modules/authStorage';
+
 import { OFFICIAL_CLOUD_SERVER } from '@/const/env';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import { appendVercelCookie } from '@/utils/http-headers';
@@ -36,8 +38,6 @@ const DETERMINISTIC_FAILURES = [
 
 // Create logger
 const logger = createLogger('controllers:RemoteServerConfigCtr');
-const SECURE_STORAGE_UNAVAILABLE_ERROR =
-  'Secure token storage is unavailable; refusing to store authentication tokens';
 const TOKEN_REFRESH_TIMEOUT = 30 * 1000;
 const TOKEN_REFRESH_TIMEOUT_ERROR = `Token refresh timed out after ${TOKEN_REFRESH_TIMEOUT / 1000} seconds`;
 
@@ -52,22 +52,8 @@ export default class RemoteServerConfigCtr extends ControllerModule {
    */
   private readonly encryptedTokensKey = 'encryptedTokens';
 
-  private isSecureStorageAvailable(): boolean {
-    try {
-      if (!safeStorage.isEncryptionAvailable()) return false;
-      if (process.platform !== 'linux') return true;
-
-      const getSelectedStorageBackend = (
-        safeStorage as typeof safeStorage & { getSelectedStorageBackend?: () => string }
-      ).getSelectedStorageBackend;
-      if (!getSelectedStorageBackend) return false;
-
-      return getSelectedStorageBackend.call(safeStorage) !== 'basic_text';
-    } catch (error) {
-      logger.error('Failed to verify secure storage backend:', error);
-      return false;
-    }
-  }
+  private readonly authStorage = new AuthStorage();
+  private tokensLoaded = false;
 
   /**
    * Normalize legacy config that used local storageMode.
@@ -250,11 +236,11 @@ export default class RemoteServerConfigCtr extends ControllerModule {
   }
 
   /**
-   * Encrypted tokens
+   * Authentication tokens
    * Stored in memory for quick access, loaded from persistent storage on init.
    */
-  private encryptedAccessToken?: string;
-  private encryptedRefreshToken?: string;
+  private accessToken?: string;
+  private refreshToken?: string;
 
   /**
    * Token expiration time (timestamp in milliseconds)
@@ -283,29 +269,17 @@ export default class RemoteServerConfigCtr extends ControllerModule {
    */
   private clearTokenStateAndStore() {
     this.tokenGeneration += 1;
-    this.encryptedAccessToken = undefined;
-    this.encryptedRefreshToken = undefined;
+    this.accessToken = undefined;
+    this.refreshToken = undefined;
     this.tokenExpiresAt = undefined;
     this.lastRefreshAt = undefined;
-    logger.debug(`Deleting tokens from store key: ${this.encryptedTokensKey}`);
+    this.tokensLoaded = true;
+    this.authStorage.clear();
     this.app.storeManager.delete(this.encryptedTokensKey);
   }
 
-  /**
-   * Encrypt and store tokens
-   * @param accessToken Access token
-   * @param refreshToken Refresh token
-   * @param expiresIn Token expiration time in seconds (optional)
-   */
+  /** Persist before publishing the new state, preserving the previous record on write failure. */
   async saveTokens(accessToken: string, refreshToken: string, expiresIn?: number) {
-    logger.info('Saving encrypted tokens');
-
-    if (!this.isSecureStorageAvailable()) {
-      logger.error(SECURE_STORAGE_UNAVAILABLE_ERROR);
-      await this.clearTokens();
-      throw new Error(SECURE_STORAGE_UNAVAILABLE_ERROR);
-    }
-
     const currentConfig = this.normalizeConfig(this.app.storeManager.get('dataSyncConfig'));
     const issuerOrigin = this.getRemoteServerOrigin(currentConfig);
     if (
@@ -313,113 +287,28 @@ export default class RemoteServerConfigCtr extends ControllerModule {
       (currentConfig.storageMode === 'selfHost' &&
         !this.isValidSelfHostRemoteUrl(currentConfig.remoteServerUrl))
     ) {
-      await this.clearTokens();
       throw new Error('Cannot save OIDC tokens without a valid remote server origin');
     }
-
-    const tokenExpiresAt = expiresIn ? Date.now() + expiresIn * 1000 : undefined;
+    const expiresAt = expiresIn ? Date.now() + expiresIn * 1000 : undefined;
     const lastRefreshAt = Date.now();
-
-    try {
-      logger.debug('Encrypting tokens using safe storage');
-      const encryptedAccessToken = Buffer.from(safeStorage.encryptString(accessToken)).toString(
-        'base64',
-      );
-      const encryptedRefreshToken = Buffer.from(safeStorage.encryptString(refreshToken)).toString(
-        'base64',
-      );
-
-      logger.debug(`Persisting encrypted tokens to store key: ${this.encryptedTokensKey}`);
-      this.app.storeManager.set(this.encryptedTokensKey, {
-        accessToken: encryptedAccessToken,
-        expiresAt: tokenExpiresAt,
-        issuerOrigin,
-        lastRefreshAt,
-        refreshToken: encryptedRefreshToken,
-      });
-
-      // Only expose the new token state in memory after encrypted persistence succeeds.
-      this.tokenGeneration += 1;
-      this.encryptedAccessToken = encryptedAccessToken;
-      this.encryptedRefreshToken = encryptedRefreshToken;
-      this.tokenExpiresAt = tokenExpiresAt;
-      this.lastRefreshAt = lastRefreshAt;
-
-      if (tokenExpiresAt) {
-        logger.debug(`Token expires at: ${new Date(tokenExpiresAt).toISOString()}`);
-      }
-      logger.debug(`Token last refreshed at: ${new Date(lastRefreshAt).toISOString()}`);
-    } catch (error) {
-      logger.error('Failed to securely encrypt or persist tokens:', error);
-      await this.clearTokens();
-      throw error;
-    }
+    this.authStorage.write({ accessToken, refreshToken, expiresAt, issuerOrigin, lastRefreshAt });
+    this.tokenGeneration += 1;
+    this.tokensLoaded = true;
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    this.tokenExpiresAt = expiresAt;
+    this.lastRefreshAt = lastRefreshAt;
+    this.app.storeManager.delete(this.encryptedTokensKey);
   }
 
-  /**
-   * Get decrypted access token
-   */
   async getAccessToken(): Promise<string | null> {
-    if (!this.isSecureStorageAvailable()) {
-      logger.error('Safe storage not available; clearing tokens and denying access token read');
-      await this.clearTokens();
-      return null;
-    }
-
-    // Try loading from memory first
-    if (!this.encryptedAccessToken) {
-      logger.debug('Access token not in memory, trying to load from store...');
-      this.loadTokensFromStore(); // Attempt to load from persistent storage
-    }
-
-    if (!this.encryptedAccessToken) {
-      logger.debug('No access token found in memory or store.');
-      return null;
-    }
-
-    try {
-      // Decrypt token
-      logger.debug('Decrypting access token');
-      const encryptedData = Buffer.from(this.encryptedAccessToken, 'base64');
-      return safeStorage.decryptString(encryptedData);
-    } catch (error) {
-      logger.error('Failed to decrypt access token:', error);
-      await this.clearTokens();
-      return null;
-    }
+    if (!this.tokensLoaded) this.loadTokensFromStore();
+    return this.accessToken ?? null;
   }
 
-  /**
-   * Get decrypted refresh token
-   */
   async getRefreshToken(): Promise<string | null> {
-    if (!this.isSecureStorageAvailable()) {
-      logger.error('Safe storage not available; clearing tokens and denying refresh token read');
-      await this.clearTokens();
-      return null;
-    }
-
-    // Try loading from memory first
-    if (!this.encryptedRefreshToken) {
-      logger.debug('Refresh token not in memory, trying to load from store...');
-      this.loadTokensFromStore(); // Attempt to load from persistent storage
-    }
-
-    if (!this.encryptedRefreshToken) {
-      logger.debug('No refresh token found in memory or store.');
-      return null;
-    }
-
-    try {
-      // Decrypt token
-      logger.debug('Decrypting refresh token');
-      const encryptedData = Buffer.from(this.encryptedRefreshToken, 'base64');
-      return safeStorage.decryptString(encryptedData);
-    } catch (error) {
-      logger.error('Failed to decrypt refresh token:', error);
-      await this.clearTokens();
-      return null;
-    }
+    if (!this.tokensLoaded) this.loadTokensFromStore();
+    return this.refreshToken ?? null;
   }
 
   /**
@@ -712,68 +601,46 @@ export default class RemoteServerConfigCtr extends ControllerModule {
   }
 
   /**
-   * Load encrypted tokens from persistent storage (electron-store) into memory.
+   * Load plaintext auth.json, or migrate the legacy Windows record.
    * This should be called during initialization or if memory tokens are missing.
    */
   private loadTokensFromStore() {
-    if (!this.isSecureStorageAvailable()) {
-      logger.error('Safe storage not available; deleting persisted tokens without loading them');
-      this.clearTokenStateAndStore();
-      return;
-    }
-
-    logger.debug(`Attempting to load tokens from store key: ${this.encryptedTokensKey}`);
-    const currentConfig = this.normalizeConfig(this.app.storeManager.get('dataSyncConfig'));
-    const currentOrigin = this.getRemoteServerOrigin(currentConfig);
-    const storedTokens = this.app.storeManager.get(this.encryptedTokensKey);
-
-    if (storedTokens && storedTokens.accessToken && storedTokens.refreshToken) {
+    if (this.tokensLoaded) return;
+    this.tokensLoaded = true;
+    const config = this.normalizeConfig(this.app.storeManager.get('dataSyncConfig'));
+    const origin = this.getRemoteServerOrigin(config);
+    try {
+      let tokens = this.authStorage.read();
+      // Windows DPAPI migration is non-interactive. Never touch the old macOS
+      // Keychain: those users authorize once if no plaintext record exists yet.
+      const legacy = this.app.storeManager.get(this.encryptedTokensKey);
       if (
-        !this.isRemoteServerConfigValid(currentConfig) ||
-        !storedTokens.issuerOrigin ||
-        storedTokens.issuerOrigin !== currentOrigin
+        !tokens &&
+        process.platform === 'win32' &&
+        origin &&
+        legacy?.issuerOrigin === origin &&
+        legacy.accessToken &&
+        legacy.refreshToken &&
+        safeStorage.isEncryptionAvailable()
       ) {
-        logger.warn(
-          'Discarding stored tokens because their issuer does not match the active server',
-          {
-            hasIssuerOrigin: Boolean(storedTokens.issuerOrigin),
-            issuerMatches: Boolean(currentOrigin && storedTokens.issuerOrigin === currentOrigin),
-          },
-        );
-        this.clearTokenStateAndStore();
-        this.app.storeManager.set('dataSyncConfig', { ...currentConfig, active: false });
-        this.broadcastRemoteServerConfigUpdated();
-        return;
+        tokens = {
+          ...legacy,
+          issuerOrigin: origin,
+          accessToken: safeStorage.decryptString(Buffer.from(legacy.accessToken, 'base64')),
+          refreshToken: safeStorage.decryptString(Buffer.from(legacy.refreshToken, 'base64')),
+        };
+        this.authStorage.write(tokens);
+        this.app.storeManager.delete(this.encryptedTokensKey);
       }
-
-      try {
-        // Validate both stored values before caching any token or metadata in memory.
-        // Legacy plaintext fallback values fail Electron's authenticated decryption.
-        safeStorage.decryptString(Buffer.from(storedTokens.accessToken, 'base64'));
-        safeStorage.decryptString(Buffer.from(storedTokens.refreshToken, 'base64'));
-      } catch (error) {
-        logger.error('Stored tokens are not valid safeStorage ciphertext; deleting them:', error);
-        this.clearTokenStateAndStore();
-        return;
-      }
-
-      logger.info('Successfully loaded tokens from store into memory.');
+      if (!tokens || !origin || tokens.issuerOrigin !== origin) return;
       this.tokenGeneration += 1;
-      this.encryptedAccessToken = storedTokens.accessToken;
-      this.encryptedRefreshToken = storedTokens.refreshToken;
-      this.tokenExpiresAt = storedTokens.expiresAt;
-      this.lastRefreshAt = storedTokens.lastRefreshAt;
-
-      if (this.tokenExpiresAt) {
-        logger.debug(
-          `Loaded token expiration time: ${new Date(this.tokenExpiresAt).toISOString()}`,
-        );
-      }
-      if (this.lastRefreshAt) {
-        logger.debug(`Loaded last refresh time: ${new Date(this.lastRefreshAt).toISOString()}`);
-      }
-    } else {
-      logger.debug('No valid tokens found in store.');
+      this.accessToken = tokens.accessToken;
+      this.refreshToken = tokens.refreshToken;
+      this.tokenExpiresAt = tokens.expiresAt;
+      this.lastRefreshAt = tokens.lastRefreshAt;
+    } catch {
+      // Do not print credential values or erase a potentially recoverable record.
+      logger.warn('Could not load desktop credentials; authorization may be required');
     }
   }
 

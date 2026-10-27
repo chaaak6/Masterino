@@ -1,4 +1,9 @@
 export default {
+  'updater.transferDetails': '{{downloaded}} / {{total}} MB · {{percent}}% · {{speed}} MB/s',
+  'updater.cancelDownload': 'Cancel download',
+  'updater.preparingInstallDesc': 'The installer opens after all managed tasks have stopped.',
+  'updater.preparingInstall': 'Closing tasks before installation…',
+  'updater.verifying': 'Verifying update…',
   'overlay.agentSelectLabel': 'Agent',
   'overlay.agentSelectPlaceholder': 'Default agent',
   'overlay.clearSelectionLabel': 'Clear selection',
@@ -231,10 +236,10 @@ export default {
   'updater.newVersionAvailable': 'New version available',
   'updater.newVersionAvailableDesc':
     'A new version {{version}} has been found, would you like to download it now?',
-  'updater.restartAndInstall': 'Install updates and restart',
+  'updater.restartAndInstall': 'Quit and install',
   'updater.retry': 'Retry',
   'updater.updateError': 'Update error',
-  'updater.updateReady': 'A new version is available',
+  'updater.updateReady': 'Update downloaded',
   'updater.updateReadyDesc':
     'The new version {{version}} has been downloaded. Restart the application to complete the installation.',
   'updater.unsignedMacStep1': 'Drag Masterino into Applications.',

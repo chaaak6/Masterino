@@ -45,7 +45,7 @@ vi.mock('@lobehub/ui', () => ({
   copyToClipboard: mocks.copyToClipboard,
 }));
 
-vi.mock('antd', () => ({
+vi.mock('@lobehub/ui/base-ui', () => ({
   Modal: ({ children, open }: { children?: ReactNode; open?: boolean }) =>
     open ? <div role="dialog">{children}</div> : null,
 }));
@@ -118,6 +118,7 @@ describe('UpdateNotification', () => {
     });
 
     expect(screen.getByText(/1\.1\.2/)).toBeInTheDocument();
+    expect(mocks.downloadUpdate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText(/1\.1\.2/));
     expect(screen.getByText('Important fixes')).toBeInTheDocument();
 
@@ -129,32 +130,23 @@ describe('UpdateNotification', () => {
     expect(mocks.installNow).not.toHaveBeenCalled();
   });
 
-  it('shows unsigned macOS instructions before opening the installer', async () => {
-    mocks.getUpdaterState.mockResolvedValueOnce({
-      autoDownloadEnabled: true,
-      installMode: 'open-dmg',
-      stage: 'downloaded',
-      updateInfo: { version: '1.1.4' },
-    });
-    render(<UpdateNotification />);
-
-    fireEvent.click(await screen.findByText('updater.openInstaller'));
-    expect(screen.getByText('updater.unsignedMacWarningTitle')).toBeInTheDocument();
-    expect(
-      screen.getByText('xattr -dr com.apple.quarantine /Applications/Masterino.app'),
-    ).toBeInTheDocument();
-    expect(mocks.applyDownloadedUpdate).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByText('updater.copyInstallCommand'));
-    await waitFor(() =>
-      expect(mocks.copyToClipboard).toHaveBeenCalledWith(
-        'xattr -dr com.apple.quarantine /Applications/Masterino.app',
-      ),
-    );
-
-    fireEvent.click(screen.getAllByText('updater.openInstaller')[1]);
-    await waitFor(() => expect(mocks.applyDownloadedUpdate).toHaveBeenCalledTimes(1));
-  });
+  it.each(['native-helper', 'restart'])(
+    'requires an explicit install action for a verified %s update',
+    async (installMode) => {
+      mocks.getUpdaterState.mockResolvedValueOnce({
+        autoDownloadEnabled: false,
+        installMode,
+        stage: 'downloaded',
+        updateInfo: { version: '1.3.11' },
+      });
+      render(<UpdateNotification />);
+      const install = await screen.findByText('updater.restartAndInstall');
+      expect(mocks.applyDownloadedUpdate).not.toHaveBeenCalled();
+      expect(mocks.downloadUpdate).not.toHaveBeenCalled();
+      fireEvent.click(install);
+      await waitFor(() => expect(mocks.applyDownloadedUpdate).toHaveBeenCalledOnce());
+    },
+  );
 
   it('dismisses only the current prompt', () => {
     render(<UpdateNotification />);
@@ -168,20 +160,6 @@ describe('UpdateNotification', () => {
 
     expect(screen.queryByText('updater.newVersionAvailable')).not.toBeInTheDocument();
     expect(mocks.downloadUpdate).not.toHaveBeenCalled();
-  });
-
-  it('offers install on exit for a verified Windows update', async () => {
-    render(<UpdateNotification />);
-    emitUpdaterState({
-      autoDownloadEnabled: true,
-      installMode: 'restart',
-      stage: 'downloaded',
-      updateInfo: { version: '1.1.4' },
-    });
-
-    expect(screen.queryByText('updater.unsignedMacWarningTitle')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText('updater.installLater'));
-    await waitFor(() => expect(mocks.installLater).toHaveBeenCalledTimes(1));
   });
 
   it('shows a localized error and retries a failed check', async () => {

@@ -351,6 +351,7 @@ export default class GatewayConnectionService extends ServiceModule {
     verifiedUserId?: string,
     identityRetry = false,
   ): Promise<{ error?: string; success: boolean }> {
+    if (this.app.isQuiting) return { success: false, error: 'Application is shutting down' };
     // Clean up any existing client
     if (this.client) {
       await this.client.disconnect();

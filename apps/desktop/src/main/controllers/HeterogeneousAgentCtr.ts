@@ -51,6 +51,8 @@ import { buildProxyEnv } from '@/modules/networkProxy/envBuilder';
 import { detectHeterogeneousCliCommand } from '@/modules/toolDetectors';
 import { createLogger } from '@/utils/logger';
 
+import { stopProcessTree } from '@/utils/stopProcessTree';
+
 import { ControllerModule, IpcMethod } from './index';
 
 const logger = createLogger('controllers:HeterogeneousAgentCtr');
@@ -1029,6 +1031,7 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
     };
 
     return new Promise<void>((resolve, reject) => {
+      if (this.app.isQuiting) throw new Error('Application is shutting down');
       const proc = spawn(resolvedCliSpawnPlan.command, resolvedCliSpawnPlan.args, spawnOptions);
       this.handleSpawnedAgentProcess({
         cwd,
@@ -1307,7 +1310,7 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
    * gone). On Windows we shell out to `taskkill /T /F` which walks the tree.
    */
   private killProcessTree(proc: ChildProcess, signal: NodeJS.Signals): void {
-    if (!proc.pid || proc.killed) return;
+    if (!proc.pid || proc.exitCode !== null || proc.signalCode !== null) return;
 
     if (process.platform === 'win32') {
       try {
@@ -1426,23 +1429,38 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
    * `app.quit()` path; SIGTERM / SIGINT cover external kills (test
    * harnesses, OS shutdown) where Electron's lifecycle events never fire.
    */
+  private cleanupPromise?: Promise<void>;
+
+  cleanup(): Promise<void> {
+    return (this.cleanupPromise ??= (async () => {
+      this.unlinkPendingInterventionConfigsSync();
+      const sessions = [...this.sessions.values()];
+      sessions.forEach((session) => {
+        session.cancelledByUs = true;
+      });
+      await Promise.all(
+        sessions.map(async (session) => {
+          const proc = session.process;
+          if (proc?.pid && proc.exitCode === null && proc.signalCode === null) {
+            await stopProcessTree(proc.pid, async () => {
+              this.killProcessTree(proc, 'SIGTERM');
+            });
+          }
+        }),
+      );
+      await this.askUserMcpServer?.stop();
+      this.askUserMcpServer = undefined;
+      this.askUserMcpStartPromise = undefined;
+      this.sessions.clear();
+    })().then(() => {
+      this.cleanupPromise = undefined;
+    }));
+  }
+
   afterAppReady() {
     electronApp.on('before-quit', () => {
       this.unlinkPendingInterventionConfigsSync();
-      for (const [, session] of this.sessions) {
-        if (session.process && !session.process.killed) {
-          session.cancelledByUs = true;
-          this.killProcessTree(session.process, 'SIGTERM');
-        }
-      }
-      this.sessions.clear();
-      // The exit handlers will tear each per-op intervention down, but if
-      // CC's stdio close races shutdown we'd leave the MCP server bound to
-      // a port. Stopping it here cancels every still-pending bridge with
-      // `session_ended` and closes the listener.
-      void this.askUserMcpServer?.stop().catch((err) => {
-        logger.warn('AskUserQuestion MCP server stop error:', err);
-      });
+      void this.cleanup().catch((error) => logger.error('Agent cleanup failed', error));
     });
 
     const onSignal = (signal: NodeJS.Signals) => {
@@ -1454,8 +1472,7 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
       } catch {
         /* during late shutdown app.quit may throw — fine */
       }
-      // Last-resort exit if Electron is wedged and won't quit on its own.
-      setTimeout(() => process.exit(signal === 'SIGINT' ? 130 : 143), 1000).unref();
+      // The shared quit coordinator owns process termination; never exit early.
     };
     process.on('SIGTERM', onSignal);
     process.on('SIGINT', onSignal);

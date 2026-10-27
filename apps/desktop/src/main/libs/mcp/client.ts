@@ -9,6 +9,8 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { Progress } from '@modelcontextprotocol/sdk/types.js';
 
+import { stopProcessTree } from '@/utils/stopProcessTree';
+
 import { getDesktopEnv } from '@/env';
 
 import type { MCPClientParams, McpPrompt, McpResource, McpTool, ToolCallResult } from './types';
@@ -27,6 +29,12 @@ export class MCPConnectionError extends Error {
 }
 
 export class MCPClient {
+  private static active = new Set<MCPClient>();
+  static async cleanupAll() {
+    await Promise.all([...this.active].map((client) => client.disconnect()));
+  }
+  private disconnecting?: Promise<void>;
+
   private readonly mcp: Client;
 
   private transport: Transport;
@@ -77,11 +85,12 @@ export class MCPClient {
 
       default: {
         // Exhaustive check
-         
+
         const _never: never = params;
         throw new Error(`Unsupported MCP connection type: ${(params as any).type}`);
       }
     }
+    MCPClient.active.add(this);
   }
 
   private setupStderrListener(transport: StdioClientTransport) {
@@ -106,7 +115,7 @@ export class MCPClient {
   private isMethodNotFoundError(error: unknown) {
     const err = error as any;
     if (!err) return false;
-     
+
     if (err.code === -32601) return true;
     if (typeof err.message === 'string' && err.message.includes('Method not found')) return true;
     return false;
@@ -125,15 +134,17 @@ export class MCPClient {
     }
   }
 
-  async disconnect() {
-    if (typeof (this.mcp as any).disconnect === 'function') {
-      await (this.mcp as any).disconnect();
-      return;
-    }
-
-    if (this.transport && typeof (this.transport as any).close === 'function') {
-      (this.transport as any).close();
-    }
+  disconnect(): Promise<void> {
+    return (this.disconnecting ??= (async () => {
+      const close = async () => {
+        await this.transport?.close();
+      };
+      const pid = this.transport instanceof StdioClientTransport ? this.transport.pid : null;
+      if (pid) await stopProcessTree(pid, close);
+      else await close();
+      // Retain failed cleanups so a later installer cannot overlook a live task.
+      MCPClient.active.delete(this);
+    })());
   }
 
   async listTools() {

@@ -14,6 +14,10 @@ import type { IControlModule } from '@/controllers';
 import AuthCtr from '@/controllers/AuthCtr';
 import ShellCommandCtr from '@/controllers/ShellCommandCtr';
 import GatewayConnectionCtr from '@/controllers/GatewayConnectionCtr';
+import HeterogeneousAgentCtr from '@/controllers/HeterogeneousAgentCtr';
+import { MCPClient } from '@/libs/mcp/client';
+import GatewayConnectionService from '@/services/gatewayConnectionSrv';
+import { acknowledgeInstalledUpdate } from '@/modules/updater/installUpdate';
 import { generateCliWrapper, getCliWrapperDir } from '@/modules/cliEmbedding';
 import { ScreenCaptureManager } from '@/modules/screenCapture/ScreenCaptureManager';
 import {
@@ -279,6 +283,7 @@ export class App {
     // Process any pending protocol URLs after everything is ready
     await this.protocolManager.processPendingUrls();
 
+    await acknowledgeInstalledUpdate(this.browserManager.getMainWindow().webContents);
     logger.info('Application bootstrap completed');
   };
 
@@ -461,25 +466,51 @@ export class App {
   }
 
   // Add before-quit handler function
-  private commandCleanupStarted = false;
+  private quitPreparation?: Promise<void>;
   private commandCleanupComplete = false;
+
+  public prepareForQuit(): Promise<void> {
+    if (this.commandCleanupComplete) return Promise.resolve();
+    return (this.quitPreparation ??= (async () => {
+      this.isQuiting = true;
+      await this.getService(GatewayConnectionService)?.disconnect();
+      await Promise.all([
+        this.getController(ShellCommandCtr)?.cleanup(),
+        this.getController(GatewayConnectionCtr)?.cleanupDocumentJobs(),
+        this.getController(HeterogeneousAgentCtr)?.cleanup(),
+        MCPClient.cleanupAll(),
+      ]);
+      await this.staticFileServerManager.destroy();
+      this.commandCleanupComplete = true;
+    })().catch((error) => {
+      this.quitPreparation = undefined;
+      this.isQuiting = false;
+      throw error;
+    }));
+  }
+
+  /** Restore normal operation if the native installer could not be launched. */
+  public async resumeAfterCancelledQuit() {
+    if (!this.commandCleanupComplete) return;
+    await this.staticFileServerManager.initialize();
+    this.commandCleanupComplete = false;
+    this.quitPreparation = undefined;
+    this.isQuiting = false;
+    void this.getService(GatewayConnectionService)
+      ?.connect()
+      .catch((error) =>
+        logger.warn('Gateway reconnect after cancelled installation failed', error),
+      );
+  }
 
   private handleBeforeQuit = (event: Electron.Event) => {
     if (!this.commandCleanupComplete) {
       event.preventDefault();
-      if (!this.commandCleanupStarted) {
-        this.commandCleanupStarted = true;
-        this.isQuiting = true;
-        void Promise.allSettled([
-          this.getController(ShellCommandCtr)?.cleanup(),
-          this.getController(GatewayConnectionCtr)?.cleanupDocumentJobs(),
-        ]).finally(() => {
-          this.commandCleanupComplete = true;
-          // Leave the native menu quit callback before requesting quit again.
-          // A microtask can re-enter macOS termination while it is still in progress.
+      void this.prepareForQuit()
+        .then(() => {
           setImmediate(() => app.quit());
-        });
-      }
+        })
+        .catch((error) => logger.error('Application cleanup failed; quit was cancelled', error));
       return;
     }
     logger.info('Application is preparing to quit');
