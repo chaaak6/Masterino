@@ -55,6 +55,13 @@ const fixture = () => {
 };
 afterEach(() => vi.unstubAllEnvs());
 describe('effective catalog business scenarios', () => {
+  it('omits models hidden by user preference from the catalog', async () => {
+    const { source, service } = fixture();
+    source.models = [{ ...model('a'), visible: false }, model('b')];
+    const response = await service.read();
+    expect(response.status === 'changed' && response.models.map((item) => item.id)).toEqual(['b']);
+  });
+
   it('Given unchanged metadata, When another client checks, Then it returns unchanged without upstream reads', async () => {
     const { source, service } = fixture();
     const reads = vi.spyOn(source, 'readModels');
@@ -200,7 +207,7 @@ it('uses published descriptions for display without shrinking runtime context or
     entry,
   );
   expect(projected.contextWindowTokens).toBe(128000);
-  expect(projected.abilities).toMatchObject({ functionCall: true, vision: true });
+  expect(projected.abilities).toMatchObject({ functionCall: false, vision: true });
   expect(
     ManagedModelDescriptionSchema.parse(projected.settings?.managedModelCatalog?.description)
       .contextWindowTokens,

@@ -99,7 +99,13 @@ export const parseProtocolUrl = (url: string): ProtocolUrlParsed | null => {
     const parsedUrl = new URL(url);
 
     // Support multiple protocol schemes
-    const validProtocols = ['lobehub:', 'lobehub-dev:', 'lobehub-nightly:', 'lobehub-beta:'];
+    const validProtocols = [
+      'lobehub:',
+      'lobehub-dev:',
+      'lobehub-nightly:',
+      'lobehub-beta:',
+      'masterino-test:',
+    ];
     if (!validProtocols.includes(parsedUrl.protocol)) {
       return null;
     }

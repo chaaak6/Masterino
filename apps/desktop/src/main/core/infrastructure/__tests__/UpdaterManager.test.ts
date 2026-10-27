@@ -358,7 +358,7 @@ describe('UpdaterManager signed OSS flow', () => {
     expect(autoUpdater.setFeedURL).not.toHaveBeenCalled();
   });
 
-  it('discards previous actionable metadata if a subsequent manifest check fails', async () => {
+  it('keeps a downloaded update installable when an automatic check would fail', async () => {
     await manager.initialize();
     await manager.checkForUpdates();
     await manager.downloadUpdate();
@@ -366,6 +366,18 @@ describe('UpdaterManager signed OSS flow', () => {
       throw new signedManifestModule.SignedManifestError('bad signature', 'signature');
     });
     await manager.checkForUpdates();
+    expect(manager.getUpdaterState().stage).toBe('downloaded');
+    await manager.applyDownloadedUpdate();
+    expect(installers.launchUpdateInstaller).toHaveBeenCalledOnce();
+  });
+  it('discards previous actionable metadata if a subsequent manifest check fails', async () => {
+    await manager.initialize();
+    await manager.checkForUpdates();
+    await manager.downloadUpdate();
+    vi.mocked(signedManifestModule.verifySignedManifest).mockImplementationOnce(() => {
+      throw new signedManifestModule.SignedManifestError('bad signature', 'signature');
+    });
+    await manager.checkForUpdates({ manual: true });
     expect(manager.getUpdaterState()).toMatchObject({
       stage: 'error',
       manualDownloadAvailable: false,

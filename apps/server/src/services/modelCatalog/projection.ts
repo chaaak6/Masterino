@@ -28,7 +28,10 @@ export const projectPublishedDescription = (
     model.type === 'chat' ||
     explicitToolSupport === 'supported' ||
     explicitToolSupport === 'unsupported';
-  const toolSupport = explicitToolSupport === 'unsupported' ? false : model.type === 'chat';
+  const toolSupport =
+    explicitToolSupport === 'unsupported'
+      ? false
+      : model.type === 'chat' && model.abilities?.functionCall !== false;
   const abilities = {
     ...model.abilities,
     ...(hasToolDecision

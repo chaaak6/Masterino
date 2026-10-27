@@ -1,4 +1,7 @@
-import { supportsEmbeddingDimension } from '@lobechat/business-model-bank';
+import {
+  isAiProviderModelChatEligible,
+  supportsEmbeddingDimension,
+} from '@lobechat/business-model-bank';
 import { DEFAULT_USER_MEMORY_EMBEDDING_DIMENSIONS } from '@lobechat/const';
 import { TooltipGroup } from '@lobehub/ui';
 import { Select, type SelectProps } from '@lobehub/ui/base-ui';
@@ -104,7 +107,10 @@ const ModelSelect = memo<ModelSelectProps>(
       catalog &&
       selectedProvider === 'newapi' &&
       value?.model &&
-      !catalog.models.some((model) => model.id === value.model && model.type === 'chat');
+      !catalog.models.some(
+        (model) =>
+          model.id === value.model && model.enabled && isAiProviderModelChatEligible(model),
+      );
 
     const options = useMemo<SelectProps['options']>(() => {
       const getChatModels = (provider: EnabledProviderWithModels) => {

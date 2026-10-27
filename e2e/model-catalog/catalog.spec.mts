@@ -215,6 +215,11 @@ test('Given an unauthenticated caller, Then catalog reads and writes are rejecte
   await expect(anonymous.modelCatalog.list.query()).rejects.toMatchObject({
     data: { code: 'UNAUTHORIZED' },
   });
+  await expect(
+    anonymous.modelCatalog.updateSettings.mutate({ enabled: true, silentRefreshEnabled: true }),
+  ).rejects.toMatchObject({
+    data: { code: 'UNAUTHORIZED' },
+  });
 });
 
 test('Given a background or offline app, Then timer checks pause and an overdue resume checks once', async ({

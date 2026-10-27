@@ -7,7 +7,7 @@ import type {
 } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { AiProviderModelListItem, EnabledAiModel } from 'model-bank';
+import { type AiProviderModelListItem, type EnabledAiModel, isAiModelVisible } from 'model-bank';
 
 import { NewApiBindingModel } from '@/database/models/newApiBinding';
 import { aiModels } from '@/database/schemas';
@@ -83,7 +83,7 @@ export class EffectiveModelCatalog {
               this.deps.readModels(),
             ]);
             const byId = new Map(records.map((record) => [record.modelId, record]));
-            const projected = models.map((model) => {
+            const projected = models.filter(isAiModelVisible).map((model) => {
               const value = projectPublishedDescription(model, byId.get(model.id));
               return {
                 ...value,
@@ -203,7 +203,7 @@ export const applyPublishedModelDescriptions = async <
     publishedCache = { generation: settings.generation, records: await repository.list() };
   const byId = new Map(publishedCache.records.map((record) => [record.modelId, record]));
   let changed = false;
-  const projected = models.map((model) => {
+  const projected = models.filter(isAiModelVisible).map((model) => {
     if (model.providerId !== 'newapi') return model;
     const next = projectPublishedDescription(
       model as unknown as AiProviderModelListItem,

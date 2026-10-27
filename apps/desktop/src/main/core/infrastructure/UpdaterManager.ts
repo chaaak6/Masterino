@@ -213,6 +213,13 @@ export class UpdaterManager {
 
   public checkForUpdates = async ({ manual = false }: { manual?: boolean } = {}) => {
     if (this.checking || this.downloading || this.installing) return;
+    // Preserve a verified installer and retryable install errors during background checks.
+    if (
+      !manual &&
+      (this.stage === 'downloaded' ||
+        (this.stage === 'error' && this.latestErrorCode === 'install'))
+    )
+      return;
     this.resetPendingUpdate();
     this.startDiagnostic(manual ? 'manual' : 'automatic');
     if (!UPDATE_SERVER_URL) {

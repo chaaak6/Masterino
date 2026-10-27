@@ -143,7 +143,10 @@ export class MCPClient {
       else await close();
       // Retain failed cleanups so a later installer cannot overlook a live task.
       MCPClient.active.delete(this);
-    })());
+    })().catch((error) => {
+      this.disconnecting = undefined;
+      throw error;
+    }));
   }
 
   async listTools() {

@@ -1451,7 +1451,7 @@ export default class HeterogeneousAgentCtr extends ControllerModule {
       this.askUserMcpServer = undefined;
       this.askUserMcpStartPromise = undefined;
       this.sessions.clear();
-    })().then(() => {
+    })().finally(() => {
       this.cleanupPromise = undefined;
     }));
   }

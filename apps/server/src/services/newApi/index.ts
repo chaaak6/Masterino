@@ -1367,6 +1367,7 @@ export class NewApiService {
     return prepared.map((row) => ({
       ...materializeNewApiModel(row, previous.get(row.raw.id), pricing),
       enabled: previous.get(row.raw.id)?.enabled ?? true,
+      visible: previous.get(row.raw.id)?.visible,
       sort: previous.get(row.raw.id)?.sort,
     }));
   }
