@@ -112,3 +112,53 @@ Windows `%APPDATA%\Masterino\auth.json`。测试包默认目录为同级 `master
 最终本地验证：桌面相关 9 文件 159 项通过；界面 2 文件 8 项通过；真实进程树 2 项通过；
 主语言 56,000 项键/占位符契约通过；修改的 TS/TSX/MJS lint 与 diff 空白检查通过；
 原生安装 helper 的 arm64 / x86_64 编译通过。CI 单独记录最终提交结果。
+
+### CDN 接入（2026-10-27，PR 内变更，未部署）
+
+公开下载基地址改为 `https://masterino-file.bielcrystal.com/desktop/releases`。
+网站 `/api/desktop/download` 从 CDN 读取并验证签名清单，返回 CDN 上的三个平台安装包链接；
+正式发布构建与测试构建的 Windows/macOS 统一使用同一 CDN 地址。
+共享验证器精确允许 CDN 和旧 OSS 两个 HTTPS origin，继续校验路径、Ed25519、大小及 SHA-512，
+拒绝非标准端口、伪装域名、URL 凭据与其他目录。隔离本地测试源同步支持两种正式 origin。
+
+旧 OSS 上传 bucket、endpoint、版本目录、JSON/YAML 清单发布逻辑均保留；
+旧客户端仍从原 OSS 地址更新，新版才使用 CDN。发布流程已有“版本包先上传校验、当前 JSON 清单最后切换”
+及安装包 immutable / 当前清单 no-store 的设置，本次不修改文件内容、不迁移存储。
+Langfuse 事件/媒体的 OSS 配置未改动。
+
+上线顺序：先部署网站下载接口，再在后续正式客户端发布中带入 CDN 配置。
+本次授权只更新 PR，不执行上述部署、客户端发布、CDN 修改、缓存刷新或预热操作。
+
+验收命令：
+
+```bash
+# 仓库根目录
+bunx vitest run --silent=passed-only 'src/app/(backend)/api/desktop/download/route.test.ts'
+# apps/desktop 目录
+bunx vitest run --config vitest.config.mts --silent=passed-only \
+  src/main/modules/updater/signedManifest.test.ts \
+  src/main/modules/updater/artifactDownloader.test.ts \
+  src/main/core/infrastructure/__tests__/UpdaterManager.test.ts \
+  src/main/modules/updater/utils.test.ts \
+  src/main/controllers/__tests__/UpdaterCtr.test.ts
+```
+
+本地网站接口真实调用返回 200、`Cache-Control: no-store`、三个 CDN 安装包地址。
+相关桌面测试 58 项与接口测试 3 项通过；覆盖 CDN / OSS 双地址验证、篡改签名拒绝、缓存复用、
+完整性错误及手动下载流程。变更 TS 文件 lint、diff 检查通过。
+
+CDN 真实网络验收于 2026-10-27 16:40 CST 完成，使用当前已发布的 1.3.10 资源，不发布测试资源：
+
+| 安装包 | 实际完整字节数 | 结果 |
+|---|---:|---|
+| Windows x64 | 213,799,802 | 大小 / SHA-512 匹配签名清单 |
+| macOS arm64 | 244,884,730 | 大小 / SHA-512 匹配签名清单 |
+| macOS x64 | 248,716,765 | 大小 / SHA-512 匹配签名清单 |
+
+三个安装包均通过全量 Range 分段下载、按顺序计算整包哈希；每个范围核对 206 与 Content-Range。
+重复读取首段均为 `HIT TCP_MEM_HIT`，边缘 TTL 为 2,592,000 秒（30 天），与 OSS 首段内容一致。
+当前清单两次读取均不命中缓存，响应 `no-cache,no-store,must-revalidate`；CDN / OSS 清单逐字节一致，
+使用仓库内发布公钥验证 Ed25519 成功，篡改签名被拒绝。
+单连接整包检查曾超过验证脚本的 180 秒总时限，因此改为有界并发的全量分段校验；
+不是客户端的 60 秒“无数据活动”超时，也未据此修改产品超时逻辑。
+本地原始网络证据在 `/tmp/masterino-cdn-acceptance/result.json`，不包含认证凭据。

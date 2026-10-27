@@ -1,8 +1,14 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { resolveArtifactUrl, selectUpdateArtifact, verifySignedManifest } from './signedManifest';
+import {
+  DESKTOP_RELEASE_BASE_URL,
+  LEGACY_DESKTOP_RELEASE_BASE_URL,
+  resolveArtifactUrl,
+  selectUpdateArtifact,
+  verifySignedManifest,
+} from './signedManifest';
 
 const baseUrl = 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases';
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
@@ -69,6 +75,55 @@ const options = {
 };
 
 describe('signed desktop update manifest', () => {
+  it('maps both approved origins to the isolated local fixture', async () => {
+    vi.resetModules();
+    vi.stubEnv('DESKTOP_BUILD_FLAVOR', 'test');
+    vi.stubEnv('DESKTOP_TEST_UPDATE_ORIGIN', 'http://127.0.0.1:19381');
+    try {
+      const { updateRequestUrl } = await import('./signedManifest');
+      for (const base of [DESKTOP_RELEASE_BASE_URL, LEGACY_DESKTOP_RELEASE_BASE_URL]) {
+        expect(updateRequestUrl(`${base}/canary/canary.json`)).toBe(
+          'http://127.0.0.1:19381/desktop/releases/canary/canary.json',
+        );
+      }
+      expect(() => updateRequestUrl('https://example.com/desktop/releases/file')).toThrow();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+
+  it.each([DESKTOP_RELEASE_BASE_URL, LEGACY_DESKTOP_RELEASE_BASE_URL])(
+    'keeps signatures and all platform downloads valid through %s',
+    (origin) => {
+      const signed = envelope();
+      const manifest = verifySignedManifest(signed, { ...options, baseUrl: origin });
+      for (const artifact of manifest.artifacts) {
+        expect(resolveArtifactUrl(origin, artifact.path).href).toBe(`${origin}/${artifact.path}`);
+      }
+      expect(() =>
+        verifySignedManifest(
+          { ...signed, signature: Buffer.alloc(64).toString('base64') },
+          {
+            ...options,
+            baseUrl: origin,
+          },
+        ),
+      ).toThrow('signature verification failed');
+    },
+  );
+
+  it.each([
+    'https://masterino-file.bielcrystal.com.evil.example/desktop/releases',
+    'http://masterino-file.bielcrystal.com/desktop/releases',
+    'https://masterino-file.bielcrystal.com:8443/desktop/releases',
+    'https://user:password@masterino-file.bielcrystal.com/desktop/releases',
+    'https://masterino-file.bielcrystal.com/other',
+    'https://masterino-file.bielcrystal.com/desktop/releases?redirect=evil',
+  ])('rejects modified release origins: %s', (origin) => {
+    expect(() => resolveArtifactUrl(origin, 'canary/1.1.4/update.dmg')).toThrow();
+  });
+
   it('verifies a signed OSS manifest', () => {
     expect(verifySignedManifest(envelope(), options).version).toBe('1.1.4');
   });
@@ -91,9 +146,9 @@ describe('signed desktop update manifest', () => {
     ).toThrow('channel mismatch');
   });
 
-  it('rejects non-OSS origins and traversal paths', () => {
+  it('rejects unapproved origins and traversal paths', () => {
     expect(() => resolveArtifactUrl('https://github.com/chaaak6/Masterino', 'file.exe')).toThrow(
-      'approved OSS',
+      'approved release',
     );
     expect(() => resolveArtifactUrl(baseUrl, '../file.exe')).toThrow(
       'Invalid update artifact path',

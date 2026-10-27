@@ -1,8 +1,12 @@
-import { resolveArtifactUrl, verifySignedManifest } from '@lobechat/desktop-release';
+import {
+  DESKTOP_RELEASE_BASE_URL,
+  resolveArtifactUrl,
+  verifySignedManifest,
+} from '@lobechat/desktop-release';
 
 export const runtime = 'nodejs';
 
-const baseUrl = 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases';
+const baseUrl = DESKTOP_RELEASE_BASE_URL;
 
 // Reuse the Electron updater's pure verifier; no Electron runtime is loaded.
 export async function GET() {

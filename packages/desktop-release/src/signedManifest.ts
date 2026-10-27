@@ -62,18 +62,27 @@ export class SignedManifestError extends Error {
   }
 }
 
+export const DESKTOP_RELEASE_BASE_URL = 'https://masterino-file.bielcrystal.com/desktop/releases';
+export const LEGACY_DESKTOP_RELEASE_BASE_URL =
+  'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases';
+
+const approvedOrigins = new Set(
+  [DESKTOP_RELEASE_BASE_URL, LEGACY_DESKTOP_RELEASE_BASE_URL].map((base) => new URL(base).origin),
+);
+
 const normalizeBaseUrl = (rawUrl: string) => {
   const url = new URL(rawUrl.replace(/\/$/, ''));
   if (url.protocol !== 'https:')
     throw new SignedManifestError('Update server must use HTTPS', 'signature');
   if (
-    url.hostname !== 'masterlion-prd.oss-cn-shenzhen.aliyuncs.com' ||
-    url.pathname !== '/desktop/releases'
+    !approvedOrigins.has(url.origin) ||
+    url.pathname !== '/desktop/releases' ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
   ) {
-    throw new SignedManifestError(
-      'Update server is not the approved OSS release origin',
-      'signature',
-    );
+    throw new SignedManifestError('Update server is not an approved release origin', 'signature');
   }
   return url;
 };
@@ -92,7 +101,7 @@ export const resolveArtifactUrl = (baseUrl: string, artifactPath: string): URL =
   const url = new URL(`${base.pathname.replace(/\/$/, '')}/${artifactPath}`, `${base.origin}/`);
   const expectedPrefix = `${base.pathname.replace(/\/$/, '')}/`;
   if (url.origin !== base.origin || !url.pathname.startsWith(expectedPrefix)) {
-    throw new SignedManifestError('Update artifact is outside the OSS release prefix', 'signature');
+    throw new SignedManifestError('Update artifact is outside the release prefix', 'signature');
   }
   return url;
 };
@@ -117,7 +126,7 @@ export const verifySignedManifest = (
 
   const payloadBytes = decodeCanonicalBase64(envelope.data.payload, 'update payload');
   const signatureBytes = decodeCanonicalBase64(envelope.data.signature, 'update signature');
-  let valid = false;
+  let valid: boolean;
   try {
     const publicKey = createPublicKey({
       format: 'der',

@@ -19,12 +19,12 @@ describe('desktop download manifest', () => {
     ).toEqual(['darwin/arm64', 'darwin/x64', 'win32/x64']);
     expect(
       data.artifacts.every((a: { url: string }) =>
-        a.url.startsWith(
-          'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/1.2.7/',
-        ),
+        a.url.startsWith('https://masterino-file.bielcrystal.com/desktop/releases/canary/1.2.7/'),
       ),
     ).toBe(true);
-    expect(fetch.mock.calls[0][0]).toContain('/canary/canary.json');
+    expect(fetch.mock.calls[0][0]).toBe(
+      'https://masterino-file.bielcrystal.com/desktop/releases/canary/canary.json',
+    );
     expect(response.headers.get('Cache-Control')).toBe('no-store');
   });
   it('rejects a tampered manifest', async () => {

@@ -71,7 +71,7 @@ vi.mock('@/modules/updater/configs', () => ({
   BUILD_CHANNEL: 'canary',
   resolveInitialUpdateChannel: (channel?: string) => (channel === 'canary' ? 'canary' : 'stable'),
   UPDATE_CHANNEL: 'canary',
-  UPDATE_SERVER_URL: 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases',
+  UPDATE_SERVER_URL: 'https://masterino-file.bielcrystal.com/desktop/releases',
   updaterConfig: {
     app: { autoCheckUpdate: false, checkUpdateInterval: 3_600_000 },
     enableAppUpdate: true,
@@ -174,7 +174,7 @@ describe('UpdaterManager signed OSS flow', () => {
     await manager.checkForUpdates({ manual: true });
 
     expect(netFetch).toHaveBeenCalledWith(
-      'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/canary.json',
+      'https://masterino-file.bielcrystal.com/desktop/releases/canary/canary.json',
       expect.objectContaining({ redirect: 'manual', signal: expect.any(AbortSignal) }),
     );
     expect(signedManifestModule.verifySignedManifest).toHaveBeenCalled();
@@ -213,7 +213,7 @@ describe('UpdaterManager signed OSS flow', () => {
 
     await expect(manager.openManualDownload()).resolves.toBe('opened');
     expect(mocks.shellOpenExternal).toHaveBeenCalledWith(
-      'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases/canary/1.1.4/Masterino-1.1.4-setup.exe',
+      'https://masterino-file.bielcrystal.com/desktop/releases/canary/1.1.4/Masterino-1.1.4-setup.exe',
     );
   });
 

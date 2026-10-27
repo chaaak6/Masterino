@@ -50,7 +50,7 @@ const isCanary = channel === 'canary';
 const stripChannelSuffix = (url) => url.replace(/\/(stable|nightly|canary|beta)\/?$/, '');
 
 // 根据 channel 配置 publish provider
-// 所有桌面更新只允许使用国内 OSS generic provider。
+// 桌面更新使用国内 CDN generic provider，安装包仍上传到 OSS。
 const getPublishConfig = () => {
   const channelPath = isStable ? 'stable' : isNightly ? 'nightly' : channel || 'stable';
 

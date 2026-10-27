@@ -86,7 +86,10 @@ describe('verifyArtifact', () => {
     await expect(fs.access(path.join(dir, 'update.dmg'))).rejects.toThrow();
   });
 
-  it('reuses a verified installer across downloader instances without a second GET', async () => {
+  it.each([
+    'https://masterino-file.bielcrystal.com/desktop/releases',
+    'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases',
+  ])('reuses a verified installer without a second GET from %s', async (baseUrl) => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'masterino-update-'));
     created.push(dir);
     const body = Buffer.from('small synthetic installation package');
@@ -101,12 +104,13 @@ describe('verifyArtifact', () => {
     vi.mocked(netFetch).mockResolvedValue(new Response(body));
     const options = {
       artifact,
-      baseUrl: 'https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases',
+      baseUrl,
       destinationDir: dir,
     };
     await downloadArtifact(options);
     await downloadArtifact(options);
     expect(netFetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(netFetch).mock.calls[0][0]).toBe(`${baseUrl}/${artifact.path}`);
     await fs.writeFile(path.join(dir, 'update.dmg'), 'damaged');
     vi.mocked(netFetch).mockResolvedValue(new Response(body));
     await downloadArtifact(options);

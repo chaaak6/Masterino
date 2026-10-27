@@ -24,7 +24,7 @@ env:
   DEVICE_GATEWAY_URL: https://mlai-test.bielcrystal.com/device-gateway
   NODE_VERSION: 24.11.1
   UPDATE_CHANNEL: canary
-  UPDATE_SERVER_URL: https://masterlion-prd.oss-cn-shenzhen.aliyuncs.com/desktop/releases
+  UPDATE_SERVER_URL: https://masterino-file.bielcrystal.com/desktop/releases
 
 jobs:
   build-windows:
