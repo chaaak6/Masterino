@@ -2444,6 +2444,22 @@
   {
     "children": {
       "fixes": [
+        "keep model drafts aligned after catalog rollback.",
+        "preserve catalog kind and cancel pending refresh.",
+        "address model catalog review findings.",
+        "keep model catalog descriptions separate from runtime abilities.",
+        "complete Vietnamese model panel translations."
+      ],
+      "features": [
+        "refresh model catalog when opening chat panel."
+      ]
+    },
+    "date": "2026-10-27",
+    "version": "1.3.11"
+  },
+  {
+    "children": {
+      "fixes": [
         "retain workspace ownership when memory retries are exhausted.",
         "carry verified attachment and memory worker corrections into integration.",
         "preserve successful MCP installation status.",

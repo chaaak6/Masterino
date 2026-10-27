@@ -2,6 +2,47 @@
 
 # Changelog
 
+## [Version 1.3.11](https://github.com/chaaak6/Masterino/compare/v1.3.10...v1.3.11)
+
+<sup>Released on **2026-10-27**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: keep model drafts aligned after catalog rollback.
+- **misc**: preserve catalog kind and cancel pending refresh.
+- **misc**: address model catalog review findings.
+- **misc**: keep model catalog descriptions separate from runtime abilities.
+- **misc**: complete Vietnamese model panel translations.
+
+#### ✨ Features
+
+- **misc**: refresh model catalog when opening chat panel.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: keep model drafts aligned after catalog rollback ([81c8677](https://github.com/chaaak6/Masterino/commit/81c8677))
+- **misc**: preserve catalog kind and cancel pending refresh ([cc1ad8b](https://github.com/chaaak6/Masterino/commit/cc1ad8b))
+- **misc**: address model catalog review findings ([efcacce](https://github.com/chaaak6/Masterino/commit/efcacce))
+- **misc**: keep model catalog descriptions separate from runtime abilities ([ebd4a03](https://github.com/chaaak6/Masterino/commit/ebd4a03))
+- **misc**: complete Vietnamese model panel translations ([d9a33c8](https://github.com/chaaak6/Masterino/commit/d9a33c8))
+
+#### What's improved
+
+- **misc**: refresh model catalog when opening chat panel ([617f90b](https://github.com/chaaak6/Masterino/commit/617f90b))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.3.10](https://github.com/chaaak6/Masterino/compare/v1.3.9...v1.3.10)
 
 <sup>Released on **2026-10-16**</sup>
