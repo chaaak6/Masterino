@@ -8,6 +8,7 @@ import type {
   PersonaTemplateProps,
   UserPersonaExtractionResult,
 } from '../types';
+import { generateValidatedOutput } from '../utils/structuredOutput';
 import { BaseMemoryExtractor } from './base';
 
 const resultSchema = z.object({
@@ -116,29 +117,29 @@ export class UserPersonaExtractor extends BaseMemoryExtractor<
       { content: userPrompt, role: 'user' as const },
     ];
 
-    const result = (await this.runtime.generateObject(
-      {
-        messages,
-        model: this.model,
-        tools: this.getTools(options || {}),
+    const signal = AbortSignal.timeout(180_000);
+    return generateValidatedOutput(
+      (feedback) =>
+        this.runtime.generateObject(
+          {
+            messages: feedback ? [...messages, { role: 'user', content: feedback }] : messages,
+            model: this.model,
+            tools: this.getTools(options || {}),
+          },
+          { metadata: { trigger: RequestTrigger.Memory }, signal },
+        ),
+      (result) => {
+        if (Array.isArray(result)) {
+          const firstCall = result[0];
+          const args =
+            typeof firstCall?.arguments === 'string'
+              ? JSON.parse(firstCall.arguments || '{}')
+              : firstCall?.arguments;
+          return resultSchema.parse(args || {});
+        }
+        return resultSchema.parse(result);
       },
-      {
-        metadata: { trigger: RequestTrigger.Memory },
-        signal: AbortSignal.timeout(180_000),
-      },
-    )) as unknown;
-
-    if (Array.isArray(result)) {
-      const firstCall = result[0];
-      const args =
-        typeof firstCall?.arguments === 'string'
-          ? JSON.parse(firstCall.arguments || '{}')
-          : firstCall?.arguments;
-
-      return resultSchema.parse(args || {});
-    }
-
-    return resultSchema.parse(result);
+    );
   }
 
   async structuredCall(options?: PersonaExtractorOptions): Promise<UserPersonaExtractionResult> {
