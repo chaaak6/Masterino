@@ -16,6 +16,7 @@ import { builtinToolSelectors, lobehubSkillStoreSelectors } from '@/store/tool/s
 import { connectorSelectors } from '@/store/tool/slices/connector';
 
 const AgentSkillDetail = lazy(() => import('@/features/AgentSkillDetail'));
+const AgentSkillEdit = lazy(() => import('@/features/AgentSkillEdit'));
 
 export type ToolDetailType =
   | 'agent-skill'
@@ -71,6 +72,7 @@ const SkillDetail = memo<SkillDetailProps>(({ identifier, type, onDelete }) => {
   const { t } = useTranslation('plugin');
   const [syncing, setSyncing] = useState(false);
   const [noManifest, setNoManifest] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const { allowed: canCreate } = usePermission('create_content');
   const { allowed: canEdit } = usePermission('edit_own_content');
@@ -82,6 +84,9 @@ const SkillDetail = memo<SkillDetailProps>(({ identifier, type, onDelete }) => {
   const installBuiltinTool = useToolStore((s) => s.installBuiltinTool);
   const uninstallBuiltinTool = useToolStore((s) => s.uninstallBuiltinTool);
   const deleteAgentSkill = useToolStore((s) => s.deleteAgentSkill);
+  const isPersonalSkill = useToolStore((s) =>
+    s.agentSkills.some((skill) => skill.id === identifier && skill.source === 'user'),
+  );
   const connector = useToolStore(connectorSelectors.connectorByIdentifier(identifier));
 
   // For lobehub-connector: get the server's tool list from the store
@@ -174,10 +179,16 @@ const SkillDetail = memo<SkillDetailProps>(({ identifier, type, onDelete }) => {
             borderBlockEnd: '1px solid var(--ant-color-border-secondary)',
             display: 'flex',
             flexShrink: 0,
+            gap: 8,
             justifyContent: 'flex-end',
             padding: '8px 16px',
           }}
         >
+          {isPersonalSkill && (
+            <Button disabled={!canEdit} size="small" onClick={() => setEditOpen(true)}>
+              {t('store.actions.configure')}
+            </Button>
+          )}
           <Button
             danger
             disabled={!canEdit}
@@ -199,6 +210,15 @@ const SkillDetail = memo<SkillDetailProps>(({ identifier, type, onDelete }) => {
             <AgentSkillDetail skillId={identifier} />
           </Suspense>
         </div>
+        {isPersonalSkill && (
+          <Suspense>
+            <AgentSkillEdit
+              open={editOpen}
+              skillId={identifier}
+              onClose={() => setEditOpen(false)}
+            />
+          </Suspense>
+        )}
       </div>
     );
   }

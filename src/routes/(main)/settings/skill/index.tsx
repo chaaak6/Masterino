@@ -1,7 +1,6 @@
 'use client';
 
 import { Button, DropdownMenu, Flexbox, Icon, Text } from '@lobehub/ui';
-import { GithubIcon } from '@lobehub/ui/icons';
 import { createStaticStyles } from 'antd-style';
 import isEqual from 'fast-deep-equal';
 import { FileArchive, Grid2x2Plus, Link, Store } from 'lucide-react';
@@ -11,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 import { CustomConnectorModal } from '@/features/Connectors';
 import NavHeader from '@/features/NavHeader';
 import { createSkillStoreModal } from '@/features/SkillStore';
-import ImportFromGithubModal from '@/features/SkillStore/SkillList/ImportFromGithubModal';
 import ImportFromUrlModal from '@/features/SkillStore/SkillList/ImportFromUrlModal';
 import UploadSkillModal from '@/features/SkillStore/SkillList/UploadSkillModal';
 import { useToolStore } from '@/store/tool';
@@ -90,7 +88,6 @@ const Page = memo(() => {
   const [viewMode, setViewMode] = useState<SkillViewMode>('connector');
   const [showAddConnector, setShowAddConnector] = useState(false);
   const [showUrlModal, setUrlModal] = useState(false);
-  const [showGithubModal, setGithubModal] = useState(false);
   const [showUploadModal, setUploadModal] = useState(false);
 
   // Data sources for auto-select
@@ -172,19 +169,6 @@ const Page = memo(() => {
                     onClick: () => setUrlModal(true),
                   },
                   {
-                    icon: <Icon icon={GithubIcon} />,
-                    key: 'importGithub',
-                    label: (
-                      <Flexbox gap={2}>
-                        <span>{t('tab.importFromGithub')}</span>
-                        <Text style={{ fontSize: 12 }} type="secondary">
-                          {t('tab.importFromGithub.desc')}
-                        </Text>
-                      </Flexbox>
-                    ),
-                    onClick: () => setGithubModal(true),
-                  },
-                  {
                     icon: <Icon icon={FileArchive} />,
                     key: 'uploadZip',
                     label: (
@@ -243,7 +227,6 @@ const Page = memo(() => {
         )}
       </div>
       <ImportFromUrlModal open={showUrlModal} onOpenChange={setUrlModal} />
-      <ImportFromGithubModal open={showGithubModal} onOpenChange={setGithubModal} />
       <UploadSkillModal open={showUploadModal} onOpenChange={setUploadModal} />
       <CustomConnectorModal open={showAddConnector} onClose={() => setShowAddConnector(false)} />
     </>
