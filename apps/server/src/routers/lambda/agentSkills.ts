@@ -166,14 +166,16 @@ export const agentSkillsRouter = router({
   }),
 
   getByIdWithZipUrl: skillFileProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ archive: z.enum(['current', 'installed']).optional(), id: z.string() }))
     .query(async ({ ctx, input }) => {
       const skill = await ctx.skillModel.findById(input.id);
       if (!skill) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill not found' });
       }
 
-      if (skill.source !== 'builtin') {
+      // Interactive downloads export current edits. Execution must keep using
+      // the installed archive whose hash was frozen when the skill was activated.
+      if (input.archive !== 'installed' && skill.source !== 'builtin') {
         const { archive } = await exportPersonalSkill(
           ctx.serverDB,
           ctx.userId,

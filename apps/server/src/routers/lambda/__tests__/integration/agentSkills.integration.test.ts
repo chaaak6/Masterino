@@ -198,6 +198,19 @@ describe('Skill Router Integration Tests', () => {
       expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith(key);
       expect(key).toMatch(/^skills\/zip\/[a-f0-9]{64}\.zip$/);
       expect(mockGetFullFileUrl).not.toHaveBeenCalled();
+
+      // Runtime requests keep the installed bytes and hash, even after edits
+      // have produced a different downloadable snapshot.
+      const uploads = mockUploadBuffer.mock.calls.length;
+      await expect(
+        caller.getByIdWithZipUrl({ archive: 'installed', id: skill.id }),
+      ).resolves.toEqual({
+        name: 'Public Download Test',
+        url: 'https://public.example.com/skill.zip',
+      });
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenLastCalledWith('skills/public-download.zip');
+      expect(mockUploadBuffer.mock.calls.length).toBe(uploads);
+      expect((await caller.getById({ id: skill.id }))?.zipFileHash).toBe(zipFileHash);
     });
 
     it('rejects a foreign skill before reading resources or uploading an archive', async () => {
