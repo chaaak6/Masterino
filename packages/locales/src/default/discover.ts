@@ -7,6 +7,8 @@ export default {
     'Your original skill differs from this release and has been kept unchanged. Back it up and remove it before installing this release.',
   'publishing.installedConflict':
     'This installed skill has local edits and has been kept unchanged. Back it up and remove it before installing this release.',
+  'publishing.invalidManifest':
+    'SKILL.md must contain valid name and description fields in its YAML frontmatter.',
   'publishing.nameConflict':
     'A skill named {{name}} already exists. Back it up and remove it before installing this skill.',
 

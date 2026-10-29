@@ -482,6 +482,7 @@
   "publishing.description": "向公司分享打磨好的技能，审核并发布后，其他同事才能从社区安装。",
   "publishing.imported": "已导入，自己可以使用。你也可以选择提交社区审核。",
   "publishing.installedConflict": "已安装的技能有本地修改，内容已保留。若要安装发布版本，请先备份并移除该技能。",
+  "publishing.invalidManifest": "SKILL.md 的 YAML 元数据中必须包含有效的 name 和 description。",
   "publishing.keepOriginal": "这是你的原稿，请在个人技能库管理；原稿没有被删除。",
   "publishing.mySkills": "我的技能",
   "publishing.nameConflict": "已存在名为 {{name}} 的技能。若要安装此技能，请先备份并移除同名技能。",

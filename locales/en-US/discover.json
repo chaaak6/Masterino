@@ -482,6 +482,7 @@
   "publishing.description": "Share a finished skill with your company. It becomes available in the community after review and publication.",
   "publishing.imported": "Imported for your personal use. Sharing for review is optional.",
   "publishing.installedConflict": "This installed skill has local edits and has been kept unchanged. Back it up and remove it before installing this release.",
+  "publishing.invalidManifest": "SKILL.md must contain valid name and description fields in its YAML frontmatter.",
   "publishing.keepOriginal": "This is your original skill. Manage it in your personal library; it has not been deleted.",
   "publishing.mySkills": "My skills",
   "publishing.nameConflict": "A skill named {{name}} already exists. Back it up and remove it before installing this skill.",

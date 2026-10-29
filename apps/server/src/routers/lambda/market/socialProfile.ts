@@ -9,6 +9,7 @@ import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { marketSDK, marketUserInfo, serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { GitHub } from '@/server/modules/GitHub';
 import { FileService } from '@/server/services/file';
+import { SkillManifestError, SkillParseError } from '@/server/services/skill/errors';
 import { SkillParser } from '@/server/services/skill/parser';
 import { SkillPublishingService } from '@/server/services/skill/publishing';
 import { assertSafeSkillContent } from '@/server/services/skill/submissionPolicy';
@@ -455,11 +456,16 @@ export const socialProfileRouter = router({
             version: '1.0.0',
           });
         }
-        return new SkillPublishingService(
+        return await new SkillPublishingService(
           ctx.serverDB,
           ctx.userId,
           ctx.workspaceId ?? undefined,
         ).submitArchive(archive, input.sourceRef);
+      } catch (error) {
+        if (error instanceof SkillManifestError || error instanceof SkillParseError) {
+          throw new TRPCError({ cause: error, code: 'BAD_REQUEST', message: error.message });
+        }
+        throw error;
       } finally {
         cleanup();
       }
