@@ -2,7 +2,7 @@
 
 import { Flexbox, Text } from '@lobehub/ui';
 import { Modal, Select } from '@lobehub/ui/base-ui';
-import { App, Form, Input, Tabs, Upload } from 'antd';
+import { App, Tabs, Upload } from 'antd';
 import { sha256 } from 'js-sha256';
 import { memo, useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,17 +19,13 @@ interface SubmitRepoModalProps {
   skillId?: string;
 }
 
-const GITHUB_URL_REGEX =
-  /^https?:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\/(?:tree|blob)\/[^?#]+)?\/?$/;
-
 export const SubmitRepoModal = memo<SubmitRepoModalProps>(
   ({ open, onClose, onSuccess, beforeSubmit, skillId }) => {
     const { t } = useTranslation('discover');
     const { message } = App.useApp();
-    const [form] = Form.useForm();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [mode, setMode] = useState<'github' | 'zip' | 'personal'>(skillId ? 'personal' : 'zip');
+    const [mode, setMode] = useState<'zip' | 'personal'>(skillId ? 'personal' : 'zip');
     const uploadGeneration = useRef(0);
     const [zipFileId, setZipFileId] = useState<string>();
     const skills = useToolStore((s) => s.agentSkills);
@@ -52,15 +48,6 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
           workflowState = result.status;
           await refreshSkills().catch((error) => {
             console.error('[SubmitRepoModal] Failed to refresh skills:', error);
-          });
-        } else if (mode === 'github') {
-          const values = await form.validateFields();
-          const gitUrl = values.gitUrl?.trim();
-          if (!gitUrl) return;
-          await lambdaClient.market.socialProfile.submitRepo.mutate({
-            actAs: submitContext?.actAs,
-            gitUrl,
-            type: 'skill',
           });
         } else {
           if (!zipFileId) throw new Error(t('user.zipRequired'));
@@ -86,7 +73,6 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
         );
         onSuccess?.();
         onClose();
-        form.resetFields();
         setZipFileId(undefined);
         setZipName(undefined);
       } catch (error) {
@@ -102,7 +88,6 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       }
     }, [
       beforeSubmit,
-      form,
       message,
       mode,
       onSuccess,
@@ -125,7 +110,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
         setIsSubmitting(true);
         try {
           const { data: metadata } = await uploadService.uploadFileToS3(file, {
-            directory: 'market-submissions',
+            directory: 'skills',
           });
           const hash = sha256(await file.arrayBuffer());
           const result = await lambdaClient.file.createFile.mutate({
@@ -154,7 +139,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       setZipFileId(undefined);
       setZipName(undefined);
       onClose();
-    }, [form, onClose]);
+    }, [onClose]);
 
     return (
       <Modal
@@ -203,24 +188,6 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
             },
             {
               children: (
-                <Form form={form} layout="vertical">
-                  <Form.Item
-                    label={t('user.githubUrl')}
-                    name="gitUrl"
-                    rules={[
-                      { required: true, message: t('user.githubUrlRequired') },
-                      { pattern: GITHUB_URL_REGEX, message: t('user.githubUrlInvalid') },
-                    ]}
-                  >
-                    <Input placeholder="https://github.com/username/repo" />
-                  </Form.Item>
-                </Form>
-              ),
-              key: 'github',
-              label: 'GitHub',
-            },
-            {
-              children: (
                 <Upload.Dragger
                   accept=".zip,.skill"
                   disabled={isSubmitting}
@@ -238,7 +205,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
               label: t('user.submitZip'),
             },
           ]}
-          onChange={(key) => setMode(key as 'github' | 'zip' | 'personal')}
+          onChange={(key) => setMode(key as 'zip' | 'personal')}
         />
 
         <Flexbox style={{ marginTop: 8 }}>

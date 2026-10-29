@@ -1342,8 +1342,7 @@ export default {
   'user.submitMcpSuccess': 'MCP submitted. It will be available after review.',
   'user.submitMcpTitle': 'Submit an MCP server',
   'user.submitRepo': 'Submit Skill',
-  'user.submitRepoDescription':
-    'Submit a Skill from a GitHub repository or a ZIP package for community review.',
+  'user.submitRepoDescription': 'Submit one of your Skills or a ZIP package for community review.',
   'user.submitRepoError': 'Failed to submit repository. Please try again.',
   'user.submitRepoHint': 'The Skill will be scanned and reviewed before being published.',
   'user.submitRepoSuccess': 'Repository submitted successfully! It will be reviewed shortly.',

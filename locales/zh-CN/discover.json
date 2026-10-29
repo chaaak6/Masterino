@@ -678,7 +678,7 @@
   "user.submitMcpSuccess": "MCP 已提交，审核通过后即可使用。",
   "user.submitMcpTitle": "提交 MCP 服务",
   "user.submitRepo": "提交 Skill",
-  "user.submitRepoDescription": "通过 GitHub 仓库或 ZIP 包提交 Skill，进入社区审核流程。",
+  "user.submitRepoDescription": "选择个人 Skill 或上传 ZIP 包，提交社区审核。",
   "user.submitRepoError": "提交仓库失败，请重试。",
   "user.submitRepoHint": "Skill 经过安全扫描和人工审核后才会发布。",
   "user.submitRepoSuccess": "仓库提交成功！审核通过后将自动发布。",

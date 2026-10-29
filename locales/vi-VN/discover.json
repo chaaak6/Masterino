@@ -678,7 +678,7 @@
   "user.submitMcpSuccess": "Đã gửi MCP. MCP sẽ có sẵn sau khi được xét duyệt.",
   "user.submitMcpTitle": "Gửi máy chủ MCP",
   "user.submitRepo": "Gửi Kho Lưu Trữ",
-  "user.submitRepoDescription": "Gửi kho lưu trữ GitHub của bạn để nhập Kỹ năng hoặc MCPs của bạn vào cộng đồng.",
+  "user.submitRepoDescription": "Chọn kỹ năng cá nhân hoặc tải lên tệp ZIP để gửi cộng đồng xét duyệt.",
   "user.submitRepoError": "Gửi kho lưu trữ thất bại. Vui lòng thử lại.",
   "user.submitRepoHint": "Kho lưu trữ sẽ được xem xét trước khi được xuất bản.",
   "user.submitRepoSuccess": "Kho lưu trữ đã được gửi thành công! Nó sẽ được xem xét trong thời gian ngắn.",
