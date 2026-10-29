@@ -1,4 +1,9 @@
 export default {
+  'publishing.unlink': 'Unlink from store',
+  'publishing.unlinkDescription':
+    'Unlink this release from your personal skill? Your original skill and assistant settings will be kept.',
+  'publishing.unlinked':
+    'Store link removed. Your original skill is still in your personal library.',
   'publishing.rejected': 'This version was rejected. Update the skill before submitting again.',
   'publishing.deprecated': 'This version was taken down. Update the skill before submitting again.',
   'publishing.alreadyPublished': 'This version is already published.',

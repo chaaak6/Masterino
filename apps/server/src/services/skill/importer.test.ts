@@ -5,6 +5,8 @@ import { getTestDB } from '@lobechat/database/test-utils';
 import { and, eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AgentSkillModel } from '@/database/models/agentSkill';
+
 import { SkillImportError } from './errors';
 import { SkillImporter } from './importer';
 import { submissionIdentifier } from './publishing';
@@ -358,6 +360,39 @@ describe('SkillImporter', () => {
   });
 
   describe('importFromMarketArchive', () => {
+    it('reuses a personal submission after unlinking while preserving the original', async () => {
+      const original = await importer.createUserSkill({
+        name: 'personal-unlink-skill',
+        description: 'A test skill',
+        content: 'Original content',
+      });
+      const identifier = submissionIdentifier(userId, undefined, `personal:${original.id}`);
+      mockParserInstance.parseZipPackage.mockResolvedValue({
+        content: original.content,
+        manifest: original.manifest,
+        resources: new Map(),
+        skillZipBuffer: Buffer.from('archive'),
+      });
+      const model = new AgentSkillModel(db, userId);
+      await model.update(original.id, {
+        editorData: { publication: { identifier, hash: 'snapshot' }, retained: 'metadata' },
+      });
+      expect(await model.unlinkPublication(original.id, 'other-release')).toBe(false);
+      expect(
+        await new AgentSkillModel(db, 'other-user').unlinkPublication(original.id, identifier),
+      ).toBe(false);
+      expect(await model.unlinkPublication(original.id, identifier)).toBe(true);
+      const unlinked = await model.findById(original.id);
+      expect(unlinked?.content).toBe('Original content');
+      expect(unlinked?.editorData).toEqual({ retained: 'metadata' });
+      const result = await importer.importFromMarketArchive({
+        buffer: Buffer.from('zip'),
+        identifier,
+      });
+      expect(result.skill.id).toBe(original.id);
+      expect(result.skill.editorData?.publication?.identifier).toBe(identifier);
+    });
+
     it('reuses the author’s identical original for a directly submitted ZIP and protects later edits', async () => {
       const original = await importer.createUserSkill({
         name: 'direct-zip-skill',

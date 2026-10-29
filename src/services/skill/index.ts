@@ -77,6 +77,10 @@ class AgentSkillService {
 
   // ===== Update =====
 
+  async unlinkPublication(id: string, identifier: string): Promise<void> {
+    await lambdaClient.agentSkills.unlinkPublication.mutate({ id, identifier });
+  }
+
   async updateSkill(params: UpdateSkillInput): Promise<SkillItem> {
     return lambdaClient.agentSkills.update.mutate({
       content: params.content,

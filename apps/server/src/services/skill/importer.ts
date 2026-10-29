@@ -302,7 +302,9 @@ export class SkillImporter {
       input.protectLocalChanges &&
       sameName?.source === 'user' &&
       !sameName.editorData?.publication &&
-      identifier === submissionIdentifier(this.userId, this.workspaceId, manifest.name)
+      (identifier === submissionIdentifier(this.userId, this.workspaceId, manifest.name) ||
+        identifier ===
+          submissionIdentifier(this.userId, this.workspaceId, `personal:${sameName.id}`))
     ) {
       const current = await exportPersonalSkill(
         this.skillModelDb,

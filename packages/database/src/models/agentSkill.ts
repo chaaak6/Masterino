@@ -169,6 +169,22 @@ export class AgentSkillModel {
 
   // ========== Delete ==========
 
+  unlinkPublication = async (id: string, identifier: string): Promise<boolean> => {
+    const rows = await this.db
+      .update(agentSkills)
+      .set({ editorData: sql`${agentSkills.editorData} - 'publication'` })
+      .where(
+        and(
+          eq(agentSkills.id, id),
+          eq(agentSkills.source, 'user'),
+          this.scopeWhere(),
+          sql`${agentSkills.editorData}->'publication'->>'identifier' = ${identifier}`,
+        ),
+      )
+      .returning({ id: agentSkills.id });
+    return rows.length > 0;
+  };
+
   delete = async (id: string): Promise<{ success: boolean }> => {
     const result = await this.db
       .delete(agentSkills)

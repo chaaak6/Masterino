@@ -44,7 +44,7 @@ interface AgentSkillItemProps {
 }
 
 const AgentSkillItem = memo<AgentSkillItemProps>(({ skill }) => {
-  const { t } = useTranslation('plugin');
+  const { t } = useTranslation(['plugin', 'discover']);
   const { t: tc } = useTranslation('common');
   const [submitOpen, setSubmitOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);

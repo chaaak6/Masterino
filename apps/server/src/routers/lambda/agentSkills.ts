@@ -307,6 +307,14 @@ export const agentSkillsRouter = router({
 
   // ===== Update =====
 
+  unlinkPublication: skillWriteProcedure
+    .input(z.object({ id: z.string().min(1), identifier: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const success = await ctx.skillModel.unlinkPublication(input.id, input.identifier);
+      if (!success) throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill link not found' });
+      return { success };
+    }),
+
   update: skillWriteProcedure.input(updateSkillSchema).mutation(async ({ ctx, input }) => {
     const { id, content, manifest } = input;
     return ctx.skillModel.update(id, {
