@@ -152,12 +152,18 @@ export class AgentSkillModel {
 
   // ========== Update ==========
 
-  update = async (id: string, data: Partial<NewAgentSkill>): Promise<SkillItem> => {
+  update = async (
+    id: string,
+    data: Partial<NewAgentSkill>,
+    options?: { replaceManifest?: boolean },
+  ): Promise<SkillItem> => {
     const existing = await this.findById(id);
 
     const updateData = merge(existing || {}, { ...data, updatedAt: new Date() });
     // Bundle resources are a snapshot: deleted files must not survive deep merge.
     if (data.resources !== undefined) updateData.resources = data.resources;
+    if (options?.replaceManifest && data.manifest !== undefined)
+      updateData.manifest = data.manifest;
 
     const [result] = await this.db
       .update(agentSkills)

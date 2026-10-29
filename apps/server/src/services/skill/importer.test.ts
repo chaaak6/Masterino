@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentSkillModel } from '@/database/models/agentSkill';
+import { FileService } from '@/server/services/file';
 
 import { SkillImportError } from './errors';
 import { SkillImporter } from './importer';
@@ -360,6 +361,177 @@ describe('SkillImporter', () => {
   });
 
   describe('importFromMarketArchive', () => {
+    it.each([false, true])(
+      'checks the legacy URL import provenance and resource bytes (edited reference: %s)',
+      async (editedReference) => {
+        const previousArchive = Buffer.from('legacy-url-release');
+        const reference = Buffer.from('Published reference');
+        const binary = Buffer.from([0, 1, 2, 3]);
+        const previous = {
+          content: 'Published V1',
+          manifest: {
+            name: 'legacy-url-skill',
+            description: 'Legacy URL skill',
+            oldMetadata: true,
+          },
+          resources: new Map([
+            ['references/a.md', reference],
+            ['assets/probe.png', binary],
+          ]),
+          skillZipBuffer: previousArchive,
+          zipHash: 'legacy-url-release-hash',
+        };
+        mockParserInstance.parseZipPackage.mockResolvedValue(previous);
+        mockSsrfSafeFetch.mockResolvedValue(
+          new Response(previousArchive, {
+            headers: { 'content-type': 'application/zip' },
+          }),
+        );
+        const installed = await importer.importFromUrl(
+          { url: 'https://example.com/legacy.zip' },
+          {
+            identifier: 'legacy-url-skill',
+            source: 'market',
+          },
+        );
+        expect(installed.skill.manifest.sourceUrl).toBe('https://example.com/legacy.zip');
+        expect(installed.skill.editorData?.installedSkillHash).toBeUndefined();
+        const readBaseline = vi
+          .spyOn(FileService.prototype, 'getFileByteArrayByHash')
+          .mockImplementation(async (hash) =>
+            hash === previous.zipHash ? previousArchive : binary,
+          );
+        const readReference = vi
+          .spyOn(FileService.prototype, 'getFileContentByHash')
+          .mockResolvedValue(editedReference ? 'Unpublished reference edit' : reference.toString());
+        const next = {
+          ...previous,
+          content: 'Published V2',
+          manifest: { name: 'legacy-url-skill', description: 'Legacy URL skill' },
+          zipHash: 'next-url-release-hash',
+        };
+        mockParserInstance.parseZipPackage.mockImplementation(async (archive: Buffer) =>
+          archive.equals(previousArchive) ? previous : next,
+        );
+        const update = importer.importFromMarketArchive({
+          buffer: Buffer.from('next-url-release'),
+          identifier: 'legacy-url-skill',
+        });
+        if (editedReference) {
+          await expect(update).rejects.toMatchObject({ code: 'CONFLICT' });
+          expect(
+            (await new AgentSkillModel(db, userId).findById(installed.skill.id))?.content,
+          ).toBe(previous.content);
+        } else {
+          const result = await update;
+          expect(result.status).toBe('updated');
+          expect(Object.keys(result.skill.resources!)).toEqual(
+            expect.arrayContaining(['references/a.md', 'assets/probe.png']),
+          );
+          expect(result.skill.manifest).toEqual(next.manifest);
+          await expect(
+            importer.importFromMarketArchive({
+              buffer: Buffer.from('next-url-release'),
+              identifier: 'legacy-url-skill',
+            }),
+          ).resolves.toMatchObject({ status: 'unchanged' });
+        }
+        expect(readBaseline).toHaveBeenCalledWith(previous.zipHash);
+        readReference.mockRestore();
+        readBaseline.mockRestore();
+      },
+    );
+
+    it.each([false, true])(
+      'compares a legacy installation to its saved release before updating (local edits: %s)',
+      async (hasLocalEdits) => {
+        const previousArchive = Buffer.from('legacy-release');
+        const nextArchive = Buffer.from('next-release');
+        const previous = {
+          content: 'Published V1',
+          manifest: { name: 'legacy-skill', description: 'A legacy skill' },
+          resources: new Map(),
+          skillZipBuffer: previousArchive,
+          zipHash: 'legacy-release-hash',
+        };
+        mockParserInstance.parseZipPackage.mockResolvedValue(previous);
+        const installed = await importer.importFromMarketArchive({
+          buffer: previousArchive,
+          identifier: 'legacy-skill',
+        });
+        await db
+          .update(agentSkills)
+          .set({
+            content: hasLocalEdits ? 'Unpublished local work' : previous.content,
+            editorData: null,
+          })
+          .where(eq(agentSkills.id, installed.skill.id));
+        const readBaseline = vi
+          .spyOn(FileService.prototype, 'getFileByteArrayByHash')
+          .mockResolvedValue(previousArchive);
+        const next = { ...previous, content: 'Published V2', zipHash: 'next-release-hash' };
+        mockParserInstance.parseZipPackage.mockImplementation(async (archive: Buffer) =>
+          archive.equals(previousArchive) ? previous : next,
+        );
+
+        const update = importer.importFromMarketArchive({
+          buffer: nextArchive,
+          identifier: 'legacy-skill',
+        });
+        if (hasLocalEdits) {
+          await expect(update).rejects.toMatchObject({ code: 'CONFLICT' });
+        } else {
+          await expect(update).resolves.toMatchObject({
+            status: 'updated',
+            skill: { id: installed.skill.id },
+          });
+        }
+        const saved = await new AgentSkillModel(db, userId).findById(installed.skill.id);
+        expect(saved?.content).toBe(hasLocalEdits ? 'Unpublished local work' : next.content);
+        if (!hasLocalEdits)
+          expect(saved?.editorData?.installedSkillHash).toEqual(expect.any(String));
+        expect(readBaseline).toHaveBeenCalledWith(previous.zipHash);
+        readBaseline.mockRestore();
+      },
+    );
+
+    it('preserves a legacy installation when its saved archive cannot be read', async () => {
+      const previous = {
+        content: 'Original content',
+        manifest: { name: 'unreadable-legacy', description: 'A legacy skill' },
+        resources: new Map(),
+        skillZipBuffer: Buffer.from('v1'),
+        zipHash: 'unreadable-release-hash',
+      };
+      mockParserInstance.parseZipPackage.mockResolvedValue(previous);
+      const installed = await importer.importFromMarketArchive({
+        buffer: Buffer.from('v1'),
+        identifier: 'unreadable-legacy',
+      });
+      await db
+        .update(agentSkills)
+        .set({ editorData: null })
+        .where(eq(agentSkills.id, installed.skill.id));
+      const readBaseline = vi
+        .spyOn(FileService.prototype, 'getFileByteArrayByHash')
+        .mockRejectedValue(new Error('Archive unavailable'));
+      mockParserInstance.parseZipPackage.mockResolvedValue({
+        ...previous,
+        content: 'Incoming release',
+      });
+      await expect(
+        importer.importFromMarketArchive({
+          buffer: Buffer.from('v2'),
+          identifier: 'unreadable-legacy',
+        }),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
+      expect(readBaseline).toHaveBeenCalledWith(previous.zipHash);
+      expect((await new AgentSkillModel(db, userId).findById(installed.skill.id))?.content).toBe(
+        previous.content,
+      );
+      readBaseline.mockRestore();
+    });
+
     it('reuses a personal submission after unlinking while preserving the original', async () => {
       const original = await importer.createUserSkill({
         name: 'personal-unlink-skill',

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type { LobeChatDatabase } from '@lobechat/database';
+import type { ParsedZipSkill } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { zipSync } from 'fflate';
 import matter from 'gray-matter';
@@ -50,6 +51,22 @@ export const skillFingerprint = (skill: {
       ]),
     )
     .digest('hex');
+
+async function publicationArchive(skill: ParsedZipSkill) {
+  // The version uses the semantic fingerprint, so its artifact must ignore
+  // source YAML formatting, key order and surrounding body whitespace too.
+  const files: Record<string, Uint8Array> = {
+    'SKILL.md': new TextEncoder().encode(
+      matter.stringify(skill.content.trim(), canonical(skill.manifest)),
+    ),
+  };
+  for (const path of [...skill.resources.keys()].sort()) files[path] = skill.resources.get(path)!;
+  // Reuse the parser's size validation, sorted entries and fixed ZIP timestamp.
+  const parsed = await new SkillParser().parseZipPackage(Buffer.from(zipSync(files)), {
+    repackSkillZip: true,
+  });
+  return parsed.skillZipBuffer!;
+}
 
 /** Rebuild from current content, never from a potentially stale imported ZIP. */
 export async function exportPersonalSkill(
@@ -123,6 +140,7 @@ export class SkillPublishingService {
     for (const bytes of parsed.resources.values()) {
       if (!bytes.includes(0)) assertSafeSkillContent(bytes.toString('utf8'));
     }
+    const normalizedArchive = await publicationArchive(parsed);
     const hash = skillFingerprint(parsed);
     const identifier = submissionIdentifier(
       this.userId,
@@ -143,7 +161,7 @@ export class SkillPublishingService {
     const form = new FormData();
     form.set(
       'file',
-      new Blob([new Uint8Array(parsed.skillZipBuffer!)], { type: 'application/zip' }),
+      new Blob([new Uint8Array(normalizedArchive)], { type: 'application/zip' }),
       `${identifier}.zip`,
     );
     form.set(

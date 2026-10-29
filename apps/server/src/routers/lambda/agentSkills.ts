@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { SkillManifest } from '@lobechat/types';
 import { skillManifestSchema } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
@@ -17,6 +19,7 @@ import {
   SkillResourceError,
   SkillResourceService,
 } from '@/server/services/skill';
+import { exportPersonalSkill } from '@/server/services/skill/publishing';
 
 // ===== Error Handling =====
 
@@ -168,6 +171,26 @@ export const agentSkillsRouter = router({
       const skill = await ctx.skillModel.findById(input.id);
       if (!skill) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill not found' });
+      }
+
+      if (skill.source !== 'builtin') {
+        const { archive } = await exportPersonalSkill(
+          ctx.serverDB,
+          ctx.userId,
+          skill.id,
+          ctx.workspaceId ?? undefined,
+        );
+        const hash = createHash('sha256').update(archive).digest('hex');
+        const key = `skills/zip/${hash}.zip`;
+        await ctx.fileService.uploadBuffer(key, archive, 'application/zip');
+        await ctx.fileService.createGlobalFile({
+          fileHash: hash,
+          fileType: 'application/zip',
+          size: archive.length,
+          url: key,
+        });
+        const url = await ctx.fileService.createBrowserFileAccessUrl(key);
+        return { name: skill.name, url: url || null };
       }
 
       if (!skill.zipFileHash) {

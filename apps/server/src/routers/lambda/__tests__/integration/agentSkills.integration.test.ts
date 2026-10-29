@@ -2,6 +2,7 @@
 import type { LobeChatDatabase } from '@lobechat/database';
 import { agentSkills, globalFiles } from '@lobechat/database/schemas';
 import { getTestDB } from '@lobechat/database/test-utils';
+import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDocumentModel } from '@/database/models/agentDocuments';
@@ -23,10 +24,13 @@ vi.mock('@/database/core/db-adaptor', () => ({
 }));
 
 // Mock FileService to avoid S3 dependency
-const { mockCreateBrowserFileAccessUrl, mockGetFullFileUrl } = vi.hoisted(() => ({
-  mockCreateBrowserFileAccessUrl: vi.fn(),
-  mockGetFullFileUrl: vi.fn(),
-}));
+const { mockCreateBrowserFileAccessUrl, mockGetFullFileUrl, mockUploadBuffer, mockReadResource } =
+  vi.hoisted(() => ({
+    mockCreateBrowserFileAccessUrl: vi.fn(),
+    mockGetFullFileUrl: vi.fn(),
+    mockUploadBuffer: vi.fn(),
+    mockReadResource: vi.fn().mockRejectedValue(new Error('Resource not found')),
+  }));
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
     createBrowserFileAccessUrl: mockCreateBrowserFileAccessUrl,
@@ -35,7 +39,7 @@ vi.mock('@/server/services/file', () => ({
     downloadFileToLocal: vi.fn(),
     getFileContent: vi.fn(),
     getFullFileUrl: mockGetFullFileUrl,
-    uploadBuffer: vi.fn().mockResolvedValue({ key: 'mock-key' }),
+    uploadBuffer: mockUploadBuffer,
     uploadMedia: vi.fn().mockResolvedValue({ key: 'mock-key' }),
   })),
 }));
@@ -44,7 +48,7 @@ vi.mock('@/server/services/file', () => ({
 vi.mock('@/server/services/skill/resource', () => ({
   SkillResourceService: vi.fn().mockImplementation(() => ({
     storeResources: vi.fn().mockResolvedValue({}),
-    readResource: vi.fn().mockRejectedValue(new Error('Resource not found')),
+    readResource: mockReadResource,
     listResources: vi.fn().mockResolvedValue([]),
   })),
 }));
@@ -151,7 +155,11 @@ describe('Skill Router Integration Tests', () => {
   };
 
   describe('getByIdWithZipUrl', () => {
-    it('returns a public signed URL for a client-side skill download', async () => {
+    it('downloads current edited content and references instead of the imported ZIP', async () => {
+      mockParserInstance.parseZipPackage.mockImplementationOnce(async (archive: Buffer) => ({
+        skillZipBuffer: archive,
+      }));
+      mockReadResource.mockResolvedValueOnce({ content: 'REFERENCE_OK', encoding: 'utf8' });
       const zipFileHash = 'a'.repeat(64);
       await serverDB.insert(globalFiles).values({
         creator: userId,
@@ -164,6 +172,7 @@ describe('Skill Router Integration Tests', () => {
         .insert(agentSkills)
         .values({
           description: 'Public download test',
+          content: 'EDITED_DOWNLOAD_MARKER',
           identifier: 'public-download-test',
           manifest: {
             description: 'Public download test',
@@ -171,6 +180,7 @@ describe('Skill Router Integration Tests', () => {
           },
           name: 'Public Download Test',
           source: 'user',
+          resources: { 'references/probe.md': { fileHash: 'reference-hash', size: 12 } },
           userId,
           zipFileHash,
         })
@@ -181,8 +191,39 @@ describe('Skill Router Integration Tests', () => {
         name: 'Public Download Test',
         url: 'https://public.example.com/skill.zip',
       });
-      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith('skills/public-download.zip');
+      const [key, archive] = mockUploadBuffer.mock.calls.at(-1)!;
+      const files = unzipSync(archive);
+      expect(strFromU8(files['SKILL.md'])).toContain('EDITED_DOWNLOAD_MARKER');
+      expect(strFromU8(files['references/probe.md'])).toBe('REFERENCE_OK');
+      expect(mockCreateBrowserFileAccessUrl).toHaveBeenCalledWith(key);
+      expect(key).toMatch(/^skills\/zip\/[a-f0-9]{64}\.zip$/);
       expect(mockGetFullFileUrl).not.toHaveBeenCalled();
+    });
+
+    it('rejects a foreign skill before reading resources or uploading an archive', async () => {
+      const ownerId = await createTestUser(serverDB);
+      try {
+        const [skill] = await serverDB
+          .insert(agentSkills)
+          .values({
+            content: 'PRIVATE_CONTENT',
+            description: 'Private',
+            identifier: 'private-download',
+            manifest: { description: 'Private', name: 'private-download' },
+            name: 'private-download',
+            source: 'user',
+            userId: ownerId,
+          })
+          .returning();
+        const uploads = mockUploadBuffer.mock.calls.length;
+        const caller = agentSkillsRouter.createCaller(createTestContext(userId));
+        await expect(caller.getByIdWithZipUrl({ id: skill.id })).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+        expect(mockUploadBuffer.mock.calls.length).toBe(uploads);
+      } finally {
+        await cleanupTestUser(serverDB, ownerId);
+      }
     });
   });
 

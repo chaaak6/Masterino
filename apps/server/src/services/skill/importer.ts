@@ -327,14 +327,41 @@ export class SkillImporter {
         `A skill named "${manifest.name}" already exists. Remove it before installing this skill.`,
         'CONFLICT',
       );
-    if (input.protectLocalChanges && existing?.editorData?.installedSkillHash) {
+    if (input.protectLocalChanges && existing) {
+      let installedSkillHash = existing.editorData?.installedSkillHash;
+      if (!installedSkillHash) {
+        // Older installations predate the fingerprint field. Their saved archive
+        // is the immutable baseline; comparing to the incoming release would
+        // mistake a legitimate upgrade for a local edit.
+        try {
+          if (!existing.zipFileHash) throw new Error('Missing installed archive');
+          const bytes = await this.fileService.getFileByteArrayByHash(existing.zipFileHash);
+          const installed = await this.parser.parseZipPackage(Buffer.from(bytes));
+          installedSkillHash = skillFingerprint({
+            ...installed,
+            manifest: {
+              ...installed.manifest,
+              // The former URL import path added provenance outside SKILL.md.
+              // An explicit sourceUrl in the package remains part of its content.
+              ...(installed.manifest.sourceUrl === undefined && existing.manifest.sourceUrl
+                ? { sourceUrl: existing.manifest.sourceUrl }
+                : {}),
+            },
+          });
+        } catch {
+          throw new SkillImportError(
+            'The installed skill baseline could not be verified and the skill has been kept unchanged. Back up and remove it before installing this release.',
+            'CONFLICT',
+          );
+        }
+      }
       const current = await exportPersonalSkill(
         this.skillModelDb,
         this.userId,
         existing.id,
         this.workspaceId,
       );
-      if (current.hash !== existing.editorData.installedSkillHash)
+      if (current.hash !== installedSkillHash)
         throw new SkillImportError(
           'This installed skill has local edits and has been kept unchanged. Back up and remove it before installing this release.',
           'CONFLICT',
@@ -379,17 +406,21 @@ export class SkillImporter {
         return { skill: existing, status: 'unchanged' };
       }
 
-      const skill = await this.skillModel.update(existing.id, {
-        ...(input.protectLocalChanges && {
-          editorData: { ...existing.editorData, installedSkillHash },
-        }),
-        content: skillContent,
-        description: manifest.description,
-        manifest: fullManifest,
-        name: manifest.name,
-        resources: resourceMap ?? {},
-        ...(zipFileHash && { zipFileHash }),
-      });
+      const skill = await this.skillModel.update(
+        existing.id,
+        {
+          ...(input.protectLocalChanges && {
+            editorData: { ...existing.editorData, installedSkillHash },
+          }),
+          content: skillContent,
+          description: manifest.description,
+          manifest: fullManifest,
+          name: manifest.name,
+          resources: resourceMap ?? {},
+          ...(zipFileHash && { zipFileHash }),
+        },
+        { replaceManifest: true },
+      );
       return { skill, status: 'updated' };
     }
 
