@@ -68,7 +68,9 @@ describe('socialProfileRouter submissions', () => {
 
     const call = fetchSpy.mock.calls[0] as [string, RequestInit] | undefined;
     expect(String(call?.[0])).toMatch(/\/api\/v1\/user\/skills\/lobehub-example-skill\/versions$/);
-    expect((call?.[1]?.headers as Record<string, string>)['x-lobe-owner-account-id']).toBe('123');
+    const headers = new Headers(call?.[1]?.headers);
+    expect(headers.get('x-lobe-owner-account-id')).toBe('123');
+    expect(headers.has('content-type')).toBe(false);
   });
 
   it('creates an MCP draft and submits it to review without publishing directly', async () => {
