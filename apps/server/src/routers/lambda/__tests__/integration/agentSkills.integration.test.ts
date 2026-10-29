@@ -1,8 +1,12 @@
 // @vitest-environment node
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import type { LobeChatDatabase } from '@lobechat/database';
 import { agentSkills, globalFiles } from '@lobechat/database/schemas';
 import { getTestDB } from '@lobechat/database/test-utils';
-import { strFromU8, unzipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDocumentModel } from '@/database/models/agentDocuments';
@@ -24,19 +28,25 @@ vi.mock('@/database/core/db-adaptor', () => ({
 }));
 
 // Mock FileService to avoid S3 dependency
-const { mockCreateBrowserFileAccessUrl, mockGetFullFileUrl, mockUploadBuffer, mockReadResource } =
-  vi.hoisted(() => ({
-    mockCreateBrowserFileAccessUrl: vi.fn(),
-    mockGetFullFileUrl: vi.fn(),
-    mockUploadBuffer: vi.fn(),
-    mockReadResource: vi.fn().mockRejectedValue(new Error('Resource not found')),
-  }));
+const {
+  mockCreateBrowserFileAccessUrl,
+  mockGetFullFileUrl,
+  mockUploadBuffer,
+  mockReadResource,
+  mockDownloadFileToLocal,
+} = vi.hoisted(() => ({
+  mockCreateBrowserFileAccessUrl: vi.fn(),
+  mockGetFullFileUrl: vi.fn(),
+  mockUploadBuffer: vi.fn(),
+  mockReadResource: vi.fn().mockRejectedValue(new Error('Resource not found')),
+  mockDownloadFileToLocal: vi.fn(),
+}));
 vi.mock('@/server/services/file', () => ({
   FileService: vi.fn().mockImplementation(() => ({
     createBrowserFileAccessUrl: mockCreateBrowserFileAccessUrl,
     createGlobalFile: vi.fn().mockResolvedValue({ id: 'mock-global-file-id' }),
     createFileRecord: vi.fn().mockResolvedValue({ fileId: 'mock-file-id', url: '/f/mock-file-id' }),
-    downloadFileToLocal: vi.fn(),
+    downloadFileToLocal: mockDownloadFileToLocal,
     getFileContent: vi.fn(),
     getFullFileUrl: mockGetFullFileUrl,
     uploadBuffer: mockUploadBuffer,
@@ -798,6 +808,54 @@ describe('Skill Router Integration Tests', () => {
       await expect(caller.readResource({ id: created!.id, path: 'readme.md' })).rejects.toThrow(
         'Skill has no resources',
       );
+    });
+  });
+
+  describe('invalid ZIP imports', () => {
+    it.each<[string, Record<string, Uint8Array>]>([
+      ['missing frontmatter', { 'SKILL.md': strToU8('Instructions without metadata') }],
+      ['missing SKILL.md', { 'readme.md': strToU8('No skill document') }],
+      [
+        'path traversal',
+        { '../SKILL.md': strToU8('---\nname: probe\ndescription: Probe\n---\nInstructions') },
+      ],
+    ])('returns BAD_REQUEST for %s without creating a skill', async (_label, entries) => {
+      const { SkillParser } = await vi.importActual<
+        typeof import('@/server/services/skill/parser')
+      >('@/server/services/skill/parser');
+      const parser = new SkillParser();
+      mockParserInstance.parseZipPackage.mockImplementationOnce(
+        (...args: Parameters<InstanceType<typeof SkillParser>['parseZipPackage']>) =>
+          parser.parseZipPackage(...args),
+      );
+      const directory = await mkdtemp(join(tmpdir(), 'masterino-invalid-skill-'));
+      const cleanup = vi.fn();
+      try {
+        const filePath = join(directory, 'invalid.zip');
+        await writeFile(filePath, zipSync(entries));
+        mockDownloadFileToLocal.mockResolvedValueOnce({ filePath, cleanup });
+        const caller = agentSkillsRouter.createCaller(createTestContext(userId));
+        const uploads = mockUploadBuffer.mock.calls.length;
+        await expect(
+          caller.importFromZip({ zipFileId: 'authorized-test-file' }),
+        ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+        expect((await caller.list()).data).toEqual([]);
+        expect(mockUploadBuffer.mock.calls.length).toBe(uploads);
+        expect(cleanup).toHaveBeenCalledOnce();
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    });
+
+    it('preserves unexpected storage errors as server failures', async () => {
+      mockDownloadFileToLocal.mockRejectedValueOnce(new Error('Storage unavailable'));
+      const caller = agentSkillsRouter.createCaller(createTestContext(userId));
+      await expect(
+        caller.importFromZip({ zipFileId: 'authorized-test-file' }),
+      ).rejects.toMatchObject({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Storage unavailable',
+      });
     });
   });
 

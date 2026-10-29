@@ -16,6 +16,8 @@ import { MarketService } from '@/server/services/market';
 import {
   SkillImporter,
   SkillImportError,
+  SkillManifestError,
+  SkillParseError,
   SkillResourceError,
   SkillResourceService,
 } from '@/server/services/skill';
@@ -47,6 +49,9 @@ const skillImportErrorToTRPCCode = (
 };
 
 const handleSkillImportError = (error: unknown): never => {
+  if (error instanceof SkillManifestError || error instanceof SkillParseError) {
+    throw new TRPCError({ code: 'BAD_REQUEST', cause: error, message: error.message });
+  }
   if (error instanceof SkillImportError) {
     throw new TRPCError({
       code: skillImportErrorToTRPCCode(error.code),

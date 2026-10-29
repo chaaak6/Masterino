@@ -21,7 +21,7 @@ interface UploadSkillModalProps {
 }
 
 const UploadSkillModal = memo<UploadSkillModalProps>(({ open, onOpenChange }) => {
-  const { t } = useTranslation(['setting', 'common']);
+  const { t } = useTranslation(['setting', 'common', 'discover']);
   const { message } = App.useApp();
   const importAgentSkillFromZip = useToolStore((s) => s.importAgentSkillFromZip);
   const [importedId, setImportedId] = useState<string>();
@@ -67,7 +67,12 @@ const UploadSkillModal = memo<UploadSkillModalProps>(({ open, onOpenChange }) =>
       setImportedId(imported.skill.id);
       message.success(t('agentSkillModal.importSuccess'));
     } catch (err: any) {
-      setError(err?.message || String(err));
+      const detail = err?.message || String(err);
+      setError(
+        detail.startsWith('Invalid skill manifest:')
+          ? t('publishing.invalidManifest', { ns: 'discover' })
+          : detail,
+      );
     } finally {
       setLoading(false);
     }
