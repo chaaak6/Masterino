@@ -135,7 +135,6 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
 
     const handleCancel = useCallback(() => {
       ++uploadGeneration.current;
-      form.resetFields();
       setZipFileId(undefined);
       setZipName(undefined);
       onClose();
