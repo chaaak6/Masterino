@@ -42,6 +42,21 @@ export class MarketObjectStorage {
     );
   }
 
+  async readSkill(key: string): Promise<Buffer> {
+    const result = await this.client.send(
+      new GetObjectCommand({ Bucket: this.config.MARKET_OBJECT_STORAGE_BUCKET, Key: key }),
+    );
+    if (!result.Body) throw new Error('Skill archive is missing');
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const bytes of result.Body as AsyncIterable<Uint8Array>) {
+      size += bytes.length;
+      if (size > 32 * 1024 * 1024) throw new Error('Skill archive exceeds preview limit');
+      chunks.push(Buffer.from(bytes));
+    }
+    return Buffer.concat(chunks);
+  }
+
   async signedDownloadUrl(key: string) {
     return getSignedUrl(
       this.client,
@@ -51,6 +66,8 @@ export class MarketObjectStorage {
   }
 
   async remove(key: string) {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.config.MARKET_OBJECT_STORAGE_BUCKET, Key: key }));
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.config.MARKET_OBJECT_STORAGE_BUCKET, Key: key }),
+    );
   }
 }

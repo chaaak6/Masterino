@@ -20,6 +20,7 @@ import { FileService } from '@/server/services/file';
 
 import { SkillImportError, SkillManifestError } from './errors';
 import { SkillParser } from './parser';
+import { exportPersonalSkill, skillFingerprint, submissionIdentifier } from './publishing';
 import { SkillResourceService } from './resource';
 import { getAllowedRemoteSkillOrigins, isRemoteSkillUrlAllowed } from './urlPolicy';
 
@@ -33,8 +34,12 @@ export class SkillImporter {
   private fileService: FileService;
   private github: GitHub;
   private userId: string;
+  private skillModelDb: LobeChatDatabase;
+  private workspaceId?: string;
 
   constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
+    this.skillModelDb = db;
+    this.workspaceId = workspaceId;
     this.skillModel = new AgentSkillModel(db, userId, workspaceId);
     this.parser = new SkillParser();
     this.resourceService = new SkillResourceService(db, userId, workspaceId);
@@ -266,6 +271,7 @@ export class SkillImporter {
   private persistImportedSkill = async (input: {
     identifier: string;
     manifest: SkillManifest;
+    protectLocalChanges?: boolean;
     resources?: Map<string, Buffer>;
     skillContent: string;
     source: 'market' | 'user';
@@ -276,16 +282,71 @@ export class SkillImporter {
     const { identifier, manifest, resources, skillContent, source, sourceUrl, zipBuffer, zipHash } =
       input;
     const existing = await this.skillModel.findByIdentifier(identifier);
+    const linked = await this.skillModel.findByPublicationIdentifier(identifier);
+    if (linked) {
+      const current = await exportPersonalSkill(
+        this.skillModelDb,
+        this.userId,
+        linked.id,
+        this.workspaceId,
+      );
+      if (current.hash === skillFingerprint({ content: skillContent, manifest, resources }))
+        return { skill: linked, status: 'unchanged' };
+      throw new SkillImportError(
+        'Your original skill differs from this release and has been kept unchanged. Back up and remove the original before installing this release.',
+        'CONFLICT',
+      );
+    }
     const sameName = await this.skillModel.findByName(manifest.name);
+    if (
+      input.protectLocalChanges &&
+      sameName?.source === 'user' &&
+      !sameName.editorData?.publication &&
+      identifier === submissionIdentifier(this.userId, this.workspaceId, manifest.name)
+    ) {
+      const current = await exportPersonalSkill(
+        this.skillModelDb,
+        this.userId,
+        sameName.id,
+        this.workspaceId,
+      );
+      if (current.hash !== skillFingerprint({ content: skillContent, manifest, resources }))
+        throw new SkillImportError(
+          'Your original skill differs from this release and has been kept unchanged. Back up and remove the original before installing this release.',
+          'CONFLICT',
+        );
+      const skill = await this.skillModel.update(sameName.id, {
+        editorData: { ...sameName.editorData, publication: { identifier, hash: current.hash } },
+      });
+      return { skill, status: 'unchanged' };
+    }
     if (sameName && sameName.identifier !== identifier)
       throw new SkillImportError(
         `A skill named "${manifest.name}" already exists. Remove it before installing this skill.`,
         'CONFLICT',
       );
+    if (input.protectLocalChanges && existing?.editorData?.installedSkillHash) {
+      const current = await exportPersonalSkill(
+        this.skillModelDb,
+        this.userId,
+        existing.id,
+        this.workspaceId,
+      );
+      if (current.hash !== existing.editorData.installedSkillHash)
+        throw new SkillImportError(
+          'This installed skill has local edits and has been kept unchanged. Back up and remove it before installing this release.',
+          'CONFLICT',
+        );
+    }
     const fullManifest: SkillManifest = {
       ...manifest,
       ...(sourceUrl && { sourceUrl }),
     };
+    const installedSkillHash = skillFingerprint({
+      content: skillContent,
+      manifest: fullManifest,
+      resources,
+    });
 
     let resourceMap: Record<string, { fileHash: string; size: number }> | undefined;
     if (resources && resources.size > 0 && zipHash) {
@@ -317,23 +378,27 @@ export class SkillImporter {
       }
 
       const skill = await this.skillModel.update(existing.id, {
+        ...(input.protectLocalChanges && {
+          editorData: { ...existing.editorData, installedSkillHash },
+        }),
         content: skillContent,
         description: manifest.description,
         manifest: fullManifest,
         name: manifest.name,
-        ...(resourceMap && { resources: resourceMap }),
+        resources: resourceMap ?? {},
         ...(zipFileHash && { zipFileHash }),
       });
       return { skill, status: 'updated' };
     }
 
     const skill = await this.skillModel.create({
+      ...(input.protectLocalChanges && { editorData: { installedSkillHash } }),
       content: skillContent,
       description: manifest.description,
       identifier,
       manifest: fullManifest,
       name: manifest.name,
-      ...(resourceMap && { resources: resourceMap }),
+      resources: resourceMap ?? {},
       source,
       ...(zipFileHash && { zipFileHash }),
     });
@@ -361,6 +426,7 @@ export class SkillImporter {
     return this.persistImportedSkill({
       identifier: input.identifier,
       manifest: parsed.manifest,
+      protectLocalChanges: true,
       resources: parsed.resources,
       skillContent: parsed.content,
       source: 'market',

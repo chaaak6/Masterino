@@ -60,7 +60,16 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
       await agentSkillService.importFromMarket(identifier);
       await refreshAgentSkills();
     } catch (error) {
-      toast.error(`${t('error.installError', { name })}: ${(error as Error).message}`);
+      const message = (error as Error).message;
+      const conflict = message.startsWith('Your original skill differs from this release')
+        ? t('publishing.originalConflict', { ns: 'discover' })
+        : message.startsWith('This installed skill has local edits')
+          ? t('publishing.installedConflict', { ns: 'discover' })
+          : message.startsWith('A skill named ') &&
+              message.endsWith('already exists. Remove it before installing this skill.')
+            ? t('publishing.nameConflict', { name, ns: 'discover' })
+            : message;
+      toast.error(`${t('error.installError', { name })}: ${conflict}`);
     } finally {
       setInstalling(false);
     }
@@ -68,6 +77,10 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
 
   const handleUninstall = useCallback(() => {
     if (!canEdit || !installedSkill) return;
+    if (installedSkill.source === 'user' && installedSkill.publication?.identifier === identifier) {
+      toast.info(t('publishing.keepOriginal', { ns: 'discover' }));
+      return;
+    }
     confirmModal({
       cancelText: tc('cancel'),
       content: t('store.actions.confirmUninstall'),
@@ -78,7 +91,7 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
       },
       title: t('store.actions.uninstall'),
     });
-  }, [canEdit, installedSkill, deleteAgentSkill, t, tc]);
+  }, [canEdit, installedSkill, identifier, deleteAgentSkill, t, tc]);
 
   const handleDownload = useCallback(async () => {
     if (!installedSkill?.zipFileHash) return;

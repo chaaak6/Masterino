@@ -110,14 +110,64 @@ it('Given a published company MCP, When an employee lists the community, Then cr
 
 describe('Atomic catalog submission', () => {
   it('Given version creation fails, Then the resource insertion is rolled back and the connection is released', async () => {
-    const query = vi.fn().mockResolvedValueOnce({}).mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 9 }] }).mockRejectedValueOnce(new Error('version insert failed')).mockResolvedValueOnce({});
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ id: 9 }] })
+      .mockRejectedValueOnce(new Error('version insert failed'))
+      .mockResolvedValueOnce({});
     const client = { query, release: vi.fn() };
     const repository = new MarketRepository({ connect: async () => client } as any);
     const upload = vi.fn(async () => {});
-    await expect(repository.submitResource('skill', { identifier: 'retryable', name: 'Test', version: '1.0.0' }, account, undefined, upload)).rejects.toThrow('version insert failed');
+    await expect(
+      repository.submitResource(
+        'skill',
+        { identifier: 'retryable', name: 'Test', version: '1.0.0' },
+        account,
+        undefined,
+        upload,
+      ),
+    ).rejects.toThrow('version insert failed');
     expect(upload).not.toHaveBeenCalled();
     expect(query).toHaveBeenLastCalledWith('ROLLBACK');
     expect(query.mock.calls.some(([sql]) => sql === 'COMMIT')).toBe(false);
     expect(client.release).toHaveBeenCalled();
   });
+});
+
+it('reviews the selected version even when a newer candidate exists, and rejects stale state', async () => {
+  const query = vi
+    .fn()
+    .mockResolvedValueOnce({})
+    .mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [{ id: 2, current_version_id: 9, review_version_id: 3, workflow_state: 'in_review' }],
+    })
+    .mockResolvedValue({});
+  const client = { query, release: vi.fn() };
+  const repository = new MarketRepository({
+    connect: async () => client,
+    query: vi.fn(async () => ({ rows: [] })),
+  } as any);
+  await repository.review('skill', 'probe', 'approve', undefined, account, undefined, {
+    versionId: 3,
+    expectedState: 'in_review',
+  });
+  expect(query.mock.calls[1][1]).toEqual(['skill', 'probe', 3]);
+  expect(query.mock.calls[2][1][3]).toBe(3);
+  query
+    .mockReset()
+    .mockResolvedValueOnce({})
+    .mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [{ id: 2, current_version_id: 9, review_version_id: 3, workflow_state: 'approved' }],
+    })
+    .mockResolvedValue({});
+  await expect(
+    repository.review('skill', 'probe', 'publish', undefined, account, undefined, {
+      versionId: 3,
+      expectedState: 'in_review',
+    }),
+  ).rejects.toThrow('Review state changed');
+  expect(query).toHaveBeenLastCalledWith('ROLLBACK');
 });

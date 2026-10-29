@@ -5,6 +5,7 @@ import {
 
 import { deviceGateway } from '@/server/services/deviceGateway';
 import { SkillImporter } from '@/server/services/skill/importer';
+import { SkillPublishingService } from '@/server/services/skill/publishing';
 import {
   createSkillAuthoringRuntimeService,
   type ProjectSkillAuthoringService,
@@ -132,7 +133,24 @@ export const skillAuthoringRuntime: ServerRuntimeRegistration = {
     const service = createSkillAuthoringRuntimeService(projectSkills, {
       importProjectSkill: ({ archive }) => importer.importFromZipBuffer(archive),
     });
-    return new SkillAuthoringExecutionRuntime(service);
+    const publishing = new SkillPublishingService(
+      context.serverDB,
+      context.userId,
+      context.workspaceId,
+    );
+    return new SkillAuthoringExecutionRuntime({
+      ...service,
+      submitSkill: async ({ skillId, name }) => {
+        if (!!skillId === !!name)
+          throw new Error('Specify exactly one personal skillId or project skill name.');
+        if (skillId) return publishing.submitPersonal(skillId);
+        const archive = await projectSkills.pack(name!);
+        return publishing.submitArchive(
+          Buffer.from(archive),
+          `project:${frozen?.plan.kind === 'device' ? frozen.plan.deviceId : ''}:${scope}:${name}`,
+        );
+      },
+    });
   },
   identifier: SkillAuthoringIdentifier,
 };

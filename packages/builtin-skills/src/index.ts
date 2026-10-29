@@ -6,6 +6,7 @@ import { LobeHubSkill } from './lobehub';
 import { OfficeDocumentsSkill } from './office-documents';
 import { SkillCreatorSkill } from './skill-creator';
 import { TaskSkill } from './task';
+import { UploadSkill } from './upload-skill';
 
 export { AgentBrowserIdentifier } from './agent-browser';
 export { ArtifactsIdentifier } from './artifacts';
@@ -20,6 +21,7 @@ export const builtinSkills: BuiltinSkill[] = [
   LobeHubSkill,
   OfficeDocumentsSkill,
   SkillCreatorSkill,
+  UploadSkill,
   TaskSkill,
   // FindSkillsSkill
 ];

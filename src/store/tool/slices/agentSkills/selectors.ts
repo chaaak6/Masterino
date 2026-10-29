@@ -13,7 +13,9 @@ const getUserAgentSkills = (s: ToolStoreState): SkillListItem[] =>
 const getAgentSkillByIdentifier =
   (identifier: string) =>
   (s: ToolStoreState): SkillListItem | undefined =>
-    (s.agentSkills || []).find((skill) => skill.identifier === identifier);
+    (s.agentSkills || []).find(
+      (skill) => skill.identifier === identifier || skill.publication?.identifier === identifier,
+    );
 
 const getAgentSkillDetail =
   (id: string) =>
@@ -23,7 +25,9 @@ const getAgentSkillDetail =
 const isAgentSkill =
   (identifier: string) =>
   (s: ToolStoreState): boolean =>
-    (s.agentSkills || []).some((skill) => skill.identifier === identifier);
+    (s.agentSkills || []).some(
+      (skill) => skill.identifier === identifier || skill.publication?.identifier === identifier,
+    );
 
 const agentSkillMetaList = (s: ToolStoreState): LobeToolMeta[] =>
   (s.agentSkills || []).map((skill) => {

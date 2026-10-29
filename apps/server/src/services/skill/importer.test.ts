@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SkillImportError } from './errors';
 import { SkillImporter } from './importer';
+import { submissionIdentifier } from './publishing';
 
 // Mock external dependencies only (GitHub, S3, parser)
 const { mockSsrfSafeFetch } = vi.hoisted(() => ({
@@ -357,6 +358,47 @@ describe('SkillImporter', () => {
   });
 
   describe('importFromMarketArchive', () => {
+    it('reuses the author’s identical original for a directly submitted ZIP and protects later edits', async () => {
+      const original = await importer.createUserSkill({
+        name: 'direct-zip-skill',
+        description: 'A test skill',
+        content: 'Original content',
+      });
+      const identifier = submissionIdentifier(userId, undefined, original.name);
+      const parsed = {
+        content: original.content,
+        manifest: original.manifest,
+        resources: new Map(),
+        skillZipBuffer: Buffer.from('archive'),
+      };
+      mockParserInstance.parseZipPackage.mockResolvedValue(parsed);
+      await expect(
+        importer.importFromMarketArchive({
+          buffer: Buffer.from('zip'),
+          identifier: submissionIdentifier('another-author', undefined, original.name),
+        }),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
+      const result = await importer.importFromMarketArchive({
+        buffer: Buffer.from('zip'),
+        identifier,
+      });
+      expect(result.status).toBe('unchanged');
+      expect(result.skill.id).toBe(original.id);
+      expect(result.skill.editorData?.publication?.identifier).toBe(identifier);
+
+      await db
+        .update(agentSkills)
+        .set({ content: 'Edited locally' })
+        .where(eq(agentSkills.id, original.id));
+      await expect(
+        importer.importFromMarketArchive({ buffer: Buffer.from('zip'), identifier }),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
+      const preserved = await db.query.agentSkills.findFirst({
+        where: eq(agentSkills.id, original.id),
+      });
+      expect(preserved?.content).toBe('Edited locally');
+    });
+
     it('imports an authenticated Market archive without remote URL fetching', async () => {
       const archive = Buffer.from('trusted-market-archive');
       mockParserInstance.parseZipPackage.mockResolvedValue({

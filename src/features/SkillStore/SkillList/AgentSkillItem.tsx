@@ -9,6 +9,7 @@ import { lazy, memo, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import SkillAvatar from '@/components/SkillAvatar';
+import SubmitSkillModal from '@/features/SkillPublishing/SubmitSkillModal';
 import { usePermission } from '@/hooks/usePermission';
 import { agentSkillService } from '@/services/skill';
 import { useToolStore } from '@/store/tool';
@@ -45,6 +46,7 @@ interface AgentSkillItemProps {
 const AgentSkillItem = memo<AgentSkillItemProps>(({ skill }) => {
   const { t } = useTranslation('plugin');
   const { t: tc } = useTranslation('common');
+  const [submitOpen, setSubmitOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -115,6 +117,16 @@ const AgentSkillItem = memo<AgentSkillItemProps>(({ skill }) => {
               nativeButton={false}
               placement="bottomRight"
               items={[
+                ...(skill.source === 'user'
+                  ? [
+                      {
+                        key: 'submit',
+                        label: t('publishing.submit', { ns: 'discover' }),
+                        disabled: !canEdit,
+                        onClick: () => setSubmitOpen(true),
+                      },
+                    ]
+                  : []),
                 ...(skill.zipFileHash
                   ? [
                       {
@@ -141,6 +153,12 @@ const AgentSkillItem = memo<AgentSkillItemProps>(({ skill }) => {
           </Flexbox>
         </Block>
       </Flexbox>
+      <SubmitSkillModal
+        key={skill.id}
+        open={submitOpen}
+        skillId={skill.id}
+        onClose={() => setSubmitOpen(false)}
+      />
       <Modal
         destroyOnHidden
         footer={null}

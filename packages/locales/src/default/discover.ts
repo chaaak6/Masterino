@@ -1,4 +1,24 @@
 export default {
+  'publishing.rejected': 'This version was rejected. Update the skill before submitting again.',
+  'publishing.deprecated': 'This version was taken down. Update the skill before submitting again.',
+  'publishing.alreadyPublished': 'This version is already published.',
+  'publishing.submitted': 'Skill submitted for review.',
+  'publishing.originalConflict':
+    'Your original skill differs from this release and has been kept unchanged. Back it up and remove it before installing this release.',
+  'publishing.installedConflict':
+    'This installed skill has local edits and has been kept unchanged. Back it up and remove it before installing this release.',
+  'publishing.nameConflict':
+    'A skill named {{name}} already exists. Back it up and remove it before installing this skill.',
+
+  'publishing.title': 'Submit a skill for review',
+  'publishing.description':
+    'Share a finished skill with your company. It becomes available in the community after review and publication.',
+  'publishing.mySkills': 'My skills',
+  'publishing.chooseSkill': 'Choose a personal skill',
+  'publishing.submit': 'Submit for review',
+  'publishing.imported': 'Imported for your personal use. Sharing for review is optional.',
+  'publishing.keepOriginal':
+    'This is your original skill. Manage it in your personal library; it has not been deleted.',
   'assistant.favorite': 'Save',
   'assistant.favoriteFailed': 'Failed to save',
   'assistant.favoriteSuccess': 'Saved',

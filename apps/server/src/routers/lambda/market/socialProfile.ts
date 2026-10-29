@@ -10,6 +10,8 @@ import { marketSDK, marketUserInfo, serverDatabase } from '@/libs/trpc/lambda/mi
 import { GitHub } from '@/server/modules/GitHub';
 import { FileService } from '@/server/services/file';
 import { SkillParser } from '@/server/services/skill/parser';
+import { SkillPublishingService } from '@/server/services/skill/publishing';
+import { assertSafeSkillContent } from '@/server/services/skill/submissionPolicy';
 import { getInternalMarketBaseUrl } from '@/utils/internalMarket';
 
 const log = debug('lambda-router:market:socialProfile');
@@ -48,25 +50,6 @@ export interface SubmissionResult {
 }
 
 const MAX_SKILL_ARCHIVE_BYTES = 16 * 1024 * 1024;
-const forbiddenSkillContent = [
-  /\b(?:curl|wget)\b[^\n]*(?:\||>)\s*(?:ba)?sh\b/i,
-  /\b(?:bitsadmin|cmd\.exe|invoke-webrequest|powershell|start-bitstransfer)\b/i,
-  /\b(?:npm|pnpm|yarn|pip|brew|apt(?:-get)?)\s+install\b/i,
-  /(?:^|\n)\s*(?:sudo\s+)?(?:ba|z)?sh\s+(?:-[a-z]+\s+)?[^\n]+/i,
-  /\b(?:chmod\s+\+x|rm\s+-rf)\b/i,
-  /\b(?:download|下载)\b.{0,120}https?:\/\//i,
-  /(?:api[_-]?key|access[_-]?token|secret)\s*[:=]\s*['"][^'"]{8,}/i,
-  /\b(?:AKIA[0-9A-Z]{16}|gh[oprsu]_\w{20,})\b/,
-];
-
-const assertSafeSkillContent = (content: string) => {
-  if (forbiddenSkillContent.some((pattern) => pattern.test(content))) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'Skill contains an unapproved installer, shell command, or embedded secret',
-    });
-  }
-};
 
 const slugify = (value: string) =>
   value
@@ -114,9 +97,12 @@ const submitSkillArchive = async (input: {
     ...input.headers,
     ...(input.actAs === undefined ? {} : { 'x-lobe-owner-account-id': String(input.actAs) }),
   };
+  // Let fetch set the multipart boundary; SDK defaults may contain JSON Content-Type.
+  const uploadHeaders = new Headers(actingHeaders);
+  uploadHeaders.delete('content-type');
   const createResponse = await fetch(
     `${getInternalMarketBaseUrl()}/api/v1/user/skills/${encodeURIComponent(input.identifier)}/versions`,
-    { body: form, headers: actingHeaders, method: 'POST' },
+    { body: form, headers: uploadHeaders, method: 'POST' },
   );
   const created = (await createResponse.json().catch(() => ({}))) as Record<string, any>;
   if (!createResponse.ok) {
@@ -429,9 +415,23 @@ export const socialProfileRouter = router({
       }
     }),
 
+  submitPersonalSkill: socialProfileAuthProcedure
+    .input(z.object({ skillId: z.string().min(1) }))
+    .mutation(({ ctx, input }) =>
+      new SkillPublishingService(
+        ctx.serverDB,
+        ctx.userId,
+        ctx.workspaceId ?? undefined,
+      ).submitPersonal(input.skillId),
+    ),
+
   submitZip: socialProfileAuthProcedure
     .input(
-      z.object({ actAs: z.number().int().positive().optional(), zipFileId: z.string().min(1) }),
+      z.object({
+        actAs: z.number().int().positive().optional(),
+        zipFileId: z.string().min(1),
+        sourceRef: z.string().max(2000).optional(),
+      }),
     )
     .mutation(async ({ input, ctx }) => {
       // @ts-ignore - headers is protected but required for authenticated Market forwarding
@@ -442,18 +442,24 @@ export const socialProfileRouter = router({
       });
       try {
         const archive = await readFile(filePath);
-        const parser = new SkillParser();
-        const parsed = await parser.parseZipPackage(archive, { repackSkillZip: true });
-        const identifier = `user-${slugify(parsed.manifest.name)}-${nanoid(8).toLowerCase()}`;
-        return await submitSkillArchive({
-          actAs: input.actAs,
-          archive,
-          headers,
-          identifier,
-          metadata: { sourceCatalog: 'user-upload' },
-          source: { type: 'zip' },
-          version: '1.0.0',
-        });
+        if (input.actAs !== undefined) {
+          const parsed = await new SkillParser().parseZipPackage(archive, { repackSkillZip: true });
+          const identifier = `user-${slugify(parsed.manifest.name)}-${nanoid(8).toLowerCase()}`;
+          return await submitSkillArchive({
+            actAs: input.actAs,
+            archive,
+            headers,
+            identifier,
+            metadata: { sourceCatalog: 'user-upload' },
+            source: { type: 'zip' },
+            version: '1.0.0',
+          });
+        }
+        return new SkillPublishingService(
+          ctx.serverDB,
+          ctx.userId,
+          ctx.workspaceId ?? undefined,
+        ).submitArchive(archive, input.sourceRef);
       } finally {
         cleanup();
       }

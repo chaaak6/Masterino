@@ -3,12 +3,12 @@ import {
   createTrustedClientToken,
   MarketSDK,
 } from '@lobehub/market-sdk';
+import { strToU8, zipSync } from 'fflate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createMarketApp } from './app.js';
 import type { MarketConfig } from './config.js';
 import { encryptJson } from './crypto.js';
-import { zipSync, strToU8 } from 'fflate';
 import { ONBOARDING_AGENT_CATALOG, ONBOARDING_AGENT_IDENTIFIERS } from './onboardingCatalog.js';
 
 const secret = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -82,6 +82,26 @@ const createRepository = () => ({
 afterEach(() => vi.restoreAllMocks());
 
 describe('Market SDK compatibility', () => {
+  it('requires a version for Skill reviews while preserving legacy reviews for other resources', async () => {
+    const repository = { ...createRepository(), review: vi.fn(async () => ({ success: true })) };
+    const app = createMarketApp({
+      config,
+      redis: { ping: vi.fn(async () => 'PONG') } as any,
+      repository: repository as any,
+      storage: { ping: vi.fn(async () => undefined) } as any,
+    });
+    const request = (type: string) =>
+      app.request(`/api/internal/resources/${type}/sample/review`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
+        body: JSON.stringify({ action: 'scan-start' }),
+      });
+    expect((await request('skill')).status).toBe(400);
+    expect(repository.review).not.toHaveBeenCalled();
+    expect((await request('mcp')).status).toBe(200);
+    expect(repository.review).toHaveBeenCalledOnce();
+  });
+
   it('rejects unauthenticated curated seed requests before touching storage', async () => {
     const app = createMarketApp({
       config,
@@ -540,26 +560,72 @@ it('Given an unpublished MCP, Then its shared connection cannot be resolved', as
   expect(response.status).toBe(404);
 });
 
-it.each(['---\nname: test\n---\nInstructions', '---\ndescription: test\n---\nInstructions', '---javascript\n({ name: \'test\', description: \'test\' })\n---\nInstructions'])('Given missing required Skill metadata, Then direct Market submission is rejected before upload', async (content) => {
-  const storage = { put: vi.fn(), remove: vi.fn() };
-  const repository = { ...createRepository(), submitResource: vi.fn() };
-  const app = createMarketApp({ config, repository: repository as any, redis: {} as any, storage: storage as any });
-  const response = await app.request('/api/internal/resources', {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
-    body: JSON.stringify({ type: 'skill', resource: { identifier: 'invalid-metadata', name: 'Invalid', manifest: { files: [{ path: 'SKILL.md' }] } }, artifactBase64: Buffer.from(zipSync({ 'SKILL.md': strToU8(content) })).toString('base64') }),
-  });
-  expect(response.status).toBe(400);
-  expect(await response.json()).toMatchObject({ error: expect.stringContaining('SKILL.md') });
-  expect(storage.put).not.toHaveBeenCalled();
-  expect(repository.submitResource).not.toHaveBeenCalled();
-});
+it.each([
+  '---\nname: test\n---\nInstructions',
+  '---\ndescription: test\n---\nInstructions',
+  "---javascript\n({ name: 'test', description: 'test' })\n---\nInstructions",
+])(
+  'Given missing required Skill metadata, Then direct Market submission is rejected before upload',
+  async (content) => {
+    const storage = { put: vi.fn(), remove: vi.fn() };
+    const repository = { ...createRepository(), submitResource: vi.fn() };
+    const app = createMarketApp({
+      config,
+      repository: repository as any,
+      redis: {} as any,
+      storage: storage as any,
+    });
+    const response = await app.request('/api/internal/resources', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
+      body: JSON.stringify({
+        type: 'skill',
+        resource: {
+          identifier: 'invalid-metadata',
+          name: 'Invalid',
+          manifest: { files: [{ path: 'SKILL.md' }] },
+        },
+        artifactBase64: Buffer.from(zipSync({ 'SKILL.md': strToU8(content) })).toString('base64'),
+      }),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining('SKILL.md') });
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(repository.submitResource).not.toHaveBeenCalled();
+  },
+);
 it('Given database submission fails after upload, Then only this attempt artifact is removed', async () => {
-  const storage = { put: vi.fn(async (_key: string, _body: Buffer, _hash: string) => {}), remove: vi.fn(async (_key: string) => {}) };
-  const repository = { ...createRepository(), submitResource: vi.fn(async (_type, _data, _account, _artifact, upload) => { await upload(); throw new Error('Submission failed'); }) };
-  const app = createMarketApp({ config, repository: repository as any, redis: {} as any, storage: storage as any });
+  const storage = {
+    put: vi.fn(async (_key: string, _body: Buffer, _hash: string) => {}),
+    remove: vi.fn(async (_key: string) => {}),
+  };
+  const repository = {
+    ...createRepository(),
+    submitResource: vi.fn(async (_type, _data, _account, _artifact, upload) => {
+      await upload();
+      throw new Error('Submission failed');
+    }),
+  };
+  const app = createMarketApp({
+    config,
+    repository: repository as any,
+    redis: {} as any,
+    storage: storage as any,
+  });
   const response = await app.request('/api/internal/resources', {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
-    body: JSON.stringify({ type: 'skill', resource: { identifier: 'upload-rollback', name: 'Rollback', manifest: { files: [{ path: 'SKILL.md' }] } }, artifactBase64: Buffer.from(zipSync({ 'SKILL.md': strToU8('---\nname: test\ndescription: test\n---\nInstructions') })).toString('base64') }),
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
+    body: JSON.stringify({
+      type: 'skill',
+      resource: {
+        identifier: 'upload-rollback',
+        name: 'Rollback',
+        manifest: { files: [{ path: 'SKILL.md' }] },
+      },
+      artifactBase64: Buffer.from(
+        zipSync({ 'SKILL.md': strToU8('---\nname: test\ndescription: test\n---\nInstructions') }),
+      ).toString('base64'),
+    }),
   });
   expect(response.status).toBe(400);
   expect(repository.submitResource).toHaveBeenCalled();

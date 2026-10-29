@@ -1,6 +1,6 @@
 import type { SkillItem, SkillListItem } from '@lobechat/types';
 import { merge } from '@lobechat/utils';
-import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 
 import type { NewAgentSkill } from '../schemas';
 import { agentSkills } from '../schemas';
@@ -23,6 +23,10 @@ const skillItemColumns = {
 };
 
 const skillListColumns = {
+  publication: sql<{
+    identifier: string;
+    hash: string;
+  } | null>`${agentSkills.editorData}->'publication'`,
   createdAt: agentSkills.createdAt,
   description: agentSkills.description,
   id: agentSkills.id,
@@ -74,6 +78,20 @@ export class AgentSkillModel {
       .select(skillItemColumns)
       .from(agentSkills)
       .where(and(eq(agentSkills.identifier, identifier), this.scopeWhere()))
+      .limit(1);
+    return result;
+  };
+
+  findByPublicationIdentifier = async (identifier: string): Promise<SkillItem | undefined> => {
+    const [result] = await this.db
+      .select(skillItemColumns)
+      .from(agentSkills)
+      .where(
+        and(
+          this.scopeWhere(),
+          sql`${agentSkills.editorData}->'publication'->>'identifier' = ${identifier}`,
+        ),
+      )
       .limit(1);
     return result;
   };
@@ -138,6 +156,8 @@ export class AgentSkillModel {
     const existing = await this.findById(id);
 
     const updateData = merge(existing || {}, { ...data, updatedAt: new Date() });
+    // Bundle resources are a snapshot: deleted files must not survive deep merge.
+    if (data.resources !== undefined) updateData.resources = data.resources;
 
     const [result] = await this.db
       .update(agentSkills)

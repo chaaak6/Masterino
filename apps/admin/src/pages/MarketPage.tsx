@@ -32,6 +32,33 @@ const JsonView = ({ value }: { value: unknown }) => (
   </pre>
 );
 
+function SkillReviewFiles({ identifier, versionId }: { identifier: string; versionId: number }) {
+  const query = trpc.admin.getMarketSkillFiles.useQuery({ identifier, versionId });
+  if (query.isLoading) return <Typography.Text>正在读取审核包…</Typography.Text>;
+  if (query.error) return <Typography.Text type="danger">{query.error.message}</Typography.Text>;
+  return (
+    <Space direction="vertical" style={{ width: '100%' }}>
+      <Typography.Text copyable>{query.data?.hash}</Typography.Text>
+      {query.data?.files.map((file) => (
+        <div key={file.path}>
+          <Typography.Text strong>
+            {file.path} ({file.size} bytes)
+          </Typography.Text>
+          {file.content !== undefined ? (
+            <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 320, overflow: 'auto' }}>
+              {file.content}
+            </pre>
+          ) : (
+            <Typography.Text type="secondary">
+              二进制或大型文件，SHA256: {file.sha256}
+            </Typography.Text>
+          )}
+        </div>
+      ))}
+    </Space>
+  );
+}
+
 export default function MarketPage() {
   const utils = trpc.useUtils();
   const reviews = trpc.admin.listMarketReviews.useQuery();
@@ -40,7 +67,12 @@ export default function MarketPage() {
   const accounts = trpc.admin.listMarketAccounts.useQuery();
   const allowlist = trpc.admin.listMarketConnectorAllowlist.useQuery();
   const audit = trpc.admin.listMarketAudit.useQuery({ limit: 100 });
-  const [rejecting, setRejecting] = useState<{ identifier: string; type: any }>();
+  const [rejecting, setRejecting] = useState<{
+    identifier: string;
+    type: any;
+    versionId: number;
+    workflowState: string;
+  }>();
   const [rejectReason, setRejectReason] = useState('');
 
   const reviewMutation = trpc.admin.reviewMarketResource.useMutation({
@@ -98,7 +130,14 @@ export default function MarketPage() {
   const act = (
     record: any,
     action: 'scan-start' | 'scan-passed' | 'scan-failed' | 'approve' | 'reject' | 'publish',
-  ) => reviewMutation.mutate({ action, identifier: record.identifier, type: record.type });
+  ) =>
+    reviewMutation.mutate({
+      action,
+      identifier: record.identifier,
+      type: record.type,
+      versionId: record.versionId,
+      expectedState: record.workflowState,
+    });
 
   return (
     <>
@@ -131,6 +170,7 @@ export default function MarketPage() {
                             onClick={() =>
                               reviewMutation.mutate({
                                 action: 'deprecate',
+                                versionId: record.versionId,
                                 identifier: record.identifier,
                                 type: record.type,
                               })
@@ -308,6 +348,20 @@ export default function MarketPage() {
                     expandedRowRender: (record: any) => (
                       <Collapse
                         items={[
+                          ...(record.type === 'skill'
+                            ? [
+                                {
+                                  key: 'files',
+                                  label: '审核包文件与正文',
+                                  children: (
+                                    <SkillReviewFiles
+                                      identifier={record.identifier}
+                                      versionId={record.versionId}
+                                    />
+                                  ),
+                                },
+                              ]
+                            : []),
                           {
                             children: <JsonView value={record.metadata} />,
                             key: 'source',
@@ -481,6 +535,8 @@ export default function MarketPage() {
           rejecting &&
           reviewMutation.mutate({
             action: 'reject',
+            versionId: rejecting!.versionId,
+            expectedState: rejecting!.workflowState,
             identifier: rejecting.identifier,
             reason: rejectReason,
             type: rejecting.type,
