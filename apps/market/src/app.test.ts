@@ -175,18 +175,16 @@ describe('user skill submission failures and retries', () => {
 
   it('reuses a concurrent identical submission rather than returning a conflict', async () => {
     const { query, repository, storage, request } = setup();
-    query
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValue({
-        rows: [
-          {
-            versionId: 17,
-            resourceId: 3,
-            workflowState: 'submitted',
-            artifactKey: 'other-attempt.zip',
-          },
-        ],
-      });
+    query.mockResolvedValueOnce({ rows: [] }).mockResolvedValue({
+      rows: [
+        {
+          versionId: 17,
+          resourceId: 3,
+          workflowState: 'submitted',
+          artifactKey: 'other-attempt.zip',
+        },
+      ],
+    });
     repository.submitResource.mockRejectedValue(
       new MarketSubmissionConflictError('Resource version already exists'),
     );
