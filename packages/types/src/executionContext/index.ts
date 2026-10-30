@@ -10,6 +10,8 @@ export interface WorkspacePathConsentRequest {
   modes: PathAccessMode[];
   operationId: string;
   primaryCwd: string;
+  /** Display-only prospective file; requestedPath remains the authorization directory. */
+  requestedFilePath?: string;
   /** Device-canonical path that triggered the intervention. */
   requestedPath: string;
   topicId: string;

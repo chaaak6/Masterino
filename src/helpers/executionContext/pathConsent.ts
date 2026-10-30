@@ -40,12 +40,18 @@ export const parseWorkspacePathConsentRequest = (
     !isAbsoluteFilesystemPath(request.requestedPath) ||
     typeof request.topicId !== 'string' ||
     !request.topicId ||
-    !modes
+    !modes ||
+    (request.requestedFilePath !== undefined &&
+      (typeof request.requestedFilePath !== 'string' ||
+        !isAbsoluteFilesystemPath(request.requestedFilePath)))
   ) {
     return;
   }
 
   return {
+    ...(request.requestedFilePath !== undefined
+      ? { requestedFilePath: request.requestedFilePath as string }
+      : {}),
     actualCwd: request.actualCwd,
     deviceId: request.deviceId,
     modes,

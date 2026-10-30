@@ -22,6 +22,7 @@ export interface StructuredPathConsentRequest {
   modes: PathAccessMode[];
   operationId: string;
   primaryCwd: string;
+  requestedFilePath?: string;
   requestedPath: string;
   topicId: string;
   version: 1;
@@ -46,6 +47,7 @@ export const parseStructuredPathConsentRequest = (
   if (!value || typeof value !== 'object') return;
   const request = value as Partial<StructuredPathConsentRequest>;
   if (
+    (request.requestedFilePath !== undefined && typeof request.requestedFilePath !== 'string') ||
     request.version !== 1 ||
     typeof request.actualCwd !== 'string' ||
     typeof request.deviceId !== 'string' ||
@@ -72,6 +74,7 @@ export const parseStructuredPathConsentRequest = (
     : undefined;
 
   return {
+    requestedFilePath: request.requestedFilePath,
     actualCwd: request.actualCwd,
     deviceId: request.deviceId,
     modes: [...new Set(request.modes)],
@@ -214,6 +217,12 @@ const PathConsent = memo<PathConsentProps>(
           <dd className={styles.value}>{request.actualCwd || '—'}</dd>
           <dt className={styles.label}>{tw('workspacePathConsent.requestedPath')}</dt>
           <dd className={styles.value}>{request.requestedPath}</dd>
+          {request.requestedFilePath && (
+            <>
+              <dt className={styles.label}>{tw('workspacePathConsent.targetFile')}</dt>
+              <dd className={styles.value}>{request.requestedFilePath}</dd>
+            </>
+          )}
           <dt className={styles.label}>{tw('workspacePathConsent.modes')}</dt>
           <dd className={styles.value}>
             <Flexbox horizontal gap={4} wrap="wrap">
@@ -223,6 +232,9 @@ const PathConsent = memo<PathConsentProps>(
             </Flexbox>
           </dd>
         </dl>
+        {request.requestedFilePath && (
+          <Text>{tw('workspacePathConsent.directoryWriteNotice')}</Text>
+        )}
         {overridden && (
           <Alert
             showIcon
