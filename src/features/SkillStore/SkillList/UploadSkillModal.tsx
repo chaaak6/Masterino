@@ -72,8 +72,8 @@ const UploadSkillModal = memo<UploadSkillModalProps>(({ open, onOpenChange }) =>
         detail === UPLOAD_NETWORK_ERROR || detail === 'Failed to fetch'
           ? t('skillStore.networkError')
           : detail.startsWith('Invalid skill manifest:')
-          ? t('publishing.invalidManifest', { ns: 'discover' })
-          : detail,
+            ? t('publishing.invalidManifest', { ns: 'discover' })
+            : detail,
       );
     } finally {
       setLoading(false);
