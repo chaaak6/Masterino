@@ -13,6 +13,23 @@ export const SkillAuthoringManifest: BuiltinToolManifest = {
   api: [
     {
       ...mutating,
+      name: SkillAuthoringApiName.submitSkill,
+      description:
+        'Submit a skill for internal community review, only when the user asks to share it. Pass skillId for a personal skill, or name for a skill in the current project. Submission is not publication.',
+      parameters: {
+        type: 'object',
+        properties: {
+          skillId: {
+            type: 'string',
+            description: 'Personal skill ID or identifier from the skill library.',
+          },
+          name,
+        },
+        additionalProperties: false,
+      },
+    },
+    {
+      ...mutating,
       description: 'Create a project skill from a complete SKILL.md document.',
       name: SkillAuthoringApiName.createProjectSkill,
       parameters: {

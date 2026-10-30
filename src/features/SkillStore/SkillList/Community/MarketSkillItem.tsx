@@ -38,7 +38,7 @@ const styles = createStaticStyles(({ css }) => ({
 }));
 
 const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, identifier }) => {
-  const { t } = useTranslation('plugin');
+  const { t } = useTranslation(['plugin', 'discover']);
   const { t: tc } = useTranslation('common');
   const [detailOpen, setDetailOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -60,7 +60,16 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
       await agentSkillService.importFromMarket(identifier);
       await refreshAgentSkills();
     } catch (error) {
-      toast.error(`${t('error.installError', { name })}: ${(error as Error).message}`);
+      const message = (error as Error).message;
+      const conflict = message.startsWith('Your original skill differs from this release')
+        ? t('publishing.originalConflict', { ns: 'discover' })
+        : message.startsWith('This installed skill has local edits')
+          ? t('publishing.installedConflict', { ns: 'discover' })
+          : message.startsWith('A skill named ') &&
+              message.endsWith('already exists. Remove it before installing this skill.')
+            ? t('publishing.nameConflict', { name, ns: 'discover' })
+            : message;
+      toast.error(`${t('error.installError', { name })}: ${conflict}`);
     } finally {
       setInstalling(false);
     }
@@ -68,6 +77,20 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
 
   const handleUninstall = useCallback(() => {
     if (!canEdit || !installedSkill) return;
+    if (installedSkill.source === 'user' && installedSkill.publication?.identifier === identifier) {
+      confirmModal({
+        cancelText: tc('cancel'),
+        content: t('publishing.unlinkDescription', { ns: 'discover' }),
+        okText: t('publishing.unlink', { ns: 'discover' }),
+        onOk: async () => {
+          await agentSkillService.unlinkPublication(installedSkill.id, identifier);
+          await refreshAgentSkills();
+          toast.success(t('publishing.unlinked', { ns: 'discover' }));
+        },
+        title: t('publishing.unlink', { ns: 'discover' }),
+      });
+      return;
+    }
     confirmModal({
       cancelText: tc('cancel'),
       content: t('store.actions.confirmUninstall'),
@@ -78,7 +101,7 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
       },
       title: t('store.actions.uninstall'),
     });
-  }, [canEdit, installedSkill, deleteAgentSkill, t, tc]);
+  }, [canEdit, installedSkill, identifier, deleteAgentSkill, refreshAgentSkills, t, tc]);
 
   const handleDownload = useCallback(async () => {
     if (!installedSkill?.zipFileHash) return;
@@ -123,7 +146,11 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
               disabled: !canEdit,
               icon: <Icon icon={Trash2} />,
               key: 'uninstall',
-              label: t('store.actions.uninstall'),
+              label:
+                installedSkill?.source === 'user' &&
+                installedSkill.publication?.identifier === identifier
+                  ? t('publishing.unlink', { ns: 'discover' })
+                  : t('store.actions.uninstall'),
               onClick: handleUninstall,
             },
           ]}

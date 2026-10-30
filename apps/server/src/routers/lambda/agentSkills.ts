@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { SkillManifest } from '@lobechat/types';
 import { skillManifestSchema } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
@@ -14,9 +16,12 @@ import { MarketService } from '@/server/services/market';
 import {
   SkillImporter,
   SkillImportError,
+  SkillManifestError,
+  SkillParseError,
   SkillResourceError,
   SkillResourceService,
 } from '@/server/services/skill';
+import { exportPersonalSkill } from '@/server/services/skill/publishing';
 
 // ===== Error Handling =====
 
@@ -44,6 +49,9 @@ const skillImportErrorToTRPCCode = (
 };
 
 const handleSkillImportError = (error: unknown): never => {
+  if (error instanceof SkillManifestError || error instanceof SkillParseError) {
+    throw new TRPCError({ code: 'BAD_REQUEST', cause: error, message: error.message });
+  }
   if (error instanceof SkillImportError) {
     throw new TRPCError({
       code: skillImportErrorToTRPCCode(error.code),
@@ -163,11 +171,33 @@ export const agentSkillsRouter = router({
   }),
 
   getByIdWithZipUrl: skillFileProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ archive: z.enum(['current', 'installed']).optional(), id: z.string() }))
     .query(async ({ ctx, input }) => {
       const skill = await ctx.skillModel.findById(input.id);
       if (!skill) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill not found' });
+      }
+
+      // Interactive downloads export current edits. Execution must keep using
+      // the installed archive whose hash was frozen when the skill was activated.
+      if (input.archive !== 'installed' && skill.source !== 'builtin') {
+        const { archive } = await exportPersonalSkill(
+          ctx.serverDB,
+          ctx.userId,
+          skill.id,
+          ctx.workspaceId ?? undefined,
+        ).catch(handleSkillImportError);
+        const hash = createHash('sha256').update(archive).digest('hex');
+        const key = `skills/zip/${hash}.zip`;
+        await ctx.fileService.uploadBuffer(key, archive, 'application/zip');
+        await ctx.fileService.createGlobalFile({
+          fileHash: hash,
+          fileType: 'application/zip',
+          size: archive.length,
+          url: key,
+        });
+        const url = await ctx.fileService.createBrowserFileAccessUrl(key);
+        return { name: skill.name, url: url || null };
       }
 
       if (!skill.zipFileHash) {
@@ -306,6 +336,14 @@ export const agentSkillsRouter = router({
   }),
 
   // ===== Update =====
+
+  unlinkPublication: skillWriteProcedure
+    .input(z.object({ id: z.string().min(1), identifier: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const success = await ctx.skillModel.unlinkPublication(input.id, input.identifier);
+      if (!success) throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill link not found' });
+      return { success };
+    }),
 
   update: skillWriteProcedure.input(updateSkillSchema).mutation(async ({ ctx, input }) => {
     const { id, content, manifest } = input;

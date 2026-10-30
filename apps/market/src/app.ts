@@ -1,6 +1,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 
 import { SKILL_PACKAGE_MAX_BYTES } from '@lobechat/skill-package';
+import { unzipSync } from 'fflate';
 import { type Context, Hono } from 'hono';
 import { Redis } from 'ioredis';
 
@@ -31,6 +32,7 @@ import {
   resolveMarketAvatar,
 } from './onboardingCatalog.js';
 import type { Account, MarketRepository } from './repository.js';
+import { MarketSubmissionConflictError } from './repository.js';
 import { runCuratedSeed } from './seed.js';
 import { validateSkillContent } from './skillArtifact.js';
 import { CredentialVault } from './vault.js';
@@ -774,6 +776,120 @@ export const createMarketApp = (options: {
       ),
       201,
     );
+  });
+  app.post('/api/v1/user/skills/:identifier/submission', async (c) => {
+    const form = await c.req.formData();
+    const file = form.get('file');
+    if (!(file instanceof File)) return c.json({ error: 'skill_zip_required' }, 400);
+    if (file.size > SKILL_PACKAGE_MAX_BYTES) return c.json({ error: 'skill_zip_too_large' }, 413);
+    const content = Buffer.from(await file.arrayBuffer());
+    let manifest: Record<string, unknown>;
+    let metadata: Record<string, unknown>;
+    try {
+      manifest = JSON.parse(String(form.get('manifest') || '{}'));
+      metadata = JSON.parse(String(form.get('metadata') || '{}'));
+      if (
+        !manifest ||
+        typeof manifest !== 'object' ||
+        Array.isArray(manifest) ||
+        !metadata ||
+        typeof metadata !== 'object' ||
+        Array.isArray(metadata)
+      )
+        throw new Error('Manifest and metadata must be JSON objects');
+    } catch {
+      return c.json(
+        { error: 'unsafe_skill', details: ['Invalid manifest or metadata JSON object'] },
+        400,
+      );
+    }
+    const errors = [...validateZipArchive(content), ...validateArtifactManifest(manifest)];
+    if (!errors.length) {
+      try {
+        validateSkillContent(content);
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : 'Invalid skill content');
+      }
+    }
+    if (errors.length) return c.json({ error: 'unsafe_skill', details: errors }, 400);
+    const identifier = c.req.param('identifier');
+    const version = String(form.get('version') || '1.0.0');
+    const artifactHash = sha256(content);
+    const pool = repository.getPool();
+    const prior = async () =>
+      (
+        await pool.query(
+          `SELECT v.id::int AS "versionId", r.id::int AS "resourceId", v.workflow_state AS "workflowState", v.artifact_key AS "artifactKey" FROM market_resources r JOIN market_versions v ON v.resource_id=r.id WHERE r.type='skill' AND r.identifier=$1 AND r.owner_account_id=$2 AND v.version=$3 AND v.artifact_sha256=$4`,
+          [identifier, c.get('account').id, version, artifactHash],
+        )
+      ).rows[0];
+    const artifactKey = `skill/${identifier}/${version}/${randomUUID()}-${artifactHash}.zip`;
+    const publicResult = ({ artifactKey: _key, ...result }: Record<string, unknown>) => result;
+    let uploadStarted = false;
+    let uploadCompleted = false;
+    let committed = false;
+    try {
+      const existing = await prior();
+      if (existing) return c.json(publicResult(existing));
+      await repository.submitResource(
+        'skill',
+        {
+          identifier,
+          version,
+          manifest,
+          name: String(form.get('name') || identifier),
+          description: String(form.get('description') || ''),
+          metadata,
+        },
+        c.get('account'),
+        { key: artifactKey, sha256: artifactHash },
+        async () => {
+          uploadStarted = true;
+          await storage.put(artifactKey, content, artifactHash);
+          uploadCompleted = true;
+        },
+      );
+      committed = true;
+      const created = await prior();
+      if (!created) throw new Error('Committed skill submission could not be read');
+      return c.json(publicResult(created), 201);
+    } catch (error) {
+      // A concurrent retry may have committed the identical version.
+      let concurrent: Awaited<ReturnType<typeof prior>>;
+      let lookupSucceeded = false;
+      try {
+        concurrent = await prior();
+        lookupSucceeded = true;
+      } catch {
+        console.warn('Failed to look up skill submission after failure');
+      }
+      // Never remove an archive after a known commit, or when a failed COMMIT
+      // may have succeeded but the database is unavailable to confirm it.
+      if (
+        uploadStarted &&
+        !committed &&
+        concurrent?.artifactKey !== artifactKey &&
+        (lookupSucceeded || !uploadCompleted)
+      ) {
+        try {
+          await storage.remove(artifactKey);
+        } catch {
+          console.warn('Failed to clean skill submission artifact');
+        }
+      }
+      if (concurrent) return c.json(publicResult(concurrent));
+      if (!(error instanceof MarketSubmissionConflictError))
+        console.error('Skill submission infrastructure failure', error);
+      return c.json(
+        {
+          error:
+            error instanceof MarketSubmissionConflictError
+              ? error.message
+              : 'Skill submission failed',
+        },
+        error instanceof MarketSubmissionConflictError ? 409 : 503,
+      );
+    }
   });
   app.post('/api/v1/user/skills/:identifier/versions', async (c) => {
     const form = await c.req.formData();
@@ -1611,17 +1727,58 @@ export const createMarketApp = (options: {
     return c.json({ imported, success: true }, 201);
   });
 
+  app.get(
+    '/api/internal/skills/:identifier/versions/:versionId/files',
+    requireRole('reviewer', 'admin'),
+    async (c) => {
+      const versionId = Number(c.req.param('versionId'));
+      if (!Number.isSafeInteger(versionId) || versionId <= 0)
+        return c.json({ error: 'invalid_version' }, 400);
+      const { rows } = await repository
+        .getPool()
+        .query(
+          `SELECT v.artifact_key, v.artifact_sha256 FROM market_resources r JOIN market_versions v ON v.resource_id=r.id WHERE r.type='skill' AND r.identifier=$1 AND v.id=$2`,
+          [c.req.param('identifier'), versionId],
+        );
+      if (!rows[0]?.artifact_key) return c.json({ error: 'skill_archive_missing' }, 404);
+      const archive = await storage.readSkill(rows[0].artifact_key);
+      if (sha256(archive) !== rows[0].artifact_sha256)
+        return c.json({ error: 'skill_archive_checksum_mismatch' }, 409);
+      const errors = validateZipArchive(archive);
+      if (errors.length) return c.json({ error: 'unsafe_archive' }, 400);
+      let previewBytes = 0;
+      const files = Object.entries(unzipSync(archive))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([path, bytes]) => {
+          const size = bytes.length;
+          const text =
+            /\.(?:md|txt|json|ya?ml|py|js|ts|sh|csv)$/i.test(path) &&
+            !bytes.includes(0) &&
+            size <= 256 * 1024 &&
+            previewBytes + size <= 2 * 1024 * 1024;
+          if (text) previewBytes += size;
+          return {
+            path,
+            size,
+            sha256: sha256(Buffer.from(bytes)),
+            ...(text ? { content: Buffer.from(bytes).toString('utf8') } : {}),
+          };
+        });
+      return c.json({ versionId, hash: rows[0].artifact_sha256, files });
+    },
+  );
   app.get('/api/internal/reviews', requireRole('reviewer', 'admin'), async (c) => {
     const result = await repository.getPool().query(
-      `SELECT r.type, r.identifier, r.name, r.metadata, v.version,
+      `SELECT r.type, r.identifier, r.name, r.metadata, v.version, v.id::int AS "versionId",
         v.workflow_state AS "workflowState", v.scan_result AS "scanResult",
         jsonb_build_object('config', v.config, 'manifest', v.manifest) AS "currentConfig",
         (SELECT jsonb_build_object('config', pv.config, 'manifest', pv.manifest)
          FROM market_versions pv WHERE pv.resource_id=r.id AND pv.id<>v.id
          ORDER BY pv.created_at DESC LIMIT 1) AS "previousConfig",
         v.submitted_at AS "submittedAt", a.name AS "ownerName"
-       FROM market_resources r JOIN market_versions v ON v.id=r.current_version_id JOIN market_accounts a ON a.id=r.owner_account_id
-       WHERE v.workflow_state IN ('submitted','scanning','in_review','approved','rejected') ORDER BY v.created_at`,
+       FROM market_resources r JOIN market_versions v ON v.resource_id=r.id JOIN market_accounts a ON a.id=r.owner_account_id
+       WHERE (r.type='skill' OR v.id=r.current_version_id)
+         AND v.workflow_state IN ('submitted','scanning','in_review','approved','rejected') ORDER BY v.created_at`,
     );
     return c.json({ items: result.rows, totalCount: result.rowCount || 0 });
   });
@@ -1669,7 +1826,7 @@ export const createMarketApp = (options: {
     const where = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
     const result = await repository.getPool().query(
       `SELECT r.type, r.identifier, r.name, r.description, r.category, r.status, r.visibility,
-        r.tags, r.updated_at AS "updatedAt", v.version,
+        r.tags, r.updated_at AS "updatedAt", v.version, v.id::int AS "versionId",
         v.workflow_state AS "workflowState", a.external_user_id AS "ownerUserId",
         COALESCE(a.name, a.email, a.external_user_id) AS "ownerName",
         count(*) OVER()::int AS "totalCount"
@@ -1717,6 +1874,8 @@ export const createMarketApp = (options: {
     async (c) => {
       const type = c.req.param('type') as ResourceType;
       const input = ReviewActionSchema.parse(await c.req.json());
+      if (type === 'skill' && input.versionId === undefined)
+        return c.json({ error: 'skill_version_required' }, 400);
       return c.json(
         await repository.review(
           type,
@@ -1725,6 +1884,9 @@ export const createMarketApp = (options: {
           input.reason,
           c.get('account'),
           input.scanResult,
+          input.versionId === undefined
+            ? undefined
+            : { versionId: input.versionId, expectedState: input.expectedState },
         ),
       );
     },

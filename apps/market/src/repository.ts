@@ -9,6 +9,10 @@ export interface Account {
   role: 'submitter' | 'reviewer' | 'admin';
 }
 
+export class MarketSubmissionConflictError extends Error {
+  readonly code = 'SUBMISSION_CONFLICT';
+}
+
 export interface ListOptions {
   category?: string;
   identifiers?: readonly string[];
@@ -28,8 +32,8 @@ const versionFrom = (data: Record<string, any>): string | undefined => {
   return undefined;
 };
 
-// A submission advances the owner's review pointer. Other readers must keep
-// seeing the published skill until that submission is actually published.
+// Older submissions may have advanced the review pointer before publication.
+// Other readers must keep seeing a published skill in that case.
 const visibleVersionId = (accountParameter: '$2' | '$3') => `CASE
   WHEN r.type='skill' AND r.status='published' AND r.owner_account_id<>${accountParameter}
   THEN (SELECT pv.id FROM market_versions pv
@@ -257,18 +261,22 @@ export class MarketRepository {
       );
       const newResource = !!resource.rowCount;
       if (!newResource) {
-        if (type !== 'skill') throw new Error(`Resource already exists: ${data.identifier}`);
+        if (type !== 'skill')
+          throw new MarketSubmissionConflictError(`Resource already exists: ${data.identifier}`);
         resource = await client.query(
           'SELECT id FROM market_resources WHERE type=$1 AND identifier=$2 AND owner_account_id=$3 FOR UPDATE',
           [type, data.identifier, account.id],
         );
-        if (!resource.rowCount) throw new Error('Resource not found or not owned by caller');
+        if (!resource.rowCount)
+          throw new MarketSubmissionConflictError('Resource not found or not owned by caller');
         const duplicate = await client.query(
           'SELECT 1 FROM market_versions WHERE resource_id=$1 AND version=$2',
           [resource.rows[0].id, versionFrom(data) || '1.0.0'],
         );
         if (duplicate.rowCount)
-          throw new Error(`Resource version already exists: ${data.identifier}`);
+          throw new MarketSubmissionConflictError(
+            `Resource version already exists: ${data.identifier}`,
+          );
       }
       const version = await client.query(
         `INSERT INTO market_versions(resource_id,version,config,editor_data,manifest,localizations,changelog,created_by,
@@ -288,7 +296,8 @@ export class MarketRepository {
         ],
       );
       await client.query(
-        'UPDATE market_resources SET current_version_id=$1, updated_at=now() WHERE id=$2',
+        `UPDATE market_resources SET current_version_id=CASE WHEN status='published' THEN current_version_id ELSE $1 END,
+          updated_at=now() WHERE id=$2`,
         [version.rows[0].id, resource.rows[0].id],
       );
       for (const [action, details] of [
@@ -448,16 +457,19 @@ export class MarketRepository {
     reason: string | undefined,
     reviewer: Account,
     scanResult?: Record<string, unknown>,
+    target?: { versionId: number; expectedState?: string },
   ) {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       const resource = await client.query(
-        `SELECT r.*, v.workflow_state FROM market_resources r JOIN market_versions v ON v.id=r.current_version_id
+        `SELECT r.*, v.id AS review_version_id, v.workflow_state FROM market_resources r JOIN market_versions v ON v.resource_id=r.id AND v.id=COALESCE($3::bigint,r.current_version_id)
          WHERE r.type=$1 AND r.identifier=$2 FOR UPDATE`,
-        [type, identifier],
+        [type, identifier, target?.versionId ?? null],
       );
       if (!resource.rowCount) throw new Error('Resource not found');
+      if (target?.expectedState && target.expectedState !== resource.rows[0].workflow_state)
+        throw new Error('Review state changed. Refresh before continuing.');
       const transitions: Record<string, { from: string[]; to: WorkflowState }> = {
         'approve': { from: ['in_review'], to: 'approved' },
         'deprecate': { from: ['published'], to: 'deprecated' },
@@ -474,6 +486,11 @@ export class MarketRepository {
           `Invalid workflow transition: ${resource.rows[0].workflow_state} -> ${action}`,
         );
       }
+      if (
+        action === 'deprecate' &&
+        String(resource.rows[0].review_version_id) !== String(resource.rows[0].current_version_id)
+      )
+        throw new Error('Cannot deprecate a historical version through the resource action.');
       const effectiveScanResult =
         scanResult ||
         (action === 'scan-passed'
@@ -491,14 +508,14 @@ export class MarketRepository {
           transition.to,
           reason || null,
           reviewer.id,
-          resource.rows[0].current_version_id,
+          resource.rows[0].review_version_id,
           effectiveScanResult ? JSON.stringify(effectiveScanResult) : null,
         ],
       );
       if (transition.to === 'published')
         await client.query(
-          `UPDATE market_resources SET status='published', updated_at=now() WHERE id=$1`,
-          [resource.rows[0].id],
+          `UPDATE market_resources SET status='published', current_version_id=$2, updated_at=now() WHERE id=$1`,
+          [resource.rows[0].id, resource.rows[0].review_version_id],
         );
       if (transition.to === 'deprecated')
         await client.query(
@@ -506,7 +523,10 @@ export class MarketRepository {
           [resource.rows[0].id],
         );
       await client.query('COMMIT');
-      await this.audit(reviewer, undefined, `review.${action}`, type, identifier, { reason });
+      await this.audit(reviewer, undefined, `review.${action}`, type, identifier, {
+        reason,
+        versionId: resource.rows[0].review_version_id,
+      });
       return { identifier, success: true, workflowState: transition.to };
     } catch (error) {
       await client.query('ROLLBACK');

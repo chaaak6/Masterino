@@ -197,7 +197,9 @@ export const createAgentToolsEngine = (
   };
 
   const agentModeRules = {
-    'lobe-skill-authoring': executionContext?.plan.kind === 'device' && !!executionContext.cwd,
+    // Personal-library submission does not require a project directory. Project
+    // operations still enforce a local workspace in the executor.
+    'lobe-skill-authoring': executionContext?.plan.kind === 'device',
     // Runtime-resolved plugins (from agentConfigResolver for the effective agent,
     // may include sub-agent/group/page scope plugins not on the active agent)
     ...(pluginIds && Object.fromEntries(pluginIds.map((id) => [id, true]))),

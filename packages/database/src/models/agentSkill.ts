@@ -1,6 +1,6 @@
 import type { SkillItem, SkillListItem } from '@lobechat/types';
 import { merge } from '@lobechat/utils';
-import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 
 import type { NewAgentSkill } from '../schemas';
 import { agentSkills } from '../schemas';
@@ -23,6 +23,10 @@ const skillItemColumns = {
 };
 
 const skillListColumns = {
+  publication: sql<{
+    identifier: string;
+    hash: string;
+  } | null>`${agentSkills.editorData}->'publication'`,
   createdAt: agentSkills.createdAt,
   description: agentSkills.description,
   id: agentSkills.id,
@@ -74,6 +78,20 @@ export class AgentSkillModel {
       .select(skillItemColumns)
       .from(agentSkills)
       .where(and(eq(agentSkills.identifier, identifier), this.scopeWhere()))
+      .limit(1);
+    return result;
+  };
+
+  findByPublicationIdentifier = async (identifier: string): Promise<SkillItem | undefined> => {
+    const [result] = await this.db
+      .select(skillItemColumns)
+      .from(agentSkills)
+      .where(
+        and(
+          this.scopeWhere(),
+          sql`${agentSkills.editorData}->'publication'->>'identifier' = ${identifier}`,
+        ),
+      )
       .limit(1);
     return result;
   };
@@ -134,10 +152,18 @@ export class AgentSkillModel {
 
   // ========== Update ==========
 
-  update = async (id: string, data: Partial<NewAgentSkill>): Promise<SkillItem> => {
+  update = async (
+    id: string,
+    data: Partial<NewAgentSkill>,
+    options?: { replaceManifest?: boolean },
+  ): Promise<SkillItem> => {
     const existing = await this.findById(id);
 
     const updateData = merge(existing || {}, { ...data, updatedAt: new Date() });
+    // Bundle resources are a snapshot: deleted files must not survive deep merge.
+    if (data.resources !== undefined) updateData.resources = data.resources;
+    if (options?.replaceManifest && data.manifest !== undefined)
+      updateData.manifest = data.manifest;
 
     const [result] = await this.db
       .update(agentSkills)
@@ -148,6 +174,22 @@ export class AgentSkillModel {
   };
 
   // ========== Delete ==========
+
+  unlinkPublication = async (id: string, identifier: string): Promise<boolean> => {
+    const rows = await this.db
+      .update(agentSkills)
+      .set({ editorData: sql`${agentSkills.editorData} - 'publication'` })
+      .where(
+        and(
+          eq(agentSkills.id, id),
+          eq(agentSkills.source, 'user'),
+          this.scopeWhere(),
+          sql`${agentSkills.editorData}->'publication'->>'identifier' = ${identifier}`,
+        ),
+      )
+      .returning({ id: agentSkills.id });
+    return rows.length > 0;
+  };
 
   delete = async (id: string): Promise<{ success: boolean }> => {
     const result = await this.db

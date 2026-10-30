@@ -4,6 +4,7 @@ import {
 } from '@lobechat/builtin-tool-skill-authoring';
 import type { IBuiltinToolExecutor } from '@lobechat/types';
 
+import { lambdaClient } from '@/libs/trpc/client';
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { agentSkillService } from '@/services/skill';
 import { useFileStore } from '@/store/file';
@@ -16,6 +17,18 @@ export const skillAuthoringExecutor: IBuiltinToolExecutor = {
   getApiNames: () => apis,
   hasApi: (name) => apis.includes(name as (typeof apis)[number]),
   invoke: async (apiName, params, ctx) => {
+    if (ctx.signal?.aborted) return { success: false, stop: true };
+    if (apiName === 'submitSkill') {
+      const input = params as { name?: string; skillId?: string };
+      if (!!input.name === !!input.skillId)
+        return { success: false, content: 'Provide exactly one of skillId or project skill name.' };
+    }
+    if (apiName === 'submitSkill' && (params as { skillId?: string }).skillId) {
+      const submission = await lambdaClient.market.socialProfile.submitPersonalSkill.mutate({
+        skillId: (params as { skillId: string }).skillId,
+      });
+      return { success: true, content: JSON.stringify(submission), state: { submission } };
+    }
     const execution = ctx.executionContext;
     if (ctx.signal?.aborted) return { success: false, stop: true };
     if (execution?.plan.kind !== 'device' || execution.plan.target !== 'local' || !execution.cwd) {
@@ -25,7 +38,9 @@ export const skillAuthoringExecutor: IBuiltinToolExecutor = {
       };
     }
     const result = await gatewayConnectionService.executeLocalToolCall({
-      apiName: apiName === 'promoteProjectSkill' ? 'packProjectSkill' : apiName,
+      apiName: ['promoteProjectSkill', 'submitSkill'].includes(apiName)
+        ? 'packProjectSkill'
+        : apiName,
       args: params,
       executionContext: {
         accessRoots: execution.accessRoots,
@@ -41,11 +56,16 @@ export const skillAuthoringExecutor: IBuiltinToolExecutor = {
         toolCallId: ctx.toolCallId,
       },
     });
-    if (result.success && (apiName === 'promoteProjectSkill' || apiName === 'packProjectSkill')) {
+    if (
+      result.success &&
+      (apiName === 'promoteProjectSkill' ||
+        apiName === 'packProjectSkill' ||
+        apiName === 'submitSkill')
+    ) {
       const packed = (
         result.state as { result: { archiveBase64: string; size: number; validation: unknown } }
       ).result;
-      if (apiName === 'promoteProjectSkill') {
+      if (apiName === 'promoteProjectSkill' || apiName === 'submitSkill') {
         const bytes = Uint8Array.from(atob(packed.archiveBase64), (character) =>
           character.charCodeAt(0),
         );
@@ -56,6 +76,13 @@ export const skillAuthoringExecutor: IBuiltinToolExecutor = {
           skipCheckFileType: true,
         });
         if (!uploaded) return { success: false, content: 'Skill archive upload failed.' };
+        if (apiName === 'submitSkill') {
+          const submission = await lambdaClient.market.socialProfile.submitZip.mutate({
+            zipFileId: uploaded.id,
+            sourceRef: `project:${execution.plan.deviceId}:${execution.cwd}:${(params as { name: string }).name}`,
+          });
+          return { success: true, content: JSON.stringify(submission), state: { submission } };
+        }
         const promoted = await agentSkillService.importFromZip({ zipFileId: uploaded.id });
         return {
           success: !!promoted,

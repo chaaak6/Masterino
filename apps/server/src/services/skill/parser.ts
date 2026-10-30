@@ -117,7 +117,13 @@ export class SkillParser {
    */
   parseSkillMd(fileContent: string): ParsedSkill {
     try {
-      const { data, content } = matter(fileContent);
+      const { data, content } = matter(fileContent, {
+        engines: {
+          javascript: () => {
+            throw new Error('Executable frontmatter is not supported');
+          },
+        },
+      });
       const manifest = this.validateManifest(data);
 
       return {

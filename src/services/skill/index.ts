@@ -45,8 +45,11 @@ class AgentSkillService {
     return lambdaClient.agentSkills.getById.query({ id });
   }
 
-  async getZipUrl(id: string): Promise<{ name: string; url: string | null }> {
-    return lambdaClient.agentSkills.getByIdWithZipUrl.query({ id });
+  async getZipUrl(
+    id: string,
+    archive?: 'current' | 'installed',
+  ): Promise<{ name: string; url: string | null }> {
+    return lambdaClient.agentSkills.getByIdWithZipUrl.query({ archive, id });
   }
 
   async getByIdentifier(identifier: string): Promise<SkillItem | undefined> {
@@ -76,6 +79,10 @@ class AgentSkillService {
   }
 
   // ===== Update =====
+
+  async unlinkPublication(id: string, identifier: string): Promise<void> {
+    await lambdaClient.agentSkills.unlinkPublication.mutate({ id, identifier });
+  }
 
   async updateSkill(params: UpdateSkillInput): Promise<SkillItem> {
     return lambdaClient.agentSkills.update.mutate({
