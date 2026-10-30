@@ -2,6 +2,7 @@ export { editLocalFile } from './edit';
 export {
   ExecutionBoundaryError,
   prepareToolCallExecution,
+  resolveNewFileConsentDirectory,
   toolNeedsDefaultCwd,
 } from './executionBoundary';
 export { expandTilde } from './expandTilde';

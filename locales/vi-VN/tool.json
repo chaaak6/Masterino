@@ -228,6 +228,7 @@
   "workspacePathConsent.approvedAndResumed": "Đã phê duyệt truy cập đường dẫn đã xác minh. Đang tiếp tục thực thi.",
   "workspacePathConsent.callbackFailed": "Bộ điều phối thực thi không chấp nhận lựa chọn này. Bạn có thể thử lại.",
   "workspacePathConsent.cwdOverridden": "MODEL_CWD_OVERRIDDEN: thư mục lệnh được yêu cầu đã được thay bằng thư mục chính của chủ đề.",
+  "workspacePathConsent.directoryWriteNotice": "Quyền ghi áp dụng cho thư mục này, không chỉ tệp mới.",
   "workspacePathConsent.mode.exec": "Thực thi",
   "workspacePathConsent.mode.read": "Đọc",
   "workspacePathConsent.mode.write": "Ghi",
@@ -245,6 +246,7 @@
   "workspacePathConsent.rejectRecorded": "Đã ghi nhận từ chối. Môi trường thực thi vẫn cần dừng hoặc tiếp tục thao tác.",
   "workspacePathConsent.rejectedAndResumed": "Đã từ chối truy cập đường dẫn. Đang tiếp tục thực thi mà không có đường dẫn bổ sung.",
   "workspacePathConsent.requestedPath": "Đường dẫn được yêu cầu",
+  "workspacePathConsent.targetFile": "Tệp sẽ tạo",
   "workspacePathConsent.title": "Yêu cầu truy cập đường dẫn bổ sung",
   "workspacePathConsent.topic": "Ghi nhớ cho chủ đề này"
 }

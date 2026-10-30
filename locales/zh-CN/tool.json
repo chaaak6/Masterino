@@ -228,6 +228,7 @@
   "workspacePathConsent.approvedAndResumed": "已使用验证后的路径批准访问，正在恢复执行。",
   "workspacePathConsent.callbackFailed": "执行协调器未接受此选择，你可以重试。",
   "workspacePathConsent.cwdOverridden": "MODEL_CWD_OVERRIDDEN：请求的命令目录已被替换为本话题的主目录。",
+  "workspacePathConsent.directoryWriteNotice": "写权限覆盖此文件夹，不仅限于本次新建的文件。",
   "workspacePathConsent.mode.exec": "执行",
   "workspacePathConsent.mode.read": "读取",
   "workspacePathConsent.mode.write": "写入",
@@ -245,6 +246,7 @@
   "workspacePathConsent.rejectRecorded": "拒绝选择已记录，运行时仍需停止或恢复此次操作。",
   "workspacePathConsent.rejectedAndResumed": "已拒绝路径访问，正在不授予附加路径的情况下恢复执行。",
   "workspacePathConsent.requestedPath": "请求目录",
+  "workspacePathConsent.targetFile": "将创建的文件",
   "workspacePathConsent.title": "请求访问附加目录",
   "workspacePathConsent.topic": "本话题记住"
 }
