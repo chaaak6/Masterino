@@ -1,0 +1,140 @@
+{
+  "date": "2026-10-30",
+  "method": "Loopback HTTP relay resets the real Electron upload TCP connection after forwarding 50% of the signed upload body. System Wi-Fi unchanged.",
+  "fixture": {
+    "name": "qa-pr151-transport-final.zip",
+    "size": 12583409,
+    "sha256": "c8f949a52bb834f4196226a3ee9c997d224da2febcf18cd98b9be6af4e2ea94e"
+  },
+  "events": [
+    {
+      "at": "2026-10-30T00:20:46.970Z",
+      "event": "start",
+      "attempt": 3,
+      "expected": 12583409,
+      "fail": true
+    },
+    {
+      "at": "2026-10-30T00:20:56.674Z",
+      "event": "reset",
+      "attempt": 3,
+      "sent": 6291705,
+      "expected": 12583409,
+      "fraction": 0.5000000397348604
+    },
+    {
+      "at": "2026-10-30T00:20:56.676Z",
+      "event": "start",
+      "attempt": 4,
+      "expected": 12583409,
+      "fail": true
+    },
+    {
+      "at": "2026-10-30T00:21:06.388Z",
+      "event": "reset",
+      "attempt": 4,
+      "sent": 6291705,
+      "expected": 12583409,
+      "fraction": 0.5000000397348604
+    },
+    {
+      "at": "2026-10-30T00:21:59.634Z",
+      "event": "start",
+      "attempt": 5,
+      "expected": 12583409,
+      "fail": false
+    },
+    {
+      "at": "2026-10-30T00:22:02.788Z",
+      "event": "response",
+      "attempt": 5,
+      "status": 200,
+      "sent": 0
+    }
+  ],
+  "database": [
+    {
+      "stage": "after-failed-upload",
+      "skills": [],
+      "files": [],
+      "versions": []
+    },
+    {
+      "stage": "after-retry",
+      "skills": [
+        {
+          "id": "skl_6AuW5jXjvoZM",
+          "name": "qa-pr151-transport-final",
+          "zip_file_hash": "c77549632fc93f1f9ab0e4b5708d532d72876c594de0213eadf5e502d4cc0070"
+        }
+      ],
+      "files": [
+        {
+          "id": "file_x0yNnuLXWMbX",
+          "name": "qa-pr151-transport-final.zip"
+        }
+      ],
+      "versions": []
+    },
+    {
+      "stage": "after-submission",
+      "skills": [
+        {
+          "id": "skl_6AuW5jXjvoZM",
+          "name": "qa-pr151-transport-final",
+          "zip_file_hash": "c77549632fc93f1f9ab0e4b5708d532d72876c594de0213eadf5e502d4cc0070"
+        }
+      ],
+      "files": [
+        {
+          "id": "file_x0yNnuLXWMbX",
+          "name": "qa-pr151-transport-final.zip"
+        }
+      ],
+      "versions": [
+        {
+          "identifier": "user-3b13cea61f91d3231c34a73c",
+          "id": "143",
+          "workflow_state": "submitted"
+        }
+      ]
+    },
+    {
+      "stage": "after-repeat-submission",
+      "skills": [
+        {
+          "id": "skl_6AuW5jXjvoZM",
+          "name": "qa-pr151-transport-final",
+          "zip_file_hash": "c77549632fc93f1f9ab0e4b5708d532d72876c594de0213eadf5e502d4cc0070"
+        }
+      ],
+      "files": [
+        {
+          "id": "file_x0yNnuLXWMbX",
+          "name": "qa-pr151-transport-final.zip"
+        }
+      ],
+      "versions": [
+        {
+          "identifier": "user-3b13cea61f91d3231c34a73c",
+          "id": "143",
+          "workflow_state": "submitted"
+        }
+      ]
+    }
+  ],
+  "integrity": {
+    "originalArchiveSHA": "matched",
+    "referenceSHA": "matched",
+    "binaryAssetSHA": "matched",
+    "bodyMarker": "TRANSPORT_RETRY_OK"
+  },
+  "review": {
+    "versionId": 143,
+    "previewHTTP": 200,
+    "bodyAndReference": "matched",
+    "finalState": "rejected",
+    "manualScanStateTransitions": true
+  },
+  "limitations": "Transport fault simulation; physical network disconnection was explicitly deferred by the user."
+}

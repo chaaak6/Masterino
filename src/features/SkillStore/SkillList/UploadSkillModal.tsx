@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import SubmitSkillModal from '@/features/SkillPublishing/SubmitSkillModal';
 import { usePermission } from '@/hooks/usePermission';
 import { lambdaClient } from '@/libs/trpc/client/lambda';
-import { uploadService } from '@/services/upload';
+import { UPLOAD_NETWORK_ERROR, uploadService } from '@/services/upload';
 import { useToolStore } from '@/store/tool';
 
 interface UploadSkillModalProps {
@@ -69,7 +69,9 @@ const UploadSkillModal = memo<UploadSkillModalProps>(({ open, onOpenChange }) =>
     } catch (err: any) {
       const detail = err?.message || String(err);
       setError(
-        detail.startsWith('Invalid skill manifest:')
+        detail === UPLOAD_NETWORK_ERROR || detail === 'Failed to fetch'
+          ? t('skillStore.networkError')
+          : detail.startsWith('Invalid skill manifest:')
           ? t('publishing.invalidManifest', { ns: 'discover' })
           : detail,
       );
