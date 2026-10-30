@@ -4,7 +4,7 @@ import { Flexbox, Text } from '@lobehub/ui';
 import { Modal, Select } from '@lobehub/ui/base-ui';
 import { App, Tabs, Upload } from 'antd';
 import { sha256 } from 'js-sha256';
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { lambdaClient } from '@/libs/trpc/client';
@@ -25,6 +25,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
     const { message } = App.useApp();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submissionError, setSubmissionError] = useState<string>();
     const [mode, setMode] = useState<'zip' | 'personal'>(skillId ? 'personal' : 'zip');
     const uploadGeneration = useRef(0);
     const [zipFileId, setZipFileId] = useState<string>();
@@ -35,9 +36,17 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
     const [selectedSkill, setSelectedSkill] = useState(skillId);
     const [zipName, setZipName] = useState<string>();
 
+    useEffect(() => {
+      if (open && skillId) {
+        setMode('personal');
+        setSelectedSkill(skillId);
+      }
+    }, [open, skillId]);
+
     const handleSubmit = useCallback(async () => {
       try {
         setIsSubmitting(true);
+        setSubmissionError(undefined);
         const submitContext = await beforeSubmit?.();
         let workflowState: string | undefined;
         if (mode === 'personal') {
@@ -78,11 +87,11 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       } catch (error) {
         console.error('[SubmitRepoModal] Failed to submit:', error);
         const detail = error instanceof Error ? error.message : '';
-        message.error(
-          detail.startsWith('Invalid skill manifest:')
-            ? t('publishing.invalidManifest')
-            : detail || t('user.submitRepoError'),
-        );
+        const errorMessage = detail.startsWith('Invalid skill manifest:')
+          ? t('publishing.invalidManifest')
+          : detail || t('user.submitRepoError');
+        setSubmissionError(errorMessage);
+        message.error(errorMessage);
       } finally {
         setIsSubmitting(false);
       }
@@ -125,9 +134,10 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
           setZipFileId(result.id);
           setZipName(file.name);
         } catch (error) {
-          message.error(error instanceof Error ? error.message : t('user.submitRepoError'));
+          if (generation === uploadGeneration.current)
+            message.error(error instanceof Error ? error.message : t('user.submitRepoError'));
         } finally {
-          setIsSubmitting(false);
+          if (generation === uploadGeneration.current) setIsSubmitting(false);
         }
       },
       [message, t],
@@ -137,6 +147,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       ++uploadGeneration.current;
       setZipFileId(undefined);
       setZipName(undefined);
+      setSubmissionError(undefined);
       onClose();
     }, [onClose]);
 
@@ -168,6 +179,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
           {t('user.submitRepoDescription')}
         </Text>
 
+        {submissionError && <Text type="danger">{submissionError}</Text>}
         <Tabs
           activeKey={mode}
           items={[

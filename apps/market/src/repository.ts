@@ -9,6 +9,10 @@ export interface Account {
   role: 'submitter' | 'reviewer' | 'admin';
 }
 
+export class MarketSubmissionConflictError extends Error {
+  readonly code = 'SUBMISSION_CONFLICT';
+}
+
 export interface ListOptions {
   category?: string;
   identifiers?: readonly string[];
@@ -257,18 +261,22 @@ export class MarketRepository {
       );
       const newResource = !!resource.rowCount;
       if (!newResource) {
-        if (type !== 'skill') throw new Error(`Resource already exists: ${data.identifier}`);
+        if (type !== 'skill')
+          throw new MarketSubmissionConflictError(`Resource already exists: ${data.identifier}`);
         resource = await client.query(
           'SELECT id FROM market_resources WHERE type=$1 AND identifier=$2 AND owner_account_id=$3 FOR UPDATE',
           [type, data.identifier, account.id],
         );
-        if (!resource.rowCount) throw new Error('Resource not found or not owned by caller');
+        if (!resource.rowCount)
+          throw new MarketSubmissionConflictError('Resource not found or not owned by caller');
         const duplicate = await client.query(
           'SELECT 1 FROM market_versions WHERE resource_id=$1 AND version=$2',
           [resource.rows[0].id, versionFrom(data) || '1.0.0'],
         );
         if (duplicate.rowCount)
-          throw new Error(`Resource version already exists: ${data.identifier}`);
+          throw new MarketSubmissionConflictError(
+            `Resource version already exists: ${data.identifier}`,
+          );
       }
       const version = await client.query(
         `INSERT INTO market_versions(resource_id,version,config,editor_data,manifest,localizations,changelog,created_by,

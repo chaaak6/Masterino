@@ -10,6 +10,7 @@ import { createMarketApp } from './app.js';
 import type { MarketConfig } from './config.js';
 import { encryptJson } from './crypto.js';
 import { ONBOARDING_AGENT_CATALOG, ONBOARDING_AGENT_IDENTIFIERS } from './onboardingCatalog.js';
+import { MarketSubmissionConflictError } from './repository.js';
 
 const secret = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const actor = {
@@ -80,6 +81,175 @@ const createRepository = () => ({
 });
 
 afterEach(() => vi.restoreAllMocks());
+
+describe('user skill submission failures and retries', () => {
+  const setup = () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const storage = {
+      put: vi.fn().mockResolvedValue(undefined),
+      remove: vi.fn().mockResolvedValue(undefined),
+    };
+    const repository = {
+      ...createRepository(),
+      getPool: () => ({ query }),
+      submitResource: vi
+        .fn()
+        .mockImplementation(async (_type, _data, _account, _artifact, upload) => upload()),
+    };
+    const app = createMarketApp({
+      config,
+      repository: repository as any,
+      redis: {} as any,
+      storage: storage as any,
+    });
+    const request = (overrides: Record<string, string> = {}) => {
+      const form = new FormData();
+      form.set(
+        'file',
+        new File(
+          [
+            zipSync({
+              'SKILL.md': strToU8('---\nname: probe\ndescription: A probe\n---\nSafe instructions'),
+            }),
+          ],
+          'probe.zip',
+        ),
+      );
+      form.set('manifest', JSON.stringify({ files: [{ path: 'SKILL.md' }] }));
+      form.set('metadata', '{}');
+      form.set('version', '1.0.0');
+      for (const [key, value] of Object.entries(overrides)) form.set(key, value);
+      return app.request('/api/v1/user/skills/probe/submission', {
+        method: 'POST',
+        headers: { 'x-lobe-trust-token': token },
+        body: form,
+      });
+    };
+    return { query, storage, repository, request };
+  };
+
+  it.each(['manifest', 'metadata'])(
+    'rejects malformed or non-object %s before database/storage access',
+    async (field) => {
+      for (const value of ['{bad', 'null', '[]', '"text"']) {
+        const { query, storage, repository, request } = setup();
+        const response = await request({ [field]: value });
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ error: 'unsafe_skill' });
+        expect(query).not.toHaveBeenCalled();
+        expect(repository.submitResource).not.toHaveBeenCalled();
+        expect(storage.put).not.toHaveBeenCalled();
+        expect(storage.remove).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('returns 503 for storage failures and cleans only this upload attempt', async () => {
+    const { storage, request } = setup();
+    storage.put.mockRejectedValue(new Error('Storage unavailable'));
+    const response = await request();
+    expect(response.status).toBe(503);
+    expect(storage.remove).toHaveBeenCalledExactlyOnceWith(storage.put.mock.calls[0][0]);
+    expect(storage.put.mock.calls[0][0]).toMatch(
+      /^skill\/probe\/1\.0\.0\/[a-f0-9-]+-[a-f0-9]{64}\.zip$/,
+    );
+  });
+
+  it('returns 503 for a database outage without attempting storage cleanup', async () => {
+    const { query, storage, request } = setup();
+    query.mockRejectedValue(new Error('Database unavailable'));
+    expect((await request()).status).toBe(503);
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(storage.remove).not.toHaveBeenCalled();
+  });
+
+  it.each(['Resource version already exists', 'Resource not owned'])(
+    'returns 409 only for a typed conflict: %s',
+    async (message) => {
+      const { repository, storage, request } = setup();
+      repository.submitResource.mockRejectedValue(new MarketSubmissionConflictError(message));
+      expect((await request()).status).toBe(409);
+      expect(storage.remove).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reuses a concurrent identical submission rather than returning a conflict', async () => {
+    const { query, repository, storage, request } = setup();
+    query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValue({
+        rows: [
+          {
+            versionId: 17,
+            resourceId: 3,
+            workflowState: 'submitted',
+            artifactKey: 'other-attempt.zip',
+          },
+        ],
+      });
+    repository.submitResource.mockRejectedValue(
+      new MarketSubmissionConflictError('Resource version already exists'),
+    );
+    const response = await request();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      versionId: 17,
+      resourceId: 3,
+      workflowState: 'submitted',
+    });
+    expect(storage.remove).not.toHaveBeenCalled();
+  });
+
+  it('never removes a committed archive if reading its result fails', async () => {
+    const { query, storage, request } = setup();
+    query.mockResolvedValueOnce({ rows: [] }).mockRejectedValue(new Error('Read unavailable'));
+    expect((await request()).status).toBe(503);
+    expect(storage.put).toHaveBeenCalledOnce();
+    expect(storage.remove).not.toHaveBeenCalled();
+  });
+
+  it('preserves its own artifact if COMMIT succeeded but the response was lost', async () => {
+    const { query, repository, storage, request } = setup();
+    repository.submitResource.mockImplementation(
+      async (_type, _data, _account, artifact, upload) => {
+        await upload();
+        query.mockResolvedValue({ rows: [{ versionId: 17, artifactKey: artifact.key }] });
+        throw new Error('COMMIT response lost');
+      },
+    );
+    const response = await request();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ versionId: 17 });
+    expect(storage.remove).not.toHaveBeenCalled();
+  });
+
+  it('preserves an uploaded archive when an ambiguous COMMIT cannot be checked', async () => {
+    const { query, repository, storage, request } = setup();
+    repository.submitResource.mockImplementation(
+      async (_type, _data, _account, _artifact, upload) => {
+        await upload();
+        query.mockRejectedValue(new Error('Database unavailable'));
+        throw new Error('COMMIT response lost');
+      },
+    );
+    expect((await request()).status).toBe(503);
+    expect(storage.remove).not.toHaveBeenCalled();
+  });
+
+  it('removes only its own orphan after a failed transaction while reusing a concurrent commit', async () => {
+    const { query, repository, storage, request } = setup();
+    repository.submitResource.mockImplementation(
+      async (_type, _data, _account, _artifact, upload) => {
+        await upload();
+        query.mockResolvedValue({ rows: [{ versionId: 17, artifactKey: 'winning-attempt.zip' }] });
+        throw new Error('Transaction rolled back');
+      },
+    );
+    expect((await request()).status).toBe(200);
+    expect(storage.remove).toHaveBeenCalledExactlyOnceWith(storage.put.mock.calls[0][0]);
+    expect(storage.remove).not.toHaveBeenCalledWith('winning-attempt.zip');
+  });
+});
 
 describe('Market SDK compatibility', () => {
   it('requires a version for Skill reviews while preserving legacy reviews for other resources', async () => {

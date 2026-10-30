@@ -186,7 +186,7 @@ export const agentSkillsRouter = router({
           ctx.userId,
           skill.id,
           ctx.workspaceId ?? undefined,
-        );
+        ).catch(handleSkillImportError);
         const hash = createHash('sha256').update(archive).digest('hex');
         const key = `skills/zip/${hash}.zip`;
         await ctx.fileService.uploadBuffer(key, archive, 'application/zip');

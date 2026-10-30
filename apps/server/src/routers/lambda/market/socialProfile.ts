@@ -12,7 +12,7 @@ import { FileService } from '@/server/services/file';
 import { SkillManifestError, SkillParseError } from '@/server/services/skill/errors';
 import { SkillParser } from '@/server/services/skill/parser';
 import { SkillPublishingService } from '@/server/services/skill/publishing';
-import { assertSafeSkillContent } from '@/server/services/skill/submissionPolicy';
+import { assertSafeSkillPackageContent } from '@/server/services/skill/submissionPolicy';
 import { getInternalMarketBaseUrl } from '@/utils/internalMarket';
 
 const log = debug('lambda-router:market:socialProfile');
@@ -73,7 +73,7 @@ const submitSkillArchive = async (input: {
   }
   const parser = new SkillParser();
   const parsed = await parser.parseZipPackage(input.archive, { repackSkillZip: true });
-  assertSafeSkillContent(parsed.content);
+  assertSafeSkillPackageContent(parsed);
   const archive = parsed.skillZipBuffer ?? input.archive;
   const manifest = {
     ...parsed.manifest,

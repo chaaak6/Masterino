@@ -32,6 +32,7 @@ import {
   resolveMarketAvatar,
 } from './onboardingCatalog.js';
 import type { Account, MarketRepository } from './repository.js';
+import { MarketSubmissionConflictError } from './repository.js';
 import { runCuratedSeed } from './seed.js';
 import { validateSkillContent } from './skillArtifact.js';
 import { CredentialVault } from './vault.js';
@@ -782,7 +783,26 @@ export const createMarketApp = (options: {
     if (!(file instanceof File)) return c.json({ error: 'skill_zip_required' }, 400);
     if (file.size > SKILL_PACKAGE_MAX_BYTES) return c.json({ error: 'skill_zip_too_large' }, 413);
     const content = Buffer.from(await file.arrayBuffer());
-    const manifest = JSON.parse(String(form.get('manifest') || '{}'));
+    let manifest: Record<string, unknown>;
+    let metadata: Record<string, unknown>;
+    try {
+      manifest = JSON.parse(String(form.get('manifest') || '{}'));
+      metadata = JSON.parse(String(form.get('metadata') || '{}'));
+      if (
+        !manifest ||
+        typeof manifest !== 'object' ||
+        Array.isArray(manifest) ||
+        !metadata ||
+        typeof metadata !== 'object' ||
+        Array.isArray(metadata)
+      )
+        throw new Error('Manifest and metadata must be JSON objects');
+    } catch {
+      return c.json(
+        { error: 'unsafe_skill', details: ['Invalid manifest or metadata JSON object'] },
+        400,
+      );
+    }
     const errors = [...validateZipArchive(content), ...validateArtifactManifest(manifest)];
     if (!errors.length) {
       try {
@@ -799,14 +819,18 @@ export const createMarketApp = (options: {
     const prior = async () =>
       (
         await pool.query(
-          `SELECT v.id::int AS "versionId", r.id::int AS "resourceId", v.workflow_state AS "workflowState" FROM market_resources r JOIN market_versions v ON v.resource_id=r.id WHERE r.type='skill' AND r.identifier=$1 AND r.owner_account_id=$2 AND v.version=$3 AND v.artifact_sha256=$4`,
+          `SELECT v.id::int AS "versionId", r.id::int AS "resourceId", v.workflow_state AS "workflowState", v.artifact_key AS "artifactKey" FROM market_resources r JOIN market_versions v ON v.resource_id=r.id WHERE r.type='skill' AND r.identifier=$1 AND r.owner_account_id=$2 AND v.version=$3 AND v.artifact_sha256=$4`,
           [identifier, c.get('account').id, version, artifactHash],
         )
       ).rows[0];
-    const existing = await prior();
-    if (existing) return c.json(existing);
     const artifactKey = `skill/${identifier}/${version}/${randomUUID()}-${artifactHash}.zip`;
+    const publicResult = ({ artifactKey: _key, ...result }: Record<string, unknown>) => result;
+    let uploadStarted = false;
+    let uploadCompleted = false;
+    let committed = false;
     try {
+      const existing = await prior();
+      if (existing) return c.json(publicResult(existing));
       await repository.submitResource(
         'skill',
         {
@@ -815,25 +839,55 @@ export const createMarketApp = (options: {
           manifest,
           name: String(form.get('name') || identifier),
           description: String(form.get('description') || ''),
-          metadata: JSON.parse(String(form.get('metadata') || '{}')),
+          metadata,
         },
         c.get('account'),
         { key: artifactKey, sha256: artifactHash },
-        () => storage.put(artifactKey, content, artifactHash),
+        async () => {
+          uploadStarted = true;
+          await storage.put(artifactKey, content, artifactHash);
+          uploadCompleted = true;
+        },
       );
-      return c.json(await prior(), 201);
+      committed = true;
+      const created = await prior();
+      if (!created) throw new Error('Committed skill submission could not be read');
+      return c.json(publicResult(created), 201);
     } catch (error) {
       // A concurrent retry may have committed the identical version.
-      const concurrent = await prior();
-      if (concurrent) return c.json(concurrent);
+      let concurrent: Awaited<ReturnType<typeof prior>>;
+      let lookupSucceeded = false;
       try {
-        await storage.remove(artifactKey);
+        concurrent = await prior();
+        lookupSucceeded = true;
       } catch {
-        console.warn('Failed to clean skill submission artifact');
+        console.warn('Failed to look up skill submission after failure');
       }
+      // Never remove an archive after a known commit, or when a failed COMMIT
+      // may have succeeded but the database is unavailable to confirm it.
+      if (
+        uploadStarted &&
+        !committed &&
+        concurrent?.artifactKey !== artifactKey &&
+        (lookupSucceeded || !uploadCompleted)
+      ) {
+        try {
+          await storage.remove(artifactKey);
+        } catch {
+          console.warn('Failed to clean skill submission artifact');
+        }
+      }
+      if (concurrent) return c.json(publicResult(concurrent));
+      if (!(error instanceof MarketSubmissionConflictError))
+        console.error('Skill submission infrastructure failure', error);
       return c.json(
-        { error: error instanceof Error ? error.message : 'Skill submission failed' },
-        409,
+        {
+          error:
+            error instanceof MarketSubmissionConflictError
+              ? error.message
+              : 'Skill submission failed',
+        },
+        error instanceof MarketSubmissionConflictError ? 409 : 503,
       );
     }
   });

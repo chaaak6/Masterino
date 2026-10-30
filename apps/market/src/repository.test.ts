@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { MarketRepository } from './repository.js';
+import { MarketRepository, MarketSubmissionConflictError } from './repository.js';
 
 const account = { externalUserId: 'user-1', id: 1, role: 'admin' as const };
 
@@ -109,6 +109,47 @@ it('Given a published company MCP, When an employee lists the community, Then cr
 });
 
 describe('Atomic catalog submission', () => {
+  it.each(['not-owned', 'duplicate-version'])(
+    'throws a typed conflict without uploading: %s',
+    async (reason) => {
+      const query = vi
+        .fn()
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce(
+          reason === 'not-owned' ? { rowCount: 0, rows: [] } : { rowCount: 1, rows: [{ id: 9 }] },
+        )
+        .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+        .mockResolvedValue({});
+      const repository = new MarketRepository({
+        connect: async () => ({ query, release: vi.fn() }),
+      } as any);
+      const upload = vi.fn();
+      await expect(
+        repository.submitResource('skill', { identifier: 'probe' }, account, undefined, upload),
+      ).rejects.toBeInstanceOf(MarketSubmissionConflictError);
+      expect(upload).not.toHaveBeenCalled();
+      expect(query).toHaveBeenLastCalledWith('ROLLBACK');
+    },
+  );
+
+  it('rejects an existing non-Skill before creating a candidate version', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+      .mockResolvedValue({});
+    const repository = new MarketRepository({
+      connect: async () => ({ query, release: vi.fn() }),
+    } as any);
+    await expect(
+      repository.submitResource('mcp', { identifier: 'existing' }, account),
+    ).rejects.toBeInstanceOf(MarketSubmissionConflictError);
+    expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO market_versions'))).toBe(
+      false,
+    );
+  });
+
   it('Given version creation fails, Then the resource insertion is rolled back and the connection is released', async () => {
     const query = vi
       .fn()
@@ -133,6 +174,27 @@ describe('Atomic catalog submission', () => {
     expect(query.mock.calls.some(([sql]) => sql === 'COMMIT')).toBe(false);
     expect(client.release).toHaveBeenCalled();
   });
+});
+
+it('refuses to deprecate a historical published release while a different release is current', async () => {
+  const query = vi
+    .fn()
+    .mockResolvedValueOnce({})
+    .mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [{ id: 2, current_version_id: 9, review_version_id: 3, workflow_state: 'published' }],
+    })
+    .mockResolvedValue({});
+  const repository = new MarketRepository({
+    connect: async () => ({ query, release: vi.fn() }),
+  } as any);
+  await expect(
+    repository.review('skill', 'probe', 'deprecate', undefined, account, undefined, {
+      versionId: 3,
+    }),
+  ).rejects.toThrow('Cannot deprecate a historical version');
+  expect(query).toHaveBeenLastCalledWith('ROLLBACK');
+  expect(query.mock.calls.some(([sql]) => sql.includes('UPDATE market_versions'))).toBe(false);
 });
 
 it('reviews the selected version even when a newer candidate exists, and rejects stale state', async () => {

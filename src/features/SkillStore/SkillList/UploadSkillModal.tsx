@@ -63,7 +63,7 @@ const UploadSkillModal = memo<UploadSkillModalProps>(({ open, onOpenChange }) =>
       });
 
       const imported = await importAgentSkillFromZip({ zipFileId: result.id });
-      if (!imported) throw new Error(t('agentSkillModal.importError'));
+      if (!imported) throw new Error(t('unknownError', { ns: 'common' }));
       setImportedId(imported.skill.id);
       message.success(t('agentSkillModal.importSuccess'));
     } catch (err: any) {

@@ -5,15 +5,41 @@ import type { ParsedZipSkill } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { zipSync } from 'fflate';
 import matter from 'gray-matter';
+import { z } from 'zod';
 
 import { AgentSkillModel } from '@/database/models/agentSkill';
 import { UserModel } from '@/database/models/user';
 import { generateTrustedClientToken } from '@/libs/trusted-client';
 import { getInternalMarketBaseUrl } from '@/utils/internalMarket';
 
+import { SkillManifestError, SkillParseError } from './errors';
 import { SkillParser } from './parser';
 import { SkillResourceService } from './resource';
-import { assertSafeSkillContent } from './submissionPolicy';
+import { assertSafeSkillPackageContent } from './submissionPolicy';
+
+const submissionResponseSchema = z.object({
+  resourceId: z.number().int().positive(),
+  versionId: z.number().int().positive(),
+  workflowState: z.enum([
+    'submitted',
+    'scanning',
+    'in_review',
+    'approved',
+    'rejected',
+    'published',
+    'deprecated',
+  ]),
+});
+
+async function parsePublishingArchive(archive: Buffer) {
+  try {
+    return await new SkillParser().parseZipPackage(archive, { repackSkillZip: true });
+  } catch (error) {
+    if (error instanceof SkillManifestError || error instanceof SkillParseError)
+      throw new TRPCError({ code: 'BAD_REQUEST', cause: error, message: error.message });
+    throw error;
+  }
+}
 
 const canonical = (value: any): any =>
   Array.isArray(value)
@@ -62,9 +88,7 @@ async function publicationArchive(skill: ParsedZipSkill) {
   };
   for (const path of [...skill.resources.keys()].sort()) files[path] = skill.resources.get(path)!;
   // Reuse the parser's size validation, sorted entries and fixed ZIP timestamp.
-  const parsed = await new SkillParser().parseZipPackage(Buffer.from(zipSync(files)), {
-    repackSkillZip: true,
-  });
+  const parsed = await parsePublishingArchive(Buffer.from(zipSync(files)));
   return parsed.skillZipBuffer!;
 }
 
@@ -77,19 +101,20 @@ export async function exportPersonalSkill(
 ) {
   const skill = await new AgentSkillModel(db, userId, workspaceId).findById(id);
   if (!skill) throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill not found' });
-  const resources = new SkillResourceService(db, userId, workspaceId);
+  let resources: SkillResourceService | undefined;
   const files: Record<string, Uint8Array> = {
     'SKILL.md': new TextEncoder().encode(matter.stringify(skill.content ?? '', skill.manifest)),
   };
   const resourceBytes = new Map<string, Buffer>();
   for (const path of Object.keys(skill.resources ?? {}).sort()) {
+    resources ??= new SkillResourceService(db, userId, workspaceId);
     const resource = await resources.readResource(skill.resources!, path);
     const bytes = Buffer.from(resource.content, resource.encoding === 'base64' ? 'base64' : 'utf8');
     files[path] = bytes;
     resourceBytes.set(path, bytes);
   }
   const archive = Buffer.from(zipSync(files));
-  const parsed = await new SkillParser().parseZipPackage(archive, { repackSkillZip: true });
+  const parsed = await parsePublishingArchive(archive);
   return {
     archive: parsed.skillZipBuffer!,
     hash: skillFingerprint({
@@ -135,11 +160,8 @@ export class SkillPublishingService {
         message:
           'Submit from your personal library; organization submissions are not supported here.',
       });
-    const parsed = await new SkillParser().parseZipPackage(archive, { repackSkillZip: true });
-    assertSafeSkillContent(parsed.content);
-    for (const bytes of parsed.resources.values()) {
-      if (!bytes.includes(0)) assertSafeSkillContent(bytes.toString('utf8'));
-    }
+    const parsed = await parsePublishingArchive(archive);
+    assertSafeSkillPackageContent(parsed);
     const normalizedArchive = await publicationArchive(parsed);
     const hash = skillFingerprint(parsed);
     const identifier = submissionIdentifier(
@@ -187,12 +209,30 @@ export class SkillPublishingService {
         signal: AbortSignal.timeout(90000),
       },
     );
-    const result = await response.json();
+    const result: unknown = await response.json().catch(() => undefined);
     if (!response.ok)
       throw new TRPCError({
-        code: response.status === 409 ? 'CONFLICT' : 'BAD_REQUEST',
-        message: result.error || 'Skill submission failed',
+        code:
+          response.status === 409
+            ? 'CONFLICT'
+            : response.status >= 500
+              ? 'BAD_GATEWAY'
+              : 'BAD_REQUEST',
+        message:
+          result &&
+          typeof result === 'object' &&
+          'error' in result &&
+          typeof result.error === 'string'
+            ? result.error
+            : `Skill submission failed (HTTP ${response.status})`,
       });
-    return { ...result, identifier, status: result.workflowState, hash };
+    const validated = submissionResponseSchema.safeParse(result);
+    if (!validated.success)
+      throw new TRPCError({
+        code: 'BAD_GATEWAY',
+        message:
+          'Market returned an invalid skill submission response. Retry to confirm the submission status.',
+      });
+    return { ...validated.data, identifier, status: validated.data.workflowState, hash };
   }
 }

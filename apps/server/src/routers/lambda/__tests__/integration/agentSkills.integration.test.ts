@@ -10,6 +10,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDocumentModel } from '@/database/models/agentDocuments';
+import { SkillParseError, SkillResourceError } from '@/server/services/skill/errors';
 import {
   AGENT_SKILL_TEMPLATE_ID,
   SKILL_BUNDLE_FILE_TYPE,
@@ -221,6 +222,39 @@ describe('Skill Router Integration Tests', () => {
       expect(mockCreateBrowserFileAccessUrl).toHaveBeenLastCalledWith('skills/public-download.zip');
       expect(mockUploadBuffer.mock.calls.length).toBe(uploads);
       expect((await caller.getById({ id: skill.id }))?.zipFileHash).toBe(zipFileHash);
+    });
+
+    it('maps invalid export content to 400 but preserves resource infrastructure failures', async () => {
+      const [skill] = await serverDB
+        .insert(agentSkills)
+        .values({
+          content: 'Export body',
+          description: 'Export errors',
+          identifier: 'export-errors',
+          manifest: { name: 'export-errors', description: 'Export errors' },
+          name: 'export-errors',
+          source: 'user',
+          userId,
+        })
+        .returning();
+      const caller = agentSkillsRouter.createCaller(createTestContext(userId));
+      mockParserInstance.parseZipPackage.mockRejectedValueOnce(
+        new SkillParseError('Invalid export'),
+      );
+      await expect(caller.getByIdWithZipUrl({ id: skill.id })).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+      });
+      const model = new (await import('@/database/models/agentSkill')).AgentSkillModel(
+        serverDB,
+        userId,
+      );
+      await model.update(skill.id, {
+        resources: { 'references/a.md': { fileHash: 'missing-resource', size: 1 } },
+      });
+      mockReadResource.mockRejectedValueOnce(new SkillResourceError('Resource unavailable'));
+      await expect(caller.getByIdWithZipUrl({ id: skill.id })).rejects.toThrow(
+        'Resource unavailable',
+      );
     });
 
     it('rejects a foreign skill before reading resources or uploading an archive', async () => {

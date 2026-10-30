@@ -6,7 +6,7 @@ const forbiddenSkillContent = [
   /\b(?:npm|pnpm|yarn|pip|brew|apt(?:-get)?)\s+install\b/i,
   /(?:^|\n)\s*(?:sudo\s+)?(?:ba|z)?sh\s+(?:-[a-z]+\s+)?[^\n]+/i,
   /\b(?:chmod\s+\+x|rm\s+-rf)\b/i,
-  /\b(?:download|下载)\b.{0,120}https?:\/\//i,
+  /(?:\bdownload\b|下载).{0,120}https?:\/\//i,
   /(?:api[_-]?key|access[_-]?token|secret)\s*[:=]\s*['"][^'"]{8,}/i,
   /\b(?:AKIA[0-9A-Z]{16}|gh[oprsu]_\w{20,})\b/,
 ];
@@ -17,5 +17,15 @@ export const assertSafeSkillContent = (content: string) => {
       code: 'BAD_REQUEST',
       message: 'Skill contains an unapproved installer, shell command, or embedded secret',
     });
+  }
+};
+
+export const assertSafeSkillPackageContent = (skill: {
+  content: string;
+  resources: Map<string, Buffer>;
+}) => {
+  assertSafeSkillContent(skill.content);
+  for (const bytes of skill.resources.values()) {
+    if (!bytes.includes(0)) assertSafeSkillContent(bytes.toString('utf8'));
   }
 };

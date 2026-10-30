@@ -110,6 +110,12 @@ describe('SkillImporter', () => {
   });
 
   afterEach(async () => {
+    for (const method of [
+      FileService.prototype.getFileByteArrayByHash,
+      FileService.prototype.getFileContentByHash,
+    ]) {
+      if (vi.isMockFunction(method)) method.mockRestore();
+    }
     // Cleanup: delete user (cascade deletes agentSkills and files)
     await db.delete(users).where(eq(users.id, userId));
     // Clean up orphaned globalFiles
