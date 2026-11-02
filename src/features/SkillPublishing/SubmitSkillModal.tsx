@@ -110,6 +110,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
     const handleZipUpload = useCallback(
       async (file: File) => {
         const generation = ++uploadGeneration.current;
+        setSubmissionError(undefined);
         setZipFileId(undefined);
         setZipName(undefined);
         if (file.size > 16 * 1024 * 1024) {
