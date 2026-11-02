@@ -80,4 +80,35 @@ describe('UserPersonaExtractor', () => {
       }),
     );
   });
+  it.each([
+    undefined,
+    [
+      {
+        name: 'commit_user_persona',
+        arguments: { persona: '# Synthetic', memoryIds: '[]', sourceIds: '[]' },
+      },
+    ],
+  ])('corrects invalid persona output once: %j', async (invalid) => {
+    const generateObject = vi
+      .fn()
+      .mockResolvedValueOnce(invalid)
+      .mockResolvedValue([
+        {
+          name: 'commit_user_persona',
+          arguments: { persona: '# Synthetic', memoryIds: [], sourceIds: [] },
+        },
+      ]);
+    const extractor = new UserPersonaExtractor({
+      ...extractorConfig,
+      modelRuntime: { generateObject } as unknown as ModelRuntime,
+    });
+    await expect(extractor.toolCall(templateOptions)).resolves.toEqual({
+      persona: '# Synthetic',
+      memoryIds: [],
+      sourceIds: [],
+    });
+    expect(generateObject).toHaveBeenCalledTimes(2);
+    expect(generateObject.mock.calls[1][0].messages.at(-1).content).toContain('validation');
+    expect(generateObject.mock.calls[1][1].signal).toBe(generateObject.mock.calls[0][1].signal);
+  });
 });
