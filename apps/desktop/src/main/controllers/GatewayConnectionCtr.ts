@@ -56,6 +56,7 @@ import {
   renderPresentationPreview,
   type RenderPresentationPreviewParams,
   resolveLoginShellPath,
+  resolveNewFileConsentDirectory,
   revisePresentation,
   type RevisePresentationParams,
   toolNeedsDefaultCwd,
@@ -888,6 +889,12 @@ export default class GatewayConnectionCtr extends ControllerModule {
       });
     } catch (error) {
       if (error instanceof ExecutionBoundaryError) {
+        const authorizationRootPath =
+          error.code === 'INTERVENTION_REQUIRED' &&
+          error.scopeAudit.length === 1 &&
+          error.scopeAudit[0]!.mode === 'write'
+            ? await resolveNewFileConsentDirectory(normalized, error.scopeAudit[0]!.path)
+            : undefined;
         const pathConsent =
           error.code === 'INTERVENTION_REQUIRED' &&
           resolvedExecutionContext &&
@@ -902,7 +909,8 @@ export default class GatewayConnectionCtr extends ControllerModule {
                 operationId: trace.operationId,
                 primaryCwd:
                   resolvedExecutionContext.workspaceRootPath ?? resolvedExecutionContext.cwd ?? '',
-                requestedPath: error.scopeAudit[0]!.path,
+                requestedPath: authorizationRootPath ?? error.scopeAudit[0]!.path,
+                ...(authorizationRootPath ? { requestedFilePath: error.scopeAudit[0]!.path } : {}),
                 topicId: trace.topicId,
                 version: 1 as const,
               }

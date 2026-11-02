@@ -36,6 +36,8 @@ export const normalizePathConsentResolutionError = (error: unknown): PathConsent
 };
 
 interface PathConsentApprovalDependencies {
+  /** Prospective writes already carry a device-canonical directory. */
+  expectedCanonicalRootPath?: string;
   grantTopicRoot: (canonicalPath: string) => Promise<void>;
   persistDecision: (decision: PathConsentSelection) => void;
   resolveRootPath: (decision: PathConsentSelection) => Promise<string>;
@@ -56,6 +58,12 @@ export const coordinatePathConsentApproval = async (
     canonicalPath = await dependencies.resolveRootPath(decision);
   } catch (error) {
     throw normalizePathConsentResolutionError(error);
+  }
+  if (
+    dependencies.expectedCanonicalRootPath !== undefined &&
+    canonicalPath !== dependencies.expectedCanonicalRootPath
+  ) {
+    throw new PathConsentResolutionError('PATH_UNRESOLVABLE');
   }
 
   const canonicalDecision = { ...decision, rootPath: canonicalPath };

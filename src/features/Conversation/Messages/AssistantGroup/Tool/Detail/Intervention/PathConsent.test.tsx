@@ -101,6 +101,31 @@ describe('structured workspace path consent', () => {
     useProjectWorkspaceStore.setState({ operationConsentByMessage: {} });
   });
 
+  it('shows the directory scope and approves it while retaining the requested file', async () => {
+    const onDecision = vi.fn().mockImplementation(async (decision) => decision);
+    const writeRequest = {
+      ...request,
+      modes: ['write'] as 'write'[],
+      requestedPath: '/data',
+      requestedFilePath: '/data/new.docx',
+    };
+    render(<PathConsent messageId="new-file" request={writeRequest} onDecision={onDecision} />);
+    expect(screen.getByText('/data/new.docx')).toBeDefined();
+    expect(screen.getByText('/data')).toBeDefined();
+    expect(screen.getByText('workspacePathConsent.directoryWriteNotice')).toBeDefined();
+    fireEvent.click(screen.getByText('workspacePathConsent.once'));
+    await waitFor(() =>
+      expect(onDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestedPath: '/data',
+          rootPath: '/data',
+          scope: 'operation',
+          modes: ['write'],
+        }),
+      ),
+    );
+  });
+
   it('rejects missing or unversioned metadata instead of parsing tool arguments', () => {
     expect(parseStructuredPathConsentRequest(undefined)).toBeUndefined();
     expect(

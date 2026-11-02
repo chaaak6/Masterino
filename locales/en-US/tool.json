@@ -228,6 +228,7 @@
   "workspacePathConsent.approvedAndResumed": "Access approved with the verified path. Execution is resuming.",
   "workspacePathConsent.callbackFailed": "The execution coordinator did not accept this choice. You can try again.",
   "workspacePathConsent.cwdOverridden": "MODEL_CWD_OVERRIDDEN: the requested command directory was replaced with the topic's primary directory.",
+  "workspacePathConsent.directoryWriteNotice": "Write access covers this folder, not just the new file.",
   "workspacePathConsent.mode.exec": "Execute",
   "workspacePathConsent.mode.read": "Read",
   "workspacePathConsent.mode.write": "Write",
@@ -245,6 +246,7 @@
   "workspacePathConsent.rejectRecorded": "Rejection recorded. The runtime still needs to stop or resume the operation.",
   "workspacePathConsent.rejectedAndResumed": "Path access rejected. Execution is resuming without the additional path.",
   "workspacePathConsent.requestedPath": "Requested path",
+  "workspacePathConsent.targetFile": "File to create",
   "workspacePathConsent.title": "Additional path access requested",
   "workspacePathConsent.topic": "Remember for this topic"
 }
