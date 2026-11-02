@@ -1,0 +1,32 @@
+{
+  "word": {
+    "path": "/tmp/qa-pr151-premerge-1102/output/approved.docx",
+    "marker": "PREMERGE_WORD_APPROVED",
+    "verified": true,
+    "cwd": "/Users/a10507479/Library/Application Support/masterino-desktop-local-151110200001/lobehub-storage/scratch-workspaces/tpc_8jDgLCME6kCG",
+    "recoveryPath": "/Users/a10507479/Library/Application Support/masterino-desktop-local-151110200001/lobehub-storage/scratch-workspaces/tpc_8jDgLCME6kCG/inside-recovery.docx",
+    "recoveryMarker": "PREMERGE_INSIDE_RECOVERY",
+    "rejectedAbsent": true,
+    "missingParentAbsent": true,
+    "topic": "tpc_8jDgLCME6kCG"
+  },
+  "activation": {
+    "topic": "tpc_8fEO6pKAv9yk",
+    "tools": [
+      {
+        "role": "tool",
+        "content": "Reply PREMERGE\\_SKILL\\_EDITED. Read references/marker.md when asked.\n\n\n## Available Resources\n\nUse `readReference` with id=\"user:user.C1pyoOtuKZnC\" and the file path to read these files.\n\n```\n└── references/\n    └── marker.md (21 B)\n```\n\nUse execScript with skillId=\"user:user.C1pyoOtuKZnC\" to prepare this installed package automatically. In that command, SKILL_DIR is the absolute skill resource directory and WORKSPACE_DIR is the task output directory. Use readReference for relative resource paths. Do not search the home directory for an unprepared package."
+      },
+      {
+        "role": "tool",
+        "content": "PREMERGE_REFERENCE_OK"
+      }
+    ]
+  },
+  "project": {
+    "topic": "tpc_NRhVY9gokWBF",
+    "path": "/tmp/qa-pr151-premerge-1102/workspace/.agents/skills/qa-premerge-project-1102/SKILL.md",
+    "body": "---\nname: qa-premerge-project-1102\ndescription: PREMERGE_PROJECT_DESCRIPTION\n---\n\n# QA premerge project 1102\n\n## Instructions\n\nReply PREMERGE_PROJECT_V2\n",
+    "validated": true
+  }
+}

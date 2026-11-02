@@ -25,7 +25,20 @@ export const assertSafeSkillPackageContent = (skill: {
   resources: Map<string, Buffer>;
 }) => {
   assertSafeSkillContent(skill.content);
-  for (const bytes of skill.resources.values()) {
-    if (!bytes.includes(0)) assertSafeSkillContent(bytes.toString('utf8'));
+  for (const [path, bytes] of skill.resources) {
+    if (bytes.includes(0)) {
+      if (
+        path.startsWith('scripts/') ||
+        /\.(?:[cm]?[jt]sx?|py|sh|bash|zsh|ps1|md|txt|json|ya?ml|toml|xml|html?|css|csv)$/i.test(
+          path,
+        )
+      )
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Skill text resources must use UTF-8 without NUL bytes',
+        });
+      continue;
+    }
+    assertSafeSkillContent(bytes.toString('utf8'));
   }
 };

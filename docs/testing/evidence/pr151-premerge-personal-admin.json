@@ -1,0 +1,76 @@
+{
+  "at": "2026-11-02T15:22:00.868Z",
+  "identifier": "user-b1ee97594fcdb5d14c9d1a66",
+  "sourceSkill": "skl_l0FzfoeV544J",
+  "versionId": 157,
+  "uiMethod": "CUA Chrome DOM: expand exact personal submission row, expand archive contents, inspect rendered body/reference/hash, then click scan-start / scan-passed / approve / publish. No HTTP workflow transition used.",
+  "previewText": "审核包文件与正文\n30da158d9d956464f83f170fb12e7f3890b778bd09461c5f95af692fdcf23e9e\nreferences/marker.md (21 bytes)\nPREMERGE_REFERENCE_OK\nSKILL.md (141 bytes)\n---\ndescription: PREMERGE_DESCRIPTION_EDITED\nname: qa-premerge-1102\n---\nReply PREMERGE\\_SKILL\\_EDITED. Read references/marker.md when asked.\n\n来源、许可与审核元数据\n安全扫描结果\n版本配置差异",
+  "screenshots": [
+    "pr151-premerge-personal-admin-preview.png",
+    "pr151-premerge-personal-admin-published.png"
+  ],
+  "rows": [
+    {
+      "id": "148",
+      "name": "qa-premerge-1102",
+      "description": "PREMERGE_DESCRIPTION_EDITED",
+      "status": "published",
+      "current_version_id": "157",
+      "version_id": "157",
+      "version": "1.0.0-165175275c5200ce",
+      "workflow_state": "published",
+      "artifact_sha256": "30da158d9d956464f83f170fb12e7f3890b778bd09461c5f95af692fdcf23e9e"
+    }
+  ],
+  "audit": [
+    {
+      "action": "resource.create",
+      "details": {
+        "name": "qa-premerge-1102"
+      },
+      "created_at": "2026-11-02T15:19:34.794Z"
+    },
+    {
+      "action": "version.create",
+      "details": {
+        "version": "1.0.0-165175275c5200ce"
+      },
+      "created_at": "2026-11-02T15:19:34.794Z"
+    },
+    {
+      "action": "review.submit",
+      "details": {},
+      "created_at": "2026-11-02T15:19:34.794Z"
+    },
+    {
+      "action": "review.scan-start",
+      "details": {
+        "versionId": "157"
+      },
+      "created_at": "2026-11-02T15:20:47.288Z"
+    },
+    {
+      "action": "review.scan-passed",
+      "details": {
+        "versionId": "157"
+      },
+      "created_at": "2026-11-02T15:21:03.166Z"
+    },
+    {
+      "action": "review.approve",
+      "details": {
+        "versionId": "157"
+      },
+      "created_at": "2026-11-02T15:21:14.476Z"
+    },
+    {
+      "action": "review.publish",
+      "details": {
+        "versionId": "157"
+      },
+      "created_at": "2026-11-02T15:21:30.672Z"
+    }
+  ],
+  "result": "PASS: live admin archive preview includes edited body and original reference; exact version157 published for Electron follow-up download",
+  "cleanup": "Left published for parent Electron acceptance; no other resource or roles altered."
+}
