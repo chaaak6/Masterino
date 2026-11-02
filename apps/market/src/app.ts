@@ -806,7 +806,8 @@ export const createMarketApp = (options: {
     const errors = [...validateZipArchive(content), ...validateArtifactManifest(manifest)];
     if (!errors.length) {
       try {
-        validateSkillContent(content);
+        manifest = validateSkillContent(content);
+        errors.push(...validateArtifactManifest(manifest));
       } catch (error) {
         errors.push(error instanceof Error ? error.message : 'Invalid skill content');
       }
@@ -837,8 +838,8 @@ export const createMarketApp = (options: {
           identifier,
           version,
           manifest,
-          name: String(form.get('name') || identifier),
-          description: String(form.get('description') || ''),
+          name: String(manifest.name),
+          description: String(manifest.description),
           metadata,
         },
         c.get('account'),
@@ -1624,11 +1625,13 @@ export const createMarketApp = (options: {
         throw new Error('Skill ZIP must be between 1 byte and 32 MiB');
       const errors = validateZipArchive(content);
       if (errors.length) throw new Error(errors.join(', '));
-      validateSkillContent(content);
       const manifestErrors = validateArtifactManifest(resource.manifest || {});
       if (manifestErrors.length) throw new Error(manifestErrors.join(', '));
-      if (!resource.manifest?.files?.some((file: any) => file.path === 'SKILL.md'))
-        throw new Error('Skill ZIP must contain SKILL.md at its root');
+      resource.manifest = validateSkillContent(content);
+      const canonicalManifestErrors = validateArtifactManifest(resource.manifest);
+      if (canonicalManifestErrors.length) throw new Error(canonicalManifestErrors.join(', '));
+      resource.name = String(resource.manifest.name);
+      resource.description = String(resource.manifest.description);
       hash = sha256(content);
       artifactKey = `skill/${resource.identifier}/${resource.version || '1.0.0'}/${randomUUID()}-${hash}.zip`;
       const key = artifactKey;
@@ -1773,12 +1776,13 @@ export const createMarketApp = (options: {
         v.workflow_state AS "workflowState", v.scan_result AS "scanResult",
         jsonb_build_object('config', v.config, 'manifest', v.manifest) AS "currentConfig",
         (SELECT jsonb_build_object('config', pv.config, 'manifest', pv.manifest)
-         FROM market_versions pv WHERE pv.resource_id=r.id AND pv.id<>v.id
-         ORDER BY pv.created_at DESC LIMIT 1) AS "previousConfig",
+         FROM market_versions pv WHERE pv.resource_id=r.id AND (pv.created_at,pv.id)<(v.created_at,v.id)
+         ORDER BY pv.created_at DESC, pv.id DESC LIMIT 1) AS "previousConfig",
         v.submitted_at AS "submittedAt", a.name AS "ownerName"
        FROM market_resources r JOIN market_versions v ON v.resource_id=r.id JOIN market_accounts a ON a.id=r.owner_account_id
        WHERE (r.type='skill' OR v.id=r.current_version_id)
-         AND v.workflow_state IN ('submitted','scanning','in_review','approved','rejected') ORDER BY v.created_at`,
+         AND (v.workflow_state IN ('submitted','scanning','in_review','approved')
+           OR (r.type<>'skill' AND v.workflow_state='rejected')) ORDER BY v.created_at, v.id`,
     );
     return c.json({ items: result.rows, totalCount: result.rowCount || 0 });
   });
@@ -1897,9 +1901,18 @@ export const createMarketApp = (options: {
     async (c) => {
       const input = await jsonBody(c);
       const result = await repository.getPool().query(
-        `UPDATE market_resources r SET current_version_id=v.id, status='published', updated_at=now()
-       FROM market_versions v WHERE v.resource_id=r.id AND r.type=$1 AND r.identifier=$2
-         AND v.version=$3 AND v.workflow_state IN ('published','deprecated') RETURNING r.identifier`,
+        `WITH target AS (
+          SELECT v.id FROM market_resources r JOIN market_versions v ON v.resource_id=r.id
+          WHERE r.type=$1 AND r.identifier=$2 AND v.version=$3
+            AND v.workflow_state IN ('published','deprecated') FOR UPDATE OF r
+        ), restored AS (
+          UPDATE market_versions v SET workflow_state='published' FROM target
+          WHERE v.id=target.id RETURNING v.id, v.resource_id, v.manifest
+        )
+        UPDATE market_resources r SET current_version_id=v.id, status='published',
+          name=CASE WHEN r.type='skill' THEN COALESCE(NULLIF(v.manifest->>'name',''),r.name) ELSE r.name END,
+          description=CASE WHEN r.type='skill' THEN COALESCE(NULLIF(v.manifest->>'description',''),r.description) ELSE r.description END,
+          updated_at=now() FROM restored v WHERE v.resource_id=r.id RETURNING r.identifier`,
         [c.req.param('type'), c.req.param('identifier'), input.version],
       );
       if (!result.rowCount) return c.json({ error: 'eligible_version_not_found' }, 404);

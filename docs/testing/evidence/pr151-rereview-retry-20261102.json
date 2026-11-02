@@ -1,0 +1,27 @@
+{
+  "uiInvalidZipError": "SKILL.md not found in zip package",
+  "uiRetry": {
+    "success": true,
+    "staleError": false
+  },
+  "uiSubmission": "Skill 已提交审核。",
+  "body": "zsh is the default shell\nReply REREVIEW_RETRY_OK.",
+  "versions": [
+    {
+      "identifier": "user-1065f0a41bf16666ac6e65d1",
+      "name": "qa-rereview-retry-1102",
+      "id": "154",
+      "workflow_state": "submitted",
+      "manifest": {
+        "name": "qa-rereview-retry-1102",
+        "files": [
+          {
+            "path": "SKILL.md",
+            "type": "file"
+          }
+        ],
+        "description": "REREVIEW_RETRY_SAFE_PROSE"
+      }
+    }
+  ]
+}

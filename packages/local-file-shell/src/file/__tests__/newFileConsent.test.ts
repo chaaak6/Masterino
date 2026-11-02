@@ -131,6 +131,18 @@ describe('new file directory consent', () => {
     ).toBeUndefined();
   });
 
+  it.each(['/etc', '/usr', '/var', '/private/etc', '/private/var'])(
+    'does not offer an entire system root: %s',
+    async (directory) => {
+      expect(
+        await resolveNewFileConsentDirectory(
+          'writeLocalFile',
+          path.join(directory, 'synthetic-new-file-consent-missing.txt'),
+        ),
+      ).toBeUndefined();
+    },
+  );
+
   it('canonicalizes the parent and does not treat a dangling file link as a new file', async () => {
     const output = path.join(root, 'output');
     const alias = path.join(root, 'alias');

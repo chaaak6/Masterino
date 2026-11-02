@@ -516,7 +516,7 @@ export class MarketRepository {
         await client.query(
           `UPDATE market_resources r SET status='published', current_version_id=$2,
             name=CASE WHEN r.type='skill' THEN COALESCE(NULLIF(v.manifest->>'name',''),r.name) ELSE r.name END,
-            description=CASE WHEN r.type='skill' THEN COALESCE(v.manifest->>'description',r.description) ELSE r.description END,
+            description=CASE WHEN r.type='skill' THEN COALESCE(NULLIF(v.manifest->>'description',''),r.description) ELSE r.description END,
             updated_at=now() FROM market_versions v WHERE r.id=$1 AND v.id=$2 AND v.resource_id=r.id`,
           [resource.rows[0].id, resource.rows[0].review_version_id],
         );

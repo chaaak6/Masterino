@@ -169,7 +169,12 @@ export const resolveNewFileConsentDirectory = async (
   try {
     const parent = await realpath(path.dirname(target));
     const home = await realpath(os.homedir());
-    if (!(await stat(parent)).isDirectory() || isSensitiveRoot(parent, home)) return;
+    if (
+      !(await stat(parent)).isDirectory() ||
+      isSensitiveRoot(parent, home) ||
+      SENSITIVE_SYSTEM_ROOTS.has(path.resolve(parent))
+    )
+      return;
     return parent;
   } catch {
     return; // Never climb to a broader ancestor or create a missing directory.
@@ -214,6 +219,8 @@ const SENSITIVE_SYSTEM_ROOTS = new Set([
   '/lib',
   '/lib64',
   '/private',
+  '/private/etc',
+  '/private/var',
   '/proc',
   '/root',
   '/sbin',

@@ -149,7 +149,7 @@ export class SkillPublishingService {
       });
     const result = await this.submitArchive(archive, `personal:${skill.id}`);
     await model.update(skill.id, {
-      editorData: { ...skill.editorData, publication: { identifier: result.identifier, hash } },
+      editorData: { publication: { identifier: result.identifier, hash } },
     });
     return result;
   }

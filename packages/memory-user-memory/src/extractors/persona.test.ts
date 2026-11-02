@@ -82,6 +82,7 @@ describe('UserPersonaExtractor', () => {
   });
   it.each([
     undefined,
+    [{ name: 'commit_user_persona', arguments: '{invalid JSON' }],
     [
       {
         name: 'commit_user_persona',

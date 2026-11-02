@@ -1,0 +1,12 @@
+{
+  "environment": "final standalone test candidates",
+  "canonicalManifestRejection": {
+    "user": 400,
+    "internal": 400
+  },
+  "shellProcessSubstitution": {
+    "status": 400,
+    "message": "unapproved installer"
+  },
+  "syntheticPersonalBodyRestored": true
+}

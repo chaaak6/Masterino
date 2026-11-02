@@ -4,7 +4,7 @@ const forbiddenSkillContent = [
   /\b(?:curl|wget)\b[^\n]*(?:\||>)\s*(?:ba)?sh\b/i,
   /\b(?:bitsadmin|cmd\.exe|invoke-webrequest|powershell|start-bitstransfer)\b/i,
   /\b(?:npm|pnpm|yarn|pip|brew|apt(?:-get)?)\s+install\b/i,
-  /(?:^|\n)\s*(?:sudo\s+)?(?:ba|z)?sh\s+(?:-[a-z]+\s+)?[^\n]+/i,
+  /(?:^|\n)\s*(?:sudo\s+)?(?:ba|z)?sh\s+(?:--?[a-z]+\b|[<>'"]|(?:\.{0,2}\/|[\w.-]+\/)\S+|\S+\.sh\b)/i,
   /\b(?:chmod\s+\+x|rm\s+-rf)\b/i,
   /(?:\bdownload\b|下载).{0,120}https?:\/\//i,
   /(?:api[_-]?key|access[_-]?token|secret)\s*[:=]\s*['"][^'"]{8,}/i,

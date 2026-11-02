@@ -416,7 +416,7 @@ export class SkillImporter {
           description: manifest.description,
           manifest: fullManifest,
           name: manifest.name,
-          resources: resourceMap ?? {},
+          ...(resources && { resources: resourceMap ?? {} }),
           ...(zipFileHash && { zipFileHash }),
         },
         { replaceManifest: true },

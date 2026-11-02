@@ -131,10 +131,21 @@ export class UserPersonaExtractor extends BaseMemoryExtractor<
       (result) => {
         if (Array.isArray(result)) {
           const firstCall = result[0];
-          const args =
-            typeof firstCall?.arguments === 'string'
-              ? JSON.parse(firstCall.arguments || '{}')
-              : firstCall?.arguments;
+          let args = firstCall?.arguments;
+          if (typeof args === 'string') {
+            try {
+              args = JSON.parse(args || '{}');
+            } catch (error) {
+              if (!(error instanceof SyntaxError)) throw error;
+              throw new z.ZodError([
+                {
+                  code: 'custom',
+                  message: 'Tool arguments must be valid JSON',
+                  path: ['arguments'],
+                },
+              ]);
+            }
+          }
           return resultSchema.parse(args || {});
         }
         return resultSchema.parse(result);

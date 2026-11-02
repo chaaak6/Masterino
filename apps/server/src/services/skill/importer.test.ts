@@ -1227,6 +1227,41 @@ description: A nested skill
       expect(second.skill.name).toBe('Updated Name');
     });
 
+    it('preserves existing attachments when reimporting only SKILL.md from a URL', async () => {
+      mockSsrfSafeFetch.mockResolvedValue({ ok: true, status: 200, text: async () => 'content' });
+      mockParserInstance.parseSkillMd.mockReturnValueOnce({
+        content: 'Old body',
+        manifest: { name: 'URL skill', description: 'Original' },
+        raw: 'raw',
+      });
+      const first = await importer.importFromUrl({ url: 'https://example.com/retained.md' });
+      const resources = { 'references/local.md': { fileHash: 'local-reference', size: 12 } };
+      await new AgentSkillModel(db, userId).update(first.skill.id, { resources });
+      mockParserInstance.parseSkillMd.mockReturnValueOnce({
+        content: 'New body',
+        manifest: { name: 'URL skill', description: 'Updated' },
+        raw: 'raw',
+      });
+      const updated = await importer.importFromUrl({ url: 'https://example.com/retained.md' });
+      expect(updated.skill.resources).toEqual(resources);
+      expect(updated.skill.content).toBe('New body');
+
+      mockSsrfSafeFetch.mockResolvedValue(
+        new Response(Buffer.from('complete ZIP'), {
+          headers: { 'content-type': 'application/zip' },
+        }),
+      );
+      mockParserInstance.parseZipPackage.mockResolvedValueOnce({
+        content: 'Complete package without attachments',
+        manifest: { name: 'URL skill', description: 'ZIP replacement' },
+        resources: new Map(),
+        skillZipBuffer: Buffer.from('complete ZIP'),
+        zipHash: 'complete-package-hash',
+      });
+      const replaced = await importer.importFromUrl({ url: 'https://example.com/retained.md' });
+      expect(replaced.skill.resources).toEqual({});
+    });
+
     it('should return unchanged when content is the same', async () => {
       mockSsrfSafeFetch.mockResolvedValue({
         ok: true,

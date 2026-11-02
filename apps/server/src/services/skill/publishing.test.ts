@@ -162,6 +162,43 @@ describe('skill submission responses and input errors', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('preserves editor metadata updated while a personal submission is in flight', async () => {
+    const db = await getTestDB();
+    const userId = `publication-concurrent-${Date.now()}`;
+    await db.insert(users).values({ id: userId });
+    try {
+      const model = new AgentSkillModel(db, userId);
+      const skill = await model.create({
+        identifier: 'concurrent-probe',
+        name: 'probe',
+        description: 'A probe',
+        content: 'Instructions',
+        source: 'user',
+        manifest: { name: 'probe', description: 'A probe' },
+        editorData: { qaMarker: 'old' },
+      });
+      const publishing = new SkillPublishingService(db, userId);
+      vi.spyOn(publishing, 'submitArchive').mockImplementation(async () => {
+        await model.update(skill.id, { editorData: { qaMarker: 'new' } });
+        return {
+          hash: 'snapshot',
+          identifier: 'published-probe',
+          resourceId: 1,
+          versionId: 1,
+          workflowState: 'submitted',
+          status: 'submitted',
+        };
+      });
+      await publishing.submitPersonal(skill.id);
+      expect((await model.findById(skill.id))?.editorData).toMatchObject({
+        qaMarker: 'new',
+        publication: { identifier: 'published-probe' },
+      });
+    } finally {
+      await db.delete(users).where(eq(users.id, userId));
+    }
+  }, 30000);
+
   it('maps a personal skill with an invalid persisted manifest to BAD_REQUEST', async () => {
     const db = await getTestDB();
     const userId = `invalid-personal-${Date.now()}`;
