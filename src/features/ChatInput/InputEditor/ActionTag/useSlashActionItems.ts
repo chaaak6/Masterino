@@ -35,6 +35,8 @@ interface SlashMenuOption {
   onSelect?: (editor: IEditor, matchingString: string) => void;
 }
 
+const SKILL_REFRESH_WAIT_MS = 150;
+
 const COMMAND_ICONS: Record<string, any> = {
   compact: ArchiveIcon,
   newTopic: MessageSquarePlusIcon,
@@ -230,7 +232,18 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
             pendingSkillRefresh.current = undefined;
           });
       }
-      await pendingSkillRefresh.current;
+      if (!search?.matchingString && pendingSkillRefresh.current) {
+        // Give fast refreshes a chance to appear on the first open, but keep
+        // commands and cached skills available when the connection is slow.
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([
+          pendingSkillRefresh.current,
+          new Promise<void>((resolve) => {
+            timeout = setTimeout(resolve, SKILL_REFRESH_WAIT_MS);
+          }),
+        ]);
+        clearTimeout(timeout);
+      }
 
       for (const skill of getInstalledSkillsAndTools(useToolStore.getState())) {
         if (skill.category === 'skill') allItems.push(makeSkillItem(skill) as SlashItem);
