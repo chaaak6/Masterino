@@ -7,6 +7,7 @@ import SubmitSkillModal from './SubmitSkillModal';
 
 const mocks = vi.hoisted(() => ({
   createFile: vi.fn(),
+  importZip: vi.fn(),
   upload: vi.fn(),
   submitZip: vi.fn(),
   submitPersonal: vi.fn(),
@@ -34,6 +35,7 @@ const state = {
   ],
   useFetchAgentSkills: mocks.fetchSkills,
   refreshAgentSkills: mocks.refreshSkills,
+  importAgentSkillFromZip: mocks.importZip,
 };
 vi.mock('@/store/tool', () => ({
   useToolStore: (selector: (value: typeof state) => unknown) => selector(state),
@@ -235,5 +237,28 @@ describe('skill submission dialog', () => {
     await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
     expect(mocks.submitZip).toHaveBeenNthCalledWith(2, { zipFileId: 'file-retry.zip' });
     expect(mocks.upload).toHaveBeenCalledOnce();
+  });
+
+  it('installs the submitted ZIP only on request and retries installation without resubmitting', async () => {
+    const onClose = vi.fn();
+    mocks.importZip
+      .mockRejectedValueOnce(new Error('Library unavailable'))
+      .mockResolvedValueOnce({ skill: { id: 'installed' } });
+    render(<SubmitSkillModal open onClose={onClose} />);
+    fireEvent.change(screen.getByLabelText('Skill ZIP'), {
+      target: { files: [new File(['archive'], 'optional.zip')] },
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'user.submit' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'user.submit' }));
+    const install = await screen.findByRole('button', { name: 'publishing.installToLibrary' });
+    expect(mocks.importZip).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(install);
+    await screen.findByText('Library unavailable');
+    fireEvent.click(install);
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(mocks.importZip).toHaveBeenNthCalledWith(2, { zipFileId: 'file-optional.zip' });
+    expect(mocks.submitZip).toHaveBeenCalledOnce();
   });
 });

@@ -25,6 +25,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
     const { message } = App.useApp();
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [zipSubmission, setZipSubmission] = useState<'submitted' | 'alreadyPublished'>();
     const [submissionError, setSubmissionError] = useState<string>();
     const [mode, setMode] = useState<'zip' | 'personal'>(skillId ? 'personal' : 'zip');
     const uploadGeneration = useRef(0);
@@ -32,6 +33,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
     const skills = useToolStore((s) => s.agentSkills);
     const fetchSkills = useToolStore((s) => s.useFetchAgentSkills);
     const refreshSkills = useToolStore((s) => s.refreshAgentSkills);
+    const importZip = useToolStore((s) => s.importAgentSkillFromZip);
     fetchSkills(open);
     const [selectedSkill, setSelectedSkill] = useState(skillId);
     const [zipName, setZipName] = useState<string>();
@@ -75,12 +77,13 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
           message.warning(t('publishing.deprecated'));
           return;
         }
-        message.success(
-          workflowState === 'published'
-            ? t('publishing.alreadyPublished')
-            : t('publishing.submitted'),
-        );
+        const successKey = workflowState === 'published' ? 'alreadyPublished' : 'submitted';
+        message.success(t(`publishing.${successKey}`));
         onSuccess?.();
+        if (mode === 'zip' && submitContext?.actAs === undefined) {
+          setZipSubmission(successKey);
+          return;
+        }
         onClose();
         setZipFileId(undefined);
         setZipName(undefined);
@@ -149,18 +152,35 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       setZipFileId(undefined);
       setZipName(undefined);
       setSubmissionError(undefined);
+      setZipSubmission(undefined);
       onClose();
     }, [onClose]);
+
+    const handleInstall = async () => {
+      if (!zipFileId) return;
+      setIsSubmitting(true);
+      setSubmissionError(undefined);
+      try {
+        const result = await importZip({ zipFileId });
+        if (!result) throw new Error(t('publishing.installFailed'));
+        message.success(t('publishing.installSucceeded'));
+        handleCancel();
+      } catch (error) {
+        setSubmissionError(error instanceof Error ? error.message : t('publishing.installFailed'));
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
 
     return (
       <Modal
         centered
         cancelButtonProps={{ disabled: isSubmitting }}
-        cancelText={t('user.cancel')}
+        cancelText={zipSubmission ? t('close', { ns: 'common' }) : t('user.cancel')}
         closable={!isSubmitting}
         confirmLoading={isSubmitting}
         maskClosable={!isSubmitting}
-        okText={t('user.submit')}
+        okText={t(zipSubmission ? 'publishing.installToLibrary' : 'user.submit')}
         open={open}
         title={false}
         width={480}
@@ -171,60 +191,72 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
             (mode === 'personal' && !selectedSkill),
         }}
         onCancel={handleCancel}
-        onOk={handleSubmit}
+        onOk={zipSubmission ? handleInstall : handleSubmit}
       >
-        <Text strong fontSize={20} style={{ display: 'block', marginBottom: 8, marginTop: 16 }}>
-          {t('user.submitRepoTitle')}
-        </Text>
-        <Text style={{ display: 'block', marginBottom: 16 }} type="secondary">
-          {t('user.submitRepoDescription')}
-        </Text>
+        {zipSubmission ? (
+          <Flexbox gap={12} style={{ marginTop: 16 }}>
+            <Text strong fontSize={20}>
+              {t(`publishing.${zipSubmission}`)}
+            </Text>
+            <Text type="secondary">{t('publishing.installSubmittedZipHint')}</Text>
+            {submissionError && <Text type="danger">{submissionError}</Text>}
+          </Flexbox>
+        ) : (
+          <>
+            <Text strong fontSize={20} style={{ display: 'block', marginBottom: 8, marginTop: 16 }}>
+              {t('user.submitRepoTitle')}
+            </Text>
+            <Text style={{ display: 'block', marginBottom: 16 }} type="secondary">
+              {t('user.submitRepoDescription')}
+            </Text>
 
-        {submissionError && <Text type="danger">{submissionError}</Text>}
-        <Tabs
-          activeKey={mode}
-          items={[
-            {
-              key: 'personal',
-              label: t('publishing.mySkills'),
-              children: (
-                <Select
-                  placeholder={t('publishing.chooseSkill')}
-                  value={selectedSkill}
-                  options={skills
-                    .filter((s) => s.source === 'user')
-                    .map((s) => ({ label: s.name, value: s.id }))}
-                  onChange={(value) => setSelectedSkill(value as string)}
-                />
-              ),
-            },
-            {
-              children: (
-                <Upload.Dragger
-                  accept=".zip,.skill"
-                  disabled={isSubmitting}
-                  maxCount={1}
-                  showUploadList={false}
-                  beforeUpload={(file) => {
-                    void handleZipUpload(file);
-                    return false;
-                  }}
-                >
-                  <Text>{zipName || t('user.zipUploadHint')}</Text>
-                </Upload.Dragger>
-              ),
-              key: 'zip',
-              label: t('user.submitZip'),
-            },
-          ]}
-          onChange={(key) => setMode(key as 'zip' | 'personal')}
-        />
+            {submissionError && <Text type="danger">{submissionError}</Text>}
+            <Tabs
+              activeKey={mode}
+              items={[
+                {
+                  key: 'personal',
+                  label: t('publishing.mySkills'),
+                  children: (
+                    <Select
+                      placeholder={t('publishing.chooseSkill')}
+                      value={selectedSkill}
+                      options={skills
+                        .filter((s) => s.source === 'user')
+                        .map((s) => ({ label: s.name, value: s.id }))}
+                      onChange={(value) => setSelectedSkill(value as string)}
+                    />
+                  ),
+                },
+                {
+                  children: (
+                    <Upload.Dragger
+                      accept=".zip,.skill"
+                      disabled={isSubmitting}
+                      maxCount={1}
+                      showUploadList={false}
+                      beforeUpload={(file) => {
+                        void handleZipUpload(file);
+                        return false;
+                      }}
+                    >
+                      <Text>{zipName || t('user.zipUploadHint')}</Text>
+                    </Upload.Dragger>
+                  ),
+                  key: 'zip',
+                  label: t('user.submitZip'),
+                },
+              ]}
+              onChange={(key) => setMode(key as 'zip' | 'personal')}
+            />
 
-        <Flexbox style={{ marginTop: 8 }}>
-          <Text style={{ fontSize: 12 }} type="secondary">
-            {t('user.submitRepoHint')}
-          </Text>
-        </Flexbox>
+            <Flexbox style={{ marginTop: 8 }}>
+              <Text style={{ fontSize: 12 }} type="secondary">
+                {t('user.submitRepoHint')}
+              </Text>
+            </Flexbox>
+          </>
+        )}
       </Modal>
     );
   },

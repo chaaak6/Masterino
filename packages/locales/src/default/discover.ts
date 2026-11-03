@@ -24,6 +24,11 @@ export default {
   'publishing.chooseSkill': 'Choose a personal skill',
   'publishing.submit': 'Submit for review',
   'publishing.imported': 'Imported for your personal use. Sharing for review is optional.',
+  'publishing.installSucceeded': 'Installed to your skill library.',
+  'publishing.installToLibrary': 'Install to My Skill Library',
+  'publishing.installSubmittedZipHint':
+    'Use the ZIP you just submitted in your skill library while it is under review.',
+  'publishing.installFailed': 'Could not install the skill. Please try again.',
   'publishing.keepOriginal':
     'This is your original skill. Manage it in your personal library; it has not been deleted.',
   'assistant.favorite': 'Save',
