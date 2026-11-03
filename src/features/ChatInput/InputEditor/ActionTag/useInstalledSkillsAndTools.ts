@@ -1,5 +1,4 @@
 import isEqual from 'fast-deep-equal';
-import { useMemo } from 'react';
 
 import { useToolStore } from '@/store/tool';
 import {
@@ -9,6 +8,7 @@ import {
   lobehubSkillStoreSelectors,
   pluginSelectors,
 } from '@/store/tool/selectors';
+import type { ToolStore } from '@/store/tool/store';
 
 import type { ActionTagData } from './types';
 
@@ -17,74 +17,68 @@ import type { ActionTagData } from './types';
  * Skills: builtinSkills, lobehubSkillServers, marketAgentSkills, userAgentSkills
  * Tools:  installedPlugins (excluding skill-type entries), composioServers
  */
-export const useInstalledSkillsAndTools = (): ActionTagData[] => {
-  const builtinSkills = useToolStore(builtinToolSelectors.installedBuiltinSkills, isEqual);
-  const installedPlugins = useToolStore(pluginSelectors.installedPluginMetaList, isEqual);
-  const composioServers = useToolStore(composioStoreSelectors.getServers, isEqual);
-  const lobehubSkillServers = useToolStore(lobehubSkillStoreSelectors.getServers, isEqual);
-  const marketAgentSkills = useToolStore(agentSkillsSelectors.getMarketAgentSkills, isEqual);
-  const userAgentSkills = useToolStore(agentSkillsSelectors.getUserAgentSkills, isEqual);
+export const getInstalledSkillsAndTools = (state: ToolStore): ActionTagData[] => {
+  const builtinSkills = builtinToolSelectors.installedBuiltinSkills(state);
+  const installedPlugins = pluginSelectors.installedPluginMetaList(state);
+  const composioServers = composioStoreSelectors.getServers(state);
+  const lobehubSkillServers = lobehubSkillStoreSelectors.getServers(state);
+  const marketAgentSkills = agentSkillsSelectors.getMarketAgentSkills(state);
+  const userAgentSkills = agentSkillsSelectors.getUserAgentSkills(state);
 
-  return useMemo(() => {
-    const items: ActionTagData[] = [];
+  const items: ActionTagData[] = [];
 
-    // --- Build skill set (identifier → { label, icon }) ---
-    const skillMap = new Map<string, { icon?: string; label: string }>();
+  // --- Build skill set (identifier → { label, icon }) ---
+  const skillMap = new Map<string, { icon?: string; label: string }>();
 
-    for (const item of builtinSkills) {
-      skillMap.set(item.identifier, { icon: item.avatar, label: item.name || item.identifier });
+  for (const item of builtinSkills) {
+    skillMap.set(item.identifier, { icon: item.avatar, label: item.name || item.identifier });
+  }
+  for (const item of lobehubSkillServers) {
+    if (!skillMap.has(item.identifier)) {
+      skillMap.set(item.identifier, { icon: item.icon, label: item.name || item.identifier });
     }
-    for (const item of lobehubSkillServers) {
-      if (!skillMap.has(item.identifier)) {
-        skillMap.set(item.identifier, { icon: item.icon, label: item.name || item.identifier });
-      }
+  }
+  for (const item of marketAgentSkills) {
+    if (!skillMap.has(item.identifier)) {
+      skillMap.set(item.identifier, { label: item.name || item.identifier });
     }
-    for (const item of marketAgentSkills) {
-      if (!skillMap.has(item.identifier)) {
-        skillMap.set(item.identifier, { label: item.name || item.identifier });
-      }
+  }
+  for (const item of userAgentSkills) {
+    if (!skillMap.has(item.identifier)) {
+      skillMap.set(item.identifier, { label: item.name || item.identifier });
     }
-    for (const item of userAgentSkills) {
-      if (!skillMap.has(item.identifier)) {
-        skillMap.set(item.identifier, { label: item.name || item.identifier });
-      }
-    }
+  }
 
-    // --- Build tool set, excluding identifiers already classified as skills ---
-    const toolMap = new Map<string, { icon?: string; label: string }>();
+  // --- Build tool set, excluding identifiers already classified as skills ---
+  const toolMap = new Map<string, { icon?: string; label: string }>();
 
-    for (const item of installedPlugins) {
-      // Skip entries that are actually skills (lobehub skill, agent skill, builtin skill)
-      if (skillMap.has(item.identifier)) continue;
-      if (!toolMap.has(item.identifier)) {
-        toolMap.set(item.identifier, { icon: item.avatar, label: item.title || item.identifier });
-      }
+  for (const item of installedPlugins) {
+    // Skip entries that are actually skills (lobehub skill, agent skill, builtin skill)
+    if (skillMap.has(item.identifier)) continue;
+    if (!toolMap.has(item.identifier)) {
+      toolMap.set(item.identifier, { icon: item.avatar, label: item.title || item.identifier });
     }
-    for (const item of composioServers) {
-      if (skillMap.has(item.identifier)) continue;
-      if (!toolMap.has(item.identifier)) {
-        toolMap.set(item.identifier, {
-          icon: item.icon,
-          label: item.label || item.identifier,
-        });
-      }
+  }
+  for (const item of composioServers) {
+    if (skillMap.has(item.identifier)) continue;
+    if (!toolMap.has(item.identifier)) {
+      toolMap.set(item.identifier, {
+        icon: item.icon,
+        label: item.label || item.identifier,
+      });
     }
+  }
 
-    // --- Merge into output ---
-    for (const [id, { icon, label }] of skillMap) {
-      items.push({ category: 'skill', icon, label, type: id });
-    }
-    for (const [id, { icon, label }] of toolMap) {
-      items.push({ category: 'tool', icon, label, type: id });
-    }
+  // --- Merge into output ---
+  for (const [id, { icon, label }] of skillMap) {
+    items.push({ category: 'skill', icon, label, type: id });
+  }
+  for (const [id, { icon, label }] of toolMap) {
+    items.push({ category: 'tool', icon, label, type: id });
+  }
 
-    return items;
-  }, [
-    builtinSkills,
-    installedPlugins,
-    composioServers,
-    lobehubSkillServers,
-    marketAgentSkills,
-    userAgentSkills,
-  ]);
+  return items;
 };
+
+export const useInstalledSkillsAndTools = (): ActionTagData[] =>
+  useToolStore(getInstalledSkillsAndTools, isEqual);
