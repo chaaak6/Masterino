@@ -2443,6 +2443,15 @@
   },
   {
     "children": {
+      "features": [
+        "integrate skill publishing, memory validation and new-file consent."
+      ]
+    },
+    "date": "2026-11-04",
+    "version": "1.3.12"
+  },
+  {
+    "children": {
       "fixes": [
         "keep model drafts aligned after catalog rollback.",
         "preserve catalog kind and cancel pending refresh.",

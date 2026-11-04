@@ -2,6 +2,31 @@
 
 # Changelog
 
+## [Version 1.3.12](https://github.com/chaaak6/Masterino/compare/v1.3.11...v1.3.12)
+
+<sup>Released on **2026-11-04**</sup>
+
+#### ✨ Features
+
+- **misc**: integrate skill publishing, memory validation and new-file consent.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's improved
+
+- **misc**: integrate skill publishing, memory validation and new-file consent, closes [#151](https://github.com/chaaak6/Masterino/issues/151) ([707821c](https://github.com/chaaak6/Masterino/commit/707821c))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.3.11](https://github.com/chaaak6/Masterino/compare/v1.3.10...v1.3.11)
 
 <sup>Released on **2026-10-27**</sup>
