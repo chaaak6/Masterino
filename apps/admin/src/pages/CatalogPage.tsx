@@ -1,5 +1,17 @@
 import { trpc } from '@admin/lib/trpc';
-import { Alert, App, Button, Card, Flex, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Flex,
+  Input,
+  message,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
 import { useState } from 'react';
 
 import SkillCategorySelect from '../components/SkillCategorySelect';
@@ -76,7 +88,6 @@ type WorkflowState =
   | 'submitted';
 
 export default function CatalogPage({ type }: { type: CatalogResourceType }) {
-  const { message } = App.useApp();
   const config = pageConfig[type];
   const [creating, setCreating] = useState(false);
   const [page, setPage] = useState(1);

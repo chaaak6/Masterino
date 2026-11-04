@@ -2853,6 +2853,10 @@ describe('adminRouter', () => {
       vi.mocked(getServerDB).mockResolvedValue(db as never);
       const caller = createCaller(await createAdminContext('user'));
 
+      const categoryResult = await settle(
+        caller.updateSkillCategory({ identifier: 'skill-1', category: 'design' }),
+      );
+
       const skillListResult = await settle(
         caller.listResourceGrants({ resourceId: 'skill-1', resourceType: 'skill' }),
       );
@@ -2879,6 +2883,10 @@ describe('adminRouter', () => {
       );
 
       expectPermissionCheck('skill:manage');
+      expect(categoryResult).toMatchObject({
+        error: expect.objectContaining({ code: 'FORBIDDEN' }),
+        status: 'rejected',
+      });
       expectPermissionCheck('mcp:manage');
       expect(skillResult).toMatchObject({
         error: expect.objectContaining({ code: 'FORBIDDEN' }),

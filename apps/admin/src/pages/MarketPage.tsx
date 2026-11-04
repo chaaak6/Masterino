@@ -370,7 +370,12 @@ export default function MarketPage() {
                               type="primary"
                               disabled={
                                 record.type === 'skill' &&
-                                !(reviewCategories[record.versionId] || record.category)
+                                !(categories.data?.items ?? []).some(
+                                  (item: any) =>
+                                    item.resource_type === 'skill' &&
+                                    item.slug ===
+                                      (reviewCategories[record.versionId] || record.category),
+                                )
                               }
                               onClick={() => act(record, 'publish')}
                             >

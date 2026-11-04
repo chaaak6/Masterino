@@ -42,6 +42,13 @@ describe('Skill category rules', () => {
     const where = (sql: string, end: string) =>
       sql.slice(sql.indexOf('WHERE r.type'), sql.indexOf(end, sql.indexOf('WHERE r.type')));
     expect(where(summary[0], ' GROUP BY')).toBe(where(list[0], ' ORDER BY'));
+    await repo.skillCategorySummary({ q: '_50%!' }, account);
+    expect(query.mock.calls.findLast(([sql]) => sql.includes('GROUP BY'))?.[1]).toEqual([
+      'skill',
+      7,
+      null,
+      '%!_50!%!!%',
+    ]);
   });
 
   it('retains zero-count definitions for selectors and supports uncategorized filtering', async () => {
@@ -51,7 +58,7 @@ describe('Skill category rules', () => {
         : [],
     }));
     const repo = new MarketRepository({ query } as any);
-    expect(await repo.skillCategorySummary({ locale: 'en-US' }, account)).toMatchObject({
+    expect(await repo.skillCategorySummary({ locale: 'ja-JP' }, account)).toMatchObject({
       allCount: 0,
       uncategorizedCount: 0,
       categories: [{ name: 'Design', count: 0 }],

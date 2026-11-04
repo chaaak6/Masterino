@@ -509,8 +509,8 @@ export class MarketRepository {
       const publishCategory =
         type === 'skill' && action === 'publish'
           ? category ||
-            resource.rows[0].review_editor_data?.catalogCategory ||
-            resource.rows[0].category
+            resource.rows[0].category ||
+            resource.rows[0].review_editor_data?.catalogCategory
           : undefined;
       if (type === 'skill' && action === 'publish') {
         if (!publishCategory) throw new Error('发布前请选择技能分类');

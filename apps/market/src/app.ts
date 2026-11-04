@@ -376,7 +376,7 @@ export const createMarketApp = (options: {
         {
           category: 'uncategorized',
           key: 'uncategorized',
-          name: '待分类',
+          name: c.req.query('locale')?.startsWith('en') ? 'Uncategorized' : '待分类',
           count: summary.uncategorizedCount,
         },
       ]);
@@ -1807,7 +1807,7 @@ export const createMarketApp = (options: {
     const result = await repository.getPool().query(
       `SELECT r.type, r.identifier, r.name, r.metadata, v.version, v.id::int AS "versionId",
         v.workflow_state AS "workflowState", v.scan_result AS "scanResult",
-        COALESCE(v.editor_data->>'catalogCategory',r.category) AS category,
+        COALESCE(r.category,v.editor_data->>'catalogCategory') AS category,
         jsonb_build_object('config', v.config, 'manifest', v.manifest) AS "currentConfig",
         (SELECT jsonb_build_object('config', pv.config, 'manifest', pv.manifest)
          FROM market_versions pv WHERE pv.resource_id=r.id AND (pv.created_at,pv.id)<(v.created_at,v.id)
@@ -1994,7 +1994,7 @@ export const createMarketApp = (options: {
       .query(`SELECT * FROM market_connector_allowlist ORDER BY provider, hostname`);
     return c.json({ items: result.rows });
   });
-  app.get('/api/internal/categories', requireRole('admin'), async (c) => {
+  app.get('/api/internal/categories', requireRole('reviewer', 'admin'), async (c) => {
     const result = await repository
       .getPool()
       .query(`SELECT * FROM market_categories ORDER BY resource_type, sort_order, slug`);

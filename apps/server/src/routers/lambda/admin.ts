@@ -2494,13 +2494,14 @@ export const adminRouter = router({
 
   updateSkillCategory: adminProcedure
     .input(z.object({ identifier: z.string().min(1), category: z.string().trim().min(1) }))
-    .mutation(({ ctx, input }) =>
-      callInternalMarketAdmin(
+    .mutation(async ({ ctx, input }) => {
+      await requireSkillManage(ctx);
+      return callInternalMarketAdmin(
         ctx,
         `/api/internal/resources/skill/${encodeURIComponent(input.identifier)}/category`,
         { method: 'PATCH', body: { category: input.category } },
-      ),
-    ),
+      );
+    }),
 
   listMarketCategories: adminProcedure.query(async ({ ctx }) =>
     callInternalMarketAdmin<{ items: unknown[] }>(ctx, '/api/internal/categories'),

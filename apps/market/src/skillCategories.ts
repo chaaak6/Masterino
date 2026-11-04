@@ -31,9 +31,9 @@ export const resourceFilters = (
     filters.push(`NULLIF(BTRIM(r.category),'')=$${values.length}`);
   }
   if (options.q) {
-    values.push(`%${options.q}%`);
+    values.push(`%${options.q.replaceAll(/[!%_]/g, '!$&')}%`);
     filters.push(
-      `(r.name ILIKE $${values.length} OR r.description ILIKE $${values.length} OR r.identifier ILIKE $${values.length})`,
+      `(r.name ILIKE $${values.length} ESCAPE '!' OR r.description ILIKE $${values.length} ESCAPE '!' OR r.identifier ILIKE $${values.length} ESCAPE '!')`,
     );
   }
   return { values, filters };
@@ -61,9 +61,9 @@ export async function readSkillCategorySummary(
   const categories = dictionary.rows.map((row) => {
     const text =
       row.localizations?.[locale] ??
-      (locale.startsWith('en') ? row.localizations?.['en-US'] : undefined) ??
-      row.localizations?.['zh-CN'] ??
+      (locale.startsWith('zh') ? row.localizations?.['zh-CN'] : undefined) ??
       row.localizations?.['en-US'] ??
+      row.localizations?.['zh-CN'] ??
       {};
     const count = byCategory.get(row.slug) ?? 0;
     byCategory.delete(row.slug);

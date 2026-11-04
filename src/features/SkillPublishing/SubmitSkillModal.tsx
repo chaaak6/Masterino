@@ -6,9 +6,9 @@ import { App, Tabs, Upload } from 'antd';
 import { sha256 } from 'js-sha256';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { mutate } from 'swr';
 
 import { useSkillCategorySummary } from '@/hooks/useSkillCategory';
+import { mutate } from '@/libs/swr';
 import { lambdaClient } from '@/libs/trpc/client';
 import { uploadService } from '@/services/upload';
 import { useToolStore } from '@/store/tool';

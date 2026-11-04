@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Icon, Tag, Text } from '@lobehub/ui';
+import { Button, Icon, Skeleton, Tag, Text } from '@lobehub/ui';
 import qs from 'query-string';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +22,7 @@ const Category = memo(() => {
     q?: string;
   };
   const navigate = useWorkspaceAwareNavigate();
-  const { items: cates, error, mutate } = useSkillCategory({ q });
+  const { items: cates, data, error, mutate } = useSkillCategory({ q });
 
   const genUrl = (key: string) =>
     qs.stringifyUrl(
@@ -51,6 +51,8 @@ const Category = memo(() => {
         <Button onClick={() => void mutate()}>{t('retry', { ns: 'common' })}</Button>
       </Text>
     );
+
+  if (!data) return <Skeleton active paragraph={{ rows: 5 }} title={false} />;
 
   return (
     <CategoryMenu

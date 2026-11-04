@@ -15,18 +15,27 @@ export default function SkillCategorySelect({
   onChange?: (value: string) => void;
 }) {
   const categories = trpc.admin.listMarketCategories.useQuery();
+  const options = ((categories.data?.items ?? []) as CategoryDefinition[])
+    .filter((item) => item.resource_type === 'skill')
+    .map((item) => ({
+      value: item.slug,
+      label:
+        item.localizations?.['zh-CN']?.name || item.localizations?.['en-US']?.name || item.slug,
+    }));
+  const validValue = options.some((item) => item.value === value);
   return (
     <Select
       disabled={categories.isLoading}
-      placeholder={categories.error ? '分类加载失败，请刷新重试' : '选择技能分类'}
+      options={options}
       style={{ minWidth: 170 }}
-      value={value}
-      options={((categories.data?.items ?? []) as CategoryDefinition[])
-        .filter((item) => item.resource_type === 'skill')
-        .map((item) => ({
-          value: item.slug,
-          label: item.localizations?.['zh-CN']?.name || item.slug,
-        }))}
+      value={validValue ? value : undefined}
+      placeholder={
+        categories.error
+          ? '分类加载失败，请刷新重试'
+          : value && !validValue
+            ? '原分类未注册，请选择'
+            : '选择技能分类'
+      }
       onChange={(next) => {
         if (typeof next === 'string') onChange?.(next);
       }}

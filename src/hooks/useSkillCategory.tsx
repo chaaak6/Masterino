@@ -43,8 +43,12 @@ export const useSkillCategory = (params: { q?: string } = {}) => {
     },
     ...(result.data?.categories ?? []).map((item) => ({
       key: item.category,
-      label: item.name,
-      title: item.description,
+      label: item.registered
+        ? item.name
+        : t(`skills.categories.${item.category}.name`, { defaultValue: item.name }),
+      title: item.registered
+        ? item.description
+        : t(`skills.categories.${item.category}.description`, { defaultValue: item.description }),
       icon: icons[item.category as keyof typeof icons] || ShapesIcon,
       count: item.count,
     })),
