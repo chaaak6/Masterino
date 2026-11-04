@@ -106,6 +106,7 @@ export interface SkillCategorySummary {
     count: number;
     sortOrder: number;
     registered: boolean;
+    locale?: string;
   }>;
   uncategorizedCount: number;
 }

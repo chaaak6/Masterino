@@ -1,6 +1,10 @@
 import type { ResourceType, TrustedClientPayload, WorkflowState } from './contracts.js';
 import type { MarketPool } from './db.js';
-import { readSkillCategorySummary, resourceFilters } from './skillCategories.js';
+import {
+  readSkillCategorySummary,
+  resolveSkillReviewCategory,
+  resourceFilters,
+} from './skillCategories.js';
 
 export interface Account {
   email?: string;
@@ -199,7 +203,9 @@ export class MarketRepository {
     const result = await this.pool.query(
       `WITH previous AS (
       SELECT id,category FROM market_resources WHERE type='skill' AND identifier=$1 FOR UPDATE
-    ) UPDATE market_resources r SET category=$2,updated_at=now() FROM previous p
+    ) UPDATE market_resources r SET category=$2,
+      metadata=r.metadata || jsonb_build_object('catalogCategoryConfirmedAt',now()),
+      updated_at=now() FROM previous p
       WHERE r.id=p.id RETURNING r.identifier,p.category AS "oldCategory",r.category`,
       [identifier, category],
     );
@@ -478,7 +484,7 @@ export class MarketRepository {
     try {
       await client.query('BEGIN');
       const resource = await client.query(
-        `SELECT r.*, v.id AS review_version_id, v.workflow_state, v.editor_data AS review_editor_data FROM market_resources r JOIN market_versions v ON v.resource_id=r.id AND v.id=COALESCE($3::bigint,r.current_version_id)
+        `SELECT r.*, v.id AS review_version_id, v.workflow_state, v.editor_data AS review_editor_data, v.created_at AS review_version_created_at FROM market_resources r JOIN market_versions v ON v.resource_id=r.id AND v.id=COALESCE($3::bigint,r.current_version_id)
          WHERE r.type=$1 AND r.identifier=$2 FOR UPDATE`,
         [type, identifier, target?.versionId ?? null],
       );
@@ -509,8 +515,12 @@ export class MarketRepository {
       const publishCategory =
         type === 'skill' && action === 'publish'
           ? category ||
-            resource.rows[0].category ||
-            resource.rows[0].review_editor_data?.catalogCategory
+            resolveSkillReviewCategory(
+              resource.rows[0].category,
+              resource.rows[0].review_editor_data?.catalogCategory,
+              resource.rows[0].metadata?.catalogCategoryConfirmedAt,
+              resource.rows[0].review_version_created_at,
+            )
           : undefined;
       if (type === 'skill' && action === 'publish') {
         if (!publishCategory) throw new Error('发布前请选择技能分类');

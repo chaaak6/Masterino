@@ -31,7 +31,8 @@ const icons = {
 };
 
 export const useSkillCategory = (params: { q?: string } = {}) => {
-  const { t } = useTranslation('discover');
+  const { t, i18n } = useTranslation('discover');
+  const locale = i18n.language || 'zh-CN';
   const result = useSkillCategorySummary(params);
   const items = [
     {
@@ -41,17 +42,21 @@ export const useSkillCategory = (params: { q?: string } = {}) => {
       icon: LayoutPanelTopIcon,
       count: result.data?.allCount,
     },
-    ...(result.data?.categories ?? []).map((item) => ({
-      key: item.category,
-      label: item.registered
-        ? item.name
-        : t(`skills.categories.${item.category}.name`, { defaultValue: item.name }),
-      title: item.registered
-        ? item.description
-        : t(`skills.categories.${item.category}.description`, { defaultValue: item.description }),
-      icon: icons[item.category as keyof typeof icons] || ShapesIcon,
-      count: item.count,
-    })),
+    ...(result.data?.categories ?? []).map((item) => {
+      const useDictionary =
+        item.registered && (item.locale === locale || /^(?:en|zh)(?:-|$)/i.test(locale));
+      return {
+        key: item.category,
+        label: useDictionary
+          ? item.name
+          : t(`skills.categories.${item.category}.name`, { defaultValue: item.name }),
+        title: useDictionary
+          ? item.description
+          : t(`skills.categories.${item.category}.description`, { defaultValue: item.description }),
+        icon: icons[item.category as keyof typeof icons] || ShapesIcon,
+        count: item.count,
+      };
+    }),
     {
       key: 'uncategorized',
       label: t('skills.categories.uncategorized.name'),

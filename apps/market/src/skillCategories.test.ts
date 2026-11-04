@@ -1,10 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { MarketRepository } from './repository.js';
+import { resolveSkillReviewCategory } from './skillCategories.js';
 
 const account = { id: 7, externalUserId: 'author', role: 'admin' as const };
 
 describe('Skill category rules', () => {
+  it('uses the submission suggestion unless an administrator confirmed a category after it was created', () => {
+    expect(
+      resolveSkillReviewCategory('design', 'data-analytics', undefined, '2026-11-04T09:00:00Z'),
+    ).toBe('data-analytics');
+    expect(
+      resolveSkillReviewCategory(
+        'design',
+        'data-analytics',
+        '2026-11-04T08:00:00Z',
+        '2026-11-04T09:00:00Z',
+      ),
+    ).toBe('data-analytics');
+    expect(
+      resolveSkillReviewCategory(
+        'design',
+        'data-analytics',
+        '2026-11-04T10:00:00Z',
+        '2026-11-04T09:00:00Z',
+      ),
+    ).toBe('design');
+  });
   it('counts empty/legacy categories and shares visibility and search conditions with the list', async () => {
     const query = vi.fn(async (sql: string, _values?: unknown[]) => {
       if (sql.includes('FROM market_categories'))

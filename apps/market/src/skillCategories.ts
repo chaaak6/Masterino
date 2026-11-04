@@ -44,6 +44,7 @@ export async function readSkillCategorySummary(
   conditions: { values: unknown[]; filters: string[] },
   locale = 'zh-CN',
 ) {
+  locale ||= 'zh-CN';
   const { values, filters } = conditions;
   const [counts, dictionary] = await Promise.all([
     pool.query(
@@ -59,12 +60,13 @@ export async function readSkillCategorySummary(
     counts.rows.filter((r) => r.category).map((r) => [r.category, Number(r.count)]),
   );
   const categories = dictionary.rows.map((row) => {
-    const text =
-      row.localizations?.[locale] ??
-      (locale.startsWith('zh') ? row.localizations?.['zh-CN'] : undefined) ??
-      row.localizations?.['en-US'] ??
-      row.localizations?.['zh-CN'] ??
-      {};
+    const resolvedLocale = [
+      locale,
+      locale.startsWith('zh') ? 'zh-CN' : 'en-US',
+      'en-US',
+      'zh-CN',
+    ].find((key) => row.localizations?.[key]?.name);
+    const text = row.localizations?.[resolvedLocale ?? ''] ?? {};
     const count = byCategory.get(row.slug) ?? 0;
     byCategory.delete(row.slug);
     return {
@@ -75,6 +77,7 @@ export async function readSkillCategorySummary(
       sortOrder: Number(row.sort_order),
       count,
       registered: true,
+      locale: resolvedLocale,
     };
   });
   for (const [category, count] of byCategory)
@@ -86,10 +89,26 @@ export async function readSkillCategorySummary(
       sortOrder: 999,
       count,
       registered: false,
+      locale: undefined,
     });
   return {
     allCount: counts.rows.reduce((sum, row) => sum + Number(row.count), 0),
     uncategorizedCount: Number(counts.rows.find((r) => r.category === null)?.count || 0),
     categories,
   };
+}
+
+export function resolveSkillReviewCategory(
+  category: string | null | undefined,
+  suggestedCategory: string | undefined,
+  confirmedAt?: string,
+  versionCreatedAt?: Date | string,
+) {
+  if (
+    confirmedAt &&
+    versionCreatedAt &&
+    Date.parse(confirmedAt) >= new Date(versionCreatedAt).getTime()
+  )
+    return category;
+  return suggestedCategory || category;
 }

@@ -36,6 +36,7 @@ import type { Account, MarketRepository } from './repository.js';
 import { MarketSubmissionConflictError } from './repository.js';
 import { runCuratedSeed } from './seed.js';
 import { validateSkillContent } from './skillArtifact.js';
+import { resolveSkillReviewCategory } from './skillCategories.js';
 import { CredentialVault } from './vault.js';
 
 interface AppEnv extends AuthEnv {
@@ -1807,7 +1808,8 @@ export const createMarketApp = (options: {
     const result = await repository.getPool().query(
       `SELECT r.type, r.identifier, r.name, r.metadata, v.version, v.id::int AS "versionId",
         v.workflow_state AS "workflowState", v.scan_result AS "scanResult",
-        COALESCE(r.category,v.editor_data->>'catalogCategory') AS category,
+        r.category, v.editor_data->>'catalogCategory' AS "suggestedCategory",
+        r.metadata->>'catalogCategoryConfirmedAt' AS "categoryConfirmedAt", v.created_at AS "versionCreatedAt",
         jsonb_build_object('config', v.config, 'manifest', v.manifest) AS "currentConfig",
         (SELECT jsonb_build_object('config', pv.config, 'manifest', pv.manifest)
          FROM market_versions pv WHERE pv.resource_id=r.id AND (pv.created_at,pv.id)<(v.created_at,v.id)
@@ -1818,7 +1820,23 @@ export const createMarketApp = (options: {
          AND (v.workflow_state IN ('submitted','scanning','in_review','approved')
            OR (r.type<>'skill' AND v.workflow_state='rejected')) ORDER BY v.created_at, v.id`,
     );
-    return c.json({ items: result.rows, totalCount: result.rowCount || 0 });
+    return c.json({
+      items: result.rows.map(
+        ({ suggestedCategory, categoryConfirmedAt, versionCreatedAt, ...row }) => ({
+          ...row,
+          category:
+            row.type === 'skill'
+              ? resolveSkillReviewCategory(
+                  row.category,
+                  suggestedCategory,
+                  categoryConfirmedAt,
+                  versionCreatedAt,
+                )
+              : row.category,
+        }),
+      ),
+      totalCount: result.rowCount || 0,
+    });
   });
   app.get('/api/internal/resources', requireRole('reviewer', 'admin'), async (c) => {
     const input = AdminResourceListQuerySchema.parse({
