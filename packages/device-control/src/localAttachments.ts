@@ -15,7 +15,7 @@ import {
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 
-import { ensureScratchWorkspace } from './workspace';
+import { ensureScratchWorkspace } from './scratchWorkspace';
 
 const MAX_ATTACHMENT_BYTES = 1024 ** 3;
 const MAX_INLINE_ATTACHMENT_BYTES = 100 * 1024 ** 2;

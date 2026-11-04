@@ -139,23 +139,23 @@ output the version number
 display help for command
 .SH FILES
 .TP
-.I ~/.lobehub/credentials.json
+.I ~/.masterino/state/credentials.json
 Encrypted access and refresh tokens.
 .TP
-.I ~/.lobehub/settings.json
+.I ~/.masterino/state/settings.json
 CLI settings such as server and gateway URLs.
 .TP
-.I ~/.lobehub/daemon.pid
+.I ~/.masterino/state/daemon.pid
 Background daemon PID file.
 .TP
-.I ~/.lobehub/daemon.status
+.I ~/.masterino/state/daemon.status.json
 Background daemon status metadata.
 .TP
-.I ~/.lobehub/daemon.log
+.I ~/.masterino/state/daemon.log
 Background daemon log output.
 .PP
 The base directory can be overridden with the
-.B LOBEHUB_CLI_HOME
+.B MASTERINO_HOME
 environment variable.
 .SH EXAMPLES
 .TP

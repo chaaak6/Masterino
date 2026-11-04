@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 import { OFFICIAL_AGENT_GATEWAY_URL, OFFICIAL_SERVER_URL } from '../constants/urls';
 import { log } from '../utils/logger';
+import { resolveCliManagedPaths } from '../utils/managedPaths';
 
 export interface StoredSettings {
   agentGatewayUrl?: string;
@@ -12,12 +12,16 @@ export interface StoredSettings {
   serverUrl?: string;
 }
 
-const LOBEHUB_DIR_NAME = process.env.LOBEHUB_CLI_HOME || '.lobehub';
-const SETTINGS_DIR = path.join(os.homedir(), LOBEHUB_DIR_NAME);
-const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
-// Kept in its own file rather than settings.json, which is unlinked whenever
-// all server/gateway URLs are default — the connectionId must persist regardless.
-const CONNECTION_ID_FILE = path.join(SETTINGS_DIR, 'connection-id');
+const getSettingsPaths = () => {
+  const { legacyStateRoot, stateRoot } = resolveCliManagedPaths();
+  return {
+    connectionId: path.join(stateRoot, 'connection-id'),
+    legacyConnectionId: path.join(legacyStateRoot, 'connection-id'),
+    legacySettings: path.join(legacyStateRoot, 'settings.json'),
+    settings: path.join(stateRoot, 'settings.json'),
+    stateRoot,
+  };
+};
 
 export function normalizeUrl(url: string | undefined): string | undefined {
   return url ? url.replace(/\/$/, '') : undefined;
@@ -38,6 +42,7 @@ export function resolveAgentGatewayUrl(): string | undefined {
 }
 
 export function saveSettings(settings: StoredSettings): void {
+  const paths = getSettingsPaths();
   const agentGatewayUrl = normalizeUrl(settings.agentGatewayUrl);
   const gatewayUrl = normalizeUrl(settings.gatewayUrl);
   const serverUrl = normalizeUrl(settings.serverUrl);
@@ -48,35 +53,45 @@ export function saveSettings(settings: StoredSettings): void {
   };
 
   if (!normalized.serverUrl && !normalized.gatewayUrl && !normalized.agentGatewayUrl) {
-    try {
-      fs.unlinkSync(SETTINGS_FILE);
-    } catch {}
+    for (const filename of new Set([paths.settings, paths.legacySettings]))
+      try {
+        fs.unlinkSync(filename);
+      } catch {}
     return;
   }
 
-  fs.mkdirSync(SETTINGS_DIR, { mode: 0o700, recursive: true });
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(normalized, null, 2), { mode: 0o600 });
+  fs.mkdirSync(paths.stateRoot, { mode: 0o700, recursive: true });
+  fs.writeFileSync(paths.settings, JSON.stringify(normalized, null, 2), { mode: 0o600 });
 }
 
 /**
  * Stable per-install connection routing key for `lh connect`. Decoupled from
  * the (machine-derived, shared-across-clients) deviceId so the gateway only
  * replaces this install's own stale socket — a co-running desktop app on the
- * same machine keeps its connection. Persisted under the CLI home dir, so a
- * separate `LOBEHUB_CLI_HOME` (e.g. a dev build) naturally gets its own id.
+ * same machine keeps its connection. Persisted under MASTERINO_HOME/state;
+ * the legacy CLI-home override remains an isolation fallback for dev builds.
  */
 export function loadOrCreateConnectionId(): string {
-  try {
-    const existing = fs.readFileSync(CONNECTION_ID_FILE, 'utf8').trim();
-    if (existing) return existing;
-  } catch {
-    // not yet created
+  const paths = getSettingsPaths();
+  for (const filename of [paths.connectionId, paths.legacyConnectionId]) {
+    try {
+      const existing = fs.readFileSync(filename, 'utf8').trim();
+      if (existing) {
+        if (filename !== paths.connectionId) {
+          fs.mkdirSync(paths.stateRoot, { mode: 0o700, recursive: true });
+          fs.writeFileSync(paths.connectionId, existing, { mode: 0o600 });
+        }
+        return existing;
+      }
+    } catch {
+      // Try the compatibility location before creating a new id.
+    }
   }
 
   const id = randomUUID();
   try {
-    fs.mkdirSync(SETTINGS_DIR, { mode: 0o700, recursive: true });
-    fs.writeFileSync(CONNECTION_ID_FILE, id, { mode: 0o600 });
+    fs.mkdirSync(paths.stateRoot, { mode: 0o700, recursive: true });
+    fs.writeFileSync(paths.connectionId, id, { mode: 0o600 });
   } catch {
     // best-effort: an unwritable home dir just means a fresh id per run
   }
@@ -84,10 +99,14 @@ export function loadOrCreateConnectionId(): string {
 }
 
 export function loadSettings(): StoredSettings | null {
-  if (!fs.existsSync(SETTINGS_FILE)) return null;
+  const paths = getSettingsPaths();
+  const filename = [paths.settings, paths.legacySettings].find((candidate) =>
+    fs.existsSync(candidate),
+  );
+  if (!filename) return null;
 
   try {
-    const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+    const data = fs.readFileSync(filename, 'utf8');
     const parsed = JSON.parse(data) as StoredSettings;
     const agentGatewayUrl = normalizeUrl(parsed.agentGatewayUrl);
     const gatewayUrl = normalizeUrl(parsed.gatewayUrl);
@@ -103,7 +122,7 @@ export function loadSettings(): StoredSettings | null {
     return normalized;
   } catch {
     log.warn(
-      `Could not parse ${SETTINGS_FILE}. Please delete this file and run 'lh login' again if needed.`,
+      `Could not parse ${filename}. Please delete this file and run 'lh login' again if needed.`,
     );
     return null;
   }

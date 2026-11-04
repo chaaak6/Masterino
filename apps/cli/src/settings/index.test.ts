@@ -14,8 +14,10 @@ import {
 } from './index';
 
 const tmpDir = path.join(os.tmpdir(), 'lobehub-cli-test-settings');
-const settingsDir = path.join(tmpDir, '.lobehub');
+const settingsDir = path.join(tmpDir, '.masterino', 'state');
 const settingsFile = path.join(settingsDir, 'settings.json');
+const legacySettingsDir = path.join(tmpDir, '.lobehub');
+const legacySettingsFile = path.join(legacySettingsDir, 'settings.json');
 const originalServer = process.env.LOBEHUB_SERVER;
 
 vi.mock('node:os', async (importOriginal) => {
@@ -72,6 +74,16 @@ describe('settings', () => {
 
     expect(loadSettings()).toBeNull();
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('Please delete this file'));
+  });
+
+  it('should read a legacy settings file when the canonical file is absent', () => {
+    fs.mkdirSync(legacySettingsDir, { recursive: true });
+    fs.writeFileSync(
+      legacySettingsFile,
+      JSON.stringify({ serverUrl: 'https://legacy.example.com/' }),
+    );
+
+    expect(loadSettings()).toEqual({ serverUrl: 'https://legacy.example.com' });
   });
 
   it('should normalize trailing slashes', () => {

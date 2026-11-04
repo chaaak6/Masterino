@@ -299,6 +299,7 @@ describe('connect command', () => {
     expect(lastSentSystemInfoResponse.result.success).toBe(true);
     expect(lastSentSystemInfoResponse.result.systemInfo).toHaveProperty('homePath');
     expect(lastSentSystemInfoResponse.result.systemInfo).toHaveProperty('arch');
+    expect(lastSentSystemInfoResponse.result.systemInfo.userDataPath).toContain('.masterino');
   });
 
   it('should handle auth_failed', async () => {

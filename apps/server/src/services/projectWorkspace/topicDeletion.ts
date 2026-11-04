@@ -126,6 +126,7 @@ export class TopicDeletionService {
 
     const cleaned = await this.deps.deviceGateway.cleanupScratchWorkspace({
       deviceId,
+      expectedRoot: workspace.rootPath,
       topicId: topic.id,
       userId: this.deps.userId,
     });

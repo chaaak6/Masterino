@@ -10,7 +10,6 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 
 import {
@@ -20,6 +19,8 @@ import {
   SKILL_PACKAGE_MAX_BYTES,
 } from '@lobechat/skill-package';
 import { unzipSync } from 'fflate';
+
+import { resolveMasterinoHomePaths } from './masterinoHome';
 
 export interface PrepareDeviceSkillPackage {
   forceRefresh?: boolean;
@@ -49,7 +50,7 @@ async function resolveSkillRoot(extractedDir: string): Promise<string> {
 /** Content-addressed, atomic package preparation shared by desktop and CLI devices. */
 export async function prepareSkillPackage(
   input: PrepareDeviceSkillPackage,
-  cacheRoot = path.join(os.homedir(), '.masterino', 'skills'),
+  cacheRoot = resolveMasterinoHomePaths().skillsRoot,
   download: (url: string) => Promise<Response> = fetch,
 ): Promise<{ extractedDir: string; success: true; zipPath: string }> {
   if (!/^[a-f0-9]{64}$/i.test(input.zipHash)) throw new Error('Invalid skill package hash');

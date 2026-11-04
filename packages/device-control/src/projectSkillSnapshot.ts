@@ -11,8 +11,9 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
+
+import { resolveMasterinoHomePaths } from './masterinoHome';
 
 export interface ProjectSkillSnapshotParams {
   operationId: string;
@@ -72,7 +73,7 @@ async function scan(directory: string) {
 /** Device-owned persistent operation binding. A recreated runtime cannot switch to live resources. */
 export async function prepareProjectSkillSnapshot(
   input: ProjectSkillSnapshotParams,
-  cacheRoot = path.join(os.homedir(), '.masterino', 'skills'),
+  cacheRoot = resolveMasterinoHomePaths().skillsRoot,
 ): Promise<ProjectSkillSnapshot> {
   if (
     !input.operationId ||

@@ -78,6 +78,8 @@ export interface EnsureScratchWorkspaceResult {
 }
 
 export interface CleanupScratchWorkspaceParams {
+  /** Persisted workspace root used to resume or delete a pre-migration topic safely. */
+  expectedRoot?: string;
   /** Stable topic identifier; callers cannot supply an arbitrary filesystem path. */
   topicId: string;
 }
@@ -219,5 +221,7 @@ export interface DeviceControlDeps extends WorkspaceScanDeps {
   ) => Promise<HeterogeneousAgentRunResult>;
   /** Explicit host root used only by ensureScratchWorkspace. */
   scratchRoot?: string;
+  /** Previous host-managed roots accepted only when an exact persisted topic path is supplied. */
+  legacyScratchRoots?: string[];
   skillCacheRoot?: string;
 }
