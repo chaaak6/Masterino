@@ -36,7 +36,7 @@ import type { Account, MarketRepository } from './repository.js';
 import { MarketSubmissionConflictError } from './repository.js';
 import { runCuratedSeed } from './seed.js';
 import { validateSkillContent } from './skillArtifact.js';
-import { resolveSkillReviewCategory } from './skillCategories.js';
+import { resolveSkillReviewCategory, skillSubmissionMetadata } from './skillCategories.js';
 import { CredentialVault } from './vault.js';
 
 interface AppEnv extends AuthEnv {
@@ -367,6 +367,7 @@ export const createMarketApp = (options: {
       );
     app.get(`/api/v1/${prefix}/categories`, async (c) => {
       if (type !== 'skill') return c.json(await repository.categories(type));
+      const locale = c.req.query('locale');
       const summary = await repository.skillCategorySummary(
         queryOptions(c),
         c.get('account'),
@@ -377,7 +378,11 @@ export const createMarketApp = (options: {
         {
           category: 'uncategorized',
           key: 'uncategorized',
-          name: c.req.query('locale')?.startsWith('en') ? 'Uncategorized' : '待分类',
+          name: locale?.startsWith('vi')
+            ? 'Chưa phân loại'
+            : locale && !locale.startsWith('zh')
+              ? 'Uncategorized'
+              : '待分类',
           count: summary.uncategorizedCount,
         },
       ]);
@@ -847,13 +852,29 @@ export const createMarketApp = (options: {
     const version = String(form.get('version') || '1.0.0');
     const artifactHash = sha256(content);
     const pool = repository.getPool();
-    const prior = async () =>
-      (
+    const prior = async () => {
+      const existing = (
         await pool.query(
           `SELECT v.id::int AS "versionId", r.id::int AS "resourceId", v.workflow_state AS "workflowState", v.artifact_key AS "artifactKey" FROM market_resources r JOIN market_versions v ON v.resource_id=r.id WHERE r.type='skill' AND r.identifier=$1 AND r.owner_account_id=$2 AND v.version=$3 AND v.artifact_sha256=$4`,
           [identifier, c.get('account').id, version, artifactHash],
         )
       ).rows[0];
+      if (existing && category) {
+        // A retry may refine review metadata without changing the immutable package.
+        await pool.query(
+          `WITH changed AS (
+            UPDATE market_versions SET suggested_category=$2, submitted_at=now()
+            WHERE id=$1 AND workflow_state IN ('submitted','scanning','in_review','approved')
+              AND COALESCE(suggested_category,editor_data->>'catalogCategory') IS DISTINCT FROM $2
+            RETURNING id
+          ) INSERT INTO market_audit_logs(actor_account_id,action,target_type,target_id,details)
+            SELECT $3,'review.category_suggestion','skill',$4,
+              jsonb_build_object('versionId',id,'category',$2::text) FROM changed`,
+          [existing.versionId, category, c.get('account').id, identifier],
+        );
+      }
+      return existing;
+    };
     const artifactKey = `skill/${identifier}/${version}/${randomUUID()}-${artifactHash}.zip`;
     const publicResult = ({ artifactKey: _key, ...result }: Record<string, unknown>) => result;
     let uploadStarted = false;
@@ -931,7 +952,7 @@ export const createMarketApp = (options: {
     if (!(file instanceof File)) return c.json({ error: 'skill_zip_required' }, 400);
     if (file.size > SKILL_PACKAGE_MAX_BYTES) return c.json({ error: 'skill_zip_too_large' }, 413);
     const manifest = JSON.parse(String(form.get('manifest') || '{}')) as Record<string, unknown>;
-    const metadata = JSON.parse(String(form.get('metadata') || '{}')) as Record<string, unknown>;
+    const metadata = skillSubmissionMetadata(JSON.parse(String(form.get('metadata') || '{}')));
     const manifestErrors = validateArtifactManifest(manifest);
     if (!Array.isArray(manifest.files) || manifestErrors.length)
       return c.json({ error: 'unsafe_or_missing_manifest', details: manifestErrors }, 400);
@@ -965,7 +986,8 @@ export const createMarketApp = (options: {
       );
     } else {
       await repository.getPool().query(
-        `UPDATE market_resources SET metadata=$1, name=$2, description=$3, updated_at=now()
+        `UPDATE market_resources SET metadata=$1::jsonb || jsonb_strip_nulls(jsonb_build_object('catalogCategoryConfirmedAt',metadata->'catalogCategoryConfirmedAt')),
+          name=$2, description=$3, updated_at=now()
          WHERE type='skill' AND identifier=$4 AND owner_account_id=$5`,
         [
           JSON.stringify(metadata),
@@ -1808,8 +1830,8 @@ export const createMarketApp = (options: {
     const result = await repository.getPool().query(
       `SELECT r.type, r.identifier, r.name, r.metadata, v.version, v.id::int AS "versionId",
         v.workflow_state AS "workflowState", v.scan_result AS "scanResult",
-        r.category, v.editor_data->>'catalogCategory' AS "suggestedCategory",
-        r.metadata->>'catalogCategoryConfirmedAt' AS "categoryConfirmedAt", v.created_at AS "versionCreatedAt",
+        r.category, COALESCE(v.suggested_category,v.editor_data->>'catalogCategory') AS "suggestedCategory",
+        r.metadata->>'catalogCategoryConfirmedAt' AS "categoryConfirmedAt", COALESCE(v.submitted_at,v.created_at) AS "versionCreatedAt",
         jsonb_build_object('config', v.config, 'manifest', v.manifest) AS "currentConfig",
         (SELECT jsonb_build_object('config', pv.config, 'manifest', pv.manifest)
          FROM market_versions pv WHERE pv.resource_id=r.id AND (pv.created_at,pv.id)<(v.created_at,v.id)

@@ -44,7 +44,8 @@ export const useSkillCategory = (params: { q?: string } = {}) => {
     },
     ...(result.data?.categories ?? []).map((item) => {
       const useDictionary =
-        item.registered && (item.locale === locale || /^(?:en|zh)(?:-|$)/i.test(locale));
+        item.registered &&
+        item.locale?.split('-')[0].toLowerCase() === locale.split('-')[0].toLowerCase();
       return {
         key: item.category,
         label: useDictionary

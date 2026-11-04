@@ -104,6 +104,14 @@ export class AgentSkillsActionImpl {
     return result;
   };
 
+  importAgentSkillFromMarket = async (
+    identifier: string,
+  ): Promise<SkillImportResult | undefined> => {
+    const result = await agentSkillService.importFromMarket(identifier);
+    await this.#refreshImportedSkill(result);
+    return result;
+  };
+
   importAgentSkillFromUrl = async (
     params: ImportUrlInput,
   ): Promise<SkillImportResult | undefined> => {

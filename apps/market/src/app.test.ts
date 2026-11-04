@@ -162,6 +162,22 @@ describe('user skill submission failures and retries', () => {
     },
   );
 
+  it('updates the review category on an identical package without uploading another version', async () => {
+    const { query, repository, request, storage } = setup();
+    query.mockResolvedValue({
+      rows: [{ resourceId: 1, versionId: 2, workflowState: 'submitted' }],
+    });
+    const response = await request({ category: 'productivity-tasks' });
+    expect(response.status).toBe(200);
+    expect(repository.validateSkillCategory).toHaveBeenCalledWith('productivity-tasks');
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('SET suggested_category=$2, submitted_at=now()'),
+      [2, 'productivity-tasks', account.id, 'probe'],
+    );
+    expect(repository.submitResource).not.toHaveBeenCalled();
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
   it('uses ZIP metadata when form metadata disagrees', async () => {
     const { query, repository, request } = setup();
     query

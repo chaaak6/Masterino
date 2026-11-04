@@ -366,21 +366,34 @@ export default function MarketPage() {
                             </Button>
                           )}
                           {record.workflowState === 'approved' && (
-                            <Button
-                              type="primary"
-                              disabled={
-                                record.type === 'skill' &&
+                            <>
+                              <Button
+                                type="primary"
+                                disabled={
+                                  record.type === 'skill' &&
+                                  !(categories.data?.items ?? []).some(
+                                    (item: any) =>
+                                      item.resource_type === 'skill' &&
+                                      item.slug ===
+                                        (reviewCategories[record.versionId] || record.category),
+                                  )
+                                }
+                                onClick={() => act(record, 'publish')}
+                              >
+                                发布
+                              </Button>
+                              {record.type === 'skill' &&
                                 !(categories.data?.items ?? []).some(
                                   (item: any) =>
                                     item.resource_type === 'skill' &&
                                     item.slug ===
                                       (reviewCategories[record.versionId] || record.category),
-                                )
-                              }
-                              onClick={() => act(record, 'publish')}
-                            >
-                              发布
-                            </Button>
+                                ) && (
+                                  <Typography.Text type="warning">
+                                    发布前请选择有效技能分类
+                                  </Typography.Text>
+                                )}
+                            </>
                           )}
                         </Space>
                       ),

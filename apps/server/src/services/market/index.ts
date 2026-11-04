@@ -523,7 +523,11 @@ export class MarketService {
       {
         category: 'uncategorized',
         key: 'uncategorized',
-        name: '待分类',
+        name: params.locale?.startsWith('vi')
+          ? 'Chưa phân loại'
+          : params.locale && !params.locale.startsWith('zh')
+            ? 'Uncategorized'
+            : '待分类',
         count: summary.uncategorizedCount,
       },
     ];

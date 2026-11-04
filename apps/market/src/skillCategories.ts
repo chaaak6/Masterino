@@ -112,3 +112,9 @@ export function resolveSkillReviewCategory(
     return category;
   return suggestedCategory || category;
 }
+
+export function skillSubmissionMetadata(metadata?: Record<string, unknown>) {
+  const result = { ...metadata };
+  delete result.catalogCategoryConfirmedAt;
+  return result;
+}

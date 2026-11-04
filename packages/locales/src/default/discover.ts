@@ -25,6 +25,9 @@ export default {
   'publishing.submit': 'Submit for review',
   'publishing.imported': 'Imported for your personal use. Sharing for review is optional.',
   'publishing.installSucceeded': 'Installed to your skill library.',
+  'publishing.updateToCurrentVersion': 'Update to current release',
+  'publishing.updateSucceeded': 'Skill updated in your library.',
+  'publishing.alreadyCurrent': 'Your skill already matches this release.',
   'publishing.installToLibrary': 'Install to My Skill Library',
   'publishing.installSubmittedZipHint':
     'Use the ZIP you just submitted in your skill library while it is under review.',

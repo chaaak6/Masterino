@@ -4,6 +4,7 @@ import {
   readSkillCategorySummary,
   resolveSkillReviewCategory,
   resourceFilters,
+  skillSubmissionMetadata,
 } from './skillCategories.js';
 
 export interface Account {
@@ -234,7 +235,9 @@ export class MarketRepository {
         data.avatar || null,
         data.category || null,
         JSON.stringify(data.tags || []),
-        JSON.stringify(data.metadata || {}),
+        JSON.stringify(
+          type === 'skill' ? skillSubmissionMetadata(data.metadata) : data.metadata || {},
+        ),
       ],
     );
     if (!result.rowCount) throw new Error(`Resource already exists: ${data.identifier}`);
@@ -273,7 +276,9 @@ export class MarketRepository {
           data.avatar || null,
           data.category || null,
           JSON.stringify(data.tags || []),
-          JSON.stringify(data.metadata || {}),
+          JSON.stringify(
+            type === 'skill' ? skillSubmissionMetadata(data.metadata) : data.metadata || {},
+          ),
         ],
       );
       const newResource = !!resource.rowCount;
@@ -297,8 +302,8 @@ export class MarketRepository {
       }
       const version = await client.query(
         `INSERT INTO market_versions(resource_id,version,config,editor_data,manifest,localizations,changelog,created_by,
-          artifact_key,artifact_sha256,workflow_state,submitted_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'submitted',now()) RETURNING id`,
+          artifact_key,artifact_sha256,workflow_state,submitted_at,suggested_category)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'submitted',now(),$11) RETURNING id`,
         [
           resource.rows[0].id,
           versionFrom(data) || '1.0.0',
@@ -313,6 +318,7 @@ export class MarketRepository {
           account.id,
           artifact?.key || null,
           artifact?.sha256 || null,
+          type === 'skill' ? data.category || null : null,
         ],
       );
       await client.query(
@@ -365,8 +371,8 @@ export class MarketRepository {
     try {
       await client.query('BEGIN');
       const inserted = await client.query(
-        `INSERT INTO market_versions(resource_id, version, config, editor_data, manifest, localizations, changelog, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        `INSERT INTO market_versions(resource_id, version, config, editor_data, manifest, localizations, changelog, created_by, suggested_category)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
         [
           resourceId,
           version,
@@ -376,6 +382,7 @@ export class MarketRepository {
           JSON.stringify(data.localizations || {}),
           data.changelog || null,
           account.id,
+          type === 'skill' ? data.category || data.editorData?.catalogCategory || null : null,
         ],
       );
       await client.query(
@@ -484,7 +491,7 @@ export class MarketRepository {
     try {
       await client.query('BEGIN');
       const resource = await client.query(
-        `SELECT r.*, v.id AS review_version_id, v.workflow_state, v.editor_data AS review_editor_data, v.created_at AS review_version_created_at FROM market_resources r JOIN market_versions v ON v.resource_id=r.id AND v.id=COALESCE($3::bigint,r.current_version_id)
+        `SELECT r.*, v.id AS review_version_id, v.workflow_state, v.editor_data AS review_editor_data, v.suggested_category AS review_suggested_category, COALESCE(v.submitted_at,v.created_at) AS review_version_created_at FROM market_resources r JOIN market_versions v ON v.resource_id=r.id AND v.id=COALESCE($3::bigint,r.current_version_id)
          WHERE r.type=$1 AND r.identifier=$2 FOR UPDATE`,
         [type, identifier, target?.versionId ?? null],
       );
@@ -517,7 +524,8 @@ export class MarketRepository {
           ? category ||
             resolveSkillReviewCategory(
               resource.rows[0].category,
-              resource.rows[0].review_editor_data?.catalogCategory,
+              resource.rows[0].review_suggested_category ||
+                resource.rows[0].review_editor_data?.catalogCategory,
               resource.rows[0].metadata?.catalogCategoryConfirmedAt,
               resource.rows[0].review_version_created_at,
             )
