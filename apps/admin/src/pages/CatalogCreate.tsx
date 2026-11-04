@@ -4,6 +4,7 @@ import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import SkillCategorySelect from '../components/SkillCategorySelect';
 import { parseCatalogMcp } from './catalogImport';
 
 export default function CatalogCreate({
@@ -151,7 +152,11 @@ export default function CatalogCreate({
           </Form.Item>
           <Space align="start">
             <Form.Item label="分类" name="category">
-              <Input placeholder="例如 information-retrieval" />
+              {type === 'skill' ? (
+                <SkillCategorySelect />
+              ) : (
+                <Input placeholder="例如 information-retrieval" />
+              )}
             </Form.Item>
             <Form.Item label="版本" name="version" rules={[{ required: true }]}>
               <Input />

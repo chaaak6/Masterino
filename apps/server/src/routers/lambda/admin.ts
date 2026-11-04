@@ -2387,6 +2387,7 @@ export const adminRouter = router({
   reviewMarketResource: adminProcedure
     .input(
       z.object({
+        category: z.string().trim().min(1).optional(),
         versionId: z.number().int().positive().optional(),
         expectedState: z.string().optional(),
         action: z.enum([
@@ -2411,6 +2412,7 @@ export const adminRouter = router({
         {
           body: {
             action: input.action,
+            category: input.category,
             reason: input.reason,
             scanResult: input.scanResult,
             versionId: input.versionId,
@@ -2487,6 +2489,16 @@ export const adminRouter = router({
         ctx,
         `/api/internal/resources/${encodeURIComponent(input.type)}/${encodeURIComponent(input.identifier)}/rollback`,
         { body: { version: input.version }, method: 'POST' },
+      ),
+    ),
+
+  updateSkillCategory: adminProcedure
+    .input(z.object({ identifier: z.string().min(1), category: z.string().trim().min(1) }))
+    .mutation(({ ctx, input }) =>
+      callInternalMarketAdmin(
+        ctx,
+        `/api/internal/resources/skill/${encodeURIComponent(input.identifier)}/category`,
+        { method: 'PATCH', body: { category: input.category } },
       ),
     ),
 

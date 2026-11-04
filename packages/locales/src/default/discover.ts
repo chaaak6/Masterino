@@ -910,6 +910,11 @@ export default {
   'skills.categories.ai-llms.name': 'AI & LLMs',
 
   'skills.categories.all.description': 'All Skills',
+  'skills.categories.loadError': 'Could not load skill categories.',
+  'skills.categories.uncategorized.name': 'Uncategorized',
+  'skills.categories.uncategorized.description': 'Skills awaiting categorization',
+  'publishing.categoryPlaceholder': 'Suggested category (optional)',
+  'publishing.categoryHint': 'The reviewer confirms the category before publishing.',
   'skills.categories.all.name': 'All',
 
   'skills.categories.apple-apps-services.description':

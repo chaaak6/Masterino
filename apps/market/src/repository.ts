@@ -1,5 +1,6 @@
 import type { ResourceType, TrustedClientPayload, WorkflowState } from './contracts.js';
 import type { MarketPool } from './db.js';
+import { readSkillCategorySummary, resourceFilters } from './skillCategories.js';
 
 export interface Account {
   email?: string;
@@ -104,28 +105,7 @@ export class MarketRepository {
   async list(type: ResourceType, options: ListOptions, account: Account, workspaceId?: string) {
     const page = Math.max(1, Number(options.page) || 1);
     const pageSize = Math.min(100, Math.max(1, Number(options.pageSize) || 20));
-    const values: unknown[] = [type, account.id, workspaceId || null];
-    const filters = [
-      `r.type=$1`,
-      `(r.status='published' OR r.owner_account_id=$2 OR ($3::text IS NOT NULL AND r.workspace_id=$3))`,
-    ];
-    if (options.publishedOriginalsOnly) {
-      filters.push(`r.status='published'`, 'r.forked_from_id IS NULL');
-    }
-    if (options.identifiers) {
-      values.push(options.identifiers);
-      filters.push(`r.identifier=ANY($${values.length}::text[])`);
-    }
-    if (options.category && options.category !== 'all') {
-      values.push(options.category);
-      filters.push(`r.category=$${values.length}`);
-    }
-    if (options.q) {
-      values.push(`%${options.q}%`);
-      filters.push(
-        `(r.name ILIKE $${values.length} OR r.description ILIKE $${values.length} OR r.identifier ILIKE $${values.length})`,
-      );
-    }
+    const { values, filters } = resourceFilters(type, options, account, workspaceId);
     values.push(pageSize, (page - 1) * pageSize);
     const order =
       options.sort === 'installCount' || options.sort === 'mostUsage'
@@ -198,6 +178,36 @@ export class MarketRepository {
     return result.rows;
   }
 
+  async skillCategorySummary(options: ListOptions, account: Account, workspaceId?: string) {
+    return readSkillCategorySummary(
+      this.pool,
+      resourceFilters('skill', { ...options, category: undefined }, account, workspaceId),
+      options.locale,
+    );
+  }
+
+  async validateSkillCategory(category: string, query = this.pool.query.bind(this.pool)) {
+    const result = await query(
+      `SELECT 1 FROM market_categories WHERE resource_type='skill' AND slug=$1`,
+      [category],
+    );
+    if (!result.rowCount) throw new Error('请选择有效的技能分类');
+  }
+
+  async updateSkillCategory(identifier: string, category: string, actor: Account) {
+    await this.validateSkillCategory(category);
+    const result = await this.pool.query(
+      `WITH previous AS (
+      SELECT id,category FROM market_resources WHERE type='skill' AND identifier=$1 FOR UPDATE
+    ) UPDATE market_resources r SET category=$2,updated_at=now() FROM previous p
+      WHERE r.id=p.id RETURNING r.identifier,p.category AS "oldCategory",r.category`,
+      [identifier, category],
+    );
+    if (!result.rowCount) throw new Error('Resource not found');
+    await this.audit(actor, undefined, 'resource.category', 'skill', identifier, result.rows[0]);
+    return result.rows[0];
+  }
+
   async createResource(
     type: ResourceType,
     data: Record<string, any>,
@@ -240,6 +250,7 @@ export class MarketRepository {
     artifact?: { key: string; sha256: string },
     uploadArtifact?: () => Promise<void>,
   ) {
+    if (type === 'skill' && data.category) await this.validateSkillCategory(data.category);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -286,7 +297,10 @@ export class MarketRepository {
           resource.rows[0].id,
           versionFrom(data) || '1.0.0',
           JSON.stringify(data.config || {}),
-          JSON.stringify(data.editorData || {}),
+          JSON.stringify({
+            ...data.editorData,
+            ...(type === 'skill' && data.category ? { catalogCategory: data.category } : {}),
+          }),
           JSON.stringify(data.manifest || {}),
           JSON.stringify(data.localizations || {}),
           data.changelog || null,
@@ -458,12 +472,13 @@ export class MarketRepository {
     reviewer: Account,
     scanResult?: Record<string, unknown>,
     target?: { versionId: number; expectedState?: string },
+    category?: string,
   ) {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       const resource = await client.query(
-        `SELECT r.*, v.id AS review_version_id, v.workflow_state FROM market_resources r JOIN market_versions v ON v.resource_id=r.id AND v.id=COALESCE($3::bigint,r.current_version_id)
+        `SELECT r.*, v.id AS review_version_id, v.workflow_state, v.editor_data AS review_editor_data FROM market_resources r JOIN market_versions v ON v.resource_id=r.id AND v.id=COALESCE($3::bigint,r.current_version_id)
          WHERE r.type=$1 AND r.identifier=$2 FOR UPDATE`,
         [type, identifier, target?.versionId ?? null],
       );
@@ -491,6 +506,16 @@ export class MarketRepository {
         String(resource.rows[0].review_version_id) !== String(resource.rows[0].current_version_id)
       )
         throw new Error('Cannot deprecate a historical version through the resource action.');
+      const publishCategory =
+        type === 'skill' && action === 'publish'
+          ? category ||
+            resource.rows[0].review_editor_data?.catalogCategory ||
+            resource.rows[0].category
+          : undefined;
+      if (type === 'skill' && action === 'publish') {
+        if (!publishCategory) throw new Error('发布前请选择技能分类');
+        await this.validateSkillCategory(publishCategory, client.query.bind(client));
+      }
       const effectiveScanResult =
         scanResult ||
         (action === 'scan-passed'
@@ -515,10 +540,11 @@ export class MarketRepository {
       if (transition.to === 'published')
         await client.query(
           `UPDATE market_resources r SET status='published', current_version_id=$2,
+            category=CASE WHEN r.type='skill' THEN $3 ELSE r.category END,
             name=CASE WHEN r.type='skill' THEN COALESCE(NULLIF(v.manifest->>'name',''),r.name) ELSE r.name END,
             description=CASE WHEN r.type='skill' THEN COALESCE(NULLIF(v.manifest->>'description',''),r.description) ELSE r.description END,
             updated_at=now() FROM market_versions v WHERE r.id=$1 AND v.id=$2 AND v.resource_id=r.id`,
-          [resource.rows[0].id, resource.rows[0].review_version_id],
+          [resource.rows[0].id, resource.rows[0].review_version_id, publishCategory || null],
         );
       if (transition.to === 'deprecated')
         await client.query(
@@ -528,6 +554,9 @@ export class MarketRepository {
       await client.query('COMMIT');
       await this.audit(reviewer, undefined, `review.${action}`, type, identifier, {
         reason,
+        ...(publishCategory
+          ? { category: publishCategory, oldCategory: resource.rows[0].category }
+          : {}),
         versionId: resource.rows[0].review_version_id,
       });
       return { identifier, success: true, workflowState: transition.to };

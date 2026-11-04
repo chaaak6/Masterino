@@ -95,3 +95,17 @@ export interface DiscoverSkillDetail extends MarketSkillDetail {
 }
 
 export type SkillCategoryItem = MarketSkillCategory;
+
+export interface SkillCategorySummary {
+  allCount: number;
+  categories: Array<{
+    category: string;
+    key: string;
+    name: string;
+    description: string;
+    count: number;
+    sortOrder: number;
+    registered: boolean;
+  }>;
+  uncategorizedCount: number;
+}

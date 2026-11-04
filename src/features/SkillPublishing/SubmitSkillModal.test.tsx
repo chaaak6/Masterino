@@ -27,6 +27,9 @@ vi.mock('@/libs/trpc/client', () => ({
     },
   },
 }));
+vi.mock('@/hooks/useSkillCategory', () => ({
+  useSkillCategorySummary: () => ({ data: { categories: [] } }),
+}));
 vi.mock('@/services/upload', () => ({ uploadService: { uploadFileToS3: mocks.upload } }));
 const state = {
   agentSkills: [
@@ -80,13 +83,15 @@ vi.mock('@lobehub/ui/base-ui', () => ({
     value,
     options,
     onChange,
+    placeholder,
   }: {
+    placeholder?: string;
     value?: string;
     options: { label: string; value: string }[];
     onChange: (value: string) => void;
   }) => (
     <select
-      aria-label="Personal skill"
+      aria-label={placeholder || 'Personal skill'}
       value={value ?? ''}
       onChange={(event) => onChange(event.target.value)}
     >
@@ -175,9 +180,13 @@ describe('skill submission dialog', () => {
     const onClose = vi.fn();
     const { rerender } = render(<SubmitSkillModal open={false} onClose={onClose} />);
     rerender(<SubmitSkillModal open skillId="personal-a" onClose={onClose} />);
-    expect(screen.getByRole('combobox')).toHaveValue('personal-a');
+    expect(screen.getByRole('combobox', { name: 'publishing.chooseSkill' })).toHaveValue(
+      'personal-a',
+    );
     rerender(<SubmitSkillModal open skillId="personal-b" onClose={onClose} />);
-    expect(screen.getByRole('combobox')).toHaveValue('personal-b');
+    expect(screen.getByRole('combobox', { name: 'publishing.chooseSkill' })).toHaveValue(
+      'personal-b',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'user.submit' }));
     await waitFor(() =>
       expect(mocks.submitPersonal).toHaveBeenCalledWith({ skillId: 'personal-b' }),

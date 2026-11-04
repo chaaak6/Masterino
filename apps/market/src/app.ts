@@ -4,6 +4,7 @@ import { SKILL_PACKAGE_MAX_BYTES } from '@lobechat/skill-package';
 import { unzipSync } from 'fflate';
 import { type Context, Hono } from 'hono';
 import { Redis } from 'ioredis';
+import { z } from 'zod';
 
 import { getAgentAvatar } from './agentAvatars.js';
 import { type AuthEnv, requireRole, trustedClientAuth } from './auth.js';
@@ -353,7 +354,33 @@ export const createMarketApp = (options: {
         ),
       ),
     );
-    app.get(`/api/v1/${prefix}/categories`, async (c) => c.json(await repository.categories(type)));
+    if (type === 'skill')
+      app.get(`/api/v1/${prefix}/category-summary`, async (c) =>
+        c.json(
+          await repository.skillCategorySummary(
+            queryOptions(c),
+            c.get('account'),
+            c.get('actor').workspaceId,
+          ),
+        ),
+      );
+    app.get(`/api/v1/${prefix}/categories`, async (c) => {
+      if (type !== 'skill') return c.json(await repository.categories(type));
+      const summary = await repository.skillCategorySummary(
+        queryOptions(c),
+        c.get('account'),
+        c.get('actor').workspaceId,
+      );
+      return c.json([
+        ...summary.categories,
+        {
+          category: 'uncategorized',
+          key: 'uncategorized',
+          name: '待分类',
+          count: summary.uncategorizedCount,
+        },
+      ]);
+    });
     app.get(`/api/v1/${prefix}/identifiers`, async (c) => {
       const result = await repository.list(
         type,
@@ -813,6 +840,8 @@ export const createMarketApp = (options: {
       }
     }
     if (errors.length) return c.json({ error: 'unsafe_skill', details: errors }, 400);
+    const category = String(form.get('category') || '').trim() || undefined;
+    if (category) await repository.validateSkillCategory(category);
     const identifier = c.req.param('identifier');
     const version = String(form.get('version') || '1.0.0');
     const artifactHash = sha256(content);
@@ -838,6 +867,7 @@ export const createMarketApp = (options: {
           identifier,
           version,
           manifest,
+          category,
           name: String(manifest.name),
           description: String(manifest.description),
           metadata,
@@ -894,6 +924,8 @@ export const createMarketApp = (options: {
   });
   app.post('/api/v1/user/skills/:identifier/versions', async (c) => {
     const form = await c.req.formData();
+    const category = String(form.get('category') || '').trim() || undefined;
+    if (category) await repository.validateSkillCategory(category);
     const file = form.get('file');
     if (!(file instanceof File)) return c.json({ error: 'skill_zip_required' }, 400);
     if (file.size > SKILL_PACKAGE_MAX_BYTES) return c.json({ error: 'skill_zip_too_large' }, 413);
@@ -923,6 +955,7 @@ export const createMarketApp = (options: {
         {
           description: String(form.get('description') || ''),
           identifier,
+          category,
           manifest,
           metadata,
           name: String(form.get('name') || identifier),
@@ -944,7 +977,7 @@ export const createMarketApp = (options: {
     }
     const created = await repository.createVersion(
       'skill',
-      { identifier, manifest, version },
+      { identifier, manifest, version, editorData: category ? { catalogCategory: category } : {} },
       ...(Object.values(actorScope(c)) as [Account, string | undefined]),
     );
     await repository
@@ -1774,6 +1807,7 @@ export const createMarketApp = (options: {
     const result = await repository.getPool().query(
       `SELECT r.type, r.identifier, r.name, r.metadata, v.version, v.id::int AS "versionId",
         v.workflow_state AS "workflowState", v.scan_result AS "scanResult",
+        COALESCE(v.editor_data->>'catalogCategory',r.category) AS category,
         jsonb_build_object('config', v.config, 'manifest', v.manifest) AS "currentConfig",
         (SELECT jsonb_build_object('config', pv.config, 'manifest', pv.manifest)
          FROM market_versions pv WHERE pv.resource_id=r.id AND (pv.created_at,pv.id)<(v.created_at,v.id)
@@ -1872,6 +1906,20 @@ export const createMarketApp = (options: {
     );
     return c.json({ items: result.rows });
   });
+  app.patch(
+    '/api/internal/resources/skill/:identifier/category',
+    requireRole('reviewer', 'admin'),
+    async (c) => {
+      const input = z.object({ category: z.string().trim().min(1) }).parse(await c.req.json());
+      return c.json(
+        await repository.updateSkillCategory(
+          c.req.param('identifier')!,
+          input.category,
+          c.get('account'),
+        ),
+      );
+    },
+  );
   app.post(
     '/api/internal/resources/:type/:identifier/review',
     requireRole('reviewer', 'admin'),
@@ -1891,6 +1939,7 @@ export const createMarketApp = (options: {
           input.versionId === undefined
             ? undefined
             : { versionId: input.versionId, expectedState: input.expectedState },
+          input.category,
         ),
       );
     },

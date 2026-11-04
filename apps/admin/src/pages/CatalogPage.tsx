@@ -1,6 +1,8 @@
 import { trpc } from '@admin/lib/trpc';
-import { Alert, Button, Card, Flex, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Flex, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
+
+import SkillCategorySelect from '../components/SkillCategorySelect';
 import CatalogCreate from './CatalogCreate';
 
 type CatalogResourceType = 'agent' | 'mcp' | 'skill';
@@ -74,6 +76,7 @@ type WorkflowState =
   | 'submitted';
 
 export default function CatalogPage({ type }: { type: CatalogResourceType }) {
+  const { message } = App.useApp();
   const config = pageConfig[type];
   const [creating, setCreating] = useState(false);
   const [page, setPage] = useState(1);
@@ -91,6 +94,14 @@ export default function CatalogPage({ type }: { type: CatalogResourceType }) {
     type,
     visibility: (visibility || undefined) as 'internal' | 'private' | 'public' | undefined,
     workflowState: (workflowState || undefined) as WorkflowState | undefined,
+  });
+
+  const updateCategory = trpc.admin.updateSkillCategory.useMutation({
+    onError: (error) => message.error(error.message),
+    onSuccess: async () => {
+      message.success('技能分类已更新');
+      await resources.refetch();
+    },
   });
 
   const resetPage = (callback: () => void) => {
@@ -123,8 +134,8 @@ export default function CatalogPage({ type }: { type: CatalogResourceType }) {
         <CatalogCreate
           key={type}
           type={type}
-          onCreated={() => void resources.refetch()}
           onCancel={() => setCreating(false)}
+          onCreated={() => void resources.refetch()}
         />
       )}
       <Card>
@@ -191,7 +202,22 @@ export default function CatalogPage({ type }: { type: CatalogResourceType }) {
               title: '资源',
             },
             { dataIndex: 'version', title: '版本', width: 110 },
-            { dataIndex: 'category', title: '分类', width: 120 },
+            {
+              dataIndex: 'category',
+              title: '分类',
+              width: 190,
+              render: (value, record) =>
+                type === 'skill' ? (
+                  <SkillCategorySelect
+                    value={value || undefined}
+                    onChange={(category) =>
+                      updateCategory.mutate({ identifier: record.identifier, category })
+                    }
+                  />
+                ) : (
+                  value
+                ),
+            },
             {
               dataIndex: 'status',
               render: (value) => <Tag color={statusColor[value]}>{value}</Tag>,

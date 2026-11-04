@@ -57,6 +57,8 @@ const account = {
 const createRepository = () => ({
   audit: vi.fn(async () => undefined),
   categories: vi.fn(async () => []),
+  skillCategorySummary: vi.fn(async () => ({ allCount: 0, uncategorizedCount: 0, categories: [] })),
+  validateSkillCategory: vi.fn(async () => undefined),
   detail: vi.fn(async (_type, identifier) => ({
     config: { model: 'internal-model' },
     identifier,
