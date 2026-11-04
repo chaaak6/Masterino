@@ -478,6 +478,7 @@
   "publishedTime": "发布于",
   "publishing.alreadyCurrent": "技能已与当前发布版本一致。",
   "publishing.alreadyPublished": "此版本已发布，无需重复提交。",
+  "publishing.baselineConflict": "无法核验已安装技能，已保留原内容。请先备份并移除原技能，再安装此版本。",
   "publishing.categoryHint": "审核员将在发布前确认分类。",
   "publishing.categoryPlaceholder": "建议分类（可选）",
   "publishing.chooseSkill": "选择个人技能",

@@ -31,6 +31,8 @@ export default {
   'publishing.installToLibrary': 'Install to My Skill Library',
   'publishing.installSubmittedZipHint':
     'Use the ZIP you just submitted in your skill library while it is under review.',
+  'publishing.baselineConflict':
+    'The installed skill cannot be verified. It has been kept unchanged. Back it up and remove it before installing this release.',
   'publishing.installFailed': 'Could not install the skill. Please try again.',
   'publishing.keepOriginal':
     'This is your original skill. Manage it in your personal library; it has not been deleted.',

@@ -43,7 +43,7 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
   const { t: tc } = useTranslation('common');
   const [detailOpen, setDetailOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { canCreate, handleInstall, installedSkill, installing } = useMarketSkillInstall(
+  const { canCreate, handleInstall, installedSkill, installing, isLoading } = useMarketSkillInstall(
     identifier,
     name,
   );
@@ -144,7 +144,7 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
 
     return (
       <ActionIcon
-        disabled={!canCreate}
+        disabled={!canCreate || isLoading}
         icon={Plus}
         title={t('store.actions.install')}
         onClick={handleInstall}

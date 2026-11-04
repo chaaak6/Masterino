@@ -114,6 +114,11 @@ export function resolveSkillReviewCategory(
 }
 
 export function skillSubmissionMetadata(metadata?: Record<string, unknown>) {
+  if (
+    metadata !== undefined &&
+    (!metadata || typeof metadata !== 'object' || Array.isArray(metadata))
+  )
+    throw new Error('Skill metadata must be a JSON object');
   const result = { ...metadata };
   delete result.catalogCategoryConfirmedAt;
   return result;

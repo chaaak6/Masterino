@@ -2,7 +2,7 @@
 
 本用例供测试人员按真实界面执行。测试 App、API、Market、管理后台均连接测试集群；测试和生产各自保留资源，数量无需相同。生产资源、分类和部署不在本轮操作范围内。
 
-验收前记录 PR 提交号、测试 App 路径/版本、API/Market/后台实际运行版本、测试账号、工作区和测试时间。确认后台为 `admin-mlai-test.bielcrystal.com`，App 请求进入测试集群。本机开发服务或独立测试预览可以承载本次代码，但最终验收必须在 Electron 测试 App 中进行。
+验收前记录 PR 提交号、测试 App 路径/版本、API/Market/后台实际运行版本、测试账号、工作区和测试时间。环境准备者先确认同版 Market 镜像的既有迁移 Job 已成功执行 `0003_skill_categories.sql` 和 `0004_skill_category_suggestions.sql`，再启动依赖这些字段的新服务；两项迁移均不复制业务资源。确认后台为 `admin-mlai-test.bielcrystal.com`，App 请求进入测试集群。本机开发服务或独立测试预览可以承载本次代码，但最终验收必须在 Electron 测试 App 中进行。
 
 打开 Electron 开发者工具，Console 保留日志，Network 记录分类/列表、投稿、审核、下载等关键请求；同时跟踪该测试 App 的主进程日志和本次测试服务日志。记录操作、可见结果、请求状态和相关错误；证据隐去令牌、密码、Cookie 及真实业务文件内容。不能以接口成功、按钮被点击或源码单测代替真实功能成功。
 

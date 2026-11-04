@@ -863,7 +863,7 @@ export const createMarketApp = (options: {
         // A retry may refine review metadata without changing the immutable package.
         await pool.query(
           `WITH changed AS (
-            UPDATE market_versions SET suggested_category=$2, submitted_at=now()
+            UPDATE market_versions SET suggested_category=$2
             WHERE id=$1 AND workflow_state IN ('submitted','scanning','in_review','approved')
               AND COALESCE(suggested_category,editor_data->>'catalogCategory') IS DISTINCT FROM $2
             RETURNING id
@@ -877,12 +877,16 @@ export const createMarketApp = (options: {
     };
     const artifactKey = `skill/${identifier}/${version}/${randomUUID()}-${artifactHash}.zip`;
     const publicResult = ({ artifactKey: _key, ...result }: Record<string, unknown>) => result;
+    const existingResponse = (existing: Record<string, unknown>) =>
+      existing.workflowState === 'rejected' && category
+        ? c.json({ error: '该版本已被拒绝，请修改内容后重新提交；分类也可由管理员调整。' }, 409)
+        : c.json(publicResult(existing));
     let uploadStarted = false;
     let uploadCompleted = false;
     let committed = false;
     try {
       const existing = await prior();
-      if (existing) return c.json(publicResult(existing));
+      if (existing) return existingResponse(existing);
       await repository.submitResource(
         'skill',
         {
@@ -930,7 +934,7 @@ export const createMarketApp = (options: {
           console.warn('Failed to clean skill submission artifact');
         }
       }
-      if (concurrent) return c.json(publicResult(concurrent));
+      if (concurrent) return existingResponse(concurrent);
       if (!(error instanceof MarketSubmissionConflictError))
         console.error('Skill submission infrastructure failure', error);
       return c.json(

@@ -104,7 +104,7 @@ describe('user skill submission failures and retries', () => {
       redis: {} as any,
       storage: storage as any,
     });
-    const request = (overrides: Record<string, string | File> = {}) => {
+    const request = (overrides: Record<string, string | File> = {}, endpoint = 'submission') => {
       const form = new FormData();
       form.set(
         'file',
@@ -121,7 +121,7 @@ describe('user skill submission failures and retries', () => {
       form.set('metadata', '{}');
       form.set('version', '1.0.0');
       for (const [key, value] of Object.entries(overrides)) form.set(key, value);
-      return app.request('/api/v1/user/skills/probe/submission', {
+      return app.request(`/api/v1/user/skills/probe/${endpoint}`, {
         method: 'POST',
         headers: { 'x-lobe-trust-token': token },
         body: form,
@@ -170,10 +170,20 @@ describe('user skill submission failures and retries', () => {
     const response = await request({ category: 'productivity-tasks' });
     expect(response.status).toBe(200);
     expect(repository.validateSkillCategory).toHaveBeenCalledWith('productivity-tasks');
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('SET suggested_category=$2, submitted_at=now()'),
-      [2, 'productivity-tasks', account.id, 'probe'],
-    );
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('SET suggested_category=$2'), [
+      2,
+      'productivity-tasks',
+      account.id,
+      'probe',
+    ]);
+    expect(repository.submitResource).not.toHaveBeenCalled();
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it('does not report a rejected package category correction as submitted', async () => {
+    const { query, repository, request, storage } = setup();
+    query.mockResolvedValue({ rows: [{ resourceId: 1, versionId: 2, workflowState: 'rejected' }] });
+    expect((await request({ category: 'design' })).status).toBe(409);
     expect(repository.submitResource).not.toHaveBeenCalled();
     expect(storage.put).not.toHaveBeenCalled();
   });
@@ -216,6 +226,15 @@ describe('user skill submission failures and retries', () => {
       }
     },
   );
+
+  it('rejects non-object metadata on the legacy upload path before writes', async () => {
+    for (const metadata of ['null', '[1,2]', '"text"']) {
+      const { query, request, storage } = setup();
+      expect((await request({ metadata }, 'versions')).status).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+      expect(storage.put).not.toHaveBeenCalled();
+    }
+  });
 
   it('returns 503 for storage failures and cleans only this upload attempt', async () => {
     const { storage, request } = setup();

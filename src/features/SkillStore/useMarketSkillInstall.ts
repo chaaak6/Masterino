@@ -46,7 +46,10 @@ export const useMarketSkillInstall = (identifier: string, name: string) => {
           : message.startsWith('A skill named ') &&
               message.endsWith('already exists. Remove it before installing this skill.')
             ? t('publishing.nameConflict', { name, ns: 'discover' })
-            : message;
+            : message.startsWith('The installed skill baseline could not be verified')
+              ? t('publishing.baselineConflict', { ns: 'discover' })
+              : t('publishing.installFailed', { ns: 'discover' });
+      console.error('[MarketSkillInstall] Installation failed:', message);
       toast.error(`${t('error.installError', { name })}: ${conflict}`);
     } finally {
       installPending.current = false;

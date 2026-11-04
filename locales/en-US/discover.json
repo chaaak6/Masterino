@@ -478,6 +478,7 @@
   "publishedTime": "Published",
   "publishing.alreadyCurrent": "Your skill already matches this release.",
   "publishing.alreadyPublished": "This version is already published.",
+  "publishing.baselineConflict": "The installed skill cannot be verified. It has been kept unchanged. Back it up and remove it before installing this release.",
   "publishing.categoryHint": "The reviewer confirms the category before publishing.",
   "publishing.categoryPlaceholder": "Suggested category (optional)",
   "publishing.chooseSkill": "Choose a personal skill",

@@ -478,6 +478,7 @@
   "publishedTime": "Ngày phát hành",
   "publishing.alreadyCurrent": "Kỹ năng đã khớp với bản phát hành hiện tại.",
   "publishing.alreadyPublished": "Phiên bản này đã được xuất bản.",
+  "publishing.baselineConflict": "Không thể xác minh kỹ năng đã cài. Nội dung hiện tại được giữ nguyên. Hãy sao lưu và gỡ kỹ năng trước khi cài bản này.",
   "publishing.categoryHint": "Bạn có thể đề xuất danh mục; người duyệt sẽ xác nhận trước khi xuất bản.",
   "publishing.categoryPlaceholder": "Đề xuất danh mục (không bắt buộc)",
   "publishing.chooseSkill": "Chọn một kỹ năng cá nhân",

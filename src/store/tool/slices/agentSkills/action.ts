@@ -129,7 +129,13 @@ export class AgentSkillsActionImpl {
   };
 
   refreshAgentSkills = async (): Promise<void> => {
-    const { data } = await agentSkillService.list();
+    const request = agentSkillService.list();
+    await mutate(
+      toolKeys.agentSkills(),
+      request.then(({ data }) => data),
+      { revalidate: false },
+    );
+    const { data } = await request;
     this.#set({ agentSkills: data }, false, n('refreshAgentSkills'));
   };
 

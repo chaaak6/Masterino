@@ -200,7 +200,7 @@ const Platform = memo<PlatformProps>(
     const skillUrl =
       typeof window === 'undefined'
         ? `/community/skill/${encodeURIComponent(identifier || '')}`
-        : window.location.href;
+        : `${window.location.origin}${window.location.pathname}`;
     const agentPrompt = `Open ${skillUrl}, then follow the instructions to set up Masterino Skills Marketplace and install the skill. Once installed, read the SKILL.md file in the installed directory and follow its instructions to complete the task.`;
 
     const handleUseOnLobeAI = useCallback(() => {
