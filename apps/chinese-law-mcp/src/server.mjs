@@ -12,8 +12,7 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
   const normalize = (value) => value.replace(/^中华人民共和国/, '');
   const resolveLaw = (value) =>
     index.find((l) => l.slug === value || l.title === value) ||
-    index.find((l) => normalize(l.title) === normalize(value)) ||
-    index.find((l) => l.title.includes(value));
+    index.find((l) => normalize(l.title) === normalize(value));
   async function loadLaw(meta) {
     // Only indexed slugs are used as file paths.
     if (!cache.has(meta.slug))
@@ -37,17 +36,24 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
     ],
   });
   const makeMcp = () => {
-    const mcp = new McpServer({ name: 'masterino-chinese-law', version: '1.0.0' });
+    const mcp = new McpServer(
+      { name: 'masterino-chinese-law', version: '1.0.0' },
+      { maxToolInputElements: 16 },
+    );
     mcp.tool(
       'search_laws',
       '按名称或简称查找已收录的中国法规。返回目录与条文数量，不是自然语言语义检索。',
       { query: z.string().trim().min(1) },
       async ({ query }) => {
         console.info(JSON.stringify({ event: 'tool-call', tool: 'search_laws' }));
-        const hits = index.filter((l) => l.title.includes(normalize(query))).slice(0, 20);
+        const matches = index.filter((l) => l.title.includes(normalize(query) || query));
+        const hits = matches.slice(0, 20);
         return reply(
           hits.length
-            ? hits.map((l) => `${l.title}（id: ${l.slug}，${l.articleCount} 条）`).join('\n')
+            ? hits.map((l) => `${l.title}（id: ${l.slug}，${l.articleCount} 条）`).join('\n') +
+                (matches.length > hits.length
+                  ? `\n共 ${matches.length} 条匹配，仅显示前 20 条，请使用更精确的名称。`
+                  : '')
             : `未找到包含「${query}」的已收录法规。`,
         );
       },
@@ -93,12 +99,15 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
           .slice(0, 10);
         return reply(
           hits.length
-            ? hits
-                .map(({ a }) => {
-                  const at = a.text.indexOf(terms.find((t) => a.text.includes(t)));
-                  return `${a.displayNumber}：${a.text.slice(Math.max(0, at - 20), at + 160)}`;
-                })
-                .join('\n')
+            ? `《${full.title}》关键词检索摘录（最多 10 条，完整引用请调用 get_article）：\n` +
+                hits
+                  .map(({ a }) => {
+                    const at = a.text.indexOf(terms.find((t) => a.text.includes(t)));
+                    const start = Math.max(0, at - 20),
+                      end = at + 160;
+                    return `${a.displayNumber}：${start ? '…' : ''}${a.text.slice(start, end)}${end < a.text.length ? '…' : ''}`;
+                  })
+                  .join('\n')
             : `《${full.title}》未检索到「${keywords}」。`,
           meta.slug,
         );
@@ -126,6 +135,7 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
+      maxRequestBodySize: 16 * 1024,
     });
     res.on('close', () => {
       void transport.close();

@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const snapshot = JSON.parse(await readFile(join(root, 'snapshot.json'), 'utf8'));
-const temporary = await mkdtemp(join(tmpdir(), 'masterino-law-snapshot-'));
+// Stage beside data/ so the final rename stays on the same filesystem.
+const temporary = await mkdtemp(join(root, '.data-staging-'));
 try {
   const archive = process.env.LAW_ARCHIVE_PATH
     ? await readFile(process.env.LAW_ARCHIVE_PATH)

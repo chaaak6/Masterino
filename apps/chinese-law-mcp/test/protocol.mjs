@@ -14,7 +14,14 @@ before(async () => {
   await mkdir(join(directory, 'laws'));
   await writeFile(
     join(directory, 'laws/index.json'),
-    JSON.stringify([{ slug: 'civil-code', title: '中华人民共和国民法典', articleCount: 1260 }]),
+    JSON.stringify([
+      { slug: 'civil-code', title: '中华人民共和国民法典', articleCount: 1260 },
+      ...Array.from({ length: 21 }, (_, i) => ({
+        slug: `regulation-${i}`,
+        title: `测试管理条例${i}`,
+        articleCount: 1,
+      })),
+    ]),
   );
   await writeFile(
     join(directory, 'laws/civil-code.json'),
@@ -72,6 +79,26 @@ test('Given a law name and keywords, callers find a law and retrieve its matchin
     arguments: { law: 'civil-code', keywords: '违约责任' },
   });
   assert.ok(b.content[0].text.includes('第五百七十七条'));
+  assert.ok(b.content[0].text.includes('中华人民共和国民法典'));
+});
+test('Given a vague law name, article tools require an exact title, short name or id', async () => {
+  for (const name of ['get_article', 'search_in_law']) {
+    const r = await client.callTool({
+      name,
+      arguments: { law: '条例', article_number: 1, keywords: '管理' },
+    });
+    assert.match(r.content[0].text, /未找到法规/);
+  }
+});
+test('Given broad searches, results disclose truncation and prefix-only queries do not match everything', async () => {
+  const broad = await client.callTool({ name: 'search_laws', arguments: { query: '条例' } });
+  assert.match(broad.content[0].text, /共 21 条匹配.*前 20 条/);
+  const prefix = await client.callTool({
+    name: 'search_laws',
+    arguments: { query: '中华人民共和国' },
+  });
+  assert.ok(prefix.content[0].text.includes('civil-code'));
+  assert.ok(!prefix.content[0].text.includes('测试管理条例'));
 });
 test('Given a missing law or article, no text is invented and later valid calls still succeed', async () => {
   for (const args of [
@@ -118,4 +145,30 @@ test('Given non-MCP paths or unsupported GET, server returns clear HTTP status',
   assert.equal((await fetch(`${base}/healthz`)).status, 200);
   assert.equal((await fetch(`${base}/mcp`)).status, 405);
   assert.equal((await fetch(`${base}/missing`)).status, 404);
+});
+test('Given oversized requests or excessive arguments, limits reject them and healthy calls recover', async () => {
+  const response = await fetch(`http://127.0.0.1:${service.address().port}/mcp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'tools/call',
+      id: 1,
+      params: { name: 'search_laws', arguments: { query: 'x'.repeat(17000) } },
+    }),
+  });
+  assert.equal(response.status, 413);
+  const excessive = await client.callTool({
+    name: 'get_article',
+    arguments: { law: 'civil-code', article_number: 577, extra: Array(20).fill(null) },
+  });
+  assert.equal(excessive.isError, true);
+  const valid = await client.callTool({
+    name: 'get_article',
+    arguments: { law: 'civil-code', article_number: 577 },
+  });
+  assert.ok(valid.content[0].text.includes(article));
 });
