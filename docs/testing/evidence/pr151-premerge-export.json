@@ -1,0 +1,10 @@
+{
+  "method": "Actual Electron download menu + native Save dialog",
+  "file": "/Users/a10507479/Downloads/qa-premerge-1102-current.zip",
+  "body": "---\nname: qa-premerge-1102\ndescription: PREMERGE_DESCRIPTION_EDITED\n---\nReply PREMERGE\\_SKILL\\_EDITED. Read references/marker.md when asked.\n",
+  "reference": "PREMERGE_REFERENCE_OK",
+  "files": [
+    "SKILL.md",
+    "references/marker.md"
+  ]
+}

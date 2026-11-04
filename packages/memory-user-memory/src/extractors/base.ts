@@ -20,6 +20,7 @@ import type {
   MemoryExtractionAgent,
   TemplateProps,
 } from '../types';
+import { generateValidatedOutput } from '../utils/structuredOutput';
 import { buildGenerateObjectSchema } from '../utils/zod';
 
 const serializeForSpan = (value: unknown, limit = 4000) => {
@@ -146,17 +147,7 @@ export abstract class BaseMemoryExtractor<
           },
           async (span) => {
             try {
-              try {
-                if (options?.callbacks?.onExtractRequest) {
-                  await options.callbacks.onExtractRequest(this.agent, payload);
-                }
-              } catch (err) {
-                console.error('onExtractRequest callback error', err);
-                // ignore
-              }
-
-              span.addEvent('gen_ai.request.send');
-              const result = await this.runtime.generateObject(payload, {
+              const generationOptions = {
                 metadata: {
                   // Optional backlink to the job-level memory trace blob; the
                   // llm_generation_tracing hook persists it under metadata so a
@@ -167,28 +158,57 @@ export abstract class BaseMemoryExtractor<
                   trigger: RequestTrigger.Memory,
                 },
                 signal: AbortSignal.timeout(180_000),
-              });
-              span.addEvent('gen_ai.response.receive');
+              };
+              const result = await generateValidatedOutput(
+                async (feedback) => {
+                  const requestPayload: GenerateObjectPayload = feedback
+                    ? {
+                        ...payload,
+                        messages: [...payload.messages, { role: 'user', content: feedback }],
+                      }
+                    : payload;
+                  try {
+                    if (options?.callbacks?.onExtractRequest) {
+                      await options.callbacks.onExtractRequest(this.agent, requestPayload);
+                    }
+                  } catch (err) {
+                    console.error('onExtractRequest callback error', err);
+                    // ignore
+                  }
 
-              span.setAttributes({
-                'gen_ai.output.openai.structured_output': serializeForSpan(result),
-              });
+                  span.addEvent('gen_ai.request.send');
+                  const result = await this.runtime.generateObject(
+                    requestPayload,
+                    generationOptions,
+                  );
+                  span.addEvent('gen_ai.response.receive');
 
-              try {
-                if (options?.callbacks?.onExtractResponse) {
-                  await options.callbacks.onExtractResponse<TOutput>(this.agent, result as TOutput);
-                }
-              } catch (err) {
-                console.error('onExtractResponse callback error', err);
-                // ignore
-              }
+                  span.setAttributes({
+                    'gen_ai.output.openai.structured_output': serializeForSpan(result),
+                  });
 
-              const schema = this.getResultSchema();
-              const parsedResult = (schema ? schema.parse(result) : result) as TOutput;
+                  try {
+                    if (options?.callbacks?.onExtractResponse) {
+                      await options.callbacks.onExtractResponse<TOutput>(
+                        this.agent,
+                        result as TOutput,
+                      );
+                    }
+                  } catch (err) {
+                    console.error('onExtractResponse callback error', err);
+                    // ignore
+                  }
+                  return result;
+                },
+                (value) => {
+                  const schema = this.getResultSchema();
+                  return (schema ? schema.parse(value) : value) as TOutput;
+                },
+              );
 
               span.setStatus({ code: SpanStatusCode.OK });
 
-              return parsedResult;
+              return result;
             } catch (error) {
               span.setStatus({
                 code: SpanStatusCode.ERROR,

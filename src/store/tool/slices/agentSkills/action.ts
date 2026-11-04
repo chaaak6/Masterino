@@ -10,9 +10,9 @@ import {
   type UpdateSkillInput,
 } from '@lobechat/types';
 import { produce } from 'immer';
-import useSWR, { mutate, type SWRResponse } from 'swr';
+import useSWR, { type SWRResponse } from 'swr';
 
-import { useClientDataSWR } from '@/libs/swr';
+import { mutate, useClientDataSWR } from '@/libs/swr';
 import { toolKeys } from '@/libs/swr/keys';
 import { agentSkillService } from '@/services/skill';
 import { type StoreSetter } from '@/store/types';
@@ -41,6 +41,20 @@ export class AgentSkillsActionImpl {
     void _api;
     this.#set = set;
     this.#get = get;
+  }
+
+  async #refreshImportedSkill(result: SkillImportResult | undefined) {
+    if (result) {
+      this.#set(
+        produce((draft: AgentSkillsState) => {
+          draft.agentSkillDetailMap[result.skill.id] = result.skill;
+        }),
+        false,
+        n('refreshImportedSkill'),
+      );
+      await mutate(toolKeys.agentSkillDetail(result.skill.id), undefined);
+    }
+    await this.#get().refreshAgentSkills();
   }
 
   createAgentSkill = async (params: CreateSkillInput): Promise<SkillItem | undefined> => {
@@ -86,7 +100,7 @@ export class AgentSkillsActionImpl {
     params: ImportGitHubInput,
   ): Promise<SkillImportResult | undefined> => {
     const result = await agentSkillService.importFromGitHub(params);
-    await this.#get().refreshAgentSkills();
+    await this.#refreshImportedSkill(result);
     return result;
   };
 
@@ -94,7 +108,7 @@ export class AgentSkillsActionImpl {
     params: ImportUrlInput,
   ): Promise<SkillImportResult | undefined> => {
     const result = await agentSkillService.importFromUrl(params);
-    await this.#get().refreshAgentSkills();
+    await this.#refreshImportedSkill(result);
     return result;
   };
 
@@ -102,7 +116,7 @@ export class AgentSkillsActionImpl {
     params: ImportZipInput,
   ): Promise<SkillImportResult | undefined> => {
     const result = await agentSkillService.importFromZip(params);
-    await this.#get().refreshAgentSkills();
+    await this.#refreshImportedSkill(result);
     return result;
   };
 

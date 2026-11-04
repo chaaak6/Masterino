@@ -154,6 +154,9 @@ const Intervention = memo<InterventionProps>(
         }
 
         return coordinatePathConsentApproval(decision, {
+          expectedCanonicalRootPath: pathConsentRequest?.requestedFilePath
+            ? pathConsentRequest.requestedPath
+            : undefined,
           grantTopicRoot: async (canonicalPath) => {
             const granted = await grantTopicAccess({
               deviceId: decision.deviceId,
@@ -192,6 +195,7 @@ const Intervention = memo<InterventionProps>(
         currentDeviceId,
         grantTopicAccess,
         id,
+        pathConsentRequest,
         rejectAndContinueToolCall,
         setOperationPathConsent,
         toolCallId,

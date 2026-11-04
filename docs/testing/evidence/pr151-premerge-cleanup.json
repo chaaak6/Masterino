@@ -1,0 +1,36 @@
+{
+  "actions": [
+    {
+      "identifier": "qa-premerge-admin-1102",
+      "versionId": "155",
+      "action": "deprecate"
+    },
+    {
+      "identifier": "user-b1ee97594fcdb5d14c9d1a66",
+      "versionId": "157",
+      "action": "deprecate"
+    },
+    {
+      "identifier": "user-fbab60e61bf92b99b3b339a4",
+      "versionId": "158",
+      "action": "scan-start"
+    },
+    {
+      "identifier": "user-fbab60e61bf92b99b3b339a4",
+      "versionId": "158",
+      "action": "scan-passed"
+    },
+    {
+      "identifier": "user-fbab60e61bf92b99b3b339a4",
+      "versionId": "158",
+      "action": "reject"
+    }
+  ],
+  "rolesRestored": true,
+  "temporaryAuthRemoved": true,
+  "signedUrlFileRemoved": true,
+  "memorySetting": {
+    "enabled": false
+  },
+  "testDraftsAndMemoryRetained": true
+}

@@ -1,0 +1,23 @@
+{
+  "baseline": "2f0bd8d0",
+  "testedSourceHashes": {
+    "apps/server/src/services/skill/submissionPolicy.ts": "6608f2588a6113b7d5ad1c3d029e508b09c0df7fe76bbc742d1a99c3f528b5f9",
+    "src/routes/(main)/settings/skill/features/SkillDetail/index.tsx": "d46491a1840a640d549ef58358a587f10a9c9fa1cf4e7fee148a50ef685fe9a9"
+  },
+  "namespace": "masterino-test",
+  "api": "masterino-skill-preview-api:3224",
+  "market": "masterino-skill-preview-market:3220",
+  "client": "isolated Electron local-151110200001 profile",
+  "admin": "current source Vite on localhost:3020",
+  "migrations": [
+    {
+      "version": "0001_market.sql"
+    },
+    {
+      "version": "0002_restore_published_skill_pointer.sql"
+    }
+  ],
+  "migrationRerun": "two successful real runs",
+  "dockerImagesRebuilt": false,
+  "productionModified": false
+}

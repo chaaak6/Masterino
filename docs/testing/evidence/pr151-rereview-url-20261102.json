@@ -1,0 +1,36 @@
+{
+  "environment": "Electron real URL import clicks against isolated masterino-test candidate",
+  "before": {
+    "id": "skl_cJzerQL73YhO",
+    "name": "qa-rereview-url-1102",
+    "description": "REREVIEW_URL_ZIP",
+    "content": "Reply URL_BODY_ZIP.",
+    "resources": {
+      "references/retained.md": {
+        "size": 27,
+        "fileHash": "ffd15fa305c167fd1a02c9ad2293d81bce6d9d17aafdcf9f44fc76d6b18abe46"
+      }
+    }
+  },
+  "after": {
+    "id": "skl_cJzerQL73YhO",
+    "name": "qa-rereview-url-1102",
+    "description": "REREVIEW_URL_V4",
+    "content": "Reply URL_BODY_V4.",
+    "resources": {
+      "references/retained.md": {
+        "size": 27,
+        "fileHash": "ffd15fa305c167fd1a02c9ad2293d81bce6d9d17aafdcf9f44fc76d6b18abe46"
+      }
+    }
+  },
+  "export": {
+    "status": 200,
+    "files": [
+      "SKILL.md",
+      "references/retained.md"
+    ],
+    "reference": "REREVIEW_RETAINED_REFERENCE",
+    "bodyMarkerPresent": true
+  }
+}

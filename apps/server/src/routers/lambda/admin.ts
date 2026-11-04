@@ -2348,6 +2348,19 @@ export const adminRouter = router({
     }>(ctx, '/api/internal/resources/summary');
   }),
 
+  getMarketSkillFiles: adminProcedure
+    .input(z.object({ identifier: z.string().min(1), versionId: z.number().int().positive() }))
+    .query(({ ctx, input }) =>
+      callInternalMarketAdmin<{
+        versionId: number;
+        hash: string;
+        files: Array<{ path: string; size: number; sha256: string; content?: string }>;
+      }>(
+        ctx,
+        `/api/internal/skills/${encodeURIComponent(input.identifier)}/versions/${input.versionId}/files`,
+      ),
+    ),
+
   listMarketReviews: adminProcedure.query(async ({ ctx }) =>
     callInternalMarketAdmin<{
       items: Array<{
@@ -2374,6 +2387,8 @@ export const adminRouter = router({
   reviewMarketResource: adminProcedure
     .input(
       z.object({
+        versionId: z.number().int().positive().optional(),
+        expectedState: z.string().optional(),
         action: z.enum([
           'scan-start',
           'scan-passed',
@@ -2394,7 +2409,13 @@ export const adminRouter = router({
         ctx,
         `/api/internal/resources/${encodeURIComponent(input.type)}/${encodeURIComponent(input.identifier)}/review`,
         {
-          body: { action: input.action, reason: input.reason, scanResult: input.scanResult },
+          body: {
+            action: input.action,
+            reason: input.reason,
+            scanResult: input.scanResult,
+            versionId: input.versionId,
+            expectedState: input.expectedState,
+          },
           method: 'POST',
         },
       ),

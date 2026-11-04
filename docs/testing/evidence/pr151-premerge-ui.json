@@ -1,0 +1,74 @@
+[
+  {
+    "case": "PM06",
+    "topic": "tpc_LA870hEjtHop",
+    "attachmentMarkerVisible": true
+  },
+  {
+    "case": "PM02",
+    "badZipError": true,
+    "retrySuccess": true,
+    "oldErrorAbsent": true
+  },
+  {
+    "case": "PM01",
+    "editedBody": true,
+    "editedDescription": true,
+    "reference": true
+  },
+  {
+    "case": "PM05",
+    "topic": "tpc_8fEO6pKAv9yk",
+    "toolSummary": "启用了技能, Read Reference",
+    "marker": "PREMERGE_REFERENCE_OK"
+  },
+  {
+    "case": "PM08",
+    "topic": "tpc_CTCcuUP3NlXz",
+    "versionId": 157,
+    "identifier": "user-b1ee97594fcdb5d14c9d1a66"
+  },
+  {
+    "case": "PM09",
+    "topic": "tpc_NRhVY9gokWBF",
+    "workspace": "/private/tmp/qa-pr151-premerge-1102/workspace",
+    "updated": true,
+    "validated": true
+  },
+  {
+    "case": "NUL",
+    "rejected": true,
+    "message": "Skill text resources must use UTF-8 without NUL bytes"
+  },
+  {
+    "case": "SubmitRetry",
+    "goodZipSubmitted": true,
+    "reopenedErrorAbsent": true
+  },
+  {
+    "case": "PM07",
+    "v2Visible": true,
+    "reference": true
+  },
+  {
+    "case": "PM04",
+    "freshInstall": "qa-premerge-admin-1102-v1",
+    "description": "PM_ADMIN_V1_DESCRIPTION"
+  },
+  {
+    "case": "switch-skill",
+    "referenceBefore": true,
+    "newBodyAfter": true
+  },
+  {
+    "case": "PM05-reopen",
+    "topic": "tpc_8fEO6pKAv9yk",
+    "markerPersisted": true
+  },
+  {
+    "case": "PM02-reopen-import",
+    "freshUploadControl": true,
+    "noOldError": true,
+    "noOldSuccess": true
+  }
+]

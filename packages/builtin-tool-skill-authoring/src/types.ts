@@ -1,6 +1,7 @@
 export const SkillAuthoringIdentifier = 'lobe-skill-authoring';
 
 export const SkillAuthoringApiName = {
+  submitSkill: 'submitSkill',
   createProjectSkill: 'createProjectSkill',
   deleteProjectSkill: 'deleteProjectSkill',
   packProjectSkill: 'packProjectSkill',

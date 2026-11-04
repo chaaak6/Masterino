@@ -187,6 +187,29 @@ describe('AgentSkillModel', () => {
   });
 
   describe('update', () => {
+    it('merges ordinary manifest edits but replaces imported manifest snapshots', async () => {
+      const original = await agentSkillModel.create({
+        description: 'Test skill description',
+        identifier: 'manifest-snapshot',
+        manifest: createManifest({ sourceUrl: 'https://example.com/old.zip', removedField: true }),
+        name: 'Test Skill',
+        source: 'market',
+      });
+      const patch = createManifest({ description: 'Edited description' });
+      const edited = await agentSkillModel.update(original.id, { manifest: patch });
+      expect(edited.manifest).toMatchObject({
+        ...patch,
+        sourceUrl: 'https://example.com/old.zip',
+        removedField: true,
+      });
+      const imported = await agentSkillModel.update(
+        original.id,
+        { manifest: patch },
+        { replaceManifest: true },
+      );
+      expect(imported.manifest).toEqual(patch);
+    });
+
     it('should update an agent skill', async () => {
       const { id } = await serverDB
         .insert(agentSkills)

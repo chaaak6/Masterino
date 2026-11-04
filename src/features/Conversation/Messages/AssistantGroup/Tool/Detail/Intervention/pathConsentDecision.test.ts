@@ -64,6 +64,27 @@ describe('coordinatePathConsentApproval', () => {
   });
 
   it.each(['operation', 'topic'] as const)(
+    'does not grant or resume a %s write when its canonical directory changed',
+    async (scope) => {
+      const grantTopicRoot = vi.fn();
+      const persistDecision = vi.fn();
+      const resume = vi.fn();
+      await expect(
+        coordinatePathConsentApproval(decision(scope), {
+          expectedCanonicalRootPath: '/output/B',
+          grantTopicRoot,
+          persistDecision,
+          resolveRootPath: vi.fn().mockResolvedValue('/output/C'),
+          resume,
+        }),
+      ).rejects.toMatchObject({ code: 'PATH_UNRESOLVABLE' });
+      expect(grantTopicRoot).not.toHaveBeenCalled();
+      expect(persistDecision).not.toHaveBeenCalled();
+      expect(resume).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['operation', 'topic'] as const)(
     'leaves authorization and execution state untouched when a %s path does not exist',
     async (scope) => {
       const executionContext = Object.freeze({

@@ -36,16 +36,19 @@ describe('desktopSkillRuntimeService', () => {
     vi.clearAllMocks();
   });
 
-  it('should resolve an extracted directory from activated skills', async () => {
+  it('prepares the activated archive rather than a snapshot of subsequent edits', async () => {
     getByIdMock.mockResolvedValue({
       id: 'skill-1',
       name: 'demo-skill',
       zipFileHash: 'zip-hash-1',
     });
-    getZipUrlMock.mockResolvedValue({
+    getZipUrlMock.mockImplementation(async (_id, archive) => ({
       name: 'demo-skill',
-      url: 'https://example.com/demo-skill.zip',
-    });
+      url:
+        archive === 'installed'
+          ? 'https://example.com/demo-skill.zip'
+          : 'https://example.com/edited-snapshot.zip',
+    }));
     prepareSkillDirectoryMock.mockResolvedValue({
       extractedDir: '/tmp/demo-skill',
       success: true,
@@ -57,7 +60,7 @@ describe('desktopSkillRuntimeService', () => {
     ]);
 
     expect(getByIdMock).toHaveBeenCalledWith('skill-1');
-    expect(getZipUrlMock).toHaveBeenCalledWith('skill-1');
+    expect(getZipUrlMock).toHaveBeenCalledWith('skill-1', 'installed');
     expect(prepareSkillDirectoryMock).toHaveBeenCalledWith({
       url: 'https://example.com/demo-skill.zip',
       zipHash: 'zip-hash-1',
@@ -129,6 +132,7 @@ describe('desktopSkillRuntimeService', () => {
       skillId: 'skill-1',
     });
 
+    expect(getZipUrlMock).toHaveBeenCalledWith('skill-1', 'installed');
     expect(resolveSkillResourcePathMock).toHaveBeenCalledWith({
       path: 'docs/bazi.py',
       url: 'https://example.com/demo-skill.zip',

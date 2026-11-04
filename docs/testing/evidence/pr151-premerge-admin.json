@@ -1,0 +1,238 @@
+{
+  "identifier": "qa-premerge-admin-1102",
+  "fixtureMethod": "Real HTTP multipart creates submitted V1/V2. All scan/approval/publish/deprecate/rollback transitions are actual CUA browser clicks, not API transitions.",
+  "uiUrl": "http://localhost:3020/market",
+  "checks": [
+    {
+      "at": "2026-11-02T15:03:10.351Z",
+      "step": "v1-published-v2-pending",
+      "rows": [
+        {
+          "name": "qa-premerge-admin-1102-v1",
+          "description": "PM_ADMIN_V1_DESCRIPTION",
+          "status": "published",
+          "current_version_id": "155",
+          "id": "155",
+          "version": "1.0.0",
+          "workflow_state": "published"
+        },
+        {
+          "name": "qa-premerge-admin-1102-v1",
+          "description": "PM_ADMIN_V1_DESCRIPTION",
+          "status": "published",
+          "current_version_id": "155",
+          "id": "156",
+          "version": "2.0.0",
+          "workflow_state": "submitted"
+        }
+      ],
+      "download": {
+        "status": 302,
+        "artifactSha": "ce1b30ff126cbe4e9d02b23dc3990e48aecf644641b95e4bd0ade5c465ac4772",
+        "computedSha": "ce1b30ff126cbe4e9d02b23dc3990e48aecf644641b95e4bd0ade5c465ac4772",
+        "files": {
+          "SKILL.md": "---\nname: qa-premerge-admin-1102-v1\ndescription: PM_ADMIN_V1_DESCRIPTION\n---\nReply PM_ADMIN_V1_BODY.\n",
+          "references/marker.md": "PM_ADMIN_V1_REFERENCE"
+        }
+      }
+    },
+    {
+      "at": "2026-11-02T15:04:20.803Z",
+      "step": "v2-published-v1-deprecated",
+      "rows": [
+        {
+          "name": "qa-premerge-admin-1102-v2",
+          "description": "PM_ADMIN_V2_DESCRIPTION",
+          "status": "published",
+          "current_version_id": "156",
+          "id": "155",
+          "version": "1.0.0",
+          "workflow_state": "deprecated"
+        },
+        {
+          "name": "qa-premerge-admin-1102-v2",
+          "description": "PM_ADMIN_V2_DESCRIPTION",
+          "status": "published",
+          "current_version_id": "156",
+          "id": "156",
+          "version": "2.0.0",
+          "workflow_state": "published"
+        }
+      ],
+      "download": {
+        "status": 302,
+        "artifactSha": "b2258f1613f0a58dbce34e4ec09a578abcecf1927a3ef1ae0c44c3cc72241e29",
+        "computedSha": "b2258f1613f0a58dbce34e4ec09a578abcecf1927a3ef1ae0c44c3cc72241e29",
+        "files": {
+          "SKILL.md": "---\nname: qa-premerge-admin-1102-v2\ndescription: PM_ADMIN_V2_DESCRIPTION\n---\nReply PM_ADMIN_V2_BODY.\n",
+          "references/marker.md": "PM_ADMIN_V2_REFERENCE"
+        }
+      }
+    },
+    {
+      "at": "2026-11-02T15:04:39.789Z",
+      "step": "rollback-to-v1",
+      "rows": [
+        {
+          "name": "qa-premerge-admin-1102-v1",
+          "description": "PM_ADMIN_V1_DESCRIPTION",
+          "status": "published",
+          "current_version_id": "155",
+          "id": "155",
+          "version": "1.0.0",
+          "workflow_state": "published"
+        },
+        {
+          "name": "qa-premerge-admin-1102-v1",
+          "description": "PM_ADMIN_V1_DESCRIPTION",
+          "status": "published",
+          "current_version_id": "155",
+          "id": "156",
+          "version": "2.0.0",
+          "workflow_state": "published"
+        }
+      ],
+      "download": {
+        "status": 302,
+        "artifactSha": "ce1b30ff126cbe4e9d02b23dc3990e48aecf644641b95e4bd0ade5c465ac4772",
+        "computedSha": "ce1b30ff126cbe4e9d02b23dc3990e48aecf644641b95e4bd0ade5c465ac4772",
+        "files": {
+          "SKILL.md": "---\nname: qa-premerge-admin-1102-v1\ndescription: PM_ADMIN_V1_DESCRIPTION\n---\nReply PM_ADMIN_V1_BODY.\n",
+          "references/marker.md": "PM_ADMIN_V1_REFERENCE"
+        }
+      }
+    }
+  ],
+  "uiActions": [
+    "V1: 开始扫描 → 扫描通过 → 批准 → 发布",
+    "V1: 下架",
+    "V2: 开始扫描 → 扫描通过 → 批准 → 发布",
+    "V2: 回滚 → 输入1.0.0 → OK"
+  ],
+  "screenshots": [
+    "pr151-premerge-admin-v1.png",
+    "pr151-premerge-admin-v2.png",
+    "pr151-premerge-admin-rollback.png"
+  ],
+  "audit": [
+    {
+      "action": "resource.create",
+      "details": {
+        "name": "qa-premerge-admin-1102-v1"
+      },
+      "created_at": "2026-11-02T15:01:10.282Z"
+    },
+    {
+      "action": "version.create",
+      "details": {
+        "version": "1.0.0"
+      },
+      "created_at": "2026-11-02T15:01:10.282Z"
+    },
+    {
+      "action": "review.submit",
+      "details": {},
+      "created_at": "2026-11-02T15:01:10.282Z"
+    },
+    {
+      "action": "resource.update",
+      "details": {
+        "name": "qa-premerge-admin-1102-v2"
+      },
+      "created_at": "2026-11-02T15:01:10.467Z"
+    },
+    {
+      "action": "version.create",
+      "details": {
+        "version": "2.0.0"
+      },
+      "created_at": "2026-11-02T15:01:10.467Z"
+    },
+    {
+      "action": "review.submit",
+      "details": {},
+      "created_at": "2026-11-02T15:01:10.467Z"
+    },
+    {
+      "action": "review.scan-start",
+      "details": {
+        "versionId": "155"
+      },
+      "created_at": "2026-11-02T15:01:47.130Z"
+    },
+    {
+      "action": "review.scan-passed",
+      "details": {
+        "versionId": "155"
+      },
+      "created_at": "2026-11-02T15:01:59.181Z"
+    },
+    {
+      "action": "review.approve",
+      "details": {
+        "versionId": "155"
+      },
+      "created_at": "2026-11-02T15:02:13.545Z"
+    },
+    {
+      "action": "review.publish",
+      "details": {
+        "versionId": "155"
+      },
+      "created_at": "2026-11-02T15:02:23.801Z"
+    },
+    {
+      "action": "review.deprecate",
+      "details": {
+        "versionId": "155"
+      },
+      "created_at": "2026-11-02T15:03:24.305Z"
+    },
+    {
+      "action": "review.scan-start",
+      "details": {
+        "versionId": "156"
+      },
+      "created_at": "2026-11-02T15:03:35.792Z"
+    },
+    {
+      "action": "review.scan-passed",
+      "details": {
+        "versionId": "156"
+      },
+      "created_at": "2026-11-02T15:03:49.641Z"
+    },
+    {
+      "action": "review.approve",
+      "details": {
+        "versionId": "156"
+      },
+      "created_at": "2026-11-02T15:04:01.550Z"
+    },
+    {
+      "action": "review.publish",
+      "details": {
+        "versionId": "156"
+      },
+      "created_at": "2026-11-02T15:04:13.103Z"
+    },
+    {
+      "action": "version.rollback",
+      "details": {
+        "version": "1.0.0"
+      },
+      "created_at": "2026-11-02T15:04:33.624Z"
+    }
+  ],
+  "console": {
+    "productErrors": [],
+    "observedExternalExtensionError": "chrome-extension uploadmanager.js: browser is not defined",
+    "note": "No application console error during state transitions; external browser extension error predates transitions."
+  },
+  "result": {
+    "PM03": "passed: real browser manual scan/approve/publish, V2 pending leaves V1 pointer/default download",
+    "PM04": "passed: real browser rollback to deprecated V1 restores name/description/pointer/published state and default archive BODY/REFERENCE bytes+SHA"
+  },
+  "downloadMethod": "Real default download endpoint returned signed URL; URL followed unchanged from test-cluster Market pod because OSS hostname is internal. Signed URL excluded from evidence. Archive unpacked locally and response artifact SHA equals actual SHA.",
+  "cleanup": "Resource remains published at restored V1 for parent acceptance/cleanup; no role restoration performed by subagent."
+}

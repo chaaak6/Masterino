@@ -166,7 +166,6 @@ export const builtinTools: LobeBuiltinTool[] = [
     type: 'builtin',
   },
   {
-    discoverable: false,
     hidden: true,
     identifier: SkillAuthoringManifest.identifier,
     manifest: SkillAuthoringManifest,

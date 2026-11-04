@@ -1,0 +1,282 @@
+{
+  "purpose": "PR151 premerge PM12/PM13/PM14; real Electron topic data with actual candidate worker and Aihub runtimes",
+  "environment": {
+    "cluster": "masterino-test",
+    "user": "isolated QA account",
+    "queuePrefix": "qa-premerge-1102-memory",
+    "workerModel": "deepseek-v4-flash",
+    "embeddingModel": "text-embedding-3-large",
+    "providerRowsChanged": false,
+    "createdTopicsOrMessagesByHarness": false,
+    "method": "Real UI creates conversations; MemoryExtractionQueueService.triggerProcessTopics -> topic flow -> process-topic/persona; real provider requests observed without altering responses; UserMemoryModel vector retrieval."
+  },
+  "mapleExistingMemory": {
+    "status": "passed: actual chat-tool persistence, worker deduplication and vector retrieval; not fresh worker insertion",
+    "topicId": "tpc_UdkNKAUlwlXM",
+    "uiToolEvidence": {
+      "search": "No matching memories",
+      "firstAdd": "Validation rejected missing sourceIds",
+      "correctedAdd": {
+        "memoryId": "mem_2EsaNXb9VvA4",
+        "preferenceId": "mem_kWcjNHyRhDtc",
+        "storedAtUtc": "2026-11-02T15:08:00.297Z"
+      }
+    },
+    "initialWorkerRun": {
+      "queue": {
+        "jobId": "qa-premerge-1102-6c87d32a-7b97-4f12-a534-f68184761ce5-process-topics-c1ac169f123a81e985e83ee9",
+        "queueRunId": "qa-premerge-1102-6c87d32a-7b97-4f12-a534-f68184761ce5"
+      },
+      "batch": {
+        "flowJobId": "qa-premerge-1102-6c87d32a-7b97-4f12-a534-f68184761ce5-persona-update-c1ac169f123a81e985e83ee9",
+        "processedTopics": 1,
+        "processedUsers": 1,
+        "topicJobIds": [
+          "qa-premerge-1102-6c87d32a-7b97-4f12-a534-f68184761ce5-process-topic-8072cbce6ffec6dbf75151fb"
+        ]
+      },
+      "addedPreferenceCount": 0,
+      "topicRun": {
+        "traceId": "00000000000000000000000000000000",
+        "lastRunAt": "2026-11-02T15:09:22.817Z",
+        "messageCount": 2,
+        "lastMessageAt": "2026-11-02T15:08:00.576Z",
+        "processedMemoryCount": 0
+      },
+      "requests": [
+        {
+          "origin": "https://aihub.bielcrystal.com",
+          "path": "/v1/embeddings",
+          "model": "text-embedding-3-large",
+          "at": "2026-11-02T15:09:18.431Z",
+          "status": 200
+        },
+        {
+          "origin": "https://aihub.bielcrystal.com",
+          "path": "/v1/chat/completions",
+          "model": "deepseek-v4-flash",
+          "at": "2026-11-02T15:09:20.057Z",
+          "status": 200
+        },
+        {
+          "origin": "https://aihub.bielcrystal.com",
+          "path": "/v1/chat/completions",
+          "model": "deepseek-v4-flash",
+          "at": "2026-11-02T15:09:23.093Z",
+          "status": 200
+        }
+      ],
+      "harnessAssertion": "Initial assertion required a new row and failed because the UI had already saved this exact preference. This is a harness expectation mismatch, not an extraction failure."
+    },
+    "verificationRun": {
+      "queue": {
+        "jobId": "qa-premerge-1102-2d81dfea-03be-4f7a-b93b-188509d74ef6-process-topics-c1ac169f123a81e985e83ee9",
+        "queueRunId": "qa-premerge-1102-2d81dfea-03be-4f7a-b93b-188509d74ef6"
+      },
+      "beforeMatchingPreferences": [
+        {
+          "id": "mem_kWcjNHyRhDtc",
+          "directives": "Every future QA report must start with the project marker MAPLE-83, present findings as concise numbered English items, and include an explicit verification result for each numbered item.",
+          "dimensions": 2048
+        }
+      ],
+      "addedPreferenceCount": 0,
+      "retrieval": [
+        {
+          "id": "mem_kWcjNHyRhDtc",
+          "directives": "Every future QA report must start with the project marker MAPLE-83, present findings as concise numbered English items, and include an explicit verification result for each numbered item.",
+          "similarity": 0.6738732137915364
+        }
+      ],
+      "requests": [
+        {
+          "origin": "https://aihub.bielcrystal.com",
+          "path": "/v1/chat/completions",
+          "model": "deepseek-v4-flash",
+          "at": "2026-11-02T15:10:59.406Z",
+          "status": 200
+        },
+        {
+          "origin": "https://aihub.bielcrystal.com",
+          "path": "/v1/embeddings",
+          "model": "text-embedding-3-large",
+          "at": "2026-11-02T15:11:05.767Z",
+          "status": 200
+        }
+      ],
+      "providerRowsUnchanged": true,
+      "success": true
+    }
+  },
+  "cedarFreshWorkerExtraction": {
+    "status": "passed",
+    "topicId": "tpc_fRTvK67hk7wP",
+    "uiMessages": {
+      "count": 2,
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "toolMessageCount": 0,
+      "assistantAcknowledgement": "ACK_CEDAR_92"
+    },
+    "memoryEnabledAtStart": true,
+    "beforeMatchingPreferenceCount": 0,
+    "queue": {
+      "jobId": "qa-premerge-1102-f844f7a6-8736-4c28-8df4-45889cfe7b77-process-topics-7e96680b628561b3efb7ab9c",
+      "queueRunId": "qa-premerge-1102-f844f7a6-8736-4c28-8df4-45889cfe7b77"
+    },
+    "batch": {
+      "flowJobId": "qa-premerge-1102-f844f7a6-8736-4c28-8df4-45889cfe7b77-persona-update-7e96680b628561b3efb7ab9c",
+      "processedTopics": 1,
+      "processedUsers": 1,
+      "topicJobIds": [
+        "qa-premerge-1102-f844f7a6-8736-4c28-8df4-45889cfe7b77-process-topic-f918d4164a44e3efc07c0199"
+      ]
+    },
+    "topicRun": {
+      "traceId": "00000000000000000000000000000000",
+      "lastRunAt": "2026-11-02T15:20:51.128Z",
+      "messageCount": 2,
+      "lastMessageAt": "2026-11-02T15:20:14.913Z",
+      "processedMemoryCount": 2
+    },
+    "personaResult": {
+      "message": "User persona processed via workflow.",
+      "processedUsers": 1,
+      "skippedUsers": 0
+    },
+    "addedPreferences": [
+      {
+        "id": "mem_om9cO7E2hGoG",
+        "directives": "在生成所有 CSV 审计报告时，必须使用唯一项目标签 CEDAR-92 作为标识，并在今后同类报告中持续沿用。",
+        "dimensions": 2048
+      },
+      {
+        "id": "mem_3kYpA5on2OfP",
+        "directives": "生成所有 CSV 审计报告时，将失败的检查项排在成功的检查项之前，并在今后同类报告中保持该排序。",
+        "dimensions": 2048
+      }
+    ],
+    "retrieval": [
+      {
+        "id": "mem_om9cO7E2hGoG",
+        "directives": "在生成所有 CSV 审计报告时，必须使用唯一项目标签 CEDAR-92 作为标识，并在今后同类报告中持续沿用。",
+        "similarity": 0.6549731353608576
+      },
+      {
+        "id": "mem_kWcjNHyRhDtc",
+        "directives": "Every future QA report must start with the project marker MAPLE-83, present findings as concise numbered English items, and include an explicit verification result for each numbered item.",
+        "similarity": 0.2778244059137208
+      },
+      {
+        "id": "mem_3kYpA5on2OfP",
+        "directives": "生成所有 CSV 审计报告时，将失败的检查项排在成功的检查项之前，并在今后同类报告中保持该排序。",
+        "similarity": 0.27618192952417586
+      }
+    ],
+    "requests": [
+      {
+        "origin": "https://aihub.bielcrystal.com",
+        "path": "/v1/embeddings",
+        "model": "text-embedding-3-large",
+        "at": "2026-11-02T15:20:41.158Z",
+        "status": 200
+      },
+      {
+        "origin": "https://aihub.bielcrystal.com",
+        "path": "/v1/chat/completions",
+        "model": "deepseek-v4-flash",
+        "at": "2026-11-02T15:20:42.607Z",
+        "status": 200
+      },
+      {
+        "origin": "https://aihub.bielcrystal.com",
+        "path": "/v1/chat/completions",
+        "model": "deepseek-v4-flash",
+        "at": "2026-11-02T15:20:44.964Z",
+        "status": 200
+      },
+      {
+        "origin": "https://aihub.bielcrystal.com",
+        "path": "/v1/embeddings",
+        "model": "text-embedding-3-large",
+        "at": "2026-11-02T15:20:50.252Z",
+        "status": 200
+      },
+      {
+        "origin": "https://aihub.bielcrystal.com",
+        "path": "/v1/embeddings",
+        "model": "text-embedding-3-large",
+        "at": "2026-11-02T15:20:50.711Z",
+        "status": 200
+      },
+      {
+        "origin": "https://aihub.bielcrystal.com",
+        "path": "/v1/chat/completions",
+        "model": "deepseek-v4-flash",
+        "at": "2026-11-02T15:20:51.439Z",
+        "status": 200
+      },
+      {
+        "origin": "https://aihub.bielcrystal.com",
+        "path": "/v1/embeddings",
+        "model": "text-embedding-3-large",
+        "at": "2026-11-02T15:20:59.016Z",
+        "status": 200
+      }
+    ],
+    "providerRowsUnchanged": true,
+    "success": true,
+    "uiRecall": {
+      "topicId": "tpc_ah3DIo1JoOO0",
+      "method": "Parent agent real UI new conversation; persisted searchMemory tool output independently read from test DB",
+      "matchedPreferenceIds": [
+        "mem_3kYpA5on2OfP",
+        "mem_om9cO7E2hGoG"
+      ],
+      "assistantResult": "CEDAR-92; failed checks first, successful checks after",
+      "memoryPage": "Parent agent reports both CEDAR preferences visible in real memory UI; screenshots stored separately."
+    }
+  },
+  "memoryDisabled": {
+    "status": "passed",
+    "topicId": "tpc_osjKcO5cAGk8",
+    "uiMessages": {
+      "count": 2,
+      "roles": [
+        "user",
+        "assistant"
+      ],
+      "toolMessageCount": 0,
+      "assistantAcknowledgement": "ACK_WILLOW_46"
+    },
+    "memoryEnabledAtStart": false,
+    "queue": {
+      "jobId": "qa-premerge-1102-c09de46f-3a9f-40b3-b013-d60fe8e5c79f-process-topics-57f58712baf761c5f897a9f8",
+      "queueRunId": "qa-premerge-1102-c09de46f-3a9f-40b3-b013-d60fe8e5c79f"
+    },
+    "batch": {
+      "message": "Memory was disabled before topic batch processing.",
+      "processedTopics": 0,
+      "processedUsers": 0
+    },
+    "modelRequestCount": 0,
+    "addedPreferenceCount": 0,
+    "topicOrWillowMarkerMemoryRecordCount": 0,
+    "providerRowsUnchanged": true,
+    "success": true
+  },
+  "deterministicValidation": {
+    "status": "passed",
+    "method": "Vitest, not UI or live malformed-model injection",
+    "testFiles": [
+      "packages/memory-user-memory/src/utils/structuredOutput.test.ts",
+      "packages/memory-user-memory/src/extractors/persona.test.ts"
+    ],
+    "passedTests": 12,
+    "failedTests": 0,
+    "log": "/tmp/pr151-premerge-memory-unit.log",
+    "coverage": "Single correction, malformed persona tool JSON, shared deadline, strict second failure and no extra network-error retry; see individual test assertions."
+  }
+}

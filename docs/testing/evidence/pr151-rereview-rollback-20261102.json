@@ -1,0 +1,110 @@
+{
+  "environment": "masterino-test isolated candidates; actual admin rollback and Electron install clicks",
+  "installed": {
+    "id": "skl_eV9iygtfwpxb",
+    "name": "qa-rereview-1102-v1",
+    "description": "REREVIEW_V1_DESCRIPTION",
+    "content": "zsh is the default shell.\nReply REREVIEW_V1_BODY.",
+    "resources": {
+      "references/marker.md": {
+        "size": 21,
+        "fileHash": "22bda773a76ed95aaf6aa08b042192f5a5657f94982ea77d52bed8ff89c464fd"
+      }
+    }
+  },
+  "rows": [
+    {
+      "name": "qa-rereview-1102-v1",
+      "description": "REREVIEW_V1_DESCRIPTION",
+      "current_version_id": "150",
+      "id": "150",
+      "workflow_state": "published",
+      "manifest": {
+        "name": "qa-rereview-1102-v1",
+        "files": [
+          {
+            "path": "SKILL.md",
+            "type": "file"
+          },
+          {
+            "path": "references/marker.md",
+            "type": "file"
+          }
+        ],
+        "description": "REREVIEW_V1_DESCRIPTION"
+      }
+    },
+    {
+      "name": "qa-rereview-1102-v1",
+      "description": "REREVIEW_V1_DESCRIPTION",
+      "current_version_id": "150",
+      "id": "151",
+      "workflow_state": "published",
+      "manifest": {
+        "name": "qa-rereview-1102-v2",
+        "files": [
+          {
+            "path": "SKILL.md",
+            "type": "file"
+          },
+          {
+            "path": "references/marker.md",
+            "type": "file"
+          }
+        ],
+        "description": "REREVIEW_V2_DESCRIPTION"
+      }
+    },
+    {
+      "name": "qa-rereview-1102-v1",
+      "description": "REREVIEW_V1_DESCRIPTION",
+      "current_version_id": "150",
+      "id": "152",
+      "workflow_state": "submitted",
+      "manifest": {
+        "name": "qa-rereview-1102-v3",
+        "files": [
+          {
+            "path": "SKILL.md",
+            "type": "file"
+          },
+          {
+            "path": "references/marker.md",
+            "type": "file"
+          }
+        ],
+        "description": "REREVIEW_V3_DESCRIPTION"
+      }
+    },
+    {
+      "name": "qa-rereview-1102-v1",
+      "description": "REREVIEW_V1_DESCRIPTION",
+      "current_version_id": "150",
+      "id": "153",
+      "workflow_state": "rejected",
+      "manifest": {
+        "name": "qa-rereview-1102-v4",
+        "files": [
+          {
+            "path": "SKILL.md",
+            "type": "file"
+          },
+          {
+            "path": "references/marker.md",
+            "type": "file"
+          }
+        ],
+        "description": "REREVIEW_V4_DESCRIPTION"
+      }
+    }
+  ],
+  "defaultDownload": {
+    "status": 200,
+    "body": "---\nname: qa-rereview-1102-v1\ndescription: REREVIEW_V1_DESCRIPTION\n---\nzsh is the default shell.\nReply REREVIEW_V1_BODY.\n",
+    "reference": "REREVIEW_V1_REFERENCE",
+    "files": [
+      "SKILL.md",
+      "references/marker.md"
+    ]
+  }
+}

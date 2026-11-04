@@ -1,0 +1,221 @@
+{
+  "userId": "qa-pr151-1102-synthetic-d212549a-2049-4906-99fb-32eb37bae9ca",
+  "topicId": "topic-09b6f76e-944e-40b7-bda0-db3acaad5472",
+  "requests": [
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 1,
+      "at": "2026-11-02T01:31:24.988Z",
+      "status": 200,
+      "headerMs": 252
+    },
+    {
+      "path": "/v1/chat/completions",
+      "model": "deepseek-v4-flash",
+      "at": "2026-11-02T01:31:26.469Z",
+      "status": 200,
+      "headerMs": 2699
+    },
+    {
+      "path": "/v1/chat/completions",
+      "model": "deepseek-v4-flash",
+      "at": "2026-11-02T01:31:29.209Z",
+      "status": 200,
+      "headerMs": 5322
+    },
+    {
+      "path": "/v1/chat/completions",
+      "model": "deepseek-v4-flash",
+      "at": "2026-11-02T01:31:34.569Z",
+      "status": 200,
+      "headerMs": 4826
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 3,
+      "at": "2026-11-02T01:31:39.427Z",
+      "status": 200,
+      "headerMs": 314
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 3,
+      "at": "2026-11-02T01:31:40.027Z",
+      "status": 200,
+      "headerMs": 271
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 3,
+      "at": "2026-11-02T01:31:40.446Z",
+      "status": 200,
+      "headerMs": 386
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 1,
+      "at": "2026-11-02T01:31:41.240Z",
+      "status": 200,
+      "headerMs": 207
+    },
+    {
+      "path": "/v1/chat/completions",
+      "model": "deepseek-v4-flash",
+      "at": "2026-11-02T01:31:42.670Z",
+      "status": 200,
+      "headerMs": 2603
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 1,
+      "at": "2026-11-02T01:31:45.952Z",
+      "status": 200,
+      "headerMs": 186
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 1,
+      "at": "2026-11-02T01:31:46.461Z",
+      "status": 200,
+      "headerMs": 208
+    },
+    {
+      "path": "/v1/chat/completions",
+      "model": "deepseek-v4-flash",
+      "at": "2026-11-02T01:31:47.573Z",
+      "status": 200,
+      "headerMs": 3451
+    },
+    {
+      "path": "/v1/chat/completions",
+      "model": "deepseek-v4-flash",
+      "at": "2026-11-02T01:31:51.086Z",
+      "status": 200,
+      "headerMs": 3554
+    },
+    {
+      "path": "/v1/chat/completions",
+      "model": "deepseek-v4-flash",
+      "at": "2026-11-02T01:31:51.087Z",
+      "status": 200,
+      "headerMs": 4036
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 3,
+      "at": "2026-11-02T01:31:55.158Z",
+      "status": 200,
+      "headerMs": 394
+    },
+    {
+      "path": "/v1/embeddings",
+      "model": "text-embedding-3-large",
+      "dimensions": 2048,
+      "inputCount": 5,
+      "at": "2026-11-02T01:31:55.730Z",
+      "status": 200,
+      "headerMs": 286
+    }
+  ],
+  "stages": [
+    "Existing masterino-test schema, synthetic user and messages, encrypted user provider and integrated source worker."
+  ],
+  "isolatedDatabase": "masterino-test PostgreSQL via loopback forward",
+  "redis": "masterino-test Redis via isolated queue prefix",
+  "extractorMocked": false,
+  "jobResult": {
+    "processedTopics": 1,
+    "processedUsers": 1,
+    "topicId": "topic-09b6f76e-944e-40b7-bda0-db3acaad5472",
+    "userId": "qa-pr151-1102-synthetic-d212549a-2049-4906-99fb-32eb37bae9ca"
+  },
+  "task": {
+    "status": "success",
+    "metadata": {
+      "progress": {
+        "totalTopics": 1,
+        "completedTopics": 1
+      }
+    },
+    "error": null
+  },
+  "topicMetadata": {
+    "workingDirectory": "/synthetic/qa-pr151-1102-qa",
+    "userMemoryExtractStatus": "completed",
+    "userMemoryExtractRunState": {
+      "traceId": "00000000000000000000000000000000",
+      "lastRunAt": "2026-11-02T01:31:45.274Z",
+      "messageCount": 2,
+      "lastMessageAt": "2026-11-02T01:31:12.984Z",
+      "processedMemoryCount": 3
+    }
+  },
+  "memories": [
+    {
+      "id": "mem_EXjWDEpaD7T6",
+      "directives": "Write QA reports in English using numbered lists.",
+      "dimensions": 2048
+    },
+    {
+      "id": "mem_9RTiVlY8qHj6",
+      "directives": "Begin each QA report with the project code ORCHID-47 at the top.",
+      "dimensions": 2048
+    },
+    {
+      "id": "mem_guUXV9I4i5Kn",
+      "directives": "Keep each QA report item concise and always include a verification result for each item.",
+      "dimensions": 2048
+    }
+  ],
+  "retrieval": {
+    "hits": [
+      {
+        "id": "mem_EXjWDEpaD7T6",
+        "directives": "Write QA reports in English using numbered lists.",
+        "similarity": 0.7714549157930775
+      },
+      {
+        "id": "mem_guUXV9I4i5Kn",
+        "directives": "Keep each QA report item concise and always include a verification result for each item.",
+        "similarity": 0.7305825129241226
+      },
+      {
+        "id": "mem_9RTiVlY8qHj6",
+        "directives": "Begin each QA report with the project code ORCHID-47 at the top.",
+        "similarity": 0.6073689239558366
+      }
+    ],
+    "otherUserHitCount": 0,
+    "dimensions": 2048
+  },
+  "contextExperienceResult": {
+    "processedTopics": 1,
+    "processedUsers": 1,
+    "topicId": "topic-47077114-7d00-450d-a707-36df0703177c",
+    "userId": "qa-pr151-1102-synthetic-d212549a-2049-4906-99fb-32eb37bae9ca"
+  },
+  "contextCount": 1,
+  "experienceCount": 1,
+  "workerResponsiveAfterSchemaScenario": true,
+  "consentRevocationResult": {
+    "message": "Memory was disabled before topic processing."
+  },
+  "requestsAfterRevocation": 0,
+  "catalogMode": "Synthetic-user harness disables managed catalog refresh; uses configured development Aihub key. No test deployment setting changed."
+}

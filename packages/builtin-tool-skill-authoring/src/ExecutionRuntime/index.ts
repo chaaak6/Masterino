@@ -22,12 +22,26 @@ export interface SkillAuthoringRuntimeService {
   pack: (name: string) => Promise<Uint8Array>;
   promoteToUser: (name: string) => Promise<unknown>;
   rename: (name: string, newName: string) => Promise<unknown>;
+  submitSkill?: (input: { skillId?: string; name?: string }) => Promise<unknown>;
   update: (input: UpdateProjectSkillArgs) => Promise<unknown>;
   validate: (name: string) => Promise<SkillAuthoringValidation>;
 }
 
 export class SkillAuthoringExecutionRuntime {
   constructor(private readonly service: SkillAuthoringRuntimeService) {}
+
+  async submitSkill(args: {
+    skillId?: string;
+    name?: string;
+  }): Promise<BuiltinServerRuntimeOutput> {
+    try {
+      if (!this.service.submitSkill) throw new Error('Skill submission is unavailable.');
+      const submission = await this.service.submitSkill(args);
+      return { success: true, content: JSON.stringify(submission), state: { submission } };
+    } catch (error) {
+      return this.failure('submit', error);
+    }
+  }
 
   createProjectSkill(args: CreateProjectSkillArgs): Promise<BuiltinServerRuntimeOutput> {
     return this.mutateAndValidate('Created', args.name, () => this.service.create(args));
@@ -116,10 +130,7 @@ export class SkillAuthoringExecutionRuntime {
     }
   }
 
-  private invalid(
-    name: string,
-    validation: SkillAuthoringValidation,
-  ): BuiltinServerRuntimeOutput {
+  private invalid(name: string, validation: SkillAuthoringValidation): BuiltinServerRuntimeOutput {
     return {
       content: `Project skill "${name}" is invalid: ${validation.errors.join(' ')}`,
       state: { validation },

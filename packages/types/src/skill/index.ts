@@ -144,6 +144,7 @@ export interface SkillListItem {
   identifier: string;
   manifest: SkillManifest;
   name: string;
+  publication?: { identifier: string; hash: string } | null;
   source: SkillSource;
   updatedAt: Date;
   zipFileHash?: string | null;

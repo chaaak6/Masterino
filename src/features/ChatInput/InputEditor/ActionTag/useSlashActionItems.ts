@@ -6,7 +6,7 @@ import isEqual from 'fast-deep-equal';
 import Fuse from 'fuse.js';
 import { $getSelection, $isRangeSelection } from 'lexical';
 import { ArchiveIcon, MessageSquarePlusIcon } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
@@ -23,7 +23,7 @@ import { useAgentId } from '../../hooks/useAgentId';
 import { useChatInputStore } from '../../store';
 import { INSERT_ACTION_TAG_COMMAND, type InsertActionTagPayload } from './command';
 import { type ActionTagData, BUILTIN_COMMANDS } from './types';
-import { useInstalledSkillsAndTools } from './useInstalledSkillsAndTools';
+import { getInstalledSkillsAndTools } from './useInstalledSkillsAndTools';
 
 type SlashItem = NonNullable<SlashOptions['items'] extends (infer U)[] ? U : never>;
 
@@ -34,6 +34,8 @@ interface SlashMenuOption {
   metadata?: Record<string, any>;
   onSelect?: (editor: IEditor, matchingString: string) => void;
 }
+
+const SKILL_REFRESH_WAIT_MS = 150;
 
 const COMMAND_ICONS: Record<string, any> = {
   compact: ArchiveIcon,
@@ -91,13 +93,7 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
     isEqual,
   );
 
-  // Installed skills shared with the @ mention menu (builtin / lobehub / market / user agent skills).
-  // Tools intentionally stay out of slash — they remain @-mention only.
-  const installedSkillsAndTools = useInstalledSkillsAndTools();
-  const installedSkills = useMemo(
-    () => installedSkillsAndTools.filter((item) => item.category === 'skill'),
-    [installedSkillsAndTools],
-  );
+  const pendingSkillRefresh = useRef<Promise<void> | undefined>(undefined);
 
   return useCallback(
     async (
@@ -224,9 +220,33 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
         }
       }
 
-      // Installed skills — shown in both positions
-      for (const skill of installedSkills) {
-        allItems.push(makeSkillItem(skill) as SlashItem);
+      // CLI and Agent installs can update the server while this window stays open.
+      if (!search?.matchingString && !pendingSkillRefresh.current) {
+        pendingSkillRefresh.current = useToolStore
+          .getState()
+          .refreshAgentSkills()
+          .catch(() => {
+            // Keep cached skills available if the list request fails.
+          })
+          .finally(() => {
+            pendingSkillRefresh.current = undefined;
+          });
+      }
+      if (!search?.matchingString && pendingSkillRefresh.current) {
+        // Give fast refreshes a chance to appear on the first open, but keep
+        // commands and cached skills available when the connection is slow.
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([
+          pendingSkillRefresh.current,
+          new Promise<void>((resolve) => {
+            timeout = setTimeout(resolve, SKILL_REFRESH_WAIT_MS);
+          }),
+        ]);
+        clearTimeout(timeout);
+      }
+
+      for (const skill of getInstalledSkillsAndTools(useToolStore.getState())) {
+        if (skill.category === 'skill') allItems.push(makeSkillItem(skill) as SlashItem);
       }
 
       // Agent-document skill bundles (per-agent, resolved server-side via the
@@ -253,6 +273,6 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
 
       return allItems;
     },
-    [t, editorInstance, activeTopicId, projectSkills, installedSkills, agentDocumentSkills],
+    [t, editorInstance, activeTopicId, projectSkills, agentDocumentSkills],
   );
 };

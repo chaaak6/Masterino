@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
-import { access, readFile, realpath } from 'node:fs/promises';
+import { access, lstat, readFile, realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -154,6 +154,33 @@ const realpathForAccess = async (target: string): Promise<string> => {
   }
 };
 
+/** Only a device may derive the directory offered for prospective file writes. */
+export const resolveNewFileConsentDirectory = async (
+  apiName: string,
+  target: string,
+): Promise<string | undefined> => {
+  if (!['createOfficeDocument', 'writeFile', 'writeLocalFile'].includes(apiName)) return;
+  try {
+    await lstat(target);
+    return; // Existing paths retain the established consent semantics.
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return;
+  }
+  try {
+    const parent = await realpath(path.dirname(target));
+    const home = await realpath(os.homedir());
+    if (
+      !(await stat(parent)).isDirectory() ||
+      isSensitiveRoot(parent, home) ||
+      SENSITIVE_SYSTEM_ROOTS.has(path.resolve(parent))
+    )
+      return;
+    return parent;
+  } catch {
+    return; // Never climb to a broader ancestor or create a missing directory.
+  }
+};
+
 const isWithin = (target: string, root: string): boolean => {
   const relative = path.relative(root, target);
   return (
@@ -192,6 +219,8 @@ const SENSITIVE_SYSTEM_ROOTS = new Set([
   '/lib',
   '/lib64',
   '/private',
+  '/private/etc',
+  '/private/var',
   '/proc',
   '/root',
   '/sbin',

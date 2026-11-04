@@ -1,4 +1,36 @@
 export default {
+  'publishing.unlink': 'Unlink from store',
+  'publishing.unlinkDescription':
+    'Unlink this release from your personal skill? Your original skill and assistant settings will be kept.',
+  'publishing.unlinked':
+    'Store link removed. Your original skill is still in your personal library.',
+  'publishing.rejected': 'This version was rejected. Update the skill before submitting again.',
+  'publishing.deprecated': 'This version was taken down. Update the skill before submitting again.',
+  'publishing.alreadyPublished': 'This version is already published.',
+  'publishing.submitted': 'Skill submitted for review.',
+  'publishing.originalConflict':
+    'Your original skill differs from this release and has been kept unchanged. Back it up and remove it before installing this release.',
+  'publishing.installedConflict':
+    'This installed skill has local edits and has been kept unchanged. Back it up and remove it before installing this release.',
+  'publishing.invalidManifest':
+    'SKILL.md must contain valid name and description fields in its YAML frontmatter.',
+  'publishing.nameConflict':
+    'A skill named {{name}} already exists. Back it up and remove it before installing this skill.',
+
+  'publishing.title': 'Submit a skill for review',
+  'publishing.description':
+    'Share a finished skill with your company. It becomes available in the community after review and publication.',
+  'publishing.mySkills': 'My skills',
+  'publishing.chooseSkill': 'Choose a personal skill',
+  'publishing.submit': 'Submit for review',
+  'publishing.imported': 'Imported for your personal use. Sharing for review is optional.',
+  'publishing.installSucceeded': 'Installed to your skill library.',
+  'publishing.installToLibrary': 'Install to My Skill Library',
+  'publishing.installSubmittedZipHint':
+    'Use the ZIP you just submitted in your skill library while it is under review.',
+  'publishing.installFailed': 'Could not install the skill. Please try again.',
+  'publishing.keepOriginal':
+    'This is your original skill. Manage it in your personal library; it has not been deleted.',
   'assistant.favorite': 'Save',
   'assistant.favoriteFailed': 'Failed to save',
   'assistant.favoriteSuccess': 'Saved',
@@ -1315,8 +1347,7 @@ export default {
   'user.submitMcpSuccess': 'MCP submitted. It will be available after review.',
   'user.submitMcpTitle': 'Submit an MCP server',
   'user.submitRepo': 'Submit Skill',
-  'user.submitRepoDescription':
-    'Submit a Skill from a GitHub repository or a ZIP package for community review.',
+  'user.submitRepoDescription': 'Submit one of your Skills or a ZIP package for community review.',
   'user.submitRepoError': 'Failed to submit repository. Please try again.',
   'user.submitRepoHint': 'The Skill will be scanned and reviewed before being published.',
   'user.submitRepoSuccess': 'Repository submitted successfully! It will be reviewed shortly.',

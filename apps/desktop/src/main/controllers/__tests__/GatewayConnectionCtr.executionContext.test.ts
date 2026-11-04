@@ -757,6 +757,29 @@ describe('GatewayConnectionCtr execution context boundary', () => {
     expect(readFile).not.toHaveBeenCalled();
   });
 
+  it('offers only the existing parent for an out-of-scope new Word file', async () => {
+    const outside = path.join(tempRoot, 'synthetic-output');
+    await mkdir(outside);
+    const file = path.join(await realpath(outside), 'new.docx');
+    const result = await (makeController() as any).executeToolCall(
+      'createOfficeDocument',
+      { path: file, paragraphs: [{ text: 'synthetic' }] },
+      context(),
+      { deviceId: 'device-1', operationId: 'op-1', toolCallId: 'call-new', topicId: 'topic-1' },
+    );
+    expect(result).toMatchObject({
+      success: false,
+      content: 'INTERVENTION_REQUIRED',
+      state: {
+        workspacePathConsent: {
+          requestedPath: await realpath(outside),
+          requestedFilePath: file,
+          modes: ['write'],
+        },
+      },
+    });
+  });
+
   it('returns runtime-authored structured consent metadata for an out-of-scope read', async () => {
     const outside = path.join(tempRoot, 'shared');
     await mkdir(outside);

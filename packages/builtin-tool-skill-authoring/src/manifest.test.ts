@@ -6,6 +6,7 @@ import { SkillAuthoringApiName } from './types';
 describe('SkillAuthoringManifest', () => {
   it('requires human intervention for every write operation', () => {
     const writes = new Set([
+      SkillAuthoringApiName.submitSkill,
       SkillAuthoringApiName.createProjectSkill,
       SkillAuthoringApiName.deleteProjectSkill,
       SkillAuthoringApiName.promoteProjectSkill,

@@ -1,0 +1,38 @@
+{
+  "rows": [
+    {
+      "id": "skl_BszJu5vVdZv2",
+      "name": "qa-premerge-admin-1102-v1",
+      "description": "PM_ADMIN_V1_DESCRIPTION",
+      "content": "Reply PM_ADMIN_V1_BODY.",
+      "resources": {
+        "references/marker.md": {
+          "size": 21,
+          "fileHash": "899114a4736a0cc23dd8f6c2e4a3179c89c918005c69fa68bce98c202f6ad6e8"
+        }
+      }
+    },
+    {
+      "id": "skl_7IlpWjlkKD2M",
+      "name": "qa-premerge-url-1102",
+      "description": "PREMERGE_URL_V2",
+      "content": "Reply PREMERGE_URL_V2.",
+      "resources": {
+        "references/retained.md": {
+          "size": 22,
+          "fileHash": "88117795cd5b70ae2731815a585c52d2672fd83aa7a07ae156d38a2dc62db2da"
+        }
+      }
+    }
+  ],
+  "urlExport": {
+    "status": 200,
+    "bodyMarker": true,
+    "reference": "PREMERGE_URL_REFERENCE",
+    "files": [
+      "SKILL.md",
+      "references/retained.md"
+    ]
+  },
+  "rollbackFreshInstallVerified": true
+}

@@ -1,0 +1,76 @@
+{
+  "identifier": "user-129b8b6e6cafc6110971a718",
+  "versionId": "146",
+  "state": "submitted",
+  "files": [
+    "SKILL.md",
+    "references/example.md"
+  ],
+  "body": "---\ndescription: Isolated integrated QA skill.\nname: qa-pr151-1102\n---\nReply INTEGRATED_SKILL_BODY_OK.\n",
+  "reference": "INTEGRATED_REFERENCE_OK",
+  "backend": "Integrated 261546d8 source build, test candidate over localhost:13211; APP_URL loopback for same-origin upload signing.",
+  "personalEditAndExport": {
+    "repeat": [
+      {
+        "result": {
+          "data": {
+            "json": {
+              "resourceId": 138,
+              "versionId": 148,
+              "workflowState": "submitted",
+              "identifier": "user-1980dccb52820196a7cf0b5c",
+              "status": "submitted",
+              "hash": "9ce1eb3c6551f83d0202f1ebda8dab2f518af374314ce71265b490e50003d879"
+            }
+          }
+        }
+      }
+    ],
+    "httpStatus": 200,
+    "downloadStatus": 200,
+    "body": "---\nname: qa-pr151-1102\ndescription: INTEGRATED_PUBLISHED_V2_DESCRIPTION\n---\nReply INTEGRATED\\_SKILL\\_EDITED\\_OK.\n",
+    "reference": "INTEGRATED_REFERENCE_OK",
+    "files": [
+      "SKILL.md",
+      "references/example.md"
+    ]
+  },
+  "publishedMetadata": {
+    "beforePublishingV2": {
+      "identifier": "user-1980dccb52820196a7cf0b5c",
+      "description": "Updated integrated QA description.",
+      "current_version_id": "147"
+    },
+    "afterPublishingV2": {
+      "identifier": "user-1980dccb52820196a7cf0b5c",
+      "description": "INTEGRATED_PUBLISHED_V2_DESCRIPTION",
+      "current_version_id": "148"
+    },
+    "scanMode": "manual via real reviewer API",
+    "reviewerRolesRestored": true
+  },
+  "uiDownload": {
+    "fileName": "qa-pr151-1102.zip",
+    "sha256": "6f28b2d75472f3a013a8434d466b24dbc131d374d8223b886605557607da26a7",
+    "body": "---\nname: qa-pr151-1102\ndescription: INTEGRATED_PUBLISHED_V2_DESCRIPTION\n---\nReply INTEGRATED\\_SKILL\\_EDITED\\_OK.\n",
+    "reference": "INTEGRATED_REFERENCE_OK",
+    "result": "Electron menu Download -> Save; independently unzipped and checked"
+  },
+  "catalogUI": "Electron Skill store displayed INTEGRATED_PUBLISHED_V2_DESCRIPTION after publishing V2.",
+  "invalidZipRecovery": {
+    "client": "current integrated Electron, direct candidate backend",
+    "invalid": "ZIP without SKILL.md: visible SKILL.md not found in zip package",
+    "replacement": "Same form selecting recovery.zip cleared prior error before submit",
+    "result": "Submission succeeded and dialog closed",
+    "versionId": 149,
+    "identifier": "user-6705bff4718121d260d49f00",
+    "cleanup": "manual scan-start/scan-passed/reject via real reviewer API"
+  },
+  "cleanup": {
+    "146": "deprecated",
+    "148": "deprecated",
+    "149": "rejected",
+    "147": "historical published version; resource deprecated",
+    "reviewerRoles": "restored"
+  }
+}

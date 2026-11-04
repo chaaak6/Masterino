@@ -1,0 +1,36 @@
+{
+  "topicId": "tpc_xgRAtCYQhtsX",
+  "clientIntegratedHead": "c1faa711",
+  "environment": "masterino-test, isolated Electron test-server profile",
+  "steps": [
+    {
+      "action": "createOfficeDocument, click only this time",
+      "cardDirectory": "/private/tmp/qa-pr151-1102/output",
+      "file": "approved.docx",
+      "result": "created",
+      "wordText": "INTEGRATED_PR151_WORD_OK",
+      "sha256": "9ee125102d0f2c38507c63fcc18437136200ab5d4af6d71f81d0bd32098f8b58"
+    },
+    {
+      "action": "request another createOfficeDocument in same directory",
+      "result": "new parent consent card appeared"
+    },
+    {
+      "action": "click reject",
+      "file": "rejected.docx",
+      "exists": false
+    }
+  ],
+  "readback": "Agent readOfficeDocument tool completed and reported matching text; Word XML independently verified",
+  "console": "React19 ref, antd deprecations, emotion and React Scan development warnings; no new unhandled tool failure during this flow",
+  "candidateBackendBoundary": "Word flow used cluster existing backend and integrated local Electron; later skill flows use current candidate service.",
+  "missingParent": {
+    "topicId": "tpc_QSLRQ67bHZcU",
+    "backend": "current integrated candidate; corrected test Aihub bridge endpoint",
+    "steps": "Real chat -> createOfficeDocument -> click only this time -> path validation error -> click reject",
+    "uiError": "该路径在当前执行设备上不存在。未授予任何权限，请拒绝本次请求并让 Agent 重新选择现有路径。",
+    "directoryExists": false,
+    "fileExists": false,
+    "boundary": "Failure occurred during approval path verification; tool was not resumed. Agent subsequently reported rejection."
+  }
+}

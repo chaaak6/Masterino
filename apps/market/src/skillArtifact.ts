@@ -1,4 +1,4 @@
-import { unzipSync, strFromU8 } from 'fflate';
+import { strFromU8, unzipSync } from 'fflate';
 import matter from 'gray-matter';
 import { z } from 'zod';
 
@@ -9,7 +9,8 @@ const requiredMetadata = z.object({
 
 /** The final submission boundary validates required metadata, regardless of caller. */
 export function validateSkillContent(archive: Buffer) {
-  const file = unzipSync(archive, { filter: (entry) => entry.name === 'SKILL.md' })['SKILL.md'];
+  const files = unzipSync(archive);
+  const file = files['SKILL.md'];
   if (!file?.length) throw new Error('Skill ZIP must contain non-empty SKILL.md at its root');
   let data: unknown;
   try {
@@ -23,6 +24,13 @@ export function validateSkillContent(archive: Buffer) {
   } catch {
     throw new Error('SKILL.md frontmatter must be valid YAML');
   }
-  if (!requiredMetadata.safeParse(data).success)
+  const metadata = requiredMetadata.passthrough().safeParse(data);
+  if (!metadata.success)
     throw new Error('SKILL.md frontmatter requires non-empty name and description');
+  return {
+    ...metadata.data,
+    files: Object.keys(files)
+      .filter((path) => !path.endsWith('/'))
+      .map((path) => ({ path, type: 'file' })),
+  };
 }

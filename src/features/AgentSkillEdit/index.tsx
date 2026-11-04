@@ -67,9 +67,11 @@ const AgentSkillEdit = memo<AgentSkillEditProps>(({ skillId, open, onClose }) =>
   const [saving, setSaving] = useState(false);
   const [form] = AForm.useForm();
 
-  const { data, isLoading } = useToolStore((s) => s.useFetchAgentSkillDetail)(
-    open ? skillId : undefined,
-  );
+  const {
+    data,
+    isLoading,
+    mutate: refreshDetail,
+  } = useToolStore((s) => s.useFetchAgentSkillDetail)(open ? skillId : undefined);
   const updateAgentSkill = useToolStore((s) => s.updateAgentSkill);
   const deleteAgentSkill = useToolStore((s) => s.deleteAgentSkill);
 
@@ -94,6 +96,7 @@ const AgentSkillEdit = memo<AgentSkillEditProps>(({ skillId, open, onClose }) =>
         id: skillId,
         manifest: { description: values.description },
       });
+      await refreshDetail();
       message.success(t('agentSkillEdit.saveSuccess'));
       onClose();
     } finally {

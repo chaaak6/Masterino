@@ -2,10 +2,10 @@
 
 import { Button, Flexbox } from '@lobehub/ui';
 import { createStaticStyles, cx, responsive } from 'antd-style';
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
+import SubmitSkillModal from '@/features/SkillPublishing/SubmitSkillModal';
 import { useIsDark } from '@/hooks/useIsDark';
 
 const styles = createStaticStyles(({ css }) => ({
@@ -83,6 +83,7 @@ const styles = createStaticStyles(({ css }) => ({
 const CreatorRewardBanner = memo(() => {
   const { t } = useTranslation('discover');
   const isDark = useIsDark();
+  const [submitOpen, setSubmitOpen] = useState(false);
 
   return (
     <Flexbox
@@ -97,12 +98,13 @@ const CreatorRewardBanner = memo(() => {
           {t('home.creatorReward.subtitle')}
         </p>
         <div style={{ marginBlockStart: 4 }}>
-          <WorkspaceLink to={'/community/workspace?tab=skills'}>
-            <Button type={'primary'}>{t('home.creatorReward.action')}</Button>
-          </WorkspaceLink>
+          <Button type={'primary'} onClick={() => setSubmitOpen(true)}>
+            {t('home.creatorReward.action')}
+          </Button>
         </div>
       </Flexbox>
       <div className={styles.symbols} />
+      <SubmitSkillModal open={submitOpen} onClose={() => setSubmitOpen(false)} />
     </Flexbox>
   );
 });
