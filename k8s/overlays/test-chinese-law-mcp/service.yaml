@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: mcp
-          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-chinese-law-mcp:test
+          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-market@sha256:767c5e4e5b5515ea7df97d1a942b7f979bf8dd0a0688f8ff37adfcd6a16af74e
           ports:
             - containerPort: 3230
           resources:
@@ -37,6 +37,8 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop: [ALL]
 ---
