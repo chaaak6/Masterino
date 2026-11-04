@@ -1,0 +1,18 @@
+[
+  {
+    "identifier": "user-a7a5427264d1d1ed0a7e8f04",
+    "category": "communication",
+    "status": "published",
+    "current_version_id": "193",
+    "version_count": 1,
+    "version_id": "193",
+    "version": "1.0.0-2e9896ba267b2946",
+    "workflow_state": "published",
+    "artifact_sha256": "87eaf0acae55fbf185d4e8a571b086a345dc0a5e5eb4b138bce4c53e2c32fa83",
+    "suggested_category": "design",
+    "submitted_at": "2026-11-04T12:21:16.705Z",
+    "category_confirmed_at": "2026-11-04T12:40:59.591222+00:00",
+    "immutable_original_suggestion": null,
+    "suggestion_audit_count": 2
+  }
+]

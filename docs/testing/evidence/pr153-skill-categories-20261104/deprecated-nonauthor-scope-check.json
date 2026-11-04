@@ -1,0 +1,10 @@
+{
+  "scope": "non-author employee, personal scope; backend read-only supplement, not UI acceptance",
+  "resource": {
+    "category": "data-analytics",
+    "status": "deprecated",
+    "current_version_id": "165"
+  },
+  "listTotal": 0,
+  "summaryTotal": 0
+}

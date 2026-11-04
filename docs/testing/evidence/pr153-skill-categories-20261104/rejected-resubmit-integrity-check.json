@@ -1,0 +1,37 @@
+{
+  "resource": {
+    "identifier": "user-fa8a16361d234a1300d0399d",
+    "status": "unpublished",
+    "category": null,
+    "current_version_id": "197",
+    "version_id": "197",
+    "version": "1.0.0-3a18568f8e990f98",
+    "workflow_state": "rejected",
+    "suggested_category": null,
+    "suggestion_audit_count": 0,
+    "artifact_sha256": "9e43afb13e2b089151301ba366f228c33f56dd39406f61781ab34f33ba2526d4",
+    "version_count": 1
+  },
+  "verifiedArtifactSha": "9e43afb13e2b089151301ba366f228c33f56dd39406f61781ab34f33ba2526d4",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "bytes": 305
+    },
+    {
+      "path": "references/marker.txt",
+      "bytes": 21
+    },
+    {
+      "path": "scripts/marker.sh",
+      "bytes": 40
+    }
+  ],
+  "markers": [
+    "AGENT_ATTACHMENT_V1",
+    "QA153_AGENT_REFERENCE",
+    "QA153_AGENT_SCRIPT"
+  ],
+  "scriptExecuted": false,
+  "verification": "Read-only supplement to actual App and admin UI flow"
+}

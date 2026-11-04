@@ -879,7 +879,7 @@ export const createMarketApp = (options: {
     const publicResult = ({ artifactKey: _key, ...result }: Record<string, unknown>) => result;
     const existingResponse = (existing: Record<string, unknown>) =>
       existing.workflowState === 'rejected' && category
-        ? c.json({ error: '该版本已被拒绝，请修改内容后重新提交；分类也可由管理员调整。' }, 409)
+        ? c.json({ error: 'version_rejected' }, 409)
         : c.json(publicResult(existing));
     let uploadStarted = false;
     let uploadCompleted = false;

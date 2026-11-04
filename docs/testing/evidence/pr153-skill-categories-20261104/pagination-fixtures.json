@@ -1,0 +1,32 @@
+{
+  "page1": [
+    "qa153-fixture-page-24",
+    "qa153-fixture-page-23",
+    "qa153-fixture-page-22",
+    "qa153-fixture-page-21",
+    "qa153-fixture-page-20",
+    "qa153-fixture-page-19",
+    "qa153-fixture-page-18",
+    "qa153-fixture-page-17",
+    "qa153-fixture-page-16",
+    "qa153-fixture-page-15",
+    "qa153-fixture-page-14",
+    "qa153-fixture-page-13",
+    "qa153-fixture-page-12",
+    "qa153-fixture-page-11",
+    "qa153-fixture-page-10",
+    "qa153-fixture-page-09",
+    "qa153-fixture-page-08",
+    "qa153-fixture-page-07",
+    "qa153-fixture-page-06",
+    "qa153-fixture-page-05",
+    "qa153-fixture-page-04"
+  ],
+  "page2": [
+    "qa153-fixture-page-03",
+    "qa153-fixture-page-02",
+    "qa153-fixture-page-01"
+  ],
+  "total": 24,
+  "categorySummaryPending": "load failure under investigation"
+}

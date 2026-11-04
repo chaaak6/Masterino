@@ -1,0 +1,27 @@
+													84 container %c[·] %cReact Scan
+														85 container  [·] React Scan Stack table collapsed
+													114 container %cElectron Security Warning (Insecure Content-Security-Policy)
+															116 container Warning
+															117 container  Electron Security Warning (Insecure Content-Security-Policy) This renderer process has either no Content Security Policy set or a policy with "unsafe-eval" enabled. This exposes users of this app to unnecessary security risks. For more information and help, consult https://electronjs.org/docs/tutorial/security. This warning will not show up once the app is packaged. Stack table collapsed
+															128 container Error
+													148 container [React Scan] react-grab v0.1.37 is outdated (latest: v0.2.0). Update react-scan to pick up the newer react-grab.
+															150 container Warning
+															151 container  [React Scan] react-grab v0.1.37 is outdated (latest: v0.2.0). Update react-scan to pick up the newer react-grab. Stack table collapsed
+													156 container Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead.
+															158 container Error
+															159 container  Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead. Stack table collapsed
+													164 container Warning: [antd: Modal] `destroyOnClose` is deprecated. Please use `destroyOnHidden` instead.
+															166 container Error
+															167 container  Warning: [antd: Modal] `destroyOnClose` is deprecated. Please use `destroyOnHidden` instead. Stack table collapsed
+															174 container Error
+													180 container Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead.
+															182 container Error
+															183 container  Warning: [antd: Drawer] `width` is deprecated. Please use `size` instead. Stack table collapsed
+													188 container Warning: [antd: Drawer] `height` is deprecated. Please use `size` instead.
+															190 container Error
+															191 container  Warning: [antd: Drawer] `height` is deprecated. Please use `size` instead. Stack table collapsed
+															198 container Warning
+															206 container Error
+													212 container Warning: [antd: Image] `rootClassName` is deprecated. Please use `classNames.root` instead.
+															214 container Error
+															215 container  Warning: [antd: Image] `rootClassName` is deprecated. Please use `classNames.root` instead. Stack table collapsed

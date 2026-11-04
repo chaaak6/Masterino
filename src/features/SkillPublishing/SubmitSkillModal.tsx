@@ -101,9 +101,12 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       } catch (error) {
         console.error('[SubmitRepoModal] Failed to submit:', error);
         const detail = error instanceof Error ? error.message : '';
-        const errorMessage = detail.startsWith('Invalid skill manifest:')
-          ? t('publishing.invalidManifest')
-          : detail || t('user.submitRepoError');
+        const errorMessage =
+          detail === 'version_rejected'
+            ? t('publishing.rejected')
+            : detail.startsWith('Invalid skill manifest:')
+              ? t('publishing.invalidManifest')
+              : detail || t('user.submitRepoError');
         setSubmissionError(errorMessage);
         message.error(errorMessage);
       } finally {

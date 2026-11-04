@@ -197,10 +197,13 @@ const Platform = memo<PlatformProps>(
 
     const command = genInstallCommand(identifier, active);
 
-    const skillUrl =
-      typeof window === 'undefined'
-        ? `/community/skill/${encodeURIComponent(identifier || '')}`
-        : `${window.location.origin}${window.location.pathname}`;
+    let skillUrl = `/community/skill/${encodeURIComponent(identifier || '')}`;
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.pathname, window.location.origin);
+      const version = new URLSearchParams(window.location.search).get('version');
+      if (version) url.searchParams.set('version', version);
+      skillUrl = url.toString();
+    }
     const agentPrompt = `Open ${skillUrl}, then follow the instructions to set up Masterino Skills Marketplace and install the skill. Once installed, read the SKILL.md file in the installed directory and follow its instructions to complete the task.`;
 
     const handleUseOnLobeAI = useCallback(() => {

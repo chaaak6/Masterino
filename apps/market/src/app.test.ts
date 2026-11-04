@@ -183,7 +183,9 @@ describe('user skill submission failures and retries', () => {
   it('does not report a rejected package category correction as submitted', async () => {
     const { query, repository, request, storage } = setup();
     query.mockResolvedValue({ rows: [{ resourceId: 1, versionId: 2, workflowState: 'rejected' }] });
-    expect((await request({ category: 'design' })).status).toBe(409);
+    const response = await request({ category: 'design' });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'version_rejected' });
     expect(repository.submitResource).not.toHaveBeenCalled();
     expect(storage.put).not.toHaveBeenCalled();
   });
