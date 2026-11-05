@@ -14,7 +14,7 @@ before(async () => {
     await mkdir(join(directory, folder));
   await write('laws/index.json', [
     { slug: 'labor-law', title: '中华人民共和国劳动法', articleCount: 2 },
-    { slug: 'labor-contract-law', title: '中华人民共和国劳动合同法', articleCount: 1 },
+    { slug: 'labor-contract-law', title: '中华人民共和国劳动合同法', articleCount: 2 },
     { slug: 'crew-rule', title: '船员工资司法解释', articleCount: 1 },
     { slug: 'title-only', title: 'TITLEONLYQA1105', articleCount: 1 },
   ]);
@@ -52,6 +52,11 @@ before(async () => {
         articleNumber: 62,
         displayNumber: '第六十二条',
         text: '告知被派遣劳动者的工作要求和劳动报酬；支付加班费、绩效奖金，提供与工作岗位相关的福利待遇。',
+      },
+      {
+        articleNumber: 31,
+        displayNumber: '第三十一条',
+        text: '用人单位安排加班的，应当按照国家有关规定向劳动者支付加班费。',
       },
     ],
   });
@@ -173,4 +178,36 @@ test('Given Object prototype names as queries, both searches return no results a
 });
 test('Given two meaningful query groups, matching only one does not count as a result', async () => {
   assert.match(await call('search_articles', { query: '量子工资' }), /未检索到/);
+});
+test('Given a law title plus body keyword, title assists matching but title alone never matches a whole law', async () => {
+  const text = await call('search_articles', { query: 'TITLEONLYQA1105 条款' });
+  assert.match(text, /TITLEONLYQA1105/);
+  assert.match(text, /仅用于校验正文范围的测试条款/);
+});
+test('Given an additional meaningful keyword, a query cannot broaden to rows missing that keyword', async () => {
+  assert.match(await call('search_articles', { query: '加班 工资 XYZ' }), /未检索到/);
+});
+test('Given only generic legal terms, both tools explain how to narrow rather than claiming data is absent', async () => {
+  for (const name of ['search_articles', 'search_cases']) {
+    const text = await call(name, { query: '法律 法规 条例' });
+    assert.match(text, /具体关键词/);
+    assert.ok(!text.includes('未检索到'));
+  }
+});
+
+test('Given overtime wages, the overtime-pay-only clause remains discoverable', async () => {
+  const text = await call('search_articles', { query: '加班工资', law: '劳动合同法' });
+  assert.match(text, /第三十一条/);
+  assert.match(text, /支付加班费/);
+});
+test('Given the reported end offset, reading that position confirms EOF without restarting pagination', async () => {
+  const first = await call('get_case', { id: 'guiding-182' });
+  const total = Number(first.match(/正文字符范围：0-\d+\/(\d+)/)[1]);
+  const end = await call('get_case', { id: 'guiding-182', offset: total });
+  assert.match(end, /已到末尾/);
+  assert.ok(!end.includes('超出正文范围'));
+  assert.ok(!end.includes('请从 offset: 0'));
+});
+test('Given initialization, the server reports the catalog release version', () => {
+  assert.equal(client.getServerVersion().version, '1.1.0');
 });

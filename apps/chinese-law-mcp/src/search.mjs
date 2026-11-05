@@ -25,7 +25,7 @@ const stopwords = new Set([
 ]);
 const aliases = {
   加班: ['延长工作时间'],
-  工资: ['劳动报酬'],
+  工资: ['劳动报酬', '加班费'],
   辞退: ['解除劳动合同'],
   欠薪: ['拖欠', '劳动报酬'],
 };
@@ -37,7 +37,7 @@ export const caseText = (doc) =>
     .join('\n');
 
 // Query-time segmentation only: the corpus stays a small local text collection, with no external API/index service.
-export function rank(rows, query, textOf) {
+export function rank(rows, query, textOf, titleOf = () => '') {
   const groups = [
     ...new Set(
       [...segmenter.segment(query)]
@@ -45,11 +45,14 @@ export function rank(rows, query, textOf) {
         .map((s) => s.segment),
     ),
   ].map((word) => [word, ...(Object.hasOwn(aliases, word) ? aliases[word] : [])]);
-  if (!groups.length) return [];
-  return rows
+  if (!groups.length) return { hits: [], needsKeywords: true };
+  const hits = rows
     .map((row) => {
       const text = textOf(row);
-      const hits = groups.filter((terms) => terms.some((term) => text.includes(term)));
+      const title = titleOf(row);
+      const hits = groups.filter((terms) =>
+        terms.some((term) => text.includes(term) || title.includes(term)),
+      );
       const score =
         hits.length / groups.length +
         (text.includes(query) ? 0.1 : 0) +
@@ -57,8 +60,9 @@ export function rank(rows, query, textOf) {
       const term = hits.flat().find((term) => text.includes(term));
       return { row, score, term, coverage: hits.length / groups.length };
     })
-    .filter((hit) => hit.term && hit.coverage >= (groups.length <= 2 ? 1 : 0.5))
+    .filter((hit) => hit.term && hit.coverage === 1)
     .sort((a, b) => b.score - a.score);
+  return { hits, needsKeywords: false };
 }
 export function excerpt(text, term, length = 400) {
   const start = Math.max(0, text.indexOf(term) - 60);

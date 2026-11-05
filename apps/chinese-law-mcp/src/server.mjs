@@ -53,7 +53,7 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
   const cases = () => (caseRows ??= loadCases(dataDirectory));
   const makeMcp = () => {
     const mcp = new McpServer(
-      { name: 'masterino-chinese-law', version: '1.0.0' },
+      { name: 'masterino-chinese-law', version: '1.1.0' },
       { maxToolInputElements: 16 },
     );
     mcp.tool(
@@ -142,7 +142,16 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
         const meta = law ? resolveLaw(law) : undefined;
         if (law && !meta) return reply(`未找到法规「${law}」，请先用 search_laws 查询。`);
         const rows = (await articles()).filter((row) => !meta || row.slug === meta.slug);
-        const hits = rank(rows, query, (row) => row.text);
+        const { hits, needsKeywords } = rank(
+          rows,
+          query,
+          (row) => row.text,
+          (row) => row.law,
+        );
+        if (needsKeywords)
+          return reply(
+            '查询仅含通用法律词或没有有效词，请提供具体关键词；查找法规名称请用 search_laws。',
+          );
         return reply(
           hits.length
             ? `共 ${hits.length} 条匹配，显示前 ${Math.min(limit, hits.length)} 条摘录：\n` +
@@ -170,7 +179,16 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
         const rows = (await cases()).filter(
           (row) => kind === 'all' || row.kind === `${kind}-cases`,
         );
-        const hits = rank(rows, query, (row) => row.text);
+        const { hits, needsKeywords } = rank(rows, query, (row) => row.text);
+        if (needsKeywords)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '查询仅含通用法律词或没有有效词，请提供具体关键词，例如案由、案号或裁判要点。',
+              },
+            ],
+          };
         const text = hits.length
           ? `共 ${hits.length} 条匹配，显示前 ${Math.min(limit, hits.length)} 条：\n` +
             hits
@@ -226,7 +244,7 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
               `${label}：\n${Array.isArray(row[key]) ? row[key].join('\n') : row[key]}`,
           )
           .join('\n\n');
-        if (offset >= text.length)
+        if (offset > text.length)
           return {
             content: [
               {
