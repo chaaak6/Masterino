@@ -34,7 +34,7 @@ before(async () => {
       {
         articleNumber: 41,
         displayNumber: '第四十一条',
-        text: '用人单位由于生产经营需要，可以延长工作时间。',
+        text: '依照法规，用人单位由于生产经营需要，可以延长工作时间。',
       },
     ],
   });
@@ -140,4 +140,8 @@ test('Given missing results or invalid input, search recovers and concurrent cal
   assert.match(law, /第四十四条/);
   assert.match(cases, /gazette-test/);
   assert.ok(!cases.includes('guiding-182'));
+});
+
+test('Given an unknown multiword query, a generic partial match does not become a relevant result', async () => {
+  assert.match(await call('search_articles', { query: '量子法规QA1105XYZ' }), /未检索到/);
 });

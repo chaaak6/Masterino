@@ -51,9 +51,9 @@ export function rank(rows, query, textOf) {
         (text.includes(query) ? 0.1 : 0) +
         (row.category === '法律' ? 0.2 : 0);
       const term = hits.flat().find((term) => text.includes(term));
-      return { row, score, term };
+      return { row, score, term, coverage: hits.length / groups.length };
     })
-    .filter((hit) => hit.term)
+    .filter((hit) => hit.term && hit.coverage >= 0.5)
     .sort((a, b) => b.score - a.score);
 }
 export function excerpt(text, term, length = 400) {
