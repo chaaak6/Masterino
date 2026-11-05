@@ -12,12 +12,9 @@ import { MarketRepository } from '../../../../../apps/market/src/repository';
 const secret = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 async function fixture() {
   const db = new PGlite();
-  await db.exec(
-    await fs.readFile(
-      new URL('../../../../../apps/market/src/migrations/0001_market.sql', import.meta.url),
-      'utf8',
-    ),
-  );
+  const migrations = new URL('../../../../../apps/market/src/migrations/', import.meta.url);
+  for (const file of (await fs.readdir(migrations)).filter((name) => name.endsWith('.sql')).sort())
+    await db.exec(await fs.readFile(new URL(file, migrations), 'utf8'));
   await db.exec(
     "INSERT INTO market_accounts(id,external_user_id,role) VALUES(1,'qa-admin','admin')",
   );
@@ -74,7 +71,7 @@ async function fixture() {
   ) =>
     repo.submitResource(
       'skill',
-      { identifier: 'qa-lifecycle', version, name, description, manifest },
+      { identifier: 'qa-lifecycle', version, name, description, manifest, category: 'design' },
       account,
       { key: `${version}.zip`, sha256: 'hash' },
     );

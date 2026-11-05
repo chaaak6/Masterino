@@ -98,6 +98,26 @@ describe('extractAccessToken', () => {
 });
 
 describe('MarketService', () => {
+  it('localizes the uncategorized group for primary language callers', async () => {
+    const service = new MarketService();
+    vi.spyOn(service, 'getSkillCategorySummary').mockResolvedValue({
+      allCount: 2,
+      uncategorizedCount: 2,
+      categories: [],
+    });
+    for (const [locale, name] of [
+      ['', '待分类'],
+      ['zh-CN', '待分类'],
+      ['en-US', 'Uncategorized'],
+      ['vi-VN', 'Chưa phân loại'],
+    ]) {
+      expect((await service.getSkillCategories({ locale })).at(-1)).toMatchObject({
+        category: 'uncategorized',
+        count: 2,
+        name,
+      });
+    }
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('MARKET_BASE_URL', 'http://masterlion-market:3220');

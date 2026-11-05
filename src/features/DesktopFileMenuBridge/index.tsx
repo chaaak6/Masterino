@@ -17,8 +17,6 @@ import { useChatStore } from '@/store/chat';
 const DesktopFileMenuBridge = () => {
   const { createAgent, createEmptyGroup, createPage } = useCreateMenuItems();
   const navigate = useWorkspaceAwareNavigate();
-  const inboxAgentId = useAgentStore(builtinAgentSelectors.inboxAgentId);
-  const activeAgentId = useAgentStore((s) => s.activeAgentId);
 
   // Handle create new topic from File menu
   // If currently in an agent page, clear the active topic via the store —
@@ -26,12 +24,14 @@ const DesktopFileMenuBridge = () => {
   // ChatHydration's URL→store updater skips `undefined` values.
   // If not in an agent page, navigate to inbox agent.
   const handleCreateNewTopic = useCallback(() => {
+    const { activeAgentId, switchTopic } = useChatStore.getState();
     if (activeAgentId) {
-      useChatStore.getState().switchTopic(null, { resetFileSelection: true });
+      switchTopic(null, { resetFileSelection: true });
       return;
     }
-    navigate(SESSION_CHAT_URL(inboxAgentId, false));
-  }, [activeAgentId, inboxAgentId, navigate]);
+    const inboxAgentId = builtinAgentSelectors.inboxAgentId(useAgentStore.getState());
+    navigate(inboxAgentId ? SESSION_CHAT_URL(inboxAgentId, false) : '/');
+  }, [navigate]);
 
   // Handle create new agent from File menu
   const handleCreateNewAgent = useCallback(async () => {

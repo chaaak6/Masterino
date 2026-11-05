@@ -1,0 +1,78 @@
+{
+  "recordedAt": "2026-11-04T20:45:40.551809+08:00",
+  "environment": {
+    "app": "dedicated Electron test runtime com.masterino.pr153.qa",
+    "appShellVersion": "1.3.9 dev shell; renderer and main process use this worktree source",
+    "api": "https://mlai-test.bielcrystal.com",
+    "admin": "https://admin-mlai-test.bielcrystal.com/__pr153/",
+    "namespace": "masterino-test",
+    "previewResponseHeader": "x-masterino-preview: pr153",
+    "productionModified": false
+  },
+  "checks": {
+    "marketBackend": "55 passed",
+    "marketService": "30 passed",
+    "primaryLocales": "56305 key/placeholder checks passed",
+    "rootTypecheck": "passed",
+    "adminTypecheck": "passed",
+    "targetedEslint": "passed",
+    "nextProductionBuild": "passed again after final product changes; exit 0",
+    "marketTypeScriptBuild": "passed",
+    "adminViteBuild": "passed",
+    "realPostgresLifecycle": "4 existing PGlite integration tests passed with all migrations",
+    "existingUiAndImportCacheTests": "9 passed: WorkspaceContent 4, SubmitSkillModal 4, scoped skill detail/resource reimport 1"
+  },
+  "migration": {
+    "applied": [
+      "0003_skill_categories.sql",
+      "0004_skill_category_suggestions.sql"
+    ],
+    "resourceSynchronization": false
+  },
+  "ci": {
+    "commit": "b5b01c83b5812380a97f7ef42191e04d03f8a06a",
+    "Test CI": {
+      "result": "success",
+      "run": 41830479133
+    },
+    "Primary language contracts": {
+      "result": "success",
+      "run": 41830479085
+    },
+    "Build Test Desktop": {
+      "result": "success",
+      "run": 41830479086
+    },
+    "Docker PR Build": {
+      "result": "skipped",
+      "run": 41830479371
+    },
+    "note": "Historical baseline results only. Full baseline push run exposed stale WorkspaceContent fixture, fixed with 9 existing targeted tests passing. Final complete CI status is recorded in PR153 Checks and PR description after this commit is published.",
+    "fullPushRun": {
+      "run": 41830468230,
+      "result": "failed App shard; fixture corrected, awaiting new commit CI"
+    }
+  },
+  "logObservation": {
+    "interval": "15 minutes sampled at 20:10 Asia/Shanghai; raw logs retained privately",
+    "apiAndMarket": {
+      "accountId mismatch": 0,
+      "ECONNREFUSED": 0,
+      "fetch failed": 0,
+      "does not exist": 0,
+      "immutable content error": 0,
+      "invalid input syntax": 0,
+      "UnhandledPromiseRejection": 0,
+      "Internal Server Error": 0
+    }
+  },
+  "note": "Automated/build evidence only; actual UI acceptance is recorded separately. No cookies, tokens, passwords, or raw auth headers.",
+  "baselineProductCommit": "b5b01c83b5812380a97f7ef42191e04d03f8a06a",
+  "baselineProductTree": "a156fba27f82291027c236c769b3e35d8ac1d70b",
+  "finalPatch": [
+    "version_rejected machine code and existing localized rejection message",
+    "Web guide URL preserves only pinned version query",
+    "Existing WorkspaceContent test fixture isolation"
+  ],
+  "finalCommitReference": "The final patch and this report are committed together; see PR153 latest head and all check-runs for final SHA/status."
+}

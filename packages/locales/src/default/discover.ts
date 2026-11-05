@@ -25,9 +25,14 @@ export default {
   'publishing.submit': 'Submit for review',
   'publishing.imported': 'Imported for your personal use. Sharing for review is optional.',
   'publishing.installSucceeded': 'Installed to your skill library.',
+  'publishing.updateToCurrentVersion': 'Update to current release',
+  'publishing.updateSucceeded': 'Skill updated in your library.',
+  'publishing.alreadyCurrent': 'Your skill already matches this release.',
   'publishing.installToLibrary': 'Install to My Skill Library',
   'publishing.installSubmittedZipHint':
     'Use the ZIP you just submitted in your skill library while it is under review.',
+  'publishing.baselineConflict':
+    'The installed skill cannot be verified. It has been kept unchanged. Back it up and remove it before installing this release.',
   'publishing.installFailed': 'Could not install the skill. Please try again.',
   'publishing.keepOriginal':
     'This is your original skill. Manage it in your personal library; it has not been deleted.',
@@ -910,6 +915,11 @@ export default {
   'skills.categories.ai-llms.name': 'AI & LLMs',
 
   'skills.categories.all.description': 'All Skills',
+  'skills.categories.loadError': 'Could not load skill categories.',
+  'skills.categories.uncategorized.name': 'Uncategorized',
+  'skills.categories.uncategorized.description': 'Skills awaiting categorization',
+  'publishing.categoryPlaceholder': 'Suggested category (optional)',
+  'publishing.categoryHint': 'The reviewer confirms the category before publishing.',
   'skills.categories.all.name': 'All',
 
   'skills.categories.apple-apps-services.description':

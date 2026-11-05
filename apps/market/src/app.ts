@@ -4,6 +4,7 @@ import { SKILL_PACKAGE_MAX_BYTES } from '@lobechat/skill-package';
 import { unzipSync } from 'fflate';
 import { type Context, Hono } from 'hono';
 import { Redis } from 'ioredis';
+import { z } from 'zod';
 
 import { getAgentAvatar } from './agentAvatars.js';
 import { type AuthEnv, requireRole, trustedClientAuth } from './auth.js';
@@ -35,6 +36,7 @@ import type { Account, MarketRepository } from './repository.js';
 import { MarketSubmissionConflictError } from './repository.js';
 import { runCuratedSeed } from './seed.js';
 import { validateSkillContent } from './skillArtifact.js';
+import { resolveSkillReviewCategory, skillSubmissionMetadata } from './skillCategories.js';
 import { CredentialVault } from './vault.js';
 
 interface AppEnv extends AuthEnv {
@@ -353,7 +355,38 @@ export const createMarketApp = (options: {
         ),
       ),
     );
-    app.get(`/api/v1/${prefix}/categories`, async (c) => c.json(await repository.categories(type)));
+    if (type === 'skill')
+      app.get(`/api/v1/${prefix}/category-summary`, async (c) =>
+        c.json(
+          await repository.skillCategorySummary(
+            queryOptions(c),
+            c.get('account'),
+            c.get('actor').workspaceId,
+          ),
+        ),
+      );
+    app.get(`/api/v1/${prefix}/categories`, async (c) => {
+      if (type !== 'skill') return c.json(await repository.categories(type));
+      const locale = c.req.query('locale');
+      const summary = await repository.skillCategorySummary(
+        queryOptions(c),
+        c.get('account'),
+        c.get('actor').workspaceId,
+      );
+      return c.json([
+        ...summary.categories,
+        {
+          category: 'uncategorized',
+          key: 'uncategorized',
+          name: locale?.startsWith('vi')
+            ? 'Chưa phân loại'
+            : locale && !locale.startsWith('zh')
+              ? 'Uncategorized'
+              : '待分类',
+          count: summary.uncategorizedCount,
+        },
+      ]);
+    });
     app.get(`/api/v1/${prefix}/identifiers`, async (c) => {
       const result = await repository.list(
         type,
@@ -813,31 +846,54 @@ export const createMarketApp = (options: {
       }
     }
     if (errors.length) return c.json({ error: 'unsafe_skill', details: errors }, 400);
+    const category = String(form.get('category') || '').trim() || undefined;
+    if (category) await repository.validateSkillCategory(category);
     const identifier = c.req.param('identifier');
     const version = String(form.get('version') || '1.0.0');
     const artifactHash = sha256(content);
     const pool = repository.getPool();
-    const prior = async () =>
-      (
+    const prior = async () => {
+      const existing = (
         await pool.query(
           `SELECT v.id::int AS "versionId", r.id::int AS "resourceId", v.workflow_state AS "workflowState", v.artifact_key AS "artifactKey" FROM market_resources r JOIN market_versions v ON v.resource_id=r.id WHERE r.type='skill' AND r.identifier=$1 AND r.owner_account_id=$2 AND v.version=$3 AND v.artifact_sha256=$4`,
           [identifier, c.get('account').id, version, artifactHash],
         )
       ).rows[0];
+      if (existing && category) {
+        // A retry may refine review metadata without changing the immutable package.
+        await pool.query(
+          `WITH changed AS (
+            UPDATE market_versions SET suggested_category=$2
+            WHERE id=$1 AND workflow_state IN ('submitted','scanning','in_review','approved')
+              AND COALESCE(suggested_category,editor_data->>'catalogCategory') IS DISTINCT FROM $2
+            RETURNING id
+          ) INSERT INTO market_audit_logs(actor_account_id,action,target_type,target_id,details)
+            SELECT $3,'review.category_suggestion','skill',$4,
+              jsonb_build_object('versionId',id,'category',$2::text) FROM changed`,
+          [existing.versionId, category, c.get('account').id, identifier],
+        );
+      }
+      return existing;
+    };
     const artifactKey = `skill/${identifier}/${version}/${randomUUID()}-${artifactHash}.zip`;
     const publicResult = ({ artifactKey: _key, ...result }: Record<string, unknown>) => result;
+    const existingResponse = (existing: Record<string, unknown>) =>
+      existing.workflowState === 'rejected' && category
+        ? c.json({ error: 'version_rejected' }, 409)
+        : c.json(publicResult(existing));
     let uploadStarted = false;
     let uploadCompleted = false;
     let committed = false;
     try {
       const existing = await prior();
-      if (existing) return c.json(publicResult(existing));
+      if (existing) return existingResponse(existing);
       await repository.submitResource(
         'skill',
         {
           identifier,
           version,
           manifest,
+          category,
           name: String(manifest.name),
           description: String(manifest.description),
           metadata,
@@ -878,7 +934,7 @@ export const createMarketApp = (options: {
           console.warn('Failed to clean skill submission artifact');
         }
       }
-      if (concurrent) return c.json(publicResult(concurrent));
+      if (concurrent) return existingResponse(concurrent);
       if (!(error instanceof MarketSubmissionConflictError))
         console.error('Skill submission infrastructure failure', error);
       return c.json(
@@ -894,11 +950,13 @@ export const createMarketApp = (options: {
   });
   app.post('/api/v1/user/skills/:identifier/versions', async (c) => {
     const form = await c.req.formData();
+    const category = String(form.get('category') || '').trim() || undefined;
+    if (category) await repository.validateSkillCategory(category);
     const file = form.get('file');
     if (!(file instanceof File)) return c.json({ error: 'skill_zip_required' }, 400);
     if (file.size > SKILL_PACKAGE_MAX_BYTES) return c.json({ error: 'skill_zip_too_large' }, 413);
     const manifest = JSON.parse(String(form.get('manifest') || '{}')) as Record<string, unknown>;
-    const metadata = JSON.parse(String(form.get('metadata') || '{}')) as Record<string, unknown>;
+    const metadata = skillSubmissionMetadata(JSON.parse(String(form.get('metadata') || '{}')));
     const manifestErrors = validateArtifactManifest(manifest);
     if (!Array.isArray(manifest.files) || manifestErrors.length)
       return c.json({ error: 'unsafe_or_missing_manifest', details: manifestErrors }, 400);
@@ -923,6 +981,7 @@ export const createMarketApp = (options: {
         {
           description: String(form.get('description') || ''),
           identifier,
+          category,
           manifest,
           metadata,
           name: String(form.get('name') || identifier),
@@ -931,7 +990,8 @@ export const createMarketApp = (options: {
       );
     } else {
       await repository.getPool().query(
-        `UPDATE market_resources SET metadata=$1, name=$2, description=$3, updated_at=now()
+        `UPDATE market_resources SET metadata=$1::jsonb || jsonb_strip_nulls(jsonb_build_object('catalogCategoryConfirmedAt',metadata->'catalogCategoryConfirmedAt')),
+          name=$2, description=$3, updated_at=now()
          WHERE type='skill' AND identifier=$4 AND owner_account_id=$5`,
         [
           JSON.stringify(metadata),
@@ -944,7 +1004,7 @@ export const createMarketApp = (options: {
     }
     const created = await repository.createVersion(
       'skill',
-      { identifier, manifest, version },
+      { identifier, manifest, version, editorData: category ? { catalogCategory: category } : {} },
       ...(Object.values(actorScope(c)) as [Account, string | undefined]),
     );
     await repository
@@ -1774,6 +1834,8 @@ export const createMarketApp = (options: {
     const result = await repository.getPool().query(
       `SELECT r.type, r.identifier, r.name, r.metadata, v.version, v.id::int AS "versionId",
         v.workflow_state AS "workflowState", v.scan_result AS "scanResult",
+        r.category, COALESCE(v.suggested_category,v.editor_data->>'catalogCategory') AS "suggestedCategory",
+        r.metadata->>'catalogCategoryConfirmedAt' AS "categoryConfirmedAt", COALESCE(v.submitted_at,v.created_at) AS "versionCreatedAt",
         jsonb_build_object('config', v.config, 'manifest', v.manifest) AS "currentConfig",
         (SELECT jsonb_build_object('config', pv.config, 'manifest', pv.manifest)
          FROM market_versions pv WHERE pv.resource_id=r.id AND (pv.created_at,pv.id)<(v.created_at,v.id)
@@ -1784,7 +1846,23 @@ export const createMarketApp = (options: {
          AND (v.workflow_state IN ('submitted','scanning','in_review','approved')
            OR (r.type<>'skill' AND v.workflow_state='rejected')) ORDER BY v.created_at, v.id`,
     );
-    return c.json({ items: result.rows, totalCount: result.rowCount || 0 });
+    return c.json({
+      items: result.rows.map(
+        ({ suggestedCategory, categoryConfirmedAt, versionCreatedAt, ...row }) => ({
+          ...row,
+          category:
+            row.type === 'skill'
+              ? resolveSkillReviewCategory(
+                  row.category,
+                  suggestedCategory,
+                  categoryConfirmedAt,
+                  versionCreatedAt,
+                )
+              : row.category,
+        }),
+      ),
+      totalCount: result.rowCount || 0,
+    });
   });
   app.get('/api/internal/resources', requireRole('reviewer', 'admin'), async (c) => {
     const input = AdminResourceListQuerySchema.parse({
@@ -1872,6 +1950,20 @@ export const createMarketApp = (options: {
     );
     return c.json({ items: result.rows });
   });
+  app.patch(
+    '/api/internal/resources/skill/:identifier/category',
+    requireRole('reviewer', 'admin'),
+    async (c) => {
+      const input = z.object({ category: z.string().trim().min(1) }).parse(await c.req.json());
+      return c.json(
+        await repository.updateSkillCategory(
+          c.req.param('identifier')!,
+          input.category,
+          c.get('account'),
+        ),
+      );
+    },
+  );
   app.post(
     '/api/internal/resources/:type/:identifier/review',
     requireRole('reviewer', 'admin'),
@@ -1891,6 +1983,7 @@ export const createMarketApp = (options: {
           input.versionId === undefined
             ? undefined
             : { versionId: input.versionId, expectedState: input.expectedState },
+          input.category,
         ),
       );
     },
@@ -1945,7 +2038,7 @@ export const createMarketApp = (options: {
       .query(`SELECT * FROM market_connector_allowlist ORDER BY provider, hostname`);
     return c.json({ items: result.rows });
   });
-  app.get('/api/internal/categories', requireRole('admin'), async (c) => {
+  app.get('/api/internal/categories', requireRole('reviewer', 'admin'), async (c) => {
     const result = await repository
       .getPool()
       .query(`SELECT * FROM market_categories ORDER BY resource_type, sort_order, slug`);

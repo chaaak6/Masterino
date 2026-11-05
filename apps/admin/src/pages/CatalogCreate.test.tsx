@@ -9,6 +9,7 @@ vi.mock('@admin/lib/trpc', () => ({
   trpcClient: { upload: { createS3PreSignedUpload: { mutate: () => new Promise(() => {}) } } },
   trpc: {
     admin: {
+      listMarketCategories: { useQuery: () => ({ data: { items: [] }, isLoading: false }) },
       verifyCatalogMcp: { useMutation: () => ({ reset: actions.reset, mutate: vi.fn() }) },
       createCatalogResource: { useMutation: () => ({ mutate: actions.create }) },
     },

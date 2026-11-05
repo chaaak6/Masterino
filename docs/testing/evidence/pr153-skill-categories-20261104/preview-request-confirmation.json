@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-11-04 Asia/Shanghai",
+  "request": "market.skill.getSkillCategorySummary,market.skill.getSkillList",
+  "query": "qa-",
+  "xMasterinoPreview": "pr153",
+  "status": 200,
+  "visibleAllCount": 8,
+  "visibleUncategorizedCount": 8
+}

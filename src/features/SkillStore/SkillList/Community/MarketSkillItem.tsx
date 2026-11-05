@@ -8,6 +8,7 @@ import { DownloadIcon, Loader2, MoreVerticalIcon, Plus, Trash2 } from 'lucide-re
 import { lazy, memo, Suspense, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useMarketSkillInstall } from '@/features/SkillStore/useMarketSkillInstall';
 import { usePermission } from '@/hooks/usePermission';
 import { agentSkillService } from '@/services/skill';
 import { useToolStore } from '@/store/tool';
@@ -41,39 +42,18 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
   const { t } = useTranslation(['plugin', 'discover']);
   const { t: tc } = useTranslation('common');
   const [detailOpen, setDetailOpen] = useState(false);
-  const [installing, setInstalling] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { allowed: canCreate } = usePermission('create_content');
+  const { canCreate, handleInstall, installedSkill, installing, isLoading } = useMarketSkillInstall(
+    identifier,
+    name,
+  );
   const { allowed: canEdit } = usePermission('edit_own_content');
 
   const installed = useToolStore(agentSkillsSelectors.isAgentSkill(identifier));
-  const installedSkill = useToolStore(agentSkillsSelectors.getAgentSkillByIdentifier(identifier));
   const [refreshAgentSkills, deleteAgentSkill] = useToolStore((s) => [
     s.refreshAgentSkills,
     s.deleteAgentSkill,
   ]);
-
-  const handleInstall = useCallback(async () => {
-    if (!canCreate || installing) return;
-    setInstalling(true);
-    try {
-      await agentSkillService.importFromMarket(identifier);
-      await refreshAgentSkills();
-    } catch (error) {
-      const message = (error as Error).message;
-      const conflict = message.startsWith('Your original skill differs from this release')
-        ? t('publishing.originalConflict', { ns: 'discover' })
-        : message.startsWith('This installed skill has local edits')
-          ? t('publishing.installedConflict', { ns: 'discover' })
-          : message.startsWith('A skill named ') &&
-              message.endsWith('already exists. Remove it before installing this skill.')
-            ? t('publishing.nameConflict', { name, ns: 'discover' })
-            : message;
-      toast.error(`${t('error.installError', { name })}: ${conflict}`);
-    } finally {
-      setInstalling(false);
-    }
-  }, [canCreate, identifier, installing, name, refreshAgentSkills, t]);
 
   const handleUninstall = useCallback(() => {
     if (!canEdit || !installedSkill) return;
@@ -164,7 +144,7 @@ const MarketSkillItem = memo<DiscoverSkillItem>(({ name, icon, description, iden
 
     return (
       <ActionIcon
-        disabled={!canCreate}
+        disabled={!canCreate || isLoading}
         icon={Plus}
         title={t('store.actions.install')}
         onClick={handleInstall}

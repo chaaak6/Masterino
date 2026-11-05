@@ -1,0 +1,29 @@
+{
+  "scope": "mtest personal; read-only repository supplement to final real UI",
+  "listTotal": 18,
+  "allCount": 18,
+  "uncategorizedCount": 10,
+  "categories": [
+    {
+      "category": "data-analytics",
+      "count": 2
+    },
+    {
+      "category": "pdf-documents",
+      "count": 2
+    },
+    {
+      "category": "productivity-tasks",
+      "count": 3
+    },
+    {
+      "category": "communication",
+      "count": 1
+    },
+    {
+      "category": "design",
+      "count": 0
+    }
+  ],
+  "productionModified": false
+}

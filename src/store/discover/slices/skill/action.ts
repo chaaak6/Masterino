@@ -43,12 +43,15 @@ export class SkillActionImpl {
 
   useFetchSkillList = (params: SkillQueryParams): SWRResponse<SkillListResponse> => {
     const locale = globalHelpers.getCurrentLanguage();
-    return useClientDataSWR(discoverKeys.skillList(locale, params), async () =>
-      discoverService.getSkillList({
-        ...params,
-        page: params.page ? Number(params.page) : 1,
-        pageSize: params.pageSize ? Number(params.pageSize) : 21,
-      }),
+    return useClientDataSWR(
+      discoverKeys.skillList(locale, params),
+      async () =>
+        discoverService.getSkillList({
+          ...params,
+          page: params.page ? Number(params.page) : 1,
+          pageSize: params.pageSize ? Number(params.pageSize) : 21,
+        }),
+      { revalidateOnFocus: true },
     );
   };
 

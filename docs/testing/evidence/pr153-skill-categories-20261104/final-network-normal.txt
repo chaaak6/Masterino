@@ -1,0 +1,1 @@
+												63 弹出式按钮 Description: Throttling, Value: Disabled: No throttling

@@ -1,0 +1,12 @@
+{
+  "scope": "dedicated desktop stdout after 20:54 Asia/Shanghai",
+  "observations": {
+    "antd deprecated": 13,
+    "React Scan version": 3,
+    "contenteditable flex focus": 6,
+    "React19 element.ref": 4,
+    "Base UI nativeButton": 2,
+    "ResizeObserver loop": 41
+  },
+  "interpretation": "Development/layout/library warnings remain; successful final UI flow does not mean a zero-warning console. No secrets or full raw logs retained."
+}

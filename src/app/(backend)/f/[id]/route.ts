@@ -14,7 +14,7 @@ const encodeRFC5987Value = (value: string) =>
     (char) => `%${char.codePointAt(0)!.toString(16).toUpperCase()}`,
   );
 
-export const createAttachmentContentDisposition = (filename: string) => {
+const createAttachmentContentDisposition = (filename: string) => {
   const asciiFilename = Array.from(filename, (char) => {
     const codePoint = char.codePointAt(0) || 0;
     return codePoint < 32 || codePoint > 126 || char === '"' || char === '\\' ? '_' : char;

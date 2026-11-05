@@ -17,6 +17,8 @@ import {
 } from 'antd';
 import { useState } from 'react';
 
+import SkillCategorySelect from '../components/SkillCategorySelect';
+
 const workflowColor: Record<string, string> = {
   approved: 'blue',
   in_review: 'gold',
@@ -64,6 +66,7 @@ export default function MarketPage() {
   const reviews = trpc.admin.listMarketReviews.useQuery();
   const resources = trpc.admin.listCatalogResources.useQuery({ page: 1, pageSize: 100 });
   const categories = trpc.admin.listMarketCategories.useQuery();
+  const [reviewCategories, setReviewCategories] = useState<Record<number, string>>({});
   const accounts = trpc.admin.listMarketAccounts.useQuery();
   const allowlist = trpc.admin.listMarketConnectorAllowlist.useQuery();
   const audit = trpc.admin.listMarketAudit.useQuery({ limit: 100 });
@@ -133,6 +136,9 @@ export default function MarketPage() {
   ) =>
     reviewMutation.mutate({
       action,
+      ...(record.type === 'skill' && action === 'publish'
+        ? { category: reviewCategories[record.versionId] || record.category || undefined }
+        : {}),
       identifier: record.identifier,
       type: record.type,
       versionId: record.versionId,
@@ -219,10 +225,10 @@ export default function MarketPage() {
                 <Card title="新增或更新分类">
                   <Form
                     layout="inline"
-                    onFinish={(value) =>
+                    onFinish={({ zhName, enName, ...value }) =>
                       categoryMutation.mutate({
                         ...value,
-                        localizations: {},
+                        localizations: { 'zh-CN': { name: zhName }, 'en-US': { name: enName } },
                         sortOrder:
                           value.sortOrder === undefined ? undefined : Number(value.sortOrder),
                       })
@@ -232,6 +238,12 @@ export default function MarketPage() {
                       <Input placeholder="agent" />
                     </Form.Item>
                     <Form.Item label="Slug" name="slug" rules={[{ required: true }]}>
+                      <Input />
+                    </Form.Item>
+                    <Form.Item label="中文名称" name="zhName" rules={[{ required: true }]}>
+                      <Input />
+                    </Form.Item>
+                    <Form.Item label="英文名称" name="enName" rules={[{ required: true }]}>
                       <Input />
                     </Form.Item>
                     <Form.Item label="排序" name="sortOrder">
@@ -306,6 +318,25 @@ export default function MarketPage() {
                     { dataIndex: 'version', title: '版本' },
                     { dataIndex: 'ownerName', title: '投稿人' },
                     {
+                      title: '分类',
+                      render: (_, record: any) =>
+                        record.type === 'skill' ? (
+                          <SkillCategorySelect
+                            value={
+                              reviewCategories[record.versionId] || record.category || undefined
+                            }
+                            onChange={(category) =>
+                              setReviewCategories((current) => ({
+                                ...current,
+                                [record.versionId]: category,
+                              }))
+                            }
+                          />
+                        ) : (
+                          record.category
+                        ),
+                    },
+                    {
                       dataIndex: 'workflowState',
                       render: (value) => <Tag color={workflowColor[value]}>{value}</Tag>,
                       title: '状态',
@@ -335,9 +366,34 @@ export default function MarketPage() {
                             </Button>
                           )}
                           {record.workflowState === 'approved' && (
-                            <Button type="primary" onClick={() => act(record, 'publish')}>
-                              发布
-                            </Button>
+                            <>
+                              <Button
+                                type="primary"
+                                disabled={
+                                  record.type === 'skill' &&
+                                  !(categories.data?.items ?? []).some(
+                                    (item: any) =>
+                                      item.resource_type === 'skill' &&
+                                      item.slug ===
+                                        (reviewCategories[record.versionId] || record.category),
+                                  )
+                                }
+                                onClick={() => act(record, 'publish')}
+                              >
+                                发布
+                              </Button>
+                              {record.type === 'skill' &&
+                                !(categories.data?.items ?? []).some(
+                                  (item: any) =>
+                                    item.resource_type === 'skill' &&
+                                    item.slug ===
+                                      (reviewCategories[record.versionId] || record.category),
+                                ) && (
+                                  <Typography.Text type="warning">
+                                    发布前请选择有效技能分类
+                                  </Typography.Text>
+                                )}
+                            </>
                           )}
                         </Space>
                       ),

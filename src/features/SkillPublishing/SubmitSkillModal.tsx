@@ -1,12 +1,14 @@
 'use client';
 
-import { Flexbox, Text } from '@lobehub/ui';
+import { Button, Flexbox, Text } from '@lobehub/ui';
 import { Modal, Select } from '@lobehub/ui/base-ui';
 import { App, Tabs, Upload } from 'antd';
 import { sha256 } from 'js-sha256';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useSkillCategorySummary } from '@/hooks/useSkillCategory';
+import { mutate } from '@/libs/swr';
 import { lambdaClient } from '@/libs/trpc/client';
 import { uploadService } from '@/services/upload';
 import { useToolStore } from '@/store/tool';
@@ -24,6 +26,8 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
     const { t } = useTranslation('discover');
     const { message } = App.useApp();
 
+    const [category, setCategory] = useState<string>();
+    const categorySummary = useSkillCategorySummary({}, open);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [zipSubmission, setZipSubmission] = useState<'submitted' | 'alreadyPublished'>();
     const [submissionError, setSubmissionError] = useState<string>();
@@ -55,6 +59,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
           if (!selectedSkill) throw new Error(t('publishing.chooseSkill'));
           const result = await lambdaClient.market.socialProfile.submitPersonalSkill.mutate({
             skillId: selectedSkill,
+            category,
           });
           workflowState = result.status;
           await refreshSkills().catch((error) => {
@@ -64,6 +69,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
           if (!zipFileId) throw new Error(t('user.zipRequired'));
           const result = await lambdaClient.market.socialProfile.submitZip.mutate({
             actAs: submitContext?.actAs,
+            category,
             zipFileId,
           });
           workflowState = result.status;
@@ -79,6 +85,11 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
         }
         const successKey = workflowState === 'published' ? 'alreadyPublished' : 'submitted';
         message.success(t(`publishing.${successKey}`));
+        void mutate(
+          (key) =>
+            Array.isArray(key) &&
+            ['discover:skillList', 'discover:skillCategorySummary'].includes(key[0]),
+        );
         onSuccess?.();
         if (mode === 'zip' && submitContext?.actAs === undefined) {
           setZipSubmission(successKey);
@@ -90,9 +101,12 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       } catch (error) {
         console.error('[SubmitRepoModal] Failed to submit:', error);
         const detail = error instanceof Error ? error.message : '';
-        const errorMessage = detail.startsWith('Invalid skill manifest:')
-          ? t('publishing.invalidManifest')
-          : detail || t('user.submitRepoError');
+        const errorMessage =
+          detail === 'version_rejected'
+            ? t('publishing.rejected')
+            : detail.startsWith('Invalid skill manifest:')
+              ? t('publishing.invalidManifest')
+              : detail || t('user.submitRepoError');
         setSubmissionError(errorMessage);
         message.error(errorMessage);
       } finally {
@@ -100,6 +114,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       }
     }, [
       beforeSubmit,
+      category,
       message,
       mode,
       onSuccess,
@@ -151,6 +166,7 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
       ++uploadGeneration.current;
       setZipFileId(undefined);
       setZipName(undefined);
+      setCategory(undefined);
       setSubmissionError(undefined);
       setZipSubmission(undefined);
       onClose();
@@ -211,6 +227,24 @@ export const SubmitRepoModal = memo<SubmitRepoModalProps>(
             </Text>
 
             {submissionError && <Text type="danger">{submissionError}</Text>}
+            <Select
+              allowClear
+              placeholder={t('publishing.categoryPlaceholder')}
+              value={category}
+              options={(categorySummary.data?.categories ?? [])
+                .filter((item) => item.registered)
+                .map((item) => ({ label: item.name, value: item.category }))}
+              onChange={(value) => setCategory(value as string | undefined)}
+            />
+            {categorySummary.error && (
+              <Text type="danger">
+                {t('skills.categories.loadError')}
+                <Button size="small" onClick={() => void categorySummary.mutate()}>
+                  {t('retry', { ns: 'common' })}
+                </Button>
+              </Text>
+            )}
+            <Text type="secondary">{t('publishing.categoryHint')}</Text>
             <Tabs
               activeKey={mode}
               items={[
