@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: mcp
-          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-market@sha256:1f302834943aaa246dd0bb671b3bc536dd69be2907fd3e0b94128381b6a7707f
+          image: boen-registry-vpc.cn-shenzhen.cr.aliyuncs.com/biel_client/masterino-market@sha256:bb24d7db1af89150d258273a8fd11d04e2e4fcbf8031167af7c26268351fc362
           ports:
             - containerPort: 3230
           resources:

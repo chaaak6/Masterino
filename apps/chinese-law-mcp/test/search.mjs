@@ -49,8 +49,8 @@ before(async () => {
     title: '中华人民共和国劳动合同法',
     articles: [
       {
-        articleNumber: 31,
-        displayNumber: '第三十一条',
+        articleNumber: 62,
+        displayNumber: '第六十二条',
         text: '告知被派遣劳动者的工作要求和劳动报酬；支付加班费、绩效奖金，提供与工作岗位相关的福利待遇。',
       },
     ],
