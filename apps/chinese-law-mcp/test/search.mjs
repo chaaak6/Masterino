@@ -16,7 +16,14 @@ before(async () => {
     { slug: 'labor-law', title: '中华人民共和国劳动法', articleCount: 2 },
     { slug: 'labor-contract-law', title: '中华人民共和国劳动合同法', articleCount: 1 },
     { slug: 'crew-rule', title: '船员工资司法解释', articleCount: 1 },
+    { slug: 'title-only', title: 'TITLEONLYQA1105', articleCount: 1 },
   ]);
+  await write('laws/title-only.json', {
+    title: 'TITLEONLYQA1105',
+    articles: [
+      { articleNumber: 1, displayNumber: '第一条', text: '仅用于校验正文范围的测试条款。' },
+    ],
+  });
   await write('laws/crew-rule.json', {
     title: '船员工资司法解释',
     category: '司法解释',
@@ -144,4 +151,23 @@ test('Given missing results or invalid input, search recovers and concurrent cal
 
 test('Given an unknown multiword query, a generic partial match does not become a relevant result', async () => {
   assert.match(await call('search_articles', { query: '量子法规QA1105XYZ' }), /未检索到/);
+});
+test('Given a title-only query, full-text search does not count every article in that law', async () => {
+  assert.match(await call('search_articles', { query: 'TITLEONLYQA1105' }), /未检索到/);
+});
+test('Given an unknown two-word query, legal boilerplate alone does not count as a hit', async () => {
+  assert.match(await call('search_articles', { query: '量子法规' }), /未检索到/);
+});
+test('Given an offset beyond an existing case, callers receive an explicit out-of-range hint', async () => {
+  const text = await call('get_case', { id: 'guiding-182', offset: 99999 });
+  assert.match(text, /超出正文范围/);
+  assert.match(text, /offset: 0/);
+});
+test('Given Object prototype names as queries, both searches return no results and remain usable', async () => {
+  for (const name of ['search_articles', 'search_cases']) {
+    const response = await client.callTool({ name, arguments: { query: 'constructor' } });
+    assert.notEqual(response.isError, true);
+    assert.match(response.content[0].text, /未检索到/);
+  }
+  assert.match(await call('search_cases', { query: '奖金' }), /guiding-182/);
 });

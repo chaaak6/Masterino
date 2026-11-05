@@ -15,6 +15,10 @@ const stopwords = new Set([
   '有关',
   '相关',
   '规定',
+  '法规',
+  '法律',
+  '条文',
+  '条例',
   '我',
   '能',
   '否',
@@ -40,7 +44,7 @@ export function rank(rows, query, textOf) {
         .filter((s) => s.isWordLike && !stopwords.has(s.segment))
         .map((s) => s.segment),
     ),
-  ].map((word) => [word, ...(aliases[word] ?? [])]);
+  ].map((word) => [word, ...(Object.hasOwn(aliases, word) ? aliases[word] : [])]);
   if (!groups.length) return [];
   return rows
     .map((row) => {

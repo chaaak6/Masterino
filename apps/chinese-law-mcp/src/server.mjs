@@ -142,7 +142,7 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
         const meta = law ? resolveLaw(law) : undefined;
         if (law && !meta) return reply(`未找到法规「${law}」，请先用 search_laws 查询。`);
         const rows = (await articles()).filter((row) => !meta || row.slug === meta.slug);
-        const hits = rank(rows, query, (row) => `${row.law}\n${row.text}`);
+        const hits = rank(rows, query, (row) => row.text);
         return reply(
           hits.length
             ? `共 ${hits.length} 条匹配，显示前 ${Math.min(limit, hits.length)} 条摘录：\n` +
@@ -226,6 +226,15 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
               `${label}：\n${Array.isArray(row[key]) ? row[key].join('\n') : row[key]}`,
           )
           .join('\n\n');
+        if (offset >= text.length)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `offset ${offset} 超出正文范围（共 ${text.length} 字符），请从 offset: 0 读取。\n案例：${row.title}（id: ${row.id}）\n官方来源：${row.sourceUrl}\n数据版本：${dataVersion}`,
+              },
+            ],
+          };
         const end = Math.min(offset + limit, text.length);
         return {
           content: [
