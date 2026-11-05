@@ -22,3 +22,29 @@
 ## 执行记录
 
 待实施：逐项填写实际时间、镜像、工具请求与结果、日志、截图。模型未实际调用工具不能算通过。验收失败先定位修正并复测。最终提交 PR，不合并、不部署生产。
+
+## 2026-11-05 实际验收
+
+测试 namespace `masterino-test`，客户端使用独立 `masterino-desktop-test-server` profile，连接 `https://mlai-test.bielcrystal.com`。不使用正式客户端 profile。服务代码提交 `d7b609a5`，镜像 `sha256:1f302834943aaa246dd0bb671b3bc536dd69be2907fd3e0b94128381b6a7707f`，阿里云 ACR 远程构建执行协议测试与快照准备成功。本机没有构建 Docker 镜像。
+
+| 用例 | 结果与证据 |
+| --- | --- |
+| S01 | 通过。12:08初测、12:22修复后复测，实际 `search_articles(query="加班工资",limit=5)` 返回劳动法44条和劳动合同法等跨法规摘录；随后原 get_article 获取民法典577条原文。 |
+| S02 | 通过。真实 HTTP SDK 测试覆盖指定劳动法和limit=1的范围及截断；真人案例查询limit=1亦只返回1件。 |
+| S03 | 先失败、修正后通过。12:13前“量子法规QA1105XYZ”只匹配通用词“法规”却返回5356条。补失败协议测试；改为至少一半分词组命中。12:22同一客户端话题、同一查询重新调用，明确返回“未检索到”。“加班工资”和案例182查询仍成功。空输入及错误后恢复另有协议测试。 |
+| C01 | 通过。实际search_cases查询“奖金 审批义务”，首位返回guiding-182，附最高法官方URL。kind=gazette、limit=1查询“合同”，只返回公报案例。仅收录723件案例，未宣称全国覆盖。 |
+| C02 | 通过。真实get_case(guiding-182)返回案情、裁判要点/理由/结果及官方来源。offset=0/100、limit=100两页范围0-100、100-200，下一页100/200，均显示截断和版本。12:22新镜像再次返回0-100/2278及下一页100。 |
+| C03 | 通过。真实get_case(not-found-qa1105)明确未找到，不编造；类型筛选通过。协议测试覆盖并发、路径式未知id和正常调用恢复。 |
+| R01 | 通过。真人search_laws(劳动合同)、search_in_law(劳动合同法,试用期)、get_article(民法典,577)均返回原有格式和原文。原9项协议测试保留，另现有安装/调用67项Vitest测试通过。 |
+| R02 | 通过（既有后台限制见下）。测试后台测试连接发现6工具，真实提交→扫描→批准→发布，客户端社区真实安装显示“已安装”，无Key要求。DevTools捕获market.callCloudMcpEndpoint POST HTTP200；参数含测试identifier、version=1.1.0、get_article及577；响应success=true和原文。 |
+| R03 | 通过。普通对话话题tpc_9gQRAhuJeEEA仅回复43。Microsoft Learn话题tpc_PlpFXDho7mv3实际激活并执行microsoft_docs_search，返回https://learn.microsoft.com/azure/app-service/overview。 |
+| R04 | 通过。部署前后Deployment镜像/Ready对比，仅masterino-chinese-law-mcp镜像变化，其他Deployment未改；Ingress未改。新Pod Ready、0次重启。冷首次全文检索约2.9秒，案例加载/查询约1.5秒，后续详情毫秒级；仅单次观察，不代表容量压测。生产未部署。 |
+
+主验收话题：`tpc_ZC2fGcMZ0P3v`（测试账号masterinoTest）。MCP日志与业务工具记录核对：identifier均为本次测试条目，六个工具有实际成功返回；新服务没有401或API Key校验。工具日志不记录查询正文。截图、工具参数/返回和日志保存在本机 `/tmp/law-expansion-evidence/`，不提交登录态、私有凭证或HAR。
+
+### 验收发现与范围说明
+
+- 后台创建MCP接口不支持相同identifier的新版本（仅Skill支持该入口的追加版本），提交masterino-chinese-law返回Resource already exists。这是既有后台限制，本次未改后台。改用独立测试目录条目`masterino-chinese-law-search-test`，版本1.1.0，指向同一测试服务URL；原masterino-chinese-law记录、manifest及连接保持，原三个工具仍可用。正式上线前需通过既有版本接口更新旧资源manifest并审批发布，或另行补后台版本管理；只替换镜像不会自动更新社区工具白名单。
+- 测试后台直接加载/mcp存在既有503预览路由，先打开根入口再通过SPA菜单进入可正常验收；未修改路由或其他Deployment。
+- 手动批准并行工具调用时，客户端曾报告部分空内容并发起补充调用；同批服务端日志均为200、业务工具记录已有原始返回。完成补充只读查询后结果正常，未修改通用Agent/审批流程，也未将模型自述作为成功证据。
+- 检索为中文分词、常用用语扩展和关键词排序，不是语义检索；结果仍需判断相关性。没有新增向量数据库、供应商Key、企业信用查询或全国裁判文书抓取。
