@@ -1,0 +1,25 @@
+name: Test Chinese Law MCP
+on:
+  pull_request:
+    paths:
+      - apps/chinese-law-mcp/**
+      - Dockerfile.chinese-law-mcp
+      - .github/workflows/test-chinese-law-mcp.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: apps/chinese-law-mcp
+      - run: pnpm test
+        working-directory: apps/chinese-law-mcp
+      - run: pnpm prepare-data
+        working-directory: apps/chinese-law-mcp

@@ -1,0 +1,24 @@
+ARG BASE_REGISTRY=docker.io/library
+FROM ${BASE_REGISTRY}/node:24-slim AS builder
+ARG USE_CN_MIRROR=false
+ENV CI=true
+WORKDIR /app
+COPY apps/chinese-law-mcp/package.json apps/chinese-law-mcp/pnpm-lock.yaml apps/chinese-law-mcp/pnpm-workspace.yaml ./
+RUN corepack enable && if [ "$USE_CN_MIRROR" = "true" ]; then corepack prepare pnpm@10.33.0 --activate && pnpm config set registry https://registry.npmmirror.com; fi && pnpm install --frozen-lockfile --ignore-scripts
+COPY apps/chinese-law-mcp/src ./src
+COPY apps/chinese-law-mcp/test ./test
+COPY apps/chinese-law-mcp/scripts ./scripts
+COPY apps/chinese-law-mcp/snapshot.json ./snapshot.json
+COPY apps/chinese-law-mcp/THIRD_PARTY.md ./THIRD_PARTY.md
+RUN pnpm test && pnpm prepare-data && pnpm prune --prod
+FROM ${BASE_REGISTRY}/node:24-slim
+ENV NODE_ENV=production PORT=3230
+WORKDIR /app
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --from=builder --chown=node:node /app/THIRD_PARTY.md ./THIRD_PARTY.md
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/src ./src
+COPY --from=builder --chown=node:node /app/data ./data
+USER node
+EXPOSE 3230
+CMD ["node","src/index.mjs"]
