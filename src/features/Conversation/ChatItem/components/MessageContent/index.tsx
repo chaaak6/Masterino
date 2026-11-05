@@ -4,6 +4,7 @@ import { type ReactNode } from 'react';
 import { memo, Suspense, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { validateMessageImages } from '@/features/Attachments/validateMessageImages';
 import {
   dataSelectors,
   messageStateSelectors,
@@ -72,6 +73,9 @@ const MessageContent = memo<MessageContentProps>(
         s.regenerateUserMessage,
       ]);
 
+    const attachmentMessage = useConversationStore((s) =>
+      editing ? dataSelectors.getDisplayMessageById(id)(s) : undefined,
+    );
     const editorData = useConversationStore(
       (s) => dataSelectors.getDisplayMessageById(id)(s)?.editorData,
     );
@@ -127,6 +131,13 @@ const MessageContent = memo<MessageContentProps>(
               onCancel={() => onEditingChange(false)}
               onConfirm={async (value, newEditorData) => {
                 if (!canEdit) return;
+                if (
+                  canCreate &&
+                  shouldSendOnConfirm &&
+                  attachmentMessage &&
+                  !validateMessageImages(attachmentMessage)
+                )
+                  return;
                 onEditingChange(false);
                 // updateMessageContent does an optimistic state update synchronously before
                 // awaiting the DB round trip. Kick off regenerate in parallel so the old

@@ -1,19 +1,22 @@
-import { Button, Flexbox, Text } from '@lobehub/ui';
-import { Modal } from '@lobehub/ui/base-ui';
+import { Flexbox, Text } from '@lobehub/ui';
+import { Button, Modal } from '@lobehub/ui/base-ui';
 import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isDesktop } from '@/const/version';
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useDesktopDownload } from '@/features/DesktopDownload';
 import { useFileStore } from '@/store/file';
+import { getChatAttachmentDraft } from '@/store/file/slices/chat/drafts';
 import { formatSize } from '@/utils/format';
 
 const AttachmentSupport = memo(() => {
   const { t } = useTranslation('chat');
+  const scope = useAttachmentScope();
   const [issues, files, shown, markShown, dismiss] = useFileStore((s) => [
-    s.chatAttachmentIssues,
-    s.chatUploadFileList,
-    s.chatAttachmentNoticeShown,
+    getChatAttachmentDraft(s, scope).chatAttachmentIssues,
+    getChatAttachmentDraft(s, scope).chatUploadFileList,
+    getChatAttachmentDraft(s, scope).chatAttachmentNoticeShown,
     s.markChatAttachmentNoticeShown,
     s.dismissChatAttachmentIssues,
   ]);
@@ -43,10 +46,10 @@ const AttachmentSupport = memo(() => {
     files.some((item) => item.status === 'error' && item.file.name.toLowerCase().endsWith('.xlsm'));
   useEffect(() => {
     if (limited && !shown) {
-      markShown();
+      markShown(scope);
       setOpen(true);
     }
-  }, [limited, shown, markShown]);
+  }, [limited, shown, markShown, scope]);
   return (
     <>
       {issues.length > 0 && (
@@ -67,7 +70,7 @@ const AttachmentSupport = memo(() => {
             ))}
           </Flexbox>
           <Flexbox horizontal gap={8} wrap="wrap">
-            <Button size="small" onClick={dismiss}>
+            <Button size="small" onClick={() => dismiss(scope)}>
               {t('attachments.dismissRejected')}
             </Button>
             {limited && !disabled && (

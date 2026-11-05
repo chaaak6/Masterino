@@ -9,6 +9,7 @@ interface UseUploadFilesOptions {
   agentId: string;
   model?: string;
   provider?: string;
+  scope?: string;
   topicId?: string | null;
 }
 
@@ -20,7 +21,7 @@ interface UseUploadFilesOptions {
  * @returns handleUploadFiles - Callback to handle file uploads
  */
 export const useUploadFiles = (options: UseUploadFilesOptions) => {
-  const { agentId, topicId, model = '', provider = '' } = options;
+  const { agentId, topicId, scope, model = '', provider = '' } = options;
 
   const { canUploadImage, canUploadVideo } = useVisualMediaUploadAbility(model, provider);
   const uploadFiles = useFileStore((s) => s.uploadChatFiles);
@@ -38,10 +39,11 @@ export const useUploadFiles = (options: UseUploadFilesOptions) => {
       });
 
       if (filteredFiles.length > 0) {
-        await uploadFiles(filteredFiles, agentId, topicId);
+        if (scope) await uploadFiles(filteredFiles, agentId, topicId, scope);
+        else await uploadFiles(filteredFiles, agentId, topicId);
       }
     },
-    [agentId, topicId, canUpload, canUploadImage, canUploadVideo, uploadFiles],
+    [agentId, topicId, scope, canUpload, canUploadImage, canUploadVideo, uploadFiles],
   );
 
   return { canUploadImage, canUploadVideo, handleUploadFiles };

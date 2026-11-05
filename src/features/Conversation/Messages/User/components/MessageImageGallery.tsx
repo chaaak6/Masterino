@@ -12,6 +12,7 @@ import {
 } from '@/services/electron/localAttachmentService';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { useFileStore } from '@/store/file';
 
 import { useConversationStore } from '../../../store';
@@ -29,7 +30,8 @@ export default memo(
     topicId?: string | null;
   }) => {
     const { t } = useTranslation('chat');
-    const agentId = useConversationStore((s) => s.context.agentId);
+    const context = useConversationStore((s) => s.context);
+    const agentId = context.agentId;
     const [model, provider] = useAgentStore((s) => [
       agentByIdSelectors.getAgentModelById(agentId)(s),
       agentByIdSelectors.getAgentModelProviderById(agentId)(s),
@@ -66,7 +68,7 @@ export default memo(
                 )
               )
                 return false;
-              return add(ref, messageId, topicId || 'active');
+              return add(ref, messageId, topicId || 'active', undefined, messageMapKey(context));
             },
           };
         })}

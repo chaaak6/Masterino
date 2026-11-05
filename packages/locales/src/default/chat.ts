@@ -1,4 +1,13 @@
 export default {
+  'attachments.localPreviewUnavailable':
+    'This local image cannot be read on this device. View it on the device where it was added, or select the file again.',
+  'attachments.previewUnavailable':
+    'This image could not be loaded. Retry, or select the file again.',
+
+  'attachments.draftChanged':
+    'Your draft changed while preparing to send. Review it and send again.',
+  'attachments.historyLimit':
+    'This message has more than 10 images. Reselect up to 10 images in a new message before sending. Your edited text is retained.',
   'attachments.copyFailed': 'Copy failed. Select and copy the address above manually.',
   'attachments.xlsmAdvice':
     'For .xlsm, use spreadsheet software to save a real .xlsx copy; changing the extension does not convert the file.',

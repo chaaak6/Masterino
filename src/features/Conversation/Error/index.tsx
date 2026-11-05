@@ -12,8 +12,9 @@ import { useTranslation } from 'react-i18next';
 import useBusinessErrorAlertConfig from '@/business/client/hooks/useBusinessErrorAlertConfig';
 import useBusinessErrorContent from '@/business/client/hooks/useBusinessErrorContent';
 import useRenderBusinessChatErrorMessageExtra from '@/business/client/hooks/useRenderBusinessChatErrorMessageExtra';
+import { validateRegenerationImages } from '@/features/Attachments/validateMessageImages';
 import ErrorContent from '@/features/Conversation/ChatItem/components/ErrorContent';
-import { useConversationStore } from '@/features/Conversation/store';
+import { useConversationStore, useConversationStoreApi } from '@/features/Conversation/store';
 import { getContextBudgetFailureFromErrorBody } from '@/features/Conversation/utils/contextBudgetView';
 import HeterogeneousAgentStatusGuide from '@/features/Electron/HeterogeneousAgent/StatusGuide';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
@@ -261,6 +262,7 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
   const sessionErrorBody = error?.body;
   const rawErrorMessage = getRawErrorMessage(error) || alertError?.message;
 
+  const storeApi = useConversationStoreApi();
   const regenerateAssistantMessage = useConversationStore((s) => s.regenerateAssistantMessage);
   const deleteMessage = useConversationStore((s) => s.deleteMessage);
   const handleRetryAgentMessage = useCallback(() => {
@@ -269,9 +271,18 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
       onRegenerate();
       return;
     }
+    if (!validateRegenerationImages(storeApi.getState().displayMessages, data.id)) return;
     regenerateAssistantMessage(data.id);
     if (data.error) deleteMessage(data.id);
-  }, [canCreate, data.error, data.id, deleteMessage, onRegenerate, regenerateAssistantMessage]);
+  }, [
+    canCreate,
+    data.error,
+    data.id,
+    deleteMessage,
+    onRegenerate,
+    regenerateAssistantMessage,
+    storeApi,
+  ]);
 
   if (isHeterogeneousAgentStatusGuideError(sessionErrorBody)) {
     return (

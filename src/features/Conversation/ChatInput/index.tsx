@@ -27,6 +27,7 @@ import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import { selectCurrentTurnTodosFromMessages } from '@/store/chat/slices/message/selectors/dbMessage';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
+import { sameChatAttachmentDraft } from '@/store/file/slices/chat/drafts';
 import {
   checkDesktopProjectSend,
   ProjectDeviceMismatchError,
@@ -293,10 +294,10 @@ const ChatInput = memo<ChatInputProps>(
     const clearSendMessageError = useChatStore((s) => s.clearSendMessageError);
 
     // File store - for UI state only (disabled button, etc.)
-    const fileList = useFileStore(fileChatSelectors.chatUploadFileList);
+    const fileList = useFileStore((s) => fileChatSelectors.chatUploadFileList(s, draftKey));
     const contextList = useFileStore(fileChatSelectors.chatContextSelections);
-    const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
-    const attachmentBlock = useFileStore(fileChatSelectors.attachmentBlock);
+    const isUploadingFiles = useFileStore((s) => fileChatSelectors.isUploadingFiles(s, draftKey));
+    const attachmentBlock = useFileStore((s) => fileChatSelectors.attachmentBlock(s, draftKey));
 
     // Queue state
     const hasQueuedMessages = useChatStore(
@@ -332,14 +333,14 @@ const ChatInput = memo<ChatInputProps>(
 
         // Get instant values from stores at trigger time
         const fileStore = useFileStore.getState();
-        const currentFileList = fileChatSelectors.chatUploadFileList(fileStore);
-        const currentIsUploading = fileChatSelectors.isUploadingFiles(fileStore);
+        const currentFileList = fileChatSelectors.chatUploadFileList(fileStore, draftKey);
+        const currentIsUploading = fileChatSelectors.isUploadingFiles(fileStore, draftKey);
         const currentContextList = fileChatSelectors.chatContextSelections(fileStore);
 
         if (currentIsUploading) {
           antdMessage.warning({
             content: t(
-              `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState()) || 'pending'}`,
+              `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState(), draftKey) || 'pending'}`,
             ),
             key: 'chat-uploading-files',
           });
@@ -377,12 +378,20 @@ const ChatInput = memo<ChatInputProps>(
           return;
         }
 
+        if (
+          !sameChatAttachmentDraft(fileStore, useFileStore.getState(), draftKey) ||
+          getMarkdownContent() !== message
+        ) {
+          antdMessage.warning(t('attachments.draftChanged'));
+          return;
+        }
+
         // Capture editor JSON state before clearing for rich text rendering
         const editorData = getEditorData();
 
         // Clear content immediately for responsive UX
         clearContent();
-        fileStore.clearChatUploadFileList({ preserveAttachments: true });
+        fileStore.clearChatUploadFileList({ preserveAttachments: true }, draftKey);
         fileStore.clearChatContextSelections();
 
         // Convert ChatContextContent to PageSelection for persistence
@@ -396,7 +405,7 @@ const ChatInput = memo<ChatInputProps>(
         // Fire and forget - send with captured message
         await sendMessage({ editorData, files: currentFileList, message, pageSelections });
       },
-      [context, sendMessage, disableQueue, disableSend, isInputLoading, onBeforeSend, t],
+      [context, draftKey, sendMessage, disableQueue, disableSend, isInputLoading, onBeforeSend, t],
     );
 
     const sendButtonProps: SendButtonProps = {
@@ -408,7 +417,7 @@ const ChatInput = memo<ChatInputProps>(
         ? () =>
             antdMessage.warning({
               content: t(
-                `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState()) || 'pending'}`,
+                `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState(), draftKey) || 'pending'}`,
               ),
               key: 'chat-uploading-files',
             })

@@ -114,6 +114,7 @@ vi.mock('@/store/serverConfig', () => ({
 }));
 
 vi.mock('@/features/Conversation/store', () => ({
+  useConversationStoreApi: () => ({ getState: () => ({ displayMessages: [] }) }),
   useConversationStore: (selector: (state: unknown) => unknown) =>
     selector({
       deleteMessage: vi.fn(),

@@ -1,6 +1,7 @@
 'use client';
 
 import { TooltipGroup } from '@lobehub/ui';
+import { ModalHost as BaseModalHost } from '@lobehub/ui/base-ui';
 import { StyleProvider } from 'antd-style';
 import { domMax, LazyMotion } from 'motion/react';
 import { lazy, memo, type PropsWithChildren, Suspense } from 'react';
@@ -25,9 +26,6 @@ import type { SPAServerConfig } from '@/types/spaServerConfig';
 import Locale from './Locale';
 
 const ModalHost = lazy(() => import('@lobehub/ui').then((m) => ({ default: m.ModalHost })));
-const BaseModalHost = lazy(() =>
-  import('@lobehub/ui/base-ui').then((m) => ({ default: m.ModalHost })),
-);
 const ToastHost = lazy(() => import('@lobehub/ui/base-ui').then((m) => ({ default: m.ToastHost })));
 const ContextMenuHost = lazy(() =>
   import('@lobehub/ui').then((m) => ({ default: m.ContextMenuHost })),
@@ -65,9 +63,10 @@ const SPAGlobalProvider = memo<PropsWithChildren>(({ children }) => {
                           </LobeAnalyticsProviderWrapper>
                         </StyleProvider>
                       </TooltipGroup>
+                      {/* Imperative dialogs must have a host even while optional lazy hosts load. */}
+                      <BaseModalHost />
                       <Suspense>
                         <ModalHost />
-                        <BaseModalHost />
                         <ToastHost />
                         <ContextMenuHost />
                       </Suspense>

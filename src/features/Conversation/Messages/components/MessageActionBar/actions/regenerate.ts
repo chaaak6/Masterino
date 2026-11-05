@@ -2,13 +2,20 @@ import { RotateCcw } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { messageStateSelectors, useConversationStore } from '../../../../store';
+import { validateRegenerationImages } from '@/features/Attachments/validateMessageImages';
+
+import {
+  messageStateSelectors,
+  useConversationStore,
+  useConversationStoreApi,
+} from '../../../../store';
 import { defineAction } from '../defineAction';
 
 export const regenerateAction = defineAction({
   key: 'regenerate',
   useBuild: (ctx) => {
     const { t } = useTranslation('common');
+    const storeApi = useConversationStoreApi();
     const isRegenerating = useConversationStore(
       messageStateSelectors.isMessageRegenerating(ctx.id),
     );
@@ -20,6 +27,7 @@ export const regenerateAction = defineAction({
       () => ({
         disabled: isRegenerating,
         handleClick: () => {
+          if (!validateRegenerationImages(storeApi.getState().displayMessages, ctx.id)) return;
           if (ctx.role === 'user') {
             regenerateUserMessage(ctx.id);
             if (ctx.data.error) deleteMessage(ctx.id);
@@ -42,6 +50,7 @@ export const regenerateAction = defineAction({
         regenerateUserMessage,
         regenerateAssistantMessage,
         deleteMessage,
+        storeApi,
       ],
     );
   },

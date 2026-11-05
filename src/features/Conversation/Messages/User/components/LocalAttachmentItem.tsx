@@ -14,6 +14,7 @@ import {
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { useFileStore } from '@/store/file';
 import { formatSize } from '@/utils/format';
 
@@ -27,7 +28,8 @@ const LocalAttachmentItem = memo<{
   topicId?: string | null;
 }>(({ attachment, messageId, topicId }) => {
   const { t } = useTranslation('chat');
-  const agentId = useConversationStore((s) => s.context.agentId);
+  const context = useConversationStore((s) => s.context);
+  const agentId = context.agentId;
   const [model, provider] = useAgentStore((s) => [
     agentByIdSelectors.getAgentModelById(agentId)(s),
     agentByIdSelectors.getAgentModelProviderById(agentId)(s),
@@ -74,7 +76,15 @@ const LocalAttachmentItem = memo<{
     setPending(action);
     try {
       if (action === 'add') {
-        setAdded(await addToInput(attachment, messageId, topicId ?? 'active', preview));
+        setAdded(
+          await addToInput(
+            attachment,
+            messageId,
+            topicId ?? 'active',
+            preview,
+            messageMapKey(context),
+          ),
+        );
       } else {
         const result = await previewLocalAttachment(attachment, topicId ?? 'active');
         if (result.dataUrl) setPreview(result.dataUrl);

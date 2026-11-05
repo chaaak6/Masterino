@@ -80,6 +80,7 @@ describe('local attachment message actions', () => {
         'message',
         'topic',
         'data:image/png;base64,AQID',
+        'main_agent_new',
       ),
     );
   });

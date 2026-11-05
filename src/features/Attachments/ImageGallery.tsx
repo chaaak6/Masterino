@@ -1,5 +1,5 @@
-import { ActionIcon, Button, Flexbox, Text } from '@lobehub/ui';
-import { Modal } from '@lobehub/ui/base-ui';
+import { ActionIcon, Flexbox, Text } from '@lobehub/ui';
+import { Button, Modal } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { ChevronLeft, ChevronRight, ImageOff, Minus, Plus, X } from 'lucide-react';
 import { memo, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
@@ -56,13 +56,10 @@ const styles = createStaticStyles(({ css }) => ({
     max-height: 65vh;
     margin: auto;
     object-fit: contain;
-    transform-origin: center;
   `,
   canvas: css`
     overflow: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 100%;
     min-height: 240px;
     max-height: 68vh;
   `,
@@ -73,11 +70,13 @@ function Thumbnail({
   load,
   onOpen,
   source,
+  onError,
 }: {
   item: GalleryImage;
   load: (item: GalleryImage) => void;
   onOpen: () => void;
   source?: string;
+  onError: () => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -96,14 +95,14 @@ function Thumbnail({
     <button
       aria-label={item.name}
       className={styles.tile}
-      disabled={!source && !item.load}
+      disabled={!source && !item.load && !item.url}
       ref={ref}
       title={item.name}
       type="button"
       onClick={onOpen}
     >
       {source ? (
-        <img alt={item.name} loading="lazy" src={source} />
+        <img alt={item.name} loading="lazy" src={source} onError={onError} />
       ) : (
         <ImageOff aria-hidden size={24} />
       )}
@@ -122,6 +121,8 @@ const ImageGallery = memo(
     const [index, setIndex] = useState<number>();
     const [expanded, setExpanded] = useState(false);
     const [zoom, setZoom] = useState(1);
+    const [dimensions, setDimensions] = useState<{ width: number; height: number }>();
+    const [revision, setRevision] = useState(0);
     const [adding, setAdding] = useState(false);
     const [added, setAdded] = useState<string>();
     useEffect(() => {
@@ -159,6 +160,7 @@ const ImageGallery = memo(
     }, [active, load]);
     useEffect(() => {
       setZoom(1);
+      setDimensions(undefined);
     }, [index]);
     const close = () => {
       setIndex(undefined);
@@ -176,11 +178,15 @@ const ImageGallery = memo(
           setIndex((i) => Math.min(items.length - 1, (i ?? 0) + 1));
         }
       };
-      window.addEventListener('keydown', key);
-      return () => window.removeEventListener('keydown', key);
+      // Modal primitives can stop bubbling arrow keys; capture while this gallery is open.
+      window.addEventListener('keydown', key, true);
+      return () => window.removeEventListener('keydown', key, true);
     }, [index, items.length]);
     const shown = expanded ? items : items.slice(0, compact ? 10 : 6);
-    const source = active && (active.url || sources[active.id]);
+    const source = active && !errors[active.id] && (active.url || sources[active.id]);
+    useEffect(() => {
+      if (index !== undefined && !items[index]) setIndex(undefined);
+    }, [index, items]);
     return (
       <Flexbox gap={8}>
         <div
@@ -194,7 +200,8 @@ const ImageGallery = memo(
               <Thumbnail
                 item={item}
                 load={load}
-                source={item.url || sources[item.id]}
+                source={!errors[item.id] ? item.url || sources[item.id] : undefined}
+                onError={() => setErrors((prev) => ({ ...prev, [item.id]: true }))}
                 onOpen={() => {
                   trigger.current = document.activeElement as HTMLElement;
                   setIndex(i);
@@ -239,17 +246,52 @@ const ImageGallery = memo(
                   <img
                     alt={active.name}
                     className={styles.image}
+                    key={`${active.id}:${revision}`}
                     src={source}
-                    style={{ transform: `scale(${zoom})` }}
+                    style={
+                      dimensions
+                        ? {
+                            width: dimensions.width * zoom,
+                            height: dimensions.height * zoom,
+                            maxWidth: 'none',
+                            maxHeight: 'none',
+                          }
+                        : undefined
+                    }
+                    onError={() => setErrors((prev) => ({ ...prev, [active.id]: true }))}
+                    onLoad={(event) => {
+                      const image = event.currentTarget;
+                      setDimensions(
+                        (prev) => prev || { width: image.clientWidth, height: image.clientHeight },
+                      );
+                    }}
                   />
                 ) : (
                   <Text role={errors[active.id] ? 'alert' : 'status'}>
                     {t(
                       errors[active.id]
-                        ? 'localAttachment.unavailable'
+                        ? active.load
+                          ? 'attachments.localPreviewUnavailable'
+                          : 'attachments.previewUnavailable'
                         : 'localAttachment.checking',
                     )}
                   </Text>
+                )}
+                {errors[active.id] && (
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setErrors((prev) => ({ ...prev, [active.id]: false }));
+                      setSources((prev) => {
+                        const next = { ...prev };
+                        delete next[active.id];
+                        return next;
+                      });
+                      setRevision((value) => value + 1);
+                    }}
+                  >
+                    {t('attachments.retry')}
+                  </Button>
                 )}
               </div>
               <Flexbox horizontal align="center" gap={8} justify="center">
@@ -286,13 +328,15 @@ const ImageGallery = memo(
                 />
                 {active.onAdd && (
                   <Button
-                    disabled={adding}
+                    disabled={adding || !source || !!errors[active.id]}
                     loading={adding}
                     size="small"
                     onClick={async () => {
                       setAdding(true);
                       try {
                         if (await active.onAdd?.()) setAdded(active.id);
+                      } catch {
+                        setErrors((prev) => ({ ...prev, [active.id]: true }));
                       } finally {
                         setAdding(false);
                       }

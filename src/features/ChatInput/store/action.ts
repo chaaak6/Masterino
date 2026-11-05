@@ -1,5 +1,7 @@
 import { type StateCreator } from 'zustand/vanilla';
 
+import { getAgentStoreState } from '@/store/agent';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 
 import { removeDraft } from '../draftStorage';
@@ -48,7 +50,13 @@ export const store: CreateStore = (publicState) => (set, get) => ({
   handleSendButton: () => {
     const editor = get().editor;
     if (!editor) return;
-    if (fileChatSelectors.isUploadingFiles(useFileStore.getState())) {
+    const scope =
+      get().draftKey ||
+      messageMapKey({
+        agentId: get().agentId ?? getAgentStoreState().activeAgentId ?? '',
+        topicId: get().topicId,
+      });
+    if (fileChatSelectors.isUploadingFiles(useFileStore.getState(), scope)) {
       get().sendButtonProps?.onDisabledSend?.();
       return;
     }

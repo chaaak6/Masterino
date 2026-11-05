@@ -1271,5 +1271,9 @@
   "attachments.details": "附件诊断详情",
   "attachments.xlsmAdvice": "对于 .xlsm，可使用表格软件另存为真正的 .xlsx 文件后重试，不能只改后缀。",
   "attachments.uploadedUnsupported": "文件已上传，但网页版无法解析此格式。",
-  "attachments.copyFailed": "复制失败，请手动选择并复制上方地址。"
+  "attachments.copyFailed": "复制失败，请手动选择并复制上方地址。",
+  "attachments.historyLimit": "这条消息超过 10 张图片。请在新消息中重新选择最多 10 张后发送，当前编辑的文字已保留。",
+  "attachments.draftChanged": "发送准备期间草稿已变化，请确认当前内容后重新发送。",
+  "attachments.localPreviewUnavailable": "此设备无法读取这张本机图片。请回到添加它的设备查看，或重新选择文件。",
+  "attachments.previewUnavailable": "图片暂时无法加载，请重试或重新选择文件。"
 }

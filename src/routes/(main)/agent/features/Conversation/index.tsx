@@ -8,8 +8,10 @@ import { insertLocalFolderMentions } from '@/features/ChatInput/InputEditor/inse
 import { useAgentStore } from '@/store/agent';
 import { agentChatConfigSelectors, agentSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import ConversationArea from './ConversationArea';
+import { useAgentContext } from './useAgentContext';
 
 const wrapperStyle: React.CSSProperties = {
   flex: 1,
@@ -26,7 +28,14 @@ const ChatConversation = memo(() => {
   const isLocalSystemEnabled = useAgentStore(agentChatConfigSelectors.isLocalSystemEnabled);
 
   const topicId = useChatStore((s) => s.activeTopicId);
-  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider, topicId });
+  const attachmentContext = useAgentContext();
+  const { handleUploadFiles } = useUploadFiles({
+    agentId,
+    model,
+    provider,
+    topicId,
+    scope: messageMapKey(attachmentContext),
+  });
 
   const enableLocalFolderMention = isDesktop && (isHeterogeneous || isLocalSystemEnabled);
 

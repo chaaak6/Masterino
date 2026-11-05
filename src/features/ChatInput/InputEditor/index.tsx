@@ -19,6 +19,7 @@ import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef } from 'r
 import { useHotkeysContext } from 'react-hotkeys-hook';
 
 import { usePasteFile, useUploadFiles } from '@/components/DragUploadZone';
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useEnterToSend } from '@/hooks/useEnterToSend';
 import { useIMECompositionEvent } from '@/hooks/useIMECompositionEvent';
 import { usePermission } from '@/hooks/usePermission';
@@ -161,7 +162,14 @@ const InputEditor = memo<{
     !heterogeneousName &&
     categories.some((category) => category.id === 'agent');
   const topicId = useChatInputStore((s) => s.topicId);
-  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider, topicId });
+  const attachmentScope = useAttachmentScope();
+  const { handleUploadFiles } = useUploadFiles({
+    agentId,
+    model,
+    provider,
+    topicId,
+    scope: attachmentScope,
+  });
 
   // Listen to editor's paste event for file uploads
   usePasteFile(editor, handleUploadFiles);

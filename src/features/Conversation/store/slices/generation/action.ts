@@ -10,6 +10,7 @@ import { type StateCreator } from 'zustand';
 
 import { message as antdMessage } from '@/components/AntdStaticMethods';
 import { MESSAGE_CANCEL_FLAT } from '@/const/index';
+import { validateMessageImages } from '@/features/Attachments/validateMessageImages';
 import { messageService } from '@/services/message';
 import { getAgentStoreState } from '@/store/agent';
 import { agentByIdSelectors, agentSelectors } from '@/store/agent/selectors';
@@ -418,6 +419,8 @@ export const generationSlice: StateCreator<
 
     const userId = currentMessage.parentId;
     if (!userId) return;
+    const userMessage = displayMessages.find((item) => item.id === userId);
+    if (!userMessage || !validateMessageImages(userMessage)) return;
 
     // Create operation to track context (use 'regenerate' type since this is a regenerate action)
     const { operationId } = chatStore.startOperation({
@@ -435,7 +438,9 @@ export const generationSlice: StateCreator<
   },
 
   delAndResendThreadMessage: async (messageId: string) => {
-    const { context } = get();
+    const { context, displayMessages } = get();
+    const userMessage = displayMessages.find((item) => item.id === messageId);
+    if (!userMessage || !validateMessageImages(userMessage)) return;
     const chatStore = useChatStore.getState();
 
     // Create operation to track context (use 'regenerate' type since resend is essentially regenerate)
@@ -488,7 +493,7 @@ export const generationSlice: StateCreator<
     // Find the message in current conversation messages
     const currentIndex = displayMessages.findIndex((c) => c.id === messageId);
     const item = displayMessages[currentIndex];
-    if (!item) return;
+    if (!item || !validateMessageImages(item)) return;
     const initialContext = mergeAgentRuntimeInitialContexts(
       await resolveActiveTopicDocumentInitialContext(context),
       buildRetryInitialContext(item.editorData),

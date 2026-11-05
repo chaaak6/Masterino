@@ -13,6 +13,7 @@ import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { builtinAgentSelectors } from '@/store/agent/selectors/builtinAgentSelectors';
 import { useChatStore } from '@/store/chat';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
@@ -33,8 +34,13 @@ type BannerKind = 'skill' | 'botIntegration' | 'messenger';
 const InputArea = () => {
   const { t } = useTranslation('chat');
   const { loading, send, agentId } = useSend();
-  const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
-  const attachmentBlock = useFileStore(fileChatSelectors.attachmentBlock);
+  const attachmentScope = messageMapKey({ agentId });
+  const isUploadingFiles = useFileStore((s) =>
+    fileChatSelectors.isUploadingFiles(s, attachmentScope),
+  );
+  const attachmentBlock = useFileStore((s) =>
+    fileChatSelectors.attachmentBlock(s, attachmentScope),
+  );
   // Subscribe to the SWR key so `internal_refreshAgentConfig`'s `mutate(...)`
   // has a listener after toggleFile / toggleKnowledgeBase — otherwise the
   // Library submenu doesn't reflect server-side toggles. Pass `agentId`
@@ -175,7 +181,7 @@ const InputArea = () => {
                 ? () =>
                     antdMessage.warning({
                       content: t(
-                        `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState()) || 'pending'}`,
+                        `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState(), attachmentScope) || 'pending'}`,
                       ),
                       key: 'home-uploading-files',
                     })

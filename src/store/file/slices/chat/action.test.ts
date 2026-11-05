@@ -8,6 +8,7 @@ import { ragService } from '@/services/rag';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 
 import { useFileStore as useStore } from '../../store';
+import { sameChatAttachmentDraft } from './drafts';
 
 const AGENT_ID = 'agent-1';
 
@@ -436,5 +437,73 @@ describe('useFileStore:chat', () => {
       processStage: 'ready_for_chat',
       status: 'success',
     });
+  });
+});
+
+describe('scoped chat attachment drafts', () => {
+  beforeEach(() => {
+    useStore.setState({
+      chatAttachmentScope: undefined,
+      chatAttachmentDrafts: {},
+      chatUploadFileList: [],
+      chatAttachmentIssues: [],
+      chatAttachmentNoticeShown: false,
+    });
+  });
+  it('preserves drafts and late progress in their owning conversation', () => {
+    const store = useStore.getState();
+    store.setChatAttachmentScope('topic-a');
+    store.dispatchChatUploadFileList(
+      {
+        type: 'addFile',
+        file: {
+          id: 'a',
+          uploadId: 'upload-a',
+          file: new File(['a'], 'same.txt'),
+          status: 'pending',
+        },
+      },
+      'topic-a',
+    );
+    const beforeA = useStore.getState();
+    store.setChatAttachmentScope('topic-b');
+    store.dispatchChatUploadFileList(
+      { type: 'addFile', file: { id: 'b', file: new File(['b'], 'same.txt'), status: 'success' } },
+      'topic-b',
+    );
+    const beforeB = useStore.getState();
+    store.dispatchChatUploadFileList(
+      { type: 'updateFile', id: 'upload-a', value: { status: 'success' } },
+      'topic-a',
+    );
+    expect(sameChatAttachmentDraft(beforeA, useStore.getState(), 'topic-a')).toBe(false);
+    expect(sameChatAttachmentDraft(beforeB, useStore.getState(), 'topic-b')).toBe(true);
+    expect(useStore.getState().chatUploadFileList.map((item) => item.id)).toEqual(['b']);
+    store.clearChatUploadFileList(undefined, 'topic-b');
+    store.setChatAttachmentScope('topic-a');
+    expect(useStore.getState().chatUploadFileList[0]).toMatchObject({ id: 'a', status: 'success' });
+    expect(Object.keys(useStore.getState().chatAttachmentDrafts['topic-a']).sort()).toEqual([
+      'chatAttachmentIssues',
+      'chatAttachmentNoticeShown',
+      'chatUploadFileList',
+    ]);
+  });
+  it('removes only the selected upload when storage deduplicates the file id', async () => {
+    const store = useStore.getState();
+    store.setChatAttachmentScope('same-content');
+    store.dispatchChatUploadFileList(
+      {
+        type: 'addFiles',
+        files: ['first', 'second'].map((uploadId) => ({
+          id: 'shared',
+          uploadId,
+          file: new File(['x'], 'same.png', { type: 'image/png' }),
+          status: 'success',
+        })),
+      },
+      'same-content',
+    );
+    await store.removeChatUploadFile('second', 'same-content');
+    expect(useStore.getState().chatUploadFileList.map((item) => item.uploadId)).toEqual(['first']);
   });
 });

@@ -2,15 +2,19 @@ import { ActionIcon, Flexbox, Text } from '@lobehub/ui';
 import { createModal } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { RotateCcw, X } from 'lucide-react';
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { message } from '@/components/AntdStaticMethods';
 import FileIcon from '@/components/FileIcon';
 import { useAgentId } from '@/features/ChatInput/hooks/useAgentId';
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useChatInputStore } from '@/features/ChatInput/store';
 import FileViewer from '@/features/FileViewer';
+import { previewLocalAttachment } from '@/services/electron/localAttachmentService';
 import { useChatStore } from '@/store/chat';
 import { useFileStore } from '@/store/file';
+import { getChatAttachmentDraft } from '@/store/file/slices/chat/drafts';
 import { type UploadFileItem } from '@/types/files/upload';
 import {
   CHAT_IMAGE_LIMIT,
@@ -57,14 +61,10 @@ const styles = createStaticStyles(({ css }) => ({
 const AttachmentStrip = memo(() => {
   const { t } = useTranslation('chat');
   const agentId = useAgentId();
-  const topicId = useChatStore((s) => s.activeTopicId);
-  const draftKey = useChatInputStore((s) => s.draftKey);
-  const setScope = useFileStore((s) => s.setChatAttachmentScope);
-  useEffect(() => {
-    setScope(draftKey || `${agentId}:${topicId || 'new'}`);
-  }, [draftKey, agentId, topicId, setScope]);
+  const topicId = useChatInputStore((s) => s.topicId);
+  const scope = useAttachmentScope();
   const [files, remove, retry] = useFileStore((s) => [
-    s.chatUploadFileList,
+    getChatAttachmentDraft(s, scope).chatUploadFileList,
     s.removeChatUploadFile,
     s.retryChatUploadFile,
   ]);
@@ -85,7 +85,7 @@ const AttachmentStrip = memo(() => {
     return t('attachments.ready');
   };
   const removeItem = (id: string) =>
-    void remove(id).catch(() => logChatAttachment('cleanup-failed', { id }));
+    void remove(id, scope).catch(() => logChatAttachment('cleanup-failed', { id }));
   const retryButton = (item: UploadFileItem) =>
     item.status === 'error' &&
     !['web-size', 'unsupported-format', 'local-failed'].includes(item.attachmentError || '') && (
@@ -94,10 +94,29 @@ const AttachmentStrip = memo(() => {
         icon={RotateCcw}
         size="small"
         title={t('attachments.retry')}
-        onClick={() => void retry(item.id, agentId, topicId)}
+        onClick={() => void retry(item.uploadId || item.id, agentId, topicId, scope)}
       />
     );
-  const previewFile = (item: UploadFileItem) => {
+  const previewFile = async (item: UploadFileItem) => {
+    if (item.attachment?.source === 'local') {
+      try {
+        const result = await previewLocalAttachment(item.attachment, topicId || 'active');
+        if (!result.path) throw new Error('Preview unavailable');
+        useChatStore.getState().openLocalFile({
+          filePath: result.path,
+          deviceId: item.attachment.deviceId,
+          workingDirectory: result.path.slice(0, result.path.lastIndexOf('/')),
+          allowExternalFilePreview: true,
+        });
+      } catch {
+        message.warning(t('localAttachment.unavailable'));
+        logChatAttachment('preview-failed', {
+          id: item.uploadId || item.id,
+          reason: 'local-failed',
+        });
+      }
+      return;
+    }
     const url = item.previewUrl || item.fileUrl || item.base64Url;
     if (!url) return;
     createModal({
@@ -135,7 +154,7 @@ const AttachmentStrip = memo(() => {
               id: item.uploadId || item.id,
               name: item.file.name,
               url: item.previewUrl || item.base64Url || item.fileUrl,
-              onRemove: () => removeItem(item.id),
+              onRemove: () => removeItem(item.uploadId || item.id),
               caption: (
                 <Flexbox gap={2}>
                   <Text
@@ -166,10 +185,14 @@ const AttachmentStrip = memo(() => {
               <FileIcon fileName={item.file.name} size={28} />
               <button
                 className={styles.open}
-                disabled={!item.fileUrl && !item.previewUrl}
                 title={item.file.name}
                 type="button"
-                onClick={() => previewFile(item)}
+                disabled={
+                  item.attachment?.source === 'local'
+                    ? item.status !== 'success'
+                    : !item.fileUrl && !item.previewUrl
+                }
+                onClick={() => void previewFile(item)}
               >
                 <Text ellipsis fontSize={12}>
                   {item.file.name}
@@ -191,7 +214,7 @@ const AttachmentStrip = memo(() => {
                 icon={X}
                 size="small"
                 title={t('attachments.remove', { name: item.file.name })}
-                onClick={() => removeItem(item.id)}
+                onClick={() => removeItem(item.uploadId || item.id)}
               />
             </div>
           ))}
