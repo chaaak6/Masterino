@@ -185,7 +185,10 @@ describe('useFileStore:chat', () => {
 
     expect(uploadWithProgress).not.toHaveBeenCalled();
     expect(result.current.chatUploadFileList).toEqual([]);
-    expect(toast.error).toHaveBeenCalledWith(expect.any(String));
+    expect(result.current.chatAttachmentIssues).toEqual([
+      expect.objectContaining({ reason: 'unsupported-format', name: 'icon.svg' }),
+      expect.objectContaining({ reason: 'unsupported-format', name: 'archive.zip' }),
+    ]);
   });
 
   it('uploadChatFiles should allow any file type in agent mode', async () => {
@@ -236,6 +239,56 @@ describe('useFileStore:chat', () => {
     expect(uploadWithProgress).toHaveBeenCalledTimes(1);
   });
 
+  it('reserves image slots before concurrent intakes yield', async () => {
+    mockAgentMode({ enableAgentMode: true, heterogeneous: false });
+    const upload = vi
+      .spyOn(useStore.getState(), 'uploadWithProgress')
+      .mockImplementation(async ({ uploadId }) => ({
+        id: `server-${uploadId}`,
+        url: 'https://example.test/image',
+      }));
+    const makeImage = (i: number) => new File(['GIF89a'], `image-${i}.gif`, { type: 'image/gif' });
+    const first = useStore.getState().uploadChatFiles(
+      Array.from({ length: 9 }, (_, i) => makeImage(i)),
+      AGENT_ID,
+    );
+    const second = useStore.getState().uploadChatFiles([makeImage(9)], AGENT_ID);
+    const third = useStore.getState().uploadChatFiles([makeImage(10)], AGENT_ID);
+    expect(useStore.getState().chatUploadFileList).toHaveLength(10);
+    await Promise.all([first, second, third]);
+    expect(upload).toHaveBeenCalledTimes(10);
+    expect(useStore.getState().chatAttachmentIssues).toEqual([
+      expect.objectContaining({ reason: 'image-count' }),
+    ]);
+  });
+
+  it('keeps same-name files independent and rejects oversized Web files before upload', async () => {
+    mockAgentMode({ enableAgentMode: true, heterogeneous: false });
+    const upload = vi
+      .spyOn(useStore.getState(), 'uploadWithProgress')
+      .mockImplementation(async ({ uploadId }) => ({
+        id: `server-${uploadId}`,
+        url: 'https://example.test/image',
+      }));
+    const large = new File([], 'oversized.txt', { type: 'text/plain' });
+    Object.defineProperty(large, 'size', { value: 10 * 1024 * 1024 + 1 });
+    await useStore
+      .getState()
+      .uploadChatFiles(
+        [
+          new File(['GIF89a'], 'same.gif', { type: 'image/gif' }),
+          new File(['different'], 'same.gif', { type: 'image/gif' }),
+          large,
+        ],
+        AGENT_ID,
+      );
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(new Set(useStore.getState().chatUploadFileList.map((item) => item.id)).size).toBe(2);
+    expect(useStore.getState().chatAttachmentIssues).toEqual([
+      expect.objectContaining({ reason: 'web-size' }),
+    ]);
+  });
+
   it('shows a permission denied description when upload is rejected by RBAC', async () => {
     mockAgentMode({ enableAgentMode: false, heterogeneous: false });
 
@@ -251,9 +304,9 @@ describe('useFileStore:chat', () => {
       await result.current.uploadChatFiles([file], AGENT_ID);
     });
 
-    expect(notification.error).toHaveBeenCalledWith({
-      description: 'You do not have permission to upload files in this workspace.',
-      message: 'File upload failed.',
+    expect(result.current.chatUploadFileList[0]).toMatchObject({
+      status: 'error',
+      attachmentError: 'permission-denied',
     });
   });
 
@@ -263,7 +316,6 @@ describe('useFileStore:chat', () => {
     const { result } = renderHook(() => useStore());
     const file = new File(['Masterino marker: cobalt-17'], 'note.txt', { type: 'text/plain' });
     const uploadWithProgress = vi.fn().mockResolvedValue({ id: 'file-3', url: 'http://x/3' });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     vi.mocked(ragService.parseFileContent).mockRejectedValue(new Error('embedding model missing'));
 
@@ -280,19 +332,9 @@ describe('useFileStore:chat', () => {
 
     expect(uploadWithProgress).toHaveBeenCalledTimes(1);
     expect(ragService.parseFileContent).toHaveBeenCalledWith('file-3');
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('content parsing failed'),
-      expect.any(Error),
-    );
-    expect(notification.error).not.toHaveBeenCalled();
-    expect(notification.warning).toHaveBeenCalledWith({
-      description:
-        'The file was uploaded, but text analysis failed. This is not an object storage upload failure.',
-      message: 'File analysis failed',
-    });
     expect(result.current.chatUploadFileList).toHaveLength(1);
     expect(result.current.chatUploadFileList[0]).toMatchObject({
-      errorReason: 'embedding model missing',
+      attachmentError: 'parse-failed',
       id: 'file-3',
       processStage: 'content_parse_failed',
       status: 'error',
@@ -326,10 +368,6 @@ describe('useFileStore:chat', () => {
       });
 
       expect(notification.warning).not.toHaveBeenCalled();
-      expect(notification.error).toHaveBeenCalledWith({
-        description: `Error reason: ${storageErrorCode}`,
-        message: 'File upload failed.',
-      });
       expect(result.current.chatUploadFileList).toHaveLength(1);
       expect(result.current.chatUploadFileList[0]).toMatchObject({
         diagnostic: {
@@ -337,7 +375,7 @@ describe('useFileStore:chat', () => {
           message: storageErrorCode,
           stage: 'storage_upload_failed',
         },
-        errorReason: storageErrorCode,
+        attachmentError: 'upload-failed',
         id: 'file-missing',
         processStage: 'storage_upload_failed',
         status: 'error',

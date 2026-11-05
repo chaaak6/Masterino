@@ -74,8 +74,7 @@ const LocalAttachmentItem = memo<{
     setPending(action);
     try {
       if (action === 'add') {
-        await addToInput(attachment, messageId, topicId ?? 'active', preview);
-        setAdded(true);
+        setAdded(await addToInput(attachment, messageId, topicId ?? 'active', preview));
       } else {
         const result = await previewLocalAttachment(attachment, topicId ?? 'active');
         if (result.dataUrl) setPreview(result.dataUrl);

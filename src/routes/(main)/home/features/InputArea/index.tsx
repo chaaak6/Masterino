@@ -34,6 +34,7 @@ const InputArea = () => {
   const { t } = useTranslation('chat');
   const { loading, send, agentId } = useSend();
   const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
+  const attachmentBlock = useFileStore(fileChatSelectors.attachmentBlock);
   // Subscribe to the SWR key so `internal_refreshAgentConfig`'s `mutate(...)`
   // has a listener after toggleFile / toggleKnowledgeBase — otherwise the
   // Library submenu doesn't reflect server-side toggles. Pass `agentId`
@@ -173,7 +174,9 @@ const InputArea = () => {
               onDisabledSend: isUploadingFiles
                 ? () =>
                     antdMessage.warning({
-                      content: t('input.uploadingFiles'),
+                      content: t(
+                        `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState()) || 'pending'}`,
+                      ),
                       key: 'home-uploading-files',
                     })
                 : undefined,
@@ -194,7 +197,11 @@ const InputArea = () => {
             />
             {isUploadingFiles && (
               <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
-                <Alert showIcon title={t('input.uploadingFiles')} type={'info'} />
+                <Alert
+                  showIcon
+                  title={t(`attachments.block.${attachmentBlock || 'pending'}`)}
+                  type={attachmentBlock === 'pending' ? 'info' : 'warning'}
+                />
               </Flexbox>
             )}
           </ChatInputProvider>

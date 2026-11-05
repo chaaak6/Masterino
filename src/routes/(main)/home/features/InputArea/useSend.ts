@@ -110,6 +110,7 @@ export const useSend = () => {
         }
       }
 
+      let sent = false;
       try {
         switch (inputActiveMode) {
           case 'agent': {
@@ -155,11 +156,13 @@ export const useSend = () => {
             router.push(SESSION_CHAT_URL(activeAgentId, false));
           }
         }
+        sent = true;
       } finally {
-        // Clear input and files after send
-        clearChatUploadFileList({ preserveAttachments: true });
-        clearChatContextSelections();
-        mainInputEditor?.clearContent();
+        if (sent) {
+          clearChatUploadFileList({ preserveAttachments: true });
+          clearChatContextSelections();
+          mainInputEditor?.clearContent();
+        }
       }
     },
     [

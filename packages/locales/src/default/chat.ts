@@ -1,4 +1,55 @@
 export default {
+  'attachments.copyFailed': 'Copy failed. Select and copy the address above manually.',
+  'attachments.xlsmAdvice':
+    'For .xlsm, use spreadsheet software to save a real .xlsx copy; changing the extension does not convert the file.',
+  'attachments.uploadedUnsupported': 'File uploaded, but the web app cannot analyze this format.',
+  'attachments.details': 'Attachment details',
+  'attachments.reason.permission-denied':
+    'You do not have permission to upload files in this workspace.',
+  'attachments.reason.unauthorized': 'Sign in again before uploading this attachment.',
+  'attachments.imageCount': 'Images {{count}}/{{limit}}',
+  'attachments.showAll': 'View all {{count}} images',
+  'attachments.previous': 'Previous image',
+  'attachments.next': 'Next image',
+  'attachments.zoomIn': 'Zoom in',
+  'attachments.zoomOut': 'Zoom out',
+  'attachments.notAdded': '{{count}} attachments not added',
+  'attachments.dismissRejected': 'Remove unadded items and continue',
+  'attachments.useDesktop': 'Use the desktop app',
+  'attachments.desktopTitle': 'Analyze local files with the desktop app',
+  'attachments.reselectLocal':
+    'Select the original file again in the desktop app. Local image and model limits still apply.',
+  'attachments.onComputer': 'Open this address on a computer and choose Get desktop app.',
+  'attachments.copyLink': 'Copy address',
+  'attachments.copied': 'Address copied',
+  'attachments.downloadDesktop': 'Download desktop app',
+  'attachments.continueWeb': 'Continue in browser',
+  'attachments.remove': 'Remove {{name}}',
+  'attachments.retry': 'Retry attachment',
+  'attachments.preparing': 'Preparing…',
+  'attachments.uploading': 'Uploading',
+  'attachments.parsing': 'Analyzing…',
+  'attachments.saving': 'Confirming upload…',
+  'attachments.ready': 'Ready',
+  'attachments.reason.image-count':
+    'A message can include up to 10 images. Remove an image to add another.',
+  'attachments.reason.web-size':
+    'The current web app accepts individual attachments up to 10 MiB (10,485,760 bytes). Choose a smaller file or use the desktop app.',
+  'attachments.reason.unsupported-format':
+    'This file format is not supported here. In the web app, save it in a supported format or try local analysis with the desktop app.',
+  'attachments.reason.incomplete-upload':
+    'The attachment was not uploaded completely. Retry or select the file again.',
+  'attachments.reason.upload-failed': 'Upload failed. Retry or select the file again.',
+  'attachments.reason.parse-failed':
+    'The file was uploaded, but could not be analyzed. Retry or choose another file.',
+  'attachments.reason.local-failed':
+    'The local file could not be prepared. Select it again on the original device.',
+  'attachments.block.failed':
+    'Some attachments are not ready. Remove or resolve them before sending.',
+  'attachments.block.pending': 'Attachments are still being prepared, uploaded or analyzed.',
+  'attachments.block.image-count':
+    'This message has more than 10 images. Remove some images before sending.',
+
   'workspaceRuntime.otherDeviceProject': 'Project unavailable on this device',
   'localAttachment.errors.fileTooLarge': 'Attachment exceeds 1 GiB. Select a smaller file.',
   'localAttachment.errors.imageTooLarge': 'Image exceeds 10 MiB. Resize it before sending.',

@@ -296,6 +296,7 @@ const ChatInput = memo<ChatInputProps>(
     const fileList = useFileStore(fileChatSelectors.chatUploadFileList);
     const contextList = useFileStore(fileChatSelectors.chatContextSelections);
     const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
+    const attachmentBlock = useFileStore(fileChatSelectors.attachmentBlock);
 
     // Queue state
     const hasQueuedMessages = useChatStore(
@@ -337,7 +338,9 @@ const ChatInput = memo<ChatInputProps>(
 
         if (currentIsUploading) {
           antdMessage.warning({
-            content: t('input.uploadingFiles'),
+            content: t(
+              `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState()) || 'pending'}`,
+            ),
             key: 'chat-uploading-files',
           });
           return;
@@ -404,7 +407,9 @@ const ChatInput = memo<ChatInputProps>(
       onDisabledSend: isUploadingFiles
         ? () =>
             antdMessage.warning({
-              content: t('input.uploadingFiles'),
+              content: t(
+                `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState()) || 'pending'}`,
+              ),
               key: 'chat-uploading-files',
             })
         : customSendButtonProps?.onDisabledSend,
@@ -450,7 +455,11 @@ const ChatInput = memo<ChatInputProps>(
           </Flexbox>
           {isUploadingFiles && (
             <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
-              <Alert showIcon title={t('input.uploadingFiles')} type={'info'} />
+              <Alert
+                showIcon
+                title={t(`attachments.block.${attachmentBlock || 'pending'}`)}
+                type={attachmentBlock === 'pending' ? 'info' : 'warning'}
+              />
             </Flexbox>
           )}
           <DesktopChatInput
