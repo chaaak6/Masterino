@@ -2,7 +2,7 @@
 
 独立 Node 服务，提供 Streamable HTTP `/mcp` 和就绪检查 `/healthz`，复用社区的公司共享 MCP 连接。员工无需 Node/npx、公网 GitHub 或 jsDelivr。运行时仅从本地快照读法条，不访问外网。
 
-三个工具为 `search_laws`、`get_article`、`search_in_law`。这是法规名称、条号和关键词查询，不包含全国案例、企业实时信息、语义检索或历史时点适用判断。条文附快照版本、非官方语料链接及官方核验入口，外部引用链接是否能打开取决于员工网络，但不影响工具返回原文。
+保留 `search_laws`、`get_article`、`search_in_law`，新增 `search_articles`（跨法规全文关键词检索，可限定法规）、`search_cases`（指导性/公报案例检索，可限定类型）、`get_case`（案例详情，长正文按 offset/limit 分页）。本地快照含1513部法规、278件指导性案例和445件公报案例，不是全国裁判文书库，不包含企业实时信息、语义检索或历史时点适用判断。全文搜索按中文分词覆盖率和完整短语排序，附少量常用法律用语扩展；结果是候选摘录，并不保证适用性。条文附快照版本、非官方语料链接及官方核验入口，外部引用链接是否能打开取决于员工网络，但不影响工具返回原文。
 
 这里实现的是独立 HTTP 适配服务，沿用上游三个工具的用途；不在服务器启动时运行上游 npx 包。关键词结果是摘录，引用全文需再调用 `get_article`。法规名称支持简称；名称不明确时先用 `search_laws` 选择精确 id；条文工具不接受子串猜测，避免命中其他法规。
 
@@ -17,7 +17,7 @@ pnpm prepare-data
 pnpm start
 ```
 
-本目录使用独立 pnpm workspace 和锁文件，不改动主应用依赖树。准备数据时访问 GitHub，核对 snapshot.json 中的固定 commit 和归档 SHA-256，校验全部索引文件。运行阶段不下载代码、依赖或数据。
+本目录使用独立 pnpm workspace 和锁文件，不改动主应用依赖树。准备数据时访问 GitHub，核对 snapshot.json 中的固定 commit 和归档 SHA-256，校验全部法规及案例文件。运行阶段不下载代码、依赖或数据。
 
 已有归档可通过 `LAW_ARCHIVE_PATH=/absolute/archive.tgz pnpm prepare-data` 复用，仍验证 checksum。数据在本地 ignored 的 `data/`；镜像构建执行准备脚本后将其完整复制进运行镜像，包含上游 CC0 LICENSE。
 
@@ -37,4 +37,4 @@ pnpm start
 
 修改 snapshot.json 中的 commit 与 SHA-256，运行准备脚本，检查变更清单和民法典／劳动合同法等代表条文，构建并验收后发布新 digest。原镜像含完整旧快照，可直接回滚。不要自动跟随 master 或在 Pod 启动时更新语料。
 
-验收与回归用例见 `docs/testing/chinese-law-mcp-bdd.md`。
+验收与回归用例见 `docs/testing/chinese-law-mcp-bdd.md`；本次扩展见 `docs/testing/chinese-law-search-cases-bdd.md`。

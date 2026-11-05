@@ -49,10 +49,13 @@ after(async () => {
   await service?.close();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
-test('Given HTTP MCP, initialization discovers exactly the three published law tools', async () => {
+test('Given HTTP MCP, initialization discovers the original law tools and additive search tools', async () => {
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((t) => t.name).sort(), [
     'get_article',
+    'get_case',
+    'search_articles',
+    'search_cases',
     'search_in_law',
     'search_laws',
   ]);
