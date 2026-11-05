@@ -35,6 +35,8 @@ try {
     '--strip-components=1',
     `chinese-law-corpus-${snapshot.commit}/laws`,
     `chinese-law-corpus-${snapshot.commit}/LICENSE`,
+    `chinese-law-corpus-${snapshot.commit}/guiding-cases`,
+    `chinese-law-corpus-${snapshot.commit}/gazette-cases`,
   ]);
   const index = JSON.parse(await readFile(join(output, 'laws/index.json'), 'utf8'));
   if (!Array.isArray(index) || !index.length) throw new Error('Empty snapshot');
@@ -48,9 +50,24 @@ try {
     )
       throw new Error(`Invalid law: ${item.slug}`);
   }
+  const { loadCases } = await import('../src/search.mjs');
+  const cases = await loadCases(output);
+  const ids = new Set();
+  for (const doc of cases) {
+    if (
+      !/^[a-z0-9-]+$/.test(doc.id) ||
+      !doc.title ||
+      !doc.sourceUrl ||
+      !doc.text ||
+      ids.has(doc.id)
+    )
+      throw new Error(`Invalid or duplicate case: ${doc.id}`);
+    ids.add(doc.id);
+  }
+  if (!cases.length) throw new Error('Empty case snapshot');
   await writeFile(
     join(output, 'snapshot.json'),
-    JSON.stringify({ ...snapshot, laws: index.length }, null, 2),
+    JSON.stringify({ ...snapshot, laws: index.length, cases: cases.length }, null, 2),
   );
   await rm(join(root, 'data'), { recursive: true, force: true });
   const { rename } = await import('node:fs/promises');

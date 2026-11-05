@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
+import { rank, excerpt, loadCases } from './search.mjs';
 
 export async function startServer({ dataDirectory, dataVersion, port = 3230, host = '0.0.0.0' }) {
   const index = JSON.parse(await readFile(join(dataDirectory, 'laws/index.json'), 'utf8'));
@@ -35,9 +36,24 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
       },
     ],
   });
+  let articleRows;
+  const articles = () =>
+    (articleRows ??= Promise.all(
+      index.map(async (meta) => {
+        const law = await loadLaw(meta);
+        return law.articles.map((article) => ({
+          ...article,
+          law: law.title,
+          category: law.category,
+          slug: meta.slug,
+        }));
+      }),
+    ).then((rows) => rows.flat()));
+  let caseRows;
+  const cases = () => (caseRows ??= loadCases(dataDirectory));
   const makeMcp = () => {
     const mcp = new McpServer(
-      { name: 'masterino-chinese-law', version: '1.0.0' },
+      { name: 'masterino-chinese-law', version: '1.1.0' },
       { maxToolInputElements: 16 },
     );
     mcp.tool(
@@ -111,6 +127,149 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
             : `《${full.title}》未检索到「${keywords}」。`,
           meta.slug,
         );
+      },
+    );
+    mcp.tool(
+      'search_articles',
+      '跨法规全文关键词检索；无需先知道法规名。支持常用用语扩展，不是语义推理。返回条号和摘录，正式引用请再用 get_article 获取全文。',
+      {
+        query: z.string().trim().min(1).max(200),
+        law: z.string().trim().min(1).optional(),
+        limit: z.number().int().min(1).max(20).default(10),
+      },
+      async ({ query, law, limit }) => {
+        console.info(JSON.stringify({ event: 'tool-call', tool: 'search_articles' }));
+        const meta = law ? resolveLaw(law) : undefined;
+        if (law && !meta) return reply(`未找到法规「${law}」，请先用 search_laws 查询。`);
+        const rows = (await articles()).filter((row) => !meta || row.slug === meta.slug);
+        const { hits, needsKeywords } = rank(
+          rows,
+          query,
+          (row) => row.text,
+          (row) => row.law,
+        );
+        if (needsKeywords)
+          return reply(
+            '查询仅含通用法律词或没有有效词，请提供具体关键词；查找法规名称请用 search_laws。',
+          );
+        return reply(
+          hits.length
+            ? `共 ${hits.length} 条匹配，显示前 ${Math.min(limit, hits.length)} 条摘录：\n` +
+                hits
+                  .slice(0, limit)
+                  .map(
+                    ({ row, term }) =>
+                      `《${row.law}》${row.displayNumber}（id: ${row.slug}，article_number: ${row.articleNumber}）\n${excerpt(row.text, term)}\n语料来源：https://github.com/lttxzmj/chinese-law-corpus/blob/${dataVersion}/laws/${row.slug}.json`,
+                  )
+                  .join('\n\n')
+            : `未检索到「${query}」的相关条文。`,
+        );
+      },
+    );
+    mcp.tool(
+      'search_cases',
+      '检索本地快照的指导性案例和最高法公报案例（不是全国裁判文书库），按标题、关键词、裁判理由和正文匹配；返回案例 id、摘录、官方来源，用 get_case 获取详情。',
+      {
+        query: z.string().trim().min(1).max(200),
+        kind: z.enum(['all', 'guiding', 'gazette']).default('all'),
+        limit: z.number().int().min(1).max(20).default(5),
+      },
+      async ({ query, kind, limit }) => {
+        console.info(JSON.stringify({ event: 'tool-call', tool: 'search_cases' }));
+        const rows = (await cases()).filter(
+          (row) => kind === 'all' || row.kind === `${kind}-cases`,
+        );
+        const { hits, needsKeywords } = rank(rows, query, (row) => row.text);
+        if (needsKeywords)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '查询仅含通用法律词或没有有效词，请提供具体关键词，例如案由、案号或裁判要点。',
+              },
+            ],
+          };
+        const text = hits.length
+          ? `共 ${hits.length} 条匹配，显示前 ${Math.min(limit, hits.length)} 条：\n` +
+            hits
+              .slice(0, limit)
+              .map(
+                ({ row, term }) =>
+                  `${row.kind === 'guiding-cases' ? '指导性案例' : '公报案例'}：${row.title}（id: ${row.id}）\n${excerpt(row.text, term)}\n官方来源：${row.sourceUrl}\n语料来源：https://github.com/lttxzmj/chinese-law-corpus/blob/${dataVersion}/${row.kind}/${row.id}.json`,
+              )
+              .join('\n\n')
+          : `未检索到「${query}」的案例。`;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `${text}\n范围：仅本地指导性案例和公报案例，不是全国案例库，也不包含企业信用信息。\n数据版本：${dataVersion}\n非官方整理；正式引用请核对上述官方来源。`,
+            },
+          ],
+        };
+      },
+    );
+    mcp.tool(
+      'get_case',
+      '按 search_cases 返回的 id 获取本地案例详情（案情、裁判要点、理由、结果或公报正文）。长正文按字符 offset/limit 分页，按提示继续读取；附官方来源及语料版本。',
+      {
+        id: z.string().trim().min(1).max(100),
+        offset: z.number().int().min(0).default(0),
+        limit: z.number().int().min(100).max(12000).default(6000),
+      },
+      async ({ id, offset, limit }) => {
+        console.info(JSON.stringify({ event: 'tool-call', tool: 'get_case' }));
+        const row = (await cases()).find((doc) => doc.id === id);
+        if (!row)
+          return {
+            content: [
+              { type: 'text', text: `未找到案例「${id}」，请先用 search_cases 查询本地案例 id。` },
+            ],
+          };
+        const sections = {
+          title: '标题',
+          caseNumber: '案号',
+          court: '法院',
+          keywords: '关键词',
+          gist: '裁判要点',
+          facts: '基本案情',
+          result: '裁判结果',
+          reasoning: '裁判理由',
+          body: '正文',
+        };
+        const text = Object.entries(sections)
+          .filter(([key]) => row[key]?.length)
+          .map(
+            ([key, label]) =>
+              `${label}：\n${Array.isArray(row[key]) ? row[key].join('\n') : row[key]}`,
+          )
+          .join('\n\n');
+        if (offset > text.length)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `offset ${offset} 超出正文范围（共 ${text.length} 字符），请从 offset: 0 读取。\n案例：${row.title}（id: ${row.id}）\n官方来源：${row.sourceUrl}\n数据版本：${dataVersion}`,
+              },
+            ],
+          };
+        const end = Math.min(offset + limit, text.length);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: [
+                `${row.kind === 'guiding-cases' ? '指导性案例' : '公报案例'}：${row.title}（id: ${row.id}）`,
+                text.slice(offset, end),
+                `正文字符范围：${offset}-${end}/${text.length}。${end < text.length ? `已截断，下一页 offset: ${end}，limit: ${limit}。` : '已到末尾。'}`,
+                `官方来源：${row.sourceUrl}`,
+                `语料来源：https://github.com/lttxzmj/chinese-law-corpus/blob/${dataVersion}/${row.kind}/${row.id}.json`,
+                `数据版本：${dataVersion}`,
+                '非官方整理；正式引用请核对官方来源。',
+              ].join('\n'),
+            },
+          ],
+        };
       },
     );
     return mcp;
