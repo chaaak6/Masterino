@@ -57,7 +57,7 @@ export function rank(rows, query, textOf) {
       const term = hits.flat().find((term) => text.includes(term));
       return { row, score, term, coverage: hits.length / groups.length };
     })
-    .filter((hit) => hit.term && hit.coverage >= 0.5)
+    .filter((hit) => hit.term && hit.coverage >= (groups.length <= 2 ? 1 : 0.5))
     .sort((a, b) => b.score - a.score);
 }
 export function excerpt(text, term, length = 400) {

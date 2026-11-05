@@ -171,3 +171,6 @@ test('Given Object prototype names as queries, both searches return no results a
   }
   assert.match(await call('search_cases', { query: '奖金' }), /guiding-182/);
 });
+test('Given two meaningful query groups, matching only one does not count as a result', async () => {
+  assert.match(await call('search_articles', { query: '量子工资' }), /未检索到/);
+});
