@@ -7,8 +7,10 @@ import ImageGallery from '@/features/Attachments/ImageGallery';
 import { warnUnsupportedVisualUpload } from '@/features/ChatInput/ActionBar/visualUploadGuard';
 import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
 import {
+  copyLocalAttachmentImage,
   localAttachmentStatus,
   previewLocalAttachment,
+  revealLocalAttachmentImage,
 } from '@/services/electron/localAttachmentService';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
@@ -50,6 +52,11 @@ export default memo(
           return {
             id: ref.attachmentId,
             name: ref.name,
+            onCopy: () => copyLocalAttachmentImage(ref),
+            onReveal:
+              typeof window !== 'undefined' && window.electronAPI?.invoke
+                ? () => revealLocalAttachmentImage(ref)
+                : undefined,
             load: async () => {
               if (!(await localAttachmentStatus(ref))) throw new Error('Attachment unavailable');
               const result = await previewLocalAttachment(ref, topicId || 'active');

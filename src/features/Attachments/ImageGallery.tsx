@@ -1,9 +1,13 @@
+import { copyImageToClipboard } from '@lobechat/utils/client';
 import { ActionIcon, Flexbox, Text } from '@lobehub/ui';
-import { Button, Modal } from '@lobehub/ui/base-ui';
+import { Button, ContextMenuTrigger, Modal } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { ChevronLeft, ChevronRight, ImageOff, Minus, Plus, X } from 'lucide-react';
 import { memo, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { message } from '@/components/AntdStaticMethods';
+import { logChatAttachment } from '@/utils/chatAttachments';
 
 export interface GalleryImage {
   caption?: ReactNode;
@@ -11,7 +15,9 @@ export interface GalleryImage {
   load?: () => Promise<string>;
   name: string;
   onAdd?: () => Promise<boolean>;
+  onCopy?: () => Promise<void>;
   onRemove?: () => void;
+  onReveal?: () => Promise<void>;
   url?: string;
 }
 const styles = createStaticStyles(({ css }) => ({
@@ -187,6 +193,45 @@ const ImageGallery = memo(
     useEffect(() => {
       if (index !== undefined && !items[index]) setIndex(undefined);
     }, [index, items]);
+    const imageMenu = (item: GalleryImage, url?: string) => [
+      {
+        key: 'copy-image',
+        label: t('attachments.copyImage'),
+        disabled: !url || !!errors[item.id],
+        onClick: async () => {
+          try {
+            if (item.onCopy) await item.onCopy();
+            else if (url) await copyImageToClipboard(url);
+            else throw new Error('Image unavailable');
+            message.success(t('attachments.imageCopied'));
+            logChatAttachment('image-copied', { id: item.id });
+          } catch {
+            message.error(t('attachments.copyImageFailed'));
+            logChatAttachment('image-action-failed', { id: item.id, reason: 'copy' });
+          }
+        },
+      },
+      ...(item.onReveal
+        ? [
+            {
+              key: 'reveal-image',
+              label: t(
+                /Macintosh|Mac OS X/.test(navigator.userAgent)
+                  ? 'attachments.revealInFinder'
+                  : 'attachments.revealInFolder',
+              ),
+              onClick: async () => {
+                try {
+                  await item.onReveal!();
+                } catch {
+                  message.error(t('attachments.revealImageFailed'));
+                  logChatAttachment('image-action-failed', { id: item.id, reason: 'reveal' });
+                }
+              },
+            },
+          ]
+        : []),
+    ];
     return (
       <Flexbox gap={8}>
         <div
@@ -197,16 +242,23 @@ const ImageGallery = memo(
         >
           {shown.map((item, i) => (
             <Flexbox gap={4} key={item.id} style={{ position: 'relative', minWidth: 0 }}>
-              <Thumbnail
-                item={item}
-                load={load}
-                source={!errors[item.id] ? item.url || sources[item.id] : undefined}
-                onError={() => setErrors((prev) => ({ ...prev, [item.id]: true }))}
-                onOpen={() => {
-                  trigger.current = document.activeElement as HTMLElement;
-                  setIndex(i);
-                }}
-              />
+              <ContextMenuTrigger
+                items={() => imageMenu(item, item.url || sources[item.id])}
+                onContextMenu={(event) => event.stopPropagation()}
+              >
+                <div style={{ display: 'contents' }}>
+                  <Thumbnail
+                    item={item}
+                    load={load}
+                    source={!errors[item.id] ? item.url || sources[item.id] : undefined}
+                    onError={() => setErrors((prev) => ({ ...prev, [item.id]: true }))}
+                    onOpen={() => {
+                      trigger.current = document.activeElement as HTMLElement;
+                      setIndex(i);
+                    }}
+                  />
+                </div>
+              </ContextMenuTrigger>
               {item.onRemove && (
                 <ActionIcon
                   aria-label={t('attachments.remove', { name: item.name })}
@@ -243,29 +295,35 @@ const ImageGallery = memo(
             <Flexbox gap={12}>
               <div aria-busy={!source && !errors[active.id]} className={styles.canvas}>
                 {source ? (
-                  <img
-                    alt={active.name}
-                    className={styles.image}
-                    key={`${active.id}:${revision}`}
-                    src={source}
-                    style={
-                      dimensions
-                        ? {
-                            width: dimensions.width * zoom,
-                            height: dimensions.height * zoom,
-                            maxWidth: 'none',
-                            maxHeight: 'none',
-                          }
-                        : undefined
-                    }
-                    onError={() => setErrors((prev) => ({ ...prev, [active.id]: true }))}
-                    onLoad={(event) => {
-                      const image = event.currentTarget;
-                      setDimensions(
-                        (prev) => prev || { width: image.clientWidth, height: image.clientHeight },
-                      );
-                    }}
-                  />
+                  <ContextMenuTrigger
+                    items={() => imageMenu(active, source)}
+                    onContextMenu={(event) => event.stopPropagation()}
+                  >
+                    <img
+                      alt={active.name}
+                      className={styles.image}
+                      key={`${active.id}:${revision}`}
+                      src={source}
+                      style={
+                        dimensions
+                          ? {
+                              width: dimensions.width * zoom,
+                              height: dimensions.height * zoom,
+                              maxWidth: 'none',
+                              maxHeight: 'none',
+                            }
+                          : undefined
+                      }
+                      onError={() => setErrors((prev) => ({ ...prev, [active.id]: true }))}
+                      onLoad={(event) => {
+                        const image = event.currentTarget;
+                        setDimensions(
+                          (prev) =>
+                            prev || { width: image.clientWidth, height: image.clientHeight },
+                        );
+                      }}
+                    />
+                  </ContextMenuTrigger>
                 ) : (
                   <Text role={errors[active.id] ? 'alert' : 'status'}>
                     {t(

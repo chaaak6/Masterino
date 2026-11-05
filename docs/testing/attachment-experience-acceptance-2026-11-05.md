@@ -141,6 +141,29 @@ Computer Use 过程已观察 Electron 开发者工具 Network/Console 和本机�
 | REG19 | P1 | 未执行 | 新增中文文案已刷新实机验证；英文本轮人工切换未完整执行，资源键由静态检查核对。 |
 | REG20 | P0 | 未执行 | 模拟403显示权限提示且不推荐App；没有用真实viewer账号执行全部入口。E08。 |
 
+## 图片复制与文件定位修复验收
+
+用户反馈复制得到 base64、缺少所在文件夹入口后，在同一分支继续修复。原生图片菜单此前只有复制地址，data URL 因而成为字符串；通用浏览器复制工具也存在文本兜底。本次增加真正的图片复制：Electron 本机附件经主进程验证设备、引用身份、路径及内容版本后调用 `clipboard.writeImage`；其他原生图片菜单使用 `webContents.copyImageAt`；Web 使用 `ClipboardItem` 的 `image/png` 数据，失败明确提示，不再退化为文本。复制是系统剪贴板操作，不影响模型输入图。
+
+本机图库缩略图和大图增加所在文件夹入口；只传附件引用，由主进程解析已授权路径，使用系统文件定位。原文件有路径时定位原文件，从剪贴板接收的受管理图片则定位受管理文件。Web 云端图片没有虚构的本机文件夹入口。图片动作日志只记录 action/attachmentId 或错误枚举，不记录像素、base64 或本机路径。
+
+实际调试修复了 ContextMenuTrigger 自定义子组件吞掉 DOM 事件、两个 ContextMenuHost 导致重复宿主的问题。最终只挂载一个 base-ui ContextMenuHost，缩略图与大图都能打开统一菜单。
+
+| 用例 | 结果 | 证据与限制 |
+| --- | --- | --- |
+| COPY01 | 通过 | 本地源码 Electron 的 `tpc_PZtOa413BEPV`，右键 image-09.png → 复制图片；在新建隔离的 macOS 文本编辑“未命名2”中 Cmd+V。AX 显示“附带的图像”，截图显示合成位图，无 base64。 |
+| COPY02 | 通过 | 打开 image-10.png 大图（2/2），右键同一菜单复制；在自己的“未命名2”中替换粘贴，截图为第二张的十条白色竖线图片。没有发送消息或保存文档。 |
+| COPY03 | 未执行 | 输入区共用同一图库与本机复制函数，未单独跨应用点测。 |
+| COPY04 | 部分覆盖 | 历史缩略图点击“在 Finder 中显示”，Finder 窗口为 masterino-attachment-qa，AX 明确 `selected` 的 `file:///private/tmp/masterino-attachment-qa/image-09.png`。大图入口可见，未再次点击定位；Windows 未实测。 |
+| COPY05 | 未执行 | 代码沿用引用解析器返回的受管理路径，未点测无原路径的图片。 |
+| COPY06 | 自动化部分覆盖 | IPC 拒绝解析失败且不写剪贴板/不调用 shell；既有引用验证由 device-control 负责。未在实机破坏原文件或切换设备。 |
+| COPY07 | 自动化部分覆盖 | PNG 字节与 MIME 的纯工具测试通过；JPEG/WebP 转 PNG 与真实浏览器跨应用粘贴仍待 QA。 |
+| COPY08 | 自动化部分覆盖 | 不支持 API 时明确拒绝的工具测试通过；权限拒绝/网络失败完整 UI 组合未执行。 |
+| COPY09 | 自动化部分覆盖 | macOS 默认/聊天菜单先以2项失败复现，再验证调用 copyImageAt 坐标；三平台原有菜单测试通过。图库以外的菜单未实机点测。 |
+| COPY10 | 部分覆盖 | Electron 缩略图、大图均只显示一层可用菜单，宿主回归测试通过。SVG artifact 与全部文本/对话菜单仍待补测。 |
+
+本次定向测试为203项通过，独立于前述125项记账（两批有重复文件，不直接相加）：原生菜单 macOS38/windows33/linux40、LocalFileCtr72、clipboard工具2、SPAGlobalProvider1、localAttachmentService15、MessageContent2。新增的是2项原生菜单回归、2项IPC动作验证和2项纯剪贴板工具测试，没有新增UI单测文件。Electron 主进程/预加载构建通过；ESLint与diff空白检查通过。全仓类型检查仍沿用前述环境诊断限制，未宣称通过。
+
 ## 仍需 QA 补测
 
 Windows App、Chrome/Safari/Edge、iOS/Android/企微真机，安装包实际下载及CDN异常全组合，需要具备相应环境的QA继续执行。无Content-Length底层上传、有效部署限额、路由实收长度和对象SHA-256，需要测试集群日志/存储只读证据。其他未执行周边功能见逐项表，不能只凭本轮策略测试推定通过。

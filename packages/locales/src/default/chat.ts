@@ -1,4 +1,13 @@
 export default {
+  'attachments.copyImage': 'Copy image',
+  'attachments.imageCopied': 'Image copied',
+  'attachments.copyImageFailed':
+    'Could not copy the image. Try again or save the image to your device.',
+  'attachments.revealInFinder': 'Show in Finder',
+  'attachments.revealInFolder': 'Show in folder',
+  'attachments.revealImageFailed':
+    'This image is unavailable on this device. Select the file again.',
+
   'attachments.localPreviewUnavailable':
     'This local image cannot be read on this device. View it on the device where it was added, or select the file again.',
   'attachments.previewUnavailable':

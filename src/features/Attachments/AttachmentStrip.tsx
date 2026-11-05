@@ -11,7 +11,11 @@ import { useAgentId } from '@/features/ChatInput/hooks/useAgentId';
 import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useChatInputStore } from '@/features/ChatInput/store';
 import FileViewer from '@/features/FileViewer';
-import { previewLocalAttachment } from '@/services/electron/localAttachmentService';
+import {
+  copyLocalAttachmentImage,
+  previewLocalAttachment,
+  revealLocalAttachmentImage,
+} from '@/services/electron/localAttachmentService';
 import { useChatStore } from '@/store/chat';
 import { useFileStore } from '@/store/file';
 import { getChatAttachmentDraft } from '@/store/file/slices/chat/drafts';
@@ -97,6 +101,14 @@ const AttachmentStrip = memo(() => {
         onClick={() => void retry(item.uploadId || item.id, agentId, topicId, scope)}
       />
     );
+  const imageActions = (item: UploadFileItem) => {
+    const ref = item.attachment;
+    if (ref?.source !== 'local') return {};
+    return {
+      onCopy: () => copyLocalAttachmentImage(ref),
+      onReveal: () => revealLocalAttachmentImage(ref),
+    };
+  };
   const previewFile = async (item: UploadFileItem) => {
     if (item.attachment?.source === 'local') {
       try {
@@ -153,6 +165,7 @@ const AttachmentStrip = memo(() => {
             items={images.map((item) => ({
               id: item.uploadId || item.id,
               name: item.file.name,
+              ...imageActions(item),
               url: item.previewUrl || item.base64Url || item.fileUrl,
               onRemove: () => removeItem(item.uploadId || item.id),
               caption: (
