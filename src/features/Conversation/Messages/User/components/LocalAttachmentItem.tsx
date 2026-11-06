@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { message } from '@/components/AntdStaticMethods';
 import FileIcon from '@/components/FileIcon';
+import MessageFileCard from '@/features/Attachments/MessageFileCard';
 import { warnUnsupportedVisualUpload } from '@/features/ChatInput/ActionBar/visualUploadGuard';
 import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
 import {
@@ -16,6 +17,7 @@ import { agentByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { useFileStore } from '@/store/file';
+import { logChatAttachment } from '@/utils/chatAttachments';
 import { formatSize } from '@/utils/format';
 
 import { useConversationStore } from '../../../store';
@@ -24,9 +26,10 @@ import ImageFileListViewer from './ImageFileListViewer';
 type LocalRef = Extract<AttachmentRef, { source: 'local' }>;
 const LocalAttachmentItem = memo<{
   attachment: LocalRef;
+  compact?: boolean;
   messageId: string;
   topicId?: string | null;
-}>(({ attachment, messageId, topicId }) => {
+}>(({ attachment, compact, messageId, topicId }) => {
   const { t } = useTranslation('chat');
   const context = useConversationStore((s) => s.context);
   const agentId = context.agentId;
@@ -74,6 +77,7 @@ const LocalAttachmentItem = memo<{
     )
       return;
     setPending(action);
+    logChatAttachment('message-file-action', { id: attachment.attachmentId, reason: action });
     try {
       if (action === 'add') {
         setAdded(
@@ -91,18 +95,43 @@ const LocalAttachmentItem = memo<{
         else if (result.path)
           openLocalFile({
             filePath: result.path,
-            deviceId: attachment.deviceId,
+            // IPC above validated that this reference belongs to this device. Supplying
+            // deviceId here would route through the remote workspace-only preview API.
             workingDirectory: result.path.slice(0, result.path.lastIndexOf('/')),
             allowExternalFilePreview: true,
           });
       }
     } catch {
+      logChatAttachment('message-file-action-failed', {
+        id: attachment.attachmentId,
+        reason: action,
+      });
       setAvailable(false);
     } finally {
       setPending(undefined);
     }
   };
 
+  if (compact)
+    return (
+      <MessageFileCard
+        added={added}
+        busy={!!pending}
+        mime={attachment.mime}
+        name={attachment.name}
+        size={attachment.size}
+        unavailable={!available}
+        status={
+          available === undefined
+            ? t('localAttachment.checking')
+            : available
+              ? t('attachments.localFile')
+              : t('localAttachment.unavailable')
+        }
+        onAdd={() => void run('add')}
+        onPreview={() => void run('preview')}
+      />
+    );
   return (
     <Flexbox gap={8}>
       <Block horizontal align="center" gap={12} padding={12} variant="outlined">

@@ -2,6 +2,8 @@
 
 基线为创建 worktree 时最新 main `be3e7172e244dc6d640150ad6c73f74ca66bef2a`（完整值以 Git 分支记录为准），分支 `codex/attachment-experience`，产品包版本 `1.3.12`。实现和测试仅在独立 worktree 中进行，没有修改、部署测试或生产服务配置，没有合并 PR。
 
+11月6日后续实现已将消息网格升级为文字气泡上方的横向附件条；新增交互、实操调优及补测范围见[消息附件横向展示验收记录](attachment-rail-acceptance-2026-11-06.md)。下文保留11月5日当时版本的历史验收事实。
+
 ## 环境与证据口径
 
 - 正式测试站点为 https://mlai-test.bielcrystal.com/ ，Computer Use 已直接打开并确认 `masterinoTest` 正常登录。不要把 `127.0.0.1:9887/signin` 遗留页面当成测试站点地址。

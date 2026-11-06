@@ -30,6 +30,7 @@ const ChatItem = memo<ChatItemProps>(
     showTitle,
     time,
     editing,
+    hideMessageBody,
     messageExtra,
     children,
     customErrorRender,
@@ -102,6 +103,7 @@ const ChatItem = memo<ChatItemProps>(
             <MessageContent
               disabled={disabled}
               editing={editing}
+              hiddenBody={hideMessageBody && !editing}
               id={id!}
               message={message}
               variant={isUser ? 'bubble' : undefined}

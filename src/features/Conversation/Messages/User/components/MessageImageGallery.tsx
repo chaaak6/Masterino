@@ -1,5 +1,5 @@
 import { type AttachmentRef } from '@lobechat/types';
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { message } from '@/components/AntdStaticMethods';
@@ -12,6 +12,7 @@ import {
   previewLocalAttachment,
   revealLocalAttachmentImage,
 } from '@/services/electron/localAttachmentService';
+import { fileService } from '@/services/file';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
@@ -25,11 +26,13 @@ export default memo(
     messageId,
     topicId,
     uploadedImages,
+    renderThumbnails,
   }: {
     items: AttachmentRef[];
     uploadedImages: { id: string; url: string; alt?: string }[];
     messageId: string;
     topicId?: string | null;
+    renderThumbnails?: (thumbnails: ReactNode[]) => ReactNode;
   }) => {
     const { t } = useTranslation('chat');
     const context = useConversationStore((s) => s.context);
@@ -42,15 +45,22 @@ export default memo(
     const add = useFileStore((s) => s.addLocalAttachmentToInput);
     return (
       <ImageGallery
+        renderThumbnails={renderThumbnails}
         items={items.map((ref) => {
           if (ref.source === 'uploaded')
             return {
               id: `uploaded:${ref.fileId}`,
               name: ref.name || 'Image',
               url: uploadedImages.find((item) => item.id === ref.fileId)?.url,
+              load: async () => {
+                const file = await fileService.getFile(ref.fileId);
+                if (!file.url) throw new Error('Preview unavailable');
+                return file.url;
+              },
             };
           return {
             id: ref.attachmentId,
+            local: true,
             name: ref.name,
             onCopy: () => copyLocalAttachmentImage(ref),
             onReveal:

@@ -1,8 +1,8 @@
 import { copyImageToClipboard } from '@lobechat/utils/client';
 import { ActionIcon, Flexbox, Text } from '@lobehub/ui';
-import { Button, ContextMenuTrigger, Modal } from '@lobehub/ui/base-ui';
+import { Button, ContextMenuTrigger, DropdownMenu, Modal } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar } from 'antd-style';
-import { ChevronLeft, ChevronRight, ImageOff, Minus, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ImageOff, Minus, MoreHorizontal, Plus, X } from 'lucide-react';
 import { memo, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,7 @@ export interface GalleryImage {
   caption?: ReactNode;
   id: string;
   load?: () => Promise<string>;
+  local?: boolean;
   name: string;
   onAdd?: () => Promise<boolean>;
   onCopy?: () => Promise<void>;
@@ -28,28 +29,55 @@ const styles = createStaticStyles(({ css }) => ({
     width: min(100%, 480px);
   `,
   compact: css`
-    display: flex;
     overflow-x: auto;
+    display: flex;
     gap: 8px;
+
     width: 100%;
-    padding: 4px 0;
+    padding-block: 4px;
+    padding-inline: 0;
+
     > * {
       flex: 0 0 80px;
     }
   `,
+  railTile: css`
+    flex: 0 0 72px;
+    width: 72px;
+    height: 72px;
+
+    button {
+      aspect-ratio: 1;
+      width: 72px;
+      height: 72px;
+    }
+
+    button img {
+      object-fit: contain;
+    }
+  `,
   tile: css`
-    overflow: hidden;
+    cursor: pointer;
+
     position: relative;
+
+    overflow: hidden;
+    display: block;
+
     aspect-ratio: 1.35;
+    padding: 0;
     border: 1px solid ${cssVar.colorBorderSecondary};
     border-radius: 12px;
-    background: ${cssVar.colorFillQuaternary};
+
     color: ${cssVar.colorTextSecondary};
-    cursor: pointer;
+
+    background: ${cssVar.colorFillQuaternary};
+
     &:focus-visible {
       outline: 2px solid ${cssVar.colorPrimary};
       outline-offset: 2px;
     }
+
     img {
       width: 100%;
       height: 100%;
@@ -58,9 +86,11 @@ const styles = createStaticStyles(({ css }) => ({
   `,
   image: css`
     display: block;
+
     max-width: 100%;
     max-height: 65vh;
     margin: auto;
+
     object-fit: contain;
   `,
   canvas: css`
@@ -117,7 +147,15 @@ function Thumbnail({
 }
 
 const ImageGallery = memo(
-  ({ items, compact = false }: { compact?: boolean; items: GalleryImage[] }) => {
+  ({
+    items,
+    compact = false,
+    renderThumbnails,
+  }: {
+    compact?: boolean;
+    items: GalleryImage[];
+    renderThumbnails?: (thumbnails: ReactNode[]) => ReactNode;
+  }) => {
     const { t } = useTranslation('chat');
     const [sources, setSources] = useState<Record<string, string>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -131,6 +169,9 @@ const ImageGallery = memo(
     const [revision, setRevision] = useState(0);
     const [adding, setAdding] = useState(false);
     const [added, setAdded] = useState<string>();
+    const gesture = useRef<{ x: number; y: number; time: number; pointerId: number } | undefined>(
+      undefined,
+    );
     useEffect(() => {
       mounted.current = true;
       return () => {
@@ -188,7 +229,7 @@ const ImageGallery = memo(
       window.addEventListener('keydown', key, true);
       return () => window.removeEventListener('keydown', key, true);
     }, [index, items.length]);
-    const shown = expanded ? items : items.slice(0, compact ? 10 : 6);
+    const shown = expanded || renderThumbnails ? items : items.slice(0, compact ? 10 : 6);
     const source = active && !errors[active.id] && (active.url || sources[active.id]);
     useEffect(() => {
       if (index !== undefined && !items[index]) setIndex(undefined);
@@ -232,53 +273,56 @@ const ImageGallery = memo(
           ]
         : []),
     ];
-    return (
-      <Flexbox gap={8}>
-        <div
-          className={compact ? styles.compact : styles.grid}
-          style={
-            compact ? { gridTemplateColumns: 'repeat(auto-fill, 80px)', width: '100%' } : undefined
-          }
+    const thumbnails = shown.map((item, i) => (
+      <Flexbox
+        className={renderThumbnails ? styles.railTile : undefined}
+        gap={4}
+        key={item.id}
+        style={{ position: 'relative', minWidth: 0 }}
+      >
+        <ContextMenuTrigger
+          items={() => imageMenu(item, item.url || sources[item.id])}
+          onContextMenu={(event) => event.stopPropagation()}
         >
-          {shown.map((item, i) => (
-            <Flexbox gap={4} key={item.id} style={{ position: 'relative', minWidth: 0 }}>
-              <ContextMenuTrigger
-                items={() => imageMenu(item, item.url || sources[item.id])}
-                onContextMenu={(event) => event.stopPropagation()}
-              >
-                <div style={{ display: 'contents' }}>
-                  <Thumbnail
-                    item={item}
-                    load={load}
-                    source={!errors[item.id] ? item.url || sources[item.id] : undefined}
-                    onError={() => setErrors((prev) => ({ ...prev, [item.id]: true }))}
-                    onOpen={() => {
-                      trigger.current = document.activeElement as HTMLElement;
-                      setIndex(i);
-                    }}
-                  />
-                </div>
-              </ContextMenuTrigger>
-              {item.onRemove && (
-                <ActionIcon
-                  aria-label={t('attachments.remove', { name: item.name })}
-                  icon={X}
-                  size="small"
-                  title={t('attachments.remove', { name: item.name })}
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: 0,
-                    background: 'var(--color-bg-elevated)',
-                  }}
-                  onClick={item.onRemove}
-                />
-              )}
-              {item.caption}
-            </Flexbox>
-          ))}
-        </div>
-        {items.length > shown.length && (
+          <div style={{ display: 'contents' }}>
+            <Thumbnail
+              item={item}
+              load={load}
+              source={!errors[item.id] ? item.url || sources[item.id] : undefined}
+              onError={() => setErrors((prev) => ({ ...prev, [item.id]: true }))}
+              onOpen={() => {
+                trigger.current = document.activeElement as HTMLElement;
+                setIndex(i);
+              }}
+            />
+          </div>
+        </ContextMenuTrigger>
+        {item.onRemove && (
+          <ActionIcon
+            aria-label={t('attachments.remove', { name: item.name })}
+            icon={X}
+            size="small"
+            title={t('attachments.remove', { name: item.name })}
+            style={{
+              position: 'absolute',
+              right: 0,
+              top: 0,
+              background: 'var(--color-bg-elevated)',
+            }}
+            onClick={item.onRemove}
+          />
+        )}
+        {item.caption}
+      </Flexbox>
+    ));
+    return (
+      <Flexbox gap={8} style={{ minWidth: 0, maxWidth: '100%' }}>
+        {renderThumbnails ? (
+          renderThumbnails(thumbnails)
+        ) : (
+          <div className={compact ? styles.compact : styles.grid}>{thumbnails}</div>
+        )}
+        {!renderThumbnails && items.length > shown.length && (
           <Button size="small" onClick={() => setExpanded(true)}>
             {t('attachments.showAll', { count: items.length })}
           </Button>
@@ -293,7 +337,62 @@ const ImageGallery = memo(
         >
           {active && (
             <Flexbox gap={12}>
-              <div aria-busy={!source && !errors[active.id]} className={styles.canvas}>
+              <div
+                aria-busy={!source && !errors[active.id]}
+                className={styles.canvas}
+                style={{
+                  touchAction: zoom === 1 ? 'pan-y pinch-zoom' : 'none',
+                  cursor: zoom > 1 ? 'grab' : undefined,
+                }}
+                onPointerCancel={() => {
+                  gesture.current = undefined;
+                }}
+                onPointerDown={(event) => {
+                  if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
+                  if (!event.isPrimary) {
+                    gesture.current = undefined;
+                    return;
+                  }
+                  gesture.current = {
+                    x: event.clientX,
+                    y: event.clientY,
+                    time: performance.now(),
+                    pointerId: event.pointerId,
+                  };
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  const start = gesture.current;
+                  if (!start || start.pointerId !== event.pointerId || zoom === 1) return;
+                  event.currentTarget.scrollLeft += start.x - event.clientX;
+                  event.currentTarget.scrollTop += start.y - event.clientY;
+                  start.x = event.clientX;
+                  start.y = event.clientY;
+                }}
+                onPointerUp={(event) => {
+                  const start = gesture.current;
+                  gesture.current = undefined;
+                  if (!start || start.pointerId !== event.pointerId || zoom !== 1) return;
+                  const x = event.clientX - start.x;
+                  const y = event.clientY - start.y;
+                  if (
+                    Math.abs(x) >= 48 &&
+                    Math.abs(x) > Math.abs(y) * 1.5 &&
+                    performance.now() - start.time < 1000
+                  ) {
+                    const next = Math.max(
+                      0,
+                      Math.min(items.length - 1, (index ?? 0) + (x < 0 ? 1 : -1)),
+                    );
+                    if (next !== index)
+                      logChatAttachment('image-preview-navigated', {
+                        id: items[next].id,
+                        reason: 'swipe',
+                      });
+                    setIndex(next);
+                  }
+                }}
+              >
                 {source ? (
                   <ContextMenuTrigger
                     items={() => imageMenu(active, source)}
@@ -302,6 +401,7 @@ const ImageGallery = memo(
                     <img
                       alt={active.name}
                       className={styles.image}
+                      draggable={false}
                       key={`${active.id}:${revision}`}
                       src={source}
                       style={
@@ -328,7 +428,7 @@ const ImageGallery = memo(
                   <Text role={errors[active.id] ? 'alert' : 'status'}>
                     {t(
                       errors[active.id]
-                        ? active.load
+                        ? active.local
                           ? 'attachments.localPreviewUnavailable'
                           : 'attachments.previewUnavailable'
                         : 'localAttachment.checking',
@@ -384,6 +484,13 @@ const ImageGallery = memo(
                   title={t('attachments.zoomIn')}
                   onClick={() => setZoom((z) => Math.min(3, z + 0.5))}
                 />
+                <DropdownMenu items={imageMenu(active, source || undefined)}>
+                  <ActionIcon
+                    aria-label={t('attachments.imageActions')}
+                    icon={MoreHorizontal}
+                    title={t('attachments.imageActions')}
+                  />
+                </DropdownMenu>
                 {active.onAdd && (
                   <Button
                     disabled={adding || !source || !!errors[active.id]}

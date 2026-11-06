@@ -47,6 +47,7 @@ export interface MessageContentProps {
   className?: string;
   disabled?: ChatItemProps['disabled'];
   editing?: ChatItemProps['editing'];
+  hiddenBody?: boolean;
   id: string;
   message?: ReactNode;
   messageExtra?: ChatItemProps['messageExtra'];
@@ -65,6 +66,7 @@ const MessageContent = memo<MessageContentProps>(
     disabled,
     className,
     variant,
+    hiddenBody,
   }) => {
     const [toggleMessageEditing, updateMessageContent, regenerateUserMessage] =
       useConversationStore((s) => [
@@ -116,6 +118,10 @@ const MessageContent = memo<MessageContentProps>(
             disabled && styles.disabled,
             className,
           )}
+          style={{
+            ...(variant === 'bubble' ? { alignSelf: 'flex-end' } : {}),
+            ...(hiddenBody ? { display: 'none' } : {}),
+          }}
           onDoubleClick={onDoubleClick}
         >
           {children || message}

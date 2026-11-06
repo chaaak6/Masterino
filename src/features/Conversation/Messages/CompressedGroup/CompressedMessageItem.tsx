@@ -8,6 +8,7 @@ import { useUserAvatar } from '@/hooks/useUserAvatar';
 
 import { useAgentMeta } from '../../hooks';
 import ContentBlock from '../AssistantGroup/components/ContentBlock';
+import MessageAttachmentRail from '../User/components/MessageAttachmentRail';
 import UserMessageContent from '../User/components/MessageContent';
 
 interface CompressedMessageItemProps {
@@ -28,7 +29,8 @@ const CompressedMessageItem = memo<CompressedMessageItemProps>(({ message }) => 
     return (
       <Flexbox horizontal gap={8} paddingBlock={4}>
         <Avatar avatar={userAvatar} size={28} />
-        <Flexbox flex={1} style={{ overflow: 'hidden' }}>
+        <Flexbox flex={1} gap={8} style={{ overflow: 'hidden' }}>
+          <MessageAttachmentRail {...message} />
           <UserMessageContent {...message} />
         </Flexbox>
       </Flexbox>
