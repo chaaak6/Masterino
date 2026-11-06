@@ -9,6 +9,7 @@ vi.mock('@lobehub/ui', () => ({
 }));
 
 vi.mock('@lobehub/ui/base-ui', () => ({
+  ContextMenuHost: () => null,
   ModalHost: () => null,
   ToastHost: () => null,
 }));
@@ -118,9 +119,6 @@ describe('SPAGlobalProvider', () => {
       </SPAGlobalProvider>,
     );
 
-    expect(screen.getByTestId('server-config-provider')).toHaveAttribute(
-      'data-is-mobile',
-      'true',
-    );
+    expect(screen.getByTestId('server-config-provider')).toHaveAttribute('data-is-mobile', 'true');
   });
 });

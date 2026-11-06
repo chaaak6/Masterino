@@ -3,6 +3,7 @@ import { Eraser } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePermission } from '@/hooks/usePermission';
 import { useChatStore } from '@/store/chat';
@@ -11,13 +12,14 @@ import { useFileStore } from '@/store/file';
 import Action from '../components/Action';
 
 export const useClearCurrentMessages = () => {
+  const scope = useAttachmentScope();
   const clearMessage = useChatStore((s) => s.clearMessage);
   const clearImageList = useFileStore((s) => s.clearChatUploadFileList);
 
   return useCallback(async () => {
     await clearMessage();
-    clearImageList();
-  }, [clearImageList, clearMessage]);
+    clearImageList(undefined, scope);
+  }, [clearImageList, clearMessage, scope]);
 };
 
 const Clear = memo(() => {

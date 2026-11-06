@@ -321,6 +321,7 @@ export class WindowsMenu extends BaseMenuPlatform implements IMenuPlatform {
 
     // Image actions
     if (hasImage) {
+      template.push(this.buildCopyImageMenuItem(data!));
       template.push({
         click: () => {
           const mainWindow = this.app.browserManager.getMainWindow();
@@ -396,6 +397,7 @@ export class WindowsMenu extends BaseMenuPlatform implements IMenuPlatform {
 
     // Image actions
     if (hasImage) {
+      template.push(this.buildCopyImageMenuItem(data!));
       template.push({
         click: () => {
           const mainWindow = this.app.browserManager.getMainWindow();

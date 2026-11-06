@@ -73,9 +73,11 @@ export function useDesktopDownload() {
     let showChoice = false;
     try {
       target = await detectDownloadTarget(navigator);
+      console.info('[desktop-download]', JSON.stringify({ event: 'detected', target }));
       if (target === 'mac' || target === 'unsupported') showChoice = true;
       else await downloadDesktop(target);
     } catch {
+      console.info('[desktop-download]', JSON.stringify({ event: 'unavailable', target }));
       showChoice = true;
     } finally {
       busy.current = false;

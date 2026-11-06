@@ -14,6 +14,7 @@ import {
 import RightPanel from '@/features/RightPanel';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 const actions: ActionKeys[] = ['model', 'search'];
 
@@ -32,7 +33,14 @@ const FileCopilot = memo(() => {
   const provider = useAgentStore((s) =>
     agentByIdSelectors.getAgentModelProviderById(currentAgentId)(s),
   );
-  const { handleUploadFiles } = useUploadFiles({ agentId: currentAgentId, model, provider });
+  const attachmentContext = useConversationStore((s) => s.context);
+  const { handleUploadFiles } = useUploadFiles({
+    agentId: currentAgentId,
+    model,
+    provider,
+    topicId: attachmentContext.topicId,
+    scope: messageMapKey(attachmentContext),
+  });
 
   return (
     <RightPanel>

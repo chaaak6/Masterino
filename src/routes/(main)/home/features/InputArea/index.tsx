@@ -13,6 +13,7 @@ import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { builtinAgentSelectors } from '@/store/agent/selectors/builtinAgentSelectors';
 import { useChatStore } from '@/store/chat';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
@@ -33,7 +34,13 @@ type BannerKind = 'skill' | 'botIntegration' | 'messenger';
 const InputArea = () => {
   const { t } = useTranslation('chat');
   const { loading, send, agentId } = useSend();
-  const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
+  const attachmentScope = messageMapKey({ agentId });
+  const isUploadingFiles = useFileStore((s) =>
+    fileChatSelectors.isUploadingFiles(s, attachmentScope),
+  );
+  const attachmentBlock = useFileStore((s) =>
+    fileChatSelectors.attachmentBlock(s, attachmentScope),
+  );
   // Subscribe to the SWR key so `internal_refreshAgentConfig`'s `mutate(...)`
   // has a listener after toggleFile / toggleKnowledgeBase — otherwise the
   // Library submenu doesn't reflect server-side toggles. Pass `agentId`
@@ -173,7 +180,9 @@ const InputArea = () => {
               onDisabledSend: isUploadingFiles
                 ? () =>
                     antdMessage.warning({
-                      content: t('input.uploadingFiles'),
+                      content: t(
+                        `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState(), attachmentScope) || 'pending'}`,
+                      ),
                       key: 'home-uploading-files',
                     })
                 : undefined,
@@ -194,7 +203,11 @@ const InputArea = () => {
             />
             {isUploadingFiles && (
               <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
-                <Alert showIcon title={t('input.uploadingFiles')} type={'info'} />
+                <Alert
+                  showIcon
+                  title={t(`attachments.block.${attachmentBlock || 'pending'}`)}
+                  type={attachmentBlock === 'pending' ? 'info' : 'warning'}
+                />
               </Flexbox>
             )}
           </ChatInputProvider>

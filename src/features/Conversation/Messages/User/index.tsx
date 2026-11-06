@@ -18,7 +18,9 @@ import {
   useSetMessageItemActionTypeContext,
 } from '../Contexts/message-action-context';
 import Actions from './Actions';
+import MessageAttachmentRail from './components/MessageAttachmentRail';
 import UserMessageContent from './components/MessageContent';
+import { hasUserMessageBody } from './components/messagePresentation';
 import { UserMessageExtra } from './Extra';
 
 interface UserMessageProps {
@@ -75,9 +77,11 @@ const UserMessage = memo<UserMessageProps>(({ id, disableEditing, index }) => {
 
   return (
     <ChatItem
+      aboveMessage={<MessageAttachmentRail {...item} />}
       actions={<Actions data={item} disableEditing={disableEditing} id={id} />}
       avatar={{ avatar, title }}
       editing={editing}
+      hideMessageBody={!hasUserMessageBody(item)}
       id={id}
       message={content}
       messageExtra={<UserMessageExtra content={content} extra={extra} id={id} />}

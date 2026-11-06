@@ -11,6 +11,7 @@ import { type MouseEvent, type ReactNode } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { validateRegenerationImages } from '@/features/Attachments/validateMessageImages';
 import { MSG_CONTENT_CLASSNAME } from '@/features/Conversation/ChatItem/components/MessageContent';
 import { usePermission } from '@/hooks/usePermission';
 import { useSessionStore } from '@/store/session';
@@ -281,7 +282,8 @@ export const useChatItemContextMenu = ({
           break;
         }
         case 'regenerate': {
-          if (!canCreate) break;
+          if (!canCreate || !validateRegenerationImages(storeApi.getState().displayMessages, id))
+            break;
           if (inPortalThread) {
             resendThreadMessage(id);
           } else if (role === 'assistant') {
@@ -336,6 +338,7 @@ export const useChatItemContextMenu = ({
       regenerateAssistantMessage,
       regenerateUserMessage,
       resendThreadMessage,
+      storeApi,
       role,
       t,
       toggleMessageCollapsed,
