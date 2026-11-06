@@ -22,8 +22,12 @@ export abstract class BaseMenuPlatform {
       click: (_item, win) => {
         if (!available) return;
         const target =
-          win && win instanceof BrowserWindow ? win : this.app.browserManager.getMainWindow();
-        target.webContents.copyImageAt(data.x!, data.y!);
+          win && win instanceof BrowserWindow
+            ? win
+            : (BrowserWindow.getFocusedWindow() ?? this.app.browserManager.getMainWindow());
+        const contents = target?.webContents;
+        if (!contents || contents.isDestroyed?.()) return;
+        contents.copyImageAt(data.x!, data.y!);
       },
     };
   }

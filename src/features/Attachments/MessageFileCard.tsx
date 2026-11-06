@@ -106,7 +106,9 @@ export default function MessageFileCard({
         disabled={unavailable || busy}
         title={name}
         type="button"
-        onClick={onPreview}
+        onClick={(event) => {
+          if (!event.altKey) onPreview();
+        }}
       >
         {busy ? (
           <LoaderCircle aria-hidden size={28} />

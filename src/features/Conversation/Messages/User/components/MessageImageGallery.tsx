@@ -16,6 +16,7 @@ import { fileService } from '@/services/file';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { useElectronStore } from '@/store/electron';
 import { useFileStore } from '@/store/file';
 
 import { useConversationStore } from '../../../store';
@@ -43,14 +44,15 @@ export default memo(
     ]);
     const ability = useVisualMediaUploadAbility(model, provider);
     const add = useFileStore((s) => s.addLocalAttachmentToInput);
+    const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
     return (
       <ImageGallery
         renderThumbnails={renderThumbnails}
-        items={items.map((ref) => {
+        items={items.map((ref, index) => {
           if (ref.source === 'uploaded')
             return {
               id: `uploaded:${ref.fileId}`,
-              name: ref.name || 'Image',
+              name: ref.name || t('attachments.imageName', { index: index + 1 }),
               url: uploadedImages.find((item) => item.id === ref.fileId)?.url,
               load: async () => {
                 const file = await fileService.getFile(ref.fileId);
@@ -58,15 +60,16 @@ export default memo(
                 return file.url;
               },
             };
+          const canUseLocalImage =
+            currentDeviceId === ref.deviceId &&
+            typeof window !== 'undefined' &&
+            !!window.electronAPI?.invoke;
           return {
             id: ref.attachmentId,
             local: true,
             name: ref.name,
-            onCopy: () => copyLocalAttachmentImage(ref),
-            onReveal:
-              typeof window !== 'undefined' && window.electronAPI?.invoke
-                ? () => revealLocalAttachmentImage(ref)
-                : undefined,
+            onCopy: canUseLocalImage ? () => copyLocalAttachmentImage(ref) : undefined,
+            onReveal: canUseLocalImage ? () => revealLocalAttachmentImage(ref) : undefined,
             load: async () => {
               if (!(await localAttachmentStatus(ref))) throw new Error('Attachment unavailable');
               const result = await previewLocalAttachment(ref, topicId || 'active');

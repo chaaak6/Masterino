@@ -66,6 +66,8 @@
   "attachments.messageAttachments": "Message attachments",
   "attachments.next": "Next image",
   "attachments.notAdded": "{{count}} attachments not added",
+  "attachments.notAdded_one": "{{count}} attachment not added",
+  "attachments.notAdded_other": "{{count}} attachments not added",
   "attachments.onComputer": "Open this address on a computer and choose Get desktop app.",
   "attachments.parsing": "Analyzing…",
   "attachments.preparing": "Preparing…",

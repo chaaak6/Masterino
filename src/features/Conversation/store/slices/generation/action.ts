@@ -439,7 +439,11 @@ export const generationSlice: StateCreator<
 
   delAndResendThreadMessage: async (messageId: string) => {
     const { context, displayMessages } = get();
-    const userMessage = displayMessages.find((item) => item.id === messageId);
+    const current = displayMessages.find((item) => item.id === messageId);
+    const userMessage =
+      current?.role === 'user'
+        ? current
+        : displayMessages.find((item) => item.id === current?.parentId);
     if (!userMessage || !validateMessageImages(userMessage)) return;
     const chatStore = useChatStore.getState();
 
@@ -450,7 +454,7 @@ export const generationSlice: StateCreator<
     });
 
     // Resend then delete
-    await get().resendThreadMessage(messageId);
+    await get().resendThreadMessage(userMessage.id);
     await chatStore.deleteMessage(messageId, { operationId });
     chatStore.completeOperation(operationId);
   },
@@ -613,7 +617,13 @@ export const generationSlice: StateCreator<
 
   resendThreadMessage: async (messageId: string) => {
     // Resend is essentially regenerating the user message in thread context
-    await get().regenerateUserMessage(messageId);
+    const { displayMessages } = get();
+    const current = displayMessages.find((item) => item.id === messageId);
+    const source =
+      current?.role === 'user'
+        ? current
+        : displayMessages.find((item) => item.id === current?.parentId);
+    if (source) await get().regenerateUserMessage(source.id);
   },
 
   stopGenerating: () => {

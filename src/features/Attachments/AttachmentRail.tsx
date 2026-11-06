@@ -43,6 +43,11 @@ const styles = createStaticStyles(({ css }) => ({
       outline-offset: 2px;
     }
   `,
+  chevron: css`
+    &:dir(rtl) {
+      transform: scaleX(-1);
+    }
+  `,
   previous: css`
     flex-shrink: 0;
 
@@ -76,8 +81,8 @@ export default function AttachmentRail({ children }: { children: ReactNode[] }) 
     const update = () =>
       setEdges((previous) => {
         const next = {
-          previous: node.scrollLeft > 2,
-          next: node.scrollLeft + node.clientWidth < node.scrollWidth - 2,
+          previous: Math.abs(node.scrollLeft) > 2,
+          next: Math.abs(node.scrollLeft) + node.clientWidth < node.scrollWidth - 2,
         };
         return previous.previous === next.previous && previous.next === next.next ? previous : next;
       });
@@ -95,7 +100,10 @@ export default function AttachmentRail({ children }: { children: ReactNode[] }) 
     const node = track.current;
     if (node)
       node.scrollBy({
-        left: direction * Math.max(80, node.clientWidth - 80),
+        left:
+          direction *
+          (getComputedStyle(node).direction === 'rtl' ? -1 : 1) *
+          Math.max(80, node.clientWidth - 80),
         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
           ? 'instant'
           : 'smooth',
@@ -114,7 +122,7 @@ export default function AttachmentRail({ children }: { children: ReactNode[] }) 
           title={t('attachments.scrollPrevious')}
           onClick={() => scroll(-1)}
         >
-          <ChevronLeft aria-hidden size={14} />
+          <ChevronLeft aria-hidden className={styles.chevron} size={14} />
         </Button>
       )}
       <div
@@ -124,12 +132,15 @@ export default function AttachmentRail({ children }: { children: ReactNode[] }) 
         ref={track}
         role="group"
         tabIndex={0}
-        onDoubleClick={(event) => event.stopPropagation()}
+        onDoubleClick={(event) => {
+          if (!event.altKey) event.stopPropagation();
+        }}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
           if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
             event.preventDefault();
-            scroll(event.key === 'ArrowLeft' ? -1 : 1);
+            const rtl = getComputedStyle(event.currentTarget).direction === 'rtl';
+            scroll((event.key === 'ArrowLeft' ? -1 : 1) * (rtl ? -1 : 1));
           }
         }}
       >
@@ -146,7 +157,7 @@ export default function AttachmentRail({ children }: { children: ReactNode[] }) 
           title={t('attachments.scrollNext')}
           onClick={() => scroll(1)}
         >
-          <ChevronRight aria-hidden size={14} />
+          <ChevronRight aria-hidden className={styles.chevron} size={14} />
         </Button>
       )}
     </div>

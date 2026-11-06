@@ -20,9 +20,9 @@ const AttachmentSupport = memo(() => {
     s.markChatAttachmentNoticeShown,
     s.dismissChatAttachmentIssues,
   ]);
-  const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
+  const [dialog, setDialog] = useState<{ scope: string; copied: boolean; copyError: boolean }>();
+  const open = () => setDialog({ scope, copied: false, copyError: false });
+  const close = () => setDialog(undefined);
   const { disabled, download, loading } = useDesktopDownload();
   const mobile =
     /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
@@ -45,9 +45,12 @@ const AttachmentSupport = memo(() => {
     issues.some((item) => item.name.toLowerCase().endsWith('.xlsm')) ||
     files.some((item) => item.status === 'error' && item.file.name.toLowerCase().endsWith('.xlsm'));
   useEffect(() => {
+    setDialog(undefined);
+  }, [scope, limited]);
+  useEffect(() => {
     if (limited && !shown) {
       markShown(scope);
-      setOpen(true);
+      setDialog({ scope, copied: false, copyError: false });
     }
   }, [limited, shown, markShown, scope]);
   return (
@@ -74,7 +77,7 @@ const AttachmentSupport = memo(() => {
               {t('attachments.dismissRejected')}
             </Button>
             {limited && !disabled && (
-              <Button size="small" onClick={() => setOpen(true)}>
+              <Button size="small" onClick={open}>
                 {t('attachments.useDesktop')}
               </Button>
             )}
@@ -82,17 +85,17 @@ const AttachmentSupport = memo(() => {
         </Flexbox>
       )}
       {limited && issues.length === 0 && !disabled && (
-        <Button size="small" style={{ alignSelf: 'start' }} onClick={() => setOpen(true)}>
+        <Button size="small" style={{ alignSelf: 'start' }} onClick={open}>
           {t('attachments.useDesktop')}
         </Button>
       )}
       <Modal
         destroyOnHidden
         footer={null}
-        open={open && !isDesktop}
+        open={dialog?.scope === scope && limited}
         title={t('attachments.desktopTitle')}
         width={460}
-        onCancel={() => setOpen(false)}
+        onCancel={close}
       >
         <Flexbox gap={16}>
           {reasons.map((reason) => (
@@ -107,20 +110,27 @@ const AttachmentSupport = memo(() => {
               {!disabled && (
                 <Button
                   onClick={async () => {
+                    const opened = dialog;
                     try {
                       await navigator.clipboard.writeText(`${window.location.origin}/`);
-                      setCopied(true);
-                      setCopyError(false);
+                      setDialog((current) =>
+                        current && current === opened
+                          ? { ...current, copied: true, copyError: false }
+                          : current,
+                      );
                     } catch {
-                      setCopied(false);
-                      setCopyError(true);
+                      setDialog((current) =>
+                        current && current === opened
+                          ? { ...current, copied: false, copyError: true }
+                          : current,
+                      );
                     }
                   }}
                 >
-                  {t(copied ? 'attachments.copied' : 'attachments.copyLink')}
+                  {t(dialog?.copied ? 'attachments.copied' : 'attachments.copyLink')}
                 </Button>
               )}
-              {copyError && <Text role="alert">{t('attachments.copyFailed')}</Text>}
+              {dialog?.copyError && <Text role="alert">{t('attachments.copyFailed')}</Text>}
             </Flexbox>
           ) : (
             !disabled && (
@@ -128,7 +138,7 @@ const AttachmentSupport = memo(() => {
                 loading={loading}
                 type="primary"
                 onClick={() => {
-                  setOpen(false);
+                  close();
                   void download();
                 }}
               >
@@ -136,7 +146,7 @@ const AttachmentSupport = memo(() => {
               </Button>
             )
           )}
-          <Button onClick={() => setOpen(false)}>{t('attachments.continueWeb')}</Button>
+          <Button onClick={close}>{t('attachments.continueWeb')}</Button>
         </Flexbox>
       </Modal>
     </>

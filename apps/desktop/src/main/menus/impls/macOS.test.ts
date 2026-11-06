@@ -8,6 +8,9 @@ import { MacOSMenu } from './macOS';
 
 // Mock Electron modules
 vi.mock('electron', () => ({
+  BrowserWindow: class {
+    static getFocusedWindow = vi.fn();
+  },
   Menu: {
     buildFromTemplate: vi.fn((template) => ({ template })),
     setApplicationMenu: vi.fn(),
@@ -198,6 +201,19 @@ describe('MacOSMenu', () => {
       expect(copyImageAt).toHaveBeenCalledWith(24, 42);
     },
   );
+
+  it('does not throw when the fallback window has no live webContents', () => {
+    vi.spyOn(mockApp.browserManager, 'getMainWindow').mockReturnValue({ webContents: null } as any);
+    macOSMenu.buildContextMenu('default', {
+      mediaType: 'image',
+      srcURL: 'data:image/png;base64,AQID',
+      x: 1,
+      y: 2,
+    });
+    const template = vi.mocked(Menu.buildFromTemplate).mock.calls.at(-1)![0];
+    const copy = template.find((item) => item.label === menuTranslations['context.copyImage']);
+    expect(() => copy!.click!({} as any, undefined, {} as any)).not.toThrow();
+  });
 
   describe('buildTrayMenu', () => {
     it('should build tray menu', () => {

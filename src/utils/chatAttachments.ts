@@ -29,7 +29,7 @@ export const isChatImage = (file: { name: string; type: string }) =>
   (!file?.type && /\.(?:png|jpe?g|webp|gif)$/i.test(file?.name || ''));
 
 export const chatImageCount = (files: UploadFileItem[]) =>
-  files.filter((item) => item.status !== 'error' && isChatImage(item.file)).length;
+  files.filter((item) => isChatImage(item.file)).length;
 
 export function classifyChatAttachmentError(
   error: unknown,

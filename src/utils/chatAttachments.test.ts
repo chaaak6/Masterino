@@ -17,9 +17,9 @@ const image = (status: UploadFileItem['status'] = 'success'): UploadFileItem => 
   status,
 });
 describe('chat attachment policy', () => {
-  it('counts pending images and empty MIME image extensions, releases failed slots', () => {
+  it('counts all visible images including failed items until explicitly removed', () => {
     expect(isChatImage(new File([], 'SCREENSHOT.PNG'))).toBe(true);
-    expect(chatImageCount([image('pending'), image('error'), image()])).toBe(2);
+    expect(chatImageCount([image('pending'), image('error'), image()])).toBe(3);
     expect(
       getChatAttachmentBlock(Array.from({ length: CHAT_IMAGE_LIMIT + 1 }, () => image())),
     ).toBe('image-count');

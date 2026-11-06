@@ -191,10 +191,30 @@ export class FileActionImpl {
   };
 
   dispatchChatUploadFileList = (payload: UploadFileListDispatch, scope?: string): void => {
+    // Unscoped legacy drafts exist before activation; once scoped, callers must
+    // supply their owner rather than silently mutating the last upload's draft.
+    if (scope === undefined && this.#get().chatAttachmentScope) return;
     const previous = this.#draft(scope).chatUploadFileList;
     const nextValue = uploadFileListReducer(previous, payload);
     if (nextValue === previous) return;
     this.#writeDraft(scope, { chatUploadFileList: nextValue });
+  };
+
+  restoreChatUploadFiles = (files: UploadFileItem[], scope: string): boolean => {
+    const count = chatImageCount(this.#draft(scope).chatUploadFileList) + chatImageCount(files);
+    if (count > CHAT_IMAGE_LIMIT) {
+      logChatAttachment('blocked-queue-restore', { count, reason: 'image-count' });
+      return false;
+    }
+    this.dispatchChatUploadFileList(
+      {
+        type: 'addFiles',
+        files: files.map((file) => ({ ...file, uploadId: crypto.randomUUID() })),
+      },
+      scope,
+    );
+    logChatAttachment('queue-attachments-restored', { count: files.length });
+    return true;
   };
 
   removeChatContextSelection = (id: string): void => {
@@ -203,6 +223,7 @@ export class FileActionImpl {
   };
 
   removeChatUploadFile = async (id: string, scope?: string): Promise<void> => {
+    if (scope === undefined && this.#get().chatAttachmentScope) return;
     const current = this.#draft(scope).chatUploadFileList.find(
       (file) => (file.uploadId || file.id) === id || file.id === id,
     );

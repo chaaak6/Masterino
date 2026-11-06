@@ -2,16 +2,8 @@ import { normalizeMessageAttachments } from '@lobechat/types';
 
 import type { UIChatMessage } from '@/types/index';
 
-export const getMessageAttachmentItems = (
-  message: Parameters<typeof normalizeMessageAttachments>[0],
-) =>
-  normalizeMessageAttachments(message).map((ref) => {
-    // Legacy image metadata may also occur in fileList without an image MIME type.
-    const image =
-      ref.mime.startsWith('image/') ||
-      (ref.source === 'uploaded' && message.imageList?.some((item) => item.id === ref.fileId));
-    return { ...ref, mime: image && !ref.mime.startsWith('image/') ? 'image/unknown' : ref.mime };
-  });
+// Presentation and resend validation share the same legacy image classification.
+export const getMessageAttachmentItems = normalizeMessageAttachments;
 
 function hasRichContent(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;

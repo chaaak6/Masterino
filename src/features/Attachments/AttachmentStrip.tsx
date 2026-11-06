@@ -17,6 +17,7 @@ import {
   revealLocalAttachmentImage,
 } from '@/services/electron/localAttachmentService';
 import { useChatStore } from '@/store/chat';
+import { useElectronStore } from '@/store/electron';
 import { useFileStore } from '@/store/file';
 import { getChatAttachmentDraft } from '@/store/file/slices/chat/drafts';
 import { type UploadFileItem } from '@/types/files/upload';
@@ -63,6 +64,7 @@ const styles = createStaticStyles(({ css }) => ({
 }));
 
 const AttachmentStrip = memo(() => {
+  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
   const { t } = useTranslation('chat');
   const agentId = useAgentId();
   const topicId = useChatInputStore((s) => s.topicId);
@@ -104,7 +106,9 @@ const AttachmentStrip = memo(() => {
   const imageActions = (item: UploadFileItem) => {
     const ref = item.attachment;
     if (ref?.source !== 'local') return {};
+    if (ref.deviceId !== currentDeviceId || !window.electronAPI?.invoke) return { local: true };
     return {
+      local: true,
       onCopy: () => copyLocalAttachmentImage(ref),
       onReveal: () => revealLocalAttachmentImage(ref),
     };
@@ -116,7 +120,6 @@ const AttachmentStrip = memo(() => {
         if (!result.path) throw new Error('Preview unavailable');
         useChatStore.getState().openLocalFile({
           filePath: result.path,
-          deviceId: item.attachment.deviceId,
           workingDirectory: result.path.slice(0, result.path.lastIndexOf('/')),
           allowExternalFilePreview: true,
         });
@@ -239,7 +242,7 @@ const AttachmentStrip = memo(() => {
           {files
             .filter((item) => item.status === 'error')
             .map((item) => (
-              <div key={item.id}>
+              <div key={item.uploadId || item.id}>
                 {item.file.name}: {item.attachment?.size ?? item.file.size} bytes ·{' '}
                 {item.diagnostic?.stage || item.processStage} · {item.diagnostic?.status || '—'} ·{' '}
                 {item.diagnostic?.message || item.attachmentError} · {item.uploadId || item.id}

@@ -450,6 +450,48 @@ describe('scoped chat attachment drafts', () => {
       chatAttachmentNoticeShown: false,
     });
   });
+  it('restores queued files to their owner after another conversation becomes active', () => {
+    const store = useStore.getState();
+    store.setChatAttachmentScope('topic-a');
+    store.dispatchChatUploadFileList(
+      { type: 'addFile', file: { id: 'a', file: new File(['a'], 'a.txt'), status: 'success' } },
+      'topic-a',
+    );
+    expect(
+      store.restoreChatUploadFiles(
+        [
+          {
+            id: 'queued',
+            file: new File(['b'], 'b.png', { type: 'image/png' }),
+            status: 'success',
+          },
+        ],
+        'topic-b',
+      ),
+    ).toBe(true);
+    expect(useStore.getState().chatUploadFileList.map((file) => file.id)).toEqual(['a']);
+    store.dispatchChatUploadFileList({ type: 'removeFile', id: 'a' });
+    expect(useStore.getState().chatUploadFileList.map((file) => file.id)).toEqual(['a']);
+    store.setChatAttachmentScope('topic-b');
+    expect(useStore.getState().chatUploadFileList).toEqual([
+      expect.objectContaining({ id: 'queued', uploadId: expect.any(String) }),
+    ]);
+  });
+  it('rejects an oversized queue restore without changing either draft, including failed slots', () => {
+    const store = useStore.getState();
+    const images = Array.from({ length: 10 }, (_, index) => ({
+      id: String(index),
+      file: new File(['x'], 'image.png', { type: 'image/png' }),
+      status: (index ? 'success' : 'error') as 'success' | 'error',
+    }));
+    store.setChatAttachmentScope('topic-b');
+    store.dispatchChatUploadFileList({ type: 'addFiles', files: images }, 'topic-b');
+    store.setChatAttachmentScope('topic-a');
+    const before = useStore.getState();
+    expect(store.restoreChatUploadFiles([images[0]], 'topic-b')).toBe(false);
+    expect(sameChatAttachmentDraft(before, useStore.getState(), 'topic-a')).toBe(true);
+    expect(sameChatAttachmentDraft(before, useStore.getState(), 'topic-b')).toBe(true);
+  });
   it('preserves drafts and late progress in their owning conversation', () => {
     const store = useStore.getState();
     store.setChatAttachmentScope('topic-a');

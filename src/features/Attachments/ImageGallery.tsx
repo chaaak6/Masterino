@@ -3,7 +3,15 @@ import { ActionIcon, Flexbox, Text } from '@lobehub/ui';
 import { Button, ContextMenuTrigger, DropdownMenu, Modal } from '@lobehub/ui/base-ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { ChevronLeft, ChevronRight, ImageOff, Minus, MoreHorizontal, Plus, X } from 'lucide-react';
-import { memo, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { message } from '@/components/AntdStaticMethods';
@@ -135,7 +143,9 @@ function Thumbnail({
       ref={ref}
       title={item.name}
       type="button"
-      onClick={onOpen}
+      onClick={(event) => {
+        if (!event.altKey) onOpen();
+      }}
     >
       {source ? (
         <img alt={item.name} loading="lazy" src={source} onError={onError} />
@@ -169,6 +179,7 @@ const ImageGallery = memo(
     const [revision, setRevision] = useState(0);
     const [adding, setAdding] = useState(false);
     const [added, setAdded] = useState<string>();
+    const previewSession = useRef(0);
     const gesture = useRef<{ x: number; y: number; time: number; pointerId: number } | undefined>(
       undefined,
     );
@@ -205,11 +216,15 @@ const ImageGallery = memo(
     useEffect(() => {
       if (active) load(active);
     }, [active, load]);
-    useEffect(() => {
+    useLayoutEffect(() => {
+      previewSession.current += 1;
       setZoom(1);
       setDimensions(undefined);
-    }, [index]);
+      setAdded(undefined);
+      setAdding(false);
+    }, [active?.id, revision]);
     const close = () => {
+      setAdded(undefined);
       setIndex(undefined);
       requestAnimationFrame(() => trigger.current?.focus());
     };
@@ -238,7 +253,7 @@ const ImageGallery = memo(
       {
         key: 'copy-image',
         label: t('attachments.copyImage'),
-        disabled: !url || !!errors[item.id],
+        disabled: !item.onCopy && (!url || !!errors[item.id]),
         onClick: async () => {
           try {
             if (item.onCopy) await item.onCopy();
@@ -417,10 +432,7 @@ const ImageGallery = memo(
                       onError={() => setErrors((prev) => ({ ...prev, [active.id]: true }))}
                       onLoad={(event) => {
                         const image = event.currentTarget;
-                        setDimensions(
-                          (prev) =>
-                            prev || { width: image.clientWidth, height: image.clientHeight },
-                        );
+                        setDimensions({ width: image.clientWidth, height: image.clientHeight });
                       }}
                     />
                   </ContextMenuTrigger>
@@ -497,13 +509,16 @@ const ImageGallery = memo(
                     loading={adding}
                     size="small"
                     onClick={async () => {
+                      const session = previewSession.current;
                       setAdding(true);
                       try {
-                        if (await active.onAdd?.()) setAdded(active.id);
+                        if ((await active.onAdd?.()) && previewSession.current === session)
+                          setAdded(active.id);
                       } catch {
-                        setErrors((prev) => ({ ...prev, [active.id]: true }));
+                        if (previewSession.current === session)
+                          setErrors((prev) => ({ ...prev, [active.id]: true }));
                       } finally {
-                        setAdding(false);
+                        if (previewSession.current === session) setAdding(false);
                       }
                     }}
                   >

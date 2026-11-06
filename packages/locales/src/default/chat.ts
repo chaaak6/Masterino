@@ -40,6 +40,8 @@ export default {
   'attachments.zoomIn': 'Zoom in',
   'attachments.zoomOut': 'Zoom out',
   'attachments.notAdded': '{{count}} attachments not added',
+  'attachments.notAdded_one': '{{count}} attachment not added',
+  'attachments.notAdded_other': '{{count}} attachments not added',
   'attachments.dismissRejected': 'Remove unadded items and continue',
   'attachments.useDesktop': 'Use the desktop app',
   'attachments.desktopTitle': 'Analyze local files with the desktop app',

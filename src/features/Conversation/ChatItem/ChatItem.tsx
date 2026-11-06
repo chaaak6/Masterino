@@ -9,7 +9,7 @@ import { contextSelectors, useConversationStore } from '../store';
 import Actions from './components/Actions';
 import Avatar from './components/Avatar';
 import ErrorContent from './components/ErrorContent';
-import MessageContent from './components/MessageContent';
+import MessageContent, { MSG_CONTENT_CLASSNAME } from './components/MessageContent';
 import Title from './components/Title';
 import { styles } from './style';
 import { type ChatItemProps } from './type';
@@ -87,7 +87,7 @@ const ChatItem = memo<ChatItemProps>(
           <Title avatar={avatar} showTitle={showTitle} time={time} titleAddon={titleAddon} />
         </Flexbox>
         <Flexbox
-          className={'message-body'}
+          className={cx('message-body', MSG_CONTENT_CLASSNAME)}
           gap={8}
           style={{
             maxWidth: '100%',
@@ -95,6 +95,7 @@ const ChatItem = memo<ChatItemProps>(
             position: 'relative',
             width: isUser ? undefined : '100%',
           }}
+          onDoubleClick={onDoubleClick}
         >
           {aboveMessage}
           {error && isEmptyMessage ? (
@@ -103,7 +104,7 @@ const ChatItem = memo<ChatItemProps>(
             <MessageContent
               disabled={disabled}
               editing={editing}
-              hiddenBody={hideMessageBody && !editing}
+              hiddenBody={hideMessageBody}
               id={id!}
               message={message}
               variant={isUser ? 'bubble' : undefined}
@@ -113,7 +114,6 @@ const ChatItem = memo<ChatItemProps>(
                   {messageExtra}
                 </>
               }
-              onDoubleClick={onDoubleClick}
             >
               {children}
             </MessageContent>

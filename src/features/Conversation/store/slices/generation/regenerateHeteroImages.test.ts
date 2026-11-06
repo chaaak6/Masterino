@@ -168,6 +168,8 @@ describe('regenerateUserMessage (hetero) — image forwarding', () => {
     await store.getState().regenerateUserMessage('oversized');
     await store.getState().delAndRegenerateMessage('reply');
     await store.getState().delAndResendThreadMessage('oversized');
+    await store.getState().delAndResendThreadMessage('reply');
+    await store.getState().resendThreadMessage('reply');
     expect(mockExecuteHeterogeneousAgent).not.toHaveBeenCalled();
     expect(store.getState().displayMessages[0].content).toBe('preserve');
   });
