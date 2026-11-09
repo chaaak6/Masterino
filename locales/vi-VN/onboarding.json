@@ -69,6 +69,7 @@
   "agent.wrapUp.confirm.ok": "Kết thúc ngay",
   "agent.wrapUp.confirm.title": "Kết thúc onboarding bây giờ?",
   "agentPicker.allCategories": "Tất cả",
+  "agentPicker.finishError": "Không thể lưu trạng thái hoàn tất hướng dẫn. Vui lòng thử lại.",
   "agentPicker.continue": "Tiếp tục",
   "agentPicker.installFailed": "Không thể thêm một số trợ lý. Lựa chọn của bạn được giữ lại; hãy xử lý các mục bên dưới rồi thử lại.",
   "agentPicker.installUnknownError": "Cài đặt chưa hoàn tất",
