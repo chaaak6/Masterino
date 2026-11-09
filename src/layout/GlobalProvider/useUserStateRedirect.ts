@@ -6,8 +6,8 @@ import { isDesktop } from '@/const/version';
 import {
   getDesktopOnboardingEverCompleted,
   getDesktopOnboardingScreen,
-} from '@/routes/(desktop)/desktop-onboarding/storage';
-import { DesktopOnboardingScreen } from '@/routes/(desktop)/desktop-onboarding/types';
+} from '@/features/DesktopOnboarding/storage';
+import { DesktopOnboardingScreen } from '@/features/DesktopOnboarding/types';
 import { onboardingSelectors } from '@/store/user/selectors';
 import { type UserInitializationState } from '@/types/user';
 import { buildOnboardingRedirectUrl } from '@/utils/onboardingRedirect';

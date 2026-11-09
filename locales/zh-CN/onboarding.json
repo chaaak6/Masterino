@@ -69,6 +69,7 @@
   "agent.wrapUp.confirm.ok": "结束引导",
   "agent.wrapUp.confirm.title": "现在结束引导吗？",
   "agentPicker.allCategories": "全部",
+  "agentPicker.finishError": "无法保存引导完成状态，请重试。",
   "agentPicker.continue": "继续",
   "agentPicker.installFailed": "部分助手添加失败。已保留你的选择，请处理以下问题后重试。",
   "agentPicker.installUnknownError": "安装未完成",

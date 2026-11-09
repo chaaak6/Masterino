@@ -459,9 +459,10 @@ export class AgentRuntimeService {
       // Persist the Agent Signal run marker on the operation row so server-side
       // self-iteration tools can read it back (metadata.agentSignal) at tool-call
       // time — the trimmed appContext above intentionally drops it.
-      ...(appContext?.agentSignal || executionBudget
+      ...(appContext?.agentSignal || appContext?.clientPlatform || executionBudget
         ? {
             metadata: {
+              ...(appContext?.clientPlatform ? { clientPlatform: appContext.clientPlatform } : {}),
               ...(appContext?.agentSignal ? { agentSignal: appContext.agentSignal } : {}),
               ...(executionBudget ? { executionBudget } : {}),
             },

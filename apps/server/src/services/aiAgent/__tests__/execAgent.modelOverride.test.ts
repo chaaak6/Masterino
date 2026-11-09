@@ -219,6 +219,7 @@ describe('AiAgentService.execAgent - model/provider override', () => {
       };
       mockGetAgentConfig.mockResolvedValue(stored);
       await service.execAgent({ agentId: 'agent-1', clientPlatform, prompt: 'Hello' });
+      expect(mockCreateOperation.mock.calls[0][0].appContext.clientPlatform).toBe(clientPlatform);
       const effective = mockCreateOperation.mock.calls[0][0].agentConfig.chatConfig;
       expect(effective.enableAgentMode).toBe(clientPlatform === 'desktop');
       expect(effective.toolMode).toBe(clientPlatform === 'desktop' ? 'agent' : 'chat');

@@ -9,7 +9,7 @@ export const resolveDesktopChatConfig = (
   desktop: boolean,
 ): LobeAgentChatConfig | undefined => {
   if (!desktop) return config;
-  const source = config ?? emptyConfig;
+  const source = config && Object.keys(config).length > 0 ? config : emptyConfig;
   const cached = projections.get(source);
   if (cached) return cached;
   const resolved: LobeAgentChatConfig = {

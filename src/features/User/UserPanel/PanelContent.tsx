@@ -5,10 +5,10 @@ import BusinessPanelContent from '@/business/client/features/User/BusinessPanelC
 import UserPanelWorkspaceSection from '@/business/client/features/User/UserPanelWorkspaceSection';
 import Menu from '@/components/Menu';
 import { isDesktop } from '@/const/version';
+import { navigateToDesktopOnboarding } from '@/features/DesktopOnboarding/navigation';
+import { DesktopOnboardingScreen } from '@/features/DesktopOnboarding/types';
 import UserInfo from '@/features/User/UserInfo';
 import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
-import { navigateToDesktopOnboarding } from '@/routes/(desktop)/desktop-onboarding/navigation';
-import { DesktopOnboardingScreen } from '@/routes/(desktop)/desktop-onboarding/types';
 import { serverConfigSelectors, useServerConfigStore } from '@/store/serverConfig';
 import { useUserStore } from '@/store/user';
 import { authSelectors } from '@/store/user/selectors';

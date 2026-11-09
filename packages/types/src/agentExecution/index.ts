@@ -232,6 +232,8 @@ export interface ExecGroupAgentNewTopicOptions {
 export interface ExecGroupAgentParams {
   /** The Supervisor agent ID */
   agentId: string;
+  /** Per-request UI mode policy, inherited by delegated members. */
+  clientPlatform?: 'desktop' | 'web';
   /** File IDs attached to the message */
   files?: string[];
   /** The Group ID */

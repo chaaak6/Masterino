@@ -4,6 +4,11 @@ import { resolveDesktopChatConfig } from './desktopAgentMode';
 import { resolveToolMode } from './executionTarget';
 
 describe('desktop mode policy', () => {
+  it('shares the empty desktop projection across unloaded or empty configs', () => {
+    const empty = resolveDesktopChatConfig(undefined, true);
+    expect(resolveDesktopChatConfig({}, true)).toBe(empty);
+    expect(resolveDesktopChatConfig({}, true)).toBe(empty);
+  });
   it('overrides both legacy chat gates without changing the Web configuration', () => {
     const stored = { enableAgentMode: false, toolMode: 'chat' as const };
     expect(resolveToolMode(resolveDesktopChatConfig(stored, true))).toBe('agent');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DesktopOnboardingScreen } from '@/routes/(desktop)/desktop-onboarding/types';
+import { DesktopOnboardingScreen } from '@/features/DesktopOnboarding/types';
 
 import {
   shouldDeferOnboardingRedirect,

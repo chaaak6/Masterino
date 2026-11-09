@@ -67,6 +67,11 @@ describe('agentByIdSelectors', () => {
   });
 
   describe('agent mode', () => {
+    it('keeps the snapshot stable before agent configuration loads', () => {
+      const state = createState({ agentMap: {} });
+      const first = chatConfigByIdSelectors.getChatConfigById('missing-agent')(state);
+      expect(chatConfigByIdSelectors.getChatConfigById('missing-agent')(state)).toBe(first);
+    });
     it('forces desktop agent mode for a stored Web chat preference', () => {
       const state = createState({
         agentMap: { 'agent-1': { chatConfig: { enableAgentMode: false, toolMode: 'chat' } } },

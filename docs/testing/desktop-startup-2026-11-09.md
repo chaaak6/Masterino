@@ -28,3 +28,24 @@ After the first-run Skip/relaunch assertions, D4 reopened the real native recomm
 Live inspection saw existing React/antd/Base UI development warnings. A cold Vite reload temporarily returned local-resource 502/ECONNRESET; reloading after compilation restored the app. These are separated from successful business-path assertions above.
 
 Release dependency: ship the server support for `clientPlatform` with the desktop change. An old server accepts the optional extra field without applying the new request-scoped mode policy. This PR does not migrate or overwrite shared agent settings, custom toolsets, execution targets, workspace grants, or approval policies.
+
+## PR review follow-up acceptance (prepared before clicks)
+
+- Review completion: zero-preselection recommendation page → Skip → account onboarding finishedAt saved before desktop completion; reload returns home.
+- Picker Continue: automated selected-only installation followed by account completion; failure saving completion must keep the page retryable.
+- Desktop policy: home/chat mode picker absent; model and attachment menus open; stored preferences remain unchanged.
+- Runtime children: persisted parent platform inherited by virtual sub-agent, isolated group member, and shared group member; Web remains Web. Verify with focused server regressions.
+- Route extraction: same route and navigation; platform/Login/storage and desktop-router synchronization tests still pass.
+- Only a dedicated test App/profile and mlai-test service. Do not change shared model permissions, production, or other running test Apps.
+
+Follow-up results:
+
+- Reviewed all 5 inline threads: Crystal's 3 findings, Codex's route-layout finding, and Codex's duplicate child-platform finding. Empty-config snapshot instability is fixed without introducing a structural cache for arbitrary runtime config objects. Account completion writes the existing onboarding record; there is no need to fabricate agentOnboarding completion because needsOnboarding already accepts the normal completed record.
+- 4 new failing assertions were run first (completion callback ordering, helper empty projection, unloaded-agent selector snapshot, virtual child platform inheritance). All failed before fixes and passed afterward.
+- 172 focused cases passed across 11 files, including operation metadata persistence, desktop/Web isolated/shared group inheritance, group supervisor forwarding, completion failure/retry, Login/storage/resume, and router synchronization. Type checking passed before the final rerun; final result recorded in PR validation. Changed-file ESLint has no errors (one pre-existing warning at AgentRuntimeService.ts:1049).
+- Real Computer Use ran a dedicated Electron App/profile on local port 5183 against mlai-test. The port was selected because another task occupied 5173; no other process was stopped. IPC readback confirmed https://mlai-test.bielcrystal.com.
+- Clicked Welcome → Permissions (without new grants) → Data mode → Login (existing authorized test session) → Agents. All 8 cards were unselected; Continue (0) disabled. Selecting then clearing Meeting Notes toggled Continue (1)/(0).
+- Clicked Skip; the real account finishedAt changed from 2026-10-29T01:46:16.647Z to 2026-11-09T06:54:31.683Z, verified by getUserState after the page's completion reload. This uses an existing test account, not a newly provisioned account. No assistant was installed during this run.
+- Opened populated model menu and attachment/context menu. Sent plain text `pr157 reply ok only` and observed `ok` in the real conversation. Desktop mode selectors remained absent. No attachment was sent.
+- Local screenshots: /tmp/pr157-review-onboarding-complete.png and /tmp/pr157-review-chat-ok.png. Existing development warnings were observed; no new getSnapshot loop was observed. Cold full-navigation resource loading required restarting the isolated App after compilation.
+- No cluster rollout, image rebuild, shared Aihub permission change, production operation, or other-task test App modification. New server child-inheritance behavior was verified by automated service/runtime tests; the deployed test server was not replaced.

@@ -21,10 +21,9 @@ vi.mock('@/database/models/thread', () => ({
   ThreadModel: vi.fn().mockImplementation(() => mockThreadModel),
 }));
 
+const parentOperationLookup = vi.hoisted(() => vi.fn());
 vi.mock('@/database/models/agentOperation', () => ({
-  AgentOperationModel: vi.fn().mockImplementation(() => ({
-    findById: vi.fn().mockResolvedValue({ trigger: 'cli' }),
-  })),
+  AgentOperationModel: vi.fn().mockImplementation(() => ({ findById: parentOperationLookup })),
 }));
 
 // Mock other models
@@ -105,6 +104,7 @@ describe('AiAgentService.execSubAgent', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    parentOperationLookup.mockResolvedValue({ trigger: 'cli', metadata: { clientPlatform: 'desktop' } });
 
     // Reset mock implementations
     mockThreadModel.create.mockResolvedValue({
@@ -267,8 +267,55 @@ describe('AiAgentService.execSubAgent', () => {
             expect.objectContaining({ id: 'sub-agent-bridge', type: 'onComplete' }),
           ]),
           parentOperationId: 'parent-op-1',
+          clientPlatform: 'desktop',
           trigger: 'cli',
         }),
+      );
+    });
+
+    it.each(['desktop', 'web'] as const)(
+      'inherits %s policy for isolated and shared group members',
+      async (clientPlatform) => {
+        parentOperationLookup.mockResolvedValue({
+          trigger: 'chat',
+          metadata: { clientPlatform },
+        } as any);
+        const execAgentSpy = vi
+          .spyOn(service, 'execAgent')
+          .mockResolvedValue({ success: true, operationId: 'op-child' } as any);
+        for (const mode of ['isolated', 'in_group'] as const) {
+          await service.execGroupMember({
+            agentId: 'agent-1',
+            anchorMessageId: 'tool-msg-1',
+            expectedMembers: 1,
+            groupId: 'group-1',
+            groupToolMessageId: 'tool-msg-1',
+            instruction: 'Test task',
+            mode,
+            onComplete: 'resume',
+            parentOperationId: 'parent-op-1',
+            topicId: 'topic-1',
+          });
+          expect(execAgentSpy).toHaveBeenLastCalledWith(
+            expect.objectContaining({ clientPlatform }),
+          );
+        }
+      },
+    );
+
+    it('forwards the group supervisor request platform', async () => {
+      const execAgentSpy = vi
+        .spyOn(service, 'execAgent')
+        .mockResolvedValue({ success: true, operationId: 'op-group' } as any);
+      await service.execGroupAgent({
+        agentId: 'agent-1',
+        clientPlatform: 'desktop',
+        groupId: 'group-1',
+        message: 'Hi',
+        topicId: 'topic-1',
+      });
+      expect(execAgentSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ clientPlatform: 'desktop' }),
       );
     });
 

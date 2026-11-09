@@ -69,6 +69,7 @@
   "agent.wrapUp.confirm.ok": "Finish now",
   "agent.wrapUp.confirm.title": "Finish onboarding now?",
   "agentPicker.allCategories": "All",
+  "agentPicker.finishError": "Could not save onboarding completion. Please try again.",
   "agentPicker.continue": "Continue",
   "agentPicker.installFailed": "Some assistants could not be added. Your selection is preserved; resolve the items below and retry.",
   "agentPicker.installUnknownError": "Installation did not complete",

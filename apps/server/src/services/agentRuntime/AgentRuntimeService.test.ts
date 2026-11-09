@@ -239,6 +239,23 @@ describe('AgentRuntimeService', () => {
       initialMessages: [],
     };
 
+    it('persists the request platform for server-created child runs', async () => {
+      const record = vi
+        .spyOn(AgentOperationModel.prototype, 'recordStart')
+        .mockResolvedValue(undefined);
+      await service.createOperation({
+        ...mockParams,
+        autoStart: false,
+        appContext: { clientPlatform: 'desktop' },
+      });
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ clientPlatform: 'desktop' }),
+        }),
+      );
+      record.mockRestore();
+    });
+
     it('should create operation successfully with autoStart=true', async () => {
       mockQueueService.scheduleMessage.mockResolvedValueOnce('message-123');
 

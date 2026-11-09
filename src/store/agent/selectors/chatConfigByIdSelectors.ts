@@ -11,6 +11,8 @@ import { type AgentStoreState } from '@/store/agent/initialState';
 
 import { agentSelectors } from './selectors';
 
+const emptyChatConfig: LobeAgentChatConfig = {};
+
 /**
  * ChatConfig selectors that get config by agentId parameter.
  * Used in ChatInput components where agentId is passed as prop.
@@ -19,7 +21,7 @@ import { agentSelectors } from './selectors';
 const getStoredChatConfigById =
   (agentId: string) =>
   (s: AgentStoreState): LobeAgentChatConfig =>
-    agentSelectors.getAgentConfigById(agentId)(s)?.chatConfig || {};
+    agentSelectors.getAgentConfigById(agentId)(s)?.chatConfig || emptyChatConfig;
 
 const getChatConfigById =
   (agentId: string) =>

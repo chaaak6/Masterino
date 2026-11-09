@@ -113,15 +113,45 @@ afterEach(() => {
 });
 
 describe('AgentPickerStep', () => {
-  it('starts with zero selections and delegates desktop skip without completing Web onboarding', async () => {
+  it('starts with zero selections and persists account completion before desktop skip', async () => {
     const onFinish = vi.fn();
     render(<AgentPickerStep onBack={vi.fn()} onFinish={onFinish} />);
     expect(screen.getByRole('button', { name: 'agentPicker.continue (0)' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
     await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
     expect(installMarketplaceAgents).not.toHaveBeenCalled();
-    expect(finishOnboarding).not.toHaveBeenCalled();
+    expect(finishOnboarding).toHaveBeenCalledOnce();
+    expect(finishOnboarding.mock.invocationCallOrder[0]).toBeLessThan(
+      onFinish.mock.invocationCallOrder[0],
+    );
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('persists account completion before desktop Continue and records completion', async () => {
+    const onFinish = vi.fn();
+    render(<AgentPickerStep onBack={vi.fn()} onFinish={onFinish} />);
+    fireEvent.click(screen.getByText('Code Reviewer'));
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.continue (1)' }));
+    await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
+    expect(finishOnboarding).toHaveBeenCalledOnce();
+    expect(metrics.trackOnboardingCompleted).toHaveBeenCalledWith({
+      flow: 'classic',
+      targetUrl: '/',
+    });
+    expect(finishOnboarding.mock.invocationCallOrder[0]).toBeLessThan(
+      onFinish.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('keeps desktop completion retryable when saving the account fails', async () => {
+    finishOnboarding.mockRejectedValueOnce(new Error('temporary failure'));
+    const onFinish = vi.fn();
+    render(<AgentPickerStep onBack={vi.fn()} onFinish={onFinish} />);
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('agentPicker.finishError');
+    expect(onFinish).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
+    await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
   });
 
   it('renders an agent card for each template', () => {

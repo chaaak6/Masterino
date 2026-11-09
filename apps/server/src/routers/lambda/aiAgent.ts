@@ -239,6 +239,7 @@ const ExecAgentSchema = z
  * Schema for execGroupAgent - execute Supervisor Agent in Group chat
  */
 const ExecGroupAgentSchema = z.object({
+  clientPlatform: z.enum(['desktop', 'web']).optional(),
   /** The Supervisor agent ID */
   agentId: z.string(),
   /** File IDs attached to the message */
@@ -814,7 +815,7 @@ export const aiAgentRouter = router({
   execGroupAgent: aiAgentWriteProcedure
     .input(ExecGroupAgentSchema)
     .mutation(async ({ input, ctx }) => {
-      const { agentId, groupId, message, files, topicId, newTopic } = input;
+      const { agentId, clientPlatform, groupId, message, files, topicId, newTopic } = input;
 
       log('execGroupAgent: agentId=%s, groupId=%s', agentId, groupId);
 
@@ -822,6 +823,7 @@ export const aiAgentRouter = router({
         // Execute group agent
         const result = await ctx.aiAgentService.execGroupAgent({
           agentId,
+          clientPlatform,
           files,
           groupId,
           message,
