@@ -33,11 +33,12 @@ import { styles } from './style';
 
 interface AgentPickerStepProps {
   onBack: () => void;
+  onFinish?: () => void | Promise<void>;
 }
 
 const EMPTY_TEMPLATES: AgentTemplate[] = [];
 
-const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
+const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack, onFinish }) => {
   const { t } = useTranslation('onboarding');
   const { t: tTool } = useTranslation('tool');
   const navigate = useNavigate();
@@ -102,6 +103,10 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
 
   const finish = useCallback(
     async (action: 'continue' | 'skip', selectedCount: number) => {
+      if (onFinish) {
+        await onFinish();
+        return;
+      }
       await finishOnboarding();
       trackOnboardingStepCompleted({
         action,
@@ -116,7 +121,7 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
       trackOnboardingCompleted({ flow: completionFlow, targetUrl });
       navigate(targetUrl);
     },
-    [completionFlow, finishOnboarding, isAgentSkipEntry, navigate],
+    [completionFlow, finishOnboarding, isAgentSkipEntry, navigate, onFinish],
   );
 
   const handleSkip = useCallback(async () => {

@@ -2,11 +2,14 @@
 
 import { APP_WINDOW_MIN_SIZE } from '@lobechat/desktop-bridge';
 import { Flexbox, Skeleton } from '@lobehub/ui';
-import { memo, Suspense, useCallback, useEffect, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import Loading from '@/components/Loading/BrandTextLoading';
+import AgentPickerStep from '@/routes/onboarding/features/AgentPickerStep';
 import { electronSystemService } from '@/services/electron/system';
+import { useUserStore } from '@/store/user';
+import { authSelectors } from '@/store/user/slices/auth/selectors';
 
 import OnboardingContainer from './_layout';
 import DataModeStep from './features/DataModeStep';
@@ -26,21 +29,28 @@ import { DesktopOnboardingScreen, isDesktopOnboardingScreen } from './types';
 
 const DesktopOnboardingPage = memo(() => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const isLogin = useUserStore(authSelectors.isLogin);
   const [isMac, setIsMac] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
-  const flow = isMac
-    ? [
-        DesktopOnboardingScreen.Welcome,
-        DesktopOnboardingScreen.Permissions,
-        DesktopOnboardingScreen.DataMode,
-        DesktopOnboardingScreen.Login,
-      ]
-    : [
-        DesktopOnboardingScreen.Welcome,
-        DesktopOnboardingScreen.DataMode,
-        DesktopOnboardingScreen.Login,
-      ];
+  const flow = useMemo(
+    () =>
+      isMac
+        ? [
+            DesktopOnboardingScreen.Welcome,
+            DesktopOnboardingScreen.Permissions,
+            DesktopOnboardingScreen.DataMode,
+            DesktopOnboardingScreen.Login,
+            DesktopOnboardingScreen.Agents,
+          ]
+        : [
+            DesktopOnboardingScreen.Welcome,
+            DesktopOnboardingScreen.DataMode,
+            DesktopOnboardingScreen.Login,
+            DesktopOnboardingScreen.Agents,
+          ],
+    [isMac],
+  );
 
   const resolveScreenForPlatform = useCallback(
     (screen: DesktopOnboardingScreen) =>
@@ -140,25 +150,30 @@ const DesktopOnboardingPage = memo(() => {
     if (resolved !== currentScreen) setCurrentScreen(resolved);
   }, [currentScreen, getRequestedScreenFromUrl, isLoading, resolveScreenForPlatform]);
 
+  const finishDesktopOnboarding = useCallback(async () => {
+    setDesktopOnboardingCompleted();
+    setDesktopOnboardingEverCompleted();
+    clearDesktopOnboardingScreen();
+    await electronSystemService.setWindowMinimumSize(APP_WINDOW_MIN_SIZE).catch(console.error);
+    window.location.replace('/');
+  }, []);
+
+  useEffect(() => {
+    if (currentScreen === DesktopOnboardingScreen.Agents && isLogin === false) {
+      setSearchParams({ screen: DesktopOnboardingScreen.Login });
+    }
+  }, [currentScreen, isLogin, setSearchParams]);
+
   const goToNextStep = useCallback(() => {
     setCurrentScreen((prev) => {
       const idx = flow.indexOf(prev);
-      const next = flow[idx + 1];
+      const next =
+        prev === DesktopOnboardingScreen.Login && getDesktopOnboardingEverCompleted()
+          ? undefined
+          : flow[idx + 1];
 
       if (!next) {
-        // Complete onboarding - mark as completed and clear persisted screen state
-        setDesktopOnboardingCompleted();
-        setDesktopOnboardingEverCompleted();
-        clearDesktopOnboardingScreen();
-
-        // Restore window minimum size before hard reload (cleanup won't run due to hard navigation)
-        electronSystemService
-          .setWindowMinimumSize(APP_WINDOW_MIN_SIZE)
-          .catch(console.error)
-          .finally(() => {
-            // Use hard reload instead of SPA navigation to ensure the app boots with the new desktop state.
-            window.location.replace('/');
-          });
+        void finishDesktopOnboarding();
 
         return prev;
       }
@@ -166,7 +181,7 @@ const DesktopOnboardingPage = memo(() => {
       setSearchParams({ screen: next });
       return next;
     });
-  }, [isMac, setSearchParams]);
+  }, [finishDesktopOnboarding, flow, setSearchParams]);
 
   const goToPreviousStep = useCallback(() => {
     setCurrentScreen((prev) => {
@@ -175,7 +190,7 @@ const DesktopOnboardingPage = memo(() => {
       setSearchParams({ screen: prevScreen });
       return prevScreen;
     });
-  }, [isMac, setSearchParams]);
+  }, [flow, setSearchParams]);
 
   if (isLoading) {
     return <Loading debugId="DesktopOnboarding" />;
@@ -197,6 +212,10 @@ const DesktopOnboardingPage = memo(() => {
       case DesktopOnboardingScreen.DataMode: {
         return <DataModeStep onBack={goToPreviousStep} onNext={goToNextStep} />;
       }
+      case DesktopOnboardingScreen.Agents: {
+        if (!isLogin) return <Loading debugId="DesktopOnboarding/agents" />;
+        return <AgentPickerStep onBack={goToPreviousStep} onFinish={finishDesktopOnboarding} />;
+      }
       case DesktopOnboardingScreen.Login: {
         return <LoginStep onBack={goToPreviousStep} onNext={goToNextStep} />;
       }
@@ -208,7 +227,14 @@ const DesktopOnboardingPage = memo(() => {
 
   return (
     <OnboardingContainer>
-      <Flexbox gap={24} style={{ maxWidth: 560, minHeight: '100%', width: '100%' }}>
+      <Flexbox
+        gap={24}
+        style={{
+          maxWidth: currentScreen === DesktopOnboardingScreen.Agents ? 780 : 560,
+          minHeight: '100%',
+          width: '100%',
+        }}
+      >
         <Suspense
           fallback={
             <Flexbox gap={8}>

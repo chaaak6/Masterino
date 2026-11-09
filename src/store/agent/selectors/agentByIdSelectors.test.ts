@@ -6,6 +6,8 @@ import { initialAgentSliceState } from '@/store/agent/slices/agent/initialState'
 import { initialBuiltinAgentSliceState } from '@/store/agent/slices/builtin/initialState';
 
 import { agentByIdSelectors } from './agentByIdSelectors';
+import { chatConfigByIdSelectors } from './chatConfigByIdSelectors';
+import { agentSelectors } from './selectors';
 
 // getAgentWorkingDirectoryById is desktop-only; force the desktop branch on.
 vi.mock('@lobechat/const', async (importOriginal) => ({
@@ -65,6 +67,18 @@ describe('agentByIdSelectors', () => {
   });
 
   describe('agent mode', () => {
+    it('forces desktop agent mode for a stored Web chat preference', () => {
+      const state = createState({
+        agentMap: { 'agent-1': { chatConfig: { enableAgentMode: false, toolMode: 'chat' } } },
+      } as any);
+      expect(agentByIdSelectors.getAgentEnableModeById('agent-1')(state)).toBe(true);
+      expect(state.agentMap['agent-1'].chatConfig?.enableAgentMode).toBe(false);
+      expect(agentSelectors.getAgentConfigById('agent-1')(state)).toBe(state.agentMap['agent-1']);
+      const effective = chatConfigByIdSelectors.getChatConfigById('agent-1')(state);
+      expect(effective.enableAgentMode).toBe(true);
+      expect(chatConfigByIdSelectors.getChatConfigById('agent-1')(state)).toBe(effective);
+    });
+
     it('should default to agent mode when enableAgentMode is not explicitly false', () => {
       const state = createState({
         agentMap: {

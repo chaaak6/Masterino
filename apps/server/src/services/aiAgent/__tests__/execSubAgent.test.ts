@@ -204,6 +204,7 @@ describe('AiAgentService.execSubAgent', () => {
 
       await service.execSubAgent({
         agentId: 'agent-1',
+        clientPlatform: 'desktop',
         groupId: 'group-1',
         instruction: 'Test instruction',
         parentMessageId: 'parent-msg-1',
@@ -219,6 +220,7 @@ describe('AiAgentService.execSubAgent', () => {
           topicId: 'topic-1',
         },
         autoStart: true,
+        clientPlatform: 'desktop',
         hooks: expect.arrayContaining([
           expect.objectContaining({ id: 'thread-metadata-update', type: 'afterStep' }),
           expect.objectContaining({ id: 'thread-completion', type: 'onComplete' }),

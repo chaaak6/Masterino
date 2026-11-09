@@ -1,6 +1,35 @@
 import { describe, expect, it } from 'vitest';
 
-import { shouldDeferOnboardingRedirect } from './useUserStateRedirect';
+import { DesktopOnboardingScreen } from '@/routes/(desktop)/desktop-onboarding/types';
+
+import {
+  shouldDeferOnboardingRedirect,
+  shouldResumeDesktopRecommendations,
+} from './useUserStateRedirect';
+
+describe('shouldResumeDesktopRecommendations', () => {
+  it.each([DesktopOnboardingScreen.Login, DesktopOnboardingScreen.Agents])(
+    'resumes an authenticated first install saved at %s',
+    (screen) => expect(shouldResumeDesktopRecommendations('/', false, screen)).toBe(true),
+  );
+
+  it('does not interrupt an existing onboarding page or a returning install', () => {
+    expect(
+      shouldResumeDesktopRecommendations(
+        '/desktop-onboarding',
+        false,
+        DesktopOnboardingScreen.Login,
+      ),
+    ).toBe(false);
+    expect(shouldResumeDesktopRecommendations('/', true, DesktopOnboardingScreen.Login)).toBe(
+      false,
+    );
+    expect(shouldResumeDesktopRecommendations('/', false, null)).toBe(false);
+    expect(shouldResumeDesktopRecommendations('/', false, DesktopOnboardingScreen.Welcome)).toBe(
+      false,
+    );
+  });
+});
 
 describe('shouldDeferOnboardingRedirect', () => {
   it('defers on invite routes so invited users can accept before onboarding', () => {

@@ -1,4 +1,5 @@
 export enum DesktopOnboardingScreen {
+  Agents = 'agents',
   DataMode = 'data-mode',
   Login = 'login',
   Permissions = 'permissions',

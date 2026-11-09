@@ -4,6 +4,8 @@ import type {
   WorkspaceAccessGrant,
 } from '@lobechat/types/src/executionContext';
 
+import { resolveDesktopChatConfig } from '@/helpers/desktopAgentMode';
+
 import { buildExecutionAccessRoots } from './accessRoots';
 import {
   resolveExecutionContext,
@@ -86,8 +88,14 @@ export const mergeCurrentTopicGrantsIntoExecutionContext = (input: {
 export const resolveFrozenClientExecutionContext = (
   input: ResolveFrozenClientExecutionContextInput,
 ): ExecutionContext => {
-  const preliminary = resolveExecutionContext(input);
+  const effectiveInput = {
+    ...input,
+    chatConfig: resolveDesktopChatConfig(input.chatConfig, input.isDesktop),
+  };
+  const preliminary = resolveExecutionContext(effectiveInput);
   const accessRoots = getActiveTopicGrantRoots(preliminary, input.topicId, input.topicGrants ?? []);
 
-  return accessRoots.length > 0 ? resolveExecutionContext({ ...input, accessRoots }) : preliminary;
+  return accessRoots.length > 0
+    ? resolveExecutionContext({ ...effectiveInput, accessRoots })
+    : preliminary;
 };

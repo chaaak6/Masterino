@@ -74,6 +74,7 @@ import { UserModel } from '@/database/models/user';
 import { UserPersonaModel } from '@/database/models/userMemory/persona';
 import { WorkspaceAccessGrantModel } from '@/database/models/workspaceAccessGrant';
 import { toolsEnv } from '@/envs/tools';
+import { resolveDesktopChatConfig } from '@/helpers/desktopAgentMode';
 import {
   isAbsoluteFilesystemPath,
   normalizeRootPath,
@@ -1236,19 +1237,30 @@ export class AiAgentService {
     throwIfAborted(signal, 'Agent execution aborted before startup');
 
     // 1. Get agent configuration with default config merged (supports both id and slug)
-    let agentConfig = await this.agentService.getAgentConfig(identifier);
+    let loadedAgentConfig = await this.agentService.getAgentConfig(identifier);
     // Builtin agents (inbox / page / task / self-iteration slugs) may be addressed
     // purely by slug before a row exists — e.g. background self-iteration runs
     // dispatched via execAgent({ slug }). Lazily materialize the virtual row from
     // the builtin registry (mirrors the inbox/task `getBuiltinAgent` path) and
     // re-resolve. No-op for ordinary agent ids (getBuiltinAgent returns null).
-    if (!agentConfig && (Object.values(BUILTIN_AGENT_SLUGS) as string[]).includes(identifier)) {
+    if (
+      !loadedAgentConfig &&
+      (Object.values(BUILTIN_AGENT_SLUGS) as string[]).includes(identifier)
+    ) {
       await this.agentModel.getBuiltinAgent(identifier);
-      agentConfig = await this.agentService.getAgentConfig(identifier);
+      loadedAgentConfig = await this.agentService.getAgentConfig(identifier);
     }
-    if (!agentConfig) {
+    if (!loadedAgentConfig) {
       throw new Error(`Agent not found: ${identifier}`);
     }
+
+    const agentConfig = {
+      ...loadedAgentConfig,
+      chatConfig: resolveDesktopChatConfig(
+        loadedAgentConfig.chatConfig,
+        params.clientPlatform === 'desktop',
+      )!,
+    };
 
     // Use actual agent ID from config for subsequent operations
     const resolvedAgentId = agentConfig.id;
@@ -3948,6 +3960,7 @@ export class AiAgentService {
       agentId,
       appContext,
       autoStart: true,
+      clientPlatform: params.clientPlatform,
       hooks,
       parentOperationId,
       prompt: instruction,

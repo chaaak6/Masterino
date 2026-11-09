@@ -1,3 +1,4 @@
+import { isDesktop } from '@lobechat/const';
 import { Flexbox, Icon, Popover, Tooltip } from '@lobehub/ui';
 import { createStaticStyles, cssVar, cx } from 'antd-style';
 import {
@@ -248,4 +249,4 @@ const AgentMode = memo(() => {
 
 AgentMode.displayName = 'AgentMode';
 
-export default AgentMode;
+export default memo(() => (isDesktop ? null : <AgentMode />));

@@ -14,6 +14,25 @@ const workspace = {
 };
 
 describe('resolveFrozenClientExecutionContext', () => {
+  it('freezes desktop execution in agent mode while preserving Web chat mode and stored settings', () => {
+    const chatConfig = { enableAgentMode: false, toolMode: 'chat' as const };
+    const input = {
+      agencyConfig: { executionTargetByPlatform: { desktop: 'local' as const } },
+      chatConfig,
+      requestedDeviceId: 'device-1',
+    };
+    expect(resolveFrozenClientExecutionContext({ ...input, isDesktop: true }).plan).toEqual({
+      deviceId: 'device-1',
+      kind: 'device',
+      target: 'local',
+    });
+    expect(resolveFrozenClientExecutionContext({ ...input, isDesktop: false }).plan).toEqual({
+      kind: 'none',
+      target: 'none',
+    });
+    expect(chatConfig).toEqual({ enableAgentMode: false, toolMode: 'chat' });
+  });
+
   it('replaces captured topic authority without changing the frozen execution identity', () => {
     const frozenContext: ExecutionContext = {
       accessRoots: [

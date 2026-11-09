@@ -1,3 +1,4 @@
+import { isDesktop } from '@lobechat/const';
 import type { ExecAgentAppContext, ExecAgentResult, UserInterventionConfig } from '@lobechat/types';
 import type { OperationPathConsentApproval } from '@lobechat/types/src/executionContext';
 
@@ -41,6 +42,7 @@ export interface ExecAgentTaskParams {
   agentId?: string;
   appContext?: ExecAgentAppContext;
   autoStart?: boolean;
+  clientPlatform?: 'desktop' | 'web';
   deviceId?: string;
   existingMessageIds?: string[];
   /** File IDs of already-uploaded attachments to attach to the new user message */
@@ -148,7 +150,10 @@ class AiAgentService {
     params: ExecAgentTaskParams,
     options?: { signal?: AbortSignal },
   ): Promise<ExecAgentResult> {
-    return await lambdaClient.aiAgent.execAgent.mutate(params, options);
+    return await lambdaClient.aiAgent.execAgent.mutate(
+      { ...params, clientPlatform: isDesktop ? 'desktop' : 'web' },
+      options,
+    );
   }
 
   /**
@@ -165,7 +170,10 @@ class AiAgentService {
   }
 
   async execSubAgentTask(params: ExecSubAgentTaskParams) {
-    return await lambdaClient.aiAgent.execSubAgentTask.mutate(params);
+    return await lambdaClient.aiAgent.execSubAgentTask.mutate({
+      ...params,
+      clientPlatform: isDesktop ? 'desktop' : 'web',
+    });
   }
 
   /**

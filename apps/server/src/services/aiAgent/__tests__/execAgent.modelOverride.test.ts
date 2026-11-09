@@ -210,4 +210,19 @@ describe('AiAgentService.execAgent - model/provider override', () => {
     expect(callArgs.agentConfig.model).toBe('claude-sonnet-4-6');
     expect(callArgs.agentConfig.provider).toBe('anthropic');
   });
+  it.each(['desktop', 'web'] as const)(
+    'uses request-local mode for %s without mutating stored config',
+    async (clientPlatform) => {
+      const stored = {
+        ...defaultAgentConfig,
+        chatConfig: { enableAgentMode: false, toolMode: 'chat' },
+      };
+      mockGetAgentConfig.mockResolvedValue(stored);
+      await service.execAgent({ agentId: 'agent-1', clientPlatform, prompt: 'Hello' });
+      const effective = mockCreateOperation.mock.calls[0][0].agentConfig.chatConfig;
+      expect(effective.enableAgentMode).toBe(clientPlatform === 'desktop');
+      expect(effective.toolMode).toBe(clientPlatform === 'desktop' ? 'agent' : 'chat');
+      expect(stored.chatConfig).toEqual({ enableAgentMode: false, toolMode: 'chat' });
+    },
+  );
 });

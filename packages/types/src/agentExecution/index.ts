@@ -126,6 +126,8 @@ export interface ExecAgentParams {
   appContext?: ExecAgentAppContext;
   /** Whether to auto-start execution after creating operation (default: true) */
   autoStart?: boolean;
+  /** Per-request UI mode policy; never persisted on the agent. */
+  clientPlatform?: 'desktop' | 'web';
   /** Explicit device ID to bind to the topic and activate for this run */
   deviceId?: string;
   /** Server-controlled execution budget for background operations. */
@@ -301,6 +303,7 @@ export interface ExecGroupAgentResponse {
 export interface ExecSubAgentParams {
   /** The agent ID to execute */
   agentId: string;
+  clientPlatform?: 'desktop' | 'web';
   /** The Group ID (optional, only for Group mode) */
   groupId?: string;
   /** Instruction/prompt for the agent */
@@ -329,6 +332,7 @@ export interface ExecSubAgentParams {
 export interface ExecVirtualSubAgentParams {
   /** The agent ID to execute */
   agentId: string;
+  clientPlatform?: 'desktop' | 'web';
   /** The Group ID inherited from the parent operation, when present */
   groupId?: string;
   /** Instruction/prompt for the virtual sub-agent */

@@ -113,6 +113,17 @@ afterEach(() => {
 });
 
 describe('AgentPickerStep', () => {
+  it('starts with zero selections and delegates desktop skip without completing Web onboarding', async () => {
+    const onFinish = vi.fn();
+    render(<AgentPickerStep onBack={vi.fn()} onFinish={onFinish} />);
+    expect(screen.getByRole('button', { name: 'agentPicker.continue (0)' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
+    await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
+    expect(installMarketplaceAgents).not.toHaveBeenCalled();
+    expect(finishOnboarding).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('renders an agent card for each template', () => {
     render(<AgentPickerStep onBack={vi.fn()} />);
     expect(screen.getByText('Code Reviewer')).toBeInTheDocument();

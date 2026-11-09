@@ -5,6 +5,7 @@ import {
 } from '@lobechat/const';
 import { type LobeAgentChatConfig, type RuntimeEnvMode } from '@lobechat/types';
 
+import { resolveDesktopChatConfig } from '@/helpers/desktopAgentMode';
 import { resolveRuntimeMode, resolveToolMode } from '@/helpers/executionTarget';
 import { type AgentStoreState } from '@/store/agent/initialState';
 
@@ -23,7 +24,7 @@ const getStoredChatConfigById =
 const getChatConfigById =
   (agentId: string) =>
   (s: AgentStoreState): LobeAgentChatConfig =>
-    getStoredChatConfigById(agentId)(s);
+    resolveDesktopChatConfig(getStoredChatConfigById(agentId)(s), isDesktop)!;
 
 const getEnableHistoryCountById = (agentId: string) => (s: AgentStoreState) =>
   getStoredChatConfigById(agentId)(s).enableHistoryCount;
