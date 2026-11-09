@@ -1,4 +1,7 @@
 export default {
+  'desktopDownload.browserFailed': 'Unable to open the browser. Copy this link into your browser to download.',
+  'desktopDownload.started': 'Download started',
+  'desktopDownload.openBrowser': 'Open in your default browser',
   'desktopDownload.appleSilicon': 'Apple Silicon (M series)',
   'desktopDownload.chooseMac': 'Choose your Mac chip',
   'desktopDownload.failed': 'Unable to download. Please try again.',
