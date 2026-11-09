@@ -97,3 +97,13 @@
 | V06 | search_cases("奖金 审批义务",limit=3)命中guiding-182；随后get_article(民法典,577)仍返回原文。初始化版本1.1.0经测试集群真实请求确认。 |
 
 本轮证据保存在本机 `/tmp/pr155-review-evidence/`：protocol.log、tools.json、service.log、deployments-after.txt、app-pass.png。不提交私有凭证/登录态。PR保持未合并，未部署生产。前轮普通对话及Microsoft Learn回归仍适用，本轮未修改其代码或服务。
+
+## 2026-11-09 review 集中复核
+
+PR HEAD 833becdc 的CI协议、App双分片、Server、Database、Packages、Desktop、Coverage全部通过；重复任务跳过不视为失败。26项本地真实HTTP协议测试再次全通过。GitHub reviewThreads复核无未解决的行内讨论。
+
+最后review总结提出旧资源manifest只有三工具的疑问，不需要扩大业务代码修改：DiscoverService先读取指定identifier的已发布白名单，再仅允许其中的工具调用；服务器多提供工具不会自动增加旧资源权限，也没有移除旧三工具。此前已从测试主服务Pod用测试用户的现有可信身份读取旧identifier `masterino-chinese-law` 的共享连接，HTTP200，发布工具为search_laws/get_article/search_in_law；经同样白名单检查、initialize和tools/call，分别返回劳动合同目录、试用期摘录和民法典577条，全部成功。初始化报告1.1.0是服务实现版本，旧目录1.0.0保留三工具合同；两者并非必须相等。旧资源使用新增三工具仍需更新manifest并审批，此限制是预期行为，不是原功能回归。
+
+完整原始证据：本机 `/tmp/pr155-review-evidence/old-entry-compat.jsonl`；旧测试账号未加载旧标识符的客户端激活结果不算通过证据。前述三工具验证是Pod内协议验收，独立新测试条目的八项验证才是客户端真人验收，二者分别记录，避免混淆。
+
+本轮真人点击复测：2026-11-09 14:26–14:29，独立test-server Electron连接mlai-test；话题tpc_ZAEFMg1VsoMJ。实际点击激活及逐次批准search_articles(刑法 盗窃,limit=10)、get_article(民法典,577)、search_cases(奖金 审批义务,limit=1)，分别命中刑法264条、民法典577条、指导案例182。测试Pod镜像仍为0b1d104b…，三项服务日志HTTP200；只读业务工具记录含激活及三项调用，均有content且error为空。证据 `/tmp/pr155-1109-app-pass.png`、`/tmp/pr155-1109-service.log`、`/tmp/pr155-1109-tools.json`。本轮只补review结论和验收证据，没有修改业务代码或部署任何服务。
