@@ -105,6 +105,8 @@ interface ContextWindowCandidate {
 }
 
 export interface PersistedModelCatalog {
+  /** Unpublished runtime candidate, retained for re-projection and clearing a published limit. */
+  contextWindowBaseline?: ContextWindowCandidate;
   contextWindowCandidate?: ContextWindowCandidate;
   denied: boolean;
   drift: ModelCatalogDrift[];
@@ -616,6 +618,38 @@ const getContextWindowCandidate = (catalog: PersistedModelCatalog): ContextWindo
         tokens: previousCandidate.conflictingValue as number,
       }
     : ({ source: 'unknown', tokens: 32_000 } as const);
+};
+
+/** Apply maintained capacity without changing kind, modalities, or rejection evidence. */
+export const applyPublishedContextWindow = (
+  catalog: PersistedModelCatalog,
+  tokens: number | null | undefined,
+  now = new Date(),
+): PersistedModelCatalog => {
+  const baseline = getContextWindowCandidate({
+    ...catalog,
+    contextWindowCandidate: catalog.contextWindowBaseline ?? catalog.contextWindowCandidate,
+  });
+  if (!isPositiveNumber(tokens)) {
+    if (!catalog.contextWindowBaseline) return catalog;
+    const { contextWindowBaseline: _, ...unpublished } = catalog;
+    return refreshContextWindowEvidence({ ...unpublished, contextWindowCandidate: baseline }, now);
+  }
+
+  const manual = isManualOverrideActive(catalog.manual, now) ? catalog.manual : undefined;
+  // Explicit manual overrides retain their existing semantics. A provider-declared
+  // ceiling may cap maintained capacity; built-in/default values do not.
+  const retainBaseline =
+    (baseline.source === 'manual' && isPositiveNumber(manual?.contextWindowTokens)) ||
+    (baseline.source === 'provider-meta' && baseline.tokens <= tokens);
+  return refreshContextWindowEvidence(
+    {
+      ...catalog,
+      contextWindowBaseline: baseline,
+      contextWindowCandidate: retainBaseline ? baseline : { source: 'catalog', tokens },
+    },
+    now,
+  );
 };
 
 const refreshContextWindowEvidence = (
