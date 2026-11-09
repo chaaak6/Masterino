@@ -186,40 +186,43 @@ describe('DeepSeek OpenAI-compatible chatCompletion.handlePayload', () => {
   // In thinking mode the API rejects follow-up turns whose assistant messages omit
   // reasoning_content when tool calls are involved — see chatPayload.ts for details.
   describe('deepseek-v4 thinking mode reasoning_content enforcement', () => {
-    it('should force reasoning_content on v4-flash assistant messages by default', () => {
-      const payload = {
-        messages: [
-          { role: 'user', content: 'Search weather' },
-          {
-            role: 'assistant',
-            content: '',
-            tool_calls: [
-              {
-                id: 'call_1',
-                type: 'function',
-                function: { name: 'search', arguments: '{"q":"weather"}' },
-              },
-            ],
-          },
-        ],
-        model: 'deepseek-v4-flash',
-      };
+    it.each(['deepseek-v4-flash', 'deepseek-flash', 'DeepSeek/deepseek-flash'])(
+      'should preserve tool follow-up compatibility for %s by default',
+      (model) => {
+        const payload = {
+          messages: [
+            { role: 'user', content: 'Search weather' },
+            {
+              role: 'assistant',
+              content: '',
+              tool_calls: [
+                {
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'search', arguments: '{"q":"weather"}' },
+                },
+              ],
+            },
+          ],
+          model,
+        };
 
-      const result = openAIParams.chatCompletion!.handlePayload!(payload as any);
+        const result = openAIParams.chatCompletion!.handlePayload!(payload as any);
 
-      expect(result.messages[1]).toEqual({
-        role: 'assistant',
-        content: '',
-        reasoning_content: '',
-        tool_calls: [
-          {
-            id: 'call_1',
-            type: 'function',
-            function: { name: 'search', arguments: '{"q":"weather"}' },
-          },
-        ],
-      });
-    });
+        expect(result.messages[1]).toEqual({
+          role: 'assistant',
+          content: '',
+          reasoning_content: '',
+          tool_calls: [
+            {
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'search', arguments: '{"q":"weather"}' },
+            },
+          ],
+        });
+      },
+    );
 
     it('should force reasoning_content on v4-pro assistant messages by default', () => {
       const payload = {
