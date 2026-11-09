@@ -9,6 +9,7 @@
 - 模型运行时 5 个文件、130 项：实际 NewAPI 路由到 DeepSeek 的请求体与结构化响应、别名边界、显式思考参数、普通聊天工具续接，以及 GLM / Kimi / Qwen 流式结束事件。
 - 前端 5 个文件、25 项：设置点击、重试清除、输入编辑器、错误识别、暂停状态和桌面路由同步。
 - 变更文件 ESLint 与 `git diff --check`。
+- 完整 `bun run type-check`（`tsgo --noEmit`），退出码 0。
 
 真实测试使用 `masterino-test` 的现有测试账号。Electron 渲染器来自当前分支；本地轻量进程加载当前分支真实 `aiChatRouter`、鉴权上下文和模型运行时，仅承接补全接口。数据库、Redis 和 Aihub Bridge 通过测试 namespace 的本机端口转发访问，其他请求仍连接 `https://mlai-test.bielcrystal.com`。没有使用模拟身份或跳过权限检查。临时路由代理已撤回，没有包含在产品改动中。
 
@@ -24,3 +25,5 @@
 本地候选接口日志记录两次补全成功，没有上游 400。测试集群同期最近 300 行日志中没有 MaaS / `400001` / `invalid_request_error`；该日志窗口不代表全量监控。冷启动期间遇到本地 Vite 资源 502，预热并重载后完成验收；开发者工具中的既有组件弃用警告和设置页 Tooltip 错误不属于本次改动。正式打包构建及生产发布未执行。
 
 验收结束后已停止本次创建的 Electron、候选接口和端口转发，删除临时 kubeconfig、凭据文件和隔离 profile；原有测试 App 与生产 App 未改动。
+
+PR CI 的 Test Packages / Test App 分片最初在依赖安装阶段被 `ffmpeg-static` 上游许可证下载 HTTP 504 阻断，尚未执行对应测试。该失败不能记作代码回归，也不能记作 CI 通过；完整检查状态以 PR 为准。
