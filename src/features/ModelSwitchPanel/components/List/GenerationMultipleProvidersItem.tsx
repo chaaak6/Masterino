@@ -1,14 +1,14 @@
 'use client';
 
+import { Flexbox, menuSharedStyles } from '@lobehub/ui';
 import {
+  DropdownMenuItem,
   DropdownMenuPopup,
   DropdownMenuPortal,
   DropdownMenuPositioner,
   DropdownMenuSubmenuRoot,
   DropdownMenuSubmenuTrigger,
-  Flexbox,
-  menuSharedStyles,
-} from '@lobehub/ui';
+} from '@lobehub/ui/base-ui';
 import { cssVar, cx } from 'antd-style';
 import { Check } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -22,6 +22,9 @@ import { styles as modelSwitchPanelStyles } from '@/features/ModelSwitchPanel/st
 import type { ListItem } from '@/features/ModelSwitchPanel/types';
 import { menuKey } from '@/features/ModelSwitchPanel/utils';
 import type { EnabledProviderWithModels } from '@/types/index';
+
+import { useGenerationModelDisabledReason } from '../../hooks/useGenerationModelDisabledReason';
+import UnavailableGenerationModel from './UnavailableGenerationModel';
 
 interface GenerationMultipleProvidersItemProps {
   activeKey: string;
@@ -37,10 +40,28 @@ const GenerationMultipleProvidersItem = memo<GenerationMultipleProvidersItemProp
   ({ item, activeKey, onClose, onModelChange, enabledList, ModelItemComponent, pricingMode }) => {
     const { t } = useTranslation('components');
     const [subOpen, setSubOpen] = useState(false);
-    const activeProvider = item.data.providers.find(
+    const getDisabledReason = useGenerationModelDisabledReason(enabledList, pricingMode);
+    const availableProviders = item.data.providers.filter(
+      (p) => !getDisabledReason(item.data.model.id, p.id),
+    );
+    const activeProvider = availableProviders.find(
       (p) => menuKey(p.id, item.data.model.id) === activeKey,
     );
     const isActive = !!activeProvider;
+    if (availableProviders.length === 0) {
+      return (
+        <UnavailableGenerationModel
+          reason={getDisabledReason(item.data.model.id, item.data.providers[0].id)!}
+        >
+          <ModelItemComponent
+            {...item.data.model}
+            providerId={item.data.providers[0].id}
+            showBadge={false}
+            showPopover={false}
+          />
+        </UnavailableGenerationModel>
+      );
+    }
 
     return (
       <Flexbox style={{ marginBlock: 1, marginInline: 4 }}>
@@ -50,13 +71,13 @@ const GenerationMultipleProvidersItem = memo<GenerationMultipleProvidersItemProp
             style={{ paddingBlock: 8, paddingInline: 8 }}
             onClick={() => {
               setSubOpen(false);
-              onModelChange(item.data.model.id, (activeProvider ?? item.data.providers[0]).id);
+              onModelChange(item.data.model.id, (activeProvider ?? availableProviders[0]).id);
               onClose();
             }}
           >
             <ModelItemComponent
               {...item.data.model}
-              providerId={(activeProvider ?? item.data.providers[0]).id}
+              providerId={(activeProvider ?? availableProviders[0]).id}
               showBadge={false}
               showPopover={false}
             />
@@ -73,33 +94,42 @@ const GenerationMultipleProvidersItem = memo<GenerationMultipleProvidersItemProp
                   enabledList={enabledList}
                   model={item.data.model.id}
                   pricingMode={pricingMode}
-                  provider={(activeProvider ?? item.data.providers[0]).id}
+                  provider={(activeProvider ?? availableProviders[0]).id}
                 />
                 <Flexbox gap={4} paddingBlock={8} paddingInline={8}>
                   <Flexbox style={{ color: cssVar.colorTextSecondary, fontSize: 12 }}>
                     {t('ModelSwitchPanel.useModelFrom')}
                   </Flexbox>
                   {item.data.providers.map((p) => {
+                    const disabledReason = getDisabledReason(item.data.model.id, p.id);
                     const pKey = menuKey(p.id, item.data.model.id);
                     const isProviderActive = isActive ? activeKey === pKey : p.id === 'lobehub';
                     return (
-                      <Flexbox
-                        horizontal
+                      <DropdownMenuItem
                         className={modelSwitchPanelStyles.menuItem}
+                        disabled={!!disabledReason}
                         key={pKey}
                         onClick={() => {
+                          if (disabledReason) return;
                           onModelChange(item.data.model.id, p.id);
                           onClose();
                         }}
                       >
-                        <ProviderItemRender
-                          logo={p.logo}
-                          name={p.name}
-                          provider={p.id}
-                          source={p.source}
-                        />
+                        <Flexbox gap={4}>
+                          <ProviderItemRender
+                            logo={p.logo}
+                            name={p.name}
+                            provider={p.id}
+                            source={p.source}
+                          />
+                          {disabledReason && (
+                            <span style={{ color: cssVar.colorTextSecondary, fontSize: 12 }}>
+                              {disabledReason}
+                            </span>
+                          )}
+                        </Flexbox>
                         {isProviderActive ? <Check size={16} /> : null}
-                      </Flexbox>
+                      </DropdownMenuItem>
                     );
                   })}
                 </Flexbox>

@@ -7,6 +7,7 @@ import {
   stopPropagation,
   TooltipGroup,
 } from '@lobehub/ui';
+import * as GenerationMenu from '@lobehub/ui/base-ui';
 import { memo, useCallback, useState } from 'react';
 
 import { requestPanelModelCatalogCheck } from '@/features/SilentModelRefresh/controller';
@@ -32,6 +33,14 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
   }) => {
     const [internalOpen, setInternalOpen] = useState(false);
     const isOpen = open ?? internalOpen;
+    // Generation rows use base-ui; their root and portal must share that menu context.
+    const Root = ModelItemComponent ? GenerationMenu.DropdownMenuRoot : DropdownMenuRoot;
+    const Trigger = ModelItemComponent ? GenerationMenu.DropdownMenuTrigger : DropdownMenuTrigger;
+    const Portal = ModelItemComponent ? GenerationMenu.DropdownMenuPortal : DropdownMenuPortal;
+    const Positioner = ModelItemComponent
+      ? GenerationMenu.DropdownMenuPositioner
+      : DropdownMenuPositioner;
+    const Popup = ModelItemComponent ? GenerationMenu.DropdownMenuPopup : DropdownMenuPopup;
 
     const handleOpenChange = useCallback(
       (nextOpen: boolean) => {
@@ -52,13 +61,13 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
 
     return (
       <TooltipGroup>
-        <DropdownMenuRoot open={isOpen} onOpenChange={handleOpenChange}>
-          <DropdownMenuTrigger className={styles.trigger} openOnHover={openOnHover}>
+        <Root open={isOpen} onOpenChange={handleOpenChange}>
+          <Trigger className={styles.trigger} openOnHover={openOnHover}>
             {children}
-          </DropdownMenuTrigger>
-          <DropdownMenuPortal>
-            <DropdownMenuPositioner hoverTrigger={openOnHover} placement={placement}>
-              <DropdownMenuPopup className={styles.container} onKeyDown={stopPropagation}>
+          </Trigger>
+          <Portal>
+            <Positioner hoverTrigger={openOnHover} placement={placement}>
+              <Popup className={styles.container} onKeyDown={stopPropagation}>
                 <PanelContent
                   ModelItemComponent={ModelItemComponent}
                   enabledList={enabledList}
@@ -68,10 +77,10 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
                   onModelChange={onModelChange}
                   onOpenChange={handleOpenChange}
                 />
-              </DropdownMenuPopup>
-            </DropdownMenuPositioner>
-          </DropdownMenuPortal>
-        </DropdownMenuRoot>
+              </Popup>
+            </Positioner>
+          </Portal>
+        </Root>
       </TooltipGroup>
     );
   },
