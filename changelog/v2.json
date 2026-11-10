@@ -2443,6 +2443,15 @@
   },
   {
     "children": {
+      "fixes": [
+        "修复发布模型容量与 Kimi K3.1 Pro 参数兼容."
+      ]
+    },
+    "date": "2026-11-10",
+    "version": "1.3.13"
+  },
+  {
+    "children": {
       "features": [
         "integrate skill publishing, memory validation and new-file consent."
       ]
