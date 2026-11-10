@@ -141,6 +141,7 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack, onFinish }) => {
     if (pendingRef.current) return;
     pendingRef.current = true;
     setPending('skip');
+    setInstallFailures([]);
     await finish('skip', 0);
   }, [finish]);
 
@@ -148,6 +149,7 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack, onFinish }) => {
     if (pendingRef.current || selected.size === 0) return;
     pendingRef.current = true;
     setPending('continue');
+    setCompletionError(false);
     setInstallFailures([]);
 
     const selectedTemplateIds = [...selected];

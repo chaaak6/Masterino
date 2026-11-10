@@ -150,8 +150,18 @@ describe('AgentPickerStep', () => {
     fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('agentPicker.finishError');
     expect(onFinish).not.toHaveBeenCalled();
+
+    // A new installation attempt should not keep the previous completion error.
+    installMarketplaceAgents.mockRejectedValueOnce(new Error('Market unavailable'));
+    fireEvent.click(screen.getByText('Code Reviewer'));
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.continue (1)' }));
+    expect(await screen.findByText('Code Reviewer: Market unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('agentPicker.finishError')).not.toBeInTheDocument();
+    expect(finishOnboarding).toHaveBeenCalledOnce();
+
     fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
     await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
+    expect(screen.queryByText('agentPicker.installFailed')).not.toBeInTheDocument();
   });
 
   it('renders an agent card for each template', () => {
