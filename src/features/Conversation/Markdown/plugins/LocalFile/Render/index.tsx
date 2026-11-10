@@ -9,7 +9,7 @@ import { type MarkdownElementProps } from '../../type';
 interface LocalFileProps {
   isDirectory: boolean;
   name: string;
-  path: string;
+  path?: string;
 }
 
 const Render = memo<MarkdownElementProps<LocalFileProps>>(({ node }) => {
@@ -17,10 +17,9 @@ const Render = memo<MarkdownElementProps<LocalFileProps>>(({ node }) => {
   const { name, path, isDirectory } = node?.properties || {};
   const isSharePage = useConversationStore((s) => !!s.context.topicShareId);
 
-  if (!name || !path) {
-    // If required properties are missing, render an error or null
+  if (!name) {
     console.error('LocalFile Render component missing required properties:', node?.properties);
-    return null; // Or return an error placeholder
+    return null;
   }
 
   // isDirectory may be true (from plugin) or undefined; ensure it is a boolean

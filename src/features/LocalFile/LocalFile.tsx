@@ -1,8 +1,9 @@
 import { Button, Flexbox, Popover } from '@lobehub/ui';
+import { toast } from '@lobehub/ui/base-ui';
 import { Space } from 'antd';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { ExternalLink, FolderOpen } from 'lucide-react';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import FileIcon from '@/components/FileIcon';
@@ -45,17 +46,45 @@ interface LocalFileProps {
   readonly?: boolean;
 }
 
-export const LocalFile = ({ name, path, isDirectory = false, readonly = false }: LocalFileProps) => {
+export const LocalFile = ({
+  name,
+  path,
+  isDirectory = false,
+  readonly = false,
+}: LocalFileProps) => {
   const { t } = useTranslation('components');
 
-  const handleOpenFile = () => {
-    if (!path) return;
-    localFileService.openLocalFileOrFolder(path, isDirectory);
+  const [busy, setBusy] = useState(false);
+  const pending = useRef(false);
+  const run = async (folder: boolean) => {
+    if (readonly || pending.current) return;
+    if (!path) {
+      toast.error(t('LocalFile.action.invalidPath'));
+      return;
+    }
+    pending.current = true;
+    setBusy(true);
+    try {
+      const result = folder
+        ? await localFileService.openFileFolder(path)
+        : await localFileService.openLocalFileOrFolder(path, isDirectory);
+      if (!result.success) throw new Error(result.error || t('LocalFile.action.unavailable'));
+    } catch (error) {
+      toast.error(
+        t('LocalFile.action.failed', {
+          reason: error instanceof Error ? error.message : t('LocalFile.action.unavailable'),
+        }),
+      );
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
   };
-
+  const handleOpenFile = () => {
+    void run(false);
+  };
   const handleOpenFolder = () => {
-    if (!path) return;
-    localFileService.openFileFolder(path);
+    void run(true);
   };
 
   const fileContent = (
@@ -65,7 +94,7 @@ export const LocalFile = ({ name, path, isDirectory = false, readonly = false }:
       className={styles.container}
       gap={4}
       style={{ display: 'inline-flex', verticalAlign: 'middle' }}
-      onClick={isDirectory ? handleOpenFile : undefined}
+      onClick={isDirectory && !readonly ? handleOpenFile : undefined}
     >
       <FileIcon fileName={name} isDirectory={isDirectory} size={22} variant={'raw'} />
       <Flexbox horizontal align={'baseline'} gap={4} style={{ overflow: 'hidden', width: '100%' }}>
@@ -83,6 +112,7 @@ export const LocalFile = ({ name, path, isDirectory = false, readonly = false }:
   const popoverContent = (
     <Space.Compact>
       <Button
+        disabled={busy}
         icon={ExternalLink}
         size="small"
         title={t('LocalFile.action.open')}
@@ -91,6 +121,7 @@ export const LocalFile = ({ name, path, isDirectory = false, readonly = false }:
         {t('LocalFile.action.open')}
       </Button>
       <Button
+        disabled={busy}
         icon={FolderOpen}
         size="small"
         title={t('LocalFile.action.showInFolder')}

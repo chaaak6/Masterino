@@ -161,6 +161,29 @@ describe('LocalFileCtr', () => {
     });
   });
 
+  it.each(['', '  ', '/tmp/a\u0000b'])(
+    'rejects invalid open paths %j before OS calls',
+    async (path) => {
+      expect((await localFileCtr.handleOpenLocalFile({ path })).success).toBe(false);
+      expect((await localFileCtr.handleOpenLocalFolder({ path, isDirectory: false })).success).toBe(
+        false,
+      );
+      expect(mockShell.openPath).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['file', 'folder'])('reports resolved OS error for %s', async (kind) => {
+    vi.mocked(mockShell.openPath).mockResolvedValue('File does not exist');
+    const result =
+      kind === 'file'
+        ? await localFileCtr.handleOpenLocalFile({ path: '/missing/a b.pptx' })
+        : await localFileCtr.handleOpenLocalFolder({
+            path: '/missing/a b.pptx',
+            isDirectory: false,
+          });
+    expect(result).toEqual({ success: false, error: 'File does not exist' });
+  });
+
   describe('handleOpenLocalFolder', () => {
     it('should open directory when isDirectory is true', async () => {
       vi.mocked(mockShell.openPath).mockResolvedValue('');
