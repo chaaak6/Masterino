@@ -1,6 +1,7 @@
 import { type CSSProperties } from 'react';
 import { memo } from 'react';
 
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useFileStore } from '@/store/file';
 import { type UploadFileItem } from '@/types/files';
 
@@ -18,7 +19,8 @@ interface FileItemProps extends UploadFileItem {
 }
 
 const FileItem = memo<FileItemProps>((props) => {
-  const { file, id, previewUrl, status } = props;
+  const { file, id, uploadId, previewUrl, status } = props;
+  const scope = useAttachmentScope();
   const [removeFile] = useFileStore((s) => [s.removeChatUploadFile]);
 
   if (file.type.startsWith('image')) {
@@ -28,13 +30,13 @@ const FileItem = memo<FileItemProps>((props) => {
         loading={status === 'pending'}
         src={previewUrl}
         onRemove={() => {
-          removeFile(id);
+          removeFile(uploadId || id, scope);
         }}
       />
     );
   }
 
-  return <File onRemove={() => removeFile(id)} {...props} />;
+  return <File onRemove={() => removeFile(uploadId || id, scope)} {...props} />;
 });
 
 export default FileItem;

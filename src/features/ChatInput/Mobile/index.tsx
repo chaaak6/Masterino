@@ -7,8 +7,10 @@ import { memo } from 'react';
 
 import { useChatInputStore } from '@/features/ChatInput/store';
 import dynamic from '@/libs/next/dynamic';
+import { fileChatSelectors, useFileStore } from '@/store/file';
 
 import ActionBar from '../ActionBar';
+import { useAttachmentScope } from '../hooks/useAttachmentScope';
 import InputEditor from '../InputEditor';
 import SendArea from '../SendArea';
 
@@ -33,7 +35,12 @@ const DesktopChatInput = memo(() => {
   const [slashMenuRef, expand] = useChatInputStore((s) => [s.slashMenuRef, s.expand]);
   const leftActions = useChatInputStore((s) => s.leftActions);
 
-  const fileNode = leftActions.flat().includes('fileUpload') && <FilePreview />;
+  const scope = useAttachmentScope();
+  const hasItems = useFileStore((s) => fileChatSelectors.chatUploadFileListHasItem(s, scope));
+  const fileNode = (hasItems ||
+    leftActions.flat().some((action) => ['fileUpload', 'plus'].includes(action))) && (
+    <FilePreview />
+  );
 
   return (
     <>

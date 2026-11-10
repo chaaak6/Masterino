@@ -22,6 +22,7 @@ import {
 import CopilotModelSelect from '@/features/PageEditor/Copilot/CopilotModelSelect';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import AgentSelectorAction from './AgentSelectorAction';
 import { useTaskAgentSelection } from './TaskAgentProvider';
@@ -55,7 +56,14 @@ const Conversation = memo(() => {
   const provider = useAgentStore((s) =>
     agentByIdSelectors.getAgentModelProviderById(currentAgentId)(s),
   );
-  const { handleUploadFiles } = useUploadFiles({ agentId: currentAgentId, model, provider });
+  const attachmentContext = useConversationStore((s) => s.context);
+  const { handleUploadFiles } = useUploadFiles({
+    agentId: currentAgentId,
+    model,
+    provider,
+    topicId: attachmentContext.topicId,
+    scope: messageMapKey(attachmentContext),
+  });
 
   const handleAgentChange = useCallback(
     (id: string) => {

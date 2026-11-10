@@ -1,5 +1,9 @@
 import { type StateCreator } from 'zustand/vanilla';
 
+import { getAgentStoreState } from '@/store/agent';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { fileChatSelectors, useFileStore } from '@/store/file';
+
 import { removeDraft } from '../draftStorage';
 import { type PublicState, type State } from './initialState';
 import { initialState } from './initialState';
@@ -46,20 +50,37 @@ export const store: CreateStore = (publicState) => (set, get) => ({
   handleSendButton: () => {
     const editor = get().editor;
     if (!editor) return;
+    const scope =
+      get().draftKey ||
+      messageMapKey({
+        agentId: get().agentId ?? getAgentStoreState().activeAgentId ?? '',
+        topicId: get().topicId,
+      });
+    if (fileChatSelectors.isUploadingFiles(useFileStore.getState(), scope)) {
+      get().sendButtonProps?.onDisabledSend?.();
+      return;
+    }
     if (get().sendButtonProps?.disabled) {
       get().sendButtonProps?.onDisabledSend?.();
       return;
     }
 
-    get().onSend?.({
+    const { draftKey } = get();
+    const send = get().onSend?.({
       clearContent: () => editor?.cleanDocument(),
       editor: editor!,
       getEditorData: get().getJSONState,
       getMarkdownContent: get().getMarkdownContent,
     });
 
-    const { draftKey } = get();
-    if (draftKey) removeDraft(draftKey);
+    // A rejected async send must not erase durable text. Do not clear a newer draft
+    // that the user starts while the previous message is being sent.
+    void Promise.resolve(send)
+      .then(() => {
+        if (draftKey && get().draftKey === draftKey && !get().getMarkdownContent().trim())
+          removeDraft(draftKey);
+      })
+      .catch(() => console.warn('[chat-input] Send failed; draft retained'));
 
     if (get().expand) {
       set({ _savedEditorState: undefined, expand: false });

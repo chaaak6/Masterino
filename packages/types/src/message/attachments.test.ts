@@ -22,6 +22,20 @@ describe('message attachments', () => {
     expect(items).toHaveLength(2);
     expect(items[0]).not.toHaveProperty('fileId');
   });
+  it('counts untyped legacy images consistently after deduplication', () => {
+    const imageList = Array.from({ length: 12 }, (_, i) => ({ id: `image-${i}` }));
+    const refs = normalizeMessageAttachments({
+      imageList,
+      fileList: imageList.map((i) => ({
+        ...i,
+        name: 'legacy',
+        fileType: 'application/octet-stream',
+      })),
+    });
+    expect(refs).toHaveLength(12);
+    expect(refs.filter((ref) => ref.mime.startsWith('image/'))).toHaveLength(12);
+  });
+
   it('rejects absolute paths and base64 fields in persisted metadata', () => {
     expect(() =>
       MessageAttachmentsSchema.parse({

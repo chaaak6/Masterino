@@ -208,3 +208,9 @@ export const previewLocalAttachment = (ref: LocalRef, topicId: string) =>
     topicId,
     image: ref.mime.startsWith('image/'),
   });
+
+/** Main process validates device, identity and current file content before either OS action. */
+export const copyLocalAttachmentImage = (ref: LocalRef) =>
+  invoke<void>('imageAttachmentAction', { action: 'copy', ref });
+export const revealLocalAttachmentImage = (ref: LocalRef) =>
+  invoke<void>('imageAttachmentAction', { action: 'reveal', ref });

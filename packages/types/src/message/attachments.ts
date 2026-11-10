@@ -53,11 +53,19 @@ export function normalizeMessageAttachments(message: {
     })),
   ];
   const seen = new Set<string>();
-  return [...items, ...legacy].filter((item) => {
-    const key =
-      item.source === 'uploaded' ? `uploaded:${item.fileId}` : `local:${item.attachmentId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return [...items, ...legacy]
+    .filter((item) => {
+      const key =
+        item.source === 'uploaded' ? `uploaded:${item.fileId}` : `local:${item.attachmentId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((item) =>
+      item.source === 'uploaded' &&
+      !item.mime.startsWith('image/') &&
+      message.imageList?.some((image) => image.id === item.fileId)
+        ? { ...item, mime: 'image/unknown' }
+        : item,
+    );
 }

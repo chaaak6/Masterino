@@ -55,6 +55,18 @@ export const UPLOAD_STATUS_SET = new Set(['uploading', 'pending', 'processing'])
 
 // the file that is upload at chat page
 export interface UploadFileItem {
+  /** Stable client identity while a pending item receives its persisted file id. */
+  uploadId?: string;
+  /** UI classification only; never changes the persisted attachment contract. */
+  attachmentError?:
+    | 'web-size'
+    | 'unsupported-format'
+    | 'incomplete-upload'
+    | 'upload-failed'
+    | 'parse-failed'
+    | 'local-failed'
+    | 'permission-denied'
+    | 'unauthorized';
   /**
    * AbortController to cancel the upload
    */

@@ -3,10 +3,10 @@ import { access, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  LocalAttachmentTransfers,
   bindLocalAttachment,
   type LocalAttachmentLifecycleInput,
   type LocalAttachmentRecord,
+  LocalAttachmentTransfers,
   manageLocalAttachment,
   prepareLocalAttachment,
   receiveLocalAttachment,
@@ -63,7 +63,7 @@ import {
   type SearchOptions,
   writeLocalFile,
 } from '@lobechat/local-file-shell';
-import { dialog, nativeImage, shell } from 'electron';
+import { clipboard, dialog, nativeImage, shell } from 'electron';
 import { execa } from 'execa';
 
 import ContentSearchService from '@/services/contentSearchSrv';
@@ -319,6 +319,27 @@ export default class LocalFileCtr extends ControllerModule {
       this.app.getService(GatewayConnectionService).getDeviceId(),
       input,
     );
+  }
+
+  @IpcMethod()
+  async imageAttachmentAction(input: { action: 'copy' | 'reveal'; ref: LocalAttachmentRecord }) {
+    if (!['copy', 'reveal'].includes(input.action) || !input.ref.mime.startsWith('image/'))
+      throw new Error('Unsupported attachment image action');
+    const resolved = await resolveLocalAttachment(
+      path.join(this.app.appStoragePath, 'scratch-workspaces'),
+      this.app.getService(GatewayConnectionService).getDeviceId(),
+      input.ref,
+      input.action === 'copy',
+    );
+    if (input.action === 'copy') {
+      const image = nativeImage.createFromBuffer(resolved.bytes);
+      if (image.isEmpty()) throw new Error('Attachment image unavailable');
+      clipboard.writeImage(image);
+    } else shell.showItemInFolder(resolved.path);
+    logger.info('Attachment image action completed', {
+      action: input.action,
+      attachmentId: input.ref.attachmentId,
+    });
   }
 
   @IpcMethod()

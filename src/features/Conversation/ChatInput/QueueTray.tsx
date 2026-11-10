@@ -6,6 +6,7 @@ import { ArrowUp, ListEnd, Pencil, Trash2 } from 'lucide-react';
 import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { message } from '@/components/AntdStaticMethods';
 import FileIcon from '@/components/FileIcon';
 import { useChatStore } from '@/store/chat';
 import { operationSelectors } from '@/store/chat/selectors';
@@ -128,19 +129,11 @@ const QueueTray = memo(() => {
   const { t } = useTranslation('chat');
   const context = useConversationStore((s) => s.context);
 
-  const contextKey = useMemo(
-    () =>
-      messageMapKey({
-        agentId: context.agentId,
-        groupId: context.groupId,
-        topicId: context.topicId,
-      }),
-    [context.agentId, context.groupId, context.topicId],
-  );
+  const contextKey = useMemo(() => messageMapKey(context), [context]);
 
   const queuedMessages = useChatStore((s) => operationSelectors.getQueuedMessages(context)(s));
   const removeQueuedMessage = useChatStore((s) => s.removeQueuedMessage);
-  const dispatchChatUploadFileList = useFileStore((s) => s.dispatchChatUploadFileList);
+  const restoreChatUploadFiles = useFileStore((s) => s.restoreChatUploadFiles);
   const editor = useConversationStore((s) => s.editor);
 
   // Edit: restore both the text content AND the attached files back to the
@@ -149,15 +142,18 @@ const QueueTray = memo(() => {
   // when the user clicks the pencil.
   const handleEdit = useCallback(
     (msg: QueuedMessage) => {
+      if (
+        msg.filesPreview?.length &&
+        !restoreChatUploadFiles(reconstructUploadFilesFromQueue(msg.filesPreview), contextKey)
+      ) {
+        message.warning(t('attachments.block.image-count'));
+        return;
+      }
       removeQueuedMessage(contextKey, msg.id, { preserveAttachments: true });
       editor?.setDocument('markdown', msg.content);
       editor?.focus();
-      if (msg.filesPreview?.length) {
-        const restored = reconstructUploadFilesFromQueue(msg.filesPreview);
-        dispatchChatUploadFileList({ files: restored, type: 'addFiles' });
-      }
     },
-    [contextKey, dispatchChatUploadFileList, editor, removeQueuedMessage],
+    [contextKey, restoreChatUploadFiles, editor, removeQueuedMessage, t],
   );
 
   // "Send now": cancel the currently running agent run for this context, then
