@@ -1,4 +1,5 @@
 import { memo } from 'react';
+
 import ImageGallery from '@/features/Attachments/ImageGallery';
 
 interface ImageFileItem {

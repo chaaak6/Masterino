@@ -34,32 +34,40 @@ import ImageGallery from './ImageGallery';
 
 const styles = createStaticStyles(({ css }) => ({
   row: css`
+    overflow-y: auto;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+
     max-height: 160px;
-    overflow-y: auto;
-    padding: 4px 0;
+    padding-block: 4px;
+    padding-inline: 0;
   `,
   file: css`
     display: flex;
-    align-items: center;
     gap: 8px;
+    align-items: center;
+
     width: min(100%, 250px);
     padding: 8px;
     border: 1px solid ${cssVar.colorBorderSecondary};
     border-radius: 12px;
+
     background: ${cssVar.colorBgContainer};
   `,
   open: css`
-    min-width: 0;
-    flex: 1;
     cursor: pointer;
-    background: none;
+
+    flex: 1;
+
+    min-width: 0;
+    padding: 0;
     border: 0;
+
     color: inherit;
     text-align: start;
-    padding: 0;
+
+    background: none;
   `,
 }));
 

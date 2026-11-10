@@ -13,7 +13,7 @@
 - `packages/model-runtime`: `pnpm exec vitest run --silent=passed-only src/utils/modelParse.test.ts src/providers/newapi/generateObject.test.ts`：2 文件、85 项通过。
 - 根目录：`pnpm exec vitest run --silent=passed-only src/store/user/slices/auth/action.test.ts src/helpers/desktopAgentMode.test.ts src/store/agent/selectors/agentByIdSelectors.test.ts src/routes/onboarding/features/AgentPickerStep/index.test.tsx`：4 文件、38 项通过。
 - 修改的 5 个 TypeScript 文件 ESLint 通过；主语言契约检查 56,620 项通过；`git diff --check` 通过。
-- 初轮只增加两项针对已确认问题的回归，随后按真实退出反馈补充未授权初始化边界，其他复用现有用例。未访问生产服务、未修改 Aihub 权限或模型 ID。
+- 初轮只增加两项针对已确认问题的回归，随后按真实退出反馈补充未授权初始化边界，其他复用现有用例。未修改正式服务、Aihub 权限或模型 ID；模型请求沿用测试后端已有的 Aihub 依赖。
 
 真人验收建议：测试 App 使用独立 profile 登出后应只进入桌面登录页，不出现 `/signin` 二次导航；DevTools 可核对 clear-session / sign-out 请求先完成、本地授权后清理。补全实测需加载合并后的服务端路由，不能以旧测试服务的请求成功替代。
 
