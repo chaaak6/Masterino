@@ -20,7 +20,11 @@ const captureRequest = async (payload: ChatStreamPayload) => {
     fetch,
   });
   const response = await runtime.chat(payload);
-  expect(await response.text()).toContain('OK');
+  const output = await response.text();
+  expect(response.status).toBe(200);
+  expect(output).toContain('data: "OK"');
+  expect(output).not.toContain('event: error');
+  expect(output.match(/event: stop\n/g)).toHaveLength(1);
   return JSON.parse(String(fetch.mock.calls[0][1]?.body));
 };
 
@@ -79,35 +83,44 @@ describe('Aihub Kimi request compatibility at the SDK boundary', () => {
     },
   );
 
-  it('keeps K2.7 Code output controls and reasoning/tool continuation intact', async () => {
-    const wire = await captureRequest({
-      model: 'kimi-k2.7-code',
-      stream: true,
-      top_p: 1,
-      n: 2,
-      max_tokens: 8192,
-      messages: [
-        { role: 'user', content: 'Look up a synthetic test item.' },
-        {
-          role: 'assistant',
-          content: '',
-          reasoning: { content: 'Synthetic reasoning fixture.' },
-          tool_calls: [
-            { id: 'lookup-1', type: 'function', function: { name: 'lookup', arguments: '{}' } },
-          ],
-        },
-        { role: 'tool', tool_call_id: 'lookup-1', content: 'Synthetic item.' },
-      ],
-    });
-    expect(wire).toMatchObject({ max_tokens: 8192, thinking: { type: 'enabled' } });
-    expect(wire).not.toHaveProperty('max_completion_tokens');
-    expect(wire).not.toHaveProperty('top_p');
-    expect(wire).not.toHaveProperty('n');
-    expect(wire.messages[1]).toMatchObject({
-      reasoning_content: 'Synthetic reasoning fixture.',
-      tool_calls: [{ id: 'lookup-1' }],
-    });
-    expect(wire.messages[1]).not.toHaveProperty('reasoning');
-    expect(wire.messages[2]).toMatchObject({ role: 'tool', tool_call_id: 'lookup-1' });
-  });
+  it.each(['kimi-k2.7-code', 'kimi-k3', 'kimi-k3.1-pro'])(
+    'keeps output controls and reasoning/tool continuation intact for %s',
+    async (model) => {
+      const wire = await captureRequest({
+        model,
+        stream: true,
+        top_p: 1,
+        n: 2,
+        max_tokens: 8192,
+        messages: [
+          { role: 'user', content: 'Look up a synthetic test item.' },
+          {
+            role: 'assistant',
+            content: '',
+            reasoning: { content: 'Synthetic reasoning fixture.' },
+            tool_calls: [
+              { id: 'lookup-1', type: 'function', function: { name: 'lookup', arguments: '{}' } },
+            ],
+          },
+          { role: 'tool', tool_call_id: 'lookup-1', content: 'Synthetic item.' },
+        ],
+      });
+      if (model === 'kimi-k2.7-code') {
+        expect(wire).toMatchObject({ max_tokens: 8192, thinking: { type: 'enabled' } });
+        expect(wire).not.toHaveProperty('max_completion_tokens');
+      } else {
+        expect(wire).toMatchObject({ max_completion_tokens: 8192 });
+        expect(wire).not.toHaveProperty('max_tokens');
+        expect(wire).not.toHaveProperty('thinking');
+      }
+      expect(wire).not.toHaveProperty('top_p');
+      expect(wire).not.toHaveProperty('n');
+      expect(wire.messages[1]).toMatchObject({
+        reasoning_content: 'Synthetic reasoning fixture.',
+        tool_calls: [{ id: 'lookup-1' }],
+      });
+      expect(wire.messages[1]).not.toHaveProperty('reasoning');
+      expect(wire.messages[2]).toMatchObject({ role: 'tool', tool_call_id: 'lookup-1' });
+    },
+  );
 });
