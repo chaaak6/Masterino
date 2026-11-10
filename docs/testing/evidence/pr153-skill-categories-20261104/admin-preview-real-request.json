@@ -1,0 +1,18 @@
+[
+  {
+    "time": "04/Nov/2026:20:29:04 +0800",
+    "method": "GET",
+    "path": "/__pr153/trpc/lambda/admin.listCatalogResources",
+    "status": "200",
+    "upstreamService": "masterino-test-masterino-pr153-admin-3020",
+    "host": "admin-mlai-test.bielcrystal.com"
+  },
+  {
+    "time": "04/Nov/2026:20:29:32 +0800",
+    "method": "GET",
+    "path": "/__pr153/trpc/lambda/admin.listCatalogResources",
+    "status": "200",
+    "upstreamService": "masterino-test-masterino-pr153-admin-3020",
+    "host": "admin-mlai-test.bielcrystal.com"
+  }
+]

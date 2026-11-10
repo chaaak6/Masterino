@@ -1,0 +1,74 @@
+[
+  {
+    "name": "qa-153-20261104-legacy-retest",
+    "identifier": "user-85dd34a19f5a4c0c086268be"
+  },
+  {
+    "name": "qa-153-20261104-legacy",
+    "identifier": "user-78134cfb158c2921fb8eb261"
+  },
+  {
+    "name": "qa-153-20261104-b",
+    "identifier": "user-a7a5427264d1d1ed0a7e8f04"
+  },
+  {
+    "name": "qa-153-20261104-a",
+    "identifier": "user-53cba1d2a7a320c92073e700"
+  },
+  {
+    "name": "qa-slash-sync-1103",
+    "identifier": "user-fa5a37f7962f5fc523aa2534"
+  },
+  {
+    "name": "架构图与流程图",
+    "identifier": "user-a71df7d7365732cbe7e22a45"
+  },
+  {
+    "name": "qa-crystal-review-20261030",
+    "identifier": "user-3bc4b7e9ad2c066569359666"
+  },
+  {
+    "name": "qa-pr151-transport-final",
+    "identifier": "user-3b13cea61f91d3231c34a73c"
+  },
+  {
+    "name": "qa-pr151-reimport",
+    "identifier": "user-54fae62f82c8e3ca1cca225b"
+  },
+  {
+    "name": "qa-interrupted-large-20261029",
+    "identifier": "user-c309893e413c0578810e4dc1"
+  },
+  {
+    "name": "qa-interrupted-upload-20261029",
+    "identifier": "user-736bb0e27be88a213cd96c5d"
+  },
+  {
+    "name": "qa-retry-valid-20261029",
+    "identifier": "user-887fa8b52134a9ba61515444"
+  },
+  {
+    "name": "qa-retry-valid-20261029",
+    "identifier": "user-645f0fd544c109da20e5a8ac"
+  },
+  {
+    "name": "架构图与流程图",
+    "identifier": "curated-architecture-diagrams"
+  },
+  {
+    "name": "自然商务写作",
+    "identifier": "curated-natural-writing"
+  },
+  {
+    "name": "PDF 与图片文字提取",
+    "identifier": "curated-ocr-extractor"
+  },
+  {
+    "name": "Excel/WPS 表格自动化",
+    "identifier": "curated-excel-automation"
+  },
+  {
+    "name": "智能图表",
+    "identifier": "curated-smart-charts"
+  }
+]

@@ -104,6 +104,14 @@ export class AgentSkillsActionImpl {
     return result;
   };
 
+  importAgentSkillFromMarket = async (
+    identifier: string,
+  ): Promise<SkillImportResult | undefined> => {
+    const result = await agentSkillService.importFromMarket(identifier);
+    await this.#refreshImportedSkill(result);
+    return result;
+  };
+
   importAgentSkillFromUrl = async (
     params: ImportUrlInput,
   ): Promise<SkillImportResult | undefined> => {
@@ -121,7 +129,13 @@ export class AgentSkillsActionImpl {
   };
 
   refreshAgentSkills = async (): Promise<void> => {
-    const { data } = await agentSkillService.list();
+    const request = agentSkillService.list();
+    await mutate(
+      toolKeys.agentSkills(),
+      request.then(({ data }) => data),
+      { revalidate: false },
+    );
+    const { data } = await request;
     this.#set({ agentSkills: data }, false, n('refreshAgentSkills'));
   };
 

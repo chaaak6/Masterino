@@ -1,0 +1,45 @@
+{
+  "before": {
+    "resource": {
+      "identifier": "qa153-fixture-page-03",
+      "category": "web-frontend-development",
+      "status": "published",
+      "current_version_id": "168",
+      "confirmed_at": null,
+      "version_count": 1
+    },
+    "versions": [
+      {
+        "id": "168",
+        "version": "1.0.0",
+        "workflow_state": "published",
+        "artifact_sha256": "5cdb6928cc2f96dcbccbc60337529f59fb17891832ef56acec9214cd42b889d3"
+      }
+    ]
+  },
+  "after": {
+    "resource": {
+      "identifier": "qa153-fixture-page-03",
+      "category": "design",
+      "status": "published",
+      "current_version_id": "168",
+      "confirmed_at": "2026-11-04T11:14:49.533064+00:00",
+      "version_count": 1
+    },
+    "versions": [
+      {
+        "id": "168",
+        "version": "1.0.0",
+        "workflow_state": "published",
+        "artifact_sha256": "5cdb6928cc2f96dcbccbc60337529f59fb17891832ef56acec9214cd42b889d3"
+      }
+    ]
+  },
+  "checks": {
+    "status": true,
+    "current_version_id": true,
+    "version_count": true,
+    "versions_and_zip_hash_unchanged": true,
+    "category_changed": true
+  }
+}

@@ -8,6 +8,7 @@ import { type NextRequest } from 'next/server';
 
 import { type TrustedClientUserInfo } from '@/libs/trusted-client';
 import { generateTrustedClientToken, getTrustedClientTokenForSession } from '@/libs/trusted-client';
+import type { SkillCategorySummary } from '@/types/discover';
 import { getInternalMarketBaseUrl } from '@/utils/internalMarket';
 
 import { normalizeMarketListAuthors } from './normalizeAuthor';
@@ -503,10 +504,33 @@ export class MarketService {
   /**
    * Get skill categories
    */
-  async getSkillCategories() {
-    log('getSkillCategories');
+  async getSkillCategorySummary(
+    params: { q?: string; locale?: string } = {},
+  ): Promise<SkillCategorySummary> {
+    const url = new URL(`${getInternalMarketBaseUrl()}/api/v1/skills/category-summary`);
+    if (params.q) url.searchParams.set('q', params.q);
+    if (params.locale) url.searchParams.set('locale', params.locale);
+    const sdk = this.market as unknown as { headers: Record<string, string> };
+    const response = await fetch(url, { headers: sdk.headers, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Skill categories unavailable (${response.status})`);
+    return response.json();
+  }
 
-    return this.market.marketSkills.getCategories();
+  async getSkillCategories(params: { q?: string; locale?: string } = {}) {
+    const summary = await this.getSkillCategorySummary(params);
+    return [
+      ...summary.categories,
+      {
+        category: 'uncategorized',
+        key: 'uncategorized',
+        name: params.locale?.startsWith('vi')
+          ? 'Chưa phân loại'
+          : params.locale && !params.locale.startsWith('zh')
+            ? 'Uncategorized'
+            : '待分类',
+        count: summary.uncategorizedCount,
+      },
+    ];
   }
 
   /**

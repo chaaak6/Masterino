@@ -21,6 +21,10 @@ vi.mock('./WorkspaceGroupList', () => ({
   default: () => <div>Agent Groups</div>,
 }));
 
+vi.mock('./WorkspaceSkillList', () => ({
+  default: () => <div>Skills</div>,
+}));
+
 vi.mock('./WorkspacePluginList', () => ({
   default: () => <div>MCP</div>,
 }));
@@ -101,6 +105,7 @@ describe('WorkspaceContent', () => {
     );
 
     expect(screen.getByText('Created Agents')).toBeInTheDocument();
+    expect(screen.getByText('Skills')).toBeInTheDocument();
     expect(screen.getByText('MCP')).toBeInTheDocument();
   });
 });

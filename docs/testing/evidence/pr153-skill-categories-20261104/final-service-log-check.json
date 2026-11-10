@@ -1,0 +1,38 @@
+{
+  "from": "2026-11-04T12:54:00Z",
+  "until": "2026-11-04T13:04:19.508372+00:00",
+  "environment": "masterino-test only",
+  "rawLogsCommitted": false,
+  "services": {
+    "api": {
+      "lines": 0,
+      "signals": {
+        "accountId mismatch": 0,
+        "ECONNREFUSED": 0,
+        "fetch failed": 0,
+        "does not exist": 0,
+        "immutable": 0,
+        "invalid input syntax": 0,
+        "UnhandledPromiseRejection": 0,
+        "INTERNAL_SERVER_ERROR": 0,
+        "TRPCError": 0
+      },
+      "errorWordLines": 0
+    },
+    "market": {
+      "lines": 0,
+      "signals": {
+        "accountId mismatch": 0,
+        "ECONNREFUSED": 0,
+        "fetch failed": 0,
+        "does not exist": 0,
+        "immutable": 0,
+        "invalid input syntax": 0,
+        "UnhandledPromiseRejection": 0,
+        "INTERNAL_SERVER_ERROR": 0,
+        "TRPCError": 0
+      },
+      "errorWordLines": 0
+    }
+  }
+}

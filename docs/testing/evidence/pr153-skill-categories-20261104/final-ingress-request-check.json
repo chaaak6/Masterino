@@ -1,0 +1,79 @@
+{
+  "from": "2026-11-04 20:54 Asia/Shanghai",
+  "scope": "test host; dedicated test App UA or /__pr153 admin RPC only; ingress supplement",
+  "httpStatusCounts": {
+    "200": 133,
+    "401": 7,
+    "404": 6
+  },
+  "skillCatalogRequests": [
+    {
+      "path": "/trpc/lambda/market.skill.getSkillCategorySummary,market.skill.getSkillList,market.getMcpList",
+      "status": "200",
+      "count": 1
+    },
+    {
+      "path": "/trpc/lambda/market.skill.getSkillList,market.skill.getSkillCategorySummary",
+      "status": "200",
+      "count": 2
+    },
+    {
+      "path": "/trpc/lambda/market.skill.getSkillCategorySummary,market.skill.getSkillList",
+      "status": "200",
+      "count": 4
+    },
+    {
+      "path": "/trpc/lambda/market.skill.getSkillCategorySummary",
+      "status": "200",
+      "count": 2
+    },
+    {
+      "path": "/trpc/lambda/market.skill.getSkillCategorySummary,agentSkills.list",
+      "status": "200",
+      "count": 1
+    },
+    {
+      "path": "/trpc/lambda/market.user.getUserByUsername,market.skill.getSkillCategorySummary,market.skill.getSkillList,market.getMcpList",
+      "status": "200",
+      "count": 2
+    },
+    {
+      "path": "/trpc/lambda/aihub.getBindingStatus,market.skill.getSkillCategorySummary,market.skill.getSkillList",
+      "status": "200",
+      "count": 1
+    },
+    {
+      "path": "/trpc/lambda/aihub.getBindingStatus,home.getSidebarAgentList,market.skill.getSkillCategorySummary,market.skill.getSkillList",
+      "status": "200",
+      "count": 1
+    },
+    {
+      "path": "/trpc/lambda/market.skill.getSkillList,market.getMcpList,market.user.getUserByUsername",
+      "status": "200",
+      "count": 1
+    },
+    {
+      "path": "/trpc/lambda/aihub.getBindingStatus,userMemory.getPersona,home.getSidebarAgentList,market.skill.getSkillCategorySummary,market.skill.getSkillList",
+      "status": "200",
+      "count": 1
+    }
+  ],
+  "rawHeadersAndQueriesStored": false,
+  "nonSuccessPaths": [
+    {
+      "path": "/trpc/lambda/user.getUserState",
+      "status": "401",
+      "count": 7
+    },
+    {
+      "path": "/oidc/handoff",
+      "status": "404",
+      "count": 6
+    }
+  ],
+  "interpretation": {
+    "skillCatalog": "All observed list/category-summary requests returned HTTP 200; no 5xx in this scoped sample.",
+    "handoff404": "AuthCtr.pollForCredentials explicitly treats HTTP404 as pending; backend handoff route returns404 while no credential record exists. Do not label these as catalog failures.",
+    "userState401": "Unauthenticated user-state requests occurred during account switching; final App login and business flows completed. Status alone is not a payload-level assertion."
+  }
+}

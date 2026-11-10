@@ -61,6 +61,7 @@ const slugify = (value: string) =>
 
 const submitSkillArchive = async (input: {
   actAs?: number;
+  category?: string;
   archive: Buffer;
   headers: Record<string, string>;
   identifier: string;
@@ -89,6 +90,7 @@ const submitSkillArchive = async (input: {
     new Blob([new Uint8Array(archive)], { type: 'application/zip' }),
     `${input.identifier}.zip`,
   );
+  if (input.category) form.set('category', input.category);
   form.set('manifest', JSON.stringify(manifest));
   form.set('metadata', JSON.stringify(input.metadata));
   form.set('name', parsed.manifest.name);
@@ -417,18 +419,19 @@ export const socialProfileRouter = router({
     }),
 
   submitPersonalSkill: socialProfileAuthProcedure
-    .input(z.object({ skillId: z.string().min(1) }))
+    .input(z.object({ skillId: z.string().min(1), category: z.string().trim().min(1).optional() }))
     .mutation(({ ctx, input }) =>
       new SkillPublishingService(
         ctx.serverDB,
         ctx.userId,
         ctx.workspaceId ?? undefined,
-      ).submitPersonal(input.skillId),
+      ).submitPersonal(input.skillId, input.category),
     ),
 
   submitZip: socialProfileAuthProcedure
     .input(
       z.object({
+        category: z.string().trim().min(1).optional(),
         actAs: z.number().int().positive().optional(),
         zipFileId: z.string().min(1),
         sourceRef: z.string().max(2000).optional(),
@@ -448,6 +451,7 @@ export const socialProfileRouter = router({
           const identifier = `user-${slugify(parsed.manifest.name)}-${nanoid(8).toLowerCase()}`;
           return await submitSkillArchive({
             actAs: input.actAs,
+            category: input.category,
             archive,
             headers,
             identifier,
@@ -460,7 +464,7 @@ export const socialProfileRouter = router({
           ctx.serverDB,
           ctx.userId,
           ctx.workspaceId ?? undefined,
-        ).submitArchive(archive, input.sourceRef);
+        ).submitArchive(archive, input.sourceRef, input.category);
       } catch (error) {
         if (error instanceof SkillManifestError || error instanceof SkillParseError) {
           throw new TRPCError({ cause: error, code: 'BAD_REQUEST', message: error.message });

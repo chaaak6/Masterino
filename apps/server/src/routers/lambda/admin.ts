@@ -2387,6 +2387,7 @@ export const adminRouter = router({
   reviewMarketResource: adminProcedure
     .input(
       z.object({
+        category: z.string().trim().min(1).optional(),
         versionId: z.number().int().positive().optional(),
         expectedState: z.string().optional(),
         action: z.enum([
@@ -2411,6 +2412,7 @@ export const adminRouter = router({
         {
           body: {
             action: input.action,
+            category: input.category,
             reason: input.reason,
             scanResult: input.scanResult,
             versionId: input.versionId,
@@ -2489,6 +2491,17 @@ export const adminRouter = router({
         { body: { version: input.version }, method: 'POST' },
       ),
     ),
+
+  updateSkillCategory: adminProcedure
+    .input(z.object({ identifier: z.string().min(1), category: z.string().trim().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireSkillManage(ctx);
+      return callInternalMarketAdmin(
+        ctx,
+        `/api/internal/resources/skill/${encodeURIComponent(input.identifier)}/category`,
+        { method: 'PATCH', body: { category: input.category } },
+      );
+    }),
 
   listMarketCategories: adminProcedure.query(async ({ ctx }) =>
     callInternalMarketAdmin<{ items: unknown[] }>(ctx, '/api/internal/categories'),
