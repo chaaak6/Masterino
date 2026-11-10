@@ -1,0 +1,109 @@
+# 法规全文与案例检索验收
+
+2026-11-05：实现前定义。范围仅现有离线 MCP，复用测试社区共享 HTTP 链路；不改客户端、主服务、数据库结构和生产配置。
+
+协议边界：真实 HTTP MCP tools/list、tools/call。真人边界：连接测试集群的独立 Electron + 测试管理后台。日志只记录工具名、状态和耗时，不记录查询或案件材料。
+
+| 编号 | Given / When | Then |
+| --- | --- | --- |
+| S01 | 不知道法规名，搜索“加班工资” | search_articles 跨法规返回相关原文摘录、法规名、条号、版本、来源；可继续 get_article 核对全文 |
+| S02 | 搜索“延长工作时间”，限定劳动法 | 只返回该法命中；limit 限制结果，披露截断；缺失法规明确说明 |
+| S03 | 搜索不存在关键词或空查询 | 无结果或参数错误，不编造；随后正常查询仍成功 |
+| C01 | 检索“劳动报酬 奖金” | search_cases 返回快照内相关指导性/公报案例 id、类型、标题、摘录和官方来源；声明并非全国案例库 |
+| C02 | 用 search_cases 返回 id 获取详情 | get_case 返回案情、裁判要点/理由/结果或公报正文、官方来源和版本；长正文可按 offset/limit 续取并明确截断 |
+| C03 | 查询不存在 id、限制案例类型、并发查询 | 不存在明确返回，类型筛选有效，不串结果，不存在路径读取 |
+| R01 | 原有 search_laws/get_article/search_in_law | 原输入和原文行为不变，民法典577条、劳动合同法关键词和无结果恢复通过 |
+| R02 | 测试后台重新测试连接、发布新版本，测试 app 安装/更新 | 六个工具可见，复用原 identifier、URL 和认证；无 Key 要求、无本地 npx |
+| R03 | 普通对话与其他已有远程 MCP | 普通对话流式完成；Microsoft Learn 只读检索正常 |
+| R04 | 部署前后核对 | 只更新测试法条 Deployment；其他 Deployment 镜像/副本数不变；生产不变；关注启动时间、内存、重启 |
+
+先逐项加入协议失败测试，再实现对应能力。准备脚本使用现有固定归档校验并校验案例；无需自动更新语料或向量库。案例数据含278件指导性案例、445件公报案例；企业信用信息不在范围内。
+
+## 执行记录
+
+待实施：逐项填写实际时间、镜像、工具请求与结果、日志、截图。模型未实际调用工具不能算通过。验收失败先定位修正并复测。最终提交 PR，不合并、不部署生产。
+
+## 2026-11-05 首轮实际验收
+
+测试 namespace `masterino-test`，客户端使用独立 `masterino-desktop-test-server` profile，连接 `https://mlai-test.bielcrystal.com`。不使用正式客户端 profile。服务代码提交 `e8d10dc4`，镜像 `sha256:bb24d7db1af89150d258273a8fd11d04e2e4fcbf8031167af7c26268351fc362`，阿里云 ACR 远程构建执行协议测试与快照准备成功。本机没有构建 Docker 镜像。
+
+| 用例 | 结果与证据 |
+| --- | --- |
+| S01 | 通过。12:08初测、12:22修复后复测，实际 `search_articles(query="加班工资",limit=5)` 返回劳动法44条和劳动合同法等跨法规摘录；随后原 get_article 获取民法典577条原文。 |
+| S02 | 通过。真实 HTTP SDK 测试覆盖指定劳动法和limit=1的范围及截断；真人案例查询limit=1亦只返回1件。 |
+| S03 | 先失败、修正后通过。12:13前“量子法规QA1105XYZ”只匹配通用词“法规”却返回5356条。补失败协议测试；改为至少一半分词组命中。12:22同一客户端话题、同一查询重新调用，明确返回“未检索到”。“加班工资”和案例182查询仍成功。空输入及错误后恢复另有协议测试。 |
+| C01 | 通过。实际search_cases查询“奖金 审批义务”，首位返回guiding-182，附最高法官方URL。kind=gazette、limit=1查询“合同”，只返回公报案例。仅收录723件案例，未宣称全国覆盖。 |
+| C02 | 通过。真实get_case(guiding-182)返回案情、裁判要点/理由/结果及官方来源。offset=0/100、limit=100两页范围0-100、100-200，下一页100/200，均显示截断和版本。12:22新镜像再次返回0-100/2278及下一页100。 |
+| C03 | 通过。真实get_case(not-found-qa1105)明确未找到，不编造；类型筛选通过。协议测试覆盖并发、路径式未知id和正常调用恢复。 |
+| R01 | 通过。真人search_laws(劳动合同)、search_in_law(劳动合同法,试用期)、get_article(民法典,577)均返回原有格式和原文。原9项协议测试保留，另现有安装/调用67项Vitest测试通过。 |
+| R02 | 通过（既有后台限制见下）。测试后台测试连接发现6工具，真实提交→扫描→批准→发布，客户端社区真实安装显示“已安装”，无Key要求。DevTools捕获market.callCloudMcpEndpoint POST HTTP200；参数含测试identifier、version=1.1.0、get_article及577；响应success=true和原文。 |
+| R03 | 通过。普通对话话题tpc_9gQRAhuJeEEA仅回复43。Microsoft Learn话题tpc_PlpFXDho7mv3实际激活并执行microsoft_docs_search，返回https://learn.microsoft.com/azure/app-service/overview。 |
+| R04 | 通过。部署前后Deployment镜像/Ready对比，仅masterino-chinese-law-mcp镜像变化，其他Deployment未改；Ingress未改。新Pod Ready、0次重启。冷首次全文检索约2.9秒，案例加载/查询约1.5秒，后续详情毫秒级；仅单次观察，不代表容量压测。生产未部署。 |
+
+主验收话题：`tpc_ZC2fGcMZ0P3v`（测试账号masterinoTest）。MCP日志与业务工具记录核对：identifier均为本次测试条目，六个工具有实际成功返回；新服务没有401或API Key校验。工具日志不记录查询正文。截图、工具参数/返回和日志保存在本机 `/tmp/law-expansion-evidence/`，不提交登录态、私有凭证或HAR。
+
+### 验收发现与范围说明
+
+- 后台创建MCP接口不支持相同identifier的新版本（仅Skill支持该入口的追加版本），提交masterino-chinese-law返回Resource already exists。这是既有后台限制，本次未改后台。改用独立测试目录条目`masterino-chinese-law-search-test`，版本1.1.0，指向同一测试服务URL；原masterino-chinese-law记录、manifest及连接保持，原三个工具仍可用。正式上线前需通过既有版本接口更新旧资源manifest并审批发布，或另行补后台版本管理；只替换镜像不会自动更新社区工具白名单。
+- 测试后台直接加载/mcp存在既有503预览路由，先打开根入口再通过SPA菜单进入可正常验收；未修改路由或其他Deployment。
+- 手动批准并行工具调用时，模型曾报告部分空内容并发起补充调用；同批服务端日志均为200、业务工具记录已有原始返回。完成补充只读查询后结果正常，未修改通用Agent/审批流程，也未将模型自述作为成功证据。
+- 检索为中文分词、常用用语扩展和关键词排序，不是语义检索；结果仍需判断相关性。没有新增向量数据库、供应商Key、企业信用查询或全国裁判文书抓取。
+
+### 首轮自动 review 修正与复测
+
+四项合理问题分别补失败协议用例后修复：全文匹配只检查条文正文，不以法规标题让整部法命中；过滤法律/法规等通用词，一至两个有效词组需全部命中，更多词组至少半数；案例offset超出正文时明确提示从0读取，不返回倒置范围；别名表只读取自有属性，constructor等查询不抛异常。该轮共20项HTTP协议测试通过；完整固定快照及阿里云远程构建也通过。
+
+该轮服务镜像即上文 `bb24d7db…`。12:47–12:49在同一测试Electron话题重新实际调用7次并核对日志/工具记录：
+
+- 民法典正文检索返回406条候选，前两条摘录正文含“民法典”，不再将民法典1260条全部视为标题命中。
+- “量子法规”返回1条《集成电路布图设计保护条例》第三条，正文确含“量子”；保留真实词汇命中，不为了零结果而屏蔽真实数据。
+- 两个搜索工具分别查询constructor，均明确无结果，没有异常。
+- guiding-182的offset=99999明确超出2278字符范围，提示offset: 0。
+- 同一个“量子法规QA1105XYZ”继续明确无结果。
+- 民法典577条仍返回原文，错误/无结果后正常调用不受影响。
+
+最终客户端回答与上述原始返回一致；截图 `app-reviewed-pass.png`，原始工具记录 `review-tool-records.json`，日志 `review-service.log` 均在本机验收目录。没有修改客户端或通用工具运行逻辑。
+
+## PR155 后续 review 验收计划
+
+新边界：法名辅助但不允许仅标题命中、所有有效词组匹配、加班费同义词、纯通用词的细化提示、EOF等于总长度、服务版本1.1.0。仅测试现有HTTP接口及测试Electron；不改主服务、客户端或生产。
+
+| 编号 | When | Then |
+| --- | --- | --- |
+| V01 | search_articles("刑法 盗窃") | 命中刑法264条，摘录正文含盗窃；标题单独查询不返回整部法规 |
+| V02 | search_articles("加班工资",law="劳动合同法") | 包含仅写加班费的第31条，不漏检 |
+| V03 | 两个搜索工具只查“条例/法律/法规” | 明确提示具体关键词，不谎报语料无数据 |
+| V04 | 查询“加班 工资 XYZ” | 追加关键词不放宽到仅匹配工资/加班的条文 |
+| V05 | get_case(guiding-182,offset=2278)，并对比offset=99999 | 等于末尾返回已到末尾；真正越界仍明确提示，不倒置范围 |
+| V06 | HTTP initialize 与原文/案例正常查询 | serverInfo.version=1.1.0，原民法典577条及指导案例182仍正常 |
+
+## PR155 review 修复后实际验收
+
+2026-11-05 13:32–13:41，代码提交 `c570c9b3`。当前测试镜像为 `sha256:0b1d104b659bde20272d0e5eabc676b71b2a4f7caab3afe67d5e01af07380716`，ACR远程构建成功。只替换测试法条Deployment镜像，其他Deployment镜像及Ready数不变，Ingress和生产未改。initialize实际返回serverInfo.version=1.1.0。
+
+最终检索规则为所有有效词组均须命中；法名可以辅助匹配，但至少一个词须命中正文。此规则替代首轮的半数覆盖率，避免增加查询词反而扩大结果。加班费加入工资别名组；纯通用词提示细化查询。没有引入新依赖或修改通用Agent/客户端。
+
+26项真实HTTP协议测试全部通过。每项新增边界先观察失败，再修复转绿；完整固定语料亦验证刑法264条、劳动合同法31条、案例182和EOF。原三工具协议测试保留。
+
+独立测试Electron中创建干净话题 `tpc_kCKMFhM9K7ac`，测试账号masterinoTest，保留手动批准模式，逐个点击批准、等结果再继续。原始工具记录和MCP服务日志共同核对，8项均成功，无工具error：
+
+| 用例 | 真实结果 |
+| --- | --- |
+| V01 | search_articles("刑法 盗窃",limit=10)返回58条候选，前10条包括第二百六十四条。 |
+| V02 | search_articles("加班工资",law="劳动合同法",limit=20)返回31、62、85条，第三十一条包含加班费。 |
+| V03 | search_articles("条例")与search_cases("法规")均明确提示提供具体关键词。 |
+| V04 | search_articles("加班 工资 XYZ")明确未检索到，没有退化为仅匹配工资。 |
+| V05 | get_case(guiding-182,offset=2278)返回2278–2278/2278、已到末尾；offset=99999越界提示由协议测试及前轮真人测试覆盖。 |
+| V06 | search_cases("奖金 审批义务",limit=3)命中guiding-182；随后get_article(民法典,577)仍返回原文。初始化版本1.1.0经测试集群真实请求确认。 |
+
+本轮证据保存在本机 `/tmp/pr155-review-evidence/`：protocol.log、tools.json、service.log、deployments-after.txt、app-pass.png。不提交私有凭证/登录态。PR保持未合并，未部署生产。前轮普通对话及Microsoft Learn回归仍适用，本轮未修改其代码或服务。
+
+## 2026-11-09 review 集中复核
+
+PR HEAD 833becdc 的CI协议、App双分片、Server、Database、Packages、Desktop、Coverage全部通过；重复任务跳过不视为失败。26项本地真实HTTP协议测试再次全通过。GitHub reviewThreads复核无未解决的行内讨论。
+
+最后review总结提出旧资源manifest只有三工具的疑问，不需要扩大业务代码修改：DiscoverService先读取指定identifier的已发布白名单，再仅允许其中的工具调用；服务器多提供工具不会自动增加旧资源权限，也没有移除旧三工具。此前已从测试主服务Pod用测试用户的现有可信身份读取旧identifier `masterino-chinese-law` 的共享连接，HTTP200，发布工具为search_laws/get_article/search_in_law；经同样白名单检查、initialize和tools/call，分别返回劳动合同目录、试用期摘录和民法典577条，全部成功。初始化报告1.1.0是服务实现版本，旧目录1.0.0保留三工具合同；两者并非必须相等。旧资源使用新增三工具仍需更新manifest并审批，此限制是预期行为，不是原功能回归。
+
+完整原始证据：本机 `/tmp/pr155-review-evidence/old-entry-compat.jsonl`；旧测试账号未加载旧标识符的客户端激活结果不算通过证据。前述三工具验证是Pod内协议验收，独立新测试条目的八项验证才是客户端真人验收，二者分别记录，避免混淆。
+
+本轮真人点击复测：2026-11-09 14:26–14:29，独立test-server Electron连接mlai-test；话题tpc_ZAEFMg1VsoMJ。实际点击激活及逐次批准search_articles(刑法 盗窃,limit=10)、get_article(民法典,577)、search_cases(奖金 审批义务,limit=1)，分别命中刑法264条、民法典577条、指导案例182。测试Pod镜像仍为0b1d104b…，三项服务日志HTTP200；只读业务工具记录含激活及三项调用，均有content且error为空。证据 `/tmp/pr155-1109-app-pass.png`、`/tmp/pr155-1109-service.log`、`/tmp/pr155-1109-tools.json`。本轮只补review结论和验收证据，没有修改业务代码或部署任何服务。
