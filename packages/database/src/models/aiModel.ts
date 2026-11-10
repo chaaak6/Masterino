@@ -198,7 +198,10 @@ export class AiModelModel {
       } else {
         [existing] = await db.select().from(aiModels).where(ownership).limit(1);
       }
-      const persistedCatalog = getModelCatalogFromSettings(existing?.settings);
+      const persistedCatalog = getModelCatalogFromSettings(
+        existing?.settings,
+        existing?.contextWindowTokens ?? undefined,
+      );
       const snapshotEntry = input.modelCatalogSnapshot?.entry;
       const exactSnapshot =
         snapshotEntry?.modelId === input.modelId && snapshotEntry.providerId === input.providerId
@@ -209,7 +212,14 @@ export class AiModelModel {
         persistedCatalog.entry.providerId === input.providerId
           ? persistedCatalog
           : exactSnapshot
-            ? { denied: false, drift: [], entry: exactSnapshot, version: 1 }
+            ? {
+                denied: false,
+                drift: [],
+                entry: exactSnapshot,
+                contextWindowBaseline: input.modelCatalogSnapshot?.contextWindowBaseline,
+                contextWindowCandidate: input.modelCatalogSnapshot?.contextWindowCandidate,
+                version: 1,
+              }
             : undefined;
       if (!baseCatalog) return false;
 

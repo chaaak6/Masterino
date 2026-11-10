@@ -102,10 +102,13 @@ test('Given the main interface, Then check once after mount, every 30 minutes, a
   await expect(page.getByRole('button', { name: 'BDD Updated', exact: true })).toBeVisible();
   const refreshed = await api.modelCatalog.check.query();
   const refreshedModel = refreshed.models.find((model: any) => model.id === 'bdd-chat');
-  expect(refreshedModel.contextWindowTokens).toBe(128000);
+  expect(refreshedModel.contextWindowTokens).toBe(64000);
+  expect(refreshedModel.settings.modelCatalog.entry.contextWindowTokens).toBe(64000);
   expect(refreshedModel.settings.managedModelCatalog.description.contextWindowTokens).toBe(64000);
   await expect(page.getByTestId('selected')).toHaveText('bdd-chat');
   await expect(page.getByTestId('running')).toHaveText('128000');
+  await page.getByRole('button', { name: '开始任务', exact: true }).click();
+  await expect(page.getByTestId('running')).toHaveText('64000');
   await page.getByRole('button', { name: '开始手动刷新', exact: true }).click();
   const count = await page.getByTestId('checks').textContent();
   await page.clock.runFor(30 * 60_000);

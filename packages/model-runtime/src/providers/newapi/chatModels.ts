@@ -8,6 +8,7 @@ import { params as zhipuParams } from '../zhipu';
 
 // Sources: https://platform.kimi.com/docs/guide/kimi-k2-7-code-quickstart
 // https://platform.kimi.ai/docs/guide/kimi-k3-quickstart
+// https://cloud.tencent.cn/document/product/1823/132232
 // https://docs.qwencloud.com/developer-guides/text-generation/thinking
 // These adapters apply only to exact Aihub chat IDs. They never change native providers.
 export const buildAihubKimiPayload = (payload: ChatStreamPayload) => {
@@ -15,6 +16,7 @@ export const buildAihubKimiPayload = (payload: ChatStreamPayload) => {
     enabledSearch: _enabledSearch,
     frequency_penalty: _frequency_penalty,
     max_tokens,
+    n: _n,
     presence_penalty: _presence_penalty,
     preserveThinking: _preserveThinking,
     temperature: _temperature,
@@ -22,6 +24,7 @@ export const buildAihubKimiPayload = (payload: ChatStreamPayload) => {
     top_p: _top_p,
     ...rest
   } = payload;
+  const isK3 = payload.model === 'kimi-k3' || payload.model === 'kimi-k3.1-pro';
   return {
     ...rest,
     messages: payload.messages.map((message) => {
@@ -31,10 +34,11 @@ export const buildAihubKimiPayload = (payload: ChatStreamPayload) => {
         ...(reasoning?.content !== undefined ? { reasoning_content: reasoning.content } : {}),
       };
     }),
-    // Both current Kimi models require thinking. Fixed sampling parameters must be omitted.
-    thinking: { type: 'enabled' },
+    // K3 uses reasoning_effort; only K2.7 Code accepts the thinking switch.
+    // Omit fixed sampling parameters rather than forwarding generic user defaults.
+    ...(!isK3 ? { thinking: { type: 'enabled' } } : {}),
     ...(max_tokens !== undefined
-      ? payload.model === 'kimi-k3'
+      ? isK3
         ? { max_completion_tokens: Math.min(max_tokens, 1_048_576) }
         : { max_tokens }
       : {}),

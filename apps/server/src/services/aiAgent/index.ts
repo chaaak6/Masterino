@@ -785,7 +785,7 @@ export class AiAgentService {
         const catalog = getModelCatalogFromSettings(selected.settings);
         if (!catalog || (requireChatEligibility && !isPersistedModelChatEligible(catalog)))
           throw new Error(`MODEL_NOT_CHAT_ELIGIBLE: ${provider}/${model}`);
-        return createModelCatalogSnapshot(catalog.entry, operationId);
+        return createModelCatalogSnapshot(catalog, operationId);
       }
       if (effective.status === 'unavailable' || (effective.status === 'changed' && effective.stale))
         throw new Error(`MODEL_CATALOG_UNAVAILABLE: ${provider}/${model}`);
@@ -833,7 +833,7 @@ export class AiAgentService {
       throw new Error(`MODEL_NOT_CHAT_ELIGIBLE: ${provider}/${model}`);
     }
 
-    return createModelCatalogSnapshot(catalog.entry, operationId);
+    return createModelCatalogSnapshot(catalog, operationId);
   }
 
   /**

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import {
+  applyPublishedContextWindow,
   createModelCatalogSnapshot,
   getModelCatalogFromSettings,
   mergeModelCatalogEntry,
@@ -30,6 +31,100 @@ afterEach(async () => {
 });
 
 describe('AiModelModel', () => {
+  it('preserves a newer row capacity when recording rejection evidence without a snapshot', async () => {
+    const catalog = mergeModelCatalogEntry({ modelId: 'edited-chat', providerId: 'newapi' });
+    await aiProviderModel.create({
+      contextWindowTokens: 32_000,
+      id: 'edited-chat',
+      providerId: 'newapi',
+      settings: { disabledParams: ['temperature'], modelCatalog: catalog },
+    });
+    await aiProviderModel.update('edited-chat', 'newapi', { contextWindowTokens: 1_000_000 });
+
+    await aiProviderModel.recordContextWindowRejection({
+      contextWindowRejectionTokens: 50_000,
+      modelId: 'edited-chat',
+      providerId: 'newapi',
+      verifiedAt: new Date().toISOString(),
+    });
+
+    const row = await aiProviderModel.findByIdAndProvider('edited-chat', 'newapi');
+    const persisted = getModelCatalogFromSettings(row?.settings)!;
+    expect(row?.contextWindowTokens).toBe(50_000);
+    expect(persisted.contextWindowCandidate?.tokens).toBe(1_000_000);
+    expect(row?.settings?.disabledParams).toEqual(['temperature']);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(Date.now() + 31 * 24 * 60 * 60_000));
+      const expired = getModelCatalogFromSettings(
+        row?.settings,
+        row?.contextWindowTokens ?? undefined,
+      )!;
+      expect(expired.entry.contextWindowTokens).toBe(1_000_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['missing', 128_000],
+    ['mismatched', undefined],
+    ['mismatched', 128_000],
+  ] as const)(
+    'preserves baseline for %s catalog with provider ceiling %s when persisting a snapshot rejection',
+    async (state, ceiling) => {
+      if (state === 'mismatched') {
+        await aiProviderModel.create({
+          id: 'published-chat',
+          providerId: 'newapi',
+          settings: {
+            disabledParams: ['temperature'],
+            modelCatalog: mergeModelCatalogEntry({
+              modelId: 'different-model',
+              providerId: 'newapi',
+            }),
+          },
+        });
+      }
+      const initial = mergeModelCatalogEntry({
+        modelId: 'published-chat',
+        providerId: 'newapi',
+        providerMetadata: { contextWindowTokens: ceiling },
+      });
+      const published = applyPublishedContextWindow(initial, 1_000_000);
+      const snapshot = createModelCatalogSnapshot(published, 'published-operation');
+      expect(
+        await aiProviderModel.recordContextWindowRejection({
+          modelId: 'published-chat',
+          providerId: 'newapi',
+          contextWindowRejectionTokens: 64_000,
+          modelCatalogSnapshot: snapshot,
+          verifiedAt: new Date().toISOString(),
+        }),
+      ).toBe(true);
+      const row = await aiProviderModel.findByIdAndProvider('published-chat', 'newapi');
+      const persisted = getModelCatalogFromSettings(row?.settings)!;
+      expect(persisted.contextWindowBaseline).toMatchObject({
+        source: ceiling ? 'provider-meta' : 'unknown',
+        tokens: ceiling ?? 32_000,
+      });
+      expect(applyPublishedContextWindow(persisted, null).entry.contextWindowTokens).toBe(
+        ceiling ? 64_000 : 32_000,
+      );
+      const expired = applyPublishedContextWindow(
+        persisted,
+        null,
+        new Date(Date.now() + 31 * 24 * 60 * 60_000),
+      );
+      expect(expired.entry).toMatchObject({
+        contextWindowTokens: ceiling ?? 32_000,
+        contextWindowSource: ceiling ? 'provider-meta' : 'unknown',
+      });
+      if (state === 'mismatched') expect(row?.settings?.disabledParams).toEqual(['temperature']);
+    },
+  );
+
   describe('create', () => {
     it('should create a new ai provider', async () => {
       const params: NewAiModelItem = {

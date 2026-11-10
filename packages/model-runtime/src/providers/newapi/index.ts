@@ -209,7 +209,7 @@ export const params = {
       },
       ...[
         { models: ['glm-5.2', 'glm-5.3', 'glm-5.3-flash'], runtime: AihubGlmRuntime },
-        { models: ['kimi-k2.7-code', 'kimi-k3'], runtime: AihubKimiRuntime },
+        { models: ['kimi-k2.7-code', 'kimi-k3', 'kimi-k3.1-pro'], runtime: AihubKimiRuntime },
         { models: ['qwen3.7-plus', 'qwen3.8-flash', 'qwen3.8-max'], runtime: AihubQwenRuntime },
       ].map((route) => ({
         ...route,

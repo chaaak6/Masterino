@@ -2,6 +2,31 @@
 
 # Changelog
 
+### [Version 1.3.13](https://github.com/chaaak6/Masterino/compare/v1.3.12...v1.3.13)
+
+<sup>Released on **2026-11-10**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: 修复发布模型容量与 Kimi K3.1 Pro 参数兼容.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: 修复发布模型容量与 Kimi K3.1 Pro 参数兼容, closes [#161](https://github.com/chaaak6/Masterino/issues/161) ([d01541b](https://github.com/chaaak6/Masterino/commit/d01541b))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.3.12](https://github.com/chaaak6/Masterino/compare/v1.3.11...v1.3.12)
 
 <sup>Released on **2026-11-04**</sup>
