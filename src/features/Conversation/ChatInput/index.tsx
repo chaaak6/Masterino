@@ -2,23 +2,19 @@
 
 import { type SlashOptions } from '@lobehub/editor';
 import { type ChatInputActionsProps } from '@lobehub/editor/react';
-import { Alert, Button, Flexbox, type MenuProps } from '@lobehub/ui';
+import { Alert, Flexbox, type MenuProps } from '@lobehub/ui';
 import { type ReactNode } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 
 import {
   getBusinessChatInputSendAreaPrefix,
   useBusinessChatInputCostEstimateAlert,
 } from '@/business/client/hooks/useBusinessChatInputSendAreaPrefix';
-import { useBusinessInputCompletionErrorAlert } from '@/business/client/hooks/useBusinessInputCompletionErrorAlert';
 import { message as antdMessage } from '@/components/AntdStaticMethods';
 import type { ActionKeys, ChatInputFeature } from '@/features/ChatInput';
 import { ChatInputProvider, DesktopChatInput } from '@/features/ChatInput';
-import { selectors as chatInputSelectors, useChatInputStore } from '@/features/ChatInput/store';
 import {
-  type InputCompletionError,
   type SendButtonHandler,
   type SendButtonProps,
 } from '@/features/ChatInput/store/initialState';
@@ -37,6 +33,7 @@ import WideScreenContainer from '../../WideScreenContainer';
 import InterventionBar from '../InterventionBar';
 import { dataSelectors, messageStateSelectors, useConversationStore } from '../store';
 import TodoProgress from '../TodoProgress';
+import InputCompletionErrorAlert from './InputCompletionErrorAlert';
 import OpStatusTray from './OpStatusTray';
 import QueueTray from './QueueTray';
 import { getConversationChatInputUiState } from './utils';
@@ -51,55 +48,6 @@ const toChatInputMessages = (messages: ReturnType<typeof dataSelectors.dbMessage
       content: typeof m.content === 'string' ? m.content : '',
       role: m.role as 'user' | 'assistant' | 'system',
     }));
-
-const InputCompletionErrorAlertContent = memo<{
-  inputCompletionError: InputCompletionError;
-}>(({ inputCompletionError }) => {
-  const { t } = useTranslation('chat');
-  const clearInputCompletionError = useChatInputStore((s) => s.clearInputCompletionError);
-  const businessAlert = useBusinessInputCompletionErrorAlert({
-    error: inputCompletionError,
-    onRetry: clearInputCompletionError,
-  });
-
-  const action = businessAlert.action ?? (
-    <Flexbox horizontal align={'center'} gap={8} wrap={'wrap'}>
-      <Button size={'small'} type={'primary'} onClick={clearInputCompletionError}>
-        {t('input.inputCompletionError.retry')}
-      </Button>
-      <Link to={'/settings/agent'}>
-        <Button size={'small'}>{t('input.inputCompletionError.settings')}</Button>
-      </Link>
-    </Flexbox>
-  );
-
-  return (
-    <>
-      <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
-        <Alert
-          showIcon
-          action={action}
-          description={businessAlert.description ?? t('input.inputCompletionError.desc')}
-          title={t('input.inputCompletionError.title')}
-          type={'warning'}
-        />
-      </Flexbox>
-      {businessAlert.extra}
-    </>
-  );
-});
-
-InputCompletionErrorAlertContent.displayName = 'InputCompletionErrorAlertContent';
-
-const InputCompletionErrorAlert = memo(() => {
-  const inputCompletionError = useChatInputStore(chatInputSelectors.inputCompletionErrorVisible);
-
-  if (!inputCompletionError) return null;
-
-  return <InputCompletionErrorAlertContent inputCompletionError={inputCompletionError} />;
-});
-
-InputCompletionErrorAlert.displayName = 'InputCompletionErrorAlert';
 
 export interface ChatInputProps {
   /**

@@ -3,11 +3,39 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   detectModelProvider,
+  isDeepSeekThinkingEligibleModel,
+  isDeepSeekV4FamilyModel,
   MODEL_LIST_CONFIGS,
   MODEL_OWNER_DETECTION_CONFIG,
   processModelList,
   processMultiProviderModelList,
 } from './modelParse';
+
+describe('DeepSeek V4 family aliases', () => {
+  it.each(['deepseek-flash', 'DeepSeek/DEEPSEEK-FLASH', 'deepseek-v4-flash', 'deepseek-v4-pro'])(
+    'recognizes %s as a thinking-capable V4 family model',
+    (model) => {
+      expect(isDeepSeekV4FamilyModel(model)).toBe(true);
+      expect(isDeepSeekThinkingEligibleModel(model)).toBe(true);
+    },
+  );
+
+  it.each([
+    undefined,
+    '',
+    'deepseek-chat',
+    'deepseek-reasoner',
+    'deepseek-flash-custom',
+    'my-deepseek-flash',
+    'glm-5.3-flash',
+  ])('does not treat %s as a V4 alias', (model) =>
+    expect(isDeepSeekV4FamilyModel(model)).toBe(false),
+  );
+
+  it('keeps the legacy reasoner thinking-capable', () => {
+    expect(isDeepSeekThinkingEligibleModel('deepseek-reasoner')).toBe(true);
+  });
+});
 
 // Mock the imported LOBE_DEFAULT_MODEL_LIST
 const { loadModelsMock, mockDefaultModelList } = vi.hoisted(() => ({
