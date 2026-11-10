@@ -2,6 +2,7 @@ import { getChatInputModalityConclusion } from '@lobechat/types/src/modelCatalog
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyPublishedContextWindow,
   createModelCatalogSnapshot,
   filterAiProviderChatEligibleModels,
   isAiProviderModelChatEligible,
@@ -13,6 +14,65 @@ import {
 const fixtureIds = ['qwen3-vl-rerank', 'bge-reranker-v2', 'text-embedding-3-small'];
 
 describe('model catalog classifier and evidence merge', () => {
+  it('restores non-manual evidence after an override expires and published capacity is cleared', () => {
+    const now = new Date('2026-11-10T00:00:00Z');
+    const initial = mergeModelCatalogEntry({
+      modelId: 'expiring-manual',
+      providerId: 'newapi',
+      now,
+      providerMetadata: { contextWindowTokens: 128_000 },
+      manual: {
+        contextWindowTokens: 256_000,
+        createdAt: now.toISOString(),
+        expiresAt: '2026-11-11T00:00:00Z',
+        owner: 'operator',
+        reason: 'temporary override',
+      },
+    });
+    const published = applyPublishedContextWindow(initial, 1_000_000, now);
+    expect(published.entry.contextWindowTokens).toBe(256_000);
+    const cleared = applyPublishedContextWindow(published, null, new Date('2026-11-12T00:00:00Z'));
+    expect(cleared.entry).toMatchObject({
+      contextWindowTokens: 128_000,
+      contextWindowSource: 'provider-meta',
+    });
+  });
+
+  it('freezes unpublished capacity evidence with a published operation snapshot', () => {
+    const initial = mergeModelCatalogEntry({ modelId: 'snapshot-chat', providerId: 'newapi' });
+    const published = applyPublishedContextWindow(initial, 1_000_000);
+    const snapshot = createModelCatalogSnapshot(published, 'published-operation');
+    expect(snapshot.entry).toMatchObject({
+      modelId: 'snapshot-chat',
+      contextWindowTokens: 1_000_000,
+    });
+    expect(snapshot).toHaveProperty('contextWindowBaseline', { source: 'unknown', tokens: 32_000 });
+    expect(snapshot).toHaveProperty('contextWindowCandidate', {
+      source: 'catalog',
+      tokens: 1_000_000,
+    });
+    expect(snapshot.contextWindowBaseline).not.toBe(published.contextWindowBaseline);
+    expect(snapshot.contextWindowCandidate).not.toBe(published.contextWindowCandidate);
+  });
+
+  it('does not restore an expired manual baseline in a legacy published document', () => {
+    const initial = mergeModelCatalogEntry({ modelId: 'legacy-manual', providerId: 'newapi' });
+    const published = applyPublishedContextWindow(initial, 1_000_000);
+    published.manual = {
+      contextWindowTokens: 256_000,
+      owner: 'operator',
+      reason: 'temporary',
+      createdAt: '2026-09-01T00:00:00Z',
+      expiresAt: '2026-09-02T00:00:00Z',
+    };
+    published.contextWindowBaseline = { source: 'manual', tokens: 256_000 };
+    const cleared = applyPublishedContextWindow(published, null, new Date('2026-11-10T00:00:00Z'));
+    expect(cleared.entry).toMatchObject({
+      contextWindowTokens: 32_000,
+      contextWindowSource: 'unknown',
+    });
+  });
+
   it('classifies the HTTP and bridge paths identically and excludes non-chat defaults', () => {
     const endpointById: Record<string, string[]> = {
       'bge-reranker-v2': ['rerank'],

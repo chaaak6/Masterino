@@ -1,5 +1,6 @@
 import '../_testFixtures/emptySkills';
 
+import { applyPublishedContextWindow, mergeModelCatalogEntry } from '@lobechat/business-model-bank';
 import type * as ModelBankModule from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -690,6 +691,73 @@ describe('AiAgentService.execAgent - device auto-activation', () => {
         service.execAgent({ agentId: 'agent-1', prompt: 'Rank these documents' }),
       ).rejects.toThrow('MODEL_NOT_CHAT_ELIGIBLE');
       expect(mockCreateOperation).not.toHaveBeenCalled();
+    });
+
+    it('freezes published capacity provenance through the real operation creation path', async () => {
+      vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'true');
+      const model = 'kimi-k3.1-pro';
+      const published = applyPublishedContextWindow(
+        mergeModelCatalogEntry({ modelId: model, providerId: 'newapi' }),
+        1_000_000,
+      );
+      const catalogService = await import('@/server/services/modelCatalog');
+      const effective = new catalogService.EffectiveModelCatalog({
+        identity: vi.fn(),
+        readModels: vi.fn(),
+        records: vi.fn(),
+        settings: vi.fn(),
+      });
+      vi.spyOn(effective, 'read').mockResolvedValue({
+        status: 'changed',
+        revision: 'published',
+        stale: false,
+        models: [
+          {
+            id: model,
+            providerId: 'newapi',
+            type: 'chat',
+            enabled: true,
+            abilities: {},
+            settings: { modelCatalog: published },
+          },
+        ],
+      });
+      const factory = vi
+        .spyOn(catalogService, 'createEffectiveModelCatalog')
+        .mockReturnValue(effective);
+      const { AgentService } = await import('@/server/services/agent');
+      vi.mocked(AgentService).mockImplementationOnce(
+        () =>
+          ({
+            getAgentConfig: vi.fn().mockResolvedValue({
+              chatConfig: {},
+              files: [],
+              id: 'agent-1',
+              knowledgeBases: [],
+              model,
+              plugins: [],
+              provider: 'newapi',
+            }),
+          }) as any,
+      );
+      try {
+        service = new AiAgentService(mockDb, userId);
+        await service.execAgent({
+          agentId: 'agent-1',
+          prompt: 'Capture a published model operation',
+        });
+        expect(mockCreateOperation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            modelCatalogSnapshot: expect.objectContaining({
+              entry: expect.objectContaining({ modelId: model, contextWindowTokens: 1_000_000 }),
+              contextWindowBaseline: { source: 'unknown', tokens: 32_000 },
+              contextWindowCandidate: { source: 'catalog', tokens: 1_000_000 },
+            }),
+          }),
+        );
+      } finally {
+        factory.mockRestore();
+      }
     });
 
     it('keeps exact builtin provider chat evidence eligible when catalog persistence fails', async () => {

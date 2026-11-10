@@ -1,4 +1,8 @@
-import { getModelCatalogFromSettings, mergeModelCatalogEntry } from '@lobechat/business-model-bank';
+import {
+  applyPublishedContextWindow,
+  getModelCatalogFromSettings,
+  mergeModelCatalogEntry,
+} from '@lobechat/business-model-bank';
 import type { ManagedModelRecord } from '@lobechat/types';
 import type { AiProviderModelListItem } from 'model-bank';
 
@@ -9,8 +13,15 @@ export const projectPublishedDescription = (
 ): AiProviderModelListItem => {
   const published = record?.published;
   if (!published && model.type !== 'chat') return model;
-  const previous = getModelCatalogFromSettings(model.settings);
-  const catalog =
+  const hasPublishedCapacity =
+    typeof published?.contextWindowTokens === 'number' &&
+    Number.isFinite(published.contextWindowTokens) &&
+    published.contextWindowTokens > 0;
+  const previous = getModelCatalogFromSettings(
+    model.settings,
+    model.type === 'chat' && !hasPublishedCapacity ? model.contextWindowTokens : undefined,
+  );
+  const runtimeCatalog =
     previous ??
     mergeModelCatalogEntry({
       modelId: model.id,
@@ -21,8 +32,14 @@ export const projectPublishedDescription = (
         contextWindowTokens: model.contextWindowTokens,
       },
     });
-  // Descriptions and reference prices are editorial data. They must not alter
-  // routing, context limits, modalities, or any other execution capability.
+  const catalog =
+    model.type === 'chat'
+      ? applyPublishedContextWindow(runtimeCatalog, published?.contextWindowTokens)
+      : runtimeCatalog;
+  // Published chat capacity is operational; model kind, modalities and prices
+  // retain their existing execution/routing boundaries.
+  const contextWindowTokens =
+    model.type === 'chat' ? catalog.entry.contextWindowTokens : model.contextWindowTokens;
   const explicitToolSupport = published?.capabilities.functionCall;
   const hasToolDecision =
     model.type === 'chat' ||
@@ -44,9 +61,7 @@ export const projectPublishedDescription = (
       ...catalog.entry,
       providerId: 'newapi',
       ...(model.type !== 'embedding' ? { kind: model.type } : {}),
-      ...(model.contextWindowTokens !== undefined
-        ? { contextWindowTokens: model.contextWindowTokens }
-        : {}),
+      ...(contextWindowTokens !== undefined ? { contextWindowTokens } : {}),
       ...(hasToolDecision
         ? {
             capabilities: {
@@ -61,6 +76,7 @@ export const projectPublishedDescription = (
   };
   return {
     ...model,
+    ...(contextWindowTokens !== undefined ? { contextWindowTokens } : {}),
     ...(published
       ? {
           displayName: published.displayName,

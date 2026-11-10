@@ -15,11 +15,22 @@ import InternalEditor from './InternalEditor';
 const originalWarn = console.warn;
 beforeEach(() => {
   console.warn = vi.fn();
+  vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] });
 });
 
-afterEach(() => {
-  console.warn = originalWarn;
-  cleanup();
+afterEach(async () => {
+  try {
+    await act(async () => {
+      cleanup();
+      // The real editor leaves a 500ms debounced toolbar update after unmount.
+      // Drain it while happy-dom still exists instead of leaking into teardown.
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+    console.warn = originalWarn;
+  }
 });
 
 /**

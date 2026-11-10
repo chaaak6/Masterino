@@ -89,6 +89,39 @@ describe('effective catalog business scenarios', () => {
     expect(published.status === 'changed' && published.models[0].displayName).toBe('A maintained');
     expect(source.models[0].displayName).toBeUndefined();
   });
+  it.each(['hy4', 'kimi-k3.1-pro'])(
+    'applies published capacity for %s to the next catalog without changing a running snapshot',
+    async (id) => {
+      const { source, service } = fixture();
+      const catalog = mergeModelCatalogEntry({ modelId: id, providerId: 'newapi' });
+      source.models = [
+        { ...model(id), contextWindowTokens: 32_000, settings: { modelCatalog: catalog } },
+      ];
+      const entry = record(id);
+      entry.draft.contextWindowTokens = 1_000_000;
+      source.records = [entry];
+      const before = await service.read();
+      if (before.status !== 'changed') throw new Error('missing initial catalog');
+      expect(before.models[0].contextWindowTokens).toBe(32_000);
+      const running = createModelCatalogSnapshot(
+        getModelCatalogFromSettings(before.models[0].settings)!.entry,
+        'already-running',
+      );
+
+      entry.published = entry.draft;
+      entry.publishedRevision = 'capacity-1m';
+      source.settings.generation = 'published-capacity';
+      const after = await service.read(before.revision);
+      if (after.status !== 'changed') throw new Error('missing published catalog');
+      expect(after.revision).not.toBe(before.revision);
+      expect(after.models[0].contextWindowTokens).toBe(1_000_000);
+      expect(getModelCatalogFromSettings(after.models[0].settings)?.entry.contextWindowTokens).toBe(
+        1_000_000,
+      );
+      expect(running.entry.contextWindowTokens).toBe(32_000);
+      expect(source.models[0].contextWindowTokens).toBe(32_000);
+    },
+  );
   it('Given revoked permissions, When cache expires, Then an authoritative empty list replaces old models', async () => {
     const { source, service } = fixture();
     await service.read();
@@ -189,7 +222,7 @@ it('keeps editorial model kinds from changing execution routing or embedding eli
   }
 });
 
-it('uses published descriptions for display without shrinking runtime context or modalities', () => {
+it('applies maintained chat capacity without changing runtime modalities', () => {
   const entry = record('a');
   entry.published = {
     ...entry.draft,
@@ -206,13 +239,13 @@ it('uses published descriptions for display without shrinking runtime context or
     },
     entry,
   );
-  expect(projected.contextWindowTokens).toBe(128000);
+  expect(projected.contextWindowTokens).toBe(1024);
   expect(projected.abilities).toMatchObject({ functionCall: false, vision: true });
   expect(
     ManagedModelDescriptionSchema.parse(projected.settings?.managedModelCatalog?.description)
       .contextWindowTokens,
   ).toBe(1024);
-  expect(getModelCatalogFromSettings(projected.settings)?.entry.contextWindowTokens).toBe(128000);
+  expect(getModelCatalogFromSettings(projected.settings)?.entry.contextWindowTokens).toBe(1024);
 });
 
 it('replaces obsolete catalog execution limits with current model limits', () => {
