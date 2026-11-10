@@ -31,6 +31,41 @@ afterEach(async () => {
 });
 
 describe('AiModelModel', () => {
+  it('preserves a newer row capacity when recording rejection evidence without a snapshot', async () => {
+    const catalog = mergeModelCatalogEntry({ modelId: 'edited-chat', providerId: 'newapi' });
+    await aiProviderModel.create({
+      contextWindowTokens: 32_000,
+      id: 'edited-chat',
+      providerId: 'newapi',
+      settings: { disabledParams: ['temperature'], modelCatalog: catalog },
+    });
+    await aiProviderModel.update('edited-chat', 'newapi', { contextWindowTokens: 1_000_000 });
+
+    await aiProviderModel.recordContextWindowRejection({
+      contextWindowRejectionTokens: 50_000,
+      modelId: 'edited-chat',
+      providerId: 'newapi',
+      verifiedAt: new Date().toISOString(),
+    });
+
+    const row = await aiProviderModel.findByIdAndProvider('edited-chat', 'newapi');
+    const persisted = getModelCatalogFromSettings(row?.settings)!;
+    expect(row?.contextWindowTokens).toBe(50_000);
+    expect(persisted.contextWindowCandidate?.tokens).toBe(1_000_000);
+    expect(row?.settings?.disabledParams).toEqual(['temperature']);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(Date.now() + 31 * 24 * 60 * 60_000));
+      const expired = getModelCatalogFromSettings(
+        row?.settings,
+        row?.contextWindowTokens ?? undefined,
+      )!;
+      expect(expired.entry.contextWindowTokens).toBe(1_000_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
     ['missing', undefined],
     ['missing', 128_000],

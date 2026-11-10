@@ -21,3 +21,11 @@
 上述单元/服务/数据库回归合计 155 项，浏览器 E2E 另 10 项。浏览器用例使用本机独立 PostgreSQL 16（127.0.0.1:15436）及明确的 Aihub/login fixture；没有调用真实模型或读取线上数据库。数据库模型测试强制使用本机内存 PGlite。未部署、未合并，也没有操作阿里云或生产配置。临时 E2E 数据库容器在结束前清理。
 
 快照仍为 version 1，新证据字段是可选的，entry-only 旧快照仍可读取。服务端两个冻结入口都已改为携带完整证据；已有客户端不需要理解这些字段或发布新安装包。这里修复的是即将发布的服务端写入链路，不把无法辨别来源的旧 catalog 数值一律解释成发布残留值。
+
+2026-11-10 第二轮：确认新增评论 [4520063117](https://github.com/chaaak6/Masterino/pull/161#discussion_r4520063117) 有效。`recordContextWindowRejection` 现在把当前行容量传给目录 reconcile，再合并拒绝证据，避免旧 entry 覆盖用户的新编辑。PGlite 回归先复现 expected 50000 / received 32000；修复后验证有效拒绝为 50K、非拒绝 candidate 保持 1M、证据到期重新读取恢复 1M，其他设置保留。数据库模型增至 30 项。
+
+同轮修复 CI push run [42734810969](https://github.com/chaaak6/Masterino/actions/runs/42734810969) 的 App 第 2 分片：418 个测试文件、3527 项断言已经通过，但 `InternalEditor.test.tsx` 使用的真实编辑器 hook 在卸载后遗留 500ms toolbar 防抖回调，环境销毁后触发 React setState，产生 `window is not defined` 的 unhandled error。测试现控制 timeout 时钟，卸载后在 happy-dom 仍存在时 drain，并断言 timer count 为 0；finally 恢复真实时钟。未关闭 unhandled error 检查，也未 mock 编辑器、修改生产编辑器或 CI workflow。定时器残留断言先实际跑红，修复后编辑器 22 项通过。
+
+按维护要求将 #162 的 Kimi K3.1 Pro 运行时路由和固定参数兼容修复完整并入 #161，保留原 SDK 边界回归与[测试上游调查证据](./kimi-k31-pro-400001-20261109.md)。合并后 Kimi/NewAPI 四组测试 99 通过、1 个既有跳过；两项修复均只需服务端发布，无需发布客户端。#160 的设置按钮仍有自己的客户端发布要求。
+
+第二轮合并后的本机验证：容量投影/刷新/详情/provider 六组 65 项、证据合并 15 项、数据库 30 项、编辑器 22 项、Kimi/NewAPI 99 项通过（另 1 个既有跳过），合计 231 项；浏览器 E2E 10 项通过。测试容器已清理。

@@ -17,41 +17,46 @@ describe('exact Aihub chat model parameter adapters', () => {
       buildAihubGlmPayload({ ...payload('glm-5.2'), thinking: { type: 'disabled' } }).thinking.type,
     ).toBe('disabled');
   });
-  it('omits Kimi fixed sampling parameters and preserves reasoning/tool messages', () => {
-    const input = {
-      ...payload('kimi-k3'),
-      temperature: 0.2,
-      top_p: 0.5,
-      frequency_penalty: 1,
-      presence_penalty: 1,
-      max_tokens: 1024,
-      thinking: { type: 'disabled' as const },
-    };
-    const result = buildAihubKimiPayload(input);
-    expect(result).toMatchObject({ thinking: { type: 'enabled' }, max_completion_tokens: 1024 });
-    for (const key of [
-      'temperature',
-      'top_p',
-      'frequency_penalty',
-      'presence_penalty',
-      'enabledSearch',
-      'max_tokens',
-    ])
-      expect(result).not.toHaveProperty(key);
-    const continuation = buildAihubKimiPayload({
-      ...payload('kimi-k3'),
-      messages: [{ role: 'assistant', content: 'done', reasoning: { content: 'thinking' } }],
-    });
-    expect(continuation.messages[0]).toMatchObject({
-      role: 'assistant',
-      content: 'done',
-      reasoning_content: 'thinking',
-    });
-    expect(continuation.messages[0]).not.toHaveProperty('reasoning');
-    const k27 = buildAihubKimiPayload({ ...payload('kimi-k2.7-code'), max_tokens: 8192 });
-    expect(k27).toHaveProperty('max_tokens', 8192);
-    expect(k27).not.toHaveProperty('max_completion_tokens');
-  });
+  it.each(['kimi-k3', 'kimi-k3.1-pro'])(
+    'omits %s fixed sampling parameters and preserves reasoning/tool messages',
+    (model) => {
+      const input = {
+        ...payload(model),
+        temperature: 0.2,
+        top_p: 0.5,
+        frequency_penalty: 1,
+        presence_penalty: 1,
+        max_tokens: 1024,
+        thinking: { type: 'disabled' as const },
+      };
+      const result = buildAihubKimiPayload(input);
+      expect(result).toMatchObject({ max_completion_tokens: 1024 });
+      expect(result).not.toHaveProperty('thinking');
+      for (const key of [
+        'temperature',
+        'top_p',
+        'frequency_penalty',
+        'presence_penalty',
+        'enabledSearch',
+        'n',
+        'max_tokens',
+      ])
+        expect(result).not.toHaveProperty(key);
+      const continuation = buildAihubKimiPayload({
+        ...payload('kimi-k3'),
+        messages: [{ role: 'assistant', content: 'done', reasoning: { content: 'thinking' } }],
+      });
+      expect(continuation.messages[0]).toMatchObject({
+        role: 'assistant',
+        content: 'done',
+        reasoning_content: 'thinking',
+      });
+      expect(continuation.messages[0]).not.toHaveProperty('reasoning');
+      const k27 = buildAihubKimiPayload({ ...payload('kimi-k2.7-code'), max_tokens: 8192 });
+      expect(k27).toHaveProperty('max_tokens', 8192);
+      expect(k27).not.toHaveProperty('max_completion_tokens');
+    },
+  );
   it('translates Qwen thinking controls and prevents simultaneous effort and budget', () => {
     const result = buildAihubQwenPayload({
       ...payload('qwen3.8-max'),
