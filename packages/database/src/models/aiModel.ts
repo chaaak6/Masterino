@@ -209,7 +209,14 @@ export class AiModelModel {
         persistedCatalog.entry.providerId === input.providerId
           ? persistedCatalog
           : exactSnapshot
-            ? { denied: false, drift: [], entry: exactSnapshot, version: 1 }
+            ? {
+                denied: false,
+                drift: [],
+                entry: exactSnapshot,
+                contextWindowBaseline: input.modelCatalogSnapshot?.contextWindowBaseline,
+                contextWindowCandidate: input.modelCatalogSnapshot?.contextWindowCandidate,
+                version: 1,
+              }
             : undefined;
       if (!baseCatalog) return false;
 

@@ -45,6 +45,68 @@ const publication = (tokens: number | null): ManagedModelRecord => {
 afterEach(() => vi.useRealTimers());
 
 describe('published chat context capacity', () => {
+  it.each([128_000, 16_000])(
+    'uses current row capacity %i instead of an obsolete persisted candidate without publication',
+    (tokens) => {
+      const original = {
+        ...runtimeModel({ catalog: { contextWindowTokens: 32_000 } }),
+        contextWindowTokens: tokens,
+      };
+      const projected = projectPublishedDescription(original);
+      expect(projected.contextWindowTokens).toBe(tokens);
+      expect(getModelCatalogFromSettings(projected.settings)?.entry.contextWindowTokens).toBe(
+        tokens,
+      );
+      expect(projectPublishedDescription(projected).contextWindowTokens).toBe(tokens);
+    },
+  );
+
+  it.each(['manual', 'observed'] as const)(
+    'does not mistake an expired %s limit in a row for a user edit',
+    (source) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(now));
+      const original = runtimeModel({
+        now: '2026-09-01T12:00:00Z',
+        catalog: { contextWindowTokens: 128_000 },
+        ...(source === 'manual'
+          ? {
+              manual: {
+                contextWindowTokens: 64_000,
+                owner: 'operator',
+                reason: 'temporary',
+                createdAt: '2026-09-01T00:00:00Z',
+                expiresAt: '2026-09-02T00:00:00Z',
+              },
+            }
+          : {
+              observed: {
+                contextWindowRejectionTokens: 64_000,
+                verifiedAt: '2026-09-01T00:00:00Z',
+              },
+            }),
+      });
+      expect(
+        projectPublishedDescription({ ...original, contextWindowTokens: 64_000 })
+          .contextWindowTokens,
+      ).toBe(128_000);
+    },
+  );
+
+  it('keeps a fresh rejection when reconciling a changed row', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    const original = runtimeModel({
+      catalog: { contextWindowTokens: 32_000 },
+      observed: { contextWindowRejectionTokens: 16_000, verifiedAt: now },
+    });
+    const projected = projectPublishedDescription({ ...original, contextWindowTokens: 128_000 });
+    expect(projected.contextWindowTokens).toBe(16_000);
+    expect(getModelCatalogFromSettings(projected.settings)?.contextWindowCandidate?.tokens).toBe(
+      128_000,
+    );
+  });
+
   it.each([64_000, 1_000_000])('uses maintained %i instead of a built-in capacity', (tokens) => {
     const original = runtimeModel({ catalog: { contextWindowTokens: 128_000 } });
     const projected = projectPublishedDescription(original, publication(tokens));

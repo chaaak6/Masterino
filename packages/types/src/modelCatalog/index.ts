@@ -20,6 +20,13 @@ export type ContextWindowSource =
   | 'provider-meta'
   | 'unknown';
 
+/** Non-observed capacity evidence retained independently of the effective limit. */
+export interface ContextWindowCandidate {
+  source: Exclude<ContextWindowSource, 'observed'>;
+  tokens: number;
+  verifiedAt?: string;
+}
+
 export type ModelCapability =
   | 'functionCall'
   | 'reasoning'
@@ -47,6 +54,9 @@ export interface ModelCatalogEntry {
 /** Operation-frozen model evidence shared by client/server preflight and runtime. */
 export interface ModelCatalogSnapshot {
   capturedAt: string;
+  /** Optional for compatibility with operations captured before publication support. */
+  contextWindowBaseline?: ContextWindowCandidate;
+  contextWindowCandidate?: ContextWindowCandidate;
   entry: ModelCatalogEntry;
   operationId: string;
   version: 1;

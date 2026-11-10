@@ -13,7 +13,14 @@ export const projectPublishedDescription = (
 ): AiProviderModelListItem => {
   const published = record?.published;
   if (!published && model.type !== 'chat') return model;
-  const previous = getModelCatalogFromSettings(model.settings);
+  const hasPublishedCapacity =
+    typeof published?.contextWindowTokens === 'number' &&
+    Number.isFinite(published.contextWindowTokens) &&
+    published.contextWindowTokens > 0;
+  const previous = getModelCatalogFromSettings(
+    model.settings,
+    model.type === 'chat' && !hasPublishedCapacity ? model.contextWindowTokens : undefined,
+  );
   const runtimeCatalog =
     previous ??
     mergeModelCatalogEntry({
