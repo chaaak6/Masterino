@@ -92,12 +92,13 @@ export class CommonActionImpl {
     isLogin: boolean | undefined,
     serverConfig: GlobalServerConfig,
     options?: {
+      enabled?: boolean;
       onError?: (error: any) => void;
       onSuccess?: (data: UserInitializationState) => void;
     },
   ): SWRResponse => {
     return useOnlyFetchOnceSWR<UserInitializationState>(
-      !!isLogin || isDesktop ? userKeys.initState() : null,
+      options?.enabled !== false && (!!isLogin || isDesktop) ? userKeys.initState() : null,
       () => userService.getUserState(),
       {
         onError: (error) => {

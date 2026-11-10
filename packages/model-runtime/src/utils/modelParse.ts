@@ -234,7 +234,9 @@ const normalizeModelType = (value: unknown): AiModelType | undefined => {
 };
 
 const getKnownModelIdCandidates = (modelId: string): string[] => {
-  return [modelId.toLowerCase()];
+  const normalized = modelId.toLowerCase();
+  // Aihub exposes this exact channel alias; borrow metadata without rewriting requests.
+  return normalized === 'deepseek/deepseek-flash' ? [normalized, 'deepseek-flash'] : [normalized];
 };
 
 const getCanonicalKnownModelId = (modelId: string): string => {

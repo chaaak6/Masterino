@@ -5,8 +5,10 @@ import { lazy, memo, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createStoreUpdater } from 'zustand-utils';
 
+import { isDesktop } from '@/const/version';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAgentStore } from '@/store/agent';
+import { useElectronStore } from '@/store/electron';
 import { useGlobalStore } from '@/store/global';
 import { useServerConfigStore } from '@/store/serverConfig';
 import { serverConfigSelectors } from '@/store/serverConfig/selectors';
@@ -25,6 +27,14 @@ const StoreInitialization = memo(() => {
     authSelectors.isLogin(s),
     s.useInitUserState,
   ]);
+
+  const [isInitRemoteServerConfig, dataSyncConfig, useDataSyncConfig] = useElectronStore((s) => [
+    s.isInitRemoteServerConfig,
+    s.dataSyncConfig,
+    s.useDataSyncConfig,
+  ]);
+  useDataSyncConfig(isDesktop);
+  const canInitializeUser = !isDesktop || (isInitRemoteServerConfig && !!dataSyncConfig.active);
 
   const { serverConfig } = useServerConfigStore();
 
@@ -58,7 +68,7 @@ const StoreInitialization = memo(() => {
    * IMPORTANT: Explicitly convert to boolean to avoid passing null/undefined downstream,
    * which would cause unnecessary API requests with invalid login state.
    */
-  const isLoginOnInit = Boolean(isLogin);
+  const isLoginOnInit = Boolean(isLogin) && canInitializeUser;
 
   // init inbox agent via builtin agent mechanism
   useInitBuiltinAgent(INBOX_SESSION_ID, { isLogin: isLoginOnInit });
@@ -67,6 +77,7 @@ const StoreInitialization = memo(() => {
 
   // init user state
   useInitUserState(isLoginOnInit, serverConfig, {
+    enabled: canInitializeUser,
     onSuccess: onUserStateSuccess,
   });
 

@@ -55,6 +55,8 @@ export const useSend = () => {
   // The hook also rewrites stale ids (e.g. left over from a different account
   // on the same browser) back to inbox so we don't try to send to a missing id.
   const { agentId: activeAgentId } = useResolvedHomeAgentId();
+  // Home and a new conversation can stay mounted at once; keep their drafts separate.
+  const attachmentScope = `home_${messageMapKey({ agentId: activeAgentId ?? '' })}`;
 
   // Daily-brief hint paired with the home WelcomeText. Pressing Enter on an
   // empty input "accepts" the hint as the message — like a smart-compose
@@ -70,7 +72,6 @@ export const useSend = () => {
       // cache catches up and the empty-message guard would bail incorrectly.
       const typed = (getMarkdownContent?.() ?? inputMessage ?? '').trim();
       const fileState = useFileStore.getState();
-      const attachmentScope = messageMapKey({ agentId: activeAgentId });
       const fileList = fileChatSelectors.chatUploadFileList(fileState, attachmentScope);
       const contextList = fileChatSelectors.chatContextSelections(fileState);
       const isUploadingFiles = fileChatSelectors.isUploadingFiles(fileState, attachmentScope);
@@ -181,6 +182,7 @@ export const useSend = () => {
     },
     [
       activeAgentId,
+      attachmentScope,
       sendMessage,
       clearChatContextSelections,
       clearChatUploadFileList,
@@ -192,6 +194,7 @@ export const useSend = () => {
 
   return {
     agentId: activeAgentId,
+    attachmentScope,
     loading: homeInputLoading,
     send,
   };

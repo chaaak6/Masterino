@@ -71,11 +71,11 @@ export function useDesktopDownload({ preferExternalBrowser = false } = {}) {
     if (busy.current || isProductFeatureDisabled('desktopApp')) return;
     busy.current = true;
     setLoading(true);
-    if (preferExternalBrowser && isWecomDesktop(navigator.userAgent)) {
+    if (preferExternalBrowser && isWecomDesktop(navigator.userAgent, navigator.maxTouchPoints)) {
       try {
         await openWecomDownloadPage();
       } catch {
-        const page = new URL('/download', window.location.origin).href;
+        const page = new URL('/download?manual=1', window.location.origin).href;
         createModal({
           title: t('getDesktopApp', { ns: 'common' }),
           content: (

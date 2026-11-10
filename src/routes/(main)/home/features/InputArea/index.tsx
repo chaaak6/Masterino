@@ -13,7 +13,6 @@ import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { builtinAgentSelectors } from '@/store/agent/selectors/builtinAgentSelectors';
 import { useChatStore } from '@/store/chat';
-import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
@@ -33,8 +32,7 @@ type BannerKind = 'skill' | 'botIntegration' | 'messenger';
 
 const InputArea = () => {
   const { t } = useTranslation('chat');
-  const { loading, send, agentId } = useSend();
-  const attachmentScope = messageMapKey({ agentId });
+  const { loading, send, agentId, attachmentScope } = useSend();
   const isUploadingFiles = useFileStore((s) =>
     fileChatSelectors.isUploadingFiles(s, attachmentScope),
   );
@@ -129,7 +127,12 @@ const InputArea = () => {
   const provider = useAgentStore((s) =>
     agentByIdSelectors.getAgentModelProviderById(resolvedAgentId)(s),
   );
-  const { handleUploadFiles } = useUploadFiles({ agentId: resolvedAgentId, model, provider });
+  const { handleUploadFiles } = useUploadFiles({
+    agentId: resolvedAgentId,
+    model,
+    provider,
+    scope: attachmentScope,
+  });
 
   // A slot to insert content above the chat input
   // Override some default behavior of the chat input
@@ -165,8 +168,10 @@ const InputArea = () => {
           onUploadFiles={handleUploadFiles}
         >
           <ChatInputProvider
-            agentId={agentId}
+            agentId={resolvedAgentId}
             allowExpand={false}
+            draftKey={attachmentScope}
+            key={attachmentScope}
             leftActions={leftActions}
             rightActions={rightActions}
             slashPlacement="bottom"

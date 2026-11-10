@@ -33,6 +33,17 @@ export const setDesktopOnboardingCompleted = () => {
   }
 };
 
+/** Clear only this session's completion when the user explicitly signs out. */
+export const clearDesktopOnboardingCompleted = () => {
+  if (typeof window === 'undefined') return false;
+  try {
+    window.sessionStorage.removeItem(DESKTOP_ONBOARDING_COMPLETED_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Whether the user has *ever* completed desktop onboarding on this install.
  * Backed by localStorage so it survives quit/relaunch — used to skip first-run

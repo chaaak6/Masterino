@@ -1,4 +1,5 @@
 import type { ChatModelCard } from '@lobechat/types';
+import deepseekModels from 'model-bank/deepseek';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -145,6 +146,7 @@ vi.mock('model-bank', () => ({
   LOBE_DEFAULT_MODEL_LIST: mockDefaultModelList,
   loadModels: vi.fn().mockResolvedValue(mockDefaultModelList),
   ModelProvider: { LobeHub: 'lobehub' },
+  deepseek: deepseekModels,
   // 新增 provider 专用清单，供 findKnownModelByProvider 使用
   google: [
     {
@@ -178,6 +180,23 @@ vi.mock('@lobechat/business-model-bank/model-config', () => ({
 }));
 
 describe('modelParse', () => {
+  it('keeps the known channel Flash alias capabilities without rewriting its request ID', async () => {
+    const id = 'DeepSeek/deepseek-flash';
+    const [model] = await processMultiProviderModelList([{ id }], 'newapi');
+    expect(model).toMatchObject({
+      id,
+      functionCall: true,
+      reasoning: true,
+      vision: true,
+      settings: { extendParams: ['deepseekV4ReasoningEffort'] },
+    });
+    const [unknown] = await processMultiProviderModelList(
+      [{ id: 'other/deepseek-flash' }],
+      'newapi',
+    );
+    expect(unknown.settings?.extendParams ?? []).not.toContain('deepseekV4ReasoningEffort');
+  });
+
   beforeEach(() => {
     loadModelsMock.mockResolvedValue(mockDefaultModelList);
   });

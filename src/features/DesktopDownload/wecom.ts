@@ -10,10 +10,11 @@ type WecomSdk = {
   ) => void;
 };
 
-export const isWecomDesktop = (userAgent: string) =>
+export const isWecomDesktop = (userAgent: string, maxTouchPoints = 0) =>
   /wxwork/i.test(userAgent) &&
   /Windows|Macintosh|Mac OS X/i.test(userAgent) &&
-  !/Android|iPhone|iPad/i.test(userAgent);
+  !/Android|iPhone|iPad|Mobile/i.test(userAgent) &&
+  !(/Macintosh/i.test(userAgent) && maxTouchPoints > 1);
 
 let sdkLoading: Promise<WecomSdk> | undefined;
 function loadSdk(): Promise<WecomSdk> {
@@ -65,23 +66,33 @@ export async function openWecomDownloadPage() {
       if (!response.ok) throw new Error(page);
       const data = await response.json();
       if (!active) return;
+      if (typeof sdk.invoke !== 'function') throw new Error(page);
       sdk.error(() => finish(new Error(page)));
       sdk.ready(() => {
         if (!active) return;
-        sdk.agentConfig({
-          corpid: data.corpId,
-          agentid: data.agentId,
-          timestamp: data.timestamp,
-          nonceStr: data.nonceStr,
-          signature: data.agentSignature,
-          jsApiList: ['openDefaultBrowser'],
-          success: () =>
-            active &&
-            sdk.invoke('openDefaultBrowser', { url: page }, (result) =>
-              finish(result.err_msg === 'openDefaultBrowser:ok' ? undefined : new Error(page)),
-            ),
-          fail: () => finish(new Error(page)),
-        });
+        try {
+          sdk.agentConfig({
+            corpid: data.corpId,
+            agentid: data.agentId,
+            timestamp: data.timestamp,
+            nonceStr: data.nonceStr,
+            signature: data.agentSignature,
+            jsApiList: ['openDefaultBrowser'],
+            success: () => {
+              if (!active) return;
+              try {
+                sdk.invoke('openDefaultBrowser', { url: page }, (result) =>
+                  finish(result.err_msg === 'openDefaultBrowser:ok' ? undefined : new Error(page)),
+                );
+              } catch {
+                finish(new Error(page));
+              }
+            },
+            fail: () => finish(new Error(page)),
+          });
+        } catch {
+          finish(new Error(page));
+        }
       });
       sdk.config({
         beta: true,

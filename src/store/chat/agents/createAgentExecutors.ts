@@ -846,6 +846,17 @@ export const createAgentExecutors = (context: {
       const newState = {
         ...state,
         messages: latestMessages,
+        // The next intervention check must use the manifests offered to this model turn,
+        // including tools activated after the runtime's initial manifest map was built.
+        toolManifestMap: {
+          ...state.toolManifestMap,
+          ...Object.fromEntries(
+            (resolvedAgentConfig.enabledManifests ?? []).map((manifest) => [
+              manifest.identifier,
+              manifest,
+            ]),
+          ),
+        },
         metadata: {
           ...state.metadata,
           contextBudget: {

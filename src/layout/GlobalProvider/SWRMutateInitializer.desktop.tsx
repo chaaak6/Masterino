@@ -5,6 +5,8 @@ import { type PropsWithChildren, useEffect } from 'react';
 import { useSWRConfig } from 'swr';
 
 import { setScopedMutate } from '@/libs/swr';
+import { electronKeys } from '@/libs/swr/keys';
+import { remoteServerService } from '@/services/electron/remoteServer';
 import { useElectronStore } from '@/store/electron';
 
 /**
@@ -20,10 +22,15 @@ const SWRMutateInitializer = ({ children }: PropsWithChildren) => {
     setScopedMutate(mutate);
   }, [mutate]);
 
-  useWatchBroadcast('remoteServerConfigUpdated', () => {
+  useWatchBroadcast('remoteServerConfigUpdated', async () => {
     try {
-      const result = mutate(() => true, undefined, { revalidate: true });
-      void result?.catch?.(() => {});
+      const config = await remoteServerService.getRemoteServerConfig();
+      if (!config.active) {
+        // Revoked native credentials must not revalidate mounted account caches.
+        await mutate(electronKeys.remoteServerConfig());
+        return;
+      }
+      await mutate(() => true, undefined, { revalidate: true });
     } catch {
       // Ignore: SWR cache may not be ready yet in early boot.
     }

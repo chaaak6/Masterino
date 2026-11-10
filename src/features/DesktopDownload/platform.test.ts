@@ -53,3 +53,7 @@ it.each([
 ])('identifies desktop WeCom for %s', (userAgent, expected) => {
   expect(isWecomDesktop(userAgent)).toBe(expected);
 });
+
+it('does not classify iPadOS desktop mode as desktop WeCom', () => {
+  expect(isWecomDesktop('Macintosh wxwork/5.0', 5)).toBe(false);
+});

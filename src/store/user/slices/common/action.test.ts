@@ -100,6 +100,17 @@ describe('createCommonSlice', () => {
       expect(result.current.data).toBeUndefined();
     });
 
+    it('does not fetch an existing signed-in state while native auth is disabled', () => {
+      const getUserState = vi.spyOn(userService, 'getUserState').mockResolvedValue({} as any);
+      renderHook(
+        () => useUserStore().useInitUserState(true, mockServerConfig, { enabled: false }),
+        {
+          wrapper: withSWR,
+        },
+      );
+      expect(getUserState).not.toHaveBeenCalled();
+    });
+
     it('should fetch user state correctly when user is login', async () => {
       const mockUserState: UserInitializationState = {
         userId: 'user-id',
