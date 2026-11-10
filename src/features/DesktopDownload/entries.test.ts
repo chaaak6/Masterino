@@ -10,7 +10,7 @@ describe('web desktop download entry wiring', () => {
     'ChatInput/ControlBar/HeteroDeviceSwitcher.tsx',
   ])('connects %s to the shared download action', (entry) => {
     const source = readFileSync(path.resolve('src/features', entry), 'utf8');
-    expect(source).toContain('useDesktopDownload()');
+    expect(source).toContain('useDesktopDownload(');
     expect(source).toContain('void download()');
     expect(source).toContain('disabled: downloadDisabled');
     expect(source).toContain('productFeatures.disabled');

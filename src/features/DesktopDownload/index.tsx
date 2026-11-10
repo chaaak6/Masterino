@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { isProductFeatureDisabled } from '@/config/productFeatures';
 
 import { detectDownloadTarget, type DownloadTarget } from './platform';
+import { isWecomDesktop, openWecomDownloadPage } from './wecom';
 
 type Release = { artifacts: { arch: string; platform: string; url: string }[]; version: string };
 
@@ -19,6 +20,7 @@ export async function downloadDesktop(target: DownloadTarget) {
   if (!artifact) throw new Error('Installer unavailable');
   // Direct navigation avoids popup blockers after the asynchronous manifest request.
   window.location.assign(artifact.url);
+  return release.version;
 }
 
 function DownloadChoice({ target }: { target: DownloadTarget | 'mac' | 'unsupported' }) {
@@ -61,7 +63,7 @@ function DownloadChoice({ target }: { target: DownloadTarget | 'mac' | 'unsuppor
   );
 }
 
-export function useDesktopDownload() {
+export function useDesktopDownload({ preferExternalBrowser = false } = {}) {
   const [loading, setLoading] = useState(false);
   const busy = useRef(false);
   const disabled = isProductFeatureDisabled('desktopApp');
@@ -69,6 +71,30 @@ export function useDesktopDownload() {
     if (busy.current || isProductFeatureDisabled('desktopApp')) return;
     busy.current = true;
     setLoading(true);
+    if (preferExternalBrowser && isWecomDesktop(navigator.userAgent)) {
+      try {
+        await openWecomDownloadPage();
+      } catch {
+        const page = new URL('/download', window.location.origin).href;
+        createModal({
+          title: t('getDesktopApp', { ns: 'common' }),
+          content: (
+            <Flexbox gap={12}>
+              <span role="alert">{t('desktopDownload.browserFailed', { ns: 'common' })}</span>
+              <a href={page} rel="noreferrer" target="_blank">
+                {page}
+              </a>
+            </Flexbox>
+          ),
+          footer: null,
+          width: 420,
+        });
+      } finally {
+        busy.current = false;
+        setLoading(false);
+      }
+      return;
+    }
     let target: Awaited<ReturnType<typeof detectDownloadTarget>> = 'unsupported';
     let showChoice = false;
     try {
