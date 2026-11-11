@@ -1125,6 +1125,18 @@ describe('adminRouter', () => {
     );
   });
 
+  it.each([
+    [400, '请选择有效的技能分类', 'BAD_REQUEST'],
+    [404, 'Resource not found', 'NOT_FOUND'],
+  ])('preserves Market category edit error %s', async (status, error, code) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error }, { status })));
+    const caller = createCaller(await createAdminContext('platform_admin'));
+
+    await expect(
+      caller.updateSkillCategory({ category: 'design', identifier: 'skill-one' }),
+    ).rejects.toMatchObject({ code, message: expect.stringContaining(error) });
+  });
+
   it('updates WeCom SSO config through the enterprise SSO service', async () => {
     const caller = createCaller(await createAdminContext('platform_admin'));
     const input = {

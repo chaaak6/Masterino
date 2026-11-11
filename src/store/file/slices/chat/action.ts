@@ -43,6 +43,7 @@ import {
   type ChatAttachmentDraft,
   emptyChatAttachmentDraft,
   getChatAttachmentDraft,
+  getChatContextSelections,
 } from './drafts';
 import { filterSupportedChatUploadFiles } from './uploadGuard';
 
@@ -162,15 +163,28 @@ export class FileActionImpl {
     this.#get = get;
   }
 
-  addChatContextSelection = (context: ChatContextContent): void => {
-    const current = this.#get().chatContextSelections;
-    const next = [context, ...current.filter((item) => item.id !== context.id)];
-
-    this.#set({ chatContextSelections: next }, false, n('addChatContextSelection'));
+  #writeContextSelections = (selections: ChatContextContent[], scope?: string): void => {
+    if (!scope) {
+      this.#set({ chatContextSelections: selections }, false, n('updateContextSelections'));
+      return;
+    }
+    const drafts = { ...this.#get().chatContextSelectionDrafts };
+    if (selections.length) drafts[scope] = selections;
+    else delete drafts[scope];
+    this.#set({ chatContextSelectionDrafts: drafts }, false, n('updateContextSelections'));
   };
 
-  clearChatContextSelections = (): void => {
-    this.#set({ chatContextSelections: [] }, false, n('clearChatContextSelections'));
+  addChatContextSelection = (context: ChatContextContent, scope?: string): void => {
+    const current = getChatContextSelections(this.#get(), scope);
+    this.#writeContextSelections(
+      [context, ...current.filter((item) => item.id !== context.id)],
+      scope,
+    );
+  };
+
+  clearChatContextSelections = (scope?: string): void => {
+    if (getChatContextSelections(this.#get(), scope).length)
+      this.#writeContextSelections([], scope);
   };
 
   clearChatUploadFileList = (options?: { preserveAttachments?: boolean }, scope?: string): void => {
@@ -217,9 +231,10 @@ export class FileActionImpl {
     return true;
   };
 
-  removeChatContextSelection = (id: string): void => {
-    const next = this.#get().chatContextSelections.filter((item) => item.id !== id);
-    this.#set({ chatContextSelections: next }, false, n('removeChatContextSelection'));
+  removeChatContextSelection = (id: string, scope?: string): void => {
+    const current = getChatContextSelections(this.#get(), scope);
+    const next = current.filter((item) => item.id !== id);
+    if (next.length !== current.length) this.#writeContextSelections(next, scope);
   };
 
   removeChatUploadFile = async (id: string, scope?: string): Promise<void> => {

@@ -1,4 +1,4 @@
-import { Alert, Flexbox } from '@lobehub/ui';
+import { Alert, Flexbox, Skeleton } from '@lobehub/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -163,60 +163,64 @@ const InputArea = () => {
         {visibleBanner === 'skill' && <SkillInstallBanner />}
         {visibleBanner === 'botIntegration' && <BotIntegrationBanner />}
         {visibleBanner === 'messenger' && <MessengerBanner />}
-        <DragUploadZone
-          style={{ position: 'relative', zIndex: 1 }}
-          onUploadFiles={handleUploadFiles}
-        >
-          <ChatInputProvider
-            agentId={resolvedAgentId}
-            allowExpand={false}
-            draftKey={attachmentScope}
-            key={attachmentScope}
-            leftActions={leftActions}
-            rightActions={rightActions}
-            slashPlacement="bottom"
-            chatInputEditorRef={(instance) => {
-              if (!instance) return;
-              useChatStore.setState({ mainInputEditor: instance });
-            }}
-            sendButtonProps={{
-              disabled: loading || isAgentConfigLoading || isUploadingFiles,
-              generating: loading,
-              onDisabledSend: isUploadingFiles
-                ? () =>
-                    antdMessage.warning({
-                      content: t(
-                        `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState(), attachmentScope) || 'pending'}`,
-                      ),
-                      key: 'home-uploading-files',
-                    })
-                : undefined,
-              onStop: () => {},
-              shape: 'round',
-            }}
-            onSend={send}
-            onMarkdownContentChange={(content) => {
-              useChatStore.setState({ inputMessage: content });
-            }}
+        {attachmentScope ? (
+          <DragUploadZone
+            style={{ position: 'relative', zIndex: 1 }}
+            onUploadFiles={handleUploadFiles}
           >
-            <DesktopChatInput
-              dropdownPlacement="bottomLeft"
-              inputContainerProps={inputContainerProps}
-              isConfigLoading={isAgentConfigLoading}
-              placeholder={dailyHint}
-              showControlBar={false}
-            />
-            {isUploadingFiles && (
-              <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
-                <Alert
-                  showIcon
-                  title={t(`attachments.block.${attachmentBlock || 'pending'}`)}
-                  type={attachmentBlock === 'pending' ? 'info' : 'warning'}
-                />
-              </Flexbox>
-            )}
-          </ChatInputProvider>
-        </DragUploadZone>
+            <ChatInputProvider
+              agentId={resolvedAgentId}
+              allowExpand={false}
+              draftKey={attachmentScope}
+              key={attachmentScope}
+              leftActions={leftActions}
+              rightActions={rightActions}
+              slashPlacement="bottom"
+              chatInputEditorRef={(instance) => {
+                if (!instance) return;
+                useChatStore.setState({ mainInputEditor: instance });
+              }}
+              sendButtonProps={{
+                disabled: loading || isAgentConfigLoading || isUploadingFiles,
+                generating: loading,
+                onDisabledSend: isUploadingFiles
+                  ? () =>
+                      antdMessage.warning({
+                        content: t(
+                          `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState(), attachmentScope) || 'pending'}`,
+                        ),
+                        key: 'home-uploading-files',
+                      })
+                  : undefined,
+                onStop: () => {},
+                shape: 'round',
+              }}
+              onSend={send}
+              onMarkdownContentChange={(content) => {
+                useChatStore.setState({ inputMessage: content });
+              }}
+            >
+              <DesktopChatInput
+                dropdownPlacement="bottomLeft"
+                inputContainerProps={inputContainerProps}
+                isConfigLoading={isAgentConfigLoading}
+                placeholder={dailyHint}
+                showControlBar={false}
+              />
+              {isUploadingFiles && (
+                <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
+                  <Alert
+                    showIcon
+                    title={t(`attachments.block.${attachmentBlock || 'pending'}`)}
+                    type={attachmentBlock === 'pending' ? 'info' : 'warning'}
+                  />
+                </Flexbox>
+              )}
+            </ChatInputProvider>
+          </DragUploadZone>
+        ) : (
+          <Skeleton.Button active block style={{ borderRadius: 20, height: 88 }} />
+        )}
       </Flexbox>
 
       <StarterList />

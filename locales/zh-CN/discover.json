@@ -532,6 +532,8 @@
   "skills.categories.communication.name": "通信",
   "skills.categories.data-analytics.description": "数据分析、可视化和商业智能技能",
   "skills.categories.data-analytics.name": "数据分析",
+  "skills.categories.design.description": "流程图、图解与设计材料",
+  "skills.categories.design.name": "图解与设计",
   "skills.categories.devops-cloud.description": "DevOps流水线、云基础设施和部署技能",
   "skills.categories.devops-cloud.name": "DevOps与云",
   "skills.categories.finance.description": "金融、银行、支付和财务数据技能",

@@ -953,6 +953,8 @@ export default {
   'skills.categories.data-analytics.description':
     'Data analysis, visualization, and business intelligence skills',
   'skills.categories.data-analytics.name': 'Data & Analytics',
+  'skills.categories.design.description': 'Diagrams, flowcharts and design',
+  'skills.categories.design.name': 'Diagrams & Design',
 
   'skills.categories.devops-cloud.description':
     'DevOps pipelines, cloud infrastructure, and deployment skills',

@@ -5,22 +5,25 @@ import AttachmentStrip from '@/features/Attachments/AttachmentStrip';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 
 import { useAgentId } from '../../hooks/useAgentId';
+import { useChatInputStore } from '../../store';
 import SelectionItem from './SelectionItem';
 
 const ContextList = memo(() => {
   const agentId = useAgentId();
+  const draftKey = useChatInputStore((s) => s.draftKey);
   const prevAgentIdRef = useRef<string | undefined>(undefined);
-  const rawSelectionList = useFileStore(fileChatSelectors.chatContextSelections);
-  const showSelectionList = useFileStore(fileChatSelectors.chatContextSelectionHasItem);
+  const rawSelectionList = useFileStore((s) =>
+    fileChatSelectors.chatContextSelections(s, draftKey),
+  );
   const clearChatContextSelections = useFileStore((s) => s.clearChatContextSelections);
 
-  // Clear selections only when agentId changes (not on initial mount)
+  // Older inputs without a draft key still clear their shared selection on agent change.
   useEffect(() => {
-    if (prevAgentIdRef.current !== undefined && prevAgentIdRef.current !== agentId) {
+    if (!draftKey && prevAgentIdRef.current !== undefined && prevAgentIdRef.current !== agentId) {
       clearChatContextSelections();
     }
     prevAgentIdRef.current = agentId;
-  }, [agentId, clearChatContextSelections]);
+  }, [agentId, clearChatContextSelections, draftKey]);
 
   // Filter duplicates based on preview content
   const selectionList = rawSelectionList.filter(
@@ -30,7 +33,7 @@ const ContextList = memo(() => {
   return (
     <Flexbox gap={4}>
       <AttachmentStrip />
-      {showSelectionList && selectionList.length > 0 && (
+      {selectionList.length > 0 && (
         <Flexbox horizontal gap={4} wrap="wrap">
           {selectionList.map((item) => (
             <SelectionItem key={item.id} {...item} />

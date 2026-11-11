@@ -48,11 +48,11 @@ const AttachmentSupport = memo(() => {
     setDialog(undefined);
   }, [scope, limited]);
   useEffect(() => {
-    if (limited && !shown) {
+    if (limited && !disabled && !shown) {
       markShown(scope);
       setDialog({ scope, copied: false, copyError: false });
     }
-  }, [limited, shown, markShown, scope]);
+  }, [disabled, limited, shown, markShown, scope]);
   return (
     <>
       {issues.length > 0 && (
@@ -92,7 +92,7 @@ const AttachmentSupport = memo(() => {
       <Modal
         destroyOnHidden
         footer={null}
-        open={dialog?.scope === scope && limited}
+        open={dialog?.scope === scope && limited && !disabled}
         title={t('attachments.desktopTitle')}
         width={460}
         onCancel={close}

@@ -1,10 +1,12 @@
-import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { join } from 'node:path';
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
-import { rank, excerpt, loadCases } from './search.mjs';
+
+import { excerpt, loadCases,rank } from './search.mjs';
 
 export async function startServer({ dataDirectory, dataVersion, port = 3230, host = '0.0.0.0' }) {
   const index = JSON.parse(await readFile(join(dataDirectory, 'laws/index.json'), 'utf8'));
@@ -36,9 +38,17 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
       },
     ],
   });
-  let articleRows;
-  const articles = () =>
-    (articleRows ??= Promise.all(
+  // Share the in-flight read, but allow another call to retry after an I/O failure.
+  const cacheRows = (load) => {
+    let rows;
+    return () =>
+      (rows ??= load().catch((error) => {
+        rows = undefined;
+        throw error;
+      }));
+  };
+  const articles = cacheRows(async () => {
+    const rows = await Promise.all(
       index.map(async (meta) => {
         const law = await loadLaw(meta);
         return law.articles.map((article) => ({
@@ -48,9 +58,10 @@ export async function startServer({ dataDirectory, dataVersion, port = 3230, hos
           slug: meta.slug,
         }));
       }),
-    ).then((rows) => rows.flat()));
-  let caseRows;
-  const cases = () => (caseRows ??= loadCases(dataDirectory));
+    );
+    return rows.flat();
+  });
+  const cases = cacheRows(() => loadCases(dataDirectory));
   const makeMcp = () => {
     const mcp = new McpServer(
       { name: 'masterino-chinese-law', version: '1.1.0' },

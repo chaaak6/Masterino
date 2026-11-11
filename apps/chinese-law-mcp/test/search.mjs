@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { before, after, test } from 'node:test';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rename, rm,writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { after, before, test } from 'node:test';
+
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
 import { startServer } from '../src/server.mjs';
+
 let directory, service, client;
 const write = (path, value) => writeFile(join(directory, path), JSON.stringify(value));
 before(async () => {
@@ -96,15 +99,36 @@ after(async () => {
 });
 const call = async (name, args) =>
   (await client.callTool({ name, arguments: args })).content[0].text;
+test('A temporary read failure can be retried without restarting either search', async () => {
+  for (const [path, tool, args] of [
+    ['laws/labor-law.json', 'search_articles', { query: '加班工资' }],
+    ['guiding-cases', 'get_case', { id: 'guiding-182' }],
+  ]) {
+    const original = join(directory, path);
+    await rename(original, `${original}.unavailable`);
+    try {
+      assert.equal((await client.callTool({ name: tool, arguments: args })).isError, true);
+    } finally {
+      await rename(`${original}.unavailable`, original);
+    }
+    assert.notEqual((await client.callTool({ name: tool, arguments: args })).isError, true);
+  }
+});
+
 test('Given no law name, full-text search finds relevant clauses across laws with provenance', async () => {
   const text = await call('search_articles', { query: '加班工资' });
   assert.match(text, /劳动法/);
   assert.match(text, /第四十四条/);
-  assert.ok(text.indexOf('第四十四条') < text.indexOf('船员工资司法解释'));
+  assert.ok(text.indexOf('船员工资司法解释') < text.indexOf('第四十四条'));
   assert.match(text, /劳动合同法/);
   assert.match(text, /fixture/);
   assert.match(text, /https:\/\/flk.npc.gov.cn/);
 });
+test('A topical interpretation outranks an equally literal incidental mention at limit 1', async () => {
+  const text = await call('search_articles', { query: '工资', limit: 1 });
+  assert.match(text, /船员工资司法解释/);
+});
+
 test('Given a law filter and result limit, full-text results stay scoped and disclose truncation', async () => {
   const text = await call('search_articles', { query: '延长工作时间', law: '劳动法', limit: 1 });
   assert.match(text, /共 2 条匹配，显示前 1 条/);

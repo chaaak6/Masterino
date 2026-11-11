@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir,readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const segmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' });
@@ -50,15 +50,19 @@ export function rank(rows, query, textOf, titleOf = () => '') {
     .map((row) => {
       const text = textOf(row);
       const title = titleOf(row);
-      const hits = groups.filter((terms) =>
-        terms.some((term) => text.includes(term) || title.includes(term)),
-      );
+      const bodyHits = groups.filter((terms) => terms.some((term) => text.includes(term)));
+      const titleHits = groups.filter((terms) => terms.some((term) => title.includes(term)));
+      const coverage =
+        groups.filter((terms) => bodyHits.includes(terms) || titleHits.includes(terms)).length /
+        groups.length;
+      const term = bodyHits.flat().find((term) => text.includes(term));
       const score =
-        hits.length / groups.length +
-        (text.includes(query) ? 0.1 : 0) +
-        (row.category === '法律' ? 0.2 : 0);
-      const term = hits.flat().find((term) => text.includes(term));
-      return { row, score, term, coverage: hits.length / groups.length };
+        bodyHits.length / groups.length +
+        groups.filter(([word]) => text.includes(word)).length / groups.length +
+        (text.includes(query) ? 0.5 : 0) +
+        titleHits.length / groups.length / 4 +
+        (row.category === '法律' ? 0.01 : 0);
+      return { row, score, term, coverage };
     })
     .filter((hit) => hit.term && hit.coverage === 1)
     .sort((a, b) => b.score - a.score);

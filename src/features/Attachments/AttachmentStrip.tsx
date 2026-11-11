@@ -206,7 +206,7 @@ const AttachmentStrip = memo(() => {
         <div className={styles.row}>
           {documents.map((item) => (
             <div className={styles.file} key={item.uploadId || item.id}>
-              <FileIcon fileName={item.file.name} size={28} />
+              <FileIcon fileName={item.file.name} fileType={item.file.type} size={28} />
               <button
                 className={styles.open}
                 title={item.file.name}

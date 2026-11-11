@@ -66,6 +66,12 @@ export default function MarketPage() {
   const reviews = trpc.admin.listMarketReviews.useQuery();
   const resources = trpc.admin.listCatalogResources.useQuery({ page: 1, pageSize: 100 });
   const categories = trpc.admin.listMarketCategories.useQuery();
+  const skillCategories = (
+    (categories.data?.items ?? []) as Array<{
+      resource_type: string;
+      slug: string;
+    }>
+  ).filter((item) => item.resource_type === 'skill');
   const [reviewCategories, setReviewCategories] = useState<Record<number, string>>({});
   const accounts = trpc.admin.listMarketAccounts.useQuery();
   const allowlist = trpc.admin.listMarketConnectorAllowlist.useQuery();
@@ -129,6 +135,17 @@ export default function MarketPage() {
       await accounts.refetch();
     },
   });
+
+  const hasInvalidSkillCategory = (record: {
+    category?: string | null;
+    type: string;
+    versionId: number;
+  }) =>
+    categories.isSuccess &&
+    record.type === 'skill' &&
+    !skillCategories.some(
+      (item) => item.slug === (reviewCategories[record.versionId] || record.category),
+    );
 
   const act = (
     record: any,
@@ -368,31 +385,17 @@ export default function MarketPage() {
                           {record.workflowState === 'approved' && (
                             <>
                               <Button
+                                disabled={hasInvalidSkillCategory(record)}
                                 type="primary"
-                                disabled={
-                                  record.type === 'skill' &&
-                                  !(categories.data?.items ?? []).some(
-                                    (item: any) =>
-                                      item.resource_type === 'skill' &&
-                                      item.slug ===
-                                        (reviewCategories[record.versionId] || record.category),
-                                  )
-                                }
                                 onClick={() => act(record, 'publish')}
                               >
                                 发布
                               </Button>
-                              {record.type === 'skill' &&
-                                !(categories.data?.items ?? []).some(
-                                  (item: any) =>
-                                    item.resource_type === 'skill' &&
-                                    item.slug ===
-                                      (reviewCategories[record.versionId] || record.category),
-                                ) && (
-                                  <Typography.Text type="warning">
-                                    发布前请选择有效技能分类
-                                  </Typography.Text>
-                                )}
+                              {hasInvalidSkillCategory(record) && (
+                                <Typography.Text type="warning">
+                                  发布前请选择有效技能分类
+                                </Typography.Text>
+                              )}
                             </>
                           )}
                         </Space>

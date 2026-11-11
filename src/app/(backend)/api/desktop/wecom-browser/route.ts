@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import { appEnv } from '@/envs/app';
+import { getRequestOrigin } from '@/libs/url/requestOrigin';
 import { getWecomSsoRuntimeConfig } from '@/server/services/enterprise/wecomSsoService';
 
 export const runtime = 'nodejs';
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     const { url: rawUrl } = await request.json();
     const url = new URL(rawUrl);
     if (!appEnv.APP_URL) throw new Error('Application URL unavailable');
-    const origin = new URL(appEnv.APP_URL).origin;
+    const origin = getRequestOrigin(request, { fallbackUrl: appEnv.APP_URL });
     if (
       url.origin !== origin ||
       request.headers.get('origin') !== origin ||

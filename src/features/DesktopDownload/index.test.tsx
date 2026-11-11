@@ -8,6 +8,10 @@ import * as features from '@/config/productFeatures';
 
 import { downloadDesktop, useDesktopDownload } from './index';
 import * as platform from './platform';
+import * as wecom from './wecom';
+
+const { getUserStoreState } = vi.hoisted(() => ({ getUserStoreState: vi.fn() }));
+vi.mock('@/store/user', () => ({ getUserStoreState }));
 
 const release = {
   artifacts: [
@@ -78,6 +82,36 @@ describe('desktop download interaction', () => {
     expect(await screen.findByRole('alert')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'retry' }));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('https://example.com/windows.exe'));
+  });
+  it('offers the manual download link to anonymous WeCom users without calling the SDK', async () => {
+    render(
+      <MotionProvider motion={motion}>
+        <modal.ModalHost />
+      </MotionProvider>,
+    );
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Windows NT 10.0 wxwork/4.1');
+    getUserStoreState.mockReturnValueOnce({ isSignedIn: false });
+    const sdk = vi.spyOn(wecom, 'openWecomDownloadPage').mockResolvedValue(undefined);
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    const { result } = renderHook(() => useDesktopDownload());
+    await act(() => result.current.download());
+    const page = new URL('/download?manual=1', window.location.origin).href;
+    expect((await screen.findByRole('link', { name: page })).getAttribute('href')).toBe(page);
+    expect(sdk).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(result.current.loading).toBe(false);
+  });
+  it('uses the WeCom SDK from the shared action when signed in', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Windows NT 10.0 wxwork/4.1');
+    getUserStoreState.mockReturnValueOnce({ isSignedIn: true });
+    const sdk = vi.spyOn(wecom, 'openWecomDownloadPage').mockResolvedValue(undefined);
+    const open = vi.spyOn(modal, 'createModal');
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    const { result } = renderHook(() => useDesktopDownload());
+    await act(() => result.current.download());
+    expect(sdk).toHaveBeenCalledOnce();
+    expect(open).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
   it('honors hot-disable before detection, requests or navigation', async () => {
     vi.spyOn(features, 'isProductFeatureDisabled').mockReturnValue(true);

@@ -878,7 +878,7 @@ export const createMarketApp = (options: {
     const artifactKey = `skill/${identifier}/${version}/${randomUUID()}-${artifactHash}.zip`;
     const publicResult = ({ artifactKey: _key, ...result }: Record<string, unknown>) => result;
     const existingResponse = (existing: Record<string, unknown>) =>
-      existing.workflowState === 'rejected' && category
+      existing.workflowState === 'rejected'
         ? c.json({ error: 'version_rejected' }, 409)
         : c.json(publicResult(existing));
     let uploadStarted = false;
@@ -2048,7 +2048,19 @@ export const createMarketApp = (options: {
     const input = await jsonBody(c);
     const result = await repository.getPool().query(
       `INSERT INTO market_categories(resource_type,slug,sort_order,localizations) VALUES ($1,$2,$3,$4)
-       ON CONFLICT(resource_type,slug) DO UPDATE SET sort_order=excluded.sort_order, localizations=excluded.localizations RETURNING *`,
+       ON CONFLICT(resource_type,slug) DO UPDATE SET
+         sort_order=excluded.sort_order,
+         localizations=market_categories.localizations || COALESCE(
+           (SELECT jsonb_object_agg(locale, CASE
+              WHEN jsonb_typeof(market_categories.localizations->locale)='object'
+                AND jsonb_typeof(value)='object'
+              THEN (market_categories.localizations->locale) || value
+              ELSE value
+            END)
+            FROM jsonb_each(excluded.localizations) AS incoming(locale,value)),
+           '{}'::jsonb
+         )
+       RETURNING *`,
       [
         input.resourceType,
         input.slug,

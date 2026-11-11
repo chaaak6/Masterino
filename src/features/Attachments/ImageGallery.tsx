@@ -166,7 +166,7 @@ const ImageGallery = memo(
     items: GalleryImage[];
     renderThumbnails?: (thumbnails: ReactNode[]) => ReactNode;
   }) => {
-    const { t } = useTranslation('chat');
+    const { t } = useTranslation(['chat', 'common']);
     const [sources, setSources] = useState<Record<string, string>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
     const busy = useRef(new Set<string>());
@@ -190,16 +190,11 @@ const ImageGallery = memo(
       };
     }, []);
     const load = useCallback(
-      (item: GalleryImage) => {
-        if (
-          item.url ||
-          sources[item.id] ||
-          errors[item.id] ||
-          busy.current.has(item.id) ||
-          !item.load
-        )
-          return;
+      (item: GalleryImage, refresh = false) => {
+        if (!item.load || busy.current.has(item.id)) return;
+        if (!refresh && (item.url || sources[item.id] || errors[item.id])) return;
         busy.current.add(item.id);
+        if (refresh) setSources((prev) => ({ ...prev, [item.id]: '' }));
         void item
           .load()
           .then((url) => {
@@ -245,7 +240,7 @@ const ImageGallery = memo(
       return () => window.removeEventListener('keydown', key, true);
     }, [index, items.length]);
     const shown = expanded || renderThumbnails ? items : items.slice(0, compact ? 10 : 6);
-    const source = active && !errors[active.id] && (active.url || sources[active.id]);
+    const source = active && !errors[active.id] && (sources[active.id] ?? active.url);
     useEffect(() => {
       if (index !== undefined && !items[index]) setIndex(undefined);
     }, [index, items]);
@@ -296,14 +291,14 @@ const ImageGallery = memo(
         style={{ position: 'relative', minWidth: 0 }}
       >
         <ContextMenuTrigger
-          items={() => imageMenu(item, item.url || sources[item.id])}
+          items={() => imageMenu(item, sources[item.id] ?? item.url)}
           onContextMenu={(event) => event.stopPropagation()}
         >
           <div style={{ display: 'contents' }}>
             <Thumbnail
               item={item}
               load={load}
-              source={!errors[item.id] ? item.url || sources[item.id] : undefined}
+              source={!errors[item.id] ? sources[item.id] ?? item.url : undefined}
               onError={() => setErrors((prev) => ({ ...prev, [item.id]: true }))}
               onOpen={() => {
                 trigger.current = document.activeElement as HTMLElement;
@@ -438,13 +433,15 @@ const ImageGallery = memo(
                   </ContextMenuTrigger>
                 ) : (
                   <Text role={errors[active.id] ? 'alert' : 'status'}>
-                    {t(
-                      errors[active.id]
-                        ? active.local
-                          ? 'attachments.localPreviewUnavailable'
-                          : 'attachments.previewUnavailable'
-                        : 'localAttachment.checking',
-                    )}
+                    {errors[active.id]
+                      ? t(
+                          active.local
+                            ? 'attachments.localPreviewUnavailable'
+                            : 'attachments.previewUnavailable',
+                        )
+                      : active.local
+                        ? t('localAttachment.checking')
+                        : t('loading', { ns: 'common' })}
                   </Text>
                 )}
                 {errors[active.id] && (
@@ -452,11 +449,7 @@ const ImageGallery = memo(
                     size="small"
                     onClick={() => {
                       setErrors((prev) => ({ ...prev, [active.id]: false }));
-                      setSources((prev) => {
-                        const next = { ...prev };
-                        delete next[active.id];
-                        return next;
-                      });
+                      load(active, true);
                       setRevision((value) => value + 1);
                     }}
                   >

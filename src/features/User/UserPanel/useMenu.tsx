@@ -27,11 +27,7 @@ export const useMenu = () => {
   ]);
   const { userPanel } = useNavLayout();
   const businessMenuItems = useBusinessMenuItems(isLogin);
-  const {
-    disabled: downloadDisabled,
-    download,
-    loading: downloading,
-  } = useDesktopDownload({ preferExternalBrowser: isLogin });
+  const { disabled: downloadDisabled, download, loading: downloading } = useDesktopDownload();
 
   const settings: MenuProps['items'] = [
     {

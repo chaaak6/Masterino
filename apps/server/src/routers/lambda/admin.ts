@@ -1563,6 +1563,12 @@ const requireResourceAclManage = (ctx: unknown, resourceType: ResourceType) =>
 
 const adminProcedure = authedProcedure.use(serverDatabase);
 
+const marketAdminErrorCodes: Partial<Record<number, TRPCError['code']>> = {
+  400: 'BAD_REQUEST',
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+};
+
 const callInternalMarketAdmin = async <T>(
   ctx: unknown,
   path: string,
@@ -1592,7 +1598,7 @@ const callInternalMarketAdmin = async <T>(
   if (!response.ok) {
     const message = await response.text();
     throw new TRPCError({
-      code: response.status === 403 ? 'FORBIDDEN' : 'BAD_GATEWAY',
+      code: marketAdminErrorCodes[response.status] ?? 'BAD_GATEWAY',
       message: `Market: ${message}`,
     });
   }

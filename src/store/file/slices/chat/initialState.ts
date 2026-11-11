@@ -10,6 +10,7 @@ export interface ImageFileState {
   chatAttachmentIssues: ChatAttachmentIssue[];
   chatAttachmentNoticeShown: boolean;
   chatAttachmentScope?: string;
+  chatContextSelectionDrafts: Record<string, ChatContextContent[]>;
   chatContextSelections: ChatContextContent[];
   chatUploadFileList: UploadFileItem[];
   uploadingIds: string[];
@@ -19,6 +20,7 @@ export const initialImageFileState: ImageFileState = {
   chatAttachmentDrafts: {},
   chatAttachmentIssues: [],
   chatAttachmentNoticeShown: false,
+  chatContextSelectionDrafts: {},
   chatContextSelections: [],
   chatUploadFileList: [],
   uploadingIds: [],

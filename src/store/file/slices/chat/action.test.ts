@@ -6,9 +6,11 @@ import { notification } from '@/components/AntdStaticMethods';
 import * as localAttachments from '@/services/electron/localAttachmentService';
 import { ragService } from '@/services/rag';
 import { agentByIdSelectors } from '@/store/agent/selectors';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import { useFileStore as useStore } from '../../store';
 import { sameChatAttachmentDraft } from './drafts';
+import { fileChatSelectors } from './selectors';
 
 const AGENT_ID = 'agent-1';
 
@@ -86,6 +88,37 @@ beforeEach(() => {
 });
 
 describe('useFileStore:chat', () => {
+  it('keeps page selections within their document draft and preserves the legacy input', () => {
+    const firstPage = messageMapKey({ agentId: AGENT_ID, documentId: 'first', scope: 'page' });
+    const secondPage = messageMapKey({ agentId: AGENT_ID, documentId: 'second', scope: 'page' });
+    const home = `home_${messageMapKey({ agentId: AGENT_ID })}`;
+    const first = { content: 'First page', id: 'selection', type: 'text' } as const;
+    const second = { content: 'Second page', id: 'selection', type: 'text' } as const;
+    const legacy = { content: 'Legacy input', id: 'legacy', type: 'text' } as const;
+    const { addChatContextSelection, clearChatContextSelections, removeChatContextSelection } =
+      useStore.getState();
+
+    addChatContextSelection(legacy);
+    addChatContextSelection(first, firstPage);
+    const before = useStore.getState();
+    addChatContextSelection(second, secondPage);
+    const after = useStore.getState();
+    expect(sameChatAttachmentDraft(before, after, firstPage)).toBe(true);
+    expect(sameChatAttachmentDraft(before, after, secondPage)).toBe(false);
+    expect(fileChatSelectors.chatContextSelections(after, firstPage)).toEqual([first]);
+    expect(fileChatSelectors.chatContextSelectionHasItem(after, home)).toBe(false);
+
+    clearChatContextSelections(firstPage);
+    expect(fileChatSelectors.chatContextSelections(useStore.getState(), secondPage)).toEqual([
+      second,
+    ]);
+    expect(fileChatSelectors.chatContextSelections(useStore.getState())).toEqual([legacy]);
+    removeChatContextSelection(second.id, secondPage);
+    clearChatContextSelections();
+    expect(fileChatSelectors.chatContextSelections(useStore.getState(), secondPage)).toEqual([]);
+    expect(fileChatSelectors.chatContextSelections(useStore.getState())).toEqual([]);
+  });
+
   it('clearChatUploadFileList should clear the inputFilesList', () => {
     const { result } = renderHook(() => useStore());
 
@@ -248,13 +281,16 @@ describe('useFileStore:chat', () => {
         id: `server-${uploadId}`,
         url: 'https://example.test/image',
       }));
-    const makeImage = (i: number) => new File(['GIF89a'], `image-${i}.gif`, { type: 'image/gif' });
+    const makeImage = (i: number, type = 'image/gif') =>
+      new File(['GIF89a'], `image-${i}.gif`, { type });
     const first = useStore.getState().uploadChatFiles(
       Array.from({ length: 9 }, (_, i) => makeImage(i)),
       AGENT_ID,
     );
     const second = useStore.getState().uploadChatFiles([makeImage(9)], AGENT_ID);
-    const third = useStore.getState().uploadChatFiles([makeImage(10)], AGENT_ID);
+    const third = useStore
+      .getState()
+      .uploadChatFiles([makeImage(10, 'application/octet-stream')], AGENT_ID);
     expect(useStore.getState().chatUploadFileList).toHaveLength(10);
     await Promise.all([first, second, third]);
     expect(upload).toHaveBeenCalledTimes(10);

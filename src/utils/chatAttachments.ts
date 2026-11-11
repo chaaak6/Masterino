@@ -24,9 +24,14 @@ export interface ChatAttachmentIssue {
   web: boolean;
 }
 
-export const isChatImage = (file: { name: string; type: string }) =>
-  (file?.type || '').toLowerCase().startsWith('image/') ||
-  (!file?.type && /\.(?:png|jpe?g|webp|gif)$/i.test(file?.name || ''));
+export const isChatImage = (file: { name: string; type: string }) => {
+  const type = file?.type?.toLowerCase();
+  return (
+    !!type?.startsWith('image/') ||
+    ((!type || type === 'application/octet-stream') &&
+      /\.(?:png|jpe?g|webp|gif)$/i.test(file?.name || ''))
+  );
+};
 
 export const chatImageCount = (files: UploadFileItem[]) =>
   files.filter((item) => isChatImage(item.file)).length;

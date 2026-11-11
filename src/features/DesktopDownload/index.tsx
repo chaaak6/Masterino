@@ -63,7 +63,7 @@ function DownloadChoice({ target }: { target: DownloadTarget | 'mac' | 'unsuppor
   );
 }
 
-export function useDesktopDownload({ preferExternalBrowser = false } = {}) {
+export function useDesktopDownload() {
   const [loading, setLoading] = useState(false);
   const busy = useRef(false);
   const disabled = isProductFeatureDisabled('desktopApp');
@@ -71,28 +71,33 @@ export function useDesktopDownload({ preferExternalBrowser = false } = {}) {
     if (busy.current || isProductFeatureDisabled('desktopApp')) return;
     busy.current = true;
     setLoading(true);
-    if (preferExternalBrowser && isWecomDesktop(navigator.userAgent, navigator.maxTouchPoints)) {
+    if (isWecomDesktop(navigator.userAgent, navigator.maxTouchPoints)) {
       try {
-        await openWecomDownloadPage();
+        const { getUserStoreState } = await import('@/store/user');
+        if (getUserStoreState().isSignedIn) {
+          await openWecomDownloadPage();
+          return;
+        }
       } catch {
-        const page = new URL('/download?manual=1', window.location.origin).href;
-        createModal({
-          title: t('getDesktopApp', { ns: 'common' }),
-          content: (
-            <Flexbox gap={12}>
-              <span role="alert">{t('desktopDownload.browserFailed', { ns: 'common' })}</span>
-              <a href={page} rel="noreferrer" target="_blank">
-                {page}
-              </a>
-            </Flexbox>
-          ),
-          footer: null,
-          width: 420,
-        });
+        // The manual download link also works when the embedded SDK cannot open a browser.
       } finally {
         busy.current = false;
         setLoading(false);
       }
+      const page = new URL('/download?manual=1', window.location.origin).href;
+      createModal({
+        title: t('getDesktopApp', { ns: 'common' }),
+        content: (
+          <Flexbox gap={12}>
+            <span role="alert">{t('desktopDownload.browserFailed', { ns: 'common' })}</span>
+            <a href={page} rel="noreferrer" target="_blank">
+              {page}
+            </a>
+          </Flexbox>
+        ),
+        footer: null,
+        width: 420,
+      });
       return;
     }
     let target: Awaited<ReturnType<typeof detectDownloadTarget>> = 'unsupported';

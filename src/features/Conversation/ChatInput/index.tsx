@@ -23,7 +23,7 @@ import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import { selectCurrentTurnTodosFromMessages } from '@/store/chat/slices/message/selectors/dbMessage';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
-import { sameChatAttachmentDraft } from '@/store/file/slices/chat/drafts';
+import { sameChatAttachmentDraft, toPageSelections } from '@/store/file/slices/chat/drafts';
 import {
   checkDesktopProjectSend,
   ProjectDeviceMismatchError,
@@ -243,7 +243,7 @@ const ChatInput = memo<ChatInputProps>(
 
     // File store - for UI state only (disabled button, etc.)
     const fileList = useFileStore((s) => fileChatSelectors.chatUploadFileList(s, draftKey));
-    const contextList = useFileStore(fileChatSelectors.chatContextSelections);
+    const contextList = useFileStore((s) => fileChatSelectors.chatContextSelections(s, draftKey));
     const isUploadingFiles = useFileStore((s) => fileChatSelectors.isUploadingFiles(s, draftKey));
     const attachmentBlock = useFileStore((s) => fileChatSelectors.attachmentBlock(s, draftKey));
 
@@ -283,7 +283,7 @@ const ChatInput = memo<ChatInputProps>(
         const fileStore = useFileStore.getState();
         const currentFileList = fileChatSelectors.chatUploadFileList(fileStore, draftKey);
         const currentIsUploading = fileChatSelectors.isUploadingFiles(fileStore, draftKey);
-        const currentContextList = fileChatSelectors.chatContextSelections(fileStore);
+        const currentContextList = fileChatSelectors.chatContextSelections(fileStore, draftKey);
 
         if (currentIsUploading) {
           antdMessage.warning({
@@ -340,15 +340,10 @@ const ChatInput = memo<ChatInputProps>(
         // Clear content immediately for responsive UX
         clearContent();
         fileStore.clearChatUploadFileList({ preserveAttachments: true }, draftKey);
-        fileStore.clearChatContextSelections();
+        fileStore.clearChatContextSelections(draftKey);
 
         // Convert ChatContextContent to PageSelection for persistence
-        const pageSelections = currentContextList.map((ctx) => ({
-          content: ctx.preview || '',
-          id: ctx.id,
-          pageId: ctx.pageId || '',
-          xml: ctx.content,
-        }));
+        const pageSelections = toPageSelections(currentContextList);
 
         // Fire and forget - send with captured message
         await sendMessage({ editorData, files: currentFileList, message, pageSelections });
