@@ -8,7 +8,7 @@ import {
   parseLocalFileAttributes,
 } from './parseLocalFileAttributes';
 
-function tagEnd(input: string, start: number, limit: number) {
+function tagEnd(input: string, start: number, limit: number, nextOpening: number) {
   for (let cursor = start; cursor < limit; cursor++) {
     if (input.startsWith('/>', cursor)) return cursor;
     if (input[cursor] === '<' || input[cursor] === '>') return -1;
@@ -23,10 +23,13 @@ function tagEnd(input: string, start: number, limit: number) {
     for (let closer = opener + 1; closer < limit; closer++) {
       if (input[closer] !== quote) continue;
       const rest = input.slice(closer + 1, limit);
+      if (closer >= nextOpening && /[\r\n]/.test(input.slice(opener, closer))) break;
       if (!rest.trim() || /^\s*\/>/.test(rest) || nextLocalFileAttribute.test(rest)) {
         cursor = closer;
         break;
       }
+      // A quote belonging to a later tag cannot close this attribute.
+      if (closer >= nextOpening) break;
     }
   }
   return -1;
@@ -59,14 +62,15 @@ export const createRemarkLocalFilePlugin =
       });
       for (const [i, opening] of openings.entries()) {
         const from = opening.index;
+        if (from < consumed) continue;
         if (text) {
           let escapeStart = from;
           while (escapeStart > 0 && source[escapeStart - 1] === '\\') escapeStart--;
           if ((from - escapeStart) % 2) continue;
         }
         const attributesStart = from + opening[0].length;
-        const limit = Math.min(openings[i + 1]?.index ?? source.length, attributesStart + 32_770);
-        const close = tagEnd(source, attributesStart, limit);
+        const limit = Math.min(source.length, attributesStart + 32_770);
+        const close = tagEnd(source, attributesStart, limit, openings[i + 1]?.index ?? limit);
         if (close < 0) continue;
         const to = close + 2;
         if (node.type === 'inlineCode' && (source.slice(0, from).trim() || source.slice(to).trim()))

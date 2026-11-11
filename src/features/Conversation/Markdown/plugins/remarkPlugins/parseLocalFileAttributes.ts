@@ -53,7 +53,8 @@ export function parseLocalFileAttributes(
     const key = /^\s*([a-z][\w-]*)\s*(=\s*)?/i.exec(input.slice(cursor));
     if (!key) break; // Unknown/ambiguous syntax is not a new filesystem path.
     cursor += key[0].length;
-    const field = key[1];
+    const keyName = key[1].toLowerCase();
+    const field = keyName === 'isdirectory' ? 'isDirectory' : keyName;
     if (seen.has(field) && field === 'path') ambiguousPath = true;
     seen.add(field);
     if (!key[2]) {
@@ -76,7 +77,13 @@ export function parseLocalFileAttributes(
     if (end < 0) {
       end = input.length;
       for (let i = start; i < input.length; i++) {
-        if (nextLocalFileAttribute.test(input.slice(i))) {
+        const tail = input.slice(i);
+        if (nextLocalFileAttribute.test(tail)) {
+          // Without a closing quote, an unknown assignment could be part of
+          // the filename. Never pass a shortened path to the OS.
+          if (field === 'path' && !/^\s+(?:name|path|isDirectory)\b/i.test(tail)) {
+            ambiguousPath = true;
+          }
           end = i;
           break;
         }
@@ -94,7 +101,8 @@ export function parseLocalFileAttributes(
       ambiguousPath = true;
     // Preserve Windows path separators while applying Markdown text escapes
     // to POSIX paths. HTML and code values only decode character references.
-    const windowsPath = /^(?:[a-z]:[\\/]|\\)/i.test(value);
+    const windowsPath =
+      /^[a-z]:[\\/]/i.test(value) || (!/^(?:\/|~\/|\.{1,2}\/)/.test(value) && value.includes('\\'));
     if (markdownText && !(field === 'path' && windowsPath)) {
       value = decodeString(value);
     } else {

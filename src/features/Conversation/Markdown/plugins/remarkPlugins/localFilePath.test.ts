@@ -180,3 +180,33 @@ describe('Crystal Review regressions', () => {
     expect(properties(markdown).path).toBe(String.raw`\\?\UNC\server\R&D\_最终.pptx`);
   });
 });
+
+describe('review follow-up', () => {
+  it.each([String.raw`..\..\Assets\_report.txt`, String.raw`Assets\_report.txt`])(
+    'preserves relative Windows path %s',
+    (path) => {
+      expect(properties(`结果：<localFile name=“报告” path=“${path}” />`).path).toBe(path);
+    },
+  );
+
+  it('rejects a recovered path that could contain an unknown assignment', () => {
+    expect(
+      properties('结果：<localFile name="a" path=“/tmp/报表 total=2024/报告.pptx />').path,
+    ).toBeUndefined();
+  });
+
+  it('accepts directory attributes regardless of casing', () => {
+    expect(properties('<localFile name="a" path="/tmp/a b" IsDirectory />')).toEqual({
+      isDirectory: true,
+      name: 'a',
+      path: '/tmp/a b',
+    });
+  });
+
+  it('keeps tag-like text inside a closed display name', () => {
+    expect(properties('<localFile name="示例 <localFile marker>" path="/tmp/a b" />')).toEqual({
+      name: '示例 <localFile marker>',
+      path: '/tmp/a b',
+    });
+  });
+});
