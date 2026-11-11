@@ -99,11 +99,9 @@ export function parseLocalFileAttributes(
       [...value].filter((character) => character === opener).length % 2 !== 0
     )
       ambiguousPath = true;
-    // Preserve Windows path separators while applying Markdown text escapes
-    // to POSIX paths. Code spans keep literal character references.
-    const windowsPath =
-      /^[a-z]:[\\/]/i.test(value) || (!/^(?:\/|~\/|\.{1,2}\/)/.test(value) && value.includes('\\'));
-    if (sourceType === 'text' && !(field === 'path' && windowsPath)) {
+    // A raw path can contain literal backslashes on both Windows and POSIX.
+    // Decode entities, but apply Markdown backslash escapes only to labels.
+    if (sourceType === 'text' && field !== 'path') {
       value = decodeString(value);
     } else if (sourceType !== 'inlineCode') {
       value = value.replaceAll(/&(?:#x[\da-f]+|#\d+|[a-z]\w*);/gi, (reference) =>

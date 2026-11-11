@@ -170,9 +170,12 @@ describe('Crystal Review regressions', () => {
     );
   });
 
-  it('decodes text-node references and POSIX Markdown escapes', () => {
-    const markdown = String.raw`结果：<localFile name=“R&amp;D 报告” path=“/tmp/R&amp;D\_最终.pptx” />`;
-    expect(properties(markdown)).toEqual({ name: 'R&D 报告', path: '/tmp/R&D_最终.pptx' });
+  it('decodes text-node references and keeps literal path backslashes', () => {
+    const markdown = String.raw`结果：<localFile name=“R&amp;D\_报告” path=“/tmp/R&amp;D\_最终.pptx” />`;
+    expect(properties(markdown)).toEqual({
+      name: 'R&D_报告',
+      path: String.raw`/tmp/R&D\_最终.pptx`,
+    });
   });
 
   it('decodes Windows entities without unescaping Windows path separators', () => {
@@ -225,5 +228,33 @@ describe('review follow-up', () => {
       name: '示例 <localFile marker>',
       path: '/tmp/a b',
     });
+  });
+  it('keeps a path containing angle brackets after a display name with tag-like text', () => {
+    expect(
+      properties('结果：<localFile name="示例 <localFile marker> 说明" path="/tmp/a < b.pptx" />'),
+    ).toEqual({ name: '示例 <localFile marker> 说明', path: '/tmp/a < b.pptx' });
+  });
+
+  it.each(['"', '“'])(
+    'keeps a literal terminator and tag-like text in a %s-quoted path',
+    (open) => {
+      const close = open === '“' ? '”' : open;
+      const path = '/tmp/a /> <localFile b';
+      expect(properties(`结果：<localFile path=${open}${path}${close} />`).path).toBe(path);
+    },
+  );
+
+  it('does not borrow quotes from the next tag after a tag-like display name', () => {
+    const markdown =
+      '结果：<localFile name=“示例 <localFile marker” path=“/tmp/A.pptx" /> 和 <localFile name=“B” path=“/tmp/B.pptx” />';
+    expect(allProperties(markdown)).toEqual([
+      { name: '示例 <localFile marker', path: '/tmp/A.pptx' },
+      { name: 'B', path: '/tmp/B.pptx' },
+    ]);
+  });
+
+  it('retains literal backslashes before punctuation in POSIX paths', () => {
+    const path = String.raw`/tmp/备份\.2024/report.pdf`;
+    expect(properties(`结果：<localFile path=“${path}” />`).path).toBe(path);
   });
 });

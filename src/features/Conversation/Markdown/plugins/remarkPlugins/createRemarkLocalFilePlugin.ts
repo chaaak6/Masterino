@@ -8,7 +8,13 @@ import {
   parseLocalFileAttributes,
 } from './parseLocalFileAttributes';
 
-function tagEnd(input: string, start: number, limit: number, nextOpening: number) {
+function tagEnd(
+  input: string,
+  start: number,
+  limit: number,
+  openings: RegExpExecArray[],
+  openingIndex: number,
+) {
   for (let cursor = start; cursor < limit; cursor++) {
     if (input.startsWith('/>', cursor)) return cursor;
     if (input[cursor] === '<' || input[cursor] === '>') return -1;
@@ -23,19 +29,31 @@ function tagEnd(input: string, start: number, limit: number, nextOpening: number
     for (let closer = opener + 1; closer < limit; closer++) {
       if (input[closer] !== quote) continue;
       const rest = input.slice(closer + 1, limit);
-      if (closer >= nextOpening) {
-        // A completed tag or a new line before another opening is a boundary,
-        // even if the preceding value never supplied its matching quote.
-        const prefix = input.slice(opener, nextOpening);
-        if (/[\r\n]|\/>/.test(prefix) || input.slice(nextOpening, closer).includes(input[opener]))
+      if (rest.trim() && !/^\s*\/>/.test(rest) && !nextLocalFileAttribute.test(rest)) continue;
+
+      // A nested marker can be ordinary text in a quoted value. It becomes
+      // ambiguous when a following tag starts an attribute with this same
+      // quote, because its delimiter must not close the current attribute.
+      let borrowedQuote = false;
+      for (let i = openingIndex + 1; i < openings.length; i++) {
+        const nested = openings[i];
+        if (nested.index >= closer) break;
+        if (nested.index <= opener) continue;
+        const header = input
+          .slice(nested.index + '<localFile'.length, closer + 1)
+          .split(/[<>]/, 1)[0];
+        if (
+          [...header.matchAll(/\s+[a-z][\w-]*\s*=\s*(.)/gi)].some(
+            (match) => match[1] === input[opener],
+          )
+        ) {
+          borrowedQuote = true;
           break;
+        }
       }
-      if (!rest.trim() || /^\s*\/>/.test(rest) || nextLocalFileAttribute.test(rest)) {
-        cursor = closer;
-        break;
-      }
-      // A quote belonging to a later tag cannot close this attribute.
-      if (closer >= nextOpening) break;
+      if (borrowedQuote) break;
+      cursor = closer;
+      break;
     }
   }
   return -1;
@@ -76,7 +94,7 @@ export const createRemarkLocalFilePlugin =
         }
         const attributesStart = from + opening[0].length;
         const limit = Math.min(source.length, attributesStart + 32_770);
-        const close = tagEnd(source, attributesStart, limit, openings[i + 1]?.index ?? limit);
+        const close = tagEnd(source, attributesStart, limit, openings, i);
         if (close < 0) continue;
         const to = close + 2;
         if (node.type === 'inlineCode' && (source.slice(0, from).trim() || source.slice(to).trim()))
