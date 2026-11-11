@@ -2065,7 +2065,9 @@ export const createMarketApp = (options: {
       [
         input.resourceType,
         input.slug,
-        input.sortOrder ?? null,
+        typeof input.sortOrder === 'string' && !input.sortOrder.trim()
+          ? null
+          : (input.sortOrder ?? null),
         JSON.stringify(input.localizations || {}),
       ],
     );

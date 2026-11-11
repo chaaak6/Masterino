@@ -6,6 +6,7 @@ import { type UploadFileItem } from '@/types/files/upload';
 // Keep in sync with the deployed Next Proxy profile when changing upload capacity.
 export const WEB_CHAT_FILE_MAX_BYTES = 10 * 1024 * 1024;
 export const CHAT_IMAGE_LIMIT = 10;
+export const LOCAL_CHAT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
 export type AttachmentIssueReason =
   | 'image-count'
@@ -35,8 +36,17 @@ export const isChatImage = (file: { name: string; type: string }) => {
   );
 };
 
-export const isChatAttachmentImage = ({ mime, name }: { mime: string; name: string }) =>
-  isChatImage({ name, type: mime });
+export const isLocalChatAttachmentImage = ({
+  mime,
+  name,
+  size,
+}: {
+  mime: string;
+  name: string;
+  size: number;
+}) =>
+  mime.startsWith('image/') ||
+  (size <= LOCAL_CHAT_IMAGE_MAX_BYTES && isChatImage({ name, type: mime }));
 
 export const normalizeChatImageFile = async (file: File) => {
   if (file.type.startsWith('image/') || !isChatImage(file)) return file;
@@ -44,13 +54,17 @@ export const normalizeChatImageFile = async (file: File) => {
   const mime = await inferImageMimeTypeFromBytes(await file.slice(0, 4100).arrayBuffer()).catch(
     () => undefined,
   );
-  if (!mime || !/^image\/(?:gif|jpeg|png|webp)$/.test(mime))
-    throw new Error('Unsupported file type');
+  if (!mime || !/^image\/(?:gif|jpeg|png|webp)$/.test(mime)) return file;
   return new File([file], file.name, { lastModified: file.lastModified, type: mime });
 };
 
+export const isChatUploadItemImage = (item: UploadFileItem) =>
+  item.attachment?.source === 'local' || item.processStage === 'ready_for_chat'
+    ? item.file.type.startsWith('image/')
+    : isChatImage(item.file);
+
 export const chatImageCount = (files: UploadFileItem[]) =>
-  files.filter((item) => isChatImage(item.file)).length;
+  files.filter(isChatUploadItemImage).length;
 
 export function classifyChatAttachmentError(
   error: unknown,

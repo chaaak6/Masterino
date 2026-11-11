@@ -247,7 +247,9 @@ export default function MarketPage() {
                         ...value,
                         localizations: { 'zh-CN': { name: zhName }, 'en-US': { name: enName } },
                         sortOrder:
-                          value.sortOrder === undefined ? undefined : Number(value.sortOrder),
+                          value.sortOrder === undefined || value.sortOrder === ''
+                            ? undefined
+                            : Number(value.sortOrder),
                       })
                     }
                   >

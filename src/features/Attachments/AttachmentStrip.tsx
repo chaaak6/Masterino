@@ -24,7 +24,7 @@ import { type UploadFileItem } from '@/types/files/upload';
 import {
   CHAT_IMAGE_LIMIT,
   chatImageCount,
-  isChatImage,
+  isChatUploadItemImage,
   logChatAttachment,
 } from '@/utils/chatAttachments';
 import { formatSize } from '@/utils/format';
@@ -82,8 +82,8 @@ const AttachmentStrip = memo(() => {
     s.removeChatUploadFile,
     s.retryChatUploadFile,
   ]);
-  const images = files.filter((item) => isChatImage(item.file));
-  const documents = files.filter((item) => !isChatImage(item.file));
+  const images = files.filter(isChatUploadItemImage);
+  const documents = files.filter((item) => !isChatUploadItemImage(item));
   const status = (item: UploadFileItem) => {
     if (item.status === 'error' && item.fileUrl && item.attachmentError === 'unsupported-format')
       return t('attachments.uploadedUnsupported');

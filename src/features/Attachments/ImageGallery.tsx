@@ -18,12 +18,13 @@ import { message } from '@/components/AntdStaticMethods';
 import { logChatAttachment } from '@/utils/chatAttachments';
 
 export interface GalleryImage {
+  allowAddOnPreviewError?: boolean;
   caption?: ReactNode;
   id: string;
   load?: () => Promise<string>;
   local?: boolean;
   name: string;
-  onAdd?: () => Promise<boolean>;
+  onAdd?: (previewUrl?: string) => Promise<boolean>;
   onCopy?: () => Promise<void>;
   onRemove?: () => void;
   onReveal?: () => Promise<void>;
@@ -298,7 +299,7 @@ const ImageGallery = memo(
             <Thumbnail
               item={item}
               load={load}
-              source={!errors[item.id] ? sources[item.id] ?? item.url : undefined}
+              source={!errors[item.id] ? (sources[item.id] ?? item.url) : undefined}
               onError={() => setErrors((prev) => ({ ...prev, [item.id]: true }))}
               onOpen={() => {
                 trigger.current = document.activeElement as HTMLElement;
@@ -498,14 +499,23 @@ const ImageGallery = memo(
                 </DropdownMenu>
                 {active.onAdd && (
                   <Button
-                    disabled={adding || !source || !!errors[active.id]}
+                    disabled={
+                      adding ||
+                      ((!source || !!errors[active.id]) &&
+                        !(active.allowAddOnPreviewError && errors[active.id]))
+                    }
                     loading={adding}
                     size="small"
                     onClick={async () => {
                       const session = previewSession.current;
                       setAdding(true);
                       try {
-                        if ((await active.onAdd?.()) && previewSession.current === session)
+                        if (
+                          (await active.onAdd?.(
+                            errors[active.id] ? undefined : source || undefined,
+                          )) &&
+                          previewSession.current === session
+                        )
                           setAdded(active.id);
                       } catch {
                         if (previewSession.current === session)

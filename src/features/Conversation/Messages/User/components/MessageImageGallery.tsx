@@ -65,6 +65,7 @@ export default memo(
             typeof window !== 'undefined' &&
             !!window.electronAPI?.invoke;
           return {
+            allowAddOnPreviewError: !ref.mime.startsWith('image/'),
             id: ref.attachmentId,
             local: true,
             name: ref.name,
@@ -76,8 +77,9 @@ export default memo(
               if (!result.dataUrl) throw new Error('Preview unavailable');
               return result.dataUrl;
             },
-            onAdd: async () => {
+            onAdd: async (previewUrl) => {
               if (
+                (previewUrl || ref.mime.startsWith('image/')) &&
                 warnUnsupportedVisualUpload(
                   { name: ref.name, type: ref.mime },
                   {
@@ -88,7 +90,7 @@ export default memo(
                 )
               )
                 return false;
-              return add(ref, messageId, topicId || 'active', undefined, messageMapKey(context));
+              return add(ref, messageId, topicId || 'active', previewUrl, messageMapKey(context));
             },
           };
         })}

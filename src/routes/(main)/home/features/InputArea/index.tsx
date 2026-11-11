@@ -179,6 +179,7 @@ const InputArea = () => {
         {visibleBanner === 'botIntegration' && <BotIntegrationBanner />}
         {visibleBanner === 'messenger' && <MessengerBanner />}
         <DragUploadZone
+          disabled={!attachmentScope && (isInboxLoading || isInboxRetrying)}
           style={{ position: 'relative', zIndex: 1 }}
           onUploadFiles={(files) => {
             if (attachmentScope) return handleUploadFiles(files);

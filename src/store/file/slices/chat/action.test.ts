@@ -135,66 +135,67 @@ describe('useFileStore:chat', () => {
     expect(result.current.chatUploadFileList).toEqual([]);
   });
 
-  it.each(['image/png', 'application/octet-stream'])(
-    'restores a historical %s image',
-    async (mime) => {
-      const ref = {
-        source: 'local' as const,
-        attachmentId: 'a',
-        localResourceId: 'r',
-        deviceId: 'd',
-        version: 'v',
-        name: 'image.png',
-        mime,
-        size: 10,
-      };
-      const status = vi.spyOn(localAttachments, 'localAttachmentStatus').mockResolvedValue(true);
-      const bind = vi
-        .spyOn(localAttachments, 'bindLocalAttachmentMessage')
-        .mockResolvedValue(undefined);
-      const retain = vi
-        .spyOn(localAttachments, 'retainLocalAttachmentDraft')
-        .mockResolvedValue({ available: true });
-      const preview = vi
-        .spyOn(localAttachments, 'previewLocalAttachment')
-        .mockResolvedValue({ dataUrl: 'data:image/png;base64,AQID' });
-      const release = vi
-        .spyOn(localAttachments, 'releaseLocalAttachmentDraft')
-        .mockResolvedValue(undefined);
-      try {
-        const { result } = renderHook(() => useStore());
-        act(() => useStore.setState({ chatUploadFileList: [] }));
-        await act(async () => result.current.addLocalAttachmentToInput(ref, 'message', 'topic'));
-        const item = result.current.chatUploadFileList[0];
-        expect(item).toMatchObject({
-          attachment: ref,
-          id: 'a',
-          previewUrl: 'data:image/png;base64,AQID',
-          status: 'success',
-        });
-        expect(item.attachmentDraftId).toBeTruthy();
-        expect(item.file).toMatchObject({ size: 0, type: 'image/png' });
-        expect(bind).toHaveBeenCalledWith([{ attachment: ref }], 'message', 'topic');
-        await act(async () => result.current.addLocalAttachmentToInput(ref, 'message', 'topic'));
-        expect(retain).toHaveBeenCalledTimes(1);
-        act(() => result.current.clearChatUploadFileList({ preserveAttachments: true }));
-        expect(release).not.toHaveBeenCalled();
-        act(() => useStore.setState({ chatUploadFileList: [item] }));
-        await act(async () => result.current.removeChatUploadFile('a'));
-        expect(release).toHaveBeenCalledWith(ref, item.attachmentDraftId);
-        release.mockClear();
-        retain.mockImplementationOnce(async () => {
-          result.current.clearChatUploadFileList();
-          return { available: true };
-        });
-        await act(async () => result.current.addLocalAttachmentToInput(ref, 'message', 'topic'));
-        expect(result.current.chatUploadFileList).toEqual([]);
-        expect(release).toHaveBeenCalledWith(ref, expect.any(String));
-      } finally {
-        [status, bind, retain, preview, release].forEach((spy) => spy.mockRestore());
-      }
-    },
-  );
+  it.each([
+    ['image/png', 'data:image/png;base64,AQID'],
+    ['application/octet-stream', 'data:image/png;base64,AQID'],
+    ['application/octet-stream', undefined],
+  ])('restores historical %s with preview %s', async (mime, dataUrl) => {
+    const ref = {
+      source: 'local' as const,
+      attachmentId: 'a',
+      localResourceId: 'r',
+      deviceId: 'd',
+      version: 'v',
+      name: 'image.png',
+      mime,
+      size: 10,
+    };
+    const status = vi.spyOn(localAttachments, 'localAttachmentStatus').mockResolvedValue(true);
+    const bind = vi
+      .spyOn(localAttachments, 'bindLocalAttachmentMessage')
+      .mockResolvedValue(undefined);
+    const retain = vi
+      .spyOn(localAttachments, 'retainLocalAttachmentDraft')
+      .mockResolvedValue({ available: true });
+    const preview = vi
+      .spyOn(localAttachments, 'previewLocalAttachment')
+      .mockResolvedValue({ dataUrl });
+    const release = vi
+      .spyOn(localAttachments, 'releaseLocalAttachmentDraft')
+      .mockResolvedValue(undefined);
+    try {
+      const { result } = renderHook(() => useStore());
+      act(() => useStore.setState({ chatUploadFileList: [] }));
+      await act(async () => result.current.addLocalAttachmentToInput(ref, 'message', 'topic'));
+      const item = result.current.chatUploadFileList[0];
+      expect(item).toMatchObject({
+        attachment: ref,
+        id: 'a',
+        previewUrl: dataUrl,
+        status: 'success',
+      });
+      expect(item.attachmentDraftId).toBeTruthy();
+      expect(item.file).toMatchObject({ size: 0, type: dataUrl ? 'image/png' : mime });
+      expect(bind).toHaveBeenCalledWith([{ attachment: ref }], 'message', 'topic');
+      await act(async () => result.current.addLocalAttachmentToInput(ref, 'message', 'topic'));
+      expect(retain).toHaveBeenCalledTimes(1);
+      act(() => result.current.clearChatUploadFileList({ preserveAttachments: true }));
+      expect(release).not.toHaveBeenCalled();
+      act(() => useStore.setState({ chatUploadFileList: [item] }));
+      await act(async () => result.current.removeChatUploadFile('a'));
+      expect(release).toHaveBeenCalledWith(ref, item.attachmentDraftId);
+      release.mockClear();
+      retain.mockImplementationOnce(async () => {
+        result.current.clearChatUploadFileList();
+        return { available: true };
+      });
+      await act(async () => result.current.addLocalAttachmentToInput(ref, 'message', 'topic'));
+      expect(result.current.chatUploadFileList).toEqual([]);
+      expect(release).toHaveBeenCalledWith(ref, expect.any(String));
+    } finally {
+      [status, bind, retain, preview, release].forEach((spy) => spy.mockRestore());
+    }
+  });
 
   it('uploadChatFiles should reject unsupported files before upload in chat mode', async () => {
     // chat mode: agent mode disabled and not a heterogeneous agent

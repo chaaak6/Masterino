@@ -1,5 +1,5 @@
 import { MotionProvider } from '@lobehub/ui';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { m } from 'motion/react';
 import { expect, it, vi } from 'vitest';
 
@@ -42,4 +42,30 @@ it('refreshes a failed uploaded image and uses the new URL in the preview and th
   finish(fresh);
   expect(await dialog.findByRole('img', { name: 'Image' })).toHaveAttribute('src', fresh);
   expect(thumbnail.querySelector('img')).toHaveAttribute('src', fresh);
+});
+
+it('allows a legacy attachment to be added after its image preview fails', async () => {
+  const onAdd = vi.fn().mockResolvedValue(true);
+  render(
+    <MotionProvider motion={m}>
+      <ImageGallery
+        items={[
+          {
+            allowAddOnPreviewError: true,
+            id: 'legacy',
+            load: vi.fn().mockRejectedValue(new Error('Preview unavailable')),
+            name: 'Legacy image',
+            onAdd,
+          },
+        ]}
+      />
+    </MotionProvider>,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Legacy image' }));
+  const dialog = within(await screen.findByRole('dialog'));
+  const add = dialog.getByRole('button', { name: 'localAttachment.addToInput' });
+  await waitFor(() => expect(add).toBeEnabled());
+  fireEvent.click(add);
+  await waitFor(() => expect(onAdd).toHaveBeenCalledWith(undefined));
 });

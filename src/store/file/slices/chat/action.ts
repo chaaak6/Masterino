@@ -31,6 +31,7 @@ import {
   chatImageCount,
   classifyChatAttachmentError,
   isChatImage,
+  isLocalChatAttachmentImage,
   logChatAttachment,
   normalizeChatImageFile,
   WEB_CHAT_FILE_MAX_BYTES,
@@ -284,7 +285,7 @@ export class FileActionImpl {
       return true;
     let file = new File([], ref.name, { type: ref.mime });
     if (
-      isChatImage(file) &&
+      file.type.startsWith('image/') &&
       chatImageCount(this.#draft(scope).chatUploadFileList) >= CHAT_IMAGE_LIMIT
     ) {
       this.#reject(ref, 'image-count', scope);
@@ -296,14 +297,14 @@ export class FileActionImpl {
     const draftId = crypto.randomUUID();
     dispatch({
       type: 'addFiles',
-      files: [{ id, uploadId: id, file, status: 'pending' }],
+      files: [{ attachment: ref, id, uploadId: id, file, status: 'pending' }],
     });
     const alive = () => this.#draft(scope).chatUploadFileList.some((item) => item.uploadId === id);
     let retained = false;
     try {
       if (!(await localAttachmentStatus(ref))) throw new Error('Attachment unavailable');
       await bindLocalAttachmentMessage([{ attachment: ref }], messageId, topicId);
-      if (isChatImage(file)) {
+      if (isLocalChatAttachmentImage(ref)) {
         previewUrl ||= (await previewLocalAttachment(ref, topicId)).dataUrl;
         const mime = previewUrl?.match(/^data:(image\/[^;]+);/)?.[1];
         if (!file.type.startsWith('image/') && mime) file = new File([], ref.name, { type: mime });
@@ -311,6 +312,15 @@ export class FileActionImpl {
       retained = (await retainLocalAttachmentDraft(ref, draftId)).available;
       if (!retained) throw new Error('Attachment unavailable');
       if (!alive()) return false;
+      if (
+        !ref.mime.startsWith('image/') &&
+        file.type.startsWith('image/') &&
+        chatImageCount(this.#draft(scope).chatUploadFileList) >= CHAT_IMAGE_LIMIT
+      ) {
+        dispatch({ id, type: 'removeFile' });
+        this.#reject(ref, 'image-count', scope);
+        return false;
+      }
       dispatch({
         id,
         type: 'updateFile',
@@ -479,7 +489,7 @@ export class FileActionImpl {
             file,
             attachmentDraftId: draftId,
             id: attachment.attachmentId,
-            previewUrl: isChatImage(file) ? URL.createObjectURL(file) : undefined,
+            previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
             status: 'success',
             processStage: 'ready_for_chat',
           });
@@ -490,7 +500,7 @@ export class FileActionImpl {
           if (!current()) return;
           let previewUrl: string | undefined;
           let base64Url: string | undefined;
-          if (isChatImage(file) || file.type.startsWith('video/')) {
+          if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
             const data = await file.arrayBuffer();
             if (!current()) return;
             previewUrl = URL.createObjectURL(file);
