@@ -2,7 +2,7 @@ import debug from 'debug';
 import { type Plugin } from 'unified';
 import { SKIP, visit } from 'unist-util-visit';
 
-import { parseLocalFileAttributes } from './parseLocalFileAttributes';
+import { createRemarkLocalFilePlugin } from './createRemarkLocalFilePlugin';
 
 // Create debugger instance
 const log = debug('lobe-markdown:remark-plugin:self-closing');
@@ -28,25 +28,17 @@ const parseAttributes = (attributeString: string): Record<string, string | boole
 export const createRemarkSelfClosingTagPlugin =
   (tagName: string): Plugin<[], any> =>
   () => {
+    if (tagName.toLowerCase() === 'localfile') return createRemarkLocalFilePlugin(tagName);
+
     // Regex for the specific tag, ensure it matches the entire string for HTML check
     // Allow trailing whitespace after /> to handle cases where markdown parsers include it
     // Tag names are case-insensitive in HTML, and some upstream processors may normalize casing.
     const escapedTagName = escapeRegExp(tagName);
-    const body = tagName.toLowerCase() === 'localfile' ? '(?:(?!\\/>)[\\s\\S])*?' : '[^>]*?';
-    const exactTagRegex = new RegExp(`^<${escapedTagName}(\\s+${body})?\\s*\\/>\\s*$`, 'i');
+    const exactTagRegex = new RegExp(`^<${escapedTagName}(\\s+[^>]*?)?\\s*\\/>\\s*$`, 'i');
     // Regex for finding tags within text
-    const textTagRegex = new RegExp(`<${escapedTagName}(\\s+${body})?\\s*\\/>`, 'gi');
+    const textTagRegex = new RegExp(`<${escapedTagName}(\\s+[^>]*?)?\\s*\\/>`, 'gi');
 
-    const parseTagAttributes =
-      tagName.toLowerCase() === 'localfile' ? parseLocalFileAttributes : parseAttributes;
-
-    return (tree, file) => {
-      const sourceAttributes = (node: any, fallback: string, index = 0) => {
-        if (tagName.toLowerCase() !== 'localfile' || !file?.value || !node.position)
-          return fallback;
-        const raw = String(file.value).slice(node.position.start.offset, node.position.end.offset);
-        return [...raw.matchAll(new RegExp(textTagRegex.source, 'gi'))][index]?.[1] ?? fallback;
-      };
+    return (tree) => {
       // --- DEBUG LOG START (Before Visit) ---
       log('Plugin execution start for tag: %s', tagName);
       log('Tree: %o', tree);
@@ -75,9 +67,7 @@ export const createRemarkSelfClosingTagPlugin =
 
         if (match && parent && typeof index === 'number') {
           const [, attributesString] = match;
-          const properties = attributesString
-            ? parseTagAttributes(sourceAttributes(node, attributesString).trim())
-            : {};
+          const properties = attributesString ? parseAttributes(attributesString.trim()) : {};
 
           const newNode = {
             data: {
@@ -106,7 +96,6 @@ export const createRemarkSelfClosingTagPlugin =
           const newChildren: any[] = [];
           let lastIndex = 0;
           let textMatch: RegExpExecArray | null;
-          let htmlTagIndex = 0;
 
           textTagRegex.lastIndex = 0;
           while ((textMatch = textTagRegex.exec(html)) !== null) {
@@ -119,9 +108,7 @@ export const createRemarkSelfClosingTagPlugin =
               if (fragment) newChildren.push({ type: 'html', value: fragment });
             }
 
-            const properties = attributesString
-              ? parseTagAttributes(sourceAttributes(node, attributesString, htmlTagIndex++).trim())
-              : {};
+            const properties = attributesString ? parseAttributes(attributesString.trim()) : {};
             newChildren.push({
               data: { hName: tagName, hProperties: properties },
               type: tagName,
@@ -160,9 +147,6 @@ export const createRemarkSelfClosingTagPlugin =
         }
 
         const text = node.value;
-        // remark unescapes backslashes in malformed HTML/text tags. Read only
-        // their attribute values from source positions; keep surrounding prose.
-        let tagIndex = 0;
         let lastIndex = 0;
         const newChildren = [];
         let match;
@@ -179,8 +163,7 @@ export const createRemarkSelfClosingTagPlugin =
           }
 
           // Parse attributes and create the new node
-          const rawAttributes = sourceAttributes(node, attributesString, tagIndex++);
-          const properties = rawAttributes ? parseTagAttributes(rawAttributes.trim()) : {};
+          const properties = attributesString ? parseAttributes(attributesString.trim()) : {};
           newChildren.push({
             data: {
               hName: tagName,
@@ -227,9 +210,7 @@ export const createRemarkSelfClosingTagPlugin =
         const match = node.value.match(exactTagRegex);
         if (match) {
           const [, attributesString] = match;
-          const properties = attributesString
-            ? parseTagAttributes(sourceAttributes(node, attributesString).trim())
-            : {};
+          const properties = attributesString ? parseAttributes(attributesString.trim()) : {};
 
           const newNode = {
             data: {

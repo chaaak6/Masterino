@@ -20,7 +20,9 @@ vi.mock('@lobehub/ui', () => ({
 vi.mock('@/components/FileIcon', () => ({ default: () => null }));
 afterEach(() => vi.restoreAllMocks());
 it('surfaces a resolved OS failure and an IPC rejection for the two actions', async () => {
-  const notify = vi.spyOn(toast, 'error').mockImplementation(() => 'test');
+  const notify = vi
+    .spyOn(toast, 'error')
+    .mockReturnValue({ close: vi.fn(), id: 'test', update: vi.fn() });
   vi.spyOn(localFileService, 'openLocalFileOrFolder').mockResolvedValue({
     success: false,
     error: 'not found',
@@ -33,7 +35,9 @@ it('surfaces a resolved OS failure and an IPC rejection for the two actions', as
   await waitFor(() => expect(notify).toHaveBeenCalledTimes(2));
 });
 it('reports a missing path without calling IPC', () => {
-  const notify = vi.spyOn(toast, 'error').mockImplementation(() => 'test');
+  const notify = vi
+    .spyOn(toast, 'error')
+    .mockReturnValue({ close: vi.fn(), id: 'test', update: vi.fn() });
   const open = vi.spyOn(localFileService, 'openLocalFileOrFolder');
   render(<LocalFile name="无效链接" />);
   fireEvent.click(screen.getByTitle('LocalFile.action.open'));

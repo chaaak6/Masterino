@@ -4,15 +4,24 @@ import { describe, expect, it } from 'vitest';
 
 import { createRemarkSelfClosingTagPlugin } from './createRemarkSelfClosingTagPlugin';
 
-function properties(markdown: string) {
+function parse(markdown: string) {
   const processor = unified().use(remarkParse).use(createRemarkSelfClosingTagPlugin('localFile'));
-  const tree = processor.runSync(processor.parse(markdown), markdown);
+  return processor.runSync(processor.parse(markdown), markdown);
+}
+
+function allProperties(markdown: string) {
+  const tree = parse(markdown);
   const nodes: any[] = [];
   function walk(node: any) {
     if (node.type === 'localFile') nodes.push(node.data.hProperties);
     node.children?.forEach(walk);
   }
   walk(tree);
+  return nodes;
+}
+
+function properties(markdown: string) {
+  const nodes = allProperties(markdown);
   expect(nodes).toHaveLength(1);
   return nodes[0];
 }
@@ -102,4 +111,72 @@ describe('model localFile path recovery through real Markdown', () => {
       expect(properties(`<localFile name="report" path="${path}" />`).path).toBeUndefined();
     },
   );
+});
+
+describe('Crystal Review regressions', () => {
+  it('preserves prose and the next file after an unclosed tag', () => {
+    const markdown = '<localFile name="a">\n说明\n<localFile name="b" path="/tmp/b" />';
+    expect(JSON.stringify(parse(markdown))).toContain('说明');
+    expect(allProperties(markdown)).toEqual([{ name: 'b', path: '/tmp/b' }]);
+  });
+
+  it.each(['isDirectory', 'isDirectory="true"', 'isDirectory="false"'])(
+    'keeps the path separate from %s',
+    (attribute) => {
+      expect(properties(`<localFile name="a" path="/tmp/a b" ${attribute} />`)).toEqual({
+        isDirectory: !attribute.includes('false'),
+        name: 'a',
+        path: '/tmp/a b',
+      });
+    },
+  );
+
+  it.each(['<localFile/>', '<localFile />'])('keeps adjacent paths after %s', (empty) => {
+    const markdown = `${empty}\n<localFile name="a" path="/tmp/a" />\n<localFile name="b" path="/tmp/b" />`;
+    expect(allProperties(markdown).map(({ path }) => path)).toEqual([
+      undefined,
+      '/tmp/a',
+      '/tmp/b',
+    ]);
+  });
+
+  it('does not associate an entity-escaped tag with the next file', () => {
+    const markdown =
+      '&lt;localFile name=“A” path=“/tmp/A” /&gt; <localFile name=“B” path=“/tmp/B” />';
+    expect(allProperties(markdown)).toEqual([{ name: 'B', path: '/tmp/B' }]);
+    expect(JSON.stringify(parse(markdown))).toContain('<localFile name=“A”');
+  });
+
+  it('keeps a Markdown-escaped opening bracket as prose', () => {
+    const markdown = String.raw`\<localFile name=“A” path=“/tmp/A” /> <localFile name=“B” path=“/tmp/B” />`;
+    expect(allProperties(markdown)).toEqual([{ name: 'B', path: '/tmp/B' }]);
+  });
+
+  it('does not recover a truncated path from an unterminated tag with a quoted terminator', () => {
+    expect(allProperties('结果：<localFile name=“a” path=“/tmp/a /> b”')).toEqual([]);
+  });
+
+  it.each(['id="1" name="a" path="/tmp/a"', 'name=“a” path=“/tmp/a” size=“1 MB”'])(
+    'ignores extra attributes in %s',
+    (attributes) => {
+      expect(properties(`<localFile ${attributes} />`)).toEqual({ name: 'a', path: '/tmp/a' });
+    },
+  );
+
+  it.each(['"', '“'])('keeps a terminator inside a %s-quoted path', (open) => {
+    const close = open === '“' ? '”' : open;
+    expect(properties(`<localFile name="a" path=${open}/tmp/a /> b${close} />`).path).toBe(
+      '/tmp/a /> b',
+    );
+  });
+
+  it('decodes text-node references and POSIX Markdown escapes', () => {
+    const markdown = String.raw`结果：<localFile name=“R&amp;D 报告” path=“/tmp/R&amp;D\_最终.pptx” />`;
+    expect(properties(markdown)).toEqual({ name: 'R&D 报告', path: '/tmp/R&D_最终.pptx' });
+  });
+
+  it('decodes Windows entities without unescaping Windows path separators', () => {
+    const markdown = String.raw`结果：<localFile name=“报告” path=“\\?\UNC\server\R&amp;D\_最终.pptx” />`;
+    expect(properties(markdown).path).toBe(String.raw`\\?\UNC\server\R&D\_最终.pptx`);
+  });
 });
