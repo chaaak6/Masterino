@@ -4,6 +4,12 @@ import {
   type UIChatMessage,
 } from '@lobechat/types';
 
+import {
+  isChatAttachmentImage,
+  isChatImage,
+  normalizeChatImageFile,
+} from '@/utils/chatAttachments';
+
 const attachmentErrorKeys = {
   LOCAL_ATTACHMENT_TOO_LARGE: 'localAttachment.errors.fileTooLarge',
   LOCAL_IMAGE_TOO_LARGE: 'localAttachment.errors.imageTooLarge',
@@ -26,12 +32,16 @@ const invoke = async <T>(method: string, input: unknown): Promise<T> => {
     throw new Error('Attachment is unavailable on this device; select it again');
   return window.electronAPI.invoke<T>(`localSystem.${method}`, input);
 };
-export const receiveLocalChatAttachment = async (file: File, draftId: string) => {
-  if (file.size > 1024 ** 3) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
-  // Capture BEFORE compression/Blob conversion, which would discard Electron's native path.
-  const originalPath = window.electronAPI?.getPathForFile?.(file);
+export const receiveLocalChatAttachment = async (originalFile: File, draftId: string) => {
+  if (originalFile.size > 1024 ** 3) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
+  if (isChatImage(originalFile) && originalFile.size > 10 * 1024 * 1024)
+    throw new Error('LOCAL_IMAGE_TOO_LARGE');
+  // Capture BEFORE MIME normalization, which would discard Electron's native path.
+  const originalPath = window.electronAPI?.getPathForFile?.(originalFile);
+  const file = await normalizeChatImageFile(originalFile).catch(() => {
+    throw new Error('LOCAL_IMAGE_INVALID');
+  });
   if (file.type.startsWith('image/')) {
-    if (file.size > 10 * 1024 * 1024) throw new Error('LOCAL_IMAGE_TOO_LARGE');
     const bitmap = await createImageBitmap(file).catch(() => {
       throw new Error('LOCAL_IMAGE_INVALID');
     });
@@ -98,7 +108,7 @@ export const resolveLocalMessageAttachments = async (
       const localIds = new Set(refs.map((ref) => ref.attachmentId));
       if (
         index >= latestUserIndex &&
-        refs.filter((ref) => ref.mime.startsWith('image/')).length +
+        refs.filter(isChatAttachmentImage).length +
           (message.imageList ?? []).filter((image) => !localIds.has(image.id)).length >
           10
       ) {
@@ -110,7 +120,7 @@ export const resolveLocalMessageAttachments = async (
           : [];
       const manifest: string[] = [];
       for (const ref of refs) {
-        if (ref.mime.startsWith('image/')) {
+        if (isChatAttachmentImage(ref)) {
           if (index < latestUserIndex) {
             manifest.push(
               `${ref.name} [attachment ${ref.attachmentId}; historical image not included]`,
@@ -206,7 +216,7 @@ export const previewLocalAttachment = (ref: LocalRef, topicId: string) =>
   invoke<{ path?: string; dataUrl?: string }>('resolveAttachment', {
     ref,
     topicId,
-    image: ref.mime.startsWith('image/'),
+    image: isChatAttachmentImage(ref),
   });
 
 /** Main process validates device, identity and current file content before either OS action. */

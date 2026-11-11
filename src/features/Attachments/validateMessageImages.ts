@@ -3,13 +3,15 @@ import { t } from 'i18next';
 
 import { message } from '@/components/AntdStaticMethods';
 import { type UIChatMessage } from '@/types/index';
-import { CHAT_IMAGE_LIMIT, logChatAttachment } from '@/utils/chatAttachments';
+import {
+  CHAT_IMAGE_LIMIT,
+  isChatAttachmentImage,
+  logChatAttachment,
+} from '@/utils/chatAttachments';
 
 // Apply the same policy before editing or branching historical user messages.
 export const validateMessageImages = (item: Parameters<typeof normalizeMessageAttachments>[0]) => {
-  const count = normalizeMessageAttachments(item).filter((ref) =>
-    ref.mime.startsWith('image/'),
-  ).length;
+  const count = normalizeMessageAttachments(item).filter(isChatAttachmentImage).length;
   if (count <= CHAT_IMAGE_LIMIT) return true;
   message.warning(t('attachments.historyLimit', { ns: 'chat', limit: CHAT_IMAGE_LIMIT }));
   logChatAttachment('blocked-history', { count, reason: 'image-count' });

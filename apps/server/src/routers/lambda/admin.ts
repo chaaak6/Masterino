@@ -1564,7 +1564,6 @@ const requireResourceAclManage = (ctx: unknown, resourceType: ResourceType) =>
 const adminProcedure = authedProcedure.use(serverDatabase);
 
 const marketAdminErrorCodes: Partial<Record<number, TRPCError['code']>> = {
-  400: 'BAD_REQUEST',
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
 };
@@ -1597,8 +1596,16 @@ const callInternalMarketAdmin = async <T>(
   });
   if (!response.ok) {
     const message = await response.text();
+    const isInvalidSkillCategory =
+      response.status === 400 &&
+      init?.method === 'PATCH' &&
+      path.startsWith('/api/internal/resources/skill/') &&
+      path.endsWith('/category') &&
+      message === JSON.stringify({ error: '请选择有效的技能分类' });
     throw new TRPCError({
-      code: marketAdminErrorCodes[response.status] ?? 'BAD_GATEWAY',
+      code: isInvalidSkillCategory
+        ? 'BAD_REQUEST'
+        : (marketAdminErrorCodes[response.status] ?? 'BAD_GATEWAY'),
       message: `Market: ${message}`,
     });
   }

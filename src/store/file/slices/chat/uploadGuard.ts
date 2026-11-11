@@ -99,7 +99,11 @@ export const isSupportedChatUploadFile = (file: File) => {
     return SUPPORTED_CHAT_IMAGE_TYPES.has(fileType);
   }
 
-  if (!fileType && SUPPORTED_CHAT_IMAGE_EXTENSIONS.has(extension)) return true;
+  if (
+    (!fileType || fileType === 'application/octet-stream') &&
+    SUPPORTED_CHAT_IMAGE_EXTENSIONS.has(extension)
+  )
+    return true;
 
   if (fileType.startsWith('video/')) return true;
 

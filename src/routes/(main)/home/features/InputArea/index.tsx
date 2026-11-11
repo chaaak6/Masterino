@@ -1,4 +1,5 @@
-import { Alert, Flexbox, Skeleton } from '@lobehub/ui';
+import { BUILTIN_AGENT_SLUGS } from '@lobechat/builtin-agents';
+import { Alert, Button, Flexbox, Skeleton } from '@lobehub/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +10,7 @@ import { type ActionKeys } from '@/features/ChatInput';
 import { ChatInputProvider, DesktopChatInput } from '@/features/ChatInput';
 import { useHomeDailyBrief } from '@/hooks/useHomeDailyBrief';
 import { useInitAgentConfig } from '@/hooks/useInitAgentConfig';
+import { useInitBuiltinAgent } from '@/hooks/useInitBuiltinAgent';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { builtinAgentSelectors } from '@/store/agent/selectors/builtinAgentSelectors';
@@ -33,6 +35,19 @@ type BannerKind = 'skill' | 'botIntegration' | 'messenger';
 const InputArea = () => {
   const { t } = useTranslation('chat');
   const { loading, send, agentId, attachmentScope } = useSend();
+  const { isLoading: isInboxLoading } = useInitBuiltinAgent(BUILTIN_AGENT_SLUGS.inbox);
+  const refreshBuiltinAgent = useAgentStore((s) => s.refreshBuiltinAgent);
+  const [isInboxRetrying, setIsInboxRetrying] = useState(false);
+  const retryInbox = async () => {
+    setIsInboxRetrying(true);
+    try {
+      await refreshBuiltinAgent(BUILTIN_AGENT_SLUGS.inbox);
+    } catch {
+      antdMessage.error(t('agentConfigError.title'));
+    } finally {
+      setIsInboxRetrying(false);
+    }
+  };
   const isUploadingFiles = useFileStore((s) =>
     fileChatSelectors.isUploadingFiles(s, attachmentScope),
   );
@@ -163,11 +178,14 @@ const InputArea = () => {
         {visibleBanner === 'skill' && <SkillInstallBanner />}
         {visibleBanner === 'botIntegration' && <BotIntegrationBanner />}
         {visibleBanner === 'messenger' && <MessengerBanner />}
-        {attachmentScope ? (
-          <DragUploadZone
-            style={{ position: 'relative', zIndex: 1 }}
-            onUploadFiles={handleUploadFiles}
-          >
+        <DragUploadZone
+          style={{ position: 'relative', zIndex: 1 }}
+          onUploadFiles={(files) => {
+            if (attachmentScope) return handleUploadFiles(files);
+            antdMessage.warning(t('agentConfigError.title'));
+          }}
+        >
+          {attachmentScope ? (
             <ChatInputProvider
               agentId={resolvedAgentId}
               allowExpand={false}
@@ -217,10 +235,17 @@ const InputArea = () => {
                 </Flexbox>
               )}
             </ChatInputProvider>
-          </DragUploadZone>
-        ) : (
-          <Skeleton.Button active block style={{ borderRadius: 20, height: 88 }} />
-        )}
+          ) : isInboxLoading || isInboxRetrying ? (
+            <Skeleton.Button active block style={{ borderRadius: 20, height: 88 }} />
+          ) : (
+            <Alert
+              showIcon
+              title={t('agentConfigError.title')}
+              type="error"
+              action={<Button onClick={retryInbox}>{t('agentConfigError.retry')}</Button>}
+            />
+          )}
+        </DragUploadZone>
       </Flexbox>
 
       <StarterList />

@@ -32,6 +32,7 @@ import {
   classifyChatAttachmentError,
   isChatImage,
   logChatAttachment,
+  normalizeChatImageFile,
   WEB_CHAT_FILE_MAX_BYTES,
 } from '@/utils/chatAttachments';
 import { isChunkingUnsupported } from '@/utils/isChunkingUnsupported';
@@ -281,7 +282,7 @@ export class FileActionImpl {
       )
     )
       return true;
-    const file = new File([], ref.name, { type: ref.mime });
+    let file = new File([], ref.name, { type: ref.mime });
     if (
       isChatImage(file) &&
       chatImageCount(this.#draft(scope).chatUploadFileList) >= CHAT_IMAGE_LIMIT
@@ -302,8 +303,11 @@ export class FileActionImpl {
     try {
       if (!(await localAttachmentStatus(ref))) throw new Error('Attachment unavailable');
       await bindLocalAttachmentMessage([{ attachment: ref }], messageId, topicId);
-      if (!previewUrl && ref.mime.startsWith('image/'))
-        previewUrl = (await previewLocalAttachment(ref, topicId)).dataUrl;
+      if (isChatImage(file)) {
+        previewUrl ||= (await previewLocalAttachment(ref, topicId)).dataUrl;
+        const mime = previewUrl?.match(/^data:(image\/[^;]+);/)?.[1];
+        if (!file.type.startsWith('image/') && mime) file = new File([], ref.name, { type: mime });
+      }
       retained = (await retainLocalAttachmentDraft(ref, draftId)).available;
       if (!retained) throw new Error('Attachment unavailable');
       if (!alive()) return false;
@@ -313,6 +317,7 @@ export class FileActionImpl {
         value: {
           attachment: ref,
           attachmentDraftId: draftId,
+          file,
           id: ref.attachmentId,
           previewUrl,
           status: 'success',
@@ -464,8 +469,14 @@ export class FileActionImpl {
             await releaseLocalAttachmentDraft(attachment, draftId);
             return;
           }
+          if (isChatImage(file) && file.type !== attachment.mime)
+            file = new File([file], file.name, {
+              lastModified: file.lastModified,
+              type: attachment.mime,
+            });
           update({
             attachment,
+            file,
             attachmentDraftId: draftId,
             id: attachment.attachmentId,
             previewUrl: isChatImage(file) ? URL.createObjectURL(file) : undefined,
@@ -474,6 +485,7 @@ export class FileActionImpl {
           });
         } else {
           // Keep the existing Web image preprocessing contract; UI thumbnails never replace input.
+          file = await normalizeChatImageFile(file);
           if (COMPRESSIBLE_IMAGE_TYPES.has(file.type)) file = await compressImageFile(file);
           if (!current()) return;
           let previewUrl: string | undefined;

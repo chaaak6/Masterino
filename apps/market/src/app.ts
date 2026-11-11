@@ -2047,9 +2047,10 @@ export const createMarketApp = (options: {
   app.post('/api/internal/categories', requireRole('admin'), async (c) => {
     const input = await jsonBody(c);
     const result = await repository.getPool().query(
-      `INSERT INTO market_categories(resource_type,slug,sort_order,localizations) VALUES ($1,$2,$3,$4)
+      `INSERT INTO market_categories(resource_type,slug,sort_order,localizations)
+       VALUES ($1,$2,COALESCE($3,0),$4)
        ON CONFLICT(resource_type,slug) DO UPDATE SET
-         sort_order=excluded.sort_order,
+         sort_order=COALESCE($3,market_categories.sort_order),
          localizations=market_categories.localizations || COALESCE(
            (SELECT jsonb_object_agg(locale, CASE
               WHEN jsonb_typeof(market_categories.localizations->locale)='object'
@@ -2064,7 +2065,7 @@ export const createMarketApp = (options: {
       [
         input.resourceType,
         input.slug,
-        input.sortOrder || 0,
+        input.sortOrder ?? null,
         JSON.stringify(input.localizations || {}),
       ],
     );

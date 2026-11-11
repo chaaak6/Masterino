@@ -1127,6 +1127,7 @@ describe('adminRouter', () => {
 
   it.each([
     [400, '请选择有效的技能分类', 'BAD_REQUEST'],
+    [400, 'Database unavailable', 'BAD_GATEWAY'],
     [404, 'Resource not found', 'NOT_FOUND'],
   ])('preserves Market category edit error %s', async (status, error, code) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error }, { status })));

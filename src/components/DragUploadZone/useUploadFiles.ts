@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { usePermission } from '@/hooks/usePermission';
 import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
 import { useFileStore } from '@/store/file';
+import { isChatImage } from '@/utils/chatAttachments';
 
 interface UseUploadFilesOptions {
   /** The conversation's agent id. Decides whether the chat-only file-type whitelist applies. */
@@ -33,7 +34,7 @@ export const useUploadFiles = (options: UseUploadFilesOptions) => {
 
       // Filter out visual files if the model cannot receive them directly or via fallback.
       const filteredFiles = files.filter((file) => {
-        if (file.type.startsWith('image')) return canUploadImage;
+        if (isChatImage(file)) return canUploadImage;
         if (file.type.startsWith('video')) return canUploadVideo;
         return true;
       });

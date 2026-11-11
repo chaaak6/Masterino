@@ -5,6 +5,7 @@ import AttachmentRail from '@/features/Attachments/AttachmentRail';
 import MessageFileCard from '@/features/Attachments/MessageFileCard';
 import { useChatStore } from '@/store/chat';
 import { type UIChatMessage } from '@/types/index';
+import { isChatAttachmentImage } from '@/utils/chatAttachments';
 
 import LocalAttachmentItem from './LocalAttachmentItem';
 import MessageImageGallery from './MessageImageGallery';
@@ -18,7 +19,9 @@ export default memo<UIChatMessage>(({ attachments, fileList, imageList, id, topi
     [attachments, fileList, imageList],
   );
   if (!items.length) return null;
-  const images = items.filter((ref) => ref.mime.startsWith('image/'));
+  const isImage = (ref: (typeof items)[number]) =>
+    ref.source === 'local' ? isChatAttachmentImage(ref) : ref.mime.startsWith('image/');
+  const images = items.filter(isImage);
   return (
     <MessageImageGallery
       messageId={id}
@@ -32,7 +35,7 @@ export default memo<UIChatMessage>(({ attachments, fileList, imageList, id, topi
         return (
           <AttachmentRail>
             {items.map((ref) => {
-              if (ref.mime.startsWith('image/')) return thumbnails[imageIndex++];
+              if (isImage(ref)) return thumbnails[imageIndex++];
               if (ref.source === 'local')
                 return (
                   <LocalAttachmentItem

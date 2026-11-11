@@ -1,3 +1,5 @@
+import { isChatImage } from '@/utils/chatAttachments';
+
 export type UnsupportedVisualUploadType = 'image' | 'video';
 
 interface VisualUploadAbility {
@@ -11,15 +13,15 @@ interface VisualUploadWarningOptions extends VisualUploadAbility {
 }
 
 export const getUnsupportedVisualUploadType = (
-  file: Pick<File, 'type'>,
+  file: Pick<File, 'type'> & Partial<Pick<File, 'name'>>,
   { canUploadImage, canUploadVideo }: VisualUploadAbility,
 ): UnsupportedVisualUploadType | undefined => {
-  if (file.type.startsWith('image') && !canUploadImage) return 'image';
+  if (isChatImage({ name: file.name ?? '', type: file.type }) && !canUploadImage) return 'image';
   if (file.type.startsWith('video') && !canUploadVideo) return 'video';
 };
 
 export const warnUnsupportedVisualUpload = (
-  file: Pick<File, 'type'>,
+  file: Pick<File, 'type'> & Partial<Pick<File, 'name'>>,
   { warning, warningText, ...ability }: VisualUploadWarningOptions,
 ) => {
   if (!getUnsupportedVisualUploadType(file, ability)) return false;

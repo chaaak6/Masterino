@@ -1,3 +1,5 @@
+import { inferImageMimeTypeFromBytes } from '@lobechat/utils';
+
 import { type UploadFileItem } from '@/types/files/upload';
 
 // This is the ordinary raw-file PUT profile, not a global storage/model limit.
@@ -31,6 +33,20 @@ export const isChatImage = (file: { name: string; type: string }) => {
     ((!type || type === 'application/octet-stream') &&
       /\.(?:png|jpe?g|webp|gif)$/i.test(file?.name || ''))
   );
+};
+
+export const isChatAttachmentImage = ({ mime, name }: { mime: string; name: string }) =>
+  isChatImage({ name, type: mime });
+
+export const normalizeChatImageFile = async (file: File) => {
+  if (file.type.startsWith('image/') || !isChatImage(file)) return file;
+
+  const mime = await inferImageMimeTypeFromBytes(await file.slice(0, 4100).arrayBuffer()).catch(
+    () => undefined,
+  );
+  if (!mime || !/^image\/(?:gif|jpeg|png|webp)$/.test(mime))
+    throw new Error('Unsupported file type');
+  return new File([file], file.name, { lastModified: file.lastModified, type: mime });
 };
 
 export const chatImageCount = (files: UploadFileItem[]) =>

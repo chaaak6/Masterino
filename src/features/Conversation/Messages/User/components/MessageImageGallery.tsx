@@ -79,7 +79,7 @@ export default memo(
             onAdd: async () => {
               if (
                 warnUnsupportedVisualUpload(
-                  { type: ref.mime },
+                  { name: ref.name, type: ref.mime },
                   {
                     ...ability,
                     warning: (content) => message.warning(content),
