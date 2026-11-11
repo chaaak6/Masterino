@@ -23,7 +23,13 @@ function tagEnd(input: string, start: number, limit: number, nextOpening: number
     for (let closer = opener + 1; closer < limit; closer++) {
       if (input[closer] !== quote) continue;
       const rest = input.slice(closer + 1, limit);
-      if (closer >= nextOpening && /[\r\n]/.test(input.slice(opener, closer))) break;
+      if (closer >= nextOpening) {
+        // A completed tag or a new line before another opening is a boundary,
+        // even if the preceding value never supplied its matching quote.
+        const prefix = input.slice(opener, nextOpening);
+        if (/[\r\n]|\/>/.test(prefix) || input.slice(nextOpening, closer).includes(input[opener]))
+          break;
+      }
       if (!rest.trim() || /^\s*\/>/.test(rest) || nextLocalFileAttribute.test(rest)) {
         cursor = closer;
         break;

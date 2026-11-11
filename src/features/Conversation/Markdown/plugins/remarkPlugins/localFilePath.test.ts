@@ -210,6 +210,16 @@ describe('review follow-up', () => {
     });
   });
 
+  it('keeps adjacent file tags separate when the first quote is mismatched', () => {
+    const markdown =
+      '结果：<localFile name=“A” path=“/tmp/Application Support/A.pptx" /> 和 <localFile name=“B” path=“/tmp/Application Support/B.pptx” />';
+    expect(allProperties(markdown)).toEqual([
+      { name: 'A', path: '/tmp/Application Support/A.pptx' },
+      { name: 'B', path: '/tmp/Application Support/B.pptx' },
+    ]);
+    expect(JSON.stringify(parse(markdown))).toContain(' 和 ');
+  });
+
   it('keeps tag-like text inside a closed display name', () => {
     expect(properties('<localFile name="示例 <localFile marker>" path="/tmp/a b" />')).toEqual({
       name: '示例 <localFile marker>',
