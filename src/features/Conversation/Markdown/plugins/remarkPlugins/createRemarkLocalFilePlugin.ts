@@ -81,7 +81,7 @@ export const createRemarkLocalFilePlugin =
             hName: tagName,
             hProperties: parseLocalFileAttributes(
               source.slice(attributesStart, close).trim(),
-              text,
+              node.type,
             ),
           },
           type: tagName,

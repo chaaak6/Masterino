@@ -203,6 +203,13 @@ describe('review follow-up', () => {
     });
   });
 
+  it('preserves literal entities in historical code spans', () => {
+    expect(properties('`<localFile name="R&amp;D" path="/tmp/R&amp;D.pptx" />`')).toEqual({
+      name: 'R&amp;D',
+      path: '/tmp/R&amp;D.pptx',
+    });
+  });
+
   it('keeps tag-like text inside a closed display name', () => {
     expect(properties('<localFile name="示例 <localFile marker>" path="/tmp/a b" />')).toEqual({
       name: '示例 <localFile marker>',

@@ -42,7 +42,7 @@ function unwrap(value: string, isPath: boolean) {
 
 export function parseLocalFileAttributes(
   input: string,
-  markdownText = false,
+  sourceType: 'html' | 'inlineCode' | 'text',
 ): Record<string, string | boolean> {
   const attributes: Record<string, string | boolean> = {};
   if (input.length > 32768) return attributes;
@@ -100,12 +100,12 @@ export function parseLocalFileAttributes(
     )
       ambiguousPath = true;
     // Preserve Windows path separators while applying Markdown text escapes
-    // to POSIX paths. HTML and code values only decode character references.
+    // to POSIX paths. Code spans keep literal character references.
     const windowsPath =
       /^[a-z]:[\\/]/i.test(value) || (!/^(?:\/|~\/|\.{1,2}\/)/.test(value) && value.includes('\\'));
-    if (markdownText && !(field === 'path' && windowsPath)) {
+    if (sourceType === 'text' && !(field === 'path' && windowsPath)) {
       value = decodeString(value);
-    } else {
+    } else if (sourceType !== 'inlineCode') {
       value = value.replaceAll(/&(?:#x[\da-f]+|#\d+|[a-z]\w*);/gi, (reference) =>
         decodeString(reference),
       );
