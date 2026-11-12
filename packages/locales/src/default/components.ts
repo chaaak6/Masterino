@@ -234,6 +234,8 @@ export default {
   'ModelSelect.inputModality.video': 'Video input',
   'ModelSelect.removed':
     'The model is not in the list. It will be automatically removed if deselected.',
+  'ModelSwitchPanel.imageModelUnavailable':
+    'Unavailable: image generation configuration is incomplete',
   'ModelSwitchPanel.byModel': 'By Model',
   'ModelSwitchPanel.byProvider': 'By Provider',
   'ModelSwitchPanel.detail.abilities': 'Abilities',
