@@ -2,6 +2,8 @@ import debug from 'debug';
 import { type Plugin } from 'unified';
 import { SKIP, visit } from 'unist-util-visit';
 
+import { createRemarkLocalFilePlugin } from './createRemarkLocalFilePlugin';
+
 // Create debugger instance
 const log = debug('lobe-markdown:remark-plugin:self-closing');
 
@@ -26,6 +28,8 @@ const parseAttributes = (attributeString: string): Record<string, string | boole
 export const createRemarkSelfClosingTagPlugin =
   (tagName: string): Plugin<[], any> =>
   () => {
+    if (tagName.toLowerCase() === 'localfile') return createRemarkLocalFilePlugin(tagName);
+
     // Regex for the specific tag, ensure it matches the entire string for HTML check
     // Allow trailing whitespace after /> to handle cases where markdown parsers include it
     // Tag names are case-insensitive in HTML, and some upstream processors may normalize casing.

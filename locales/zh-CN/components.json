@@ -331,5 +331,8 @@
   "ModelSwitchPanel.detail.managed.imageInput": "图片输入",
   "ModelSwitchPanel.detail.managed.audioInput": "音频输入",
   "ModelSwitchPanel.detail.managed.videoInput": "视频输入",
-  "ModelSwitchPanel.detail.managed.fileInput": "文件输入"
+  "ModelSwitchPanel.detail.managed.fileInput": "文件输入",
+  "LocalFile.action.failed": "无法打开文件或文件夹：{{reason}}",
+  "LocalFile.action.invalidPath": "文件路径缺失或无效，请让助手提供有效的文件链接。",
+  "LocalFile.action.unavailable": "本地文件操作不可用。"
 }

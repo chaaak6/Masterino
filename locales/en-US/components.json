@@ -331,5 +331,8 @@
   "ModelSwitchPanel.detail.managed.imageInput": "Image input",
   "ModelSwitchPanel.detail.managed.audioInput": "Audio input",
   "ModelSwitchPanel.detail.managed.videoInput": "Video input",
-  "ModelSwitchPanel.detail.managed.fileInput": "File input"
+  "ModelSwitchPanel.detail.managed.fileInput": "File input",
+  "LocalFile.action.failed": "Could not open the file or folder: {{reason}}",
+  "LocalFile.action.invalidPath": "The file path is missing or invalid. Ask the assistant to provide a valid file link.",
+  "LocalFile.action.unavailable": "The local file operation is unavailable."
 }

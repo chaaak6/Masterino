@@ -399,11 +399,20 @@ export default class LocalFileCtr extends ControllerModule {
     error?: string;
     success: boolean;
   }> {
+    if (
+      !filePath.trim() ||
+      [...filePath].some(
+        (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+      )
+    ) {
+      return { error: 'Invalid local file path', success: false };
+    }
     const resolvedPath = expandTilde(filePath) ?? filePath;
     logger.debug('Attempting to open file:', { filePath: resolvedPath });
 
     try {
-      await shell.openPath(resolvedPath);
+      const error = await shell.openPath(resolvedPath);
+      if (error) return { error, success: false };
       logger.debug('File opened successfully:', { filePath: resolvedPath });
       return { success: true };
     } catch (error) {
@@ -417,6 +426,14 @@ export default class LocalFileCtr extends ControllerModule {
     error?: string;
     success: boolean;
   }> {
+    if (
+      !targetPath.trim() ||
+      [...targetPath].some(
+        (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+      )
+    ) {
+      return { error: 'Invalid local file path', success: false };
+    }
     const resolvedTarget = expandTilde(targetPath) ?? targetPath;
     const folderPath = isDirectory ? resolvedTarget : path.dirname(resolvedTarget);
     logger.debug('Attempting to open folder:', {
@@ -426,7 +443,8 @@ export default class LocalFileCtr extends ControllerModule {
     });
 
     try {
-      await shell.openPath(folderPath);
+      const error = await shell.openPath(folderPath);
+      if (error) return { error, success: false };
       logger.debug('Folder opened successfully:', { folderPath });
       return { success: true };
     } catch (error) {

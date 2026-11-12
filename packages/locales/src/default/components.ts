@@ -1,4 +1,9 @@
 export default {
+  'LocalFile.action.invalidPath':
+    'The file path is missing or invalid. Ask the assistant to provide a valid file link.',
+  'LocalFile.action.unavailable': 'The local file operation is unavailable.',
+  'LocalFile.action.failed': 'Could not open the file or folder: {{reason}}',
+
   'evaluationLab': 'Evaluation Lab',
   'agentBuilder': 'Agent Builder',
   'githubBadge': 'GitHub Badge',
