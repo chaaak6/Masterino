@@ -9,7 +9,7 @@ import vietnameseMessages from '../../../locales/vi-VN/common.json';
 import chineseMessages from '../../../locales/zh-CN/common.json';
 import styles from './DownloadPage.module.css';
 import { downloadDesktop } from './index';
-import { type DetectedTarget, detectDownloadTarget, type DownloadTarget } from './platform';
+import { detectDownloadTarget, type DetectedTarget, type DownloadTarget } from './platform';
 import { isWecomDesktop, openWecomDownloadPage } from './wecom';
 
 const choices: DownloadTarget[] = ['win32/x64', 'darwin/arm64', 'darwin/x64'];
@@ -120,10 +120,10 @@ export default function DownloadPage() {
         <header className={styles.header}>
           <div className={styles.brand}>
             <Image
+              unoptimized
               alt=""
               height={44}
               src="/brand/masterlion/logo-static.png"
-              unoptimized
               width={44}
             />
             <span>Masterino</span>
@@ -180,8 +180,8 @@ export default function DownloadPage() {
           <button
             className={styles.browser}
             disabled={busy}
-            onClick={openExternalBrowser}
             type="button"
+            onClick={openExternalBrowser}
           >
             {messages['desktopDownload.openBrowser']}
             <ArrowUpRight aria-hidden size={18} />
