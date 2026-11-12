@@ -48,10 +48,10 @@ describe('WeCom download browser signature', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
   it('signs the page without exposing credentials or tickets', async () => {
-    vi.spyOn(globalThis, 'fetch')
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(Response.json({ access_token: 'private-token' }))
-      .mockResolvedValueOnce(Response.json({ ticket: 'corp-ticket' }))
-      .mockResolvedValueOnce(Response.json({ ticket: 'agent-ticket' }));
+      .mockResolvedValueOnce(Response.json({ ticket: 'corp-ticket' }));
     const response = await POST(request('https://mlai-test.bielcrystal.com/?a=1#section'));
     expect(response.status).toBe(200);
     const result = await response.json();
@@ -62,15 +62,16 @@ describe('WeCom download browser signature', () => {
         )
         .digest('hex'),
     );
-    expect(JSON.stringify(result)).not.toMatch(/private-|corp-ticket|agent-ticket/);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(new URL(String(fetch.mock.calls[1][0])).pathname).toBe('/cgi-bin/get_jsapi_ticket');
+    expect(JSON.stringify(result)).not.toMatch(/private-|corp-ticket|agentSignature/);
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
   it('signs a page on an explicitly allowed forwarded host', async () => {
     enableDynamicHosts();
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(Response.json({ access_token: 'private-token' }))
-      .mockResolvedValueOnce(Response.json({ ticket: 'corp-ticket' }))
-      .mockResolvedValueOnce(Response.json({ ticket: 'agent-ticket' }));
+      .mockResolvedValueOnce(Response.json({ ticket: 'corp-ticket' }));
     const origin = `https://${adminHost}`;
     expect((await POST(request(`${origin}/`, origin, adminHost))).status).toBe(200);
   });

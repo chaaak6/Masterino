@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@lobehub/ui/base-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import english from '../../../locales/en-US/common.json';
@@ -113,10 +112,11 @@ export default function DownloadPage() {
         {ready &&
           (!embedded || manual) &&
           choices.map(({ target, label }) => (
-            <Button
+            <button
               disabled={busy}
               key={target}
-              style={{ padding: 14, cursor: 'pointer', font: 'inherit' }}
+              style={{ padding: 14, font: 'inherit' }}
+              type="button"
               onClick={() => {
                 manuallySelected.current = true;
                 void start(target);
@@ -125,17 +125,18 @@ export default function DownloadPage() {
               {target === 'darwin/arm64'
                 ? `macOS · ${messages['desktopDownload.appleSilicon']}`
                 : label}
-            </Button>
+            </button>
           ))}
         {ready && embedded && (
-          <Button
+          <button
             disabled={busy}
+            type="button"
             onClick={() => {
               void openExternalBrowser();
             }}
           >
             {messages['desktopDownload.openBrowser']}
-          </Button>
+          </button>
         )}
       </div>
     </main>

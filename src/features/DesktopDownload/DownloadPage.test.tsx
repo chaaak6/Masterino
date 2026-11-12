@@ -1,5 +1,4 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import vietnamese from '../../../locales/vi-VN/common.json';
@@ -11,9 +10,6 @@ vi.mock('./index', () => ({ downloadDesktop: mocks.download }));
 vi.mock('./wecom', () => ({
   isWecomDesktop: () => mocks.embedded,
   openWecomDownloadPage: mocks.open,
-}));
-vi.mock('@lobehub/ui/base-ui', () => ({
-  Button: (props: ComponentProps<'button'>) => <button {...props} />,
 }));
 
 beforeEach(() => {

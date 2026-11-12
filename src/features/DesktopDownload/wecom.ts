@@ -1,12 +1,11 @@
 type WecomSdk = {
   config: (options: Record<string, unknown>) => void;
-  agentConfig: (options: Record<string, unknown>) => void;
   ready: (callback: () => void) => void;
   error: (callback: () => void) => void;
-  invoke: (
+  invoke?: (
     method: string,
     args: { url: string },
-    callback: (result: { err_msg?: string }) => void,
+    callback: (result: { err_msg?: string; errMsg?: string }) => void,
   ) => void;
 };
 
@@ -17,17 +16,24 @@ export const isWecomDesktop = (userAgent: string, maxTouchPoints = 0) =>
   !(/Macintosh/i.test(userAgent) && maxTouchPoints > 1);
 
 let sdkLoading: Promise<WecomSdk> | undefined;
+const hasConfigApi = (sdk?: WecomSdk): sdk is WecomSdk =>
+  typeof sdk?.config === 'function' &&
+  typeof sdk.ready === 'function' &&
+  typeof sdk.error === 'function';
+
 function loadSdk(): Promise<WecomSdk> {
   if (sdkLoading) return sdkLoading;
   sdkLoading = new Promise<WecomSdk>((resolve, reject) => {
-    const existing = (window as Window & { wx?: WecomSdk }).wx;
-    if (existing && typeof existing.agentConfig === 'function') return resolve(existing);
+    const sdkWindow = window as Window & { wx?: WecomSdk };
+    if (hasConfigApi(sdkWindow.wx)) return resolve(sdkWindow.wx);
     const script = document.createElement('script');
-    script.src = '/api/desktop/wecom-browser';
+    script.src = '/api/desktop/wecom-browser?v=2';
     script.onload = () => {
-      const sdk = (window as Window & { wx?: WecomSdk }).wx;
-      if (sdk) resolve(sdk);
-      else reject(new Error('WeCom SDK unavailable'));
+      if (hasConfigApi(sdkWindow.wx)) resolve(sdkWindow.wx);
+      else {
+        script.remove();
+        reject(new Error('WeCom SDK unavailable'));
+      }
     };
     script.onerror = () => {
       script.remove();
@@ -66,33 +72,24 @@ export async function openWecomDownloadPage() {
       if (!response.ok) throw new Error(page);
       const data = await response.json();
       if (!active) return;
-      if (typeof sdk.invoke !== 'function') throw new Error(page);
       sdk.error(() => finish(new Error(page)));
+      // The legacy SDK installs invoke during config({ beta: true }).
       sdk.ready(() => {
-        if (!active) return;
-        try {
-          sdk.agentConfig({
-            corpid: data.corpId,
-            agentid: data.agentId,
-            timestamp: data.timestamp,
-            nonceStr: data.nonceStr,
-            signature: data.agentSignature,
-            jsApiList: ['openDefaultBrowser'],
-            success: () => {
-              if (!active) return;
-              try {
-                sdk.invoke('openDefaultBrowser', { url: page }, (result) =>
-                  finish(result.err_msg === 'openDefaultBrowser:ok' ? undefined : new Error(page)),
-                );
-              } catch {
-                finish(new Error(page));
-              }
-            },
-            fail: () => finish(new Error(page)),
-          });
-        } catch {
-          finish(new Error(page));
-        }
+        queueMicrotask(() => {
+          if (!active) return;
+          try {
+            if (typeof sdk.invoke !== 'function') return finish(new Error(page));
+            sdk.invoke('openDefaultBrowser', { url: page }, (result) =>
+              finish(
+                (result.err_msg || result.errMsg) === 'openDefaultBrowser:ok'
+                  ? undefined
+                  : new Error(page),
+              ),
+            );
+          } catch {
+            finish(new Error(page));
+          }
+        });
       });
       sdk.config({
         beta: true,
