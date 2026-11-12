@@ -337,7 +337,7 @@ describe('call_llm executor', () => {
       );
     });
 
-    it('should merge activated tools even when selectedTools are provided', async () => {
+    it('should merge activated tools and retain their intervention policies for the next step', async () => {
       const mockStore = createMockStore();
       const context = createTestContext();
       const userMsg = createUserMessage({ content: 'Use notebook' });
@@ -346,7 +346,12 @@ describe('call_llm executor', () => {
         provider: 'openai',
         messages: [userMsg],
       });
-      const state = createInitialState();
+      const originalManifest = { identifier: 'lobe-notebook' };
+      const activatedManifest = { humanIntervention: 'always', identifier: 'lobe-skills' };
+      const state = createInitialState({
+        toolManifestMap: { 'lobe-notebook': originalManifest },
+        userInterventionConfig: { approvalMode: 'manual' },
+      });
       const notebookTool = {
         function: { name: 'lobe-notebook____createDocument' },
         type: 'function',
@@ -357,7 +362,7 @@ describe('call_llm executor', () => {
       } as const;
       const toolsEngine = {
         generateToolsDetailed: vi.fn().mockReturnValue({
-          enabledManifests: [{ identifier: 'lobe-skills' }],
+          enabledManifests: [activatedManifest],
           enabledToolIds: ['lobe-skills'],
           tools: [activatedTool],
         }),
@@ -383,7 +388,7 @@ describe('call_llm executor', () => {
         agentConfig: {
           agentConfig: { model: 'gpt-4', provider: 'openai' } as any,
           chatConfig: {} as any,
-          enabledManifests: [{ identifier: 'lobe-notebook' }] as any,
+          enabledManifests: [originalManifest] as any,
           enabledToolIds: ['lobe-notebook'],
           isBuiltinAgent: false,
           plugins: ['lobe-notebook'],
@@ -396,7 +401,7 @@ describe('call_llm executor', () => {
         toolsEngine: toolsEngine as any,
       });
 
-      await executors.call_llm!(instruction, state, {
+      const result = await executors.call_llm!(instruction, state, {
         initialContext: {
           selectedTools: [{ identifier: 'lobe-notebook', name: 'Notebook' }],
         },
@@ -405,6 +410,12 @@ describe('call_llm executor', () => {
           activatedToolIds: ['lobe-skills', 'lobe-activator'],
         },
       } as any);
+
+      expect(result.newState.toolManifestMap).toEqual({
+        'lobe-notebook': originalManifest,
+        'lobe-skills': activatedManifest,
+      });
+      expect(state.toolManifestMap).toEqual({ 'lobe-notebook': originalManifest });
 
       expect(toolsEngine.generateToolsDetailed).toHaveBeenCalledWith(
         expect.objectContaining({

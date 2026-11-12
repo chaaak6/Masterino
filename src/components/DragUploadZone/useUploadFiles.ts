@@ -3,12 +3,14 @@ import { useCallback } from 'react';
 import { usePermission } from '@/hooks/usePermission';
 import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
 import { useFileStore } from '@/store/file';
+import { isChatImage } from '@/utils/chatAttachments';
 
 interface UseUploadFilesOptions {
   /** The conversation's agent id. Decides whether the chat-only file-type whitelist applies. */
   agentId: string;
   model?: string;
   provider?: string;
+  scope?: string;
   topicId?: string | null;
 }
 
@@ -20,7 +22,7 @@ interface UseUploadFilesOptions {
  * @returns handleUploadFiles - Callback to handle file uploads
  */
 export const useUploadFiles = (options: UseUploadFilesOptions) => {
-  const { agentId, topicId, model = '', provider = '' } = options;
+  const { agentId, topicId, scope, model = '', provider = '' } = options;
 
   const { canUploadImage, canUploadVideo } = useVisualMediaUploadAbility(model, provider);
   const uploadFiles = useFileStore((s) => s.uploadChatFiles);
@@ -32,16 +34,17 @@ export const useUploadFiles = (options: UseUploadFilesOptions) => {
 
       // Filter out visual files if the model cannot receive them directly or via fallback.
       const filteredFiles = files.filter((file) => {
-        if (file.type.startsWith('image')) return canUploadImage;
+        if (isChatImage(file)) return canUploadImage;
         if (file.type.startsWith('video')) return canUploadVideo;
         return true;
       });
 
       if (filteredFiles.length > 0) {
-        await uploadFiles(filteredFiles, agentId, topicId);
+        if (scope) await uploadFiles(filteredFiles, agentId, topicId, scope);
+        else await uploadFiles(filteredFiles, agentId, topicId);
       }
     },
-    [agentId, topicId, canUpload, canUploadImage, canUploadVideo, uploadFiles],
+    [agentId, topicId, scope, canUpload, canUploadImage, canUploadVideo, uploadFiles],
   );
 
   return { canUploadImage, canUploadVideo, handleUploadFiles };

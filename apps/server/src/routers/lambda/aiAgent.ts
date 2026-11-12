@@ -132,6 +132,7 @@ const StartExecutionSchema = z.object({
  */
 const ExecAgentSchema = z
   .object({
+    clientPlatform: z.enum(['desktop', 'web']).optional(),
     /** The agent ID to run (either agentId or slug is required) */
     agentId: z.string().optional(),
     /** Application context for message storage */
@@ -238,6 +239,7 @@ const ExecAgentSchema = z
  * Schema for execGroupAgent - execute Supervisor Agent in Group chat
  */
 const ExecGroupAgentSchema = z.object({
+  clientPlatform: z.enum(['desktop', 'web']).optional(),
   /** The Supervisor agent ID */
   agentId: z.string(),
   /** File IDs attached to the message */
@@ -272,6 +274,7 @@ const ExecAgentsSchema = z.object({
  * Supports both Group mode (with groupId) and Single Agent mode (without groupId)
  */
 const ExecSubAgentTaskSchema = z.object({
+  clientPlatform: z.enum(['desktop', 'web']).optional(),
   /** The SubAgent ID to execute the task */
   agentId: z.string(),
   /** The Group ID (optional, only for Group mode) */
@@ -661,6 +664,7 @@ export const aiAgentRouter = router({
   execAgent: aiAgentWriteProcedure.input(ExecAgentSchema).mutation(async ({ input, ctx }) => {
     const {
       agentId,
+      clientPlatform,
       slug,
       prompt,
       appContext,
@@ -680,6 +684,7 @@ export const aiAgentRouter = router({
     try {
       return await ctx.aiAgentService.execAgent({
         agentId,
+        clientPlatform,
         appContext,
         autoStart,
         deviceId,
@@ -810,7 +815,7 @@ export const aiAgentRouter = router({
   execGroupAgent: aiAgentWriteProcedure
     .input(ExecGroupAgentSchema)
     .mutation(async ({ input, ctx }) => {
-      const { agentId, groupId, message, files, topicId, newTopic } = input;
+      const { agentId, clientPlatform, groupId, message, files, topicId, newTopic } = input;
 
       log('execGroupAgent: agentId=%s, groupId=%s', agentId, groupId);
 
@@ -818,6 +823,7 @@ export const aiAgentRouter = router({
         // Execute group agent
         const result = await ctx.aiAgentService.execGroupAgent({
           agentId,
+          clientPlatform,
           files,
           groupId,
           message,
@@ -864,7 +870,16 @@ export const aiAgentRouter = router({
   execSubAgentTask: aiAgentWriteProcedure
     .input(ExecSubAgentTaskSchema)
     .mutation(async ({ input, ctx }) => {
-      const { agentId, groupId, instruction, parentMessageId, title, topicId, timeout } = input;
+      const {
+        agentId,
+        clientPlatform,
+        groupId,
+        instruction,
+        parentMessageId,
+        title,
+        topicId,
+        timeout,
+      } = input;
 
       log('execSubAgentTask: agentId=%s, groupId=%s', agentId, groupId);
 
@@ -872,6 +887,7 @@ export const aiAgentRouter = router({
         // External procedure name stays `execSubAgentTask`; the service method is `execSubAgent`.
         return await ctx.aiAgentService.execSubAgent({
           agentId,
+          clientPlatform,
           groupId,
           instruction,
           parentMessageId,

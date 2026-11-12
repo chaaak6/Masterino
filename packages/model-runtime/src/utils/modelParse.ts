@@ -184,7 +184,8 @@ export const MODEL_OWNER_DETECTION_CONFIG = {
 } as const;
 
 export const isDeepSeekV4FamilyModel = (model: string | undefined): boolean =>
-  typeof model === 'string' && model.toLowerCase().includes('deepseek-v4');
+  typeof model === 'string' &&
+  (model.toLowerCase().includes('deepseek-v4') || /(?:^|\/)deepseek-flash$/i.test(model));
 
 export const isDeepSeekThinkingEligibleModel = (model: string | undefined): boolean =>
   typeof model === 'string' &&
@@ -233,7 +234,9 @@ const normalizeModelType = (value: unknown): AiModelType | undefined => {
 };
 
 const getKnownModelIdCandidates = (modelId: string): string[] => {
-  return [modelId.toLowerCase()];
+  const normalized = modelId.toLowerCase();
+  // Aihub exposes this exact channel alias; borrow metadata without rewriting requests.
+  return normalized === 'deepseek/deepseek-flash' ? [normalized, 'deepseek-flash'] : [normalized];
 };
 
 const getCanonicalKnownModelId = (modelId: string): string => {

@@ -4,6 +4,7 @@ import { Trash2Icon } from 'lucide-react';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useFileStore } from '@/store/file';
 import { type UploadFileItem } from '@/types/files/upload';
 
@@ -47,7 +48,8 @@ const styles = createStaticStyles(({ css }) => ({
 type FileItemProps = UploadFileItem;
 
 const FileItem = memo<FileItemProps>((props) => {
-  const { file, uploadState, status, id, tasks, processStage, errorReason } = props;
+  const { file, uploadState, status, id, uploadId, tasks, processStage, errorReason } = props;
+  const scope = useAttachmentScope();
   const { t } = useTranslation(['chat', 'common']);
   const [removeChatUploadFile] = useFileStore((s) => [s.removeChatUploadFile]);
 
@@ -81,7 +83,7 @@ const FileItem = memo<FileItemProps>((props) => {
           size={'small'}
           title={t('delete', { ns: 'common' })}
           onClick={() => {
-            removeChatUploadFile(id);
+            removeChatUploadFile(uploadId || id, scope);
           }}
         />
       </Flexbox>

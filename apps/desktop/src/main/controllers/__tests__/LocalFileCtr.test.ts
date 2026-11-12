@@ -1,7 +1,8 @@
 import path from 'node:path';
 
 import * as deviceControl from '@lobechat/device-control';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clipboard, nativeImage } from 'electron';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type App } from '@/core/App';
 
@@ -41,11 +42,14 @@ vi.mock('@lobechat/file-loaders', () => ({
 
 // Mock electron
 vi.mock('electron', () => ({
+  clipboard: { writeImage: vi.fn() },
+  nativeImage: { createFromBuffer: vi.fn() },
   ipcMain: {
     handle: ipcMainHandleMock,
   },
   shell: {
     openPath: vi.fn(),
+    showItemInFolder: vi.fn(),
   },
 }));
 
@@ -129,6 +133,49 @@ describe('LocalFileCtr', () => {
     mockFsPromises = await import('node:fs/promises');
 
     localFileCtr = new LocalFileCtr(mockApp);
+  });
+
+  describe('imageAttachmentAction', () => {
+    afterEach(() => vi.restoreAllMocks());
+    const ref = {
+      source: 'local' as const,
+      attachmentId: 'attachment',
+      localResourceId: 'resource',
+      deviceId: 'device',
+      version: 'version',
+      name: 'image.png',
+      mime: 'image/png',
+      size: 3,
+    };
+    it('copies native image pixels and reveals only the validated original file', async () => {
+      vi.spyOn(mockApp, 'getService').mockReturnValue({ getDeviceId: () => 'device' } as any);
+      const resolve = vi
+        .spyOn(deviceControl, 'resolveLocalAttachment')
+        .mockResolvedValue({ path: '/validated/original.png', bytes: Buffer.from([1, 2, 3]), ref });
+      const image = { isEmpty: () => false };
+      vi.mocked(nativeImage.createFromBuffer).mockReturnValue(image as any);
+      await localFileCtr.imageAttachmentAction({ action: 'copy', ref });
+      expect(clipboard.writeImage).toHaveBeenCalledWith(image);
+      await localFileCtr.imageAttachmentAction({ action: 'reveal', ref });
+      expect(resolve).toHaveBeenLastCalledWith(
+        '/mock/app/storage/scratch-workspaces',
+        'device',
+        ref,
+        false,
+      );
+      expect(mockShell.showItemInFolder).toHaveBeenCalledWith('/validated/original.png');
+    });
+    it('does not copy or reveal a stale or foreign-device attachment', async () => {
+      vi.spyOn(mockApp, 'getService').mockReturnValue({ getDeviceId: () => 'device' } as any);
+      vi.spyOn(deviceControl, 'resolveLocalAttachment').mockRejectedValueOnce(
+        new Error('Attachment identity mismatch'),
+      );
+      await expect(localFileCtr.imageAttachmentAction({ action: 'reveal', ref })).rejects.toThrow(
+        'identity mismatch',
+      );
+      expect(mockShell.showItemInFolder).not.toHaveBeenCalled();
+      expect(clipboard.writeImage).not.toHaveBeenCalled();
+    });
   });
 
   describe('handleOpenLocalFile', () => {

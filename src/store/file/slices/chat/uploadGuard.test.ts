@@ -3,6 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { filterSupportedChatUploadFiles, isSupportedChatUploadFile } from './uploadGuard';
 
 describe('isSupportedChatUploadFile', () => {
+  it('recognizes images reported as a generic MIME type by filename', () => {
+    const octet = { type: 'application/octet-stream' };
+    expect(isSupportedChatUploadFile(new File(['image'], 'image.png', octet))).toBe(true);
+    expect(isSupportedChatUploadFile(new File(['image'], 'photo.heic', octet))).toBe(false);
+  });
+
   it('accepts supported chat image formats', () => {
     expect(isSupportedChatUploadFile(new File(['image'], 'image.png', { type: 'image/png' }))).toBe(
       true,

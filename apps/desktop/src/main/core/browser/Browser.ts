@@ -333,15 +333,19 @@ export default class Browser {
       const { x, y, selectionText, linkURL, srcURL, mediaType, isEditable } = params;
 
       // Use the platform menu system with full context data
-      this.app.menuManager.showContextMenu('default', {
-        isEditable,
-        linkURL: linkURL || undefined,
-        mediaType: mediaType as any,
-        selectionText: selectionText || undefined,
-        srcURL: srcURL || undefined,
-        x,
-        y,
-      });
+      this.app.menuManager.showContextMenu(
+        'default',
+        {
+          isEditable,
+          linkURL: linkURL || undefined,
+          mediaType: mediaType as any,
+          selectionText: selectionText || undefined,
+          srcURL: srcURL || undefined,
+          x,
+          y,
+        },
+        browserWindow,
+      );
     });
   }
 

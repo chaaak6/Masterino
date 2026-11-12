@@ -50,6 +50,20 @@ describe('createAuthSlice', () => {
   });
 
   describe('logout', () => {
+    it('allows desktop to finish remote cleanup before choosing its own navigation', async () => {
+      const originalLocation = window.location;
+      Object.defineProperty(window, 'location', { configurable: true, value: { href: '/chat' } });
+      mockBetterAuthClient.signOut.mockImplementationOnce(async (options) => {
+        options.fetchOptions.onSuccess();
+        return {};
+      });
+      try {
+        await useUserStore.getState().logout({ redirect: false });
+        expect(window.location.href).toBe('/chat');
+      } finally {
+        Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+      }
+    });
     it('should call better-auth signOut', async () => {
       const { result } = renderHook(() => useUserStore());
 

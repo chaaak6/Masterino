@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { detectDownloadTarget } from './platform';
+import { isWecomDesktop } from './wecom';
 
 describe('desktop installer platform detection', () => {
   it('selects the Windows installer', async () => {
@@ -42,4 +43,17 @@ describe('desktop installer platform detection', () => {
       'unsupported',
     );
   });
+});
+
+it.each([
+  ['Windows NT 10.0 wxwork/5.0', true],
+  ['Macintosh; Intel Mac OS X wxwork/5.0', true],
+  ['Macintosh Chrome/155', false],
+  ['iPhone wxwork/5.0', false],
+])('identifies desktop WeCom for %s', (userAgent, expected) => {
+  expect(isWecomDesktop(userAgent)).toBe(expected);
+});
+
+it('does not classify iPadOS desktop mode as desktop WeCom', () => {
+  expect(isWecomDesktop('Macintosh wxwork/5.0', 5)).toBe(false);
 });

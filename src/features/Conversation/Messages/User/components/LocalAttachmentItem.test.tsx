@@ -80,6 +80,7 @@ describe('local attachment message actions', () => {
         'message',
         'topic',
         'data:image/png;base64,AQID',
+        'main_agent_new',
       ),
     );
   });
@@ -125,5 +126,29 @@ describe('local attachment message actions', () => {
     expect(screen.getByText('localAttachment.preview')).toBeDisabled();
     expect(screen.getByText('localAttachment.addToInput')).toBeDisabled();
     expect(actions.preview).not.toHaveBeenCalled();
+  });
+
+  it('opens a validated managed document through local preview rather than the remote workspace API', async () => {
+    actions.preview.mockResolvedValue({ path: '/managed/.attachments/resource/report.txt' });
+    render(
+      <LocalAttachmentItem
+        attachment={{ ...attachment, name: 'report.txt', mime: 'text/plain' }}
+        messageId="message"
+        topicId="topic"
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('localAttachment.preview')).not.toBeDisabled());
+    fireEvent.click(screen.getByText('localAttachment.preview'));
+    await waitFor(() =>
+      expect(actions.open).toHaveBeenCalledWith({
+        filePath: '/managed/.attachments/resource/report.txt',
+        workingDirectory: '/managed/.attachments/resource',
+        allowExternalFilePreview: true,
+      }),
+    );
+    expect(actions.preview).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceId: 'd' }),
+      'topic',
+    );
   });
 });

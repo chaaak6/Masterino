@@ -6,6 +6,8 @@ import { memo, useMemo } from 'react';
 
 import { useFileStore } from '@/store/file';
 
+import { useChatInputStore } from '../../store';
+
 const styles = createStaticStyles(({ css }) => ({
   name: css`
     overflow: hidden;
@@ -35,11 +37,17 @@ const getPreviewText = (content?: string, fallback?: string) => {
 
 const SelectionItem = memo<ChatContextContent>(({ preview, id }) => {
   const [removeSelection] = useFileStore((s) => [s.removeChatContextSelection]);
+  const draftKey = useChatInputStore((s) => s.draftKey);
 
   const displayText = useMemo(() => getPreviewText(preview), [preview]);
 
   return (
-    <Tag closable icon={<TextIcon size={16} />} size={'large'} onClose={() => removeSelection(id)}>
+    <Tag
+      closable
+      icon={<TextIcon size={16} />}
+      size={'large'}
+      onClose={() => removeSelection(id, draftKey)}
+    >
       <Tooltip title={preview}>
         <span className={styles.name}>{displayText}</span>
       </Tooltip>

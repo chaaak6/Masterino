@@ -20,12 +20,15 @@ import { BotIcon, UserRoundIcon } from 'lucide-react';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isDesktop } from '@/const/version';
+import MarketSkillInstallButton from '@/features/SkillStore/MarketSkillInstallButton';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useAgentStore } from '@/store/agent';
 import { builtinAgentSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 
 import Title from '../../../../components/Title';
+import { useDetailContext } from '../DetailProvider';
 import VsCodeIcon from './VsCodeIcon';
 
 type GuideMode = 'agent' | 'human';
@@ -116,6 +119,7 @@ const genLayout = (
 const Platform = memo<PlatformProps>(
   ({ lite, identifier, mobile, expandCodeByDefault, downloadUrl }) => {
     const { t } = useTranslation('discover');
+    const { name } = useDetailContext();
     const navigate = useWorkspaceAwareNavigate();
     const inboxAgentId = useAgentStore(builtinAgentSelectors.inboxAgentId);
     const sendMessage = useChatStore((s) => s.sendMessage);
@@ -193,7 +197,14 @@ const Platform = memo<PlatformProps>(
 
     const command = genInstallCommand(identifier, active);
 
-    const agentPrompt = `Open https://aihub.bielcrystal.com/community/skills/${identifier}, then follow the instructions to set up Masterino Skills Marketplace and install the skill. Once installed, read the SKILL.md file in the installed directory and follow its instructions to complete the task.`;
+    let skillUrl = `/community/skill/${encodeURIComponent(identifier || '')}`;
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.pathname, window.location.origin);
+      const version = new URLSearchParams(window.location.search).get('version');
+      if (version) url.searchParams.set('version', version);
+      skillUrl = url.toString();
+    }
+    const agentPrompt = `Open ${skillUrl}, then follow the instructions to set up Masterino Skills Marketplace and install the skill. Once installed, read the SKILL.md file in the installed directory and follow its instructions to complete the task.`;
 
     const handleUseOnLobeAI = useCallback(() => {
       if (!inboxAgentId) return;
@@ -207,6 +218,19 @@ const Platform = memo<PlatformProps>(
       // Navigate to LobeAI chat session
       navigate(SESSION_CHAT_URL(inboxAgentId, mobile));
     }, [agentPrompt, inboxAgentId, mobile, navigate, sendMessage]);
+
+    if (isDesktop && identifier) {
+      return (
+        <Flexbox gap={8}>
+          <MarketSkillInstallButton identifier={identifier} name={name || identifier} />
+          {downloadUrl && (
+            <Button block href={downloadUrl} target={'_blank'}>
+              {t('skills.details.sidebar.downloadSkill')}
+            </Button>
+          )}
+        </Flexbox>
+      );
+    }
 
     return (
       <Block gap={lite ? 0 : 16} padding={4} variant={lite ? 'outlined' : 'borderless'}>

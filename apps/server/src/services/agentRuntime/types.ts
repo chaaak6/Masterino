@@ -316,6 +316,7 @@ export interface OperationCreationParams {
   agentConfig?: any;
   appContext: {
     agentId?: string;
+    clientPlatform?: 'desktop' | 'web';
     /**
      * Run-scoped Agent Signal marker. Stamped at dispatch for background
      * self-iteration / memory runs; lands in `state.metadata.agentSignal` and is

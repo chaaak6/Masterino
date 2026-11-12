@@ -6,8 +6,11 @@ import { notification } from '@/components/AntdStaticMethods';
 import * as localAttachments from '@/services/electron/localAttachmentService';
 import { ragService } from '@/services/rag';
 import { agentByIdSelectors } from '@/store/agent/selectors';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import { useFileStore as useStore } from '../../store';
+import { sameChatAttachmentDraft } from './drafts';
+import { fileChatSelectors } from './selectors';
 
 const AGENT_ID = 'agent-1';
 
@@ -85,6 +88,37 @@ beforeEach(() => {
 });
 
 describe('useFileStore:chat', () => {
+  it('keeps page selections within their document draft and preserves the legacy input', () => {
+    const firstPage = messageMapKey({ agentId: AGENT_ID, documentId: 'first', scope: 'page' });
+    const secondPage = messageMapKey({ agentId: AGENT_ID, documentId: 'second', scope: 'page' });
+    const home = `home_${messageMapKey({ agentId: AGENT_ID })}`;
+    const first = { content: 'First page', id: 'selection', type: 'text' } as const;
+    const second = { content: 'Second page', id: 'selection', type: 'text' } as const;
+    const legacy = { content: 'Legacy input', id: 'legacy', type: 'text' } as const;
+    const { addChatContextSelection, clearChatContextSelections, removeChatContextSelection } =
+      useStore.getState();
+
+    addChatContextSelection(legacy);
+    addChatContextSelection(first, firstPage);
+    const before = useStore.getState();
+    addChatContextSelection(second, secondPage);
+    const after = useStore.getState();
+    expect(sameChatAttachmentDraft(before, after, firstPage)).toBe(true);
+    expect(sameChatAttachmentDraft(before, after, secondPage)).toBe(false);
+    expect(fileChatSelectors.chatContextSelections(after, firstPage)).toEqual([first]);
+    expect(fileChatSelectors.chatContextSelectionHasItem(after, home)).toBe(false);
+
+    clearChatContextSelections(firstPage);
+    expect(fileChatSelectors.chatContextSelections(useStore.getState(), secondPage)).toEqual([
+      second,
+    ]);
+    expect(fileChatSelectors.chatContextSelections(useStore.getState())).toEqual([legacy]);
+    removeChatContextSelection(second.id, secondPage);
+    clearChatContextSelections();
+    expect(fileChatSelectors.chatContextSelections(useStore.getState(), secondPage)).toEqual([]);
+    expect(fileChatSelectors.chatContextSelections(useStore.getState())).toEqual([]);
+  });
+
   it('clearChatUploadFileList should clear the inputFilesList', () => {
     const { result } = renderHook(() => useStore());
 
@@ -101,7 +135,11 @@ describe('useFileStore:chat', () => {
     expect(result.current.chatUploadFileList).toEqual([]);
   });
 
-  it('reuses historical local images in the existing input list and releases only cancelled draft leases', async () => {
+  it.each([
+    ['image/png', 'data:image/png;base64,AQID'],
+    ['application/octet-stream', 'data:image/png;base64,AQID'],
+    ['application/octet-stream', undefined],
+  ])('restores historical %s with preview %s', async (mime, dataUrl) => {
     const ref = {
       source: 'local' as const,
       attachmentId: 'a',
@@ -109,7 +147,7 @@ describe('useFileStore:chat', () => {
       deviceId: 'd',
       version: 'v',
       name: 'image.png',
-      mime: 'image/png',
+      mime,
       size: 10,
     };
     const status = vi.spyOn(localAttachments, 'localAttachmentStatus').mockResolvedValue(true);
@@ -121,7 +159,7 @@ describe('useFileStore:chat', () => {
       .mockResolvedValue({ available: true });
     const preview = vi
       .spyOn(localAttachments, 'previewLocalAttachment')
-      .mockResolvedValue({ dataUrl: 'data:image/png;base64,AQID' });
+      .mockResolvedValue({ dataUrl });
     const release = vi
       .spyOn(localAttachments, 'releaseLocalAttachmentDraft')
       .mockResolvedValue(undefined);
@@ -133,11 +171,11 @@ describe('useFileStore:chat', () => {
       expect(item).toMatchObject({
         attachment: ref,
         id: 'a',
-        previewUrl: 'data:image/png;base64,AQID',
+        previewUrl: dataUrl,
         status: 'success',
       });
       expect(item.attachmentDraftId).toBeTruthy();
-      expect(item.file.size).toBe(0);
+      expect(item.file).toMatchObject({ size: 0, type: dataUrl ? 'image/png' : mime });
       expect(bind).toHaveBeenCalledWith([{ attachment: ref }], 'message', 'topic');
       await act(async () => result.current.addLocalAttachmentToInput(ref, 'message', 'topic'));
       expect(retain).toHaveBeenCalledTimes(1);
@@ -185,7 +223,10 @@ describe('useFileStore:chat', () => {
 
     expect(uploadWithProgress).not.toHaveBeenCalled();
     expect(result.current.chatUploadFileList).toEqual([]);
-    expect(toast.error).toHaveBeenCalledWith(expect.any(String));
+    expect(result.current.chatAttachmentIssues).toEqual([
+      expect.objectContaining({ reason: 'unsupported-format', name: 'icon.svg' }),
+      expect.objectContaining({ reason: 'unsupported-format', name: 'archive.zip' }),
+    ]);
   });
 
   it('uploadChatFiles should allow any file type in agent mode', async () => {
@@ -236,6 +277,59 @@ describe('useFileStore:chat', () => {
     expect(uploadWithProgress).toHaveBeenCalledTimes(1);
   });
 
+  it('reserves image slots before concurrent intakes yield', async () => {
+    mockAgentMode({ enableAgentMode: true, heterogeneous: false });
+    const upload = vi
+      .spyOn(useStore.getState(), 'uploadWithProgress')
+      .mockImplementation(async ({ uploadId }) => ({
+        id: `server-${uploadId}`,
+        url: 'https://example.test/image',
+      }));
+    const makeImage = (i: number, type = 'image/gif') =>
+      new File(['GIF89a'], `image-${i}.gif`, { type });
+    const first = useStore.getState().uploadChatFiles(
+      Array.from({ length: 9 }, (_, i) => makeImage(i)),
+      AGENT_ID,
+    );
+    const second = useStore.getState().uploadChatFiles([makeImage(9)], AGENT_ID);
+    const third = useStore
+      .getState()
+      .uploadChatFiles([makeImage(10, 'application/octet-stream')], AGENT_ID);
+    expect(useStore.getState().chatUploadFileList).toHaveLength(10);
+    await Promise.all([first, second, third]);
+    expect(upload).toHaveBeenCalledTimes(10);
+    expect(useStore.getState().chatAttachmentIssues).toEqual([
+      expect.objectContaining({ reason: 'image-count' }),
+    ]);
+  });
+
+  it('keeps same-name files independent and rejects oversized Web files before upload', async () => {
+    mockAgentMode({ enableAgentMode: true, heterogeneous: false });
+    const upload = vi
+      .spyOn(useStore.getState(), 'uploadWithProgress')
+      .mockImplementation(async ({ uploadId }) => ({
+        id: `server-${uploadId}`,
+        url: 'https://example.test/image',
+      }));
+    const large = new File([], 'oversized.txt', { type: 'text/plain' });
+    Object.defineProperty(large, 'size', { value: 10 * 1024 * 1024 + 1 });
+    await useStore
+      .getState()
+      .uploadChatFiles(
+        [
+          new File(['GIF89a'], 'same.gif', { type: 'image/gif' }),
+          new File(['different'], 'same.gif', { type: 'image/gif' }),
+          large,
+        ],
+        AGENT_ID,
+      );
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(new Set(useStore.getState().chatUploadFileList.map((item) => item.id)).size).toBe(2);
+    expect(useStore.getState().chatAttachmentIssues).toEqual([
+      expect.objectContaining({ reason: 'web-size' }),
+    ]);
+  });
+
   it('shows a permission denied description when upload is rejected by RBAC', async () => {
     mockAgentMode({ enableAgentMode: false, heterogeneous: false });
 
@@ -251,9 +345,9 @@ describe('useFileStore:chat', () => {
       await result.current.uploadChatFiles([file], AGENT_ID);
     });
 
-    expect(notification.error).toHaveBeenCalledWith({
-      description: 'You do not have permission to upload files in this workspace.',
-      message: 'File upload failed.',
+    expect(result.current.chatUploadFileList[0]).toMatchObject({
+      status: 'error',
+      attachmentError: 'permission-denied',
     });
   });
 
@@ -263,7 +357,6 @@ describe('useFileStore:chat', () => {
     const { result } = renderHook(() => useStore());
     const file = new File(['Masterino marker: cobalt-17'], 'note.txt', { type: 'text/plain' });
     const uploadWithProgress = vi.fn().mockResolvedValue({ id: 'file-3', url: 'http://x/3' });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     vi.mocked(ragService.parseFileContent).mockRejectedValue(new Error('embedding model missing'));
 
@@ -280,19 +373,9 @@ describe('useFileStore:chat', () => {
 
     expect(uploadWithProgress).toHaveBeenCalledTimes(1);
     expect(ragService.parseFileContent).toHaveBeenCalledWith('file-3');
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('content parsing failed'),
-      expect.any(Error),
-    );
-    expect(notification.error).not.toHaveBeenCalled();
-    expect(notification.warning).toHaveBeenCalledWith({
-      description:
-        'The file was uploaded, but text analysis failed. This is not an object storage upload failure.',
-      message: 'File analysis failed',
-    });
     expect(result.current.chatUploadFileList).toHaveLength(1);
     expect(result.current.chatUploadFileList[0]).toMatchObject({
-      errorReason: 'embedding model missing',
+      attachmentError: 'parse-failed',
       id: 'file-3',
       processStage: 'content_parse_failed',
       status: 'error',
@@ -326,10 +409,6 @@ describe('useFileStore:chat', () => {
       });
 
       expect(notification.warning).not.toHaveBeenCalled();
-      expect(notification.error).toHaveBeenCalledWith({
-        description: `Error reason: ${storageErrorCode}`,
-        message: 'File upload failed.',
-      });
       expect(result.current.chatUploadFileList).toHaveLength(1);
       expect(result.current.chatUploadFileList[0]).toMatchObject({
         diagnostic: {
@@ -337,7 +416,7 @@ describe('useFileStore:chat', () => {
           message: storageErrorCode,
           stage: 'storage_upload_failed',
         },
-        errorReason: storageErrorCode,
+        attachmentError: 'upload-failed',
         id: 'file-missing',
         processStage: 'storage_upload_failed',
         status: 'error',
@@ -398,5 +477,115 @@ describe('useFileStore:chat', () => {
       processStage: 'ready_for_chat',
       status: 'success',
     });
+  });
+});
+
+describe('scoped chat attachment drafts', () => {
+  beforeEach(() => {
+    useStore.setState({
+      chatAttachmentScope: undefined,
+      chatAttachmentDrafts: {},
+      chatUploadFileList: [],
+      chatAttachmentIssues: [],
+      chatAttachmentNoticeShown: false,
+    });
+  });
+  it('restores queued files to their owner after another conversation becomes active', () => {
+    const store = useStore.getState();
+    store.setChatAttachmentScope('topic-a');
+    store.dispatchChatUploadFileList(
+      { type: 'addFile', file: { id: 'a', file: new File(['a'], 'a.txt'), status: 'success' } },
+      'topic-a',
+    );
+    expect(
+      store.restoreChatUploadFiles(
+        [
+          {
+            id: 'queued',
+            file: new File(['b'], 'b.png', { type: 'image/png' }),
+            status: 'success',
+          },
+        ],
+        'topic-b',
+      ),
+    ).toBe(true);
+    expect(useStore.getState().chatUploadFileList.map((file) => file.id)).toEqual(['a']);
+    store.dispatchChatUploadFileList({ type: 'removeFile', id: 'a' });
+    expect(useStore.getState().chatUploadFileList.map((file) => file.id)).toEqual(['a']);
+    store.setChatAttachmentScope('topic-b');
+    expect(useStore.getState().chatUploadFileList).toEqual([
+      expect.objectContaining({ id: 'queued', uploadId: expect.any(String) }),
+    ]);
+  });
+  it('rejects an oversized queue restore without changing either draft, including failed slots', () => {
+    const store = useStore.getState();
+    const images = Array.from({ length: 10 }, (_, index) => ({
+      id: String(index),
+      file: new File(['x'], 'image.png', { type: 'image/png' }),
+      status: (index ? 'success' : 'error') as 'success' | 'error',
+    }));
+    store.setChatAttachmentScope('topic-b');
+    store.dispatchChatUploadFileList({ type: 'addFiles', files: images }, 'topic-b');
+    store.setChatAttachmentScope('topic-a');
+    const before = useStore.getState();
+    expect(store.restoreChatUploadFiles([images[0]], 'topic-b')).toBe(false);
+    expect(sameChatAttachmentDraft(before, useStore.getState(), 'topic-a')).toBe(true);
+    expect(sameChatAttachmentDraft(before, useStore.getState(), 'topic-b')).toBe(true);
+  });
+  it('preserves drafts and late progress in their owning conversation', () => {
+    const store = useStore.getState();
+    store.setChatAttachmentScope('topic-a');
+    store.dispatchChatUploadFileList(
+      {
+        type: 'addFile',
+        file: {
+          id: 'a',
+          uploadId: 'upload-a',
+          file: new File(['a'], 'same.txt'),
+          status: 'pending',
+        },
+      },
+      'topic-a',
+    );
+    const beforeA = useStore.getState();
+    store.setChatAttachmentScope('topic-b');
+    store.dispatchChatUploadFileList(
+      { type: 'addFile', file: { id: 'b', file: new File(['b'], 'same.txt'), status: 'success' } },
+      'topic-b',
+    );
+    const beforeB = useStore.getState();
+    store.dispatchChatUploadFileList(
+      { type: 'updateFile', id: 'upload-a', value: { status: 'success' } },
+      'topic-a',
+    );
+    expect(sameChatAttachmentDraft(beforeA, useStore.getState(), 'topic-a')).toBe(false);
+    expect(sameChatAttachmentDraft(beforeB, useStore.getState(), 'topic-b')).toBe(true);
+    expect(useStore.getState().chatUploadFileList.map((item) => item.id)).toEqual(['b']);
+    store.clearChatUploadFileList(undefined, 'topic-b');
+    store.setChatAttachmentScope('topic-a');
+    expect(useStore.getState().chatUploadFileList[0]).toMatchObject({ id: 'a', status: 'success' });
+    expect(Object.keys(useStore.getState().chatAttachmentDrafts['topic-a']).sort()).toEqual([
+      'chatAttachmentIssues',
+      'chatAttachmentNoticeShown',
+      'chatUploadFileList',
+    ]);
+  });
+  it('removes only the selected upload when storage deduplicates the file id', async () => {
+    const store = useStore.getState();
+    store.setChatAttachmentScope('same-content');
+    store.dispatchChatUploadFileList(
+      {
+        type: 'addFiles',
+        files: ['first', 'second'].map((uploadId) => ({
+          id: 'shared',
+          uploadId,
+          file: new File(['x'], 'same.png', { type: 'image/png' }),
+          status: 'success',
+        })),
+      },
+      'same-content',
+    );
+    await store.removeChatUploadFile('second', 'same-content');
+    expect(useStore.getState().chatUploadFileList.map((item) => item.uploadId)).toEqual(['first']);
   });
 });

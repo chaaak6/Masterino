@@ -13,5 +13,5 @@ export const useInitBuiltinAgent = (slug: BuiltinAgentSlug) => {
 
   const isLogin = useUserStore(authSelectors.isLogin);
 
-  useInitBuiltinAgent(slug, { isLogin });
+  return useInitBuiltinAgent(slug, { isLogin });
 };

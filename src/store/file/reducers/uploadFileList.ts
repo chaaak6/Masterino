@@ -94,7 +94,9 @@ export const uploadFileListReducer = (
     }
     case 'updateFile': {
       return produce(state, (draftState) => {
-        const file = draftState.find((f) => f.id === action.id);
+        const file = draftState.find(
+          (f) => (f.uploadId || f.id) === action.id || f.id === action.id,
+        );
         if (file) {
           Object.assign(file, action.value);
         }
@@ -103,7 +105,9 @@ export const uploadFileListReducer = (
 
     case 'updateFileStatus': {
       return produce(state, (draftState) => {
-        const file = draftState.find((f) => f.id === action.id);
+        const file = draftState.find(
+          (f) => (f.uploadId || f.id) === action.id || f.id === action.id,
+        );
         if (file) {
           file.status = action.status;
         }
@@ -124,7 +128,9 @@ export const uploadFileListReducer = (
 
     case 'updateFileUploadState': {
       return produce(state, (draftState) => {
-        const file = draftState.find((f) => f.id === action.id);
+        const file = draftState.find(
+          (f) => (f.uploadId || f.id) === action.id || f.id === action.id,
+        );
         if (file) {
           file.uploadState = action.uploadState;
         }
@@ -133,7 +139,9 @@ export const uploadFileListReducer = (
 
     case 'removeFile': {
       return produce(state, (draftState) => {
-        const index = draftState.findIndex((f) => f.id === action.id);
+        const index = draftState.findIndex(
+          (f) => (f.uploadId || f.id) === action.id || f.id === action.id,
+        );
         if (index !== -1) {
           draftState.splice(index, 1);
         }

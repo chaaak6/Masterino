@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { receiveLocalAttachment } from '@lobechat/device-control';
+import { nativeImage } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type App } from '@/core/App';
@@ -15,6 +17,7 @@ import LocalFileCtr from '../LocalFileCtr';
 vi.mock('electron', () => ({
   dialog: { showOpenDialog: vi.fn(), showSaveDialog: vi.fn() },
   ipcMain: { handle: vi.fn() },
+  nativeImage: { createFromBuffer: vi.fn() },
   shell: { openPath: vi.fn() },
 }));
 
@@ -51,6 +54,33 @@ describe('LocalFileCtr — readFile / readFiles (real fs)', () => {
 
   afterEach(() => {
     fs.rmSync(tmpDir, { force: true, recursive: true });
+  });
+
+  it('previews a legacy image without rewriting its registered MIME type', async () => {
+    const root = path.join(tmpDir, 'scratch-workspaces');
+    const ctr = new LocalFileCtr({
+      ...mockApp,
+      appStoragePath: tmpDir,
+      getService: () => ({ getDeviceId: () => 'device' }),
+    } as unknown as App);
+    const ref = await receiveLocalAttachment(root, 'device', {
+      data: new Uint8Array([1, 2, 3]),
+      draftId: 'draft',
+      mime: 'application/octet-stream',
+      name: 'old.png',
+    });
+    vi.mocked(nativeImage.createFromBuffer).mockReturnValue({
+      getSize: () => ({ height: 1, width: 1 }),
+      isEmpty: () => false,
+      toDataURL: () => 'data:image/png;base64,AQID',
+    } as unknown as Electron.NativeImage);
+
+    await expect(ctr.resolveAttachment({ image: true, ref })).resolves.toEqual({
+      dataUrl: 'data:image/png;base64,AQID',
+    });
+    await expect(
+      ctr.resolveAttachment({ image: true, ref: { ...ref, mime: 'image/png' } }),
+    ).rejects.toThrow('identity mismatch');
   });
 
   describe('readFile', () => {

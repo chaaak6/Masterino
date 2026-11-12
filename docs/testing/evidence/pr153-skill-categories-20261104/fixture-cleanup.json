@@ -1,0 +1,17 @@
+{
+  "removedResources": 26,
+  "removedArtifacts": 26,
+  "removedCategoryDefinition": "qa153-legacy-unknown",
+  "retainedActualFlowResources": [
+    "A V1/V2",
+    "B",
+    "Legacy",
+    "Legacy-retest",
+    "admin create",
+    "URL import"
+  ],
+  "remainingTaskFixtureResources": 0,
+  "remainingTaskFixtureArtifacts": 0,
+  "productionModified": false,
+  "note": "Service storage credentials deny delete; used configured Aliyun admin CLI for exact 26 pre-verified task object keys, without changing any ACL."
+}

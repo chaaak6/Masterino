@@ -93,6 +93,9 @@ const MessageItem = memo<MessageItemProps>(
         if (!message) return;
 
         if (isDesktop) {
+          event.preventDefault();
+          const image = (event.target as Element).closest('img');
+          const coordinates = { x: event.clientX, y: event.clientY };
           const { electronSystemService } = await import('@/services/electron/system');
 
           // Get selected text for context menu features like Look Up and Search
@@ -100,6 +103,8 @@ const MessageItem = memo<MessageItemProps>(
           const selectionText = selection?.toString() || '';
 
           electronSystemService.showContextMenu('chat', {
+            ...coordinates,
+            ...(image ? { mediaType: 'image', srcURL: image.currentSrc || image.src } : {}),
             content: message.content,
             hasError: !!message.error,
             messageId: id,

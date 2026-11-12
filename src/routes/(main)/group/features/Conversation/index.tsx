@@ -5,9 +5,11 @@ import DragUploadZone, { useUploadFiles } from '@/components/DragUploadZone';
 import { useAgentStore } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import ConversationArea from './ConversationArea';
 import ChatHeader from './Header';
+import { useGroupContext } from './useGroupContext';
 
 const ChatConversation = memo(() => {
   // Get current agent's model info for vision support check
@@ -15,7 +17,14 @@ const ChatConversation = memo(() => {
   const model = useAgentStore(agentSelectors.currentAgentModel);
   const provider = useAgentStore(agentSelectors.currentAgentModelProvider);
   const topicId = useChatStore((s) => s.activeTopicId);
-  const { handleUploadFiles } = useUploadFiles({ agentId, model, provider, topicId });
+  const attachmentContext = useGroupContext();
+  const { handleUploadFiles } = useUploadFiles({
+    agentId,
+    model,
+    provider,
+    topicId,
+    scope: messageMapKey(attachmentContext),
+  });
 
   return (
     <DragUploadZone style={{ height: '100%', width: '100%' }} onUploadFiles={handleUploadFiles}>

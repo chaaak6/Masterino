@@ -1,0 +1,30 @@
+{
+  "resource": {
+    "identifier": "user-53cba1d2a7a320c92073e700",
+    "name": "qa-153-20261104-a",
+    "description": "QA153Nov04 合成验收技能 A V1；用户要求 QA153 标记时使用。",
+    "category": "data-analytics",
+    "status": "published",
+    "current_version_id": "165",
+    "confirmed_at": "2026-11-04T11:09:42.963595+00:00",
+    "version_count": 2
+  },
+  "versions": [
+    {
+      "id": "165",
+      "version": "1.0.0-223bd7848a187d66",
+      "workflow_state": "published",
+      "artifact_sha256": "5362a3df266077aca29a81632b608253e97564efaed8658c428fcd30d43a2899",
+      "manifest_name": "qa-153-20261104-a",
+      "manifest_description": "QA153Nov04 合成验收技能 A V1；用户要求 QA153 标记时使用。"
+    },
+    {
+      "id": "192",
+      "version": "1.0.0-50ba80eb9a4d2635",
+      "workflow_state": "published",
+      "artifact_sha256": "d81e292cd0cb6222cb318340854b966ae2960b58e63ae4431accae09bded355b",
+      "manifest_name": "qa-153-20261104-a",
+      "manifest_description": "QA153Nov04 合成验收技能 A V2；用户要求 QA153 标记时使用。"
+    }
+  ]
+}

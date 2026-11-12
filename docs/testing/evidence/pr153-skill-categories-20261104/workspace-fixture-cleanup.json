@@ -1,0 +1,8 @@
+{
+  "action": "removed two empty task-only workspace definitions and four prepared memberships",
+  "ids": [
+    "qa153-workspace-a-20261104",
+    "qa153-workspace-b-20261104"
+  ],
+  "productionModified": false
+}

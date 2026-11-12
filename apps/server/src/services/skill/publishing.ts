@@ -132,7 +132,7 @@ export class SkillPublishingService {
     private userId: string,
     private workspaceId?: string,
   ) {}
-  async submitPersonal(id: string) {
+  async submitPersonal(id: string, category?: string) {
     const model = new AgentSkillModel(this.db, this.userId, this.workspaceId);
     const selected = (await model.findById(id)) ?? (await model.findByIdentifier(id));
     if (!selected) throw new TRPCError({ code: 'NOT_FOUND', message: 'Skill not found' });
@@ -147,13 +147,13 @@ export class SkillPublishingService {
         code: 'BAD_REQUEST',
         message: 'Only your own skills can be submitted.',
       });
-    const result = await this.submitArchive(archive, `personal:${skill.id}`);
+    const result = await this.submitArchive(archive, `personal:${skill.id}`, category);
     await model.update(skill.id, {
       editorData: { publication: { identifier: result.identifier, hash } },
     });
     return result;
   }
-  async submitArchive(archive: Buffer, sourceRef?: string) {
+  async submitArchive(archive: Buffer, sourceRef?: string, category?: string) {
     if (this.workspaceId)
       throw new TRPCError({
         code: 'BAD_REQUEST',
@@ -196,6 +196,7 @@ export class SkillPublishingService {
         ],
       }),
     );
+    if (category) form.set('category', category);
     form.set('metadata', JSON.stringify({ sourceCatalog: 'user-submission' }));
     form.set('name', parsed.manifest.name);
     form.set('description', parsed.manifest.description);

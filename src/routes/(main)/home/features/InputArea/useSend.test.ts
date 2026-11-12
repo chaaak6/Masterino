@@ -1,6 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
+import type { ChatContextContent } from '@lobechat/types';
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,7 +30,8 @@ const chatState = vi.hoisted(() => ({
 }));
 
 const fileState = vi.hoisted(() => ({
-  chatContextSelections: [],
+  chatContextSelectionDrafts: {} as Record<string, ChatContextContent[]>,
+  chatContextSelections: [] as ChatContextContent[],
   chatUploadFileList: [],
   clearChatContextSelections: clearChatContextSelectionsMock,
   clearChatUploadFileList: clearChatUploadFileListMock,
@@ -52,13 +54,13 @@ const agentState = vi.hoisted(() => ({
   agentMap: {
     agt_inbox: {},
   },
-  inboxAgentId: 'agt_inbox',
+  inboxAgentId: 'agt_inbox' as string | undefined,
   internal_dispatchAgentMap: vi.fn(),
 }));
 
 const globalState = vi.hoisted(() => ({
   systemStatus: {
-    homeSelectedAgentId: undefined,
+    homeSelectedAgentId: undefined as string | undefined,
   },
   updateSystemStatus: vi.fn(),
 }));
@@ -110,13 +112,14 @@ vi.mock('@/store/chat', () => {
   return { useChatStore };
 });
 
-vi.mock('@/store/file', () => {
+vi.mock('@/store/file', async () => {
+  const { fileChatSelectors } = await import('@/store/file/slices/chat/selectors');
   const useFileStore = (selector: (state: typeof fileState) => unknown) => selector(fileState);
   useFileStore.getState = () => fileState;
 
   return {
     fileChatSelectors: {
-      chatContextSelections: (state: typeof fileState) => state.chatContextSelections,
+      chatContextSelections: fileChatSelectors.chatContextSelections,
       chatUploadFileList: (state: typeof fileState) => state.chatUploadFileList,
       isUploadingFiles: (state: typeof fileState) =>
         state.chatUploadFileList.some((file: any) => file.status === 'processing'),
@@ -143,8 +146,67 @@ describe('Home InputArea useSend', () => {
     homeDailyBriefState.advance.mockReset();
     homeDailyBriefState.currentPair = undefined;
     chatState.inputMessage = 'hello';
+    agentState.inboxAgentId = 'agt_inbox';
+    globalState.systemStatus.homeSelectedAgentId = undefined;
+    homeState.isAgentListInit = true;
+    fileState.chatContextSelectionDrafts = {};
     fileState.chatContextSelections = [];
     fileState.chatUploadFileList = [];
+  });
+
+  it('waits for the inbox ID before opening its draft, independently of the sidebar request', () => {
+    agentState.inboxAgentId = undefined;
+    homeState.isAgentListInit = false;
+    const { result, rerender } = renderHook(() => useSend());
+    expect(result.current.attachmentScope).toBeUndefined();
+
+    agentState.inboxAgentId = 'agt_inbox';
+    rerender();
+    expect(result.current.attachmentScope).toBe('home_main_agt_inbox_new');
+
+    globalState.systemStatus.homeSelectedAgentId = 'agt_selected';
+    rerender();
+    expect(result.current.attachmentScope).toBe('home_main_agt_selected_new');
+  });
+
+  it('sends and clears only page selections owned by the home draft', async () => {
+    const homeScope = 'home_main_agt_inbox_new';
+    const selection = {
+      content: '<p>Home context</p>',
+      id: 'home-selection',
+      pageId: 'page-home',
+      preview: 'Home context',
+      type: 'text',
+    } as const;
+    fileState.chatContextSelectionDrafts = {
+      [homeScope]: [selection],
+      page_agt_inbox_document: [{ ...selection, id: 'copilot-selection' }],
+    };
+    fileState.chatContextSelections = [{ ...selection, id: 'legacy-selection' }];
+    const { result } = renderHook(() => useSend());
+
+    await act(async () => {
+      await result.current.send({
+        clearContent: vi.fn(),
+        editor: {} as Parameters<SendButtonHandler>[0]['editor'],
+        getEditorData: () => undefined,
+        getMarkdownContent: () => '',
+      });
+    });
+
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pageSelections: [
+          {
+            content: 'Home context',
+            id: selection.id,
+            pageId: selection.pageId,
+            xml: selection.content,
+          },
+        ],
+      }),
+    );
+    expect(clearChatContextSelectionsMock).toHaveBeenCalledExactlyOnceWith(homeScope);
   });
 
   it('routes cold homepage sends to the created topic instead of relying on ChatHydration timing', async () => {

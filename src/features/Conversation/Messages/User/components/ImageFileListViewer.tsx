@@ -1,27 +1,14 @@
-import { PreviewGroup } from '@lobehub/ui';
 import { memo } from 'react';
 
-import GalleyGrid from '@/components/GalleyGrid';
-import ImageItem from '@/components/ImageItem';
+import ImageGallery from '@/features/Attachments/ImageGallery';
 
 interface ImageFileItem {
   alt?: string;
   id: string;
-  loading?: boolean;
-  onRemove?: (id: string) => void;
   url: string;
 }
-
-interface FileListProps {
-  items: ImageFileItem[];
-}
-
-const ImageFileListViewer = memo<FileListProps>(({ items }) => {
-  return (
-    <PreviewGroup>
-      <GalleyGrid items={items} renderItem={ImageItem} />
-    </PreviewGroup>
-  );
-});
-
-export default ImageFileListViewer;
+export default memo(({ items }: { items: ImageFileItem[] }) => (
+  <ImageGallery
+    items={items.map((item) => ({ id: item.id, name: item.alt || 'Image', url: item.url }))}
+  />
+));

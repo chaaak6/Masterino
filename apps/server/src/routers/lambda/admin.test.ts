@@ -1125,6 +1125,19 @@ describe('adminRouter', () => {
     );
   });
 
+  it.each([
+    [400, '请选择有效的技能分类', 'BAD_REQUEST'],
+    [400, 'Database unavailable', 'BAD_GATEWAY'],
+    [404, 'Resource not found', 'NOT_FOUND'],
+  ])('preserves Market category edit error %s', async (status, error, code) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error }, { status })));
+    const caller = createCaller(await createAdminContext('platform_admin'));
+
+    await expect(
+      caller.updateSkillCategory({ category: 'design', identifier: 'skill-one' }),
+    ).rejects.toMatchObject({ code, message: expect.stringContaining(error) });
+  });
+
   it('updates WeCom SSO config through the enterprise SSO service', async () => {
     const caller = createCaller(await createAdminContext('platform_admin'));
     const input = {
@@ -2853,6 +2866,10 @@ describe('adminRouter', () => {
       vi.mocked(getServerDB).mockResolvedValue(db as never);
       const caller = createCaller(await createAdminContext('user'));
 
+      const categoryResult = await settle(
+        caller.updateSkillCategory({ identifier: 'skill-1', category: 'design' }),
+      );
+
       const skillListResult = await settle(
         caller.listResourceGrants({ resourceId: 'skill-1', resourceType: 'skill' }),
       );
@@ -2879,6 +2896,10 @@ describe('adminRouter', () => {
       );
 
       expectPermissionCheck('skill:manage');
+      expect(categoryResult).toMatchObject({
+        error: expect.objectContaining({ code: 'FORBIDDEN' }),
+        status: 'rejected',
+      });
       expectPermissionCheck('mcp:manage');
       expect(skillResult).toMatchObject({
         error: expect.objectContaining({ code: 'FORBIDDEN' }),

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { isProductFeatureDisabled } from '@/config/productFeatures';
 
 import { detectDownloadTarget, type DownloadTarget } from './platform';
+import { isWecomDesktop, openWecomDownloadPage } from './wecom';
 
 type Release = { artifacts: { arch: string; platform: string; url: string }[]; version: string };
 
@@ -19,6 +20,7 @@ export async function downloadDesktop(target: DownloadTarget) {
   if (!artifact) throw new Error('Installer unavailable');
   // Direct navigation avoids popup blockers after the asynchronous manifest request.
   window.location.assign(artifact.url);
+  return release.version;
 }
 
 function DownloadChoice({ target }: { target: DownloadTarget | 'mac' | 'unsupported' }) {
@@ -69,13 +71,44 @@ export function useDesktopDownload() {
     if (busy.current || isProductFeatureDisabled('desktopApp')) return;
     busy.current = true;
     setLoading(true);
+    if (isWecomDesktop(navigator.userAgent, navigator.maxTouchPoints)) {
+      try {
+        const { getUserStoreState } = await import('@/store/user');
+        if (getUserStoreState().isSignedIn) {
+          await openWecomDownloadPage();
+          return;
+        }
+      } catch {
+        // The manual download link also works when the embedded SDK cannot open a browser.
+      } finally {
+        busy.current = false;
+        setLoading(false);
+      }
+      const page = new URL('/download?manual=1', window.location.origin).href;
+      createModal({
+        title: t('getDesktopApp', { ns: 'common' }),
+        content: (
+          <Flexbox gap={12}>
+            <span role="alert">{t('desktopDownload.browserFailed', { ns: 'common' })}</span>
+            <a href={page} rel="noreferrer" target="_blank">
+              {page}
+            </a>
+          </Flexbox>
+        ),
+        footer: null,
+        width: 420,
+      });
+      return;
+    }
     let target: Awaited<ReturnType<typeof detectDownloadTarget>> = 'unsupported';
     let showChoice = false;
     try {
       target = await detectDownloadTarget(navigator);
+      console.info('[desktop-download]', JSON.stringify({ event: 'detected', target }));
       if (target === 'mac' || target === 'unsupported') showChoice = true;
       else await downloadDesktop(target);
     } catch {
+      console.info('[desktop-download]', JSON.stringify({ event: 'unavailable', target }));
       showChoice = true;
     } finally {
       busy.current = false;

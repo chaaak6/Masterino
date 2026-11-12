@@ -113,6 +113,57 @@ afterEach(() => {
 });
 
 describe('AgentPickerStep', () => {
+  it('starts with zero selections and persists account completion before desktop skip', async () => {
+    const onFinish = vi.fn();
+    render(<AgentPickerStep onBack={vi.fn()} onFinish={onFinish} />);
+    expect(screen.getByRole('button', { name: 'agentPicker.continue (0)' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
+    await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
+    expect(installMarketplaceAgents).not.toHaveBeenCalled();
+    expect(finishOnboarding).toHaveBeenCalledOnce();
+    expect(finishOnboarding.mock.invocationCallOrder[0]).toBeLessThan(
+      onFinish.mock.invocationCallOrder[0],
+    );
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('persists account completion before desktop Continue and records completion', async () => {
+    const onFinish = vi.fn();
+    render(<AgentPickerStep onBack={vi.fn()} onFinish={onFinish} />);
+    fireEvent.click(screen.getByText('Code Reviewer'));
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.continue (1)' }));
+    await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
+    expect(finishOnboarding).toHaveBeenCalledOnce();
+    expect(metrics.trackOnboardingCompleted).toHaveBeenCalledWith({
+      flow: 'classic',
+      targetUrl: '/',
+    });
+    expect(finishOnboarding.mock.invocationCallOrder[0]).toBeLessThan(
+      onFinish.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('keeps desktop completion retryable when saving the account fails', async () => {
+    finishOnboarding.mockRejectedValueOnce(new Error('temporary failure'));
+    const onFinish = vi.fn();
+    render(<AgentPickerStep onBack={vi.fn()} onFinish={onFinish} />);
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('agentPicker.finishError');
+    expect(onFinish).not.toHaveBeenCalled();
+
+    // A new installation attempt should not keep the previous completion error.
+    installMarketplaceAgents.mockRejectedValueOnce(new Error('Market unavailable'));
+    fireEvent.click(screen.getByText('Code Reviewer'));
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.continue (1)' }));
+    expect(await screen.findByText('Code Reviewer: Market unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('agentPicker.finishError')).not.toBeInTheDocument();
+    expect(finishOnboarding).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole('button', { name: 'agentPicker.skip' }));
+    await waitFor(() => expect(onFinish).toHaveBeenCalledOnce());
+    expect(screen.queryByText('agentPicker.installFailed')).not.toBeInTheDocument();
+  });
+
   it('renders an agent card for each template', () => {
     render(<AgentPickerStep onBack={vi.fn()} />);
     expect(screen.getByText('Code Reviewer')).toBeInTheDocument();

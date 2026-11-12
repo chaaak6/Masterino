@@ -1,4 +1,5 @@
-import { Alert, Flexbox } from '@lobehub/ui';
+import { BUILTIN_AGENT_SLUGS } from '@lobechat/builtin-agents';
+import { Alert, Button, Flexbox, Skeleton } from '@lobehub/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +10,7 @@ import { type ActionKeys } from '@/features/ChatInput';
 import { ChatInputProvider, DesktopChatInput } from '@/features/ChatInput';
 import { useHomeDailyBrief } from '@/hooks/useHomeDailyBrief';
 import { useInitAgentConfig } from '@/hooks/useInitAgentConfig';
+import { useInitBuiltinAgent } from '@/hooks/useInitBuiltinAgent';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
 import { builtinAgentSelectors } from '@/store/agent/selectors/builtinAgentSelectors';
@@ -32,8 +34,26 @@ type BannerKind = 'skill' | 'botIntegration' | 'messenger';
 
 const InputArea = () => {
   const { t } = useTranslation('chat');
-  const { loading, send, agentId } = useSend();
-  const isUploadingFiles = useFileStore(fileChatSelectors.isUploadingFiles);
+  const { loading, send, agentId, attachmentScope } = useSend();
+  const { isLoading: isInboxLoading } = useInitBuiltinAgent(BUILTIN_AGENT_SLUGS.inbox);
+  const refreshBuiltinAgent = useAgentStore((s) => s.refreshBuiltinAgent);
+  const [isInboxRetrying, setIsInboxRetrying] = useState(false);
+  const retryInbox = async () => {
+    setIsInboxRetrying(true);
+    try {
+      await refreshBuiltinAgent(BUILTIN_AGENT_SLUGS.inbox);
+    } catch {
+      antdMessage.error(t('agentConfigError.title'));
+    } finally {
+      setIsInboxRetrying(false);
+    }
+  };
+  const isUploadingFiles = useFileStore((s) =>
+    fileChatSelectors.isUploadingFiles(s, attachmentScope),
+  );
+  const attachmentBlock = useFileStore((s) =>
+    fileChatSelectors.attachmentBlock(s, attachmentScope),
+  );
   // Subscribe to the SWR key so `internal_refreshAgentConfig`'s `mutate(...)`
   // has a listener after toggleFile / toggleKnowledgeBase — otherwise the
   // Library submenu doesn't reflect server-side toggles. Pass `agentId`
@@ -122,7 +142,12 @@ const InputArea = () => {
   const provider = useAgentStore((s) =>
     agentByIdSelectors.getAgentModelProviderById(resolvedAgentId)(s),
   );
-  const { handleUploadFiles } = useUploadFiles({ agentId: resolvedAgentId, model, provider });
+  const { handleUploadFiles } = useUploadFiles({
+    agentId: resolvedAgentId,
+    model,
+    provider,
+    scope: attachmentScope,
+  });
 
   // A slot to insert content above the chat input
   // Override some default behavior of the chat input
@@ -154,50 +179,73 @@ const InputArea = () => {
         {visibleBanner === 'botIntegration' && <BotIntegrationBanner />}
         {visibleBanner === 'messenger' && <MessengerBanner />}
         <DragUploadZone
+          disabled={!attachmentScope && (isInboxLoading || isInboxRetrying)}
           style={{ position: 'relative', zIndex: 1 }}
-          onUploadFiles={handleUploadFiles}
+          onUploadFiles={(files) => {
+            if (attachmentScope) return handleUploadFiles(files);
+            antdMessage.warning(t('agentConfigError.title'));
+          }}
         >
-          <ChatInputProvider
-            agentId={agentId}
-            allowExpand={false}
-            leftActions={leftActions}
-            rightActions={rightActions}
-            slashPlacement="bottom"
-            chatInputEditorRef={(instance) => {
-              if (!instance) return;
-              useChatStore.setState({ mainInputEditor: instance });
-            }}
-            sendButtonProps={{
-              disabled: loading || isAgentConfigLoading || isUploadingFiles,
-              generating: loading,
-              onDisabledSend: isUploadingFiles
-                ? () =>
-                    antdMessage.warning({
-                      content: t('input.uploadingFiles'),
-                      key: 'home-uploading-files',
-                    })
-                : undefined,
-              onStop: () => {},
-              shape: 'round',
-            }}
-            onSend={send}
-            onMarkdownContentChange={(content) => {
-              useChatStore.setState({ inputMessage: content });
-            }}
-          >
-            <DesktopChatInput
-              dropdownPlacement="bottomLeft"
-              inputContainerProps={inputContainerProps}
-              isConfigLoading={isAgentConfigLoading}
-              placeholder={dailyHint}
-              showControlBar={false}
+          {attachmentScope ? (
+            <ChatInputProvider
+              agentId={resolvedAgentId}
+              allowExpand={false}
+              draftKey={attachmentScope}
+              key={attachmentScope}
+              leftActions={leftActions}
+              rightActions={rightActions}
+              slashPlacement="bottom"
+              chatInputEditorRef={(instance) => {
+                if (!instance) return;
+                useChatStore.setState({ mainInputEditor: instance });
+              }}
+              sendButtonProps={{
+                disabled: loading || isAgentConfigLoading || isUploadingFiles,
+                generating: loading,
+                onDisabledSend: isUploadingFiles
+                  ? () =>
+                      antdMessage.warning({
+                        content: t(
+                          `attachments.block.${fileChatSelectors.attachmentBlock(useFileStore.getState(), attachmentScope) || 'pending'}`,
+                        ),
+                        key: 'home-uploading-files',
+                      })
+                  : undefined,
+                onStop: () => {},
+                shape: 'round',
+              }}
+              onSend={send}
+              onMarkdownContentChange={(content) => {
+                useChatStore.setState({ inputMessage: content });
+              }}
+            >
+              <DesktopChatInput
+                dropdownPlacement="bottomLeft"
+                inputContainerProps={inputContainerProps}
+                isConfigLoading={isAgentConfigLoading}
+                placeholder={dailyHint}
+                showControlBar={false}
+              />
+              {isUploadingFiles && (
+                <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
+                  <Alert
+                    showIcon
+                    title={t(`attachments.block.${attachmentBlock || 'pending'}`)}
+                    type={attachmentBlock === 'pending' ? 'info' : 'warning'}
+                  />
+                </Flexbox>
+              )}
+            </ChatInputProvider>
+          ) : isInboxLoading || isInboxRetrying ? (
+            <Skeleton.Button active block style={{ borderRadius: 20, height: 88 }} />
+          ) : (
+            <Alert
+              showIcon
+              title={t('agentConfigError.title')}
+              type="error"
+              action={<Button onClick={retryInbox}>{t('agentConfigError.retry')}</Button>}
             />
-            {isUploadingFiles && (
-              <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
-                <Alert showIcon title={t('input.uploadingFiles')} type={'info'} />
-              </Flexbox>
-            )}
-          </ChatInputProvider>
+          )}
         </DragUploadZone>
       </Flexbox>
 

@@ -12,6 +12,7 @@ import { message } from '@/components/AntdStaticMethods';
 import FileIcon from '@/components/FileIcon';
 import RepoIcon from '@/components/LibIcon';
 import TipGuide from '@/components/TipGuide';
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { openAttachKnowledgeModal } from '@/features/LibraryModal';
 import { usePermission } from '@/hooks/usePermission';
 import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
@@ -52,6 +53,7 @@ const FileUpload = memo(() => {
 
   const upload = useFileStore((s) => s.uploadChatFiles);
   const topicId = useChatInputStore((s) => s.topicId);
+  const attachmentScope = useAttachmentScope();
   const editor = useChatInputStore((s) => s.editor);
 
   const agentId = useAgentId();
@@ -116,7 +118,7 @@ const FileUpload = memo(() => {
           beforeUpload={async (file) => {
             setDropdownOpen(false);
             editor?.focus();
-            await upload([file], agentId, topicId);
+            await upload([file], agentId, topicId, attachmentScope);
 
             return false;
           }}
@@ -154,7 +156,7 @@ const FileUpload = memo(() => {
 
             setDropdownOpen(false);
             editor?.focus();
-            await upload([file], agentId, topicId);
+            await upload([file], agentId, topicId, attachmentScope);
 
             return false;
           }}
@@ -189,7 +191,7 @@ const FileUpload = memo(() => {
 
             setDropdownOpen(false);
             editor?.focus();
-            await upload([file], agentId, topicId);
+            await upload([file], agentId, topicId, attachmentScope);
 
             return false;
           }}

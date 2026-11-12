@@ -12,6 +12,7 @@ import urlJoin from 'url-join';
 import PublishedTime from '@/components/PublishedTime';
 import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import WorkspaceLink from '@/features/Workspace/WorkspaceLink';
+import { useSkillCategoryItem } from '@/hooks/useSkillCategory';
 import { discoverService } from '@/services/discover';
 import { type DiscoverSkillItem } from '@/types/discover';
 
@@ -65,6 +66,7 @@ const SkillItem = memo<DiscoverSkillItem>(
     commentCount,
     resourcesCount = 0,
   }) => {
+    const categoryItem = useSkillCategoryItem(category);
     const authorName = displayAuthor(author);
     const { t } = useTranslation('discover');
     const navigate = useWorkspaceAwareNavigate();
@@ -187,7 +189,7 @@ const SkillItem = memo<DiscoverSkillItem>(
               {(resourcesCount || 0) + 1}
             </Tag>
             <Flexbox horizontal align={'center'} className={styles.secondaryDesc} gap={8}>
-              {category && t(`skills.categories.${category}.name` as any)}
+              {categoryItem?.label || category}
               {isFeatured && (
                 <Tag
                   size={'small'}

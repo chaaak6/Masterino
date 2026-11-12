@@ -3,6 +3,7 @@ import { Progress } from 'antd';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { memo } from 'react';
 
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useEventCallback } from '@/hooks/useEventCallback';
 import { useFileStore } from '@/store/file';
 import { type UploadFileItem } from '@/types/files/upload';
@@ -65,7 +66,8 @@ const styles = createStaticStyles(({ css }) => ({
 type FileItemProps = UploadFileItem;
 
 const ContextItem = memo<FileItemProps>((props) => {
-  const { file, id, status, uploadState } = props;
+  const { file, id, uploadId, status, uploadState } = props;
+  const scope = useAttachmentScope();
   const [removeChatUploadFile] = useFileStore((s) => [s.removeChatUploadFile]);
 
   const basename = getFileBasename(file.name);
@@ -79,7 +81,7 @@ const ContextItem = memo<FileItemProps>((props) => {
   });
 
   const handleClose = useEventCallback(() => {
-    removeChatUploadFile(id);
+    removeChatUploadFile(uploadId || id, scope);
   });
   return (
     <Tag closable size={'large'} onClick={handleClick} onClose={handleClose}>

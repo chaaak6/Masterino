@@ -92,7 +92,7 @@ const getAgentModeById =
   (s: AgentStoreState): AgentMode | undefined => {
     const config = agentSelectors.getAgentConfigById(agentId)(s);
     const chatConfig = config?.chatConfig;
-    return chatConfig?.enableAgentMode === false ? undefined : 'auto';
+    return !isDesktop && chatConfig?.enableAgentMode === false ? undefined : 'auto';
   };
 
 /**
@@ -104,7 +104,7 @@ const getAgentEnableModeById =
   (s: AgentStoreState): boolean => {
     const config = agentSelectors.getAgentConfigById(agentId)(s);
     const chatConfig = config?.chatConfig;
-    return chatConfig?.enableAgentMode !== false;
+    return isDesktop || chatConfig?.enableAgentMode !== false;
   };
 
 /**

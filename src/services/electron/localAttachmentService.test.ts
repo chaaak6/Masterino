@@ -47,6 +47,29 @@ describe('local attachment model context', () => {
     expect(JSON.stringify(messages)).not.toContain('base64');
     expect(invoke).toHaveBeenCalledTimes(1);
   });
+  it('sends unpreviewable legacy images through the document manifest', async () => {
+    const legacy = { ...localImage, mime: 'application/octet-stream' };
+    const oversized = { ...legacy, attachmentId: 'large', size: 11 * 1024 * 1024 };
+    const invoke = vi.fn().mockRejectedValue(new Error('LOCAL_IMAGE_INVALID'));
+    window.electronAPI = { invoke, onStreamInvoke: vi.fn() };
+    const [result] = await resolveLocalMessageAttachments([
+      {
+        id: 'current',
+        role: 'user',
+        content: 'read the files',
+        attachments: { schemaVersion: 1, items: [legacy, oversized] },
+      },
+    ] as UIChatMessage[]);
+
+    expect(result.imageList).toEqual([]);
+    expect(result.content).toContain('"attachmentId":"a"');
+    expect(result.content).toContain('"attachmentId":"large"');
+    expect(invoke).toHaveBeenCalledExactlyOnceWith(
+      'localSystem.resolveAttachment',
+      expect.objectContaining({ image: true, ref: legacy }),
+    );
+  });
+
   it('keeps attachment hashes internal and explains the first Office version argument', async () => {
     const ref = {
       ...localImage,

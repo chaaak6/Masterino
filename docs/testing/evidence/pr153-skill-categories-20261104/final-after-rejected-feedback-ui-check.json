@@ -1,0 +1,17 @@
+{
+  "source": "Observed real Electron AX after normal reload; initial loading capture discarded",
+  "locale": "zh-CN",
+  "allCount": 19,
+  "categories": {
+    "data-analytics": 2,
+    "pdf-documents": 2,
+    "productivity-tasks": 3,
+    "communication": 1,
+    "uncategorized": 11
+  },
+  "submissionModal": "cancelled after preserving error evidence",
+  "network": "No throttling verified before rejected submission; unchanged afterward",
+  "newResourceCreated": false,
+  "rejectedResource": "user-fa8a16361d234a1300d0399d",
+  "versionId": 197
+}

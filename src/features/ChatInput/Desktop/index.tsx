@@ -9,6 +9,7 @@ import { memo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { useChatInputStore } from '@/features/ChatInput/store';
 import { LayoutContainerContext } from '@/routes/(main)/_layout/DesktopLayoutContainer/LayoutContainerContext';
 import { useChatStore } from '@/store/chat';
@@ -110,8 +111,14 @@ const DesktopChatInput = memo<DesktopChatInputProps>(
       systemStatusSelectors.chatInputHeight(s),
       s.updateSystemStatus,
     ]);
-    const hasContextSelections = useFileStore(fileChatSelectors.chatContextSelectionHasItem);
-    const hasFiles = useFileStore(fileChatSelectors.chatUploadFileListHasItem);
+    const draftKey = useChatInputStore((s) => s.draftKey);
+    const hasContextSelections = useFileStore((s) =>
+      fileChatSelectors.chatContextSelectionHasItem(s, draftKey),
+    );
+    const attachmentScope = useAttachmentScope();
+    const hasFiles = useFileStore((s) =>
+      fileChatSelectors.chatUploadFileListHasItem(s, attachmentScope),
+    );
     const [slashMenuRef, expand, showTypoBar, editor, leftActions] = useChatInputStore((s) => [
       s.slashMenuRef,
       s.expand,

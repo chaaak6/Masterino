@@ -57,6 +57,8 @@ const account = {
 const createRepository = () => ({
   audit: vi.fn(async () => undefined),
   categories: vi.fn(async () => []),
+  skillCategorySummary: vi.fn(async () => ({ allCount: 0, uncategorizedCount: 0, categories: [] })),
+  validateSkillCategory: vi.fn(async () => undefined),
   detail: vi.fn(async (_type, identifier) => ({
     config: { model: 'internal-model' },
     identifier,
@@ -102,7 +104,7 @@ describe('user skill submission failures and retries', () => {
       redis: {} as any,
       storage: storage as any,
     });
-    const request = (overrides: Record<string, string | File> = {}) => {
+    const request = (overrides: Record<string, string | File> = {}, endpoint = 'submission') => {
       const form = new FormData();
       form.set(
         'file',
@@ -119,7 +121,7 @@ describe('user skill submission failures and retries', () => {
       form.set('metadata', '{}');
       form.set('version', '1.0.0');
       for (const [key, value] of Object.entries(overrides)) form.set(key, value);
-      return app.request('/api/v1/user/skills/probe/submission', {
+      return app.request(`/api/v1/user/skills/probe/${endpoint}`, {
         method: 'POST',
         headers: { 'x-lobe-trust-token': token },
         body: form,
@@ -156,6 +158,52 @@ describe('user skill submission failures and retries', () => {
             });
       expect(response.status).toBe(400);
       expect(repository.submitResource).not.toHaveBeenCalled();
+      expect(storage.put).not.toHaveBeenCalled();
+    },
+  );
+
+  it('updates the review category on an identical package without uploading another version', async () => {
+    const { query, repository, request, storage } = setup();
+    query.mockResolvedValue({
+      rows: [{ resourceId: 1, versionId: 2, workflowState: 'submitted' }],
+    });
+    const response = await request({ category: 'productivity-tasks' });
+    expect(response.status).toBe(200);
+    expect(repository.validateSkillCategory).toHaveBeenCalledWith('productivity-tasks');
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('SET suggested_category=$2'), [
+      2,
+      'productivity-tasks',
+      account.id,
+      'probe',
+    ]);
+    expect(repository.submitResource).not.toHaveBeenCalled();
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it.each(['design', undefined])(
+    'returns conflict for a rejected package retry with category %s',
+    async (category) => {
+      const { query, repository, request, storage } = setup();
+      query.mockResolvedValue({
+        rows: [{ resourceId: 1, versionId: 2, workflowState: 'rejected' }],
+      });
+      const response = await request(category ? { category } : {});
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ error: 'version_rejected' });
+      expect(repository.submitResource).not.toHaveBeenCalled();
+      expect(storage.put).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['submission', 'versions'])(
+    'returns a validation error for an unknown category on %s',
+    async (endpoint) => {
+      const { query, repository, request, storage } = setup();
+      repository.validateSkillCategory.mockRejectedValueOnce(new Error('请选择有效的技能分类'));
+      const response = await request({ category: 'unknown' }, endpoint);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: '请选择有效的技能分类' });
+      expect(query).not.toHaveBeenCalled();
       expect(storage.put).not.toHaveBeenCalled();
     },
   );
@@ -198,6 +246,15 @@ describe('user skill submission failures and retries', () => {
       }
     },
   );
+
+  it('rejects non-object metadata on the legacy upload path before writes', async () => {
+    for (const metadata of ['null', '[1,2]', '"text"']) {
+      const { query, request, storage } = setup();
+      expect((await request({ metadata }, 'versions')).status).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+      expect(storage.put).not.toHaveBeenCalled();
+    }
+  });
 
   it('returns 503 for storage failures and cleans only this upload attempt', async () => {
     const { storage, request } = setup();
@@ -688,6 +745,28 @@ it('serves only fixed versioned avatar artwork without authentication', async ()
 });
 
 describe('Admin community authoring', () => {
+  it.each([
+    { body: { category: '' }, status: 400 },
+    { body: { category: 'unknown' }, error: '请选择有效的技能分类', status: 400 },
+    { body: { category: 'design' }, error: 'Resource not found', status: 404 },
+  ])('returns $status for an invalid category edit', async ({ body, error, status }) => {
+    const updateSkillCategory = vi.fn().mockRejectedValue(new Error(error));
+    const app = createMarketApp({
+      config,
+      repository: { ...createRepository(), updateSkillCategory } as any,
+      redis: {} as any,
+      storage: {} as any,
+    });
+    const response = await app.request('/api/internal/resources/skill/probe/category', {
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json', 'x-lobe-trust-token': token },
+      method: 'PATCH',
+    });
+    expect(response.status).toBe(status);
+    if (error) expect(await response.json()).toEqual({ error });
+    else expect(updateSkillCategory).not.toHaveBeenCalled();
+  });
+
   it('Given an administrator, When a MCP is submitted, Then it enters review with a server-only credential', async () => {
     let saved: any;
     const repository = {

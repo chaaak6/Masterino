@@ -163,12 +163,18 @@ describe('Atomic catalog submission', () => {
     await expect(
       repository.submitResource(
         'skill',
-        { identifier: 'retryable', name: 'Test', version: '1.0.0' },
+        {
+          identifier: 'retryable',
+          name: 'Test',
+          version: '1.0.0',
+          metadata: { source: 'fixture', catalogCategoryConfirmedAt: '2099-01-01T00:00:00Z' },
+        },
         account,
         undefined,
         upload,
       ),
     ).rejects.toThrow('version insert failed');
+    expect(JSON.parse(query.mock.calls[1][1][8])).toEqual({ source: 'fixture' });
     expect(upload).not.toHaveBeenCalled();
     expect(query).toHaveBeenLastCalledWith('ROLLBACK');
     expect(query.mock.calls.some(([sql]) => sql === 'COMMIT')).toBe(false);

@@ -3,10 +3,10 @@ import { access, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  LocalAttachmentTransfers,
   bindLocalAttachment,
   type LocalAttachmentLifecycleInput,
   type LocalAttachmentRecord,
+  LocalAttachmentTransfers,
   manageLocalAttachment,
   prepareLocalAttachment,
   receiveLocalAttachment,
@@ -63,7 +63,7 @@ import {
   type SearchOptions,
   writeLocalFile,
 } from '@lobechat/local-file-shell';
-import { dialog, nativeImage, shell } from 'electron';
+import { clipboard, dialog, nativeImage, shell } from 'electron';
 import { execa } from 'execa';
 
 import ContentSearchService from '@/services/contentSearchSrv';
@@ -123,6 +123,10 @@ const normalizeContentType = (contentType: string): string =>
 
 const isTextPreviewMimeType = (mimeType: string): boolean =>
   mimeType.startsWith('text/') || TEXT_PREVIEW_MIME_TYPES.has(mimeType);
+
+const isLegacyAttachmentImage = (ref: LocalAttachmentRecord) =>
+  (!ref.mime || ref.mime === 'application/octet-stream') &&
+  /\.(?:png|jpe?g|webp|gif)$/i.test(ref.name);
 
 const serializePreviewFile = ({
   buffer,
@@ -322,6 +326,30 @@ export default class LocalFileCtr extends ControllerModule {
   }
 
   @IpcMethod()
+  async imageAttachmentAction(input: { action: 'copy' | 'reveal'; ref: LocalAttachmentRecord }) {
+    if (
+      !['copy', 'reveal'].includes(input.action) ||
+      (!input.ref.mime.startsWith('image/') && !isLegacyAttachmentImage(input.ref))
+    )
+      throw new Error('Unsupported attachment image action');
+    const resolved = await resolveLocalAttachment(
+      path.join(this.app.appStoragePath, 'scratch-workspaces'),
+      this.app.getService(GatewayConnectionService).getDeviceId(),
+      input.ref,
+      input.action === 'copy',
+    );
+    if (input.action === 'copy') {
+      const image = nativeImage.createFromBuffer(resolved.bytes);
+      if (image.isEmpty()) throw new Error('Attachment image unavailable');
+      clipboard.writeImage(image);
+    } else shell.showItemInFolder(resolved.path);
+    logger.info('Attachment image action completed', {
+      action: input.action,
+      attachmentId: input.ref.attachmentId,
+    });
+  }
+
+  @IpcMethod()
   async resolveAttachment(input: {
     ref: LocalAttachmentRecord;
     topicId?: string;
@@ -330,14 +358,22 @@ export default class LocalFileCtr extends ControllerModule {
     const root = path.join(this.app.appStoragePath, 'scratch-workspaces');
     const deviceId = this.app.getService(GatewayConnectionService).getDeviceId();
     if (input.image) {
-      if (!/^image\/(?:png|jpeg|webp|gif)$/.test(input.ref.mime))
+      const legacyMime = isLegacyAttachmentImage(input.ref);
+      if (!legacyMime && !/^image\/(?:png|jpe?g|webp|gif)$/.test(input.ref.mime))
         throw new Error('Unsupported image type');
+      if (input.ref.size > 10 * 1024 * 1024) throw new Error('LOCAL_IMAGE_TOO_LARGE');
       const resolved = await resolveLocalAttachment(root, deviceId, input.ref);
-      if (resolved.bytes.byteLength > 10 * 1024 * 1024) throw new Error('LOCAL_IMAGE_TOO_LARGE');
       const key = `${input.ref.localResourceId}:${input.ref.version}`;
-      const dataUrl =
-        this.attachmentImageCache.get(key) ??
-        `data:${input.ref.mime};base64,${resolved.bytes.toString('base64')}`;
+      let dataUrl = this.attachmentImageCache.get(key);
+      if (!dataUrl && legacyMime) {
+        const image = nativeImage.createFromBuffer(resolved.bytes);
+        const { width, height } = image.getSize();
+        if (image.isEmpty()) throw new Error('LOCAL_IMAGE_INVALID');
+        if (width > 8192 || height > 8192 || width * height > 40_000_000)
+          throw new Error('LOCAL_IMAGE_RESOLUTION_EXCEEDED');
+        dataUrl = image.toDataURL();
+      }
+      dataUrl ??= `data:${input.ref.mime};base64,${resolved.bytes.toString('base64')}`;
       if (this.attachmentImageCache.size >= 2)
         this.attachmentImageCache.delete(this.attachmentImageCache.keys().next().value!);
       this.attachmentImageCache.set(key, dataUrl);

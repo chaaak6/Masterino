@@ -1,13 +1,42 @@
 import type { ChatModelCard } from '@lobechat/types';
+import deepseekModels from 'model-bank/deepseek';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   detectModelProvider,
+  isDeepSeekThinkingEligibleModel,
+  isDeepSeekV4FamilyModel,
   MODEL_LIST_CONFIGS,
   MODEL_OWNER_DETECTION_CONFIG,
   processModelList,
   processMultiProviderModelList,
 } from './modelParse';
+
+describe('DeepSeek V4 family aliases', () => {
+  it.each(['deepseek-flash', 'DeepSeek/DEEPSEEK-FLASH', 'deepseek-v4-flash', 'deepseek-v4-pro'])(
+    'recognizes %s as a thinking-capable V4 family model',
+    (model) => {
+      expect(isDeepSeekV4FamilyModel(model)).toBe(true);
+      expect(isDeepSeekThinkingEligibleModel(model)).toBe(true);
+    },
+  );
+
+  it.each([
+    undefined,
+    '',
+    'deepseek-chat',
+    'deepseek-reasoner',
+    'deepseek-flash-custom',
+    'my-deepseek-flash',
+    'glm-5.3-flash',
+  ])('does not treat %s as a V4 alias', (model) =>
+    expect(isDeepSeekV4FamilyModel(model)).toBe(false),
+  );
+
+  it('keeps the legacy reasoner thinking-capable', () => {
+    expect(isDeepSeekThinkingEligibleModel('deepseek-reasoner')).toBe(true);
+  });
+});
 
 // Mock the imported LOBE_DEFAULT_MODEL_LIST
 const { loadModelsMock, mockDefaultModelList } = vi.hoisted(() => ({
@@ -117,6 +146,7 @@ vi.mock('model-bank', () => ({
   LOBE_DEFAULT_MODEL_LIST: mockDefaultModelList,
   loadModels: vi.fn().mockResolvedValue(mockDefaultModelList),
   ModelProvider: { LobeHub: 'lobehub' },
+  deepseek: deepseekModels,
   // 新增 provider 专用清单，供 findKnownModelByProvider 使用
   google: [
     {
@@ -150,6 +180,23 @@ vi.mock('@lobechat/business-model-bank/model-config', () => ({
 }));
 
 describe('modelParse', () => {
+  it('keeps the known channel Flash alias capabilities without rewriting its request ID', async () => {
+    const id = 'DeepSeek/deepseek-flash';
+    const [model] = await processMultiProviderModelList([{ id }], 'newapi');
+    expect(model).toMatchObject({
+      id,
+      functionCall: true,
+      reasoning: true,
+      vision: true,
+      settings: { extendParams: ['deepseekV4ReasoningEffort'] },
+    });
+    const [unknown] = await processMultiProviderModelList(
+      [{ id: 'other/deepseek-flash' }],
+      'newapi',
+    );
+    expect(unknown.settings?.extendParams ?? []).not.toContain('deepseekV4ReasoningEffort');
+  });
+
   beforeEach(() => {
     loadModelsMock.mockResolvedValue(mockDefaultModelList);
   });

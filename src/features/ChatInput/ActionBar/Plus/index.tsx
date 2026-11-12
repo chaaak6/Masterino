@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { message } from '@/components/AntdStaticMethods';
+import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { openAttachKnowledgeModal } from '@/features/LibraryModal';
 import { useIsDark } from '@/hooks/useIsDark';
 import { useModelSupportToolUse } from '@/hooks/useModelSupportToolUse';
@@ -288,6 +289,7 @@ const PlusAction = memo(() => {
 
   const upload = useFileStore((s) => s.uploadChatFiles);
   const topicId = useChatInputStore((s) => s.topicId);
+  const attachmentScope = useAttachmentScope();
   const { enableKnowledgeBase, enableMemory } = useServerConfigStore(featureFlagsSelectors);
   const enableGatewayMode = useServerConfigStore(serverConfigSelectors.enableGatewayMode);
   const defaultDisableGatewayMode = useUserStore(
@@ -698,6 +700,7 @@ const PlusAction = memo(() => {
           event.currentTarget.value = '';
           setDropdownOpen(false);
           editor?.focus();
+          const accepted: File[] = [];
           for (const file of files) {
             if (
               warnUnsupportedVisualUpload(file, {
@@ -718,8 +721,9 @@ const PlusAction = memo(() => {
               );
               continue;
             }
-            await upload([file], agentId, topicId);
+            accepted.push(file);
           }
+          if (accepted.length) await upload(accepted, agentId, topicId, attachmentScope);
         }}
       />
       {skillEditPluginDrawer}

@@ -9,7 +9,9 @@ import { useQueryRoute } from '@/hooks/useQueryRoute';
 import { agentService } from '@/services/agent';
 import { useAgentStore } from '@/store/agent';
 import { useChatStore } from '@/store/chat';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { fileChatSelectors, useFileStore } from '@/store/file';
+import { sameChatAttachmentDraft, toPageSelections } from '@/store/file/slices/chat/drafts';
 import { useHomeStore } from '@/store/home';
 import {
   checkDesktopProjectSend,
@@ -53,6 +55,10 @@ export const useSend = () => {
   // The hook also rewrites stale ids (e.g. left over from a different account
   // on the same browser) back to inbox so we don't try to send to a missing id.
   const { agentId: activeAgentId } = useResolvedHomeAgentId();
+  // Home and a new conversation can stay mounted at once; keep their drafts separate.
+  // Wait for the owner before mounting the input so hydration cannot replace a draft.
+  const attachmentScope =
+    activeAgentId ? `home_${messageMapKey({ agentId: activeAgentId })}` : undefined;
 
   // Daily-brief hint paired with the home WelcomeText. Pressing Enter on an
   // empty input "accepts" the hint as the message — like a smart-compose
@@ -61,6 +67,7 @@ export const useSend = () => {
 
   const send = useCallback<SendButtonHandler>(
     async ({ getEditorData, getMarkdownContent }) => {
+      if (!activeAgentId || !attachmentScope) return;
       const { inputMessage, mainInputEditor } = useChatStore.getState();
       // Prefer the live editor content over the cached `inputMessage`.
       // `onMarkdownContentChange` is wired through the editor's async
@@ -68,9 +75,9 @@ export const useSend = () => {
       // cache catches up and the empty-message guard would bail incorrectly.
       const typed = (getMarkdownContent?.() ?? inputMessage ?? '').trim();
       const fileState = useFileStore.getState();
-      const fileList = fileChatSelectors.chatUploadFileList(fileState);
-      const contextList = fileChatSelectors.chatContextSelections(fileState);
-      const isUploadingFiles = fileChatSelectors.isUploadingFiles(fileState);
+      const fileList = fileChatSelectors.chatUploadFileList(fileState, attachmentScope);
+      const contextList = fileChatSelectors.chatContextSelections(fileState, attachmentScope);
+      const isUploadingFiles = fileChatSelectors.isUploadingFiles(fileState, attachmentScope);
       const { sendAsAgent, sendAsGroup, sendAsWrite, sendAsResearch, inputActiveMode } =
         useHomeStore.getState();
 
@@ -110,6 +117,13 @@ export const useSend = () => {
         }
       }
 
+      const unchanged = () =>
+        sameChatAttachmentDraft(fileState, useFileStore.getState(), attachmentScope);
+      if (!unchanged()) {
+        antdMessage.warning(t('attachments.draftChanged', { ns: 'chat' }));
+        return;
+      }
+      let sent = false;
       try {
         switch (inputActiveMode) {
           case 'agent': {
@@ -135,18 +149,20 @@ export const useSend = () => {
           default: {
             // Default behavior: send to currently selected agent (inbox by default,
             // overridable via the home AgentSelect dropdown).
-            if (!activeAgentId) return;
-
             // First-time selections from AgentSelect have no entry in `agentMap`
             // yet — block on the fetch so sendMessage finds a real config below.
             await ensureAgentConfigLoaded(activeAgentId);
+            if (!unchanged()) {
+              antdMessage.warning(t('attachments.draftChanged', { ns: 'chat' }));
+              return;
+            }
 
             sendMessage({
               context: { agentId: activeAgentId, isolatedTopic: true },
-              contexts: contextList,
               editorData,
               files: fileList,
               message,
+              pageSelections: contextList.length ? toPageSelections(contextList) : undefined,
               onTopicCreated: (topicId) => {
                 router.replace(SESSION_CHAT_TOPIC_URL(activeAgentId, topicId, false));
               },
@@ -155,15 +171,19 @@ export const useSend = () => {
             router.push(SESSION_CHAT_URL(activeAgentId, false));
           }
         }
+        sent = true;
       } finally {
-        // Clear input and files after send
-        clearChatUploadFileList({ preserveAttachments: true });
-        clearChatContextSelections();
-        mainInputEditor?.clearContent();
+        if (sent && unchanged()) {
+          clearChatUploadFileList({ preserveAttachments: true }, attachmentScope);
+          clearChatContextSelections(attachmentScope);
+          if ((getMarkdownContent?.() ?? inputMessage ?? '').trim() === typed)
+            mainInputEditor?.clearContent();
+        }
       }
     },
     [
       activeAgentId,
+      attachmentScope,
       sendMessage,
       clearChatContextSelections,
       clearChatUploadFileList,
@@ -175,6 +195,7 @@ export const useSend = () => {
 
   return {
     agentId: activeAgentId,
+    attachmentScope,
     loading: homeInputLoading,
     send,
   };

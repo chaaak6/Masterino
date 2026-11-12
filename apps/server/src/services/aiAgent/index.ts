@@ -74,6 +74,7 @@ import { UserModel } from '@/database/models/user';
 import { UserPersonaModel } from '@/database/models/userMemory/persona';
 import { WorkspaceAccessGrantModel } from '@/database/models/workspaceAccessGrant';
 import { toolsEnv } from '@/envs/tools';
+import { resolveDesktopChatConfig } from '@/helpers/desktopAgentMode';
 import {
   isAbsoluteFilesystemPath,
   normalizeRootPath,
@@ -1236,19 +1237,30 @@ export class AiAgentService {
     throwIfAborted(signal, 'Agent execution aborted before startup');
 
     // 1. Get agent configuration with default config merged (supports both id and slug)
-    let agentConfig = await this.agentService.getAgentConfig(identifier);
+    let loadedAgentConfig = await this.agentService.getAgentConfig(identifier);
     // Builtin agents (inbox / page / task / self-iteration slugs) may be addressed
     // purely by slug before a row exists — e.g. background self-iteration runs
     // dispatched via execAgent({ slug }). Lazily materialize the virtual row from
     // the builtin registry (mirrors the inbox/task `getBuiltinAgent` path) and
     // re-resolve. No-op for ordinary agent ids (getBuiltinAgent returns null).
-    if (!agentConfig && (Object.values(BUILTIN_AGENT_SLUGS) as string[]).includes(identifier)) {
+    if (
+      !loadedAgentConfig &&
+      (Object.values(BUILTIN_AGENT_SLUGS) as string[]).includes(identifier)
+    ) {
       await this.agentModel.getBuiltinAgent(identifier);
-      agentConfig = await this.agentService.getAgentConfig(identifier);
+      loadedAgentConfig = await this.agentService.getAgentConfig(identifier);
     }
-    if (!agentConfig) {
+    if (!loadedAgentConfig) {
       throw new Error(`Agent not found: ${identifier}`);
     }
+
+    const agentConfig = {
+      ...loadedAgentConfig,
+      chatConfig: resolveDesktopChatConfig(
+        loadedAgentConfig.chatConfig,
+        params.clientPlatform === 'desktop',
+      )!,
+    };
 
     // Use actual agent ID from config for subsequent operations
     const resolvedAgentId = agentConfig.id;
@@ -3420,6 +3432,7 @@ export class AiAgentService {
           // context (state.metadata.agentId) targets the reviewed agent; ordinary
           // runs (no marker) fall back to the resolved executing agent.
           agentId: appContext?.agentSignal?.agentId ?? resolvedAgentId,
+          clientPlatform: params.clientPlatform,
           // When scope === 'agent_builder', agentId stays as the builder builtin so
           // message ownership and queryUiMessages remain correct. editingAgentId
           // carries the actual editing target separately; only the AgentBuilder server
@@ -3607,6 +3620,7 @@ export class AiAgentService {
       agentId,
       appContext: { groupId, topicId },
       autoStart: true,
+      clientPlatform: params.clientPlatform,
       prompt: message,
       trigger: RequestTrigger.Chat,
     });
@@ -3725,6 +3739,26 @@ export class AiAgentService {
     return this.execAgentMember(params);
   };
 
+  private async getParentOperationContext(parentOperationId?: string): Promise<{
+    clientPlatform?: 'desktop' | 'web';
+    trigger?: string;
+  }> {
+    if (!parentOperationId) return {};
+    try {
+      const parent = await new AgentOperationModel(this.db, this.userId, this.workspaceId).findById(
+        parentOperationId,
+      );
+      const platform = parent?.metadata?.clientPlatform;
+      return {
+        clientPlatform: platform === 'desktop' || platform === 'web' ? platform : undefined,
+        trigger: parent?.trigger ?? undefined,
+      };
+    } catch (error) {
+      log('Failed to read parent operation context: %O', error);
+      return {};
+    }
+  }
+
   /**
    * Run a group member in the shared group session (non-isolated). The member's
    * turns land directly in the group conversation; the supervisor's instruction
@@ -3765,17 +3799,7 @@ export class AiAgentService {
       .catch(() => {});
 
     // Inherit the supervisor op's trigger so member rows stay attributable.
-    let inheritedTrigger: string | undefined;
-    try {
-      const parentOp = await new AgentOperationModel(
-        this.db,
-        this.userId,
-        this.workspaceId,
-      ).findById(parentOperationId);
-      inheritedTrigger = parentOp?.trigger ?? undefined;
-    } catch (error) {
-      log('execAgentMember: failed to read parent operation trigger: %O', error);
-    }
+    const parentContext = await this.getParentOperationContext(parentOperationId);
 
     const speakerInstruction = instruction
       ? `<speaker name="Supervisor" />\n${instruction}`
@@ -3801,6 +3825,7 @@ export class AiAgentService {
       agentId,
       appContext,
       autoStart: true,
+      clientPlatform: parentContext.clientPlatform,
       disableTools,
       ephemeralUserMessage: speakerInstruction,
       hooks: [
@@ -3817,7 +3842,7 @@ export class AiAgentService {
       parentOperationId,
       prompt: speakerInstruction,
       suppressUserMessage: true,
-      trigger: inheritedTrigger,
+      trigger: parentContext.trigger,
       userInterventionConfig: { approvalMode: 'headless' },
     });
 
@@ -3920,19 +3945,7 @@ export class AiAgentService {
     // Inherit parent op's trigger so sub-agent rows stay attributable to the
     // original entry point (chat / bot / cli / eval / …). Lookup is best-effort
     // — a missing parent row falls back to undefined and the column stays null.
-    let inheritedTrigger: string | undefined;
-    if (parentOperationId) {
-      try {
-        const parentOp = await new AgentOperationModel(
-          this.db,
-          this.userId,
-          this.workspaceId,
-        ).findById(parentOperationId);
-        inheritedTrigger = parentOp?.trigger ?? undefined;
-      } catch (error) {
-        log('%s: failed to read parent operation trigger: %O', options.logScope, error);
-      }
-    }
+    const parentContext = await this.getParentOperationContext(parentOperationId);
 
     const appContext: NonNullable<InternalExecAgentParams['appContext']> = {
       groupId,
@@ -3948,10 +3961,11 @@ export class AiAgentService {
       agentId,
       appContext,
       autoStart: true,
+      clientPlatform: parentContext.clientPlatform ?? params.clientPlatform,
       hooks,
       parentOperationId,
       prompt: instruction,
-      trigger: inheritedTrigger,
+      trigger: parentContext.trigger,
       userInterventionConfig: { approvalMode: 'headless' },
     });
 

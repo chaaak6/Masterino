@@ -1,0 +1,137 @@
+{
+  "environment": "masterino-test",
+  "source_main": "c7f576092a275ac65859237acccc8e9cdba4ac01",
+  "http": [
+    {
+      "at": "2026-11-10T07:13:58.168Z",
+      "path": "/trpc/lambda/user.updateOnboarding",
+      "status": 200,
+      "ms": 271
+    },
+    {
+      "at": "2026-11-10T07:41:11.851Z",
+      "path": "/trpc/lambda/aiChat.outputJSON",
+      "status": 200,
+      "ms": 6498
+    },
+    {
+      "at": "2026-11-10T07:41:11.882Z",
+      "path": "/trpc/lambda/aiChat.outputJSON",
+      "status": 200,
+      "ms": 7061
+    },
+    {
+      "at": "2026-11-10T07:41:13.529Z",
+      "path": "/trpc/lambda/aiChat.outputJSON",
+      "status": 200,
+      "ms": 3627
+    },
+    {
+      "at": "2026-11-10T07:49:51.288Z",
+      "path": "/trpc/lambda/aiChat.outputJSON",
+      "status": 200,
+      "ms": 2028
+    },
+    {
+      "at": "2026-11-10T07:53:40.988Z",
+      "path": "/trpc/lambda/aiChat.outputJSON",
+      "status": 200,
+      "ms": 2354
+    },
+    {
+      "at": "2026-11-10T07:58:26.440Z",
+      "path": "/trpc/lambda/aiChat.outputJSON",
+      "status": 200,
+      "ms": 3108
+    },
+    {
+      "at": "2026-11-10T08:13:59.897Z",
+      "path": "/trpc/lambda/agentSkills.importFromMarket",
+      "status": 200,
+      "ms": 3667
+    },
+    {
+      "at": "2026-11-10T08:34:02.724Z",
+      "path": "/trpc/lambda/market.agent.forkAgent",
+      "status": 200,
+      "ms": 925
+    },
+    {
+      "at": "2026-11-10T08:34:03.470Z",
+      "path": "/trpc/lambda/market.reportAgentEvent,user.updateOnboarding",
+      "status": 200,
+      "ms": 380
+    }
+  ],
+  "model_parameters": [
+    {
+      "at": "2026-11-10T07:49:49.863Z",
+      "params": {
+        "model": "deepseek-flash",
+        "thinking": {
+          "type": "disabled"
+        },
+        "tool_choice": {
+          "function": {
+            "name": "InputCompletion"
+          },
+          "type": "function"
+        },
+        "toolsCount": 1
+      }
+    },
+    {
+      "at": "2026-11-10T07:53:39.028Z",
+      "params": {
+        "model": "deepseek-flash",
+        "thinking": {
+          "type": "disabled"
+        },
+        "tool_choice": {
+          "function": {
+            "name": "InputCompletion"
+          },
+          "type": "function"
+        },
+        "toolsCount": 1
+      }
+    },
+    {
+      "at": "2026-11-10T07:58:24.479Z",
+      "params": {
+        "model": "deepseek-flash",
+        "thinking": {
+          "type": "disabled"
+        },
+        "tool_choice": {
+          "function": {
+            "name": "InputCompletion"
+          },
+          "type": "function"
+        },
+        "toolsCount": 1
+      }
+    }
+  ],
+  "injected_faults": [
+    {
+      "at": "2026-11-10T07:42:50.048Z",
+      "path": "/trpc/lambda/aiChat.outputJSON"
+    },
+    {
+      "at": "2026-11-10T07:52:42.623Z",
+      "path": "/trpc/lambda/aiChat.outputJSON"
+    },
+    {
+      "at": "2026-11-10T07:53:17.893Z",
+      "path": "/trpc/lambda/aiChat.outputJSON"
+    }
+  ],
+  "native_after_logout": {
+    "auth_file_exists": false,
+    "dataSyncConfig": {
+      "active": false,
+      "storageMode": "cloud"
+    }
+  }
+}

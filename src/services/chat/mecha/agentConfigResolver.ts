@@ -2,6 +2,7 @@ import { type BuiltinAgentSlug } from '@lobechat/builtin-agents';
 import { BUILTIN_AGENT_SLUGS, getAgentRuntimeConfig } from '@lobechat/builtin-agents';
 import { PageAgentIdentifier } from '@lobechat/builtin-tool-page-agent';
 import { TaskIdentifier } from '@lobechat/builtin-tool-task';
+import { isDesktop } from '@lobechat/const';
 import { type LobeToolManifest } from '@lobechat/context-engine';
 import {
   type ChatCompletionTool,
@@ -12,6 +13,7 @@ import {
 import debug from 'debug';
 import { produce } from 'immer';
 
+import { resolveDesktopChatConfig } from '@/helpers/desktopAgentMode';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { getChatGroupStoreState } from '@/store/agentGroup';
@@ -177,7 +179,10 @@ export const resolveAgentConfig = (ctx: AgentConfigResolverContext): ResolvedAge
   const agentStoreState = getAgentStoreState();
 
   // Get base config from store
-  const agentConfig = agentSelectors.getAgentConfigById(agentId)(agentStoreState);
+  const storedConfig = agentSelectors.getAgentConfigById(agentId)(agentStoreState);
+  const agentConfig = storedConfig
+    ? { ...storedConfig, chatConfig: resolveDesktopChatConfig(storedConfig.chatConfig, isDesktop)! }
+    : storedConfig;
   const chatConfig = chatConfigByIdSelectors.getChatConfigById(agentId)(agentStoreState);
 
   // Base plugins from agent config
@@ -402,10 +407,13 @@ export const resolveAgentConfig = (ctx: AgentConfigResolverContext): ResolvedAge
       : basePlugins;
 
   // Merge chatConfig: runtime chatConfig overrides base chatConfig
-  let resolvedChatConfig: LobeAgentChatConfig = {
-    ...chatConfig,
-    ...runtimeConfig?.chatConfig,
-  };
+  let resolvedChatConfig: LobeAgentChatConfig = resolveDesktopChatConfig(
+    {
+      ...chatConfig,
+      ...runtimeConfig?.chatConfig,
+    },
+    isDesktop,
+  )!;
   const resolvedAgencyConfig = runtimeConfig?.agencyConfig
     ? {
         ...agentConfig.agencyConfig,

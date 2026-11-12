@@ -33,11 +33,12 @@ import { styles } from './style';
 
 interface AgentPickerStepProps {
   onBack: () => void;
+  onFinish?: () => void | Promise<void>;
 }
 
 const EMPTY_TEMPLATES: AgentTemplate[] = [];
 
-const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
+const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack, onFinish }) => {
   const { t } = useTranslation('onboarding');
   const { t: tTool } = useTranslation('tool');
   const navigate = useNavigate();
@@ -90,8 +91,11 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
   }, []);
 
   const [pending, setPending] = useState<'continue' | 'skip'>();
-  const [installFailures, setInstallFailures] = useState<Array<{ reason: string; sourceAgentId: string }>>([]);
+  const [installFailures, setInstallFailures] = useState<
+    Array<{ reason: string; sourceAgentId: string }>
+  >([]);
   const pendingRef = useRef(false);
+  const [completionError, setCompletionError] = useState(false);
 
   const shownRef = useRef(false);
   useEffect(() => {
@@ -102,7 +106,16 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
 
   const finish = useCallback(
     async (action: 'continue' | 'skip', selectedCount: number) => {
-      await finishOnboarding();
+      setCompletionError(false);
+      try {
+        await finishOnboarding();
+      } catch (error) {
+        console.error('[AgentPickerStep] completion failed', error);
+        setCompletionError(true);
+        pendingRef.current = false;
+        setPending(undefined);
+        return;
+      }
       trackOnboardingStepCompleted({
         action,
         entry: isAgentSkipEntry ? 'agent_skip' : 'classic',
@@ -111,18 +124,24 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
         step: 'agentpicker',
         stepIndex: 4,
       });
+      if (onFinish) {
+        trackOnboardingCompleted({ flow: completionFlow, targetUrl: '/' });
+        await onFinish();
+        return;
+      }
       // Restore the original signup target (threaded through onboarding), if any
       const targetUrl = consumeOnboardingCallbackUrl() || '/';
       trackOnboardingCompleted({ flow: completionFlow, targetUrl });
       navigate(targetUrl);
     },
-    [completionFlow, finishOnboarding, isAgentSkipEntry, navigate],
+    [completionFlow, finishOnboarding, isAgentSkipEntry, navigate, onFinish],
   );
 
   const handleSkip = useCallback(async () => {
     if (pendingRef.current) return;
     pendingRef.current = true;
     setPending('skip');
+    setInstallFailures([]);
     await finish('skip', 0);
   }, [finish]);
 
@@ -130,6 +149,7 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
     if (pendingRef.current || selected.size === 0) return;
     pendingRef.current = true;
     setPending('continue');
+    setCompletionError(false);
     setInstallFailures([]);
 
     const selectedTemplateIds = [...selected];
@@ -138,20 +158,32 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
       const result = await installMarketplaceAgents(selectedTemplateIds);
       const coveredCount = result.installedAgentIds.length + result.skippedAgentIds.length;
       if (coveredCount !== selectedTemplateIds.length || result.failures.length > 0) {
-        setInstallFailures(result.failures.length > 0 ? result.failures : selectedTemplateIds
-          .filter((id) => !result.skippedAgentIds.includes(id))
-          .slice(result.installedAgentIds.length)
-          .map((sourceAgentId) => ({ reason: t('agentPicker.installUnknownError'), sourceAgentId })));
+        setInstallFailures(
+          result.failures.length > 0
+            ? result.failures
+            : selectedTemplateIds
+                .filter((id) => !result.skippedAgentIds.includes(id))
+                .slice(result.installedAgentIds.length)
+                .map((sourceAgentId) => ({
+                  reason: t('agentPicker.installUnknownError'),
+                  sourceAgentId,
+                })),
+        );
         pendingRef.current = false;
         setPending(undefined);
         return;
       }
     } catch (installError) {
       console.error('[AgentPickerStep] install failed', installError);
-      setInstallFailures(selectedTemplateIds.map((sourceAgentId) => ({
-        reason: installError instanceof Error ? installError.message : t('agentPicker.installUnknownError'),
-        sourceAgentId,
-      })));
+      setInstallFailures(
+        selectedTemplateIds.map((sourceAgentId) => ({
+          reason:
+            installError instanceof Error
+              ? installError.message
+              : t('agentPicker.installUnknownError'),
+          sourceAgentId,
+        })),
+      );
       pendingRef.current = false;
       setPending(undefined);
       return;
@@ -169,6 +201,11 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
 
   return (
     <Flexbox gap={16}>
+      {completionError && (
+        <Text role="alert" type="danger">
+          {t('agentPicker.finishError')}
+        </Text>
+      )}
       <LobeMessage
         sentences={[t('agentPicker.title'), t('agentPicker.title2'), t('agentPicker.title3')]}
       />
@@ -211,8 +248,16 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack }) => {
         <Flexbox gap={4} role={'alert'}>
           <Text type={'danger'}>{t('agentPicker.installFailed')}</Text>
           {installFailures.map((failure) => {
-            const title = allTemplates.find((template) => template.id === failure.sourceAgentId)?.title || failure.sourceAgentId;
-            return <Text fontSize={12} key={failure.sourceAgentId} type={'secondary'}>{`${title}: ${failure.reason}`}</Text>;
+            const title =
+              allTemplates.find((template) => template.id === failure.sourceAgentId)?.title ||
+              failure.sourceAgentId;
+            return (
+              <Text
+                fontSize={12}
+                key={failure.sourceAgentId}
+                type={'secondary'}
+              >{`${title}: ${failure.reason}`}</Text>
+            );
           })}
         </Flexbox>
       )}

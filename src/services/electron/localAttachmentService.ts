@@ -4,6 +4,12 @@ import {
   type UIChatMessage,
 } from '@lobechat/types';
 
+import {
+  isLocalChatAttachmentImage,
+  LOCAL_CHAT_IMAGE_MAX_BYTES,
+  normalizeChatImageFile,
+} from '@/utils/chatAttachments';
+
 const attachmentErrorKeys = {
   LOCAL_ATTACHMENT_TOO_LARGE: 'localAttachment.errors.fileTooLarge',
   LOCAL_IMAGE_TOO_LARGE: 'localAttachment.errors.imageTooLarge',
@@ -26,12 +32,13 @@ const invoke = async <T>(method: string, input: unknown): Promise<T> => {
     throw new Error('Attachment is unavailable on this device; select it again');
   return window.electronAPI.invoke<T>(`localSystem.${method}`, input);
 };
-export const receiveLocalChatAttachment = async (file: File, draftId: string) => {
-  if (file.size > 1024 ** 3) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
-  // Capture BEFORE compression/Blob conversion, which would discard Electron's native path.
-  const originalPath = window.electronAPI?.getPathForFile?.(file);
+export const receiveLocalChatAttachment = async (originalFile: File, draftId: string) => {
+  if (originalFile.size > 1024 ** 3) throw new Error('LOCAL_ATTACHMENT_TOO_LARGE');
+  // Capture BEFORE MIME normalization, which would discard Electron's native path.
+  const originalPath = window.electronAPI?.getPathForFile?.(originalFile);
+  const file = await normalizeChatImageFile(originalFile);
   if (file.type.startsWith('image/')) {
-    if (file.size > 10 * 1024 * 1024) throw new Error('LOCAL_IMAGE_TOO_LARGE');
+    if (file.size > LOCAL_CHAT_IMAGE_MAX_BYTES) throw new Error('LOCAL_IMAGE_TOO_LARGE');
     const bitmap = await createImageBitmap(file).catch(() => {
       throw new Error('LOCAL_IMAGE_INVALID');
     });
@@ -72,6 +79,17 @@ export const bindLocalChatAttachments = async (refs: AttachmentRef[], topicId: s
   );
 };
 
+const resolveLocalAttachmentImage = async (
+  ref: LocalRef,
+  topicId?: string,
+): Promise<{ dataUrl?: string }> => {
+  const preview = invoke<{ dataUrl?: string }>('resolveAttachment', { ref, image: true, topicId });
+  if (!ref.mime.startsWith('image/')) return preview.catch(() => ({}));
+  const result = await preview;
+  if (!result.dataUrl) throw new Error('Attachment image unavailable');
+  return result;
+};
+
 /** Resolve only at request time. Neither real paths nor data URLs are written back to messages. */
 export const resolveLocalMessageAttachments = async (
   messages: UIChatMessage[],
@@ -110,30 +128,29 @@ export const resolveLocalMessageAttachments = async (
           : [];
       const manifest: string[] = [];
       for (const ref of refs) {
-        if (ref.mime.startsWith('image/')) {
-          if (index < latestUserIndex) {
-            manifest.push(
-              `${ref.name} [attachment ${ref.attachmentId}; historical image not included]`,
-            );
+        if (index < latestUserIndex && ref.mime.startsWith('image/')) {
+          manifest.push(
+            `${ref.name} [attachment ${ref.attachmentId}; historical image not included]`,
+          );
+          continue;
+        }
+        if (index >= latestUserIndex && isLocalChatAttachmentImage(ref)) {
+          const { dataUrl } = await resolveLocalAttachmentImage(ref);
+          if (dataUrl) {
+            if (imageList.length >= 10) throw new Error('Select at most 10 images per request');
+            imageList.push({ id: ref.attachmentId, alt: ref.name, url: dataUrl });
             continue;
           }
-          const result = await invoke<{ dataUrl: string }>('resolveAttachment', {
-            ref,
-            image: true,
-          });
-          imageList.push({ id: ref.attachmentId, alt: ref.name, url: result.dataUrl });
-        } else {
-          manifest.push(
-            JSON.stringify({
-              attachmentId: ref.attachmentId,
-              name: ref.name,
-              mime: ref.mime,
-              size: ref.size,
-            }),
-          );
         }
+        manifest.push(
+          JSON.stringify({
+            attachmentId: ref.attachmentId,
+            name: ref.name,
+            mime: ref.mime,
+            size: ref.size,
+          }),
+        );
       }
-      if (imageList.length > 10) throw new Error('Select at most 10 images per request');
       return {
         ...message,
         imageList,
@@ -202,9 +219,16 @@ export const releaseLocalMessageAttachments = async (
     }
 };
 
-export const previewLocalAttachment = (ref: LocalRef, topicId: string) =>
-  invoke<{ path?: string; dataUrl?: string }>('resolveAttachment', {
-    ref,
-    topicId,
-    image: ref.mime.startsWith('image/'),
-  });
+export const previewLocalAttachment = (
+  ref: LocalRef,
+  topicId: string,
+): Promise<{ path?: string; dataUrl?: string }> =>
+  isLocalChatAttachmentImage(ref)
+    ? resolveLocalAttachmentImage(ref, topicId)
+    : invoke('resolveAttachment', { ref, topicId, image: false });
+
+/** Main process validates device, identity and current file content before either OS action. */
+export const copyLocalAttachmentImage = (ref: LocalRef) =>
+  invoke<void>('imageAttachmentAction', { action: 'copy', ref });
+export const revealLocalAttachmentImage = (ref: LocalRef) =>
+  invoke<void>('imageAttachmentAction', { action: 'reveal', ref });

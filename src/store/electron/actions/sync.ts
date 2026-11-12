@@ -137,9 +137,9 @@ export class ElectronRemoteServerActionImpl {
     await useUserStore.getState().refreshUserState();
   };
 
-  useDataSyncConfig = (): SWRResponse => {
+  useDataSyncConfig = (enabled = true): SWRResponse => {
     return useSWR<DataSyncConfig>(
-      electronKeys.remoteServerConfig(),
+      enabled ? electronKeys.remoteServerConfig() : null,
       async () => {
         try {
           return await remoteServerService.getRemoteServerConfig();
@@ -156,7 +156,7 @@ export class ElectronRemoteServerActionImpl {
           // runs `stores.reset()` which wipes chat state (notably `activeAgentId`)
           // that `AgentIdSync` just set from the URL — leaving the topic list
           // unable to resolve its agent scope on reload.
-          if (isInitRemoteServerConfig && !isEqual(data, dataSyncConfig)) {
+          if (data.active && isInitRemoteServerConfig && !isEqual(data, dataSyncConfig)) {
             void this.#get()
               .refreshUserData()
               .catch((error) => {

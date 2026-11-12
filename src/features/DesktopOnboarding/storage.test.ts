@@ -1,18 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  clearDesktopOnboardingCompleted,
   DESKTOP_ONBOARDING_EVER_COMPLETED_KEY,
+  getDesktopOnboardingCompleted,
   getDesktopOnboardingEverCompleted,
+  setDesktopOnboardingCompleted,
   setDesktopOnboardingEverCompleted,
 } from './storage';
 
 describe('desktop-onboarding storage', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it('clears only this session completion on sign-out, preserving the first-install history', () => {
+    setDesktopOnboardingCompleted();
+    setDesktopOnboardingEverCompleted();
+    expect(clearDesktopOnboardingCompleted()).toBe(true);
+    expect(getDesktopOnboardingCompleted()).toBe(false);
+    expect(getDesktopOnboardingEverCompleted()).toBe(true);
   });
 
   describe('ever-completed flag', () => {

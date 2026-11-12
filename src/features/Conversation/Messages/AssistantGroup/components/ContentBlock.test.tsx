@@ -102,6 +102,7 @@ vi.mock('../../../store', () => ({
   messageStateSelectors: {
     isMessageInReasoning: () => () => false,
   },
+  useConversationStoreApi: () => ({ getState: () => ({ displayMessages: [] }) }),
   useConversationStore: (selector: (state: unknown) => unknown) =>
     selector({
       continueGeneration: continueGenerationMock,

@@ -67,6 +67,7 @@ export const ResourceInputSchema = z
   .passthrough();
 
 export const ReviewActionSchema = z.object({
+  category: z.string().trim().min(1).optional(),
   versionId: z.number().int().positive().optional(),
   expectedState: z.string().optional(),
   action: z.enum([

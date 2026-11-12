@@ -3,6 +3,11 @@
 import { useCallback } from 'react';
 
 import { isDesktop } from '@/const/version';
+import {
+  getDesktopOnboardingEverCompleted,
+  getDesktopOnboardingScreen,
+} from '@/features/DesktopOnboarding/storage';
+import { DesktopOnboardingScreen } from '@/features/DesktopOnboarding/types';
 import { onboardingSelectors } from '@/store/user/selectors';
 import { type UserInitializationState } from '@/types/user';
 import { buildOnboardingRedirectUrl } from '@/utils/onboardingRedirect';
@@ -65,10 +70,28 @@ const redirectToOnboarding = (currentPath: string, search: string) => {
   }
 };
 
+export const shouldResumeDesktopRecommendations = (
+  pathname: string,
+  everCompleted: boolean,
+  screen: DesktopOnboardingScreen | null,
+) =>
+  !pathname.startsWith('/desktop-onboarding') &&
+  !everCompleted &&
+  (screen === DesktopOnboardingScreen.Login || screen === DesktopOnboardingScreen.Agents);
+
 export const useDesktopUserStateRedirect = () => {
-  // Desktop onboarding redirect is now handled by main process (BrowserManager)
-  // No need to check localStorage here
-  return useCallback(() => {}, []);
+  // Once authenticated, resume a first install that stopped during or after login.
+  return useCallback(() => {
+    if (
+      shouldResumeDesktopRecommendations(
+        window.location.pathname,
+        getDesktopOnboardingEverCompleted(),
+        getDesktopOnboardingScreen(),
+      )
+    ) {
+      window.location.replace('/desktop-onboarding?screen=agents');
+    }
+  }, []);
 };
 
 export const useWebUserStateRedirect = () =>

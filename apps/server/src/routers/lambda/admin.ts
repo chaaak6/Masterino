@@ -1563,6 +1563,11 @@ const requireResourceAclManage = (ctx: unknown, resourceType: ResourceType) =>
 
 const adminProcedure = authedProcedure.use(serverDatabase);
 
+const marketAdminErrorCodes: Partial<Record<number, TRPCError['code']>> = {
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+};
+
 const callInternalMarketAdmin = async <T>(
   ctx: unknown,
   path: string,
@@ -1591,8 +1596,16 @@ const callInternalMarketAdmin = async <T>(
   });
   if (!response.ok) {
     const message = await response.text();
+    const isInvalidSkillCategory =
+      response.status === 400 &&
+      init?.method === 'PATCH' &&
+      path.startsWith('/api/internal/resources/skill/') &&
+      path.endsWith('/category') &&
+      message === JSON.stringify({ error: '请选择有效的技能分类' });
     throw new TRPCError({
-      code: response.status === 403 ? 'FORBIDDEN' : 'BAD_GATEWAY',
+      code: isInvalidSkillCategory
+        ? 'BAD_REQUEST'
+        : (marketAdminErrorCodes[response.status] ?? 'BAD_GATEWAY'),
       message: `Market: ${message}`,
     });
   }
@@ -2387,6 +2400,7 @@ export const adminRouter = router({
   reviewMarketResource: adminProcedure
     .input(
       z.object({
+        category: z.string().trim().min(1).optional(),
         versionId: z.number().int().positive().optional(),
         expectedState: z.string().optional(),
         action: z.enum([
@@ -2411,6 +2425,7 @@ export const adminRouter = router({
         {
           body: {
             action: input.action,
+            category: input.category,
             reason: input.reason,
             scanResult: input.scanResult,
             versionId: input.versionId,
@@ -2489,6 +2504,17 @@ export const adminRouter = router({
         { body: { version: input.version }, method: 'POST' },
       ),
     ),
+
+  updateSkillCategory: adminProcedure
+    .input(z.object({ identifier: z.string().min(1), category: z.string().trim().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireSkillManage(ctx);
+      return callInternalMarketAdmin(
+        ctx,
+        `/api/internal/resources/skill/${encodeURIComponent(input.identifier)}/category`,
+        { method: 'PATCH', body: { category: input.category } },
+      );
+    }),
 
   listMarketCategories: adminProcedure.query(async ({ ctx }) =>
     callInternalMarketAdmin<{ items: unknown[] }>(ctx, '/api/internal/categories'),

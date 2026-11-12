@@ -240,26 +240,29 @@ describe('DeepSeek OpenAI-compatible generateObject configuration', () => {
     expect(result).not.toHaveProperty('reasoning_effort');
   });
 
-  it('should preserve reasoning_effort when generateObject thinking is enabled', () => {
-    const requestPayload = {
-      messages: [{ role: 'user' as const, content: 'Hello' }],
-      model: 'deepseek-v4-pro',
-      reasoning_effort: 'high' as const,
-    };
+  it.each(['deepseek-v4-pro', 'deepseek-flash', 'DeepSeek/deepseek-flash'])(
+    'should preserve explicit thinking and reasoning_effort for %s',
+    (model) => {
+      const requestPayload = {
+        messages: [{ role: 'user' as const, content: 'Hello' }],
+        model,
+        reasoning_effort: 'high' as const,
+      };
 
-    const result = openAIParams.generateObject!.handlePayload!(
-      {
-        messages: [{ role: 'user', content: 'Hello' }],
-        model: 'deepseek-v4-pro',
-        thinking: { budget_tokens: 1024, type: 'enabled' },
-      },
-      requestPayload,
-      {},
-    );
+      const result = openAIParams.generateObject!.handlePayload!(
+        {
+          messages: [{ role: 'user', content: 'Hello' }],
+          model,
+          thinking: { budget_tokens: 1024, type: 'enabled' },
+        },
+        requestPayload,
+        {},
+      );
 
-    expect(result.reasoning_effort).toBe('high');
-    expect(result).toEqual(expect.objectContaining({ thinking: { type: 'enabled' } }));
-  });
+      expect(result.reasoning_effort).toBe('high');
+      expect(result).toEqual(expect.objectContaining({ thinking: { type: 'enabled' } }));
+    },
+  );
 
   it('should remove lone surrogates from generateObject request payload strings', () => {
     const requestPayload = {

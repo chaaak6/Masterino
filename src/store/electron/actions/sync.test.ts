@@ -1,4 +1,5 @@
 import type { DataSyncConfig } from '@lobechat/electron-client-ipc';
+import useSWR from 'swr';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ElectronRemoteServerActionImpl } from './sync';
@@ -10,6 +11,8 @@ const remoteServerMocks = vi.hoisted(() => ({
   requestAuthorization: vi.fn(),
   setRemoteServerConfig: vi.fn(),
 }));
+
+vi.mock('swr', () => ({ default: vi.fn() }));
 
 vi.mock('@/services/electron/remoteServer', () => ({
   remoteServerService: remoteServerMocks,
@@ -83,5 +86,24 @@ describe('ElectronRemoteServerActionImpl', () => {
       remoteServerMocks.clearRemoteServerConfig.mock.invocationCallOrder[0]!,
     );
     expect(refreshServerConfig).toHaveBeenCalledOnce();
+  });
+});
+
+describe('remote config hydration after sign-out', () => {
+  it.each([false, true])('refreshes user data only for active=%s', (active) => {
+    const refreshUserData = vi.fn().mockResolvedValue(undefined);
+    const action = new ElectronRemoteServerActionImpl(
+      vi.fn() as any,
+      () =>
+        ({
+          dataSyncConfig: { active: !active, storageMode: 'cloud' },
+          isInitRemoteServerConfig: true,
+          refreshUserData,
+        }) as any,
+    );
+    action.useDataSyncConfig();
+    const options = vi.mocked(useSWR).mock.calls.at(-1)?.[2] as any;
+    options.onSuccess({ active, storageMode: 'cloud' });
+    expect(refreshUserData).toHaveBeenCalledTimes(active ? 1 : 0);
   });
 });

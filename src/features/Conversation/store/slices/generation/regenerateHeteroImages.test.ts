@@ -1,6 +1,8 @@
 import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { validateRegenerationImages } from '@/features/Attachments/validateMessageImages';
+
 import { type ConversationContext } from '../../../types';
 import { createStore } from '../../index';
 
@@ -59,7 +61,7 @@ vi.mock('@/store/electron', () => ({
 }));
 
 vi.mock('@/components/AntdStaticMethods', () => ({
-  message: { info: vi.fn() },
+  message: { info: vi.fn(), warning: vi.fn() },
 }));
 
 const noop = vi.fn();
@@ -139,5 +141,36 @@ describe('regenerateUserMessage (hetero) — image forwarding', () => {
     expect(mockExecuteHeterogeneousAgent).toHaveBeenCalledTimes(1);
     const [, params] = mockExecuteHeterogeneousAgent.mock.calls[0];
     expect(params.imageList).toBeUndefined();
+  });
+  it('blocks oversized historical image turns before creating an operation or message', async () => {
+    const store = createStore({ context: { agentId: 'agent-1', topicId: 'topic-1' } });
+    store.setState({
+      displayMessages: [
+        {
+          id: 'oversized',
+          role: 'user',
+          content: 'preserve',
+          imageList: Array.from({ length: 11 }, (_, index) => ({
+            id: `image-${index}`,
+            url: `https://x/${index}.png`,
+          })),
+        },
+      ],
+    } as any);
+    store.setState({
+      displayMessages: [
+        ...store.getState().displayMessages,
+        { id: 'reply', role: 'assistant', content: 'keep reply', parentId: 'oversized' },
+      ],
+    } as any);
+    expect(validateRegenerationImages(store.getState().displayMessages, 'oversized')).toBe(false);
+    expect(validateRegenerationImages(store.getState().displayMessages, 'reply')).toBe(false);
+    await store.getState().regenerateUserMessage('oversized');
+    await store.getState().delAndRegenerateMessage('reply');
+    await store.getState().delAndResendThreadMessage('oversized');
+    await store.getState().delAndResendThreadMessage('reply');
+    await store.getState().resendThreadMessage('reply');
+    expect(mockExecuteHeterogeneousAgent).not.toHaveBeenCalled();
+    expect(store.getState().displayMessages[0].content).toBe('preserve');
   });
 });
