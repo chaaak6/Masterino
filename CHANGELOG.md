@@ -2,6 +2,61 @@
 
 # Changelog
 
+## [Version 1.3.14](https://github.com/chaaak6/Masterino/compare/v1.3.13...v1.3.14)
+
+<sup>Released on **2026-11-12**</sup>
+
+#### 🐛 Bug Fixes
+
+- **misc**: retain document fallback for legacy attachments.
+- **misc**: recover home input and preserve attachment and category behavior.
+- **misc**: support DeepSeek Flash input completion and settings navigation.
+- **misc**: preserve legal search intent and case pagination boundaries.
+- **misc**: require both meaningful terms in short legal queries.
+- **misc**: keep legal search and case pagination results precise.
+- **misc**: exclude weak partial matches from legal search.
+- **misc**: localize rejected submissions and record real acceptance.
+- **misc**: retain category confirmations and refresh installed skill cache.
+- **misc**: preserve skill review suggestions and complete desktop installation.
+- **misc**: keep category confirmations aligned with submissions.
+- **misc**: preserve category review and refresh contracts.
+
+#### ✨ Features
+
+- **misc**: add offline cross-law and case search.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **misc**: retain document fallback for legacy attachments ([570404e](https://github.com/chaaak6/Masterino/commit/570404e))
+- **misc**: recover home input and preserve attachment and category behavior ([33a5f47](https://github.com/chaaak6/Masterino/commit/33a5f47))
+- **misc**: support DeepSeek Flash input completion and settings navigation ([20dce81](https://github.com/chaaak6/Masterino/commit/20dce81))
+- **misc**: preserve legal search intent and case pagination boundaries ([c570c9b](https://github.com/chaaak6/Masterino/commit/c570c9b))
+- **misc**: require both meaningful terms in short legal queries ([8e286a4](https://github.com/chaaak6/Masterino/commit/8e286a4))
+- **misc**: keep legal search and case pagination results precise ([ac32765](https://github.com/chaaak6/Masterino/commit/ac32765))
+- **misc**: exclude weak partial matches from legal search ([d7b609a](https://github.com/chaaak6/Masterino/commit/d7b609a))
+- **misc**: localize rejected submissions and record real acceptance ([9c263d9](https://github.com/chaaak6/Masterino/commit/9c263d9))
+- **misc**: retain category confirmations and refresh installed skill cache ([b5b01c8](https://github.com/chaaak6/Masterino/commit/b5b01c8))
+- **misc**: preserve skill review suggestions and complete desktop installation ([d4af173](https://github.com/chaaak6/Masterino/commit/d4af173))
+- **misc**: keep category confirmations aligned with submissions ([e773f0a](https://github.com/chaaak6/Masterino/commit/e773f0a))
+- **misc**: preserve category review and refresh contracts ([3603be9](https://github.com/chaaak6/Masterino/commit/3603be9))
+
+#### What's improved
+
+- **misc**: add offline cross-law and case search ([b6eb4e1](https://github.com/chaaak6/Masterino/commit/b6eb4e1))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ### [Version 1.3.13](https://github.com/chaaak6/Masterino/compare/v1.3.12...v1.3.13)
 
 <sup>Released on **2026-11-10**</sup>
