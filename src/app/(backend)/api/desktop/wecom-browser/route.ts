@@ -33,36 +33,30 @@ export async function POST(request: Request) {
     )
       return Response.json({ error: 'Invalid page origin' }, { headers, status: 400 });
     url.hash = '';
-    const { corpId, agentId, corpSecret } = await getWecomSsoRuntimeConfig();
+    const { corpId, corpSecret } = await getWecomSsoRuntimeConfig();
     const token = await wecomRequest('/cgi-bin/gettoken', {
       corpid: corpId,
       corpsecret: corpSecret,
     });
     if (!token.access_token) throw new Error('Missing access token');
-    const [corp, agent] = await Promise.all([
-      wecomRequest('/cgi-bin/get_jsapi_ticket', { access_token: token.access_token }),
-      wecomRequest('/cgi-bin/ticket/get', {
-        access_token: token.access_token,
-        type: 'agent_config',
-      }),
-    ]);
-    if (!corp.ticket || !agent.ticket) throw new Error('Missing SDK ticket');
+    // openDefaultBrowser uses enterprise identity. Application identity is not needed.
+    const corp = await wecomRequest('/cgi-bin/get_jsapi_ticket', {
+      access_token: token.access_token,
+    });
+    if (!corp.ticket) throw new Error('Missing SDK ticket');
     const nonceStr = randomBytes(16).toString('hex');
     const timestamp = Math.floor(Date.now() / 1000);
-    const signature = (ticket: string) =>
-      createHash('sha1')
-        .update(
-          `jsapi_ticket=${ticket}&noncestr=${nonceStr}&timestamp=${timestamp}&url=${url.href}`,
-        )
-        .digest('hex');
+    const signature = createHash('sha1')
+      .update(
+        `jsapi_ticket=${corp.ticket}&noncestr=${nonceStr}&timestamp=${timestamp}&url=${url.href}`,
+      )
+      .digest('hex');
     return Response.json(
       {
         corpId,
-        agentId,
         nonceStr,
         timestamp,
-        signature: signature(corp.ticket),
-        agentSignature: signature(agent.ticket),
+        signature,
       },
       { headers },
     );
@@ -77,7 +71,7 @@ export async function POST(request: Request) {
 // Serve the fixed official SDK from the same origin so the existing CSP stays effective.
 export async function GET() {
   try {
-    const response = await fetch('https://open.work.weixin.qq.com/wwopen/js/jwxwork-1.0.0.js', {
+    const response = await fetch('https://res.wx.qq.com/open/js/jweixin-1.2.0.js', {
       next: { revalidate: 86400 },
       redirect: 'error',
       signal: AbortSignal.timeout(8000),

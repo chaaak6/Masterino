@@ -1,5 +1,4 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import vietnamese from '../../../locales/vi-VN/common.json';
@@ -11,9 +10,6 @@ vi.mock('./index', () => ({ downloadDesktop: mocks.download }));
 vi.mock('./wecom', () => ({
   isWecomDesktop: () => mocks.embedded,
   openWecomDownloadPage: mocks.open,
-}));
-vi.mock('@lobehub/ui/base-ui', () => ({
-  Button: (props: ComponentProps<'button'>) => <button {...props} />,
 }));
 
 beforeEach(() => {
@@ -68,4 +64,20 @@ it('uses the existing Vietnamese messages on the public download page', async ()
   expect(
     await screen.findByRole('button', { name: vietnamese['desktopDownload.openBrowser'] }),
   ).toBeVisible();
+});
+
+it('keeps the detected computer separate from the installer the user selects', async () => {
+  mocks.download.mockResolvedValue('1.3.15');
+  render(<DownloadPage />);
+  const status = screen.getByRole('status');
+  await waitFor(() => {
+    expect(status).toHaveTextContent('已识别此电脑 · Windows');
+    expect(status).toHaveTextContent('Windows · x64');
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'macOS Intel' }));
+  await waitFor(() => {
+    expect(status).toHaveTextContent('已识别此电脑 · Windows');
+    expect(status).toHaveTextContent('macOS · Intel');
+    expect(status).toHaveTextContent('v1.3.15');
+  });
 });
