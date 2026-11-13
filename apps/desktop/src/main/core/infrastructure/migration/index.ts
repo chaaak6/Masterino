@@ -4,13 +4,17 @@ import type { ElectronMainStore } from '@/types/store';
 import { createLogger } from '@/utils/logger';
 
 import normalizeUpdateChannelMigration from './001-normalize-update-channel';
+import migrateLegacyAihubCloudServer from './002-migrate-legacy-aihub-cloud-server';
 import type { StoreMigration } from './defineMigration';
 
 export const APPLIED_STORE_MIGRATIONS_KEY = 'lobeDesktopAppliedStoreMigrations';
 
 const logger = createLogger('core:storeMigration');
 
-const migrations: StoreMigration[] = [normalizeUpdateChannelMigration];
+const migrations: StoreMigration[] = [
+  normalizeUpdateChannelMigration,
+  migrateLegacyAihubCloudServer,
+];
 
 const getAppliedMigrationIds = (store: Store<ElectronMainStore>): string[] => {
   return (
