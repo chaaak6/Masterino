@@ -10,7 +10,7 @@ message persistence and the configured model still use the test backend.
 | Create a blank group, add a member, start a topic                                | Desktop keeps the group supervisor on the client when the target is local or unspecified                                                                | Electron + test database                  |
 | Delegate one fixed-marker task with an already enabled automatic approval policy | No approval form for the delegation; Network shows `createClientGroupAgentTaskThread`, not `execSubAgentTask`; the member thread and task card complete | Electron / DevTools + executor regression |
 | Approve a group tool                                                             | Approval uses the original group and topic history, even if another group is visible; the tool result can resume the supervisor                         | Store regression                          |
-| A local member requests permission for its own tool | The card shows that approval is needed and the supervisor waits. Approving resumes the same member thread; it completes only once the member finishes | Executor regression; live manual flow pending |
+| A local member requests permission for its own tool | The card shows that approval is needed and the supervisor waits. Approving resumes the same member thread; it completes only once the member finishes | Executor regression and Electron with the User Interaction tool |
 | Delegate from an asynchronous callback after changing topics                     | The original group and topic are used; desktop tasks stay local                                                                                         | Store regression                          |
 | Schedule several desktop jobs                                                    | Each runs locally; task cards retain the terminal status and thread ID                                                                                  | Executor regression                       |
 | Add and remove members                                                           | Adding is limited to the current resource scope; leaving unlinks only the named membership and preserves history                                        | Isolated database integration             |
@@ -34,13 +34,22 @@ cancelled when only the client subscription was lost.
   the member result `QA-1116-ACK` and the supervisor's summary without a reload.
   The test database recorded completed member threads and no server agent
   operations for the local group topic.
+- The final Electron build also ran the built-in User Interaction skill on
+  the synthetic member. The member's card displayed its own freeform question
+  while the supervisor waited. Submitting `QA-1116-ANSWER` resumed the same
+  thread, returned `QA-1116-CONFIRMED`, and let the supervisor summarize the
+  result without a reload. A read-only query confirmed both markers in the
+  same completed client thread and zero server agent operations for the group
+  topic. The account's automatic mode stayed as found; this tool requires
+  human input even under automatic mode.
 - An ordinary agent conversation returned a reply and released the composer.
   The existing test-agent input template produced `CUTOVER_OK`; its settings
   were left as found. Transport interruption and replay were exercised by
   deterministic SSE, WebSocket and store tests, not a live outage.
 - Browser Use reached the test site's sign-in page. Authenticated flows used
   the isolated Electron profile. Its existing approval policy was left as
-  found; manual approval was verified through the store tests.
+  found; switching the account to manual mode was not part of this run. The
+  approve/reject resume paths were verified through the store tests.
 - Test cluster pod logs had no correlated business lines in the checked time
   window. DevTools requests and the synthetic topic's database state provided
   the runtime evidence. The branch's server build was not deployed to the
