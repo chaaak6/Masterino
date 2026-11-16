@@ -7,13 +7,16 @@ about whether work is active. Retry only the current model call. Never restart a
 repeat a local tool to recover a missing result. Preserve failed/cancelled states during late
 connection cleanup.
 
-- Temporary connection failures, 502/503/504, and an unexpected negotiated newapi EOF: at most three attempts
-  including the initial request, with interruptible 1s/3s backoff and jitter.
+- Before any generated content arrives, temporary connection failures and 502/503/504 may use up to
+  three attempts including the initial request, with interruptible 1s/3s backoff and jitter. An
+  unexpected negotiated newapi EOF can retry once, and an explicit upstream total timeout needs
+  user action.
 - 429: retry only with a bounded Retry-After; quota, authentication, permission, malformed data,
   oversized input and provider business errors require user action.
 - Offline: wait up to 30s for connectivity without issuing a request loop. Stopping cancels the wait.
-- Partial text is visible during recovery but is replaced, never concatenated with the retry.
-  Discard old reasoning/tool state before the next attempt. No incomplete tool call is executed.
+- A failed attempt that delivered text, reasoning or media keeps that output and ends without
+  automatic replay. Discard incomplete tool calls on failure and reset an empty attempt before
+  retrying. No incomplete tool call is executed.
 - A client that owns recovery sends X-Masterino-Client-Recovery so the newapi route does not
   multiply the budget with its own retries. It still runs the circuit check/accounting with one
   attempt; safe pre-response classification and bounded Retry-After survive error serialization.
@@ -36,7 +39,7 @@ connection cleanup.
 ## Seams and scenarios
 
 1. Real fetchSSE + ReadableStream: normal stop, premature EOF, connection reset, partial-output
-   replacement, three-attempt exhaustion, HTTP 400/401/403/413, 502/503/504, rate/quota limits,
+   preservation, three-attempt exhaustion, HTTP 400/401/403/413, 502/503/504, rate/quota limits,
    malformed chunks, offline expiry, stop during backoff, partial tool calls, persistence ordering,
    output-limit/filter stop, and transport loss after confirmed completion.
 2. Real client call_llm executor / StreamingHandler / production operation actions: errors halt

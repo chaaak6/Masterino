@@ -14,7 +14,6 @@ import type {
   ChatCompletionErrorPayload,
   ChatCompletionTool,
   ChatMethodOptions,
-  ChatStreamCallbacks,
   ChatStreamPayload,
   Embeddings,
   EmbeddingsOptions,
@@ -191,11 +190,7 @@ export interface OpenAICompatibleFactoryOptions<T extends Record<string, any> = 
     ) => OpenAI.ChatCompletionCreateParamsStreaming;
     handleStream?: (
       stream: Stream<OpenAI.ChatCompletionChunk> | ReadableStream,
-      options: {
-        callbacks?: ChatStreamCallbacks;
-        inputStartAt?: number;
-        payload?: ChatPayloadForTransformStream;
-      },
+      options: OpenAIStreamOptions,
     ) => ReadableStream;
     handleStreamBizErrorType?: (error: {
       message: string;
@@ -582,15 +577,55 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
 
         let response: Stream<OpenAI.Chat.Completions.ChatCompletionChunk>;
 
+        const operationId =
+          typeof options?.metadata?.operationId === 'string'
+            ? options.metadata.operationId
+            : undefined;
+        const observeStream = this.id === 'newapi' && postPayload.stream && Boolean(operationId);
+        let upstreamRequestId: string | null | undefined;
+        let upstreamFinishReason: string | undefined;
         const streamOptions: OpenAIStreamOptions = {
           abortSignal: options?.signal,
           abortSignals: options?.abortSignals,
           bizErrorTypeTransformer: chatCompletion?.handleStreamBizErrorType,
-          callbacks: options?.callback,
-          operationId:
-            typeof options?.metadata?.operationId === 'string'
-              ? options.metadata.operationId
-              : undefined,
+          callbacks: observeStream
+            ? {
+                ...options?.callback,
+                onCompletion: async (result) => {
+                  const requestId = options?.requestHeaders?.['X-Request-ID'];
+                  const elapsedMs = Date.now() - inputStartAt;
+                  const aborted = options?.signal?.aborted;
+                  console.info('[model-stream:upstream]', {
+                    abortSource: aborted
+                      ? options.signal?.reason === options.abortSignals?.totalSignal?.reason
+                        ? 'total_timeout'
+                        : 'request'
+                      : undefined,
+                    elapsedMs,
+                    finishReason: upstreamFinishReason,
+                    model: payload.model,
+                    operationId,
+                    requestId,
+                    upstreamRequestId,
+                  });
+                  console.info('[model-stream:server]', {
+                    elapsedMs,
+                    errorType: result.error?.type,
+                    finishReason: result.finishReason,
+                    operationId,
+                    requestId,
+                    terminal: result.error ? 'error' : result.finishReason ? 'stop' : 'none',
+                  });
+                  await options?.callback?.onCompletion?.(result);
+                },
+              }
+            : options?.callback,
+          onUpstreamFinish: observeStream
+            ? (reason) => {
+                upstreamFinishReason = reason;
+              }
+            : undefined,
+          operationId,
           payload: {
             apiMode: 'chat_completions',
             includeUsageRequested,
@@ -652,11 +687,22 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
             console.log(JSON.stringify(finalPayload), '\n');
           }
 
-          response = (await this.client.chat.completions.create(finalPayload, {
-            // https://github.com/lobehub/lobe-chat/pull/318
+          const completion = this.client.chat.completions.create(finalPayload, {
             headers: { Accept: '*/*', ...options?.requestHeaders },
             signal: options?.signal,
-          })) as unknown as Stream<OpenAI.Chat.Completions.ChatCompletionChunk>;
+          });
+          if (observeStream) {
+            const result = await completion.withResponse();
+            upstreamRequestId =
+              result.response.headers.get('x-oneapi-request-id') ??
+              result.response.headers.get('x-new-api-request-id') ??
+              result.request_id;
+            response =
+              result.data as unknown as Stream<OpenAI.Chat.Completions.ChatCompletionChunk>;
+          } else {
+            response =
+              (await completion) as unknown as Stream<OpenAI.Chat.Completions.ChatCompletionChunk>;
+          }
         }
 
         if (postPayload.stream) {
@@ -672,11 +718,7 @@ export const createOpenAICompatibleRuntime = <T extends Record<string, any> = an
 
           return StreamingResponse(
             chatCompletion?.handleStream
-              ? chatCompletion.handleStream(prod, {
-                  callbacks: streamOptions.callbacks,
-                  inputStartAt,
-                  payload: streamOptions.payload,
-                })
+              ? chatCompletion.handleStream(prod, { ...streamOptions, inputStartAt })
               : OpenAIStream(prod, {
                   ...streamOptions,
                   inputStartAt,

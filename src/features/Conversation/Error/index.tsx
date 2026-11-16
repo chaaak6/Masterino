@@ -260,7 +260,11 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
   const enableBusinessFeatures = useServerConfigStore(serverConfigSelectors.enableBusinessFeatures);
   const { allowed: canCreate } = usePermission('create_content');
   const sessionErrorBody = error?.body;
-  const rawErrorMessage = getRawErrorMessage(error) || alertError?.message;
+  const rawErrorMessage = getRawErrorMessage(error);
+  const message =
+    error?.type === AgentRuntimeErrorType.UpstreamTotalTimeout
+      ? alertError?.message || rawErrorMessage
+      : rawErrorMessage || alertError?.message;
 
   const storeApi = useConversationStoreApi();
   const regenerateAssistantMessage = useConversationStore((s) => s.regenerateAssistantMessage);
@@ -368,7 +372,7 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
       id={data.id}
       error={{
         ...alertError,
-        ...(rawErrorMessage ? { message: rawErrorMessage } : {}),
+        ...(message ? { message } : {}),
         extra: data.error?.body ? (
           <Highlighter
             actionIconSize={'small'}
