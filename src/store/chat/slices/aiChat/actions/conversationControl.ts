@@ -12,6 +12,7 @@ import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import { getLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
 import { selectRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import { routeDesktopWorkspaceRuntime } from '@/store/chat/slices/aiChat/actions/managedEnvRuntime';
 import { operationSelectors } from '@/store/chat/slices/operation/selectors';
@@ -67,7 +68,7 @@ export class ConversationControlActionImpl {
   ): Promise<boolean> => {
     // Only the client runtime records this pause snapshot. If current workspace
     // settings changed while the card was waiting, do not reroute the same turn.
-    if (pausedExecutionContext) return false;
+    if (pausedExecutionContext || getLocalTaskApproval(context)) return false;
     const agentConfig = context.agentId
       ? agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState())
       : undefined;
@@ -282,7 +283,7 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
+    const { agentId, topicId, threadId } = effectiveContext;
 
     // 1. Get tool message and verify it exists
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
@@ -293,13 +294,14 @@ export class ConversationControlActionImpl {
 
     // Create an operation to carry the context for optimistic updates
     // This ensures optimistic updates use the correct agentId/topicId
+    const localTask = getLocalTaskApproval(effectiveContext);
     const { operationId } = startOperation({
       type: 'approveToolCalling',
+      ...(localTask && { parentOperationId: localTask.operationId }),
       context: {
-        agentId,
+        ...effectiveContext,
         topicId: topicId ?? undefined,
         threadId: threadId ?? undefined,
-        scope,
         messageId: toolMessageId,
       },
       metadata: { executionContext },
@@ -394,7 +396,7 @@ export class ConversationControlActionImpl {
       }
 
       // 3. Get current messages for state construction using context
-      const chatKey = messageMapKey({ agentId, topicId, threadId, scope });
+      const chatKey = messageMapKey(effectiveContext);
       const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
       const currentRequestMetadata = this.#getResumeContextFromMessageChain(
         toolMessageId,
@@ -467,7 +469,7 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
+    const { agentId, topicId, threadId } = effectiveContext;
 
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
     if (!toolMessage) return;
@@ -475,13 +477,14 @@ export class ConversationControlActionImpl {
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
+    const localTask = getLocalTaskApproval(effectiveContext);
     const { operationId } = startOperation({
       type: 'submitToolInteraction',
+      ...(localTask && { parentOperationId: localTask.operationId }),
       context: {
-        agentId,
+        ...effectiveContext,
         topicId: topicId ?? undefined,
         threadId: threadId ?? undefined,
-        scope,
         messageId: toolMessageId,
       },
       metadata: { executionContext },
@@ -513,7 +516,7 @@ export class ConversationControlActionImpl {
       );
     }
 
-    const chatKey = messageMapKey({ agentId, topicId, threadId, scope });
+    const chatKey = messageMapKey(effectiveContext);
 
     // 2a. Tool-result-only path: skip the synthetic user message and resume from the
     // tool message. Used by interventions whose UI handles its own side effect (e.g.
@@ -706,7 +709,7 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
+    const { agentId, topicId, threadId } = effectiveContext;
 
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
     if (!toolMessage) return;
@@ -714,13 +717,14 @@ export class ConversationControlActionImpl {
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
+    const localTask = getLocalTaskApproval(effectiveContext);
     const { operationId } = startOperation({
       type: 'skipToolInteraction',
+      ...(localTask && { parentOperationId: localTask.operationId }),
       context: {
-        agentId,
+        ...effectiveContext,
         topicId: topicId ?? undefined,
         threadId: threadId ?? undefined,
-        scope,
         messageId: toolMessageId,
       },
       metadata: { executionContext },
@@ -744,7 +748,7 @@ export class ConversationControlActionImpl {
     );
 
     // 2. Create a user message indicating the skip
-    const chatKey = messageMapKey({ agentId, topicId, threadId, scope });
+    const chatKey = messageMapKey(effectiveContext);
     const requestMetadata = resumeContext.requestMetadata;
     const userMessageContent = reason ? `I'll skip this. ${reason}` : "I'll skip this.";
     const groupId = toolMessage.groupId;
@@ -846,7 +850,7 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
+    const { topicId, threadId } = effectiveContext;
 
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
     if (!toolMessage) return;
@@ -854,10 +858,9 @@ export class ConversationControlActionImpl {
     const { operationId } = startOperation({
       type: 'cancelToolInteraction',
       context: {
-        agentId,
+        ...effectiveContext,
         topicId: topicId ?? undefined,
         threadId: threadId ?? undefined,
-        scope,
         messageId: toolMessageId,
       },
     });
@@ -1083,6 +1086,7 @@ export class ConversationControlActionImpl {
     messageId: string,
     reason?: string,
     context?: ConversationContext,
+    continueLocalRun = false,
   ): Promise<void> => {
     const { startOperation, completeOperation } = this.#get();
 
@@ -1093,7 +1097,7 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
+    const { topicId, threadId } = effectiveContext;
 
     const toolMessage = dbMessageSelectors.getDbMessageById(messageId)(this.#get());
     if (!toolMessage) return;
@@ -1103,10 +1107,9 @@ export class ConversationControlActionImpl {
     const { operationId } = startOperation({
       type: 'rejectToolCalling',
       context: {
-        agentId,
+        ...effectiveContext,
         topicId: topicId ?? undefined,
         threadId: threadId ?? undefined,
-        scope,
         messageId,
       },
       metadata: { executionContext },
@@ -1172,6 +1175,10 @@ export class ConversationControlActionImpl {
     }
 
     completeOperation(operationId);
+    const localTask = getLocalTaskApproval(effectiveContext);
+    if (localTask && !continueLocalRun) {
+      this.#get().cancelOperation(localTask.operationId, reason || 'Group task tool was rejected');
+    }
   };
 
   rejectAndContinueToolCalling = async (
@@ -1268,23 +1275,25 @@ export class ConversationControlActionImpl {
 
     // Client-mode path: reject first (persists rejection + updates content),
     // then spin up a local runtime with phase='user_input' to continue.
-    await this.#get().rejectToolCalling(messageId, reason, context);
+    const localTask = getLocalTaskApproval(effectiveContext);
+    if (localTask) await this.#get().rejectToolCalling(messageId, reason, context, true);
+    else await this.#get().rejectToolCalling(messageId, reason, context);
 
     // Create an operation to manage the continue execution
     const { operationId } = startOperation({
       type: 'rejectToolCalling',
+      ...(localTask && { parentOperationId: localTask.operationId }),
       context: {
-        agentId,
+        ...effectiveContext,
         topicId: topicId ?? undefined,
         threadId: threadId ?? undefined,
-        scope,
         messageId,
       },
       metadata: { executionContext },
     });
 
     // Get current messages for state construction using context
-    const chatKey = messageMapKey({ agentId, topicId, threadId, scope });
+    const chatKey = messageMapKey(effectiveContext);
     const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
     const { requestMetadata, workingModel } = this.#getResumeContextFromMessageChain(
       messageId,

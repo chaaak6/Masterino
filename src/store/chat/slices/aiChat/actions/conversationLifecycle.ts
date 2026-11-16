@@ -501,7 +501,13 @@ export class ConversationLifecycleActionImpl {
       // Callers that need to pin the runtime (e.g. task topics that were
       // started server-side via runTask) pass `forceRuntime` to override
       // the agent's local/cloud preference.
-      parentRuntime: forceRuntime,
+      parentRuntime:
+        forceRuntime ??
+        (isDesktop &&
+        context.groupId &&
+        (!pendingExecution?.intent.target || pendingExecution.intent.target === 'local')
+          ? 'client'
+          : undefined),
     });
     const draftIntent = pendingExecution?.draftKey
       ? projectWorkspaceState.draftByConversationKey[pendingExecution.draftKey]

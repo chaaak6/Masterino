@@ -57,6 +57,7 @@ import { scanOperationWorkspace } from '@/services/operationWorkspaceScan';
 import { aiModelSelectors } from '@/store/aiInfra/selectors';
 import { getAiInfraStoreState } from '@/store/aiInfra/store';
 import { createAgentExecutors } from '@/store/chat/agents/createAgentExecutors';
+import { getLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
 import { type ChatStore } from '@/store/chat/store';
 import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNotification';
@@ -387,7 +388,8 @@ export class StreamingExecutorActionImpl {
     // Get user intervention config
     const userStore = getUserStoreState();
     const userInterventionConfig = {
-      approvalMode: toolInterventionSelectors.approvalMode(userStore),
+      approvalMode:
+        executionContext.approvalMode ?? toolInterventionSelectors.approvalMode(userStore),
       allowList: toolInterventionSelectors.allowList(userStore),
     };
 
@@ -595,15 +597,28 @@ export class StreamingExecutorActionImpl {
     workingModel?: WorkingModel;
     /** Cwd captured before persistence/runtime dispatch for this operation. */
     workingDirectory?: string;
-  }): Promise<{ cost?: Cost; model?: string; provider?: string; usage?: Usage } | void> => {
+  }): Promise<{
+    cost?: Cost;
+    model?: string;
+    provider?: string;
+    status?: AgentState['status'];
+    usage?: Usage;
+  } | void> => {
     const {
       disableTools,
       messages: originalMessages,
       parentMessageId,
       parentMessageType,
       context,
-      isSubAgent,
     } = params;
+    const localTask = getLocalTaskApproval(context);
+    const isSubAgent = params.isSubAgent || Boolean(localTask);
+    const taskResume =
+      localTask &&
+      params.parentOperationId &&
+      this.#get().operations[params.parentOperationId]?.parentOperationId === localTask.operationId
+        ? localTask
+        : undefined;
 
     // Extract values from context
     const { agentId, topicId, threadId, subAgentId, groupId, scope } = context;
@@ -824,7 +839,9 @@ export class StreamingExecutorActionImpl {
       // while filesystem scope checks still behaved as manual approval.
       frozenExecutionContext = {
         ...frozenExecutionContext,
-        approvalMode: toolInterventionSelectors.approvalMode(getUserStoreState()),
+        approvalMode:
+          frozenExecutionContext.approvalMode ??
+          toolInterventionSelectors.approvalMode(getUserStoreState()),
       };
       // Agent state reconstruction may already have resolved the workspace authority.
       // Always publish that frozen value to the new runtime operation because builtin
@@ -1207,13 +1224,21 @@ export class StreamingExecutorActionImpl {
       };
 
       const { requeued } = await runLifecycle.completeRun(completeEvent);
+      const result = {
+        cost: state.cost,
+        model,
+        provider: provider ?? undefined,
+        status: state.status,
+        usage: state.usage,
+      };
+      taskResume?.report(result);
       // A queued follow-up sendMessage was scheduled — skip the post-run notification.
       if (requeued) return;
 
       await runLifecycle.afterRunComplete(completeEvent);
 
       // Return usage and cost data for caller to use
-      return { cost: state.cost, model, provider: provider ?? undefined, usage: state.usage };
+      return result;
     } catch (error) {
       await runLifecycle.onRunError({
         context,
@@ -1223,6 +1248,7 @@ export class StreamingExecutorActionImpl {
         runScope,
         runtimeType: 'client',
       });
+      taskResume?.report({ status: 'error' });
       throw error;
     }
   };

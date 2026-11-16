@@ -1,7 +1,7 @@
 import { BUILTIN_AGENT_SLUGS } from '@lobechat/builtin-agents';
 import type { AgentGroupDetail, AgentGroupMember } from '@lobechat/types';
 import { cleanObject } from '@lobechat/utils';
-import { and, eq, inArray, not } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, not, or } from 'drizzle-orm';
 
 import type {
   AgentItem,
@@ -90,6 +90,8 @@ export class AgentGroupRepository {
    */
   private groupOwnership = () =>
     buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, chatGroups);
+  private relationOwnership = () =>
+    buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, chatGroupsAgents);
   private agentOwnership = () =>
     buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, agents);
   private topicOwnership = () =>
@@ -322,7 +324,13 @@ export class AgentGroupRepository {
       })
       .from(chatGroupsAgents)
       .innerJoin(agents, eq(chatGroupsAgents.agentId, agents.id))
-      .where(eq(chatGroupsAgents.chatGroupId, groupId))
+      .where(
+        and(
+          eq(chatGroupsAgents.chatGroupId, groupId),
+          this.relationOwnership(),
+          this.agentOwnership(),
+        ),
+      )
       .orderBy(chatGroupsAgents.order);
 
     // 3. Extract agent items with isSupervisor flag and find supervisor
@@ -403,65 +411,72 @@ export class AgentGroupRepository {
     agentMembers: string[] = [],
     supervisorConfig?: SupervisorAgentConfig,
   ): Promise<CreateGroupWithSupervisorResult> {
-    // 1. Create supervisor agent (virtual agent)
-    const [supervisorAgent] = await this.db
-      .insert(agents)
-      .values({
-        avatar: supervisorConfig?.avatar,
-        backgroundColor: supervisorConfig?.backgroundColor,
-        chatConfig: supervisorConfig?.chatConfig,
-        description: supervisorConfig?.description,
-        model: supervisorConfig?.model,
-        params: supervisorConfig?.params,
-        plugins: supervisorConfig?.plugins,
-        provider: supervisorConfig?.provider,
-        systemRole: supervisorConfig?.systemRole,
-        tags: supervisorConfig?.tags,
-        title: supervisorConfig?.title ?? 'Supervisor',
+    return this.db.transaction(async (tx) => {
+      const memberIds = [...new Set(agentMembers)];
+      if (memberIds.length) {
+        const found = await tx
+          .select({ id: agents.id })
+          .from(agents)
+          .where(and(this.agentOwnership(), inArray(agents.id, memberIds)));
+        if (found.length !== memberIds.length) throw new Error('Agent not found in this scope');
+      }
+      // 1. Create supervisor agent (virtual agent)
+      const [supervisorAgent] = await tx
+        .insert(agents)
+        .values({
+          avatar: supervisorConfig?.avatar,
+          backgroundColor: supervisorConfig?.backgroundColor,
+          chatConfig: supervisorConfig?.chatConfig,
+          description: supervisorConfig?.description,
+          model: supervisorConfig?.model,
+          params: supervisorConfig?.params,
+          plugins: supervisorConfig?.plugins,
+          provider: supervisorConfig?.provider,
+          systemRole: supervisorConfig?.systemRole,
+          tags: supervisorConfig?.tags,
+          title: supervisorConfig?.title ?? 'Supervisor',
+          userId: this.userId,
+          virtual: true,
+          workspaceId: this.workspaceId ?? null,
+        })
+        .returning();
+
+      // 2. Create the group
+      const [group] = await tx
+        .insert(chatGroups)
+        .values({ ...groupParams, userId: this.userId, workspaceId: this.workspaceId ?? null })
+        .returning();
+
+      // 3. Add supervisor agent to group with role 'supervisor'
+      const supervisorGroupAgent: NewChatGroupAgent = {
+        agentId: supervisorAgent.id,
+        chatGroupId: group.id,
+        order: -1, // Supervisor always first (negative order)
+        role: 'supervisor',
         userId: this.userId,
-        virtual: true,
         workspaceId: this.workspaceId ?? null,
-      })
-      .returning();
+      };
 
-    // 2. Create the group
-    const [group] = await this.db
-      .insert(chatGroups)
-      .values({ ...groupParams, userId: this.userId, workspaceId: this.workspaceId ?? null })
-      .returning();
+      // 4. Add member agents to group with role 'participant'
+      const memberGroupAgents: NewChatGroupAgent[] = memberIds.map((agentId, index) => ({
+        agentId,
+        chatGroupId: group.id,
+        order: index,
+        role: 'participant',
+        userId: this.userId,
+        workspaceId: this.workspaceId ?? null,
+      }));
 
-    // 3. Add supervisor agent to group with role 'supervisor'
-    const supervisorGroupAgent: NewChatGroupAgent = {
-      agentId: supervisorAgent.id,
-      chatGroupId: group.id,
-      order: -1, // Supervisor always first (negative order)
-      role: 'supervisor',
-      userId: this.userId,
-      workspaceId: this.workspaceId ?? null,
-    };
+      // 5. Insert all group-agent relationships
+      const allGroupAgents = [supervisorGroupAgent, ...memberGroupAgents];
+      const insertedAgents = await tx.insert(chatGroupsAgents).values(allGroupAgents).returning();
 
-    // 4. Add member agents to group with role 'participant'
-    const memberGroupAgents: NewChatGroupAgent[] = agentMembers.map((agentId, index) => ({
-      agentId,
-      chatGroupId: group.id,
-      order: index,
-      role: 'participant',
-      userId: this.userId,
-      workspaceId: this.workspaceId ?? null,
-    }));
-
-    // 5. Insert all group-agent relationships
-    const allGroupAgents = [supervisorGroupAgent, ...memberGroupAgents];
-    const insertedAgents = await this.db
-      .insert(chatGroupsAgents)
-      .values(allGroupAgents)
-      .returning();
-
-    return {
-      agents: insertedAgents,
-      group,
-      supervisorAgentId: supervisorAgent.id,
-    };
+      return {
+        agents: insertedAgents,
+        group,
+        supervisorAgentId: supervisorAgent.id,
+      };
+    });
   }
 
   /**
@@ -491,7 +506,18 @@ export class AgentGroupRepository {
         virtual: agents.virtual,
       })
       .from(agents)
-      .where(and(this.agentOwnership(), inArray(agents.id, agentIds)));
+      .innerJoin(chatGroupsAgents, eq(chatGroupsAgents.agentId, agents.id))
+      .innerJoin(chatGroups, eq(chatGroups.id, chatGroupsAgents.chatGroupId))
+      .where(
+        and(
+          this.agentOwnership(),
+          this.relationOwnership(),
+          this.groupOwnership(),
+          eq(chatGroups.id, groupId),
+          inArray(agents.id, agentIds),
+          or(isNull(chatGroupsAgents.role), ne(chatGroupsAgents.role, 'supervisor')),
+        ),
+      );
 
     const virtualAgents: RemoveAgentsCheckResult['virtualAgents'] = [];
     const nonVirtualAgentIds: string[] = [];
@@ -517,47 +543,29 @@ export class AgentGroupRepository {
     return { nonVirtualAgentIds, virtualAgents };
   }
 
-  /**
-   * Remove agents from a group. Virtual agents will be permanently deleted.
-   *
-   * @param groupId - The chat group ID
-   * @param agentIds - Array of agent IDs to remove
-   * @param deleteVirtualAgents - Whether to delete virtual agents (default: true)
-   * @returns Result containing counts and deleted virtual agent IDs
-   */
+  /** Remove membership only. Retain agent identities referenced by past conversations. */
   async removeAgentsFromGroup(
     groupId: string,
     agentIds: string[],
-    deleteVirtualAgents: boolean = true,
   ): Promise<RemoveAgentsFromGroupResult> {
-    if (agentIds.length === 0) {
-      return { deletedVirtualAgentIds: [], removedFromGroup: 0 };
-    }
-
-    // 1. Check which agents are virtual
-    const { virtualAgents } = await this.checkAgentsBeforeRemoval(groupId, agentIds);
-    const virtualAgentIds = virtualAgents.map((a) => a.id);
-
-    // 2. Remove all agents from the group (batch delete from junction table)
-    await this.db
+    const { nonVirtualAgentIds, virtualAgents } = await this.checkAgentsBeforeRemoval(
+      groupId,
+      agentIds,
+    );
+    const ids = [...nonVirtualAgentIds, ...virtualAgents.map((agent) => agent.id)];
+    if (!ids.length) return { deletedVirtualAgentIds: [], removedFromGroup: 0 };
+    const removed = await this.db
       .delete(chatGroupsAgents)
       .where(
-        and(eq(chatGroupsAgents.chatGroupId, groupId), inArray(chatGroupsAgents.agentId, agentIds)),
-      );
-
-    // 3. Delete virtual agents if requested
-    // Note: Virtual agents are standalone (no associated sessions), so we can delete them directly
-    // The messages sent by these agents in the group chat will remain (orphaned agentId reference)
-    if (deleteVirtualAgents && virtualAgentIds.length > 0) {
-      await this.db
-        .delete(agents)
-        .where(and(this.agentOwnership(), inArray(agents.id, virtualAgentIds)));
-    }
-
-    return {
-      deletedVirtualAgentIds: deleteVirtualAgents ? virtualAgentIds : [],
-      removedFromGroup: agentIds.length,
-    };
+        and(
+          eq(chatGroupsAgents.chatGroupId, groupId),
+          this.relationOwnership(),
+          inArray(chatGroupsAgents.agentId, ids),
+          or(isNull(chatGroupsAgents.role), ne(chatGroupsAgents.role, 'supervisor')),
+        ),
+      )
+      .returning({ agentId: chatGroupsAgents.agentId });
+    return { deletedVirtualAgentIds: [], removedFromGroup: removed.length };
   }
 
   /**

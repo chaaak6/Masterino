@@ -7,9 +7,12 @@ import { aiAgentService } from '@/services/aiAgent';
 import { type ChatStore } from '@/store/chat/store';
 
 import { createGroupOrchestrationExecutors } from '../createGroupOrchestrationExecutors';
+import { getLocalTaskApproval } from '../localTaskApproval';
 
 vi.mock('@/services/aiAgent', () => ({
   aiAgentService: {
+    createClientGroupAgentTaskThread: vi.fn(),
+    updateClientTaskThreadStatus: vi.fn(),
     execSubAgentTask: vi.fn(),
     getSubAgentTaskStatus: vi.fn(),
   },
@@ -114,6 +117,150 @@ const createInitialState = (overrides: Partial<AgentState> = {}): AgentState => 
 };
 
 describe('createGroupOrchestrationExecutors', () => {
+  it('publishes a terminal task card after the local worker finishes', async () => {
+    const store = createMockStore({ completeOperation: vi.fn(), replaceMessages: vi.fn() });
+    vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockResolvedValue({
+      messages: [],
+      startedAt: '2026-11-16T08:00:00.000Z',
+      success: true,
+      threadId: 'local-thread',
+      threadMessages: [],
+      userMessageId: 'local-user',
+    });
+    vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockResolvedValue({
+      status: ThreadStatus.Completed,
+      success: true,
+      threadId: 'local-thread',
+    });
+    const executors = createGroupOrchestrationExecutors({
+      get: () => store,
+      messageContext: {
+        agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'group',
+        topicId: TEST_IDS.TOPIC_ID,
+      },
+      orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+      preferLocal: true,
+      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+    });
+    const output = await executors.batch_exec_async_tasks!(
+      {
+        payload: {
+          tasks: [{ agentId: TEST_IDS.AGENT_1_ID, instruction: 'Return OK', title: 'Local' }],
+          toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+        },
+        type: 'batch_exec_async_tasks',
+      },
+      createInitialState(),
+    );
+    expect(output.result?.payload).toMatchObject({ results: [{ success: true }] });
+    expect(aiAgentService.execSubAgentTask).not.toHaveBeenCalled();
+    expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        value: {
+          taskDetail: expect.objectContaining({
+            clientMode: true,
+            status: ThreadStatus.Completed,
+            threadId: 'local-thread',
+          }),
+        },
+      }),
+      { operationId: TEST_IDS.OPERATION_ID },
+    );
+  });
+
+  it('keeps a local worker waiting instead of reporting success before its tool is approved', async () => {
+    vi.clearAllMocks();
+    const store = createMockStore({
+      completeOperation: vi.fn(),
+      executeClientAgent: vi.fn().mockResolvedValue({ status: 'waiting_for_human' }),
+      failOperation: vi.fn(),
+      replaceMessages: vi.fn(),
+    });
+    vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockResolvedValue({
+      messages: [],
+      startedAt: '2026-11-16T08:00:00.000Z',
+      success: true,
+      threadId: 'local-thread',
+      threadMessages: [],
+      userMessageId: 'local-user',
+    });
+    vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockResolvedValue({
+      status: ThreadStatus.Completed,
+      success: true,
+      threadId: 'local-thread',
+    });
+    const executors = createGroupOrchestrationExecutors({
+      get: () => store,
+      messageContext: {
+        agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'group',
+        topicId: TEST_IDS.TOPIC_ID,
+      },
+      orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+      preferLocal: true,
+      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+    });
+    const task = executors.batch_exec_async_tasks!(
+      {
+        payload: {
+          tasks: [{ agentId: TEST_IDS.AGENT_1_ID, instruction: 'Return OK', title: 'Local' }],
+          toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+        },
+        type: 'batch_exec_async_tasks',
+      },
+      createInitialState(),
+    );
+
+    try {
+      await vi.waitFor(
+        () => {
+          expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+              value: { taskDetail: expect.objectContaining({ status: ThreadStatus.InReview }) },
+            }),
+            { operationId: TEST_IDS.OPERATION_ID },
+          );
+        },
+        { timeout: 200 },
+      );
+      expect(aiAgentService.updateClientTaskThreadStatus).not.toHaveBeenCalled();
+
+      const wrongThread = getLocalTaskApproval({
+        agentId: TEST_IDS.AGENT_1_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'thread',
+        threadId: 'another-thread',
+        topicId: TEST_IDS.TOPIC_ID,
+      });
+      expect(wrongThread).toBeUndefined();
+      const approval = getLocalTaskApproval({
+        agentId: TEST_IDS.AGENT_1_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'thread',
+        threadId: 'local-thread',
+        topicId: TEST_IDS.TOPIC_ID,
+      });
+      expect(approval?.operationId).toBeDefined();
+      approval?.report({ status: 'waiting_for_human' });
+      expect(aiAgentService.updateClientTaskThreadStatus).not.toHaveBeenCalled();
+      approval?.report({ status: 'done' });
+
+      expect((await task).result?.payload).toMatchObject({ results: [{ success: true }] });
+      expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ completionReason: 'done', threadId: 'local-thread' }),
+      );
+    } finally {
+      const taskOperation = Object.values(store.operations).find(
+        (op) => op.type === 'execClientSubAgent',
+      );
+      taskOperation?.abortController.abort();
+      await task;
+    }
+  });
+
   describe('batch_exec_async_tasks executor', () => {
     beforeEach(() => {
       vi.clearAllMocks();

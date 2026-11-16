@@ -260,7 +260,7 @@ class GroupManagementExecutor extends BaseExecutor<typeof GroupManagementApiName
     const optionLabels = params.options.map((o) => o.label).join(', ');
     return {
       content: `Voting not yet implemented for question: "${params.question}" with options: ${optionLabels}`,
-      success: true,
+      success: false,
     };
   };
 }

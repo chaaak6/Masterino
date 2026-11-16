@@ -292,7 +292,7 @@ describe('GatewayActionImpl', () => {
       expect(state.gatewayConnections['op-1'].status).toBe('connected');
     });
 
-    it('should forward agent events to onEvent callback', () => {
+    it('should forward agent events to onEvent callback', async () => {
       const { action, mockClient } = createTestAction();
       const events: AgentStreamEvent[] = [];
 
@@ -315,8 +315,46 @@ describe('GatewayActionImpl', () => {
       };
       mockClient.emitEvent('agent_event', testEvent);
 
+      await Promise.resolve();
       expect(events).toHaveLength(1);
       expect(events[0]).toEqual(testEvent);
+    });
+
+    it('applies replayed events in order before finishing the conversation', async () => {
+      const { action, mockClient } = createTestAction();
+      const applied: number[] = [];
+      let release!: () => void;
+      const firstWrite = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const completed = vi.fn();
+      action.connectToGateway({
+        gatewayUrl: 'https://gateway.test.com',
+        onEvent: async (event) => {
+          if (event.stepIndex === 1) await firstWrite;
+          applied.push(event.stepIndex);
+        },
+        onSessionComplete: completed,
+        operationId: 'op-1',
+        token: 'test-token',
+        topicId: TEST_TOPIC_ID,
+      });
+      const chunk: AgentStreamEvent = {
+        data: { content: 'hello' },
+        operationId: 'op-1',
+        stepIndex: 1,
+        timestamp: Date.now(),
+        type: 'stream_chunk',
+      };
+      mockClient.emitEvent('agent_event', chunk);
+      mockClient.emitEvent('agent_event', { ...chunk, stepIndex: 2 });
+      mockClient.emitEvent('session_complete');
+      await Promise.resolve();
+      expect(applied).toEqual([]);
+      expect(completed).not.toHaveBeenCalled();
+      release();
+      await vi.waitFor(() => expect(completed).toHaveBeenCalledOnce());
+      expect(applied).toEqual([1, 2]);
     });
 
     it('should cleanup on session_complete', async () => {
@@ -335,6 +373,24 @@ describe('GatewayActionImpl', () => {
       expect(state.gatewayConnections['op-1']).toBeUndefined();
       await Promise.resolve();
       expect(onComplete).toHaveBeenCalledOnce();
+    });
+
+    it('reports a lost subscription without pretending the server run ended', async () => {
+      const { action, mockClient, state } = createTestAction();
+      const onComplete = vi.fn();
+
+      action.connectToGateway({
+        gatewayUrl: 'https://gateway.test.com',
+        onSessionComplete: onComplete,
+        operationId: 'op-1',
+        token: 'test-token',
+        topicId: TEST_TOPIC_ID,
+      });
+      mockClient.emitEvent('disconnected');
+      await Promise.resolve();
+
+      expect(state.gatewayConnections['op-1']).toBeUndefined();
+      expect(onComplete).toHaveBeenCalledWith(expect.any(Error), { serverMayBeRunning: true });
     });
 
     it('should cleanup on disconnected', () => {
@@ -1199,6 +1255,23 @@ describe('GatewayActionImpl', () => {
 
     afterEach(() => {
       delete (globalThis as any).window;
+    });
+
+    it('reconnects a saved run to its own agent instead of the foreground agent', async () => {
+      const { action, startOperation } = createReconnectTestAction({
+        agentId: 'original-agent',
+        id: 'ast-1',
+      });
+      await action.reconnectToGatewayOperation({
+        assistantMessageId: 'ast-1',
+        operationId: 'server-op-1',
+        topicId: 'topic-1',
+      });
+      expect(startOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({ agentId: 'original-agent' }),
+        }),
+      );
     });
 
     // After a DB rehydrate (e.g. quit + relaunch), `createdAt` can arrive as an

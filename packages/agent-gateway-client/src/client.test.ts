@@ -463,6 +463,17 @@ describe('AgentStreamClient', () => {
       expect(onReconnecting).toHaveBeenCalledWith(1000);
     });
 
+    it('releases an interrupted subscription when reconnect never authenticates', async () => {
+      const client = createClient();
+      const unavailable = vi.fn();
+      client.on('recovery_exhausted', unavailable);
+      const ws = await connectAndAuth(client);
+      ws.simulateClose();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(unavailable).toHaveBeenCalledOnce();
+      expect(client.connectionStatus).toBe('disconnected');
+    });
+
     it('should not reconnect after session_complete', async () => {
       const client = createClient();
       const ws = await connectAndAuth(client);

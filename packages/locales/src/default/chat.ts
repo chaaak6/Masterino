@@ -1049,9 +1049,10 @@ export default {
   'tool.intervention.mode.allowList': 'Allow List',
   'tool.intervention.mode.allowListDesc': 'Only automatically execute approved tools',
   'tool.intervention.mode.autoRun': 'Auto Approve',
-  'tool.intervention.mode.autoRunDesc': 'Automatically approve all tool executions',
+  'tool.intervention.mode.autoRunDesc':
+    'Account-wide: automatically approve eligible calls; mandatory checks still apply',
   'tool.intervention.mode.manual': 'Manual',
-  'tool.intervention.mode.manualDesc': 'Manual approval required for each invocation',
+  'tool.intervention.mode.manualDesc': 'Account-wide: ask for approval when a tool requires it',
   'tool.intervention.onboarding.agentIdentity.editHint':
     'You can edit the name or avatar directly below.',
   'tool.intervention.onboarding.agentIdentity.namePlaceholder': 'Agent name',

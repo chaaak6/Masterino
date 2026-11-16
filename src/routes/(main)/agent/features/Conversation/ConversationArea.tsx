@@ -71,7 +71,7 @@ const Conversation = memo(() => {
       ? topicSelectors.getTopicById(context.topicId)(s)?.metadata?.runningOperation
       : undefined,
   );
-  useGatewayReconnect(context.topicId, runningOperation);
+  useGatewayReconnect(context.agentId, context.topicId, runningOperation);
 
   const agentChatConfig = useAgentStore(chatConfigByIdSelectors.getChatConfigById(context.agentId));
   const chatFollowUpHooks = useChatFollowUp({

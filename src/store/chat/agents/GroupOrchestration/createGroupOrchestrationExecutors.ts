@@ -11,13 +11,20 @@ import {
   type SupervisorInstructionExecClientAsyncTask,
   type SupervisorInstructionParallelCallAgents,
 } from '@lobechat/agent-runtime';
-import { type ConversationContext, type UIChatMessage } from '@lobechat/types';
+import {
+  type ConversationContext,
+  type TaskDetail,
+  ThreadStatus,
+  type UIChatMessage,
+} from '@lobechat/types';
 import debug from 'debug';
 
 import { aiAgentService } from '@/services/aiAgent';
 import { dbMessageSelectors } from '@/store/chat/slices/message/selectors';
 import { type ChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+
+import { trackLocalTaskApproval } from './localTaskApproval';
 
 const log = debug('lobe-store:group-orchestration-executors');
 
@@ -34,6 +41,7 @@ export interface GroupOrchestrationExecutorsContext {
    */
   messageContext: ConversationContext;
   orchestrationOperationId: string;
+  preferLocal?: boolean;
   supervisorAgentId: string;
 }
 
@@ -88,7 +96,7 @@ export const createGroupOrchestrationExecutors = (
    */
   const getMessages = () => dbMessageSelectors.getDbMessagesByKey(chatKey)(get());
 
-  return {
+  const executors: Partial<Record<SupervisorInstruction['type'], GroupOrchestrationExecutor>> = {
     /**
      * call_supervisor Executor
      * Executes the Supervisor Agent completely
@@ -431,6 +439,7 @@ export const createGroupOrchestrationExecutors = (
           instruction,
           parentMessageId: taskMessageId,
           title,
+          timeout,
           topicId,
         });
 
@@ -605,7 +614,7 @@ export const createGroupOrchestrationExecutors = (
       supervisorInstruction,
       state,
     ): Promise<GroupOrchestrationExecutorOutput> => {
-      const { agentId, instruction, title, toolMessageId } = (
+      const { agentId, instruction, timeout, title, toolMessageId } = (
         supervisorInstruction as SupervisorInstructionExecClientAsyncTask
       ).payload;
 
@@ -626,6 +635,19 @@ export const createGroupOrchestrationExecutors = (
         };
       }
 
+      let localTaskId: string | undefined;
+      let taskCard: { detail: TaskDetail; id: string } | undefined;
+      const publishTaskState = (patch: Partial<TaskDetail>) => {
+        if (!taskCard) return;
+        taskCard.detail = { ...taskCard.detail, ...patch };
+        get().internal_dispatchMessage(
+          { id: taskCard.id, type: 'updateMessage', value: { taskDetail: taskCard.detail } },
+          { operationId: state.operationId },
+        );
+      };
+      let localThreadId: string | undefined;
+      let approval: ReturnType<typeof trackLocalTaskApproval> | undefined;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         // 1. Create task message as placeholder
         const taskMessageResult = await get().optimisticCreateMessage(
@@ -685,7 +707,12 @@ export const createGroupOrchestrationExecutors = (
           };
         }
 
-        const { threadId, userMessageId, threadMessages, messages } = threadResult;
+        const { threadId, userMessageId, threadMessages, messages, startedAt } = threadResult;
+        taskCard = {
+          detail: { clientMode: true, startedAt, status: ThreadStatus.Processing, threadId, title },
+          id: taskMessageId,
+        };
+        localThreadId = threadId;
         log(
           `[${sessionLogId}] Created thread: ${threadId}, userMessageId: ${userMessageId}, threadMessages: ${threadMessages.length}`,
         );
@@ -700,7 +727,7 @@ export const createGroupOrchestrationExecutors = (
         };
 
         // 4. Create a child operation for task execution (now with threadId)
-        const { operationId: taskOperationId } = get().startOperation({
+        const { abortController, operationId: taskOperationId } = get().startOperation({
           type: 'execClientSubAgent',
           context: subContext,
           parentOperationId: orchestrationOperationId,
@@ -712,6 +739,14 @@ export const createGroupOrchestrationExecutors = (
           },
         });
 
+        localTaskId = taskOperationId;
+        approval = trackLocalTaskApproval(subContext, taskOperationId, abortController.signal);
+        const deadline = Math.min(Math.max(timeout ?? 1_800_000, 1), 2_147_483_647);
+        timer = setTimeout(
+          () => get().cancelOperation(taskOperationId, 'Group task timed out'),
+          deadline,
+        );
+
         // 5. Sync messages to store
         // Update main chat messages with latest taskDetail status (use messageContext for Group)
         const mainKey = messageMapKey(messageContext);
@@ -722,6 +757,7 @@ export const createGroupOrchestrationExecutors = (
           messageContext,
         );
         get().replaceMessages(messages, { context: messageContext });
+        publishTaskState({});
 
         // Update thread messages
         const threadKey = messageMapKey(subContext);
@@ -736,16 +772,31 @@ export const createGroupOrchestrationExecutors = (
         // 6. Execute using executeClientAgent (client-side with local tools access)
         log(`[${sessionLogId}] Starting client-side AgentRuntime execution`);
 
-        const runtimeResult = await get().executeClientAgent({
+        let runtimeResult = await get().executeClientAgent({
           context: subContext,
           messages: threadMessages,
           parentMessageId: userMessageId, // Use server-returned userMessageId
           parentMessageType: 'user',
-          operationId: taskOperationId,
-          parentOperationId: orchestrationOperationId,
+          parentOperationId: taskOperationId,
           isSubAgent: true, // Disable lobe-agent tool to prevent nested sub-agents
         });
 
+        if (runtimeResult?.status === 'waiting_for_human') {
+          publishTaskState({ status: ThreadStatus.InReview });
+          runtimeResult = await approval.result;
+        }
+
+        const taskOperation = get().operations[taskOperationId];
+        if (
+          abortController.signal.aborted ||
+          taskOperation?.status === 'failed' ||
+          (runtimeResult?.status && runtimeResult.status !== 'done')
+        ) {
+          const reason = abortController.signal.reason;
+          throw new Error(
+            typeof reason === 'string' ? reason : 'Group task was interrupted or failed',
+          );
+        }
         log(`[${sessionLogId}] Client-side AgentRuntime execution completed`);
 
         // 7. Get execution result from sub-task messages
@@ -779,7 +830,7 @@ export const createGroupOrchestrationExecutors = (
         );
 
         // 9. Update Thread status via API with metadata
-        await aiAgentService.updateClientTaskThreadStatus({
+        const saved = await aiAgentService.updateClientTaskThreadStatus({
           threadId,
           completionReason: 'done',
           resultContent,
@@ -789,6 +840,17 @@ export const createGroupOrchestrationExecutors = (
             totalTokens: usage?.llm?.tokens?.total,
             totalToolCalls,
           },
+        });
+
+        if (!saved.success) throw new Error('Unable to save local task completion');
+        publishTaskState({
+          completedAt: new Date().toISOString(),
+          duration: Date.now() - new Date(startedAt).getTime(),
+          status: ThreadStatus.Completed,
+          totalCost: cost?.total,
+          totalMessages: subTaskMessages.length,
+          totalTokens: usage?.llm?.tokens?.total,
+          totalToolCalls,
         });
 
         // 10. Complete operation
@@ -804,6 +866,26 @@ export const createGroupOrchestrationExecutors = (
         };
       } catch (error) {
         log(`[${sessionLogId}] Error executing client async task: ${error}`);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        const cancelled =
+          localTaskId && get().operations[localTaskId]?.abortController.signal.aborted;
+        if (localTaskId && !cancelled) {
+          get().failOperation(localTaskId, { message, type: 'GroupTaskError' });
+        }
+        publishTaskState({
+          completedAt: new Date().toISOString(),
+          error: { message },
+          status: cancelled ? ThreadStatus.Cancel : ThreadStatus.Failed,
+        });
+        if (localThreadId) {
+          await aiAgentService
+            .updateClientTaskThreadStatus({
+              completionReason: cancelled ? 'interrupted' : 'error',
+              error: message,
+              threadId: localThreadId,
+            })
+            .catch((failure) => log('Failed to persist task status: %O', failure));
+        }
         return {
           events: [] as GroupOrchestrationEvent[],
           newState: state,
@@ -816,6 +898,9 @@ export const createGroupOrchestrationExecutors = (
             type: 'task_completed',
           },
         };
+      } finally {
+        approval?.dispose();
+        clearTimeout(timer);
       }
     },
 
@@ -837,6 +922,25 @@ export const createGroupOrchestrationExecutors = (
     ): Promise<GroupOrchestrationExecutorOutput> => {
       const { tasks, toolMessageId } = (instruction as SupervisorInstructionBatchExecAsyncTasks)
         .payload;
+
+      if (context.preferLocal) {
+        const results = [];
+        for (const task of tasks) {
+          if (get().operations[orchestrationOperationId]?.abortController.signal.aborted) break;
+          // Each task writes a group snapshot. Run locally in order so a stale
+          // response cannot replace another local member's newly saved messages.
+          const output = await executors.exec_client_async_task!(
+            { payload: { ...task, toolMessageId }, type: 'exec_client_async_task' },
+            state,
+          );
+          if (output.result?.type === 'task_completed') results.push(output.result.payload);
+        }
+        return {
+          events: [],
+          newState: state,
+          result: { payload: { results }, type: 'tasks_completed' },
+        };
+      }
 
       const sessionLogId = `${state.operationId}:batch_exec_async_tasks`;
       log(`[${sessionLogId}] Executing ${tasks.length} async tasks in parallel`);
@@ -930,6 +1034,7 @@ export const createGroupOrchestrationExecutors = (
               instruction: tracker.instruction,
               parentMessageId: tracker.taskMessageId,
               title: tracker.title,
+              timeout: tracker.timeout,
               topicId,
             });
 
@@ -1113,4 +1218,5 @@ export const createGroupOrchestrationExecutors = (
       };
     },
   };
+  return executors;
 };

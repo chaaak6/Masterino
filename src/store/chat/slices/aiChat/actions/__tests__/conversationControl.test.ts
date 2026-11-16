@@ -567,6 +567,49 @@ describe('ConversationControl actions', () => {
       },
     );
 
+    it('resumes an approved group tool with the original conversation history', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const context: ConversationContext = {
+        agentId: 'supervisor',
+        groupId: 'group-under-test',
+        scope: 'group',
+        topicId: 'group-topic',
+      };
+      const key = messageMapKey(context);
+      const user = createMockMessage({ id: 'group-user', role: 'user' });
+      const tool = createMockMessage({
+        id: 'group-calculator',
+        plugin: {
+          apiName: 'calculate',
+          arguments: '{}',
+          identifier: 'calculator',
+          type: 'builtin',
+        },
+        role: 'tool',
+        tool_call_id: 'call-group-calculator',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeGroupId: 'another-group',
+          dbMessagesMap: { [key]: [user, tool] },
+          messagesMap: { [key]: [user, tool] },
+        });
+      });
+      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
+        state: {} as any,
+        context: { phase: 'init' } as any,
+        agentConfig: createMockResolvedAgentConfig(),
+      });
+      const execute = vi.spyOn(result.current, 'executeClientAgent').mockResolvedValue(undefined);
+
+      await result.current.approveToolCalling(tool.id, 'assistant-group', context);
+
+      expect(execute).toHaveBeenCalledWith(
+        expect.objectContaining({ context, messages: expect.arrayContaining([user, tool]) }),
+      );
+    });
+
     it('continues an approved assistant turn with the model persisted on that turn', async () => {
       const { result } = renderHook(() => useChatStore());
       const agentId = 'model-resume-agent';
