@@ -1,6 +1,5 @@
 import type { BuiltinToolManifest } from '@lobechat/types';
 
-import { isDesktop } from './const';
 import { systemPrompt } from './systemRole';
 import { GroupManagementApiName } from './types';
 
@@ -104,13 +103,6 @@ export const GroupManagementManifest: BuiltinToolManifest = {
               'Clear instruction describing the task to perform. Be specific about expected deliverables.',
             type: 'string',
           },
-          ...(isDesktop && {
-            runInClient: {
-              description:
-                'Whether to run on the desktop client (for local file/shell access). MUST be true when task requires local-system tools. Default is false (server execution).',
-              type: 'boolean',
-            },
-          }),
           timeout: {
             default: 1_800_000,
             description:
@@ -260,53 +252,6 @@ export const GroupManagementManifest: BuiltinToolManifest = {
     //     type: 'object',
     //   },
     // },
-    {
-      description:
-        'Initiate a vote among agents on a specific question or decision. Each agent provides their choice and reasoning.',
-      name: GroupManagementApiName.vote,
-      parameters: {
-        properties: {
-          question: {
-            description: 'The question or decision to vote on.',
-            type: 'string',
-          },
-          options: {
-            description: 'Array of voting options.',
-            items: {
-              properties: {
-                id: {
-                  description: 'Unique identifier for this option.',
-                  type: 'string',
-                },
-                label: {
-                  description: 'Display label for this option.',
-                  type: 'string',
-                },
-                description: {
-                  description: 'Optional description explaining this option.',
-                  type: 'string',
-                },
-              },
-              required: ['id', 'label'],
-              type: 'object',
-            },
-            type: 'array',
-          },
-          voterAgentIds: {
-            description: 'Array of agent IDs who should vote. If omitted, all group members vote.',
-            items: { type: 'string' },
-            type: 'array',
-          },
-          requireReasoning: {
-            default: true,
-            description: 'Whether agents must provide reasoning for their vote (default: true).',
-            type: 'boolean',
-          },
-        },
-        required: ['question', 'options'],
-        type: 'object',
-      },
-    },
   ],
   identifier: GroupManagementIdentifier,
   meta: {

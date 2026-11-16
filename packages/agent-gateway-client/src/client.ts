@@ -12,6 +12,7 @@ import type {
 
 const HEARTBEAT_INTERVAL = 30_000; // 30s
 const INITIAL_RECONNECT_DELAY = 1000; // 1s
+const RECOVERY_TIMEOUT = 45_000;
 const MAX_RECONNECT_DELAY = 30_000; // 30s
 const MAX_MISSED_HEARTBEATS = 3;
 const RESUME_FLUSH_DELAY = 500; // 500ms debounce after last resume event
@@ -64,6 +65,7 @@ class TypedEmitter {
 export class AgentStreamClient extends TypedEmitter {
   private ws: WebSocket | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private recoveryTimer?: ReturnType<typeof setTimeout>;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = INITIAL_RECONNECT_DELAY;
   private missedHeartbeats = 0;
@@ -174,6 +176,7 @@ export class AgentStreamClient extends TypedEmitter {
     this.intentionalDisconnect = false;
     this.sessionEnded = false;
     this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    this.startRecoveryTimer();
     this.doConnect();
   }
 
@@ -228,6 +231,7 @@ export class AgentStreamClient extends TypedEmitter {
 
       switch (message.type) {
         case 'auth_success': {
+          this.clearRecoveryTimer();
           this.setStatus('connected');
           this.startHeartbeat();
 
@@ -409,6 +413,7 @@ export class AgentStreamClient extends TypedEmitter {
 
   private scheduleReconnect(): void {
     this.clearReconnectTimer();
+    this.startRecoveryTimer();
 
     const delay = this.reconnectDelay;
     this.emit('reconnecting', delay);
@@ -420,6 +425,19 @@ export class AgentStreamClient extends TypedEmitter {
 
     // Exponential backoff: 1s → 2s → 4s → ... → 30s
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_RECONNECT_DELAY);
+  }
+
+  private startRecoveryTimer(): void {
+    this.recoveryTimer ??= setTimeout(() => {
+      this.cleanup();
+      this.setStatus('disconnected');
+      this.emit('recovery_exhausted');
+    }, RECOVERY_TIMEOUT);
+  }
+
+  private clearRecoveryTimer(): void {
+    clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = undefined;
   }
 
   private clearReconnectTimer(): void {
@@ -510,6 +528,7 @@ export class AgentStreamClient extends TypedEmitter {
 
   private cleanup(): void {
     this.stopHeartbeat();
+    this.clearRecoveryTimer();
     this.clearReconnectTimer();
     this.closeWebSocket();
     if (this.resumeFlushTimer) {

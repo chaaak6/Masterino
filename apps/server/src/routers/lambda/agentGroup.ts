@@ -51,6 +51,16 @@ const agentMemberInputSchema = z
 const agentGroupProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
   const wsId = ctx.workspaceId ?? undefined;
+  const membership = wsId
+    ? await ctx.serverDB.query.workspaceMembers.findFirst({
+        where: and(
+          eq(workspaceMembers.workspaceId, wsId),
+          eq(workspaceMembers.userId, ctx.userId),
+          isNull(workspaceMembers.deletedAt),
+        ),
+      })
+    : undefined;
+  if (wsId && !membership) throw new TRPCError({ code: 'FORBIDDEN' });
 
   return opts.next({
     ctx: {
@@ -60,13 +70,19 @@ const agentGroupProcedure = wsCompatProcedure.use(serverDatabase).use(async (opt
       chatGroupModel: new ChatGroupModel(ctx.serverDB, ctx.userId, wsId),
       editLockService: new EditLockService(ctx.userId),
       userModel: new UserModel(ctx.serverDB, ctx.userId),
+      groupWorkspaceRole: membership?.role,
     },
   });
 });
 
 // Write variant gates viewers out of chat-group mutations (create/update/
 // delete + member adds/removes). Reads keep the bare proc.
-const agentGroupProcedureWrite = agentGroupProcedure.use(withScopedPermission('agent:update'));
+const agentGroupProcedureWrite = agentGroupProcedure
+  .use(withScopedPermission('agent:update'))
+  .use(({ ctx, next }) => {
+    if (ctx.groupWorkspaceRole === 'viewer') throw new TRPCError({ code: 'FORBIDDEN' });
+    return next();
+  });
 
 const assertSafeAgentConfigs = (configs: readonly unknown[]): void => {
   try {
@@ -113,13 +129,18 @@ export const agentGroupRouter = router({
         virtual: true,
       }));
 
-      const createdAgents = await ctx.agentModel.batchCreate(agentConfigs);
-      const agentIds = createdAgents.map((agent) => agent.id);
-
-      // Add all agents to the group
-      await ctx.chatGroupModel.addAgentsToGroup(input.groupId, agentIds);
-
-      return { agentIds, agents: createdAgents };
+      return ctx.serverDB.transaction(async (db) => {
+        const group = new ChatGroupModel(db, ctx.userId, ctx.workspaceId ?? undefined);
+        if (!(await group.findById(input.groupId))) throw new TRPCError({ code: 'NOT_FOUND' });
+        const createdAgents = await new AgentModel(
+          db,
+          ctx.userId,
+          ctx.workspaceId ?? undefined,
+        ).batchCreate(agentConfigs);
+        const agentIds = createdAgents.map((agent) => agent.id);
+        await group.addAgentsToGroup(input.groupId, agentIds);
+        return { agentIds, agents: createdAgents };
+      });
     }),
 
   /**
@@ -194,29 +215,39 @@ export const agentGroupRouter = router({
         virtual: true,
       }));
 
-      const createdAgents = await ctx.agentModel.batchCreate(memberConfigs);
-      const memberAgentIds = createdAgents.map((agent) => agent.id);
+      return ctx.serverDB.transaction(async (db) => {
+        const createdAgents = await new AgentModel(
+          db,
+          ctx.userId,
+          ctx.workspaceId ?? undefined,
+        ).batchCreate(memberConfigs);
+        const memberAgentIds = createdAgents.map((agent) => agent.id);
 
-      // 2. Create group with supervisor and member agents
-      // Filter out null/undefined values from supervisorConfig
-      const supervisorConfig = input.supervisorConfig
-        ? Object.fromEntries(Object.entries(input.supervisorConfig).filter(([_, v]) => v != null))
-        : undefined;
+        // 2. Create group with supervisor and member agents
+        // Filter out null/undefined values from supervisorConfig
+        const supervisorConfig = input.supervisorConfig
+          ? Object.fromEntries(Object.entries(input.supervisorConfig).filter(([_, v]) => v != null))
+          : undefined;
 
-      const normalizedConfig = ctx.agentGroupService.normalizeGroupConfig(
-        input.groupConfig.config as ChatGroupConfig | null,
-      );
+        const normalizedConfig = ctx.agentGroupService.normalizeGroupConfig(
+          input.groupConfig.config as ChatGroupConfig | null,
+        );
 
-      const { group, supervisorAgentId } = await ctx.agentGroupRepo.createGroupWithSupervisor(
-        {
-          ...input.groupConfig,
-          config: normalizedConfig,
-        },
-        memberAgentIds,
-        supervisorConfig as any,
-      );
+        const { group, supervisorAgentId } = await new AgentGroupRepository(
+          db,
+          ctx.userId,
+          ctx.workspaceId ?? undefined,
+        ).createGroupWithSupervisor(
+          {
+            ...input.groupConfig,
+            config: normalizedConfig,
+          },
+          memberAgentIds,
+          supervisorConfig as any,
+        );
 
-      return { agentIds: memberAgentIds, groupId: group.id, supervisorAgentId };
+        return { agentIds: memberAgentIds, groupId: group.id, supervisorAgentId };
+      });
     }),
 
   deleteGroup: agentGroupProcedureWrite
@@ -295,29 +326,16 @@ export const agentGroupRouter = router({
     }));
   }),
 
-  /**
-   * Remove agents from a group.
-   * - Non-virtual agents are simply removed from the group (agent still exists)
-   * - Virtual agents are permanently deleted along with removal from group
-   *
-   * @param groupId - The group to remove agents from
-   * @param agentIds - Array of agent IDs to remove
-   * @param deleteVirtualAgents - Whether to delete virtual agents (default: true)
-   */
+  /** Unlink members while preserving conversation history. */
   removeAgentsFromGroup: agentGroupProcedureWrite
     .input(
       z.object({
         agentIds: z.array(z.string()),
-        deleteVirtualAgents: z.boolean().optional(),
         groupId: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      return ctx.agentGroupRepo.removeAgentsFromGroup(
-        input.groupId,
-        input.agentIds,
-        input.deleteVirtualAgents,
-      );
+      return ctx.agentGroupRepo.removeAgentsFromGroup(input.groupId, input.agentIds);
     }),
 
   transferGroup: agentGroupProcedureWrite

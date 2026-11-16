@@ -44,7 +44,15 @@ export class ChatGroupModel {
       })
       .from(chatGroupsAgents)
       .innerJoin(agents, eq(chatGroupsAgents.agentId, agents.id))
-      .where(inArray(chatGroupsAgents.chatGroupId, groupIds))
+      .innerJoin(chatGroups, eq(chatGroups.id, chatGroupsAgents.chatGroupId))
+      .where(
+        and(
+          inArray(chatGroupsAgents.chatGroupId, groupIds),
+          this.ownership(),
+          this.agentsOwnership(),
+          this.agentOwnership(),
+        ),
+      )
       .orderBy(chatGroupsAgents.order);
 
     for (const { avatar, backgroundColor, chatGroupId, slug } of rows) {
@@ -96,19 +104,24 @@ export class ChatGroupModel {
 
     const groupIds = groups.map((g) => g.id);
 
-    const groupAgents = await this.db.query.chatGroupsAgents.findMany({
-      where: and(inArray(chatGroupsAgents.chatGroupId, groupIds), this.agentsOwnership()),
-      with: { agent: true },
-    });
+    const groupAgents = await this.db
+      .select({ agent: agents, chatGroupId: chatGroupsAgents.chatGroupId })
+      .from(chatGroupsAgents)
+      .innerJoin(agents, eq(chatGroupsAgents.agentId, agents.id))
+      .where(
+        and(
+          inArray(chatGroupsAgents.chatGroupId, groupIds),
+          this.agentsOwnership(),
+          this.agentOwnership(),
+        ),
+      )
+      .orderBy(chatGroupsAgents.order);
 
-    const groupAgentMap = new Map<string, any[]>();
-
-    for (const groupAgent of groupAgents) {
-      if (!groupAgent.agent) continue;
-
-      const groupList = groupAgentMap.get(groupAgent.chatGroupId) || [];
-      groupList.push(groupAgent.agent);
-      groupAgentMap.set(groupAgent.chatGroupId, groupList);
+    const groupAgentMap = new Map<string, (typeof agents.$inferSelect)[]>();
+    for (const { agent, chatGroupId } of groupAgents) {
+      const groupList = groupAgentMap.get(chatGroupId) ?? [];
+      groupList.push(agent);
+      groupAgentMap.set(chatGroupId, groupList);
     }
 
     return groups.map((group) => ({
@@ -148,10 +161,24 @@ export class ChatGroupModel {
     return result;
   }
 
+  private agentOwnership = () =>
+    buildWorkspaceWhere({ userId: this.userId, workspaceId: this.workspaceId }, agents);
+
+  async assertAgentsInScope(agentIds: string[]): Promise<void> {
+    const ids = [...new Set(agentIds)];
+    if (!ids.length) return;
+    const found = await this.db
+      .select({ id: agents.id })
+      .from(agents)
+      .where(and(inArray(agents.id, ids), this.agentOwnership()));
+    if (found.length !== ids.length) throw new Error('Agent not found in this scope');
+  }
+
   async createWithAgents(
     groupParams: Omit<NewChatGroup, 'userId'>,
     agentIds: string[],
   ): Promise<{ agents: NewChatGroupAgent[]; group: ChatGroupItem }> {
+    await this.assertAgentsInScope(agentIds);
     const group = await this.create(groupParams);
 
     if (agentIds.length === 0) {
@@ -192,6 +219,8 @@ export class ChatGroupModel {
     agentId: string,
     options?: { order?: number; role?: string },
   ): Promise<NewChatGroupAgent> {
+    if (!(await this.findById(groupId))) throw new Error('Group not found');
+    await this.assertAgentsInScope([agentId]);
     const params: NewChatGroupAgent = {
       agentId,
       chatGroupId: groupId,
@@ -220,6 +249,8 @@ export class ChatGroupModel {
     const group = await this.findById(groupId);
     if (!group) throw new Error('Group not found');
 
+    agentIds = [...new Set(agentIds)];
+    await this.assertAgentsInScope(agentIds);
     const existingAgents = await this.getGroupAgents(groupId);
     const existingAgentIds = new Set(existingAgents.map((a) => a.agentId));
 

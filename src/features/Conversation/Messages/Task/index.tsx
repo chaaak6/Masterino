@@ -92,6 +92,7 @@ const TaskMessage = memo<TaskMessageProps>(({ id, index, disableEditing }) => {
           groupId={groupId}
           messageId={id}
           taskDetail={taskDetail}
+          topicId={item.topicId ?? undefined}
         />
       ) : (
         <TaskDetailPanel

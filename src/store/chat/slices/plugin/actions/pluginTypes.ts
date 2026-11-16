@@ -1,3 +1,4 @@
+import { isDesktop } from '@lobechat/const';
 import {
   type BuiltinToolResult,
   type ChatToolPayload,
@@ -201,7 +202,15 @@ export class PluginTypesActionImpl {
       }
 
       // Get group orchestration callbacks if available (for group management tools)
-      const groupOrchestration = this.#get().getGroupOrchestrationCallbacks?.();
+      const groupOrchestration =
+        groupId && topicId && payload.identifier === 'lobe-group-management'
+          ? this.#get().getGroupOrchestrationCallbacks({
+              executionContext,
+              groupId,
+              preferLocal: isDesktop,
+              topicId,
+            })
+          : undefined;
 
       // Sub-agent runner injected for sub-agent-spawning tools (lobe-agent.callSubAgent).
       // Runs the sub-agent in an isolated thread using the current client runtime

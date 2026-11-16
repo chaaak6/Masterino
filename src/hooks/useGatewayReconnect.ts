@@ -24,6 +24,7 @@ interface RunningOperation {
  * one reconnect attempt fires per op.
  */
 export const useGatewayReconnect = (
+  agentId: string,
   topicId: string | null | undefined,
   runningOperation: RunningOperation | null | undefined,
 ) => {
@@ -33,6 +34,7 @@ export const useGatewayReconnect = (
       if (!runningOperation || !topicId) return;
 
       await useChatStore.getState().reconnectToGatewayOperation({
+        agentId,
         assistantMessageId: runningOperation.assistantMessageId,
         operationId: runningOperation.operationId,
         scope: runningOperation.scope,

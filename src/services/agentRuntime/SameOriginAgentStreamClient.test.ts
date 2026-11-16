@@ -22,11 +22,11 @@ describe('same-origin device agent stream', () => {
     const event = vi.fn();
     const complete = vi.fn();
     client.on('agent_event', event);
-    client.on('session_complete', complete);
+    client.on('recovery_exhausted', complete);
     client.connect();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(fetchEventSource).toHaveBeenCalledTimes(3);
-    expect(event).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: 'error' }));
+    expect(event).not.toHaveBeenCalled();
     expect(complete).toHaveBeenCalledOnce();
     client.disconnect();
   });
@@ -39,7 +39,7 @@ describe('same-origin device agent stream', () => {
     });
     const client = new SameOriginAgentStreamClient('op', 'topic');
     const complete = vi.fn();
-    client.on('session_complete', complete);
+    client.on('recovery_exhausted', complete);
     client.connect();
     closes[0]();
     await vi.advanceTimersByTimeAsync(1000);
@@ -60,7 +60,7 @@ describe('same-origin device agent stream', () => {
     });
     const client = new SameOriginAgentStreamClient('op', 'topic');
     const complete = vi.fn();
-    client.on('session_complete', complete);
+    client.on('recovery_exhausted', complete);
     client.connect();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(fetchEventSource).toHaveBeenCalledTimes(3);

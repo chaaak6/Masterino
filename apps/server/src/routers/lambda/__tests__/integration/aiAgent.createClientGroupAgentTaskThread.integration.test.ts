@@ -3,6 +3,7 @@ import { type LobeChatDatabase } from '@lobechat/database';
 import {
   agents,
   chatGroups,
+  chatGroupsAgents,
   messages,
   sessions,
   threads,
@@ -89,6 +90,10 @@ describe('createClientGroupAgentTaskThread Integration', () => {
       })
       .returning();
     testGroupId = group.id;
+    await serverDB.insert(chatGroupsAgents).values([
+      { agentId: supervisorAgentId, chatGroupId: testGroupId, role: 'supervisor', userId },
+      { agentId: workerAgentId, chatGroupId: testGroupId, enabled: true, userId },
+    ]);
 
     // Create test topic
     const [topic] = await serverDB
@@ -126,6 +131,23 @@ describe('createClientGroupAgentTaskThread Integration', () => {
   const createTestContext = () => ({
     userId,
     jwtPayload: { userId },
+  });
+
+  it('does not start a task for a disabled group member', async () => {
+    await serverDB
+      .update(chatGroupsAgents)
+      .set({ enabled: false })
+      .where(eq(chatGroupsAgents.agentId, workerAgentId));
+    const caller = aiAgentRouter.createCaller(createTestContext());
+    await expect(
+      caller.createClientGroupAgentTaskThread({
+        groupId: testGroupId,
+        instruction: 'Return a test marker',
+        parentMessageId,
+        subAgentId: workerAgentId,
+        topicId: testTopicId,
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   describe('basic functionality', () => {

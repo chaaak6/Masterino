@@ -9,17 +9,18 @@ import {
 } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import debug from 'debug';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import pMap from 'p-map';
 import { z } from 'zod';
 
 import { withScopedPermission } from '@/business/server/trpc-middlewares/rbacPermission';
 import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceAuth';
+import { ChatGroupModel } from '@/database/models/chatGroup';
 import { MessageModel } from '@/database/models/message';
 import { TaskModel } from '@/database/models/task';
 import { ThreadModel } from '@/database/models/thread';
 import { TopicModel } from '@/database/models/topic';
-import { taskTopics, topics } from '@/database/schemas';
+import { taskTopics, topics, workspaceMembers } from '@/database/schemas';
 import { heteroAuthedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { AgentRuntimeService } from '@/server/services/agentRuntime';
@@ -455,6 +456,7 @@ const aiAgentProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) 
       heterogeneousAgentService: new HeterogeneousAgentService(ctx.serverDB, ctx.userId, {
         workspaceId: wsId,
       }),
+      groupModel: new ChatGroupModel(ctx.serverDB, ctx.userId, wsId),
       messageModel: new MessageModel(ctx.serverDB, ctx.userId, wsId),
       threadModel: new ThreadModel(ctx.serverDB, ctx.userId, wsId),
       topicModel: new TopicModel(ctx.serverDB, ctx.userId, wsId),
@@ -472,6 +474,60 @@ const aiAgentProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) 
 const heteroAgentProcedure = heteroAuthedProcedure.use(serverDatabase);
 const aiAgentWriteProcedure = aiAgentProcedure.use(withScopedPermission('message:create'));
 
+// Resolve the group, topic and parent in the same authorization scope before
+// creating a thread or launching a worker. A client-supplied id is not authority.
+const assertGroupTaskContext = async (
+  ctx: {
+    groupModel: ChatGroupModel;
+    messageModel: MessageModel;
+    serverDB: ConstructorParameters<typeof ChatGroupModel>[0];
+    topicModel: TopicModel;
+    userId: string;
+    workspaceId?: string | null;
+  },
+  {
+    groupId,
+    topicId,
+    parentMessageId,
+    agentId,
+  }: {
+    agentId: string;
+    groupId: string;
+    parentMessageId: string;
+    topicId: string;
+  },
+) => {
+  const workspaceId = ctx.workspaceId;
+  if (workspaceId) {
+    const membership = await ctx.serverDB.query.workspaceMembers.findFirst({
+      where: and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        eq(workspaceMembers.userId, ctx.userId),
+        isNull(workspaceMembers.deletedAt),
+      ),
+    });
+    if (!membership || membership.role === 'viewer') throw new TRPCError({ code: 'FORBIDDEN' });
+  }
+  const [group, topic, parent, members] = await Promise.all([
+    ctx.groupModel.findById(groupId),
+    ctx.topicModel.findById(topicId),
+    ctx.messageModel.findById(parentMessageId),
+    ctx.groupModel.getEnabledGroupAgents(groupId),
+  ]);
+  if (
+    !group ||
+    topic?.groupId !== groupId ||
+    parent?.groupId !== groupId ||
+    parent.topicId !== topicId ||
+    !members.some((member) => member.agentId === agentId && member.role !== 'supervisor')
+  ) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Group task context not found' });
+  }
+  await ctx.groupModel.assertAgentsInScope([agentId]).catch(() => {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Group member not found' });
+  });
+};
+
 export const aiAgentRouter = router({
   /**
    * Create Thread for client-side task execution in Group mode
@@ -486,6 +542,7 @@ export const aiAgentRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { groupId, instruction, parentMessageId, subAgentId, title, topicId } = input;
 
+      await assertGroupTaskContext(ctx, { agentId: subAgentId, groupId, parentMessageId, topicId });
       log('createClientGroupAgentTaskThread: subAgentId=%s, groupId=%s', subAgentId, groupId);
 
       try {
@@ -881,6 +938,8 @@ export const aiAgentRouter = router({
         timeout,
       } = input;
 
+      if (groupId)
+        await assertGroupTaskContext(ctx, { agentId, groupId, parentMessageId, topicId });
       log('execSubAgentTask: agentId=%s, groupId=%s', agentId, groupId);
 
       try {

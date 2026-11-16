@@ -1,6 +1,5 @@
 import type { AgentStreamClientEvents, AgentStreamEvent } from '@lobechat/agent-gateway-client';
 import { fetchEventSource } from '@lobechat/utils/client';
-import { t } from 'i18next';
 
 import { aiAgentService } from '@/services/aiAgent';
 
@@ -120,38 +119,29 @@ export class SameOriginAgentStreamClient {
       // A transport failure is recoverable. Only an exhausted subscription is a task/UI error.
       onerror: () => {},
       signal: controller.signal,
-    }).finally(() => {
-      if (this.stopped || this.terminal || this.controller !== controller) return;
-      resetIfHealthy();
-      this.recoveryStartedAt ??= Date.now();
-      this.failedConnections += 1;
-      if (this.expireRecovery()) return;
-      this.emit('status_changed', 'reconnecting');
-      this.emit('reconnecting', this.retryDelay);
-      this.retry = setTimeout(() => this.open(), this.retryDelay);
-      this.retryDelay = Math.min(30_000, this.retryDelay * 2);
-    });
+    })
+      .catch(() => {
+        // Recovery is handled in finally; avoid a rejected fire-and-forget promise.
+      })
+      .finally(() => {
+        if (this.stopped || this.terminal || this.controller !== controller) return;
+        resetIfHealthy();
+        this.recoveryStartedAt ??= Date.now();
+        this.failedConnections += 1;
+        if (this.expireRecovery()) return;
+        this.emit('status_changed', 'reconnecting');
+        this.emit('reconnecting', this.retryDelay);
+        this.retry = setTimeout(() => this.open(), this.retryDelay);
+        this.retryDelay = Math.min(30_000, this.retryDelay * 2);
+      });
   }
 
   private expireRecovery(): boolean {
     if (this.failedConnections < 3 && Date.now() - (this.recoveryStartedAt ?? Date.now()) < 30_000)
       return false;
     this.terminal = true;
-    this.emit('agent_event', {
-      data: {
-        message: t('streamRecoveryExpired', {
-          ns: 'error',
-          defaultValue:
-            'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
-        }),
-        type: 'AgentStreamError',
-      },
-      operationId: this.operationId,
-      stepIndex: 0,
-      timestamp: Date.now(),
-      type: 'error',
-    });
-    this.emit('session_complete');
+    this.emit('status_changed', 'disconnected');
+    this.emit('recovery_exhausted');
     return true;
   }
 
