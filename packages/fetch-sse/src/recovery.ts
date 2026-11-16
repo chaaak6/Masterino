@@ -33,6 +33,7 @@ export const getRetryDelay = (error: ChatMessageError, response?: Response): num
         };
       }
     | undefined;
+  if (error.type === 'upstream_timeout') return;
   const upstream = body?.error;
   const status =
     upstream?.status ?? upstream?.statusCode ?? upstream?.cause?.status ?? response?.status;

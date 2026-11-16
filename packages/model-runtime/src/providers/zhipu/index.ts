@@ -5,8 +5,7 @@ import {
   type OpenAICompatibleFactoryOptions,
 } from '../../core/openaiCompatibleFactory';
 import { resolveParameters } from '../../core/parameterResolver';
-import { OpenAIStream } from '../../core/streams/openai';
-import { convertIterableToStream } from '../../core/streams/protocol';
+import { OpenAIStream, toOpenAIChatCompletionReadableStream } from '../../core/streams/openai';
 import { getModelMaxOutputs } from '../../utils/getModelMaxOutputs';
 import { MODEL_LIST_CONFIGS, processModelList } from '../../utils/modelParse';
 import { createZhipuImage } from './createImage';
@@ -117,9 +116,8 @@ export const params = {
         tools: zhipuTools,
       } as any;
     },
-    handleStream: (stream, { callbacks, inputStartAt, payload }) => {
-      const readableStream =
-        stream instanceof ReadableStream ? stream : convertIterableToStream(stream);
+    handleStream: (stream, options) => {
+      const readableStream = toOpenAIChatCompletionReadableStream(stream, options);
 
       // GLM-4.5 series models return index -1 in tool_calls, needs to be fixed before entering OpenAIStream
       // because OpenAIStream internally filters out tool_calls with index < 0 (openai.ts:58-60)
@@ -168,11 +166,7 @@ export const params = {
         }),
       );
 
-      return OpenAIStream(preprocessedStream, {
-        callbacks,
-        inputStartAt,
-        payload,
-      });
+      return OpenAIStream(preprocessedStream, options);
     },
   },
   createImage: createZhipuImage,

@@ -11,7 +11,8 @@
       | success        | completed | 1        |
       | eof-recovery   | completed | 2        |
       | reset-recovery | completed | 2        |
-      | always-eof     | failed    | 3        |
+      | always-eof     | failed    | 2        |
+      | partial-eof    | failed    | 1        |
       | transient      | completed | 3        |
       | rate-limit     | completed | 2        |
       | unauthorized   | failed    | 1        |
@@ -51,7 +52,7 @@
     假如打开使用生产运行状态的隔离测试 App
     当运行 "always-eof" 网络场景
     那么自动恢复期间消息与停止按钮同时保持运行
-    并且运行结果为 "failed" 且请求次数为 3
+    并且运行结果为 "failed" 且请求次数为 2
     并且消息加载与发送按钮同时结束
 
   场景: 离线恢复后继续当前模型调用
