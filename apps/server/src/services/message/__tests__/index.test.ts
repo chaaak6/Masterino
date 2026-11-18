@@ -348,13 +348,13 @@ describe('MessageService', () => {
       expect(mockMessageModel.query).toHaveBeenCalledWith(
         {
           agentId: 'agent-1',
-          current: 0,
           groupId: undefined,
           pageSize: 9999,
           threadId: undefined,
           topicId: undefined,
         },
         expect.objectContaining({
+          complete: false,
           postProcessUrl: expect.any(Function),
         }),
       );
@@ -383,13 +383,12 @@ describe('MessageService', () => {
       expect(mockMessageModel.query).toHaveBeenCalledWith(
         {
           agentId: 'agent-1',
-          current: 0,
           groupId: 'group-1',
-          pageSize: 9999,
           threadId: undefined,
           topicId: 'topic-1',
         },
         expect.objectContaining({
+          complete: true,
           postProcessUrl: expect.any(Function),
         }),
       );
@@ -418,13 +417,12 @@ describe('MessageService', () => {
       expect(mockMessageModel.query).toHaveBeenCalledWith(
         {
           agentId: 'agent-1',
-          current: 0,
           groupId: 'group-1',
-          pageSize: 9999,
           threadId: 'thread-1',
           topicId: 'topic-1',
         },
         expect.objectContaining({
+          complete: true,
           postProcessUrl: expect.any(Function),
         }),
       );
