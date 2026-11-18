@@ -397,60 +397,46 @@ export const messageCRUDSlice: StateCreator<
 
   // ===== Update Content ===== //
   updateMessageContent: async (id, content, extra) => {
-    const { internal_dispatchMessage, replaceMessages, context } = get();
-
-    // Optimistic update
-    if (extra?.tools) {
-      internal_dispatchMessage({
-        id,
-        type: 'updateMessage',
-        value: { tools: extra.tools },
+    const { internal_dispatchMessage, context } = get();
+    const value = {
+      content,
+      editorData: extra?.editorData,
+      imageList: extra?.imageList,
+      metadata: extra?.metadata,
+      model: extra?.model,
+      provider: extra?.provider,
+      reasoning: extra?.reasoning,
+      search: extra?.search,
+      tools: extra?.tools,
+    };
+    internal_dispatchMessage({ id, type: 'updateMessage', value });
+    const expected = dataSelectors.getDbMessageById(id)(get());
+    const result = await messageService.updateMessage(id, value, context, {
+      returnUpdatedMessage: true,
+    });
+    if (!result?.success) throw new Error('Message update was not committed');
+    if (result.message) {
+      get().internal_dispatchMessage({
+        expected,
+        type: 'acknowledgeMessage',
+        value: result.message,
       });
-    } else {
-      internal_dispatchMessage({
-        id,
-        type: 'updateMessage',
-        value: { content, editorData: extra?.editorData },
-      });
-    }
-
-    // Persist to database
-    const result = await messageService.updateMessage(
-      id,
-      {
-        content,
-        editorData: extra?.editorData,
-        imageList: extra?.imageList,
-        metadata: extra?.metadata,
-        model: extra?.model,
-        provider: extra?.provider,
-        reasoning: extra?.reasoning,
-        search: extra?.search,
-        tools: extra?.tools,
-      },
-      context,
-    );
-
-    if (result?.success && result.messages) {
-      replaceMessages(result.messages);
     }
   },
 
   updateMessageError: async (id, error) => {
-    const { internal_dispatchMessage, replaceMessages, context } = get();
-
-    // Optimistic update
-    internal_dispatchMessage({
-      id,
-      type: 'updateMessage',
-      value: { error },
+    const { internal_dispatchMessage, context } = get();
+    internal_dispatchMessage({ id, type: 'updateMessage', value: { error } });
+    const expected = dataSelectors.getDbMessageById(id)(get());
+    const result = await messageService.updateMessage(id, { error }, context, {
+      returnUpdatedMessage: true,
     });
-
-    // Persist to database
-    const result = await messageService.updateMessage(id, { error }, context);
-
-    if (result?.success && result.messages) {
-      replaceMessages(result.messages);
+    if (result?.success && result.message) {
+      get().internal_dispatchMessage({
+        expected,
+        type: 'acknowledgeMessage',
+        value: result.message,
+      });
     }
   },
 

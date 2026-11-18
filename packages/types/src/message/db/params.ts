@@ -56,6 +56,8 @@ export interface CreateMessageResult {
  * Contains success status and optional message list
  */
 export interface UpdateMessageResult {
+  /** Single persisted record returned to callers that request an acknowledgement. */
+  message?: UIChatMessage;
   /**
    * Updated message list (only present when success is true and sessionId/topicId provided)
    */

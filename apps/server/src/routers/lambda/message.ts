@@ -333,6 +333,7 @@ export const messageRouter = router({
       const fileService = new FileService(ctx.serverDB, ctx.userId, wsId);
 
       return messageModel.query(queryParams, {
+        complete: Boolean(queryParams.topicId),
         postProcessUrl: (path, file) => fileService.getFileAccessUrl({ id: file.id, url: path }),
       });
     }),
@@ -445,12 +446,13 @@ export const messageRouter = router({
       z
         .object({
           id: z.string(),
+          returnUpdatedMessage: z.boolean().optional(),
           value: UpdateMessageParamsSchema,
         })
         .extend(basicContextSchema.shape),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, value, agentId, ...options } = input;
+      const { id, value, agentId, returnUpdatedMessage, ...options } = input;
       const timingContext = { requestId: createTimingRequestId(), startedAt: Date.now() };
       logTiming(timingContext, 'lambda.message.update:start', {
         hasAgentId: !!agentId,
@@ -475,11 +477,16 @@ export const messageRouter = router({
         timingContext,
         'lambda.message.update.service',
         () =>
-          ctx.messageService.updateMessage(id, value as any, {
-            ...resolved,
-            timingRequestId: timingContext.requestId,
-            timingStartedAt: timingContext.startedAt,
-          }),
+          ctx.messageService.updateMessage(
+            id,
+            value as any,
+            {
+              ...resolved,
+              timingRequestId: timingContext.requestId,
+              timingStartedAt: timingContext.startedAt,
+            },
+            { returnUpdatedMessage },
+          ),
         { hasResolvedTopicId: !!resolved.topicId },
       );
 

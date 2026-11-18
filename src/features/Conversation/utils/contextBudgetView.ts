@@ -111,6 +111,7 @@ export interface BuildContextBudgetErrorViewModelOptions {
 }
 
 export const CONTEXT_BUDGET_FAIL_CODES: readonly ContextBudgetFailCode[] = [
+  'DUPLICATE_REQUEST',
   'NO_CANDIDATES',
   'RETRY_EXHAUSTED',
   'SUMMARY_FAILED',
@@ -380,6 +381,9 @@ const getActionMatrix = (
     order.filter((action) => offered.has(action)).map(enabled);
 
   switch (decision.code) {
+    case 'DUPLICATE_REQUEST': {
+      return [];
+    }
     case 'TAIL_TOO_LARGE': {
       const base: ContextBudgetAction[] = ['detach_attachments', 'switch_model', 'fork_topic'];
       if (largestSource === 'tool-result') base.unshift('truncate_tool_results');
@@ -420,6 +424,9 @@ const getHintKeys = (
   largestSource?: ContextBudgetOffendingSource,
 ): ContextBudgetTranslationKey[] => {
   switch (code) {
+    case 'DUPLICATE_REQUEST': {
+      return [];
+    }
     case 'TAIL_TOO_LARGE': {
       return moveToFront(
         [
@@ -455,6 +462,7 @@ const NOTE_KEYS: Partial<Record<ContextBudgetFailCode, ContextBudgetTranslationK
 
 /** RETRY_EXHAUSTED means history was already compressed once, so "untouched" would be a false claim. */
 const ORIGINALS_PRESERVED: Record<ContextBudgetFailCode, boolean> = {
+  DUPLICATE_REQUEST: true,
   NO_CANDIDATES: true,
   RETRY_EXHAUSTED: false,
   SUMMARY_FAILED: true,

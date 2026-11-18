@@ -88,6 +88,8 @@ import { recomputeTopicUsage } from './topicUsage';
  * Options for querying messages with relations
  */
 export interface QueryMessagesOptions {
+  compactSummaries?: boolean;
+  skipMessageGroups?: boolean;
   /**
    * Current page number (0-indexed)
    */
@@ -370,7 +372,7 @@ export class MessageModel {
     {
       agentId,
       current = 0,
-      pageSize = 1000,
+      pageSize: requestedPageSize,
       sessionId,
       topicId,
       groupId,
@@ -381,9 +383,12 @@ export class MessageModel {
         path: string | null,
         file: { fileType: string; id?: string | null },
       ) => Promise<string>;
+      compactSummaries?: boolean;
+      complete?: boolean;
       timing?: ModelTimingContext;
     } = {},
   ) => {
+    const pageSize = requestedPageSize ?? 1000;
     const queryStartedAt = Date.now();
     const timing = options.timing;
     logTiming(timing, 'db.message.query:start', {
@@ -395,6 +400,11 @@ export class MessageModel {
       hasTopicId: !!topicId,
       pageSize,
     });
+
+    const read = (query: QueryMessagesOptions) =>
+      options.complete && current === 0 && requestedPageSize === undefined
+        ? this.queryConversationPages({ ...query, compactSummaries: options.compactSummaries })
+        : this.queryWithWhere(query);
 
     // Build agent condition (handles legacy sessionId lookup)
     let agentCondition: SQL | undefined;
@@ -417,7 +427,7 @@ export class MessageModel {
         () => this.buildThreadQueryCondition(threadId),
         { hasThreadId: true },
       );
-      const messageItems = await this.queryWithWhere({
+      const messageItems = await read({
         current,
         pageSize,
         postProcessUrl: options.postProcessUrl,
@@ -442,7 +452,7 @@ export class MessageModel {
         this.matchThread(threadId),
       );
 
-      const messageItems = await this.queryWithWhere({
+      const messageItems = await read({
         current,
         pageSize,
         postProcessUrl: options.postProcessUrl,
@@ -465,7 +475,7 @@ export class MessageModel {
       this.matchThread(threadId),
     );
 
-    const messageItems = await this.queryWithWhere({
+    const messageItems = await read({
       current,
       pageSize,
       postProcessUrl: options.postProcessUrl,
@@ -495,8 +505,71 @@ export class MessageModel {
    * @param options - Query options including where condition and pagination
    * @returns Messages with all related data, including MessageGroup nodes
    */
+  private async queryConversationPages(options: QueryMessagesOptions): Promise<UIChatMessage[]> {
+    const pages: UIChatMessage[][] = [];
+    const pageSize = 500;
+    let cursor: { createdAt: string; id: string } | undefined;
+    const scope = and(this.ownership(), isNull(messages.messageGroupId), options.where);
+
+    for (;;) {
+      // Keep PostgreSQL's full timestamp precision. The cursor remains valid
+      // even if the anchor message gets deleted between batches.
+      const ids: { createdAt: string; id: string }[] = await this.db
+        .select({ createdAt: sql<string>`${messages.createdAt}::text`, id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            scope,
+            cursor &&
+              sql`(${messages.createdAt}, ${messages.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id})`,
+          ),
+        )
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(pageSize);
+      if (!ids.length) break;
+
+      const page = await this.queryWithWhere({
+        ...options,
+        pageSize,
+        skipMessageGroups: true,
+        where: and(
+          options.where,
+          inArray(
+            messages.id,
+            ids.map(({ id }) => id),
+          ),
+        ),
+      });
+      pages.push(page);
+      if (ids.length < pageSize) break;
+      cursor = ids.at(-1);
+    }
+
+    const rows = pages.reverse().flat();
+    if (!options.topicId) return rows;
+    const groups = await this.queryMessageGroupNodes(
+      options.topicId,
+      undefined,
+      options.postProcessUrl,
+      options.timing,
+      options.compactSummaries,
+    );
+    const combined = options.compactSummaries ? [...groups, ...rows] : [...rows, ...groups];
+    return combined.sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+  }
+
   queryWithWhere = async (options: QueryMessagesOptions = {}): Promise<UIChatMessage[]> => {
-    const { where, current = 0, pageSize = 1000, postProcessUrl, topicId, timing } = options;
+    const {
+      current = 0,
+      pageSize = 1000,
+      postProcessUrl,
+      skipMessageGroups,
+      timing,
+      topicId,
+      where,
+    } = options;
     const totalStartedAt = Date.now();
     const offset = current * pageSize;
 
@@ -570,7 +643,7 @@ export class MessageModel {
           .leftJoin(messagePlugins, eq(messagePlugins.id, messages.id))
           .leftJoin(messageTranslates, eq(messageTranslates.id, messages.id))
           .leftJoin(messageTTS, eq(messageTTS.id, messages.id))
-          .orderBy(asc(messages.createdAt))
+          .orderBy(asc(messages.createdAt), asc(messages.id))
           .limit(pageSize)
           .offset(offset),
       { current, pageSize },
@@ -579,13 +652,15 @@ export class MessageModel {
 
     const messageIds = result.map((message) => message.id as string);
 
-    const messageGroupNodesPromise = this.queryMessageGroupNodesForPage({
-      current,
-      postProcessUrl,
-      result,
-      timing,
-      topicId,
-    });
+    const messageGroupNodesPromise = skipMessageGroups
+      ? Promise.resolve([])
+      : this.queryMessageGroupNodesForPage({
+          current,
+          postProcessUrl,
+          result,
+          timing,
+          topicId,
+        });
 
     const taskMessageIds = result
       .filter((message) => message.role === 'task')
@@ -962,6 +1037,30 @@ export class MessageModel {
       }),
     );
 
+  async queryToolResults(
+    assistantMessageId: string,
+    toolCallIds: string[],
+    postProcessUrl?: QueryMessagesOptions['postProcessUrl'],
+  ): Promise<UIChatMessage[]> {
+    if (!toolCallIds.length) return [];
+    const records = await this.db
+      .select({ id: messages.id })
+      .from(messages)
+      .innerJoin(messagePlugins, eq(messagePlugins.id, messages.id))
+      .where(
+        and(
+          this.ownership(),
+          eq(messages.parentId, assistantMessageId),
+          eq(messages.role, 'tool'),
+          inArray(messagePlugins.toolCallId, toolCallIds),
+        ),
+      );
+    return this.queryByIds(
+      records.map(({ id }) => id),
+      { postProcessUrl },
+    );
+  }
+
   /**
    * Query messages by their IDs with full relations
    *
@@ -1255,6 +1354,7 @@ export class MessageModel {
       file: { fileType: string; id?: string | null },
     ) => Promise<string>,
     timing?: ModelTimingContext,
+    compactSummaries = false,
   ): Promise<UIChatMessage[]> => {
     // 1. Query MessageGroups for this topic, optionally filtered by time range
     const whereConditions = [
@@ -1292,7 +1392,7 @@ export class MessageModel {
       if (!group.description) return true;
       try {
         const metadata = JSON.parse(group.description) as CompressionGroupMetadata;
-        return metadata.compressionStatus !== 'failed';
+        return metadata.compressionStatus !== 'failed' && !metadata.stagedSources;
       } catch {
         return true;
       }
@@ -1309,25 +1409,95 @@ export class MessageModel {
       () =>
         this.db
           .select({
+            createdAt: messages.createdAt,
             favorite: messages.favorite,
+            hasToolCalls: sql<boolean>`case
+              when jsonb_typeof(${messages.tools}) = 'array' then jsonb_array_length(${messages.tools}) > 0
+              else false
+            end`,
             id: messages.id,
             messageGroupId: messages.messageGroupId,
+            parentId: messages.parentId,
+            role: messages.role,
+            updatedAt: messages.updatedAt,
           })
           .from(messages)
           .where(and(this.ownership(), inArray(messages.messageGroupId, groupIds)))
-          .orderBy(asc(messages.createdAt)),
+          .orderBy(asc(messages.createdAt), asc(messages.id)),
       { groupCount: groupIds.length },
     );
     logTiming(timing, 'db.message.messageGroups.messages.select:rows', {
       rowCount: groupMessageRecords.length,
     });
 
+    // A verified linear prefix can be represented by its summary alone.
+    // Keep the legacy projection for UI reads, where original bodies are needed.
+    let compactGroupId: string | undefined;
+    if (
+      compactSummaries &&
+      groups.length === 1 &&
+      groups[0].type === MessageGroupType.Compression
+    ) {
+      const group = groups[0];
+      let coverage: CompressionGroupMetadata['coverage'];
+      try {
+        coverage = group.description ? JSON.parse(group.description).coverage : undefined;
+      } catch {
+        // Older group descriptions may contain free text.
+      }
+      const orderedIds = groupMessageRecords.map(({ id }) => id as string);
+      const end = orderedIds.at(-1);
+      const completePrefix =
+        coverage &&
+        Array.isArray(coverage.ids) &&
+        coverage.ids.length === orderedIds.length &&
+        groupMessageRecords.at(-1)?.role === 'assistant' &&
+        !groupMessageRecords.at(-1)?.hasToolCalls &&
+        groupMessageRecords.every(
+          (row, index) =>
+            row.id === coverage.ids[index] &&
+            (row.parentId ?? null) === (orderedIds[index - 1] ?? null) &&
+            row.updatedAt.toISOString() === coverage.updatedAt,
+        );
+
+      if (end && completePrefix) {
+        // A sibling rooted inside the covered prefix makes it unsafe to reuse
+        // the summary without resolving which alternative was selected.
+        const [outsidePath] = await this.db
+          .select({ id: messages.id })
+          .from(messages)
+          .where(
+            and(
+              this.ownership(),
+              eq(messages.topicId, topicId),
+              isNull(messages.threadId),
+              isNull(messages.messageGroupId),
+              or(isNull(messages.parentId), inArray(messages.parentId, orderedIds.slice(0, -1))),
+            ),
+          )
+          .limit(1);
+        if (!outsidePath) compactGroupId = group.id;
+      }
+    }
+
     // 3. Query full message data using queryByIds (reuses all transformation logic)
-    const allMessageIds = groupMessageRecords.map((m) => m.id as string);
+    const allMessageIds = groupMessageRecords
+      .filter((row) => row.messageGroupId !== compactGroupId || row.favorite)
+      .map((row) => row.id as string);
     const fullMessages = await runTimedStage(
       timing,
       'db.message.messageGroups.queryByIds',
-      () => this.queryByIds(allMessageIds, { postProcessUrl }),
+      async () => {
+        const rows: UIChatMessage[] = [];
+        for (let offset = 0; offset < allMessageIds.length; offset += 500) {
+          rows.push(
+            ...(await this.queryByIds(allMessageIds.slice(offset, offset + 500), {
+              postProcessUrl,
+            })),
+          );
+        }
+        return rows;
+      },
       { messageCount: allMessageIds.length },
     );
 
@@ -1336,7 +1506,7 @@ export class MessageModel {
     const favoriteMap = new Map(groupMessageRecords.map((m) => [m.id, m.favorite]));
 
     // 4. Build MessageGroup nodes
-    return groups.map((group) => {
+    return groups.flatMap((group) => {
       // Get messages for this group
       const groupMsgIds = groupMessageRecords
         .filter((m) => m.messageGroupId === group.id)
@@ -1347,6 +1517,7 @@ export class MessageModel {
         .filter(Boolean) as UIChatMessage[];
 
       if (group.type === MessageGroupType.Compression) {
+        if (compactSummaries && group.id !== compactGroupId) return groupMsgs;
         // compressedGroup: extract pinnedMessages (favorite=true)
         const pinnedMessages = groupMsgIds
           .filter((id) => favoriteMap.get(id) === true)
@@ -1376,7 +1547,8 @@ export class MessageModel {
         return {
           compressedMessages,
           content: group.content,
-          createdAt: group.createdAt,
+          createdAt:
+            group.id === compactGroupId ? groupMessageRecords.at(-1)!.createdAt : group.createdAt,
           id: group.id,
           lastMessageId,
           metadata: group.metadata,

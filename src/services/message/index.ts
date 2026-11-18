@@ -125,9 +125,11 @@ export class MessageService {
     id: string,
     value: Partial<UpdateMessageParams>,
     ctx?: MessageQueryContext,
+    response?: { returnUpdatedMessage: true },
   ): Promise<UpdateMessageResult> => {
     return lambdaClient.message.update.mutate({
       ...ctx,
+      ...response,
       id,
       value,
     });
