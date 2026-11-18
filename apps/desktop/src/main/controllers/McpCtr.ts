@@ -230,9 +230,16 @@ export default class McpCtr extends ControllerModule {
   private async createDeviceLocalClient(config: DeviceLocalMcpConfig, name: string) {
     if (this.app.isQuiting) throw new Error('Application is shutting down');
     const parsed = localConfigSchema.safeParse(config);
-    if (!parsed.success) throw new Error('Enter a valid local MCP executable and arguments');
+    if (!parsed.success || !parsed.data.command)
+      throw new Error('Enter a valid local MCP executable and arguments');
 
-    const client = new MCPClient({ ...parsed.data, name, type: 'stdio' });
+    const client = new MCPClient({
+      args: parsed.data.args ?? [],
+      command: parsed.data.command,
+      env: parsed.data.env,
+      name,
+      type: 'stdio',
+    });
     try {
       await client.initialize();
       return client;
