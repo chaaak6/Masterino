@@ -436,6 +436,7 @@ export class GeneralChatAgent implements Agent {
         payload.messages,
         runtimeInput,
         this.findExistingSummary(payload.messages),
+        payload.parentMessageId,
       );
     }
     if (evaluation.decision.kind === 'fail') {

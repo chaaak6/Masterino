@@ -52,6 +52,7 @@ import {
   isNull,
   lte,
   not,
+  notInArray,
   or,
   sql,
 } from 'drizzle-orm';
@@ -319,10 +320,10 @@ const readToolLifecycle = (metadata: unknown): StoredToolLifecycleMetadata | und
 
 export class MessageModel {
   private userId: string;
-  private db: LobeChatDatabase;
+  private db: LobeChatDatabase | Transaction;
   private workspaceId?: string;
 
-  constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
+  constructor(db: LobeChatDatabase | Transaction, userId: string, workspaceId?: string) {
     this.userId = userId;
     this.db = db;
     this.workspaceId = workspaceId;
@@ -403,7 +404,14 @@ export class MessageModel {
 
     const read = (query: QueryMessagesOptions) =>
       options.complete && current === 0 && requestedPageSize === undefined
-        ? this.queryConversationPages({ ...query, compactSummaries: options.compactSummaries })
+        ? this.db.transaction(
+            (transaction) =>
+              new MessageModel(transaction, this.userId, this.workspaceId).queryConversationPages({
+                ...query,
+                compactSummaries: options.compactSummaries,
+              }),
+            { accessMode: 'read only', isolationLevel: 'repeatable read' },
+          )
         : this.queryWithWhere(query);
 
     // Build agent condition (handles legacy sessionId lookup)
@@ -1430,40 +1438,54 @@ export class MessageModel {
       rowCount: groupMessageRecords.length,
     });
 
-    // A verified linear prefix can be represented by its summary alone.
-    // Keep the legacy projection for UI reads, where original bodies are needed.
-    let compactGroupId: string | undefined;
-    if (
-      compactSummaries &&
-      groups.length === 1 &&
-      groups[0].type === MessageGroupType.Compression
-    ) {
-      const group = groups[0];
-      let coverage: CompressionGroupMetadata['coverage'];
-      try {
-        coverage = group.description ? JSON.parse(group.description).coverage : undefined;
-      } catch {
-        // Older group descriptions may contain free text.
-      }
-      const orderedIds = groupMessageRecords.map(({ id }) => id as string);
-      const end = orderedIds.at(-1);
-      const completePrefix =
-        coverage &&
-        Array.isArray(coverage.ids) &&
-        coverage.ids.length === orderedIds.length &&
-        groupMessageRecords.at(-1)?.role === 'assistant' &&
-        !groupMessageRecords.at(-1)?.hasToolCalls &&
-        groupMessageRecords.every(
+    const groupRecords = new Map<string, (typeof groupMessageRecords)[number][]>();
+    for (const record of groupMessageRecords) {
+      if (!record.messageGroupId) continue;
+      const members = groupRecords.get(record.messageGroupId) ?? [];
+      members.push(record);
+      groupRecords.set(record.messageGroupId, members);
+    }
+
+    // Keep every verified prefix shared by the selected continuation. When an
+    // edit or an alternate child makes a later group ambiguous, load its originals.
+    const compactGroupIds = new Set<string>();
+    if (compactSummaries) {
+      let boundary: string | null = null;
+      for (const group of groups) {
+        if (group.type !== MessageGroupType.Compression) continue;
+        const members = groupRecords.get(group.id) ?? [];
+        const orderedIds = members.map(({ id }) => id as string);
+        const first = members[0];
+        const last = members.at(-1);
+        if (
+          !first ||
+          !last ||
+          first.parentId !== boundary ||
+          first.role !== 'user' ||
+          last.role !== 'assistant' ||
+          last.hasToolCalls
+        )
+          continue;
+
+        let coverage: CompressionGroupMetadata['coverage'];
+        try {
+          coverage = group.description ? JSON.parse(group.description).coverage : undefined;
+        } catch {
+          continue;
+        }
+        if (!coverage || !Array.isArray(coverage.ids) || coverage.ids.length !== members.length)
+          continue;
+        const verified = members.every(
           (row, index) =>
             row.id === coverage.ids[index] &&
-            (row.parentId ?? null) === (orderedIds[index - 1] ?? null) &&
+            row.parentId === (index === 0 ? boundary : orderedIds[index - 1]) &&
             row.updatedAt.toISOString() === coverage.updatedAt,
         );
+        if (!verified) continue;
 
-      if (end && completePrefix) {
-        // A sibling rooted inside the covered prefix makes it unsafe to reuse
-        // the summary without resolving which alternative was selected.
-        const [outsidePath] = await this.db
+        // At the boundary, a sibling may lead to a different answer. Shared
+        // ancestors remain compact while the ambiguous suffix is read normally.
+        const [alternate] = await this.db
           .select({ id: messages.id })
           .from(messages)
           .where(
@@ -1471,18 +1493,23 @@ export class MessageModel {
               this.ownership(),
               eq(messages.topicId, topicId),
               isNull(messages.threadId),
-              isNull(messages.messageGroupId),
-              or(isNull(messages.parentId), inArray(messages.parentId, orderedIds.slice(0, -1))),
+              notInArray(messages.id, orderedIds),
+              or(
+                boundary ? eq(messages.parentId, boundary) : isNull(messages.parentId),
+                inArray(messages.parentId, orderedIds.slice(0, -1)),
+              ),
             ),
           )
           .limit(1);
-        if (!outsidePath) compactGroupId = group.id;
+        if (alternate) continue;
+        compactGroupIds.add(group.id);
+        boundary = last.id;
       }
     }
 
     // 3. Query full message data using queryByIds (reuses all transformation logic)
     const allMessageIds = groupMessageRecords
-      .filter((row) => row.messageGroupId !== compactGroupId || row.favorite)
+      .filter((row) => !compactGroupIds.has(row.messageGroupId ?? '') || row.favorite)
       .map((row) => row.id as string);
     const fullMessages = await runTimedStage(
       timing,
@@ -1508,16 +1535,16 @@ export class MessageModel {
     // 4. Build MessageGroup nodes
     return groups.flatMap((group) => {
       // Get messages for this group
-      const groupMsgIds = groupMessageRecords
-        .filter((m) => m.messageGroupId === group.id)
-        .map((m) => m.id as string);
+      const members = groupRecords.get(group.id) ?? [];
+      const groupMsgIds = members.map((m) => m.id as string);
 
       const groupMsgs = groupMsgIds
         .map((id) => messageMap.get(id))
         .filter(Boolean) as UIChatMessage[];
 
       if (group.type === MessageGroupType.Compression) {
-        if (compactSummaries && group.id !== compactGroupId) return groupMsgs;
+        const compact = compactGroupIds.has(group.id);
+        if (compactSummaries && !compact) return groupMsgs;
         // compressedGroup: extract pinnedMessages (favorite=true)
         const pinnedMessages = groupMsgIds
           .filter((id) => favoriteMap.get(id) === true)
@@ -1547,11 +1574,11 @@ export class MessageModel {
         return {
           compressedMessages,
           content: group.content,
-          createdAt:
-            group.id === compactGroupId ? groupMessageRecords.at(-1)!.createdAt : group.createdAt,
+          createdAt: compact ? members.at(-1)!.createdAt : group.createdAt,
           id: group.id,
           lastMessageId,
           metadata: group.metadata,
+          ...(compact && { parentId: members[0].parentId }),
           pinnedMessages,
           role: 'compressedGroup',
           topicId: group.topicId,
@@ -2815,15 +2842,18 @@ export class MessageModel {
   };
 
   updateMessagePlugin = async (id: string, value: Partial<MessagePluginItem>) => {
-    const item = await this.db.query.messagePlugins.findFirst({
-      where: and(eq(messagePlugins.id, id), this.pluginsOwnership()),
-    });
-    if (!item) throw new Error('Plugin not found');
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(messages)
+        .set({ updatedAt: new Date() })
+        .where(and(eq(messages.id, id), this.ownership()));
 
-    return this.db
-      .update(messagePlugins)
-      .set(value)
-      .where(and(eq(messagePlugins.id, id), this.pluginsOwnership()));
+      const scope = and(eq(messagePlugins.id, id), this.pluginsOwnership());
+      const item = await tx.query.messagePlugins.findFirst({ where: scope });
+      if (!item) throw new Error('Plugin not found');
+
+      return tx.update(messagePlugins).set(value).where(scope);
+    });
   };
 
   /**

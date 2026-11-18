@@ -2303,6 +2303,9 @@ export const createRuntimeExecutors = (
             topicId,
           },
         );
+        const sourceById = new Map(
+          compressionGroup.messagesToSummarize.map((message) => [message.id, message]),
+        );
         const compressionQuery = {
           agentId: state.metadata?.agentId,
           threadId: state.metadata?.threadId,
@@ -2347,7 +2350,7 @@ export const createRuntimeExecutors = (
                     }) as UIChatMessage,
                 ),
               ),
-            candidateIds: evaluation.partition.candidateIds,
+            candidateIds: persistedCandidateIds,
             createSummaryMessage: (summary, candidateIds, groupId) => {
               finalSummary = summary;
               return {
@@ -2381,7 +2384,8 @@ export const createRuntimeExecutors = (
               countContextTokens({ messages: (request.messages ?? []) as UIChatMessage[] })
                 .adjustedTotal,
             messages: payload.messages as UIChatMessage[],
-            renderMessage: renderMessageForCompression,
+            renderMessage: (message) =>
+              renderMessageForCompression(sourceById.get(message.id) ?? message),
             summarize: async (request) => {
               let summary = '';
               let summaryError: unknown;
@@ -3260,10 +3264,13 @@ export const createRuntimeExecutors = (
     const { payload } = instruction as AgentInstructionCompressContext;
     const { messages, currentTokenCount } = payload;
     const budgetPayload = payload as AgentInstructionCompressContext['payload'] & {
+      candidateIds?: string[];
       catalogSnapshot?: ModelCatalogSnapshot;
       observedWindowTokens?: number;
       outputReserveTokens?: number;
+      parentMessageId?: string;
       payloadFingerprint?: string;
+      preservedIds?: string[];
       providerMedia?: unknown[];
       sentPayloadFingerprints?: readonly string[];
       trigger?: 'final-preflight' | 'manual' | 'provider-error' | 'threshold';
@@ -3274,14 +3281,21 @@ export const createRuntimeExecutors = (
     const events: AgentEvent[] = [];
     const newState = structuredClone(state);
     const topicId = state.metadata?.topicId;
-    const lastMessage = messages.at(-1);
-    const preservedMessages =
-      messages.length > 1 && lastMessage?.role === 'user' ? [lastMessage] : [];
-    const preservedMessageIds = new Set(
-      preservedMessages.map((message) => message.id).filter((id): id is string => Boolean(id)),
+    const parentMessageId = budgetPayload.parentMessageId ?? messages.at(-1)?.id;
+    const protectedIds = new Set(budgetPayload.preservedIds);
+    const candidates = budgetPayload.candidateIds ? new Set(budgetPayload.candidateIds) : undefined;
+    const currentTurnStart = messages.findLastIndex((message) => message.role === 'user');
+    const messagesToCompress = messages.filter(
+      (message, index) =>
+        message.id &&
+        message.role !== 'compressedGroup' &&
+        message.role !== 'system' &&
+        !protectedIds.has(message.id) &&
+        (candidates
+          ? candidates.has(message.id)
+          : currentTurnStart < 0 || index < currentTurnStart),
     );
-    const messagesToCompress = preservedMessages.length > 0 ? messages.slice(0, -1) : messages;
-    const compressedMessagesFallback = [...messagesToCompress, ...preservedMessages];
+    const compressedMessagesFallback = messages;
     const inputMeasurement = countContextTokens({ messages, tools: state.tools });
     const payloadFingerprint =
       budgetPayload.payloadFingerprint || inputMeasurement.payloadFingerprint;
@@ -3306,7 +3320,7 @@ export const createRuntimeExecutors = (
       compressedMessages: params.compressedMessages,
       groupId: params.groupId ?? '',
       outcome: 'skipped' as const,
-      parentMessageId: params.parentMessageId,
+      parentMessageId: params.parentMessageId ?? parentMessageId,
       payloadFingerprint,
       skipped: true,
       trigger: compressionTrigger,
@@ -3324,7 +3338,7 @@ export const createRuntimeExecutors = (
       compressedMessages: params.compressedMessages,
       groupId: params.groupId ?? '',
       outcome: 'failed' as const,
-      parentMessageId: params.parentMessageId,
+      parentMessageId: params.parentMessageId ?? parentMessageId,
       payloadFingerprint,
       trigger: compressionTrigger,
     });
@@ -3383,24 +3397,21 @@ export const createRuntimeExecutors = (
     }
 
     try {
-      const dbMessages = await ctx.messageModel.query(
-        {
-          agentId: state.metadata?.agentId,
-          threadId: state.metadata?.threadId,
-          topicId,
-        },
-        { postProcessUrl: buildPostProcessUrl(ctx) },
-      );
-
-      const messageIds = dbMessages
-        .filter(
-          (message) =>
-            message.role !== 'compressedGroup' &&
-            Boolean(message.id) &&
-            !preservedMessageIds.has(message.id),
-        )
-        .map((message) => message.id);
-
+      const messageIds = [
+        ...new Set(
+          messagesToCompress.flatMap((message) => {
+            const members =
+              message.role === 'assistantGroup' && message.children?.length
+                ? message.children
+                : [message];
+            return members.flatMap((member) =>
+              [member.id, ...(member.tools ?? []).map((tool) => tool.result_msg_id)].filter(
+                (id): id is string => Boolean(id),
+              ),
+            );
+          }),
+        ),
+      ];
       if (messageIds.length === 0 || messagesToCompress.length === 0) {
         return {
           events,
@@ -3420,7 +3431,6 @@ export const createRuntimeExecutors = (
         };
       }
 
-      const latestAssistantMessage = dbMessages.findLast((message) => message.role === 'assistant');
       const messageService = new MessageService(
         ctx.serverDB,
         ctx.userId,
@@ -3454,7 +3464,7 @@ export const createRuntimeExecutors = (
               ...failedCompressionPayload({
                 compressedMessages: compressedMessagesFallback,
                 groupId: compressionResult.messageGroupId,
-                parentMessageId: latestAssistantMessage?.id,
+                parentMessageId,
               }),
             } as GeneralAgentCompressionResultPayload,
             phase: 'compression_result',
@@ -3579,34 +3589,29 @@ export const createRuntimeExecutors = (
         );
       }
 
-      const finalCompression = await messageService.finalizeCompression(
-        compressionResult.messageGroupId,
-        summaryContent,
-        {
-          agentId: state.metadata?.agentId,
-          threadId: state.metadata?.threadId,
-          topicId,
-        },
-      );
+      await messageService.finalizeCompression(compressionResult.messageGroupId, summaryContent, {
+        agentId: state.metadata?.agentId,
+        threadId: state.metadata?.threadId,
+        topicId,
+      });
       pendingCompression = undefined;
 
-      const compressedMessagesBase =
-        finalCompression.messages || compressionResult.messagesToSummarize;
-      const compressedMessages = [...compressedMessagesBase];
-
-      for (const preservedMessage of preservedMessages) {
-        if (
-          !compressedMessages.some(
-            (message) =>
-              message === preservedMessage ||
-              (Boolean(message.id) &&
-                Boolean(preservedMessage.id) &&
-                message.id === preservedMessage.id),
-          )
-        ) {
-          compressedMessages.push(preservedMessage);
+      const summarized = new Set(messagesToCompress.map((message) => message.id));
+      const firstCovered = messagesToCompress[0];
+      const compressedMessages = messages.flatMap((message) => {
+        if (message.id === firstCovered.id) {
+          return [
+            {
+              content: summaryContent,
+              createdAt: message.createdAt,
+              id: compressionResult.messageGroupId,
+              role: 'compressedGroup' as const,
+              updatedAt: message.updatedAt,
+            },
+          ];
         }
-      }
+        return summarized.has(message.id) ? [] : [message];
+      });
 
       newState.messages = compressedMessages;
 
@@ -3625,7 +3630,7 @@ export const createRuntimeExecutors = (
 
       events.push({
         groupId: compressionResult.messageGroupId,
-        parentMessageId: latestAssistantMessage?.id,
+        parentMessageId,
         type: 'compression_complete',
       });
 
@@ -3661,7 +3666,7 @@ export const createRuntimeExecutors = (
             compressedMessages,
             groupId: compressionResult.messageGroupId,
             outcome: 'compressed',
-            parentMessageId: latestAssistantMessage?.id,
+            parentMessageId,
             payloadFingerprint,
             trigger: compressionTrigger,
           } as GeneralAgentCompressionResultPayload,

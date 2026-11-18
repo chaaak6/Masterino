@@ -421,6 +421,30 @@ describe('MessageService Integration Tests', () => {
   });
 
   describe('finalizeCompression', () => {
+    it('keeps the source messages when cancellation and publication overlap', async () => {
+      const topicId = 'compression-cancel';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values({
+        content: 'Original text',
+        id: 'compression-cancel-source',
+        role: 'user',
+        topicId,
+        userId,
+      });
+      const service = new MessageService(serverDB, userId);
+      const staged = await service.createCompressionGroup(topicId, ['compression-cancel-source']);
+      await Promise.allSettled([
+        service.finalizeCompression(staged.messageGroupId, 'Summary', {
+          agentId: 'unused',
+          topicId,
+        }),
+        service.cancelCompression(staged.messageGroupId, { topicId }),
+      ]);
+      expect(await service.queryMessages({ topicId })).toEqual([
+        expect.objectContaining({ content: 'Original text', id: 'compression-cancel-source' }),
+      ]);
+    });
+
     it('uses a verified prefix with the latest 80 originals and falls back after an edit', async () => {
       const topicId = 'compressed-long-conversation';
       const id = (index: number) => `long-prefix-${String(index).padStart(4, '0')}`;

@@ -1603,12 +1603,8 @@ export class ConversationLifecycleActionImpl {
         messageIds,
         topicId,
       });
-      const { messageGroupId, messages: serverMessages, messagesToSummarize } = result;
+      const { messageGroupId, messagesToSummarize } = result;
       persistedCompressionGroupId = messageGroupId;
-
-      // Replace local pending group with server compression group
-      this.#get().replaceMessages(serverMessages, { context: context as any });
-      this.#get().associateMessageWithOperation(messageGroupId, operationId);
 
       // 2. Generate summary via LLM
       const agentConfig = agentSelectors.getAgentConfigById(agentId)(getAgentStoreState());
@@ -1623,7 +1619,7 @@ export class ConversationLifecycleActionImpl {
           if (chunk.type === 'text') {
             summaryContent += chunk.text || '';
             this.#get().internal_dispatchMessage(
-              { id: messageGroupId, type: 'updateMessage', value: { content: summaryContent } },
+              { id: tempId, type: 'updateMessage', value: { content: summaryContent } },
               { operationId },
             );
           }
