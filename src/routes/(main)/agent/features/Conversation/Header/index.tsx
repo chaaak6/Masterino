@@ -11,6 +11,7 @@ import { agentByIdSelectors, chatConfigByIdSelectors } from '@/store/agent/selec
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
 import { useElectronStore } from '@/store/electron';
+import { buildDraftConversationKey, useProjectWorkspaceStore } from '@/store/projectWorkspace';
 
 import HeaderActions from './HeaderActions';
 import ShareButton from './ShareButton';
@@ -51,6 +52,25 @@ const Header = memo(() => {
   const isLocalSystemEnabled = useAgentStore((s) =>
     agentId ? chatConfigByIdSelectors.isLocalSystemEnabledById(agentId)(s) : false,
   );
+  const draftKey = useChatStore((s) =>
+    s.activeTopicId ? undefined : buildDraftConversationKey({ agentId, groupId: s.activeGroupId }),
+  );
+  // Read the existing draft cache without running workspace queries or binding a topic.
+  const draftFolderPath = useProjectWorkspaceStore((s) => {
+    if (!draftKey || !currentDeviceId) return;
+    const draft = s.draftByConversationKey[draftKey];
+    if (
+      !draft ||
+      draft.targetDeviceId !== currentDeviceId ||
+      (draft.target !== 'local' && draft.target !== 'device')
+    ) {
+      return;
+    }
+
+    if (!draft.workspaceId) return draft.legacyWorkingDirectory;
+    const workspace = s.workspacesById[draft.workspaceId];
+    return workspace?.deviceId === currentDeviceId ? workspace.rootPath : undefined;
+  });
   const effectiveWorkingDirectory = topicWorkingDirectory || agentWorkingDirectory || '';
 
   return (
@@ -77,7 +97,10 @@ const Header = memo(() => {
             style={{ backgroundColor: cssVar.colorBgContainer }}
           >
             {isLocalSystemEnabled && (
-              <OpenInAppButton workingDirectory={effectiveWorkingDirectory} />
+              <OpenInAppButton
+                draftFolderPath={draftFolderPath}
+                workingDirectory={effectiveWorkingDirectory}
+              />
             )}
             <ShareButton />
             <WorkingPanelToggle />

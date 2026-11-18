@@ -155,7 +155,13 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack, onFinish }) => {
     const selectedTemplateIds = [...selected];
     trackOnboardingMarketplacePicked({ categoryHints, requestId, selectedTemplateIds });
     try {
-      const result = await installMarketplaceAgents(selectedTemplateIds);
+      const onboardingAvatars = new Map<string, string>();
+      for (const template of allTemplates) {
+        if (selected.has(template.id) && template.avatar) {
+          onboardingAvatars.set(template.id, template.avatar);
+        }
+      }
+      const result = await installMarketplaceAgents(selectedTemplateIds, onboardingAvatars);
       const coveredCount = result.installedAgentIds.length + result.skippedAgentIds.length;
       if (coveredCount !== selectedTemplateIds.length || result.failures.length > 0) {
         setInstallFailures(
@@ -189,7 +195,7 @@ const AgentPickerStep = memo<AgentPickerStepProps>(({ onBack, onFinish }) => {
       return;
     }
     await finish('continue', selectedTemplateIds.length);
-  }, [categoryHints, finish, requestId, selected, t]);
+  }, [allTemplates, categoryHints, finish, requestId, selected, t]);
 
   const handleBack = useCallback(() => {
     if (pendingRef.current) return;

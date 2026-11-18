@@ -29,6 +29,7 @@ const { ipcMainHandleMock } = vi.hoisted(() => ({
 
 // Mock electron
 vi.mock('electron', () => ({
+  app: { getPath: () => '/Applications/Masterino.app', name: 'Masterino' },
   BrowserWindow: {
     getAllWindows: vi.fn(() => []),
   },
@@ -396,7 +397,7 @@ describe('AuthCtr', () => {
                     data: {
                       payload: {
                         code: 'mock-auth-code',
-                        state: 'mock-random-2', // Second randomBytes call is for state
+                        state: 'lobehub.mock-random-2', // Second randomBytes call is for state
                       },
                     },
                   }),
@@ -465,7 +466,7 @@ describe('AuthCtr', () => {
                   data: {
                     payload: {
                       code: 'mock-auth-code',
-                      state: 'mock-random-2', // Second randomBytes call is for state
+                      state: 'lobehub.mock-random-2', // Second randomBytes call is for state
                     },
                   },
                 }),
@@ -568,7 +569,7 @@ describe('AuthCtr', () => {
                   data: {
                     payload: {
                       code: 'mock-auth-code',
-                      state: 'mock-random-2', // Second randomBytes call is for state
+                      state: 'lobehub.mock-random-2', // Second randomBytes call is for state
                     },
                   },
                 }),
@@ -634,7 +635,7 @@ describe('AuthCtr', () => {
           return Promise.resolve({
             json: () =>
               Promise.resolve({
-                data: { payload: { code: 'authorization-code', state: 'mock-random-2' } },
+                data: { payload: { code: 'authorization-code', state: 'lobehub.mock-random-2' } },
                 success: true,
               }),
             ok: true,
@@ -788,7 +789,7 @@ describe('AuthCtr', () => {
           return Promise.resolve({
             json: () =>
               Promise.resolve({
-                data: { payload: { code: 'old-code', state: 'mock-random-2' } },
+                data: { payload: { code: 'old-code', state: 'lobehub.mock-random-2' } },
                 success: true,
               }),
             ok: true,
@@ -846,7 +847,7 @@ describe('AuthCtr', () => {
           return Promise.resolve({
             json: () =>
               Promise.resolve({
-                data: { payload: { code: 'old-code', state: 'mock-random-2' } },
+                data: { payload: { code: 'old-code', state: 'lobehub.mock-random-2' } },
                 success: true,
               }),
             ok: true,
@@ -1216,7 +1217,7 @@ describe('AuthCtr', () => {
             json: () =>
               Promise.resolve({
                 data: {
-                  payload: { code: 'handoff-code', state: 'mock-random-2' },
+                  payload: { code: 'handoff-code', state: 'lobehub.mock-random-2' },
                 },
                 success: true,
               }),
@@ -1275,7 +1276,7 @@ describe('AuthCtr', () => {
             return Promise.resolve({
               json: () =>
                 Promise.resolve({
-                  data: { payload: { code: 'handoff-code', state: 'mock-random-2' } },
+                  data: { payload: { code: 'handoff-code', state: 'lobehub.mock-random-2' } },
                   success: true,
                 }),
               ok: true,
@@ -1443,7 +1444,7 @@ describe('AuthCtr', () => {
                 data: {
                   payload: {
                     code: 'authorization-code',
-                    state: 'mock-random-4', // Matches second request's state (3rd and 4th randomBytes calls)
+                    state: 'lobehub.mock-random-4', // Matches second request's state (3rd and 4th randomBytes calls)
                   },
                 },
               }),

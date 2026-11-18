@@ -46,7 +46,7 @@ describe('WorkspaceChip', () => {
       />,
     );
 
-    expect(screen.getByText('/projects/acme')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-chip')).toHaveTextContent('/projects/acme');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
@@ -71,7 +71,7 @@ describe('WorkspaceChip', () => {
       />,
     );
 
-    expect(screen.getByText('/projects/acme')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-chip')).toHaveTextContent('/projects/acme');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });
