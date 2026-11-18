@@ -38,6 +38,12 @@ export const callConnectorToolById = async (
   if (!connector.isEnabled) {
     throw new ConnectorToolCallError('FORBIDDEN', 'Connector is disabled');
   }
+  if (connector.mcpConnectionType === 'stdio') {
+    throw new ConnectorToolCallError(
+      'BAD_REQUEST',
+      'Run STDIO tools on the device with the MCP server installed',
+    );
+  }
 
   // The tool MUST be present in the synced list — this is the single source of
   // truth for what is callable. Unknown names (unsynced or hand-crafted) are
