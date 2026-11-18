@@ -1,3 +1,4 @@
+import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import {
   type BuiltinToolResult,
   type ChatToolPayload,
@@ -445,7 +446,19 @@ export class PluginTypesActionImpl {
       abortController?.signal.aborted,
     );
 
+    let executionContext: ExecutionContext | undefined;
+    if (isDeviceLocalMcpIdentifier(payload.identifier)) {
+      let current = operation;
+      while (current && !executionContext) {
+        executionContext = current.metadata.executionContext;
+        current = current.parentOperationId
+          ? this.#get().operations[current.parentOperationId]
+          : undefined;
+      }
+    }
+
     const result = await mcpService.invokeMcpToolCall(payload, {
+      ...(executionContext && { executionContext }),
       signal: signal ?? abortController?.signal,
       topicId: message?.topicId,
     });

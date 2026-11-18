@@ -1,11 +1,13 @@
+import { isDesktop } from '@lobechat/const';
 import { Button, DropdownMenu, Flexbox, Icon, Text } from '@lobehub/ui';
-import { ChevronDown, FileArchive, Grid2x2Plus, Link, PenLine } from 'lucide-react';
+import { ChevronDown, FileArchive, Grid2x2Plus, Link, Monitor, PenLine } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CustomConnectorModal } from '@/features/Connectors';
 import { usePermission } from '@/hooks/usePermission';
 
+import DeviceLocalMcpModal from './DeviceLocalMcpModal';
 import ImportFromUrlModal from './ImportFromUrlModal';
 import UploadSkillModal from './UploadSkillModal';
 
@@ -21,6 +23,7 @@ const MenuLabel = ({ desc, title }: { desc: string; title: ReactNode }) => (
 const AddSkillButton = () => {
   const { t } = useTranslation('setting');
   const [showMcpModal, setMcpModal] = useState(false);
+  const [showDeviceLocalMcp, setDeviceLocalMcp] = useState(false);
   const [showUrlModal, setUrlModal] = useState(false);
   const [showUploadModal, setUploadModal] = useState(false);
   const { allowed: canCreate } = usePermission('create_content');
@@ -33,6 +36,7 @@ const AddSkillButton = () => {
       }}
     >
       <CustomConnectorModal open={showMcpModal} onClose={() => setMcpModal(false)} />
+      {showDeviceLocalMcp && <DeviceLocalMcpModal onClose={() => setDeviceLocalMcp(false)} />}
       <ImportFromUrlModal open={showUrlModal} onOpenChange={setUrlModal} />
       <UploadSkillModal open={showUploadModal} onOpenChange={setUploadModal} />
       <DropdownMenu
@@ -70,6 +74,19 @@ const AddSkillButton = () => {
               setMcpModal(true);
             },
           },
+          ...(isDesktop
+            ? [
+                {
+                  disabled: !canCreate || !canEdit,
+                  icon: <Icon icon={Monitor} />,
+                  key: 'deviceLocalMcp',
+                  label: t('deviceLocalMcp.title'),
+                  onClick: () => {
+                    if (canCreate && canEdit) setDeviceLocalMcp(true);
+                  },
+                },
+              ]
+            : []),
         ]}
       >
         <Button disabled={!canCreate} icon={Grid2x2Plus}>

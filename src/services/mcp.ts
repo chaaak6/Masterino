@@ -1,8 +1,10 @@
 import { CURRENT_VERSION, isDesktop } from '@lobechat/const';
+import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import {
   type ChatToolPayload,
   type CheckMcpInstallResult,
   type CustomPluginMetadata,
+  type ExecutionContext,
 } from '@lobechat/types';
 import { isLocalOrPrivateUrl, safeParseJSON } from '@lobechat/utils';
 import { type PluginManifest } from '@lobehub/market-sdk';
@@ -13,6 +15,7 @@ import { type MCPToolCallResult } from '@/libs/mcp';
 import { toolsClient } from '@/libs/trpc/client';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
+import { callDeviceLocalMcp } from './deviceLocalMcp';
 import { discoverService } from './discover';
 
 /**
@@ -33,8 +36,18 @@ function calculateObjectSizeBytes(obj: any): number {
 class MCPService {
   async invokeMcpToolCall(
     payload: ChatToolPayload,
-    { signal, topicId }: { signal?: AbortSignal; topicId?: string },
+    {
+      executionContext,
+      signal,
+      topicId,
+    }: { executionContext?: ExecutionContext; signal?: AbortSignal; topicId?: string },
   ) {
+    if (isDeviceLocalMcpIdentifier(payload.identifier)) {
+      const { getUserStoreState } = await import('@/store/user/store');
+      const { isSignedIn, user } = getUserStoreState();
+      return callDeviceLocalMcp(payload, executionContext, isSignedIn ? user?.id : undefined);
+    }
+
     await discoverService.safeInjectMPToken();
 
     const { pluginSelectors } = await import('@/store/tool/selectors');

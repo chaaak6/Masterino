@@ -1,5 +1,6 @@
 import type {
   DataSyncConfig,
+  DeviceLocalMcpServer,
   ImessageBridgeConfig,
   NetworkProxySettings,
   UpdateChannel,
@@ -10,6 +11,11 @@ export interface ElectronMainStore {
   appTrayVisible: boolean;
   autoDownloadUpdates: boolean;
   dataSyncConfig: DataSyncConfig;
+  deviceLocalMcpServers: Array<{
+    encryptedConfig: string;
+    scope: string;
+    server: DeviceLocalMcpServer;
+  }>;
   encryptedTokens: {
     accessToken?: string;
     expiresAt?: number;

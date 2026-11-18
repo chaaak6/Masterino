@@ -28,6 +28,7 @@ import {
   type MessageMetadata,
   type RunSubAgentResult,
   type RuntimeInitialContext,
+  type ToolManifest,
   type UIChatMessage,
   type WorkingModel,
 } from '@lobechat/types';
@@ -51,6 +52,7 @@ import { isCanUseVideo } from '@/services/chat/helper';
 import { type ResolvedAgentConfig } from '@/services/chat/mecha';
 import { composeEnabledTools, resolveAgentConfig } from '@/services/chat/mecha';
 import { resolveClientSkills } from '@/services/chat/mecha/skillEngineering';
+import { getDeviceLocalMcpManifests } from '@/services/deviceLocalMcp';
 import { localFileService } from '@/services/electron/localFileService';
 import { messageService } from '@/services/message';
 import { scanOperationWorkspace } from '@/services/operationWorkspaceScan';
@@ -158,6 +160,7 @@ export class StreamingExecutorActionImpl {
     messages,
     parentMessageId,
     agentId: paramAgentId,
+    deviceLocalMcpManifests,
     disableTools,
     topicId: paramTopicId,
     threadId,
@@ -172,6 +175,7 @@ export class StreamingExecutorActionImpl {
     messages: UIChatMessage[];
     parentMessageId: string;
     agentId?: string;
+    deviceLocalMcpManifests?: ToolManifest[];
     disableTools?: boolean;
     topicId?: string | null;
     threadId?: string;
@@ -279,6 +283,7 @@ export class StreamingExecutorActionImpl {
     const runtimePluginIds = [
       ...new Set([
         ...(pluginIds || []),
+        ...(deviceLocalMcpManifests?.map(({ identifier }) => identifier) ?? []),
         ...(hasTopicReference ? ['lobe-topic-reference'] : []),
         ...(shouldEnableVisualUnderstanding ? [LobeAgentManifest.identifier] : []),
       ]),
@@ -342,6 +347,7 @@ export class StreamingExecutorActionImpl {
       effectivePluginIds,
       executionContext,
       agentConfigData,
+      ...(deviceLocalMcpManifests?.length ? [deviceLocalMcpManifests] : []),
     );
     // When skillActivateMode is 'manual':
     // Exclude only discovery tools (activator, skill-store) so runtime-managed defaults
@@ -745,6 +751,16 @@ export class StreamingExecutorActionImpl {
       // Step 1: Create Agent State (resolves config once)
       // ===========================================
       // agentConfig already has isSubAgent filtering applied and is passed to callLLM executor
+      const { isSignedIn, user } = getUserStoreState();
+      const deviceLocalMcpManifests = disableTools
+        ? undefined
+        : await getDeviceLocalMcpManifests(
+            frozenExecutionContext,
+            isSignedIn ? user?.id : undefined,
+          ).catch((error) => {
+            log('Could not load device-local MCP tools: %s', (error as Error).message);
+            return [];
+          });
       const {
         state: initialAgentState,
         context: initialAgentContext,
@@ -754,6 +770,7 @@ export class StreamingExecutorActionImpl {
         messages,
         parentMessageId: params.parentMessageId,
         agentId,
+        deviceLocalMcpManifests,
         disableTools,
         topicId,
         threadId: threadId ?? undefined,
