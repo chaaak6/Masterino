@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DecryptedConnector } from '@/database/models/connector';
 import type { ConnectorCredentials } from '@/database/schemas';
+import { mcpService } from '@/server/services/mcp';
 
-import { buildConnectorMcpParams, buildHttpAuthFromCredentials } from './sync';
+import {
+  buildConnectorMcpParams,
+  buildHttpAuthFromCredentials,
+  type ConnectorToolSyncContext,
+  syncConnectorToolsById,
+} from './sync';
 
 const httpConnector = (credentials: ConnectorCredentials | null): DecryptedConnector =>
   ({
@@ -17,6 +23,65 @@ const httpConnector = (credentials: ConnectorCredentials | null): DecryptedConne
     name: 'My Connector',
     oidcConfig: null,
   }) as any;
+
+describe('syncConnectorToolsById', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const setup = (connector: DecryptedConnector) => {
+    const findById = vi.fn().mockResolvedValue(connector);
+    const updateStatus = vi.fn().mockResolvedValue(undefined);
+    const upsertMany = vi.fn().mockResolvedValue(undefined);
+    const context = {
+      connectorModel: { findById, updateStatus },
+      connectorToolModel: { upsertMany },
+    };
+    const listRawTools = vi.spyOn(mcpService, 'listRawTools').mockResolvedValue([]);
+    return {
+      context: context as unknown as ConnectorToolSyncContext,
+      listRawTools,
+      updateStatus,
+      upsertMany,
+    };
+  };
+
+  const localConnector: DecryptedConnector = {
+    ...httpConnector(null),
+    mcpConnectionType: 'stdio',
+    mcpServerUrl: null,
+    mcpStdioConfig: { args: ['--mcp'], command: '/path/on/the/workstation' },
+  };
+  const localTools = [{ inputSchema: { type: 'object' }, toolName: 'get_drawing' }];
+
+  it('stores desktop-discovered tools without spawning the workstation command on the server', async () => {
+    const { context, listRawTools, updateStatus, upsertMany } = setup(localConnector);
+
+    await expect(syncConnectorToolsById('c1', context, localTools)).resolves.toEqual({
+      toolCount: 1,
+    });
+    expect(upsertMany).toHaveBeenCalledWith('c1', [{ ...localTools[0], crudType: 'read' }]);
+    expect(updateStatus).toHaveBeenCalledWith('c1', 'connected');
+    expect(listRawTools).not.toHaveBeenCalled();
+  });
+
+  it('rejects server-side discovery for STDIO when no local manifest was supplied', async () => {
+    const { context, listRawTools, upsertMany } = setup(localConnector);
+
+    await expect(syncConnectorToolsById('c1', context)).rejects.toThrow(
+      'Sync STDIO tools from the desktop',
+    );
+    expect(listRawTools).not.toHaveBeenCalled();
+    expect(upsertMany).not.toHaveBeenCalled();
+  });
+
+  it('only allows HTTP tool schemas obtained from the remote MCP endpoint', async () => {
+    const { context, listRawTools, upsertMany } = setup(httpConnector(null));
+
+    await expect(syncConnectorToolsById('c1', context, localTools)).rejects.toThrow('Only STDIO');
+    expect(upsertMany).not.toHaveBeenCalled();
+    await syncConnectorToolsById('c1', context);
+    expect(listRawTools).toHaveBeenCalledWith(expect.objectContaining({ type: 'http' }));
+  });
+});
 
 describe('buildHttpAuthFromCredentials', () => {
   it('returns nothing for no credentials (no-auth)', () => {

@@ -90,32 +90,40 @@ export const buildHttpAuthFromCredentials = (
 export const syncConnectorToolsById = async (
   connectorId: string,
   ctx: ConnectorToolSyncContext,
+  localTools?: Array<{
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+    toolName: string;
+  }>,
 ): Promise<{ toolCount: number }> => {
   let connector = await ctx.connectorModel.findById(connectorId);
   if (!connector) throw new Error('Connector not found');
 
-  if (!connector.mcpServerUrl && connector.mcpConnectionType !== ConnectorMcpConnectionType.stdio) {
+  const isStdio = connector.mcpConnectionType === ConnectorMcpConnectionType.stdio;
+  if (isStdio && !localTools)
+    throw new Error('Sync STDIO tools from the desktop running the local MCP server');
+  if (!isStdio && localTools) throw new Error('Only STDIO connectors accept local tools');
+  if (!isStdio && !connector.mcpServerUrl)
     throw new Error('Connector has no MCP server URL configured');
+
+  if (!localTools) {
+    connector = await ensureFreshConnectorToken(connector, ctx.connectorModel);
+    try {
+      const rawTools = await mcpService.listRawTools(buildConnectorMcpParams(connector));
+      localTools = rawTools.map(({ description, inputSchema, name }) => ({
+        description,
+        inputSchema,
+        toolName: name,
+      }));
+    } catch (err) {
+      await ctx.connectorModel.updateStatus(connectorId, ConnectorStatus.error);
+      throw err;
+    }
   }
 
-  // Refresh the OAuth access token if it has expired before connecting.
-  connector = await ensureFreshConnectorToken(connector, ctx.connectorModel);
-
-  const mcpParams = buildConnectorMcpParams(connector);
-
-  let rawTools: Awaited<ReturnType<typeof mcpService.listRawTools>>;
-  try {
-    rawTools = await mcpService.listRawTools(mcpParams);
-  } catch (err) {
-    await ctx.connectorModel.updateStatus(connectorId, ConnectorStatus.error);
-    throw err;
-  }
-
-  const syncInputs = rawTools.map((t) => ({
-    crudType: inferCrudType(t.name),
-    description: t.description,
-    inputSchema: t.inputSchema as Record<string, unknown>,
-    toolName: t.name,
+  const syncInputs = localTools.map((tool) => ({
+    ...tool,
+    crudType: inferCrudType(tool.toolName),
   }));
 
   await ctx.connectorToolModel.upsertMany(connectorId, syncInputs);
