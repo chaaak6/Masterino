@@ -72,8 +72,8 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
     setLoadError(false);
     if (!userId) return;
     let mounted = true;
-    ensureElectronIpc()
-      .mcp.listDeviceLocalServers({ userId })
+    Promise.resolve()
+      .then(() => ensureElectronIpc().mcp.listDeviceLocalServers({ userId }))
       .then((list: DeviceLocalMcpServer[]) => mounted && setServers(list))
       .catch(() => mounted && setLoadError(true));
     return () => {
@@ -147,18 +147,14 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
   const updateServer = (server: DeviceLocalMcpServer, enabled: boolean, selection?: string[]) => {
     if (!userId) return;
     void run(async () => {
-      await ensureElectronIpc().mcp.updateDeviceLocalServer({
+      const updated: DeviceLocalMcpServer = await ensureElectronIpc().mcp.updateDeviceLocalServer({
         enabled,
         enabledTools: selection,
         identifier: server.identifier,
         userId,
       });
       setServers((current) =>
-        current.map((item) =>
-          item.identifier === server.identifier
-            ? { ...item, enabled, enabledTools: selection ?? item.enabledTools }
-            : item,
-        ),
+        current.map((item) => (item.identifier === updated.identifier ? updated : item)),
       );
       if (selection) setEditing(undefined);
     });
@@ -247,7 +243,7 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
                     {t('cancel', { ns: 'common' })}
                   </Button>
                   <Button
-                    disabled={busy}
+                    disabled={busy || editing.names.length === 0}
                     size="small"
                     type="primary"
                     onClick={() => updateServer(server, server.enabled, editing.names)}

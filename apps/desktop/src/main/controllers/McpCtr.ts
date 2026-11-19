@@ -32,6 +32,7 @@ const localConfigSchema = z.object({
 
 interface DeviceLocalConnection {
   client: Promise<MCPClient>;
+  closed: PromiseWithResolvers<void>;
   inFlight: number;
   retired: boolean;
 }
@@ -229,7 +230,11 @@ export default class McpCtr extends ControllerModule {
 
   private selectLocalTools(tools: DeviceLocalMcpTool[], enabledTools: string[]) {
     const names = new Set(tools.map(({ name }) => name));
-    if (!Array.isArray(enabledTools) || enabledTools.some((name) => !names.has(name)))
+    if (
+      !Array.isArray(enabledTools) ||
+      !enabledTools.length ||
+      enabledTools.some((name) => !names.has(name))
+    )
       throw new Error(deviceLocalMcpErrors.toolSelection);
     return [...new Set(enabledTools)];
   }
@@ -266,15 +271,20 @@ export default class McpCtr extends ControllerModule {
     identifier: string,
     connection = this.deviceLocalClients.get(identifier),
   ) {
-    if (!connection || this.deviceLocalClients.get(identifier) !== connection) return;
-    this.deviceLocalClients.delete(identifier);
+    if (!connection || connection.retired || this.deviceLocalClients.get(identifier) !== connection)
+      return;
     connection.retired = true;
-    if (connection.inFlight === 0) await this.closeRetiredDeviceLocalClient(connection);
+    if (connection.inFlight === 0) await this.closeRetiredDeviceLocalClient(identifier, connection);
   }
 
-  private async closeRetiredDeviceLocalClient(connection: DeviceLocalConnection) {
+  private async closeRetiredDeviceLocalClient(
+    identifier: string,
+    connection: DeviceLocalConnection,
+  ) {
     const client = await connection.client.catch(() => undefined);
     if (client) await this.closeDeviceLocalClient(client);
+    this.deviceLocalClients.delete(identifier);
+    connection.closed.resolve();
   }
 
   @IpcMethod()
@@ -347,27 +357,26 @@ export default class McpCtr extends ControllerModule {
     userId: string;
   }) {
     const scope = this.localScope(userId);
-    if (
-      !this.localServers.some(
-        (item) => item.scope === scope && item.server.identifier === identifier,
-      )
-    )
-      return;
+    const records = this.localServers;
+    const record = records.find(
+      (item) => item.scope === scope && item.server.identifier === identifier,
+    );
+    if (!record) throw new Error(deviceLocalMcpErrors.serverUnavailable);
+
+    const selection =
+      enabledTools === undefined
+        ? record.server.enabledTools
+        : this.selectLocalTools(record.server.tools, enabledTools);
+    const server = { ...record.server, enabled: enabled === true, enabledTools: selection };
+    if (server.enabled && selection.length === 0)
+      throw new Error(deviceLocalMcpErrors.toolSelection);
 
     this.app.storeManager.set(
       'deviceLocalMcpServers',
-      this.localServers.map((item) => {
-        if (item.scope !== scope || item.server.identifier !== identifier) return item;
-        const tools = enabledTools
-          ? this.selectLocalTools(item.server.tools, enabledTools)
-          : item.server.enabledTools;
-        return {
-          ...item,
-          server: { ...item.server, enabled: enabled === true, enabledTools: tools },
-        };
-      }),
+      records.map((item) => (item === record ? { ...item, server } : item)),
     );
-    if (enabled !== true) await this.retireDeviceLocalClient(identifier);
+    if (!server.enabled) await this.retireDeviceLocalClient(identifier);
+    return server;
   }
 
   @IpcMethod()
@@ -400,7 +409,7 @@ export default class McpCtr extends ControllerModule {
     identifier: string;
     toolName: string;
     userId: string;
-  }) {
+  }): Promise<{ content: string; state: ToolCallResult; success: boolean }> {
     const scope = this.localScope(userId);
     const record = this.localServers.find(
       (item) => item.scope === scope && item.server.identifier === identifier,
@@ -412,12 +421,18 @@ export default class McpCtr extends ControllerModule {
     if (!callArguments.success) throw new Error('Invalid arguments for the device-local MCP tool');
 
     let connection = this.deviceLocalClients.get(identifier);
+    if (connection?.retired) {
+      // Recheck account and tool scope after the previous session has finished.
+      await connection.closed.promise;
+      return this.callDeviceLocalTool({ args, identifier, toolName, userId });
+    }
     if (!connection) {
       const config = JSON.parse(
         safeStorage.decryptString(Buffer.from(record.encryptedConfig, 'base64')),
       );
       connection = {
         client: this.createDeviceLocalClient(config, identifier),
+        closed: Promise.withResolvers<void>(),
         inFlight: 0,
         retired: false,
       };
@@ -435,7 +450,7 @@ export default class McpCtr extends ControllerModule {
     } finally {
       connection.inFlight--;
       if (connection.retired && connection.inFlight === 0)
-        await this.closeRetiredDeviceLocalClient(connection);
+        await this.closeRetiredDeviceLocalClient(identifier, connection);
     }
     const processed = raw.isError ? raw.content : await this.processContentBlocks(raw.content);
     return {

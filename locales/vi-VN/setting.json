@@ -297,6 +297,7 @@
   "deviceLocalMcp.error.connection": "Không thể kết nối với tiến trình MCP cục bộ. Hãy kiểm tra tệp thực thi và tham số.",
   "deviceLocalMcp.error.invalidConfig": "Nhập đường dẫn tệp thực thi và các tham số khởi chạy hợp lệ.",
   "deviceLocalMcp.error.secureStorage": "Bộ nhớ bảo mật không khả dụng trên thiết bị này.",
+  "deviceLocalMcp.error.serverUnavailable": "Máy chủ MCP cục bộ này không còn khả dụng. Hãy mở lại phần cài đặt để làm mới danh sách.",
   "deviceLocalMcp.error.toolSelection": "Chỉ chọn các công cụ đã được phát hiện trên máy chủ cục bộ này.",
   "deviceLocalMcp.invalidEnv": "Nhập đối tượng JSON hợp lệ có các giá trị kiểu chuỗi cho biến môi trường.",
   "deviceLocalMcp.loadError": "Không thể tải danh sách máy chủ MCP cục bộ đã lưu.",

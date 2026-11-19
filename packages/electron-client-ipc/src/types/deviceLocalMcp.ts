@@ -26,5 +26,6 @@ export const deviceLocalMcpErrors = {
   connection: 'DEVICE_LOCAL_MCP_CONNECTION',
   invalidConfig: 'DEVICE_LOCAL_MCP_INVALID_CONFIG',
   secureStorage: 'DEVICE_LOCAL_MCP_SECURE_STORAGE',
+  serverUnavailable: 'DEVICE_LOCAL_MCP_SERVER_UNAVAILABLE',
   toolSelection: 'DEVICE_LOCAL_MCP_TOOL_SELECTION',
 } as const;

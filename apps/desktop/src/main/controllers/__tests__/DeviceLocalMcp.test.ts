@@ -189,6 +189,64 @@ describe('device-local MCP desktop API', () => {
     },
   );
 
+  it('waits for an earlier connection to close after re-enabling', async () => {
+    const controller = new McpCtr(app);
+    const { identifier } = await controller.saveDeviceLocalServer({
+      ...scope,
+      config: launchConfig,
+      enabledTools: ['write'],
+      name: 'Synthetic CAD',
+    });
+    const holdCall = Promise.withResolvers<void>();
+    const firstCallStarted = Promise.withResolvers<void>();
+    const originalCall = MCPClient.prototype.callTool;
+    vi.spyOn(MCPClient.prototype, 'callTool').mockImplementationOnce(async function (
+      this: MCPClient,
+      tool,
+      args,
+    ) {
+      firstCallStarted.resolve();
+      await holdCall.promise;
+      return originalCall.call(this, tool, args);
+    });
+    const initialize = vi.spyOn(MCPClient.prototype, 'initialize');
+    const call = () => controller.callDeviceLocalTool({ ...scope, identifier, toolName: 'write' });
+    const running = call();
+    await firstCallStarted.promise;
+    await controller.updateDeviceLocalServer({ ...scope, identifier, enabled: false });
+    await controller.updateDeviceLocalServer({ ...scope, identifier, enabled: true });
+    const queued = call();
+    let startsBeforeRetirement: number;
+    try {
+      startsBeforeRetirement = initialize.mock.calls.length;
+    } finally {
+      holdCall.resolve();
+      await Promise.all([running, queued]);
+    }
+    expect(startsBeforeRetirement).toBe(1);
+    expect(initialize).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns the stored selection and rejects empty or stale updates', async () => {
+    const controller = new McpCtr(app);
+    const { identifier } = await controller.saveDeviceLocalServer({
+      ...scope,
+      config: launchConfig,
+      enabledTools: ['inspect'],
+      name: 'Synthetic CAD',
+    });
+    const update = { ...scope, identifier, enabled: true };
+    await expect(
+      controller.updateDeviceLocalServer({ ...update, enabledTools: [] }),
+    ).rejects.toThrow();
+    await expect(
+      controller.updateDeviceLocalServer({ ...update, userId: 'other-account' }),
+    ).rejects.toThrow();
+    const saved = await controller.updateDeviceLocalServer({ ...update, enabledTools: ['write'] });
+    expect(saved).toMatchObject({ identifier, enabledTools: ['write'] });
+    expect(controller.listDeviceLocalServers(scope)).toEqual([saved]);
+  });
+
   it('supports disabling and removing an installed server', async () => {
     const controller = new McpCtr(app);
     const { identifier } = await controller.saveDeviceLocalServer({
