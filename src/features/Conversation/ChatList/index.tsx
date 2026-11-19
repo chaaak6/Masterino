@@ -1,9 +1,9 @@
 'use client';
 
+import { cssVar } from 'antd-style';
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cssVar } from 'antd-style';
 
 import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { useFetchAgentDocuments } from '@/hooks/useFetchAgentDocuments';
