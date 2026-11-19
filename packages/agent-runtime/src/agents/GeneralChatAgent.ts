@@ -436,6 +436,7 @@ export class GeneralChatAgent implements Agent {
         payload.messages,
         runtimeInput,
         this.findExistingSummary(payload.messages),
+        payload.parentMessageId,
       );
     }
     if (evaluation.decision.kind === 'fail') {
@@ -796,9 +797,6 @@ export class GeneralChatAgent implements Agent {
             trigger: 'final-preflight',
           };
         }
-        const outcomeFailure = failureAfterCompression(outcome);
-        if (outcomeFailure?.kind === 'fail') return createContextBudgetFailure(outcomeFailure);
-
         const llmPayload = {
           createAssistantMessage: true,
           messages: compressionPayload.compressedMessages,
@@ -807,6 +805,29 @@ export class GeneralChatAgent implements Agent {
           provider: this.config.modelRuntimeConfig?.provider,
           tools: state.tools,
         } as GeneralAgentCallLLMInstructionPayload;
+        const outcomeFailure = failureAfterCompression(outcome);
+        if (outcomeFailure?.kind === 'fail') {
+          if (outcome.trigger === 'threshold') {
+            const fallback = this.toLLMCall(
+              { ...llmPayload, messages: state.messages },
+              state,
+              'final-preflight',
+              {
+                ...runtimeInput,
+                attemptState: {
+                  compressionAttempt: 1,
+                  payloadFingerprint: outcome.payloadFingerprint,
+                  sentPayloadFingerprints:
+                    runtimeInput.attemptState?.sentPayloadFingerprints ??
+                    runtimeInput.sentPayloadFingerprints ??
+                    [],
+                },
+              },
+            );
+            if (fallback.type === 'call_llm') return fallback;
+          }
+          return createContextBudgetFailure(outcomeFailure);
+        }
         const postCompression = evaluateContextBudget({
           attemptState: {
             compressionAttempt: 1,

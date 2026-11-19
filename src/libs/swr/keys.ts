@@ -56,6 +56,7 @@ export const messageKeys = {
    * serves both.
    */
   list: def('message:list', (context: unknown) => ['message:list', context, MESSAGE_CACHE_VERSION]),
+  historyPage: (context: unknown) => ['message:list', context, MESSAGE_CACHE_VERSION, 'history'],
 };
 
 // ---- topic --------------------------------------------------------------

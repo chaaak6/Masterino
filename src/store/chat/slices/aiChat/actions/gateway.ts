@@ -302,6 +302,7 @@ export class GatewayActionImpl {
     context: ConversationContext;
     /** File IDs of already-uploaded attachments to attach to the new user message */
     fileIds?: string[];
+    historyHeadId?: string;
     message: string;
     /** Request metadata carried from the originating user message. */
     metadata?: Pick<MessageMetadata, 'trigger'>;
@@ -338,6 +339,7 @@ export class GatewayActionImpl {
     const {
       context,
       fileIds,
+      historyHeadId,
       message,
       metadata,
       onComplete,
@@ -401,6 +403,7 @@ export class GatewayActionImpl {
             editingAgentId: this.#get().activeAgentId ?? undefined,
           }),
           groupId: context.groupId,
+          ...(historyHeadId && { historyHeadId }),
           ...(initialTopicMetadata && { initialTopicMetadata }),
           scope: context.scope,
           taskId,

@@ -105,6 +105,7 @@ const Conversation = memo(() => {
         }}
       >
         <ChatList
+          paginateHistory
           defaultWorkflowExpandLevel={isHeterogeneousAgent ? { streaming: 'full' } : undefined}
           welcome={<AgentHome />}
           footerSlot={

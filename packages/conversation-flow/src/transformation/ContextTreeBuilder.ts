@@ -1,7 +1,6 @@
 import type {
   AgentCouncilNode,
   AssistantGroupNode,
-  BranchNode,
   CompareNode,
   ContextNode,
   IdNode,
@@ -12,6 +11,7 @@ import type {
 } from '../types';
 import type { BranchResolver } from './BranchResolver';
 import type { MessageCollector } from './MessageCollector';
+import { runTraversal, type Traversal } from './traversal';
 
 /**
  * ContextTreeBuilder - Transforms IdNode tree into ContextNode tree
@@ -38,7 +38,7 @@ export class ContextTreeBuilder {
     const contextTree: ContextNode[] = [];
 
     for (const idNode of idNodes) {
-      this.transformToLinear(idNode, contextTree);
+      runTraversal(this.transformToLinear(idNode, contextTree));
     }
 
     return contextTree;
@@ -47,7 +47,7 @@ export class ContextTreeBuilder {
   /**
    * Transform a single IdNode and append to contextTree array
    */
-  private transformToLinear(idNode: IdNode, contextTree: ContextNode[]): void {
+  private *transformToLinear(idNode: IdNode, contextTree: ContextNode[]): Traversal {
     const message = this.messageMap.get(idNode.id);
     if (!message) return;
 
@@ -68,7 +68,7 @@ export class ContextTreeBuilder {
           (child) => child.id === compareNode.activeColumnId,
         );
         if (activeColumnIdNode && activeColumnIdNode.children.length > 0) {
-          this.transformToLinear(activeColumnIdNode.children[0], contextTree);
+          yield this.transformToLinear(activeColumnIdNode.children[0], contextTree);
         }
       }
       return;
@@ -89,7 +89,7 @@ export class ContextTreeBuilder {
           (child) => child.id === compareNode.activeColumnId,
         );
         if (activeColumnIdNode && activeColumnIdNode.children.length > 0) {
-          this.transformToLinear(activeColumnIdNode.children[0], contextTree);
+          yield this.transformToLinear(activeColumnIdNode.children[0], contextTree);
         }
       }
       return;
@@ -106,7 +106,7 @@ export class ContextTreeBuilder {
       const lastChild = idNode.children.at(-1);
       if (lastChild && lastChild.children.length > 0) {
         // Process the first child of the last agent (supervisor's reply)
-        this.transformToLinear(lastChild.children[0], contextTree);
+        yield this.transformToLinear(lastChild.children[0], contextTree);
       }
       return;
     }
@@ -123,7 +123,7 @@ export class ContextTreeBuilder {
       });
 
       for (const nonTaskChild of nonTaskChildren) {
-        this.transformToLinear(nonTaskChild, contextTree);
+        yield this.transformToLinear(nonTaskChild, contextTree);
       }
 
       // Also check for children of task messages (e.g., summary as child of last task)
@@ -136,7 +136,7 @@ export class ContextTreeBuilder {
         for (const taskGrandchild of taskChild.children) {
           const taskGrandchildMsg = this.messageMap.get(taskGrandchild.id);
           if (taskGrandchildMsg && taskGrandchildMsg.role !== 'task') {
-            this.transformToLinear(taskGrandchild, contextTree);
+            yield this.transformToLinear(taskGrandchild, contextTree);
           }
         }
       }
@@ -151,7 +151,7 @@ export class ContextTreeBuilder {
       // Find the next message after tools
       const nextMessage = this.messageCollector.findNextAfterTools(message, idNode);
       if (nextMessage) {
-        this.transformToLinear(nextMessage, contextTree);
+        yield this.transformToLinear(nextMessage, contextTree);
       }
       return;
     }
@@ -168,8 +168,7 @@ export class ContextTreeBuilder {
       contextTree.push(messageNode);
 
       // Create branch node
-      const branchNode = this.createBranchNode(message, idNode);
-      contextTree.push(branchNode);
+      yield this.appendBranchNode(message, idNode, contextTree);
 
       // Don't continue after branch - branch is an end point
       return;
@@ -181,7 +180,7 @@ export class ContextTreeBuilder {
 
     // Continue with single child
     if (idNode.children.length === 1) {
-      this.transformToLinear(idNode.children[0], contextTree);
+      yield this.transformToLinear(idNode.children[0], contextTree);
     }
   }
 
@@ -264,7 +263,11 @@ export class ContextTreeBuilder {
   /**
    * Create BranchNode
    */
-  private createBranchNode(message: Message, idNode: IdNode): BranchNode {
+  private *appendBranchNode(
+    message: Message,
+    idNode: IdNode,
+    contextTree: ContextNode[],
+  ): Traversal {
     const activeBranchId = this.branchResolver.getActiveBranchId(message, idNode);
 
     // For optimistic update (activeBranchId is undefined), use children.length as the index
@@ -274,19 +277,20 @@ export class ContextTreeBuilder {
       : idNode.children.length;
 
     // Each branch is a tree starting from that child
-    const branches = idNode.children.map((child) => {
+    const branches: ContextNode[][] = [];
+    for (const child of idNode.children) {
       const branchTree: ContextNode[] = [];
-      this.transformToLinear(child, branchTree);
-      return branchTree;
-    });
+      yield this.transformToLinear(child, branchTree);
+      branches.push(branchTree);
+    }
 
-    return {
+    contextTree.push({
       activeBranchIndex: activeBranchIndex >= 0 ? activeBranchIndex : 0,
       branches,
       id: this.generateNodeId('branch', message.id),
       parentMessageId: message.id,
       type: 'branch',
-    };
+    });
   }
 
   /**

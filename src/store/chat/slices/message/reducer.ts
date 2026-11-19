@@ -83,6 +83,7 @@ interface UpdateMessageMetadata {
 }
 
 export type MessageDispatch =
+  | { expected: UIChatMessage | undefined; type: 'acknowledgeMessage'; value: UIChatMessage }
   | CreateMessage
   | UpdateMessage
   | UpdateMessages
@@ -224,6 +225,12 @@ export const messagesReducer = (
       });
     }
 
+    case 'acknowledgeMessage': {
+      const { expected, value } = payload;
+      return state.map((message) =>
+        message.id === value.id && message === expected ? value : message,
+      );
+    }
     case 'updateMessages': {
       return payload.value;
     }

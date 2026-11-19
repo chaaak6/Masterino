@@ -255,6 +255,7 @@ describe('ConversationLifecycle actions', () => {
           });
         });
 
+        vi.spyOn(messageService, 'getAgentHistory').mockResolvedValue(existingMessages);
         const createCompressionGroupSpy = vi
           .spyOn(messageService, 'createCompressionGroup')
           .mockResolvedValue({
@@ -272,7 +273,13 @@ describe('ConversationLifecycle actions', () => {
           });
         const fetchSummarySpy = vi
           .spyOn(chatService, 'fetchPresetTaskResult')
-          .mockResolvedValue(undefined);
+          .mockImplementation(async () => {
+            expect(useChatStore.getState().dbMessagesMap[key].map(({ id }) => id)).toEqual([
+              'user-1',
+              'assistant-1',
+              expect.stringMatching(/^tmp_compress_/),
+            ]);
+          });
         vi.spyOn(messageService, 'finalizeCompression').mockResolvedValue({
           messages: [
             {
@@ -1909,7 +1916,8 @@ describe('ConversationLifecycle actions', () => {
         vi.spyOn(aiChatService, 'sendMessageInServer').mockResolvedValue({
           createdThreadId,
           messages: [userMessage, assistantMessage],
-          topics: [],
+          topics: { items: [], total: 0 },
+          topicId: TEST_IDS.TOPIC_ID,
           assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
           userMessageId: TEST_IDS.USER_MESSAGE_ID,
         } as any);
@@ -1917,7 +1925,7 @@ describe('ConversationLifecycle actions', () => {
         (messageService.updateMessage as any).mockImplementation(
           async (_id: string, value: any) => {
             assistantMessage = { ...assistantMessage, ...value };
-            return { messages: [userMessage, assistantMessage], success: true };
+            return { message: assistantMessage, success: true };
           },
         );
         (messageService.createMessage as any).mockImplementation(async (params: any) => {
@@ -1971,6 +1979,7 @@ describe('ConversationLifecycle actions', () => {
             ],
           }),
           expect.objectContaining({ agentId: TEST_IDS.SESSION_ID }),
+          { returnUpdatedMessage: true },
         );
         expect(messageService.createMessage).toHaveBeenCalledWith(
           expect.objectContaining({

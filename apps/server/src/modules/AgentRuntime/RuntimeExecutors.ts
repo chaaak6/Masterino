@@ -42,8 +42,8 @@ import {
   ToolNameResolver,
   ToolResolver,
 } from '@lobechat/context-engine';
-import { parse } from '@lobechat/conversation-flow';
 import {
+  AgentRuntimeErrorType,
   applyModelExtendParams,
   type ChatStreamPayload,
   consumeStreamUntilDone,
@@ -555,6 +555,48 @@ export const resolveCompressionSummaryBudgetTokens = (params: {
   // A fixed 2k floor could make the request budget larger than the model's
   // actual prompt capacity and recreate the context error during recovery.
   return Math.max(1, (matchingSnapshot?.entry.contextWindowTokens ?? 32_000) - 1024);
+};
+
+const precedingCheckpoints = (messages: UIChatMessage[], firstCandidateId: string) => {
+  const start = messages.findIndex(({ id }) => id === firstCandidateId);
+  if (start < 1) return [];
+  const prefix = messages.slice(0, start).filter(({ role }) => role !== 'system');
+  if (
+    !prefix.every(({ role, lastMessageId }) => role === 'compressedGroup' && lastMessageId) ||
+    prefix.at(-1)?.lastMessageId !== messages[start].parentId
+  )
+    return [];
+  return prefix.map(({ id }) => id);
+};
+
+const replaceRuntimeHistoryWithSummary = (
+  messages: UIChatMessage[],
+  candidateIds: string[],
+  groupId: string,
+  content: string,
+  lastSourceId?: string,
+): UIChatMessage[] => {
+  const covered = new Set(candidateIds);
+  const first = messages.find((message) => covered.has(message.id));
+  const last = messages.findLast((message) => covered.has(message.id));
+  if (!first || !last) return messages;
+
+  return messages.flatMap((message) => {
+    if (message.id === first.id) {
+      return [
+        {
+          content,
+          createdAt: first.createdAt,
+          id: groupId,
+          lastMessageId: lastSourceId ?? last.id,
+          parentId: first.parentId,
+          role: 'compressedGroup' as const,
+          updatedAt: first.updatedAt,
+        },
+      ];
+    }
+    return covered.has(message.id) ? [] : [message];
+  });
 };
 
 const renderMessageForCompression = (message: UIChatMessage) => {
@@ -2278,15 +2320,19 @@ export const createRuntimeExecutors = (
         const topicId = state.metadata?.topicId ?? ctx.topicId;
         if (!topicId || !ctx.userId) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
 
-        const stateMessageIds = new Set(
-          state.messages.map((message) => message.id).filter((id): id is string => Boolean(id)),
+        const budgetCandidateIds = new Set(evaluation.partition.candidateIds);
+        const rawCandidateIds = state.messages.flatMap(({ id, role }) =>
+          id && role !== 'compressedGroup' && budgetCandidateIds.has(id) ? [id] : [],
         );
-        const persistedCandidateIds = evaluation.partition.candidateIds.filter((id) =>
-          stateMessageIds.has(id),
-        );
-        if (persistedCandidateIds.length === 0) {
+        if (rawCandidateIds.length === 0) {
           throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
         }
+        const providerIds = new Set((payload.messages as UIChatMessage[]).map(({ id }) => id));
+        const preceding = precedingCheckpoints(state.messages, rawCandidateIds[0]);
+        const persistedCandidateIds = [
+          ...(preceding.every((id) => providerIds.has(id)) ? preceding : []),
+          ...rawCandidateIds,
+        ];
 
         const messageService = new MessageService(
           ctx.serverDB,
@@ -2301,6 +2347,9 @@ export const createRuntimeExecutors = (
             threadId: state.metadata?.threadId,
             topicId,
           },
+        );
+        const sourceById = new Map(
+          compressionGroup.messagesToSummarize.map((message) => [message.id, message]),
         );
         const compressionQuery = {
           agentId: state.metadata?.agentId,
@@ -2346,7 +2395,7 @@ export const createRuntimeExecutors = (
                     }) as UIChatMessage,
                 ),
               ),
-            candidateIds: evaluation.partition.candidateIds,
+            candidateIds: persistedCandidateIds,
             createSummaryMessage: (summary, candidateIds, groupId) => {
               finalSummary = summary;
               return {
@@ -2380,7 +2429,8 @@ export const createRuntimeExecutors = (
               countContextTokens({ messages: (request.messages ?? []) as UIChatMessage[] })
                 .adjustedTotal,
             messages: payload.messages as UIChatMessage[],
-            renderMessage: renderMessageForCompression,
+            renderMessage: (message) =>
+              renderMessageForCompression(sourceById.get(message.id) ?? message),
             summarize: async (request) => {
               let summary = '';
               let summaryError: unknown;
@@ -2422,11 +2472,15 @@ export const createRuntimeExecutors = (
             compressionGroup.messageGroupId,
             finalSummary,
             compressionQuery,
+            false,
           );
-          if (!Array.isArray(finalized.messages)) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
+          if (!finalized.success) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
 
-          const stateMessages = (finalized.messages as UIChatMessage[]).filter(
-            (message) => message.id !== assistantMessageItem.id,
+          const stateMessages = replaceRuntimeHistoryWithSummary(
+            state.messages.filter((message) => message.id !== assistantMessageItem.id),
+            persistedCandidateIds,
+            compressionGroup.messageGroupId,
+            finalSummary,
           );
           persistedAutoCompression = {
             inputFingerprint: evaluation.payloadFingerprint,
@@ -2847,6 +2901,14 @@ export const createRuntimeExecutors = (
               });
               if (budgetedCall.kind === 'fail') {
                 const evaluation = budgetedCall.evaluations.at(-1);
+                if (budgetedCall.decision.code === 'DUPLICATE_REQUEST') {
+                  throw {
+                    contextBudget: { decision: budgetedCall.decision, trace: evaluation?.trace },
+                    contextBudgetAttemptState: budgetedCall.attemptState,
+                    errorType: AgentRuntimeErrorType.AgentRuntimeError,
+                    message: 'The Agent stopped before sending a repeated request.',
+                  };
+                }
                 const budgetError = new FinalContextWindowError({
                   contextWindowTokens: evaluation?.window.windowTokens ?? 32_000,
                   model,
@@ -3251,10 +3313,13 @@ export const createRuntimeExecutors = (
     const { payload } = instruction as AgentInstructionCompressContext;
     const { messages, currentTokenCount } = payload;
     const budgetPayload = payload as AgentInstructionCompressContext['payload'] & {
+      candidateIds?: string[];
       catalogSnapshot?: ModelCatalogSnapshot;
       observedWindowTokens?: number;
       outputReserveTokens?: number;
+      parentMessageId?: string;
       payloadFingerprint?: string;
+      preservedIds?: string[];
       providerMedia?: unknown[];
       sentPayloadFingerprints?: readonly string[];
       trigger?: 'final-preflight' | 'manual' | 'provider-error' | 'threshold';
@@ -3265,14 +3330,21 @@ export const createRuntimeExecutors = (
     const events: AgentEvent[] = [];
     const newState = structuredClone(state);
     const topicId = state.metadata?.topicId;
-    const lastMessage = messages.at(-1);
-    const preservedMessages =
-      messages.length > 1 && lastMessage?.role === 'user' ? [lastMessage] : [];
-    const preservedMessageIds = new Set(
-      preservedMessages.map((message) => message.id).filter((id): id is string => Boolean(id)),
+    const parentMessageId = budgetPayload.parentMessageId ?? messages.at(-1)?.id;
+    const protectedIds = new Set(budgetPayload.preservedIds);
+    const candidates = budgetPayload.candidateIds ? new Set(budgetPayload.candidateIds) : undefined;
+    const currentTurnStart = messages.findLastIndex((message) => message.role === 'user');
+    const messagesToCompress = messages.filter(
+      (message, index) =>
+        message.id &&
+        message.role !== 'compressedGroup' &&
+        message.role !== 'system' &&
+        !protectedIds.has(message.id) &&
+        (candidates
+          ? candidates.has(message.id)
+          : currentTurnStart < 0 || index < currentTurnStart),
     );
-    const messagesToCompress = preservedMessages.length > 0 ? messages.slice(0, -1) : messages;
-    const compressedMessagesFallback = [...messagesToCompress, ...preservedMessages];
+    const compressedMessagesFallback = messages;
     const inputMeasurement = countContextTokens({ messages, tools: state.tools });
     const payloadFingerprint =
       budgetPayload.payloadFingerprint || inputMeasurement.payloadFingerprint;
@@ -3297,7 +3369,7 @@ export const createRuntimeExecutors = (
       compressedMessages: params.compressedMessages,
       groupId: params.groupId ?? '',
       outcome: 'skipped' as const,
-      parentMessageId: params.parentMessageId,
+      parentMessageId: params.parentMessageId ?? parentMessageId,
       payloadFingerprint,
       skipped: true,
       trigger: compressionTrigger,
@@ -3315,7 +3387,7 @@ export const createRuntimeExecutors = (
       compressedMessages: params.compressedMessages,
       groupId: params.groupId ?? '',
       outcome: 'failed' as const,
-      parentMessageId: params.parentMessageId,
+      parentMessageId: params.parentMessageId ?? parentMessageId,
       payloadFingerprint,
       trigger: compressionTrigger,
     });
@@ -3374,24 +3446,21 @@ export const createRuntimeExecutors = (
     }
 
     try {
-      const dbMessages = await ctx.messageModel.query(
-        {
-          agentId: state.metadata?.agentId,
-          threadId: state.metadata?.threadId,
-          topicId,
-        },
-        { postProcessUrl: buildPostProcessUrl(ctx) },
-      );
-
-      const messageIds = dbMessages
-        .filter(
-          (message) =>
-            message.role !== 'compressedGroup' &&
-            Boolean(message.id) &&
-            !preservedMessageIds.has(message.id),
-        )
-        .map((message) => message.id);
-
+      const messageIds = [
+        ...new Set(
+          messagesToCompress.flatMap((message) => {
+            const members: UIChatMessage[] =
+              message.role === 'assistantGroup' && message.children?.length
+                ? message.children
+                : [message];
+            return members.flatMap((member) =>
+              [member.id, ...(member.tools ?? []).map((tool) => tool.result_msg_id)].filter(
+                (id): id is string => Boolean(id),
+              ),
+            );
+          }),
+        ),
+      ];
       if (messageIds.length === 0 || messagesToCompress.length === 0) {
         return {
           events,
@@ -3411,13 +3480,14 @@ export const createRuntimeExecutors = (
         };
       }
 
-      const latestAssistantMessage = dbMessages.findLast((message) => message.role === 'assistant');
       const messageService = new MessageService(
         ctx.serverDB,
         ctx.userId,
         state.metadata?.workspaceId ?? ctx.workspaceId,
       );
-      const compressionResult = await messageService.createCompressionGroup(topicId, messageIds, {
+      const previous = precedingCheckpoints(messages, messagesToCompress[0].id);
+      const sourceIds = [...previous, ...messageIds];
+      const compressionResult = await messageService.createCompressionGroup(topicId, sourceIds, {
         agentId: state.metadata?.agentId,
         threadId: state.metadata?.threadId,
         topicId,
@@ -3445,7 +3515,7 @@ export const createRuntimeExecutors = (
               ...failedCompressionPayload({
                 compressedMessages: compressedMessagesFallback,
                 groupId: compressionResult.messageGroupId,
-                parentMessageId: latestAssistantMessage?.id,
+                parentMessageId,
               }),
             } as GeneralAgentCompressionResultPayload,
             phase: 'compression_result',
@@ -3495,7 +3565,7 @@ export const createRuntimeExecutors = (
                 }) as UIChatMessage,
             ),
           ),
-        candidateIds: messageIds,
+        candidateIds: sourceIds,
         createSummaryMessage: (summary) => {
           summaryContent = summary;
           return {
@@ -3570,34 +3640,21 @@ export const createRuntimeExecutors = (
         );
       }
 
-      const finalCompression = await messageService.finalizeCompression(
+      await messageService.finalizeCompression(
         compressionResult.messageGroupId,
         summaryContent,
-        {
-          agentId: state.metadata?.agentId,
-          threadId: state.metadata?.threadId,
-          topicId,
-        },
+        { agentId: state.metadata?.agentId, threadId: state.metadata?.threadId, topicId },
+        false,
       );
       pendingCompression = undefined;
 
-      const compressedMessagesBase =
-        finalCompression.messages || compressionResult.messagesToSummarize;
-      const compressedMessages = [...compressedMessagesBase];
-
-      for (const preservedMessage of preservedMessages) {
-        if (
-          !compressedMessages.some(
-            (message) =>
-              message === preservedMessage ||
-              (Boolean(message.id) &&
-                Boolean(preservedMessage.id) &&
-                message.id === preservedMessage.id),
-          )
-        ) {
-          compressedMessages.push(preservedMessage);
-        }
-      }
+      const compressedMessages = replaceRuntimeHistoryWithSummary(
+        messages,
+        [...previous, ...messagesToCompress.map((message) => message.id)],
+        compressionResult.messageGroupId,
+        summaryContent,
+        messageIds.at(-1),
+      );
 
       newState.messages = compressedMessages;
 
@@ -3616,7 +3673,7 @@ export const createRuntimeExecutors = (
 
       events.push({
         groupId: compressionResult.messageGroupId,
-        parentMessageId: latestAssistantMessage?.id,
+        parentMessageId,
         type: 'compression_complete',
       });
 
@@ -3652,7 +3709,7 @@ export const createRuntimeExecutors = (
             compressedMessages,
             groupId: compressionResult.messageGroupId,
             outcome: 'compressed',
-            parentMessageId: latestAssistantMessage?.id,
+            parentMessageId,
             payloadFingerprint,
             trigger: compressionTrigger,
           } as GeneralAgentCompressionResultPayload,
@@ -3795,6 +3852,12 @@ export const createRuntimeExecutors = (
             reason: 'client_tool_execution',
           };
           newState.pendingToolsCalling = [chatToolPayload];
+          newState.metadata = {
+            ...newState.metadata,
+            pendingToolAssistantMessageId: payload.skipCreateToolMessage
+              ? undefined
+              : payload.parentMessageId,
+          };
 
           return {
             events: [
@@ -4029,6 +4092,10 @@ export const createRuntimeExecutors = (
             reason: 'async_tool',
           };
           newState.pendingToolsCalling = [chatToolPayload];
+          newState.metadata = {
+            ...newState.metadata,
+            pendingToolAssistantMessageId: payload.parentMessageId,
+          };
           return {
             events: [
               {
@@ -4532,6 +4599,7 @@ export const createRuntimeExecutors = (
         reason: 'client_tool_execution',
       };
       newState.pendingToolsCalling = clientTools;
+      newState.metadata = { ...newState.metadata, pendingToolAssistantMessageId: parentMessageId };
 
       return {
         events: [
@@ -5103,31 +5171,19 @@ export const createRuntimeExecutors = (
       }
     }
 
-    // Refresh messages from database to ensure state is in sync
-
-    // Query latest messages from database
-    // Must pass agentId to ensure correct query scope, otherwise when topicId is undefined,
-    // the query will use isNull(topicId) condition which won't find messages with actual topicId
-    //
-    // postProcessUrl resolves keys in imageList/videoList/fileList to external URLs;
-    // without it the next LLM call sees raw keys and providers reject them.
-    const latestMessages = await ctx.messageModel.query(
-      {
-        agentId: state.metadata?.agentId,
-        threadId: state.metadata?.threadId,
-        topicId: state.metadata?.topicId,
-      },
-      { postProcessUrl: buildPostProcessUrl(ctx) },
-    );
-
-    // Use conversation-flow parse to resolve branching into linear flat list
-    // parse() handles assistantGroup, compare, supervisor, etc. virtual message types
-    const { flatList } = parse(latestMessages);
-    newState.messages = flatList;
-
-    log(
-      `[${operationLogId}][call_tools_batch] Refreshed ${newState.messages.length} messages from database`,
-    );
+    // Keep the operation's selected history. Only these tool records were
+    // written by this step. Early history pages can never replace them.
+    const persistedTools = await ctx.messageModel.queryByIds(toolMessageIds, {
+      postProcessUrl: buildPostProcessUrl(ctx),
+    });
+    const toolById = new Map(persistedTools.map((message) => [message.id, message]));
+    newState.messages = [
+      ...newState.messages.filter((message) => !toolById.has(message.id)),
+      ...toolMessageIds.flatMap((id) => {
+        const tool = toolById.get(id);
+        return tool ? [tool] : [];
+      }),
+    ];
 
     // Get the last tool message ID as parentMessageId for next LLM call
     const lastToolMessageId = toolMessageIds.at(-1);
@@ -5186,6 +5242,7 @@ export const createRuntimeExecutors = (
         reason: pauseReason,
       };
       newState.pendingToolsCalling = pendingTools;
+      newState.metadata = { ...newState.metadata, pendingToolAssistantMessageId: parentMessageId };
 
       return {
         events: [

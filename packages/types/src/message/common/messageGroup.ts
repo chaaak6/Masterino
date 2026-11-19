@@ -21,18 +21,24 @@ export interface CompressionGroupMetadata {
   // Compression info
   compressionStrategy?: 'summarize';
 
+  /** Membership and version recorded atomically with the published summary. */
+  coverage?: { ids: string[]; updatedAt: string };
   endMessageId?: string;
   // UI state
   expanded?: boolean;
   failedAt?: string;
   /** Stable, non-sensitive failure category. Raw provider errors must never be stored here. */
   failureCode?: 'SUMMARY_FAILED';
-  originalMessageCount?: number;
 
+  originalMessageCount?: number;
   // Statistics
   originalTokenCount?: number;
-  pinnedMessageIds?: string[];
 
+  pinnedMessageIds?: string[];
+  /** Published checkpoints consumed by this summary, in path order. */
+  previousSummaries?: { id: string; updatedAt: string }[];
+  /** Source versions captured before generating a summary. */
+  stagedSources?: { id: string; updatedAt: string }[];
   // Compression range
   startMessageId?: string;
 }

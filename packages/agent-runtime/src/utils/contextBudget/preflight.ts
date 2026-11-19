@@ -130,11 +130,59 @@ const collectOffendingItems = (
   return items.sort((a, b) => b.estimatedTokens - a.estimatedTokens).slice(0, 12);
 };
 
+function protectRecentTurns(
+  input: EvaluateContextBudgetInput,
+  accounting: ReturnType<typeof countContextTokens>,
+  partition: ContextMessagePartition,
+  availableTokens: number,
+): ContextMessagePartition {
+  if (input.candidateIds || input.preservedIds || input.trigger === 'manual') return partition;
+
+  const candidates = new Set(partition.candidateIds);
+  const latestUser = input.messages.findLastIndex((message) => message.role === 'user');
+  const mediaTokens = new Map<string, number>();
+  for (const attachment of accounting.attachments) {
+    if (!attachment.messageId) continue;
+    mediaTokens.set(
+      attachment.messageId,
+      (mediaTokens.get(attachment.messageId) ?? 0) + attachment.estimatedTokens,
+    );
+  }
+
+  let remaining = availableTokens;
+  let end = latestUser;
+  for (let start = end - 1; start >= 0; start--) {
+    if (input.messages[start].role !== 'user') continue;
+    const tail = input.messages[end - 1];
+    if (tail.role !== 'assistant' && tail.role !== 'assistantGroup') break;
+    const turnIds: string[] = [];
+    let turnTokens = 0;
+    for (let index = start; index < end; index++) {
+      const id = getMessageId(input.messages[index], index);
+      if (!candidates.has(id)) continue;
+      turnIds.push(id);
+      turnTokens += accounting.messages[index].total + (mediaTokens.get(id) ?? 0);
+    }
+    const estimated = scaled(turnTokens, accounting.driftMultiplier);
+    if (estimated > remaining) break;
+    for (const id of turnIds) candidates.delete(id);
+    remaining -= estimated;
+    end = start;
+  }
+
+  // Provider rejection takes precedence over the recent-history preference
+  // when the previous turn is the only history available to compact.
+  if (input.trigger === 'provider-error' && candidates.size === 0) return partition;
+  return candidates.size === partition.candidateIds.length
+    ? partition
+    : partitionContextMessages(input.messages, { candidateIds: [...candidates] });
+}
+
 export const evaluateContextBudget = (
   input: EvaluateContextBudgetInput,
 ): ContextBudgetEvaluation => {
   const window = resolveEffectiveContextWindow(input);
-  const partition = partitionContextMessages(input.messages, input);
+  const initialPartition = partitionContextMessages(input.messages, input);
   const providerMedia = input.providerMedia ?? [];
   const tools = input.tools ?? [];
   const accounting = countContextTokens({
@@ -143,20 +191,37 @@ export const evaluateContextBudget = (
     providerMedia,
     tools,
   });
-  const tailAccounting = countContextTokens({
-    messages: partition.preservedMessages,
-    options: { driftMultiplier: input.driftMultiplier },
-    providerMedia: mediaForTail(providerMedia, partition.candidateIds),
-    tools,
-  });
   const availablePromptTokens = Math.max(
     1,
     window.windowTokens - Math.max(0, Math.floor(input.outputReserveTokens ?? 0)),
   );
-  const budgetTokens =
-    input.trigger === 'threshold'
-      ? Math.max(1, Math.floor(availablePromptTokens * (input.thresholdRatio ?? 0.5)))
-      : availablePromptTokens;
+  const countTail = (partition: ContextMessagePartition) =>
+    countContextTokens({
+      messages: partition.preservedMessages,
+      options: { driftMultiplier: input.driftMultiplier },
+      providerMedia: mediaForTail(providerMedia, partition.candidateIds),
+      tools,
+    });
+  const requiredTailTokens = countTail(initialPartition).adjustedTotal;
+  const partition = protectRecentTurns(
+    input,
+    accounting,
+    initialPartition,
+    Math.max(
+      0,
+      Math.min(
+        20_000,
+        Math.floor(availablePromptTokens * 0.25),
+        availablePromptTokens - requiredTailTokens,
+      ),
+    ),
+  );
+  const tailTokens =
+    partition === initialPartition ? requiredTailTokens : countTail(partition).adjustedTotal;
+  const softBudget = Math.max(1, Math.floor(availablePromptTokens * (input.thresholdRatio ?? 0.5)));
+  const useSoftBudget =
+    input.trigger === 'threshold' && tailTokens < softBudget && partition.candidateIds.length > 0;
+  const budgetTokens = useSoftBudget ? softBudget : availablePromptTokens;
   const offending = collectOffendingItems(input, accounting);
   const compressionAttempt = normalizeCompressionAttempt(input.attemptState?.compressionAttempt);
   const sentPayloadFingerprints = input.attemptState?.sentPayloadFingerprints ?? [];
@@ -171,7 +236,7 @@ export const evaluateContextBudget = (
     promptTokens: accounting.adjustedTotal,
     sentPayloadFingerprints,
     source: window.source,
-    tailTokens: tailAccounting.adjustedTotal,
+    tailTokens,
     trigger: input.trigger,
     windowTokens: window.windowTokens,
   });
@@ -182,7 +247,7 @@ export const evaluateContextBudget = (
     estimatedPromptTokens: accounting.adjustedTotal,
     partition,
     payloadFingerprint: accounting.payloadFingerprint,
-    tailTokens: tailAccounting.adjustedTotal,
+    tailTokens,
     trace: {
       attempt: compressionAttempt,
       decision,
@@ -201,6 +266,7 @@ export const evaluateContextBudget = (
 };
 
 const ACTIONS_BY_OUTCOME_CODE = {
+  DUPLICATE_REQUEST: [],
   NO_CANDIDATES: ['truncate_tool_results', 'detach_attachments', 'switch_model', 'fork_topic'],
   RETRY_EXHAUSTED: ['switch_model', 'fork_topic'],
   SUMMARY_FAILED: ['switch_model', 'fork_topic'],

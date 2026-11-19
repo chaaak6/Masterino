@@ -441,13 +441,18 @@ class ChatService {
     if (result.kind === 'success') return result.value;
 
     const evaluation = result.evaluations.at(-1);
+    const duplicate = result.decision.code === 'DUPLICATE_REQUEST';
     const error = {
       body: {
         contextBudget: { decision: result.decision, trace: evaluation?.trace },
         contextBudgetAttemptState: result.attemptState,
       },
-      message: `The final request exceeds the context window for model "${finalPayload.model}".`,
-      type: AgentRuntimeErrorType.ExceededContextWindow,
+      message: duplicate
+        ? 'The Agent stopped before sending a repeated request.'
+        : `The final request exceeds the context window for model "${finalPayload.model}".`,
+      type: duplicate
+        ? AgentRuntimeErrorType.AgentRuntimeError
+        : AgentRuntimeErrorType.ExceededContextWindow,
     };
     await providerOptions.onErrorHandle?.(error);
     await providerOptions.onFinish?.('', { type: 'error' });

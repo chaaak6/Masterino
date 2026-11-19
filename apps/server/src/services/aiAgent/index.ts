@@ -31,6 +31,7 @@ import {
   type ToolExecutor,
   type ToolSource,
 } from '@lobechat/context-engine';
+import { parse } from '@lobechat/conversation-flow';
 import type { LobeChatDatabase } from '@lobechat/database';
 import { isRemoteHeterogeneousType } from '@lobechat/heterogeneous-agents';
 import { buildTaskManagerDefaultsPrompt } from '@lobechat/prompts';
@@ -133,6 +134,7 @@ import { resolveAttachmentsByFileIds } from '@/server/services/file/resolveAttac
 import { HeterogeneousAgentService } from '@/server/services/heterogeneousAgent';
 import type { ConversationHistoryEntry } from '@/server/services/heterogeneousAgent/cloudHeteroContext';
 import { MarketService } from '@/server/services/market';
+import { MessageService } from '@/server/services/message';
 import { createEffectiveModelCatalog } from '@/server/services/modelCatalog';
 import { ProjectWorkspaceService } from '@/server/services/projectWorkspace';
 import {
@@ -1667,6 +1669,21 @@ export class AiAgentService {
 
     await throwIfExecutionAborted('message creation');
 
+    const historyHeadId =
+      appContext?.topicId && !appContext.groupId && !appContext.threadId
+        ? ((effectiveResume ? parentMessageId : appContext.historyHeadId) ?? undefined)
+        : undefined;
+    if (historyHeadId && !effectiveResume) {
+      const historyHead = await this.messageModel.findById(historyHeadId);
+      if (
+        !historyHead ||
+        historyHead.topicId !== topicId ||
+        historyHead.threadId ||
+        historyHead.groupId
+      )
+        throw new Error('History head is not in the requested conversation');
+    }
+
     // Persist the user turn. `selfMessageIds` lets the normal-path history loader
     // exclude this freshly-created turn — history must be the PRIOR turns only,
     // otherwise the new prompt is double-counted in the LLM context.
@@ -1678,6 +1695,7 @@ export class AiAgentService {
           content: prompt,
           files: runAttachments.fileIds,
           metadata: requestTriggerMetadata,
+          parentId: historyHeadId,
           role: 'user',
           threadId: appContext?.threadId ?? undefined,
           topicId,
@@ -2430,7 +2448,7 @@ export class AiAgentService {
             threadId: appContext?.threadId,
             topicId: appContext?.topicId ?? undefined,
           },
-          { postProcessUrl },
+          { complete: true, postProcessUrl },
         );
         const idSet = new Set(existingMessageIds);
         historyMessagesCache = messages.filter((msg) => idSet.has(msg.id));
@@ -2439,15 +2457,21 @@ export class AiAgentService {
         // Exclude the turn we just persisted above (`selfMessageIds`) — history
         // must be the PRIOR turns only; the current prompt is appended separately
         // as the in-memory `userMessage`, so leaving it in would double-count it.
-        const messages = await this.messageModel.query(
+        const messages = await new MessageService(
+          this.db,
+          this.userId,
+          this.workspaceId,
+        ).queryAgentMessages(
           {
+            historyHeadId,
             sessionId: appContext?.sessionId,
             threadId: appContext?.threadId,
             topicId: appContext?.topicId,
           },
-          { postProcessUrl },
+          postProcessUrl,
         );
-        historyMessagesCache = messages.filter((msg) => !selfMessageIds.has(msg.id));
+        const prior = messages.filter((msg) => !selfMessageIds.has(msg.id));
+        historyMessagesCache = appContext.groupId ? prior : parse(prior).flatList;
       } else {
         historyMessagesCache = [];
       }

@@ -60,6 +60,12 @@ export class MessageService {
     return data as unknown as UIChatMessage[];
   };
 
+  getHistoryPage = (params: Parameters<typeof lambdaClient.message.getHistoryPage.query>[0]) =>
+    lambdaClient.message.getHistoryPage.query(params);
+
+  getAgentHistory = (params: Parameters<typeof lambdaClient.message.getAgentHistory.query>[0]) =>
+    lambdaClient.message.getAgentHistory.query(params);
+
   countMessages = async (params?: {
     endDate?: string;
     range?: [string, string];
@@ -125,9 +131,11 @@ export class MessageService {
     id: string,
     value: Partial<UpdateMessageParams>,
     ctx?: MessageQueryContext,
+    response?: { returnUpdatedMessage: true },
   ): Promise<UpdateMessageResult> => {
     return lambdaClient.message.update.mutate({
       ...ctx,
+      ...response,
       id,
       value,
     });
@@ -255,7 +263,10 @@ export class MessageService {
     messages: UIChatMessage[];
     messagesToSummarize: UIChatMessage[];
   }> => {
-    const result = await lambdaClient.message.createCompressionGroup.mutate(params);
+    const result = await lambdaClient.message.createCompressionGroup.mutate({
+      ...params,
+      includeTimelineSnapshot: false,
+    });
     return {
       messageGroupId: result.messageGroupId,
       messages: (result.messages || []) as unknown as UIChatMessage[],

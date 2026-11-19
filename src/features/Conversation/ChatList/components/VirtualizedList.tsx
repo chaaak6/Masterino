@@ -2,7 +2,7 @@
 
 import isEqual from 'fast-deep-equal';
 import type { KeyboardEvent, PointerEvent, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { VListHandle } from 'virtua';
 import { VList } from 'virtua';
 import { useShallow } from 'zustand/react/shallow';
@@ -39,6 +39,7 @@ interface VirtualizedListProps {
   footerSlot?: ReactNode;
   headerSlot?: ReactNode;
   itemContent: (index: number, data: string) => ReactNode;
+  onReachTop?: () => void;
 }
 
 /**
@@ -47,10 +48,15 @@ interface VirtualizedListProps {
  * Based on ConversationStore data flow, no dependency on global ChatStore.
  */
 const VirtualizedList = memo<VirtualizedListProps>(
-  ({ dataSource, footerSlot, headerSlot, itemContent }) => {
+  ({ dataSource, footerSlot, headerSlot, itemContent, onReachTop }) => {
     const virtuaRef = useRef<VListHandle>(null);
     const scrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastUserScrollIntentAtRef = useRef(0);
+    const previousFirstId = useRef(dataSource[0]);
+    const prepended = !!previousFirstId.current && dataSource.indexOf(previousFirstId.current) > 0;
+    useLayoutEffect(() => {
+      previousFirstId.current = dataSource[0];
+    }, [dataSource]);
 
     // Per-topic scroll restoration. Provider does not remount on topic switch,
     // so we key the scroll snapshot by the message-map key derived from
@@ -144,6 +150,7 @@ const VirtualizedList = memo<VirtualizedListProps>(
         const hasUserScrollIntent =
           Date.now() - lastUserScrollIntentAtRef.current <= USER_SCROLL_INTENT_TTL_MS;
         onScrollOffset(ref.scrollOffset, hasUserScrollIntent);
+        if (hasUserScrollIntent && ref.scrollOffset < 160) onReachTop?.();
       }
 
       // Check if at bottom
@@ -163,7 +170,15 @@ const VirtualizedList = memo<VirtualizedListProps>(
       scrollEndTimerRef.current = setTimeout(() => {
         setScrollState({ isScrolling: false });
       }, 150);
-    }, [activeIndex, checkAtBottom, onScrollOffset, recordScroll, setActiveIndex, setScrollState]);
+    }, [
+      activeIndex,
+      checkAtBottom,
+      onReachTop,
+      onScrollOffset,
+      recordScroll,
+      setActiveIndex,
+      setScrollState,
+    ]);
 
     const handleScrollEnd = useCallback(() => {
       setScrollState({ isScrolling: false });
@@ -283,6 +298,7 @@ const VirtualizedList = memo<VirtualizedListProps>(
           data={dataWithSlots}
           keepMounted={keepMountedIndicesWithSlots}
           ref={virtuaRef}
+          shift={prepended}
           style={{ height: '100%', overflowAnchor: 'none', paddingBottom }}
           onScroll={handleScroll}
           onScrollEnd={handleScrollEnd}
