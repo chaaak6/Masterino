@@ -15,7 +15,7 @@ import { type MCPToolCallResult } from '@/libs/mcp';
 import { toolsClient } from '@/libs/trpc/client';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
-import { callDeviceLocalMcp } from './deviceLocalMcp';
+import { callDeviceLocalMcp, isKnownDeviceLocalMcpServer } from './deviceLocalMcp';
 import { discoverService } from './discover';
 
 /**
@@ -42,7 +42,7 @@ class MCPService {
       topicId,
     }: { executionContext?: ExecutionContext; signal?: AbortSignal; topicId?: string },
   ) {
-    if (isDeviceLocalMcpIdentifier(payload.identifier)) {
+    if (payload.source === 'client' && isDeviceLocalMcpIdentifier(payload.identifier)) {
       const { getUserStoreState } = await import('@/store/user/store');
       const { isSignedIn, user } = getUserStoreState();
       return callDeviceLocalMcp(payload, executionContext, isSignedIn ? user?.id : undefined);
@@ -81,7 +81,22 @@ class MCPService {
 
     const plugin = installPlugin || customPlugin;
 
-    if (!plugin) return;
+    if (!plugin) {
+      // Older tool messages can arrive without the runtime source. Check the device registry only
+      // after ruling out a regular connector or plugin using this identifier.
+      if (
+        isDesktop &&
+        executionContext?.plan.target === 'local' &&
+        isDeviceLocalMcpIdentifier(identifier)
+      ) {
+        const { getUserStoreState } = await import('@/store/user/store');
+        const { isSignedIn, user } = getUserStoreState();
+        const userId = isSignedIn ? user?.id : undefined;
+        if (await isKnownDeviceLocalMcpServer(identifier, executionContext, userId))
+          return callDeviceLocalMcp(payload, executionContext, userId);
+      }
+      return;
+    }
 
     const connection = plugin.customParams?.mcp;
     const settingsEntries = plugin.settings

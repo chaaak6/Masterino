@@ -4,6 +4,7 @@ import type {
   BuiltinToolContext,
   ChatToolPayload,
   MessageToolCall,
+  ToolManifest,
   UIChatMessage,
 } from '@lobechat/types';
 import { act, renderHook } from '@testing-library/react';
@@ -900,6 +901,24 @@ describe('ChatPluginAction', () => {
       const transformed = result.current.internal_transformToolCalls(toolCalls);
 
       expect(transformed[0].apiName).toBe(longApiName);
+    });
+
+    it('resolves a hashed device-local name from the manifests offered for this run', () => {
+      const identifier = 'local-mcp-0123456789abcdef01234567';
+      const apiName = 'inspect_active_drawing_geometry';
+      const manifest = {
+        api: [{ description: 'Read CAD data', name: apiName, parameters: { type: 'object' } }],
+        identifier,
+        type: 'mcp',
+      } satisfies ToolManifest;
+      const name = new ToolNameResolver().generate(identifier, apiName, 'mcp');
+      expect(name).not.toContain(identifier);
+      const calls: MessageToolCall[] = [
+        { id: 'local-call', function: { arguments: '{}', name }, type: 'function' },
+      ];
+      expect(
+        useChatStore.getState().internal_transformToolCalls(calls, [name], [manifest]),
+      ).toMatchObject([{ apiName, identifier, source: 'client', type: 'mcp' }]);
     });
 
     it('should repair malformed JSON arguments with escaped string issue', () => {

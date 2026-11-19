@@ -4,14 +4,29 @@ import type { ChatToolPayload, ExecutionContext, ToolManifest } from '@lobechat/
 
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
+const listDeviceLocalMcpServers = (
+  executionContext: ExecutionContext | undefined,
+  userId: string | undefined,
+): Promise<DeviceLocalMcpServer[]> => {
+  if (!isDesktop || executionContext?.plan.target !== 'local' || !userId)
+    return Promise.resolve([]);
+  return ensureElectronIpc().mcp.listDeviceLocalServers({ userId });
+};
+
+export const isKnownDeviceLocalMcpServer = async (
+  identifier: string,
+  executionContext: ExecutionContext,
+  userId: string | undefined,
+) =>
+  (await listDeviceLocalMcpServers(executionContext, userId)).some(
+    (server) => server.identifier === identifier,
+  );
+
 export const getDeviceLocalMcpManifests = async (
   executionContext: ExecutionContext | undefined,
   userId: string | undefined,
 ): Promise<ToolManifest[]> => {
-  if (!isDesktop || executionContext?.plan.target !== 'local' || !userId) return [];
-  const servers: DeviceLocalMcpServer[] = await ensureElectronIpc().mcp.listDeviceLocalServers({
-    userId,
-  });
+  const servers = await listDeviceLocalMcpServers(executionContext, userId);
   return servers
     .filter(({ enabled, enabledTools }) => enabled && enabledTools.length > 0)
     .map(({ enabledTools, identifier, name, tools }) => ({

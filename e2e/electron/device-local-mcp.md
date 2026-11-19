@@ -16,3 +16,10 @@ Use the existing Electron test profile and test service. Keep the synthetic DXF 
 2. In the Electron test chat, enable `ocs_inspect`, `ocs_read`, `ocs_execute`, and `ocs_save_verified`. Ask the Agent to read the current revision, locate the moved machine, check the aisle and determine the water gap. Check the returned drawing data against the working copy.
 3. Ask the Agent to update only the affected polyline endpoint using the current document revision and expected old coordinate. Read back that edit, then save a verified DXF R2010 to a fresh filename.
 4. Reopen the revised DXF. Compare all equipment positions and unaffected layers against the working copy. The edited endpoint should meet the equipment port, the aisle should stay clear, and the working copy should remain available.
+
+## Local and server routing regressions
+
+- Edit the tool selection of a saved connection. Reopen the form and check the selection and count. Try malformed environment JSON and a valid JSON value that is not a string map. Confirm both produce an environment-specific error before any process starts.
+- Add a disposable local MCP that exposes `inspect_active_drawing_geometry`. Start a new local Agent conversation and regenerate its answer after an actual call. Verify the tool is invoked on both runs and that the UI shows its real API name. Test a continued run with no incoming execution context using the streaming executor regression.
+- Call an installed server MCP from the same Electron profile. In Network, verify the server request and its successful result. In a local-only turn, compare the model request's tool definitions and confirm the local executable, arguments and environment marker are absent.
+- Check that disabling or removing a local server rejects new calls while an accepted tool call finishes on its original connection. The controller test uses a real stdio fixture and verifies that parallel first calls initialize one client.

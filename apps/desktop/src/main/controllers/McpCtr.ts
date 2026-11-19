@@ -8,6 +8,7 @@ import type {
   DeviceLocalMcpServer,
   DeviceLocalMcpTool,
 } from '@lobechat/electron-client-ipc';
+import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
 import { safeStorage } from 'electron';
 import superjson from 'superjson';
 import { z } from 'zod';
@@ -28,6 +29,12 @@ const localConfigSchema = z.object({
   command: z.string().trim().min(1),
   env: z.record(z.string()).optional(),
 });
+
+interface DeviceLocalConnection {
+  client: Promise<MCPClient>;
+  inFlight: number;
+  retired: boolean;
+}
 
 /**
  * Desktop-only copy of `@lobechat/types`'s `CheckMcpInstallResult`.
@@ -193,7 +200,7 @@ const toMarkdown = async (
 export default class McpCtr extends ControllerModule {
   static override readonly groupName = 'mcp';
 
-  private readonly deviceLocalClients = new Map<string, Promise<MCPClient>>();
+  private readonly deviceLocalClients = new Map<string, DeviceLocalConnection>();
 
   private get fileService() {
     return this.app.getService(FileService);
@@ -223,7 +230,7 @@ export default class McpCtr extends ControllerModule {
   private selectLocalTools(tools: DeviceLocalMcpTool[], enabledTools: string[]) {
     const names = new Set(tools.map(({ name }) => name));
     if (!Array.isArray(enabledTools) || enabledTools.some((name) => !names.has(name)))
-      throw new Error('Choose tools from the discovered MCP server');
+      throw new Error(deviceLocalMcpErrors.toolSelection);
     return [...new Set(enabledTools)];
   }
 
@@ -231,7 +238,7 @@ export default class McpCtr extends ControllerModule {
     if (this.app.isQuiting) throw new Error('Application is shutting down');
     const parsed = localConfigSchema.safeParse(config);
     if (!parsed.success || !parsed.data.command)
-      throw new Error('Enter a valid local MCP executable and arguments');
+      throw new Error(deviceLocalMcpErrors.invalidConfig);
 
     const client = new MCPClient({
       args: parsed.data.args ?? [],
@@ -245,7 +252,7 @@ export default class McpCtr extends ControllerModule {
       return client;
     } catch {
       await this.closeDeviceLocalClient(client);
-      throw new Error('Could not communicate with the device-local MCP process');
+      throw new Error(deviceLocalMcpErrors.connection);
     }
   }
 
@@ -255,13 +262,18 @@ export default class McpCtr extends ControllerModule {
     });
   }
 
-  private async disposeDeviceLocalClient(
+  private async retireDeviceLocalClient(
     identifier: string,
     connection = this.deviceLocalClients.get(identifier),
   ) {
     if (!connection || this.deviceLocalClients.get(identifier) !== connection) return;
     this.deviceLocalClients.delete(identifier);
-    const client = await connection.catch(() => undefined);
+    connection.retired = true;
+    if (connection.inFlight === 0) await this.closeRetiredDeviceLocalClient(connection);
+  }
+
+  private async closeRetiredDeviceLocalClient(connection: DeviceLocalConnection) {
+    const client = await connection.client.catch(() => undefined);
     if (client) await this.closeDeviceLocalClient(client);
   }
 
@@ -270,6 +282,8 @@ export default class McpCtr extends ControllerModule {
     const client = await this.createDeviceLocalClient(config, 'device-local-mcp');
     try {
       return await client.listTools();
+    } catch {
+      throw new Error(deviceLocalMcpErrors.connection);
     } finally {
       await this.closeDeviceLocalClient(client);
     }
@@ -293,7 +307,7 @@ export default class McpCtr extends ControllerModule {
       !safeStorage.isEncryptionAvailable() ||
       (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text')
     ) {
-      throw new Error('Secure storage is unavailable on this device');
+      throw new Error(deviceLocalMcpErrors.secureStorage);
     }
 
     const tools = await this.testDeviceLocalServer(config);
@@ -353,7 +367,7 @@ export default class McpCtr extends ControllerModule {
         };
       }),
     );
-    if (enabled !== true) await this.disposeDeviceLocalClient(identifier);
+    if (enabled !== true) await this.retireDeviceLocalClient(identifier);
   }
 
   @IpcMethod()
@@ -372,7 +386,7 @@ export default class McpCtr extends ControllerModule {
         (item) => item.scope !== scope || item.server.identifier !== identifier,
       ),
     );
-    await this.disposeDeviceLocalClient(identifier);
+    await this.retireDeviceLocalClient(identifier);
   }
 
   @IpcMethod()
@@ -402,17 +416,26 @@ export default class McpCtr extends ControllerModule {
       const config = JSON.parse(
         safeStorage.decryptString(Buffer.from(record.encryptedConfig, 'base64')),
       );
-      connection = this.createDeviceLocalClient(config, identifier);
+      connection = {
+        client: this.createDeviceLocalClient(config, identifier),
+        inFlight: 0,
+        retired: false,
+      };
       this.deviceLocalClients.set(identifier, connection);
     }
 
+    connection.inFlight++;
     let raw: Awaited<ReturnType<MCPClient['callTool']>>;
     try {
-      raw = await (await connection).callTool(toolName, callArguments.data);
+      raw = await (await connection.client).callTool(toolName, callArguments.data);
     } catch {
       // A CAD edit may already have reached the editor. Reconnect on a later call.
-      await this.disposeDeviceLocalClient(identifier, connection);
+      await this.retireDeviceLocalClient(identifier, connection);
       throw new Error('Could not communicate with the device-local MCP process');
+    } finally {
+      connection.inFlight--;
+      if (connection.retired && connection.inFlight === 0)
+        await this.closeRetiredDeviceLocalClient(connection);
     }
     const processed = raw.isError ? raw.content : await this.processContentBlocks(raw.content);
     return {

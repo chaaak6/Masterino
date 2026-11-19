@@ -1,5 +1,6 @@
 import { builtinTools } from '@lobechat/builtin-tools';
 import { ToolArgumentsRepairer, ToolNameResolver } from '@lobechat/context-engine';
+import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import { type ChatToolPayload, type MessageToolCall, type ToolManifest } from '@lobechat/types';
 
 import { type ChatStore } from '@/store/chat/store';
@@ -30,6 +31,7 @@ export class PluginInternalsActionImpl {
   internal_transformToolCalls = (
     toolCalls: MessageToolCall[],
     offeredToolNames?: string[],
+    enabledManifests?: ToolManifest[],
   ): ChatToolPayload[] => {
     const toolNameResolver = new ToolNameResolver();
 
@@ -38,7 +40,7 @@ export class PluginInternalsActionImpl {
     const manifests: Record<string, ToolManifest> = {};
 
     // Track source for each identifier
-    const sourceMap: Record<string, 'builtin' | 'mcp' | 'composio' | 'lobehubSkill'> = {};
+    const sourceMap: Record<string, ChatToolPayload['source']> = {};
 
     // Get all installed plugins (all treated as MCP now)
     const installedPlugins = pluginSelectors.installedPlugins(toolStoreState);
@@ -73,6 +75,13 @@ export class PluginInternalsActionImpl {
         manifests[tool.identifier] = tool.manifest as ToolManifest;
         sourceMap[tool.identifier] = 'lobehubSkill';
       }
+    }
+
+    for (const manifest of enabledManifests ?? []) {
+      if (manifest.type !== 'mcp' || !isDeviceLocalMcpIdentifier(manifest.identifier)) continue;
+      if (manifests[manifest.identifier]) continue;
+      manifests[manifest.identifier] = manifest;
+      sourceMap[manifest.identifier] = 'client';
     }
 
     // Resolve tool calls and add source field

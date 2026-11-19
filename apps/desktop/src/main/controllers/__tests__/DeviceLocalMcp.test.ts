@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { App } from '@/core/App';
@@ -5,7 +7,7 @@ import { MCPClient } from '@/libs/mcp/client';
 
 import McpCtr from '../McpCtr';
 
-const fixture = new URL('./fixtures/device-local-mcp.mjs', import.meta.url).pathname;
+const fixture = fileURLToPath(new URL('./fixtures/device-local-mcp.mjs', import.meta.url));
 const scope = { userId: 'local-test-user' };
 const launchConfig = {
   args: [fixture, '--synthetic-launch-argument'],
@@ -46,7 +48,10 @@ describe('device-local MCP desktop API', () => {
     mock.settings = {};
   });
 
-  afterEach(() => MCPClient.cleanupAll());
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await MCPClient.cleanupAll();
+  });
 
   it('discovers, persists, and invokes only authorized tools without returning launch configuration', async () => {
     const controller = new McpCtr(app);
@@ -116,6 +121,73 @@ describe('device-local MCP desktop API', () => {
       state: { structuredContent: { calls: 1 } },
     });
   });
+
+  it('shares one stdio client across simultaneous first calls', async () => {
+    const controller = new McpCtr(app);
+    const { identifier } = await controller.saveDeviceLocalServer({
+      ...scope,
+      config: launchConfig,
+      enabledTools: ['inspect'],
+      name: 'Synthetic CAD',
+    });
+    const initialize = vi.spyOn(MCPClient.prototype, 'initialize');
+    const call = () =>
+      controller.callDeviceLocalTool({ ...scope, identifier, toolName: 'inspect' });
+    await expect(Promise.all([call(), call()])).resolves.toMatchObject([
+      { state: { structuredContent: { calls: 1 } } },
+      { state: { structuredContent: { calls: 2 } } },
+    ]);
+    expect(initialize).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['disable', 'remove'])(
+    'lets accepted calls finish when users %s the server',
+    async (action) => {
+      const controller = new McpCtr(app);
+      const { identifier } = await controller.saveDeviceLocalServer({
+        ...scope,
+        config: launchConfig,
+        enabledTools: ['write'],
+        name: 'Synthetic CAD',
+      });
+
+      let release!: () => void;
+      const barrier = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let entered!: () => void;
+      const started = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const original = MCPClient.prototype.callTool;
+      vi.spyOn(MCPClient.prototype, 'callTool').mockImplementationOnce(async function (
+        this: MCPClient,
+        tool,
+        args,
+      ) {
+        entered();
+        await barrier;
+        return original.call(this, tool, args);
+      });
+      const disconnect = vi.spyOn(MCPClient.prototype, 'disconnect');
+      const call = () =>
+        controller.callDeviceLocalTool({ ...scope, identifier, toolName: 'write' });
+      const running = call();
+      await started;
+
+      try {
+        if (action === 'disable')
+          await controller.updateDeviceLocalServer({ ...scope, identifier, enabled: false });
+        else await controller.removeDeviceLocalServer({ ...scope, identifier });
+        await expect(call()).rejects.toThrow('unavailable');
+        expect(disconnect).not.toHaveBeenCalled();
+      } finally {
+        release();
+        await expect(running).resolves.toMatchObject({ success: true });
+      }
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('supports disabling and removing an installed server', async () => {
     const controller = new McpCtr(app);

@@ -33,6 +33,7 @@ vi.mock('@lobechat/utils', () => ({
 }));
 
 vi.mock('@/libs/trpc/client', () => ({
+  lambdaClient: { connector: { callTool: { mutate: vi.fn() } } },
   toolsClient: {
     market: {
       callCloudMcpEndpoint: {
@@ -84,6 +85,44 @@ describe('MCPService', () => {
   });
 
   describe('invokeMcpToolCall', () => {
+    it.each(['http', 'stdio'])(
+      'keeps server-side %s MCP routing for a local-looking identifier',
+      async (connectionType) => {
+        const { lambdaClient } = await import('@/libs/trpc/client');
+        const identifier = 'local-mcp-0123456789abcdef01234567';
+        mockGetToolStoreState.mockReturnValue({
+          connectors: [
+            {
+              identifier,
+              isEnabled: true,
+              mcpConnectionType: connectionType,
+              mcpServerUrl: connectionType === 'http' ? 'https://mcp.example.com/mcp' : undefined,
+            },
+          ],
+        });
+        const response = { content: 'server result', success: true } as const;
+        vi.mocked(lambdaClient.connector.callTool.mutate).mockResolvedValue(response as never);
+        const signal = new AbortController().signal;
+        await expect(
+          mcpService.invokeMcpToolCall(
+            {
+              apiName: 'inspect',
+              arguments: '{}',
+              id: 'server-call',
+              identifier,
+              source: 'mcp',
+              type: 'mcp',
+            } as ChatToolPayload,
+            { signal },
+          ),
+        ).resolves.toEqual(response);
+        expect(lambdaClient.connector.callTool.mutate).toHaveBeenCalledWith(
+          { args: '{}', identifier, toolName: 'inspect' },
+          { signal },
+        );
+      },
+    );
+
     it('should invoke tool call with installed plugin', async () => {
       const { toolsClient } = await import('@/libs/trpc/client');
       const { discoverService } = await import('./discover');

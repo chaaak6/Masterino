@@ -11,6 +11,7 @@ import * as toolEngineering from '@/helpers/toolEngineering';
 import { agentDocumentService } from '@/services/agentDocument';
 import { chatService } from '@/services/chat';
 import * as agentConfigResolver from '@/services/chat/mecha/agentConfigResolver';
+import * as deviceLocalMcp from '@/services/deviceLocalMcp';
 import { messageService } from '@/services/message';
 import { projectWorkspaceService } from '@/services/projectWorkspace';
 import { useAgentStore } from '@/store/agent';
@@ -1004,6 +1005,50 @@ describe('StreamingExecutor actions', () => {
         );
       },
     );
+
+    it('loads device-local tools for a continued topic without an explicit execution context', async () => {
+      desktopFlag.value = true;
+      useUserStore.setState({ isSignedIn: true, user: { id: 'local-account' } } as any);
+      useProjectWorkspaceStore.setState({
+        topicStatesById: {
+          [TEST_IDS.TOPIC_ID]: {
+            snapshot: { target: 'local', targetCapturedAt: '2026-11-19T00:00:00Z', version: 1 },
+          },
+        },
+      });
+      const manifestLookup = vi
+        .spyOn(deviceLocalMcp, 'getDeviceLocalMcpManifests')
+        .mockResolvedValue([]);
+      vi.spyOn(chatService, 'createAssistantMessageStream').mockImplementation(
+        async ({ onFinish }) => {
+          await onFinish?.(TEST_CONTENT.AI_RESPONSE, {} as any);
+        },
+      );
+      const userMessage = createMockMessage({
+        id: TEST_IDS.USER_MESSAGE_ID,
+        role: 'user',
+        content: TEST_CONTENT.USER_MESSAGE,
+      });
+      const assistantMessage = createMockMessage({ id: 'assistant-continue', role: 'assistant' });
+      try {
+        await act(async () => {
+          await realExecAgentRuntime({
+            context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+            messages: [userMessage, assistantMessage],
+            parentMessageId: assistantMessage.id,
+            parentMessageType: 'assistant',
+          });
+        });
+        expect(manifestLookup).toHaveBeenCalledWith(
+          expect.objectContaining({ plan: expect.objectContaining({ target: 'local' }) }),
+          'local-account',
+        );
+      } finally {
+        desktopFlag.value = false;
+        useUserStore.setState({ isSignedIn: false, user: undefined });
+        useProjectWorkspaceStore.setState({ topicStatesById: {} });
+      }
+    });
 
     it('should handle the core AI message processing', async () => {
       act(() => {
