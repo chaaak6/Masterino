@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { inMemoryAgentStateManager } from '@/server/modules/AgentRuntime/InMemoryAgentStateManager';
 import { inMemoryStreamEventManager } from '@/server/modules/AgentRuntime/InMemoryStreamEventManager';
+import { MessageService } from '@/server/services/message';
 import { ToolExecutionService } from '@/server/services/toolExecution';
 
 import { aiAgentRouter } from '../../../aiAgent';
@@ -241,6 +242,74 @@ afterEach(async () => {
 });
 
 describe('Multi-Round Tool Execution', () => {
+  it('uses the checkpoint for the selected branch in a new provider request', async () => {
+    const [topic] = await serverDB
+      .insert(topics)
+      .values({ agentId: testAgentWithToolsId, userId })
+      .returning({ id: topics.id });
+    const id = (name: string) => `${topic.id}-${name}`;
+    await serverDB.insert(messages).values(
+      [
+        { id: id('question'), role: 'user' as const, content: 'The original question' },
+        {
+          id: id('a'),
+          role: 'assistant' as const,
+          parentId: id('question'),
+          content: 'RAW-BRANCH-A',
+        },
+        {
+          id: id('b'),
+          role: 'assistant' as const,
+          parentId: id('question'),
+          content: 'RAW-BRANCH-B',
+        },
+      ].map((row, index) => ({
+        ...row,
+        agentId: testAgentWithToolsId,
+        createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+        topicId: topic.id,
+        userId,
+      })),
+    );
+    const messageService = new MessageService(serverDB, userId);
+    const summary = await messageService.createCompressionGroup(topic.id, [
+      id('question'),
+      id('a'),
+    ]);
+    await messageService.finalizeCompression(
+      summary.messageGroupId,
+      'CHECKPOINT-BRANCH-A',
+      {
+        agentId: testAgentWithToolsId,
+        topicId: topic.id,
+      },
+      false,
+    );
+    mockResponsesCreate.mockResolvedValue(createMockFinalResponse() as any);
+
+    const caller = aiAgentRouter.createCaller(createTestContext());
+    const result = await caller.execAgent({
+      agentId: testAgentWithToolsId,
+      appContext: { historyHeadId: id('a'), topicId: topic.id },
+      prompt: 'Use the decision I selected',
+    });
+    const state = await waitForOperationComplete(inMemoryAgentStateManager, result.operationId);
+    expect(state.status).toBe('done');
+    const modelInput = JSON.stringify(mockResponsesCreate.mock.calls[0][0].input);
+    expect(modelInput).toContain('CHECKPOINT-BRANCH-A');
+    expect(modelInput).not.toContain('RAW-BRANCH-B');
+    expect(modelInput).toContain('Use the decision I selected');
+    expect(
+      await messageService.queryAgentMessages({
+        historyHeadId: result.userMessageId,
+        topicId: topic.id,
+      }),
+    ).toEqual([
+      expect.objectContaining({ content: 'CHECKPOINT-BRANCH-A' }),
+      expect.objectContaining({ content: 'Use the decision I selected', parentId: id('a') }),
+    ]);
+  }, 30_000);
+
   /**
    * This test verifies the fix:
    * When executing multiple rounds of batch tool calls, tool messages should not be duplicated.

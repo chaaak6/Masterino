@@ -28,10 +28,21 @@ export interface QueryMessageParams {
   agentId?: string | null;
   current?: number;
   groupId?: string | null;
+  historyHeadId?: string;
   pageSize?: number;
   sessionId?: string | null;
   threadId?: string | null;
   topicId?: string | null;
+}
+
+export interface MessageHistoryCursor {
+  createdAt: string;
+  id: string;
+}
+
+export interface MessageHistoryPage {
+  messages: UIChatMessage[];
+  nextCursor?: MessageHistoryCursor;
 }
 
 /**

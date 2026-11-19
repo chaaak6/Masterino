@@ -160,6 +160,7 @@ export default {
   'compression.inProgress': 'Compressing context…',
   'compression.inProgressHint':
     'Earlier messages are being summarized so the conversation can continue.',
+  'compression.marker': 'Messages compressed',
   'compression.summary': 'Summary',
   'confirmClearCurrentMessages':
     'You are about to clear the current conversation messages. Once cleared, they cannot be retrieved. Please confirm your action.',

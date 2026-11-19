@@ -35,6 +35,8 @@ export interface CompressionGroupMetadata {
   originalTokenCount?: number;
 
   pinnedMessageIds?: string[];
+  /** Published checkpoints consumed by this summary, in path order. */
+  previousSummaries?: { id: string; updatedAt: string }[];
   /** Source versions captured before generating a summary. */
   stagedSources?: { id: string; updatedAt: string }[];
   // Compression range

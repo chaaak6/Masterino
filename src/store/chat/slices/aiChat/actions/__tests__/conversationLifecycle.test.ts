@@ -255,6 +255,7 @@ describe('ConversationLifecycle actions', () => {
           });
         });
 
+        vi.spyOn(messageService, 'getAgentHistory').mockResolvedValue(existingMessages);
         const createCompressionGroupSpy = vi
           .spyOn(messageService, 'createCompressionGroup')
           .mockResolvedValue({

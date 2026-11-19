@@ -557,11 +557,24 @@ export const resolveCompressionSummaryBudgetTokens = (params: {
   return Math.max(1, (matchingSnapshot?.entry.contextWindowTokens ?? 32_000) - 1024);
 };
 
+const precedingCheckpoints = (messages: UIChatMessage[], firstCandidateId: string) => {
+  const start = messages.findIndex(({ id }) => id === firstCandidateId);
+  if (start < 1) return [];
+  const prefix = messages.slice(0, start).filter(({ role }) => role !== 'system');
+  if (
+    !prefix.every(({ role, lastMessageId }) => role === 'compressedGroup' && lastMessageId) ||
+    prefix.at(-1)?.lastMessageId !== messages[start].parentId
+  )
+    return [];
+  return prefix.map(({ id }) => id);
+};
+
 const replaceRuntimeHistoryWithSummary = (
   messages: UIChatMessage[],
   candidateIds: string[],
   groupId: string,
   content: string,
+  lastSourceId?: string,
 ): UIChatMessage[] => {
   const covered = new Set(candidateIds);
   const first = messages.find((message) => covered.has(message.id));
@@ -575,7 +588,7 @@ const replaceRuntimeHistoryWithSummary = (
           content,
           createdAt: first.createdAt,
           id: groupId,
-          lastMessageId: last.id,
+          lastMessageId: lastSourceId ?? last.id,
           parentId: first.parentId,
           role: 'compressedGroup' as const,
           updatedAt: first.updatedAt,
@@ -2307,15 +2320,19 @@ export const createRuntimeExecutors = (
         const topicId = state.metadata?.topicId ?? ctx.topicId;
         if (!topicId || !ctx.userId) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
 
-        const stateMessageIds = new Set(
-          state.messages.map((message) => message.id).filter((id): id is string => Boolean(id)),
+        const budgetCandidateIds = new Set(evaluation.partition.candidateIds);
+        const rawCandidateIds = state.messages.flatMap(({ id, role }) =>
+          id && role !== 'compressedGroup' && budgetCandidateIds.has(id) ? [id] : [],
         );
-        const persistedCandidateIds = evaluation.partition.candidateIds.filter((id) =>
-          stateMessageIds.has(id),
-        );
-        if (persistedCandidateIds.length === 0) {
+        if (rawCandidateIds.length === 0) {
           throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
         }
+        const providerIds = new Set((payload.messages as UIChatMessage[]).map(({ id }) => id));
+        const preceding = precedingCheckpoints(state.messages, rawCandidateIds[0]);
+        const persistedCandidateIds = [
+          ...(preceding.every((id) => providerIds.has(id)) ? preceding : []),
+          ...rawCandidateIds,
+        ];
 
         const messageService = new MessageService(
           ctx.serverDB,
@@ -3468,7 +3485,9 @@ export const createRuntimeExecutors = (
         ctx.userId,
         state.metadata?.workspaceId ?? ctx.workspaceId,
       );
-      const compressionResult = await messageService.createCompressionGroup(topicId, messageIds, {
+      const previous = precedingCheckpoints(messages, messagesToCompress[0].id);
+      const sourceIds = [...previous, ...messageIds];
+      const compressionResult = await messageService.createCompressionGroup(topicId, sourceIds, {
         agentId: state.metadata?.agentId,
         threadId: state.metadata?.threadId,
         topicId,
@@ -3546,7 +3565,7 @@ export const createRuntimeExecutors = (
                 }) as UIChatMessage,
             ),
           ),
-        candidateIds: messageIds,
+        candidateIds: sourceIds,
         createSummaryMessage: (summary) => {
           summaryContent = summary;
           return {
@@ -3631,9 +3650,10 @@ export const createRuntimeExecutors = (
 
       const compressedMessages = replaceRuntimeHistoryWithSummary(
         messages,
-        messagesToCompress.map((message) => message.id),
+        [...previous, ...messagesToCompress.map((message) => message.id)],
         compressionResult.messageGroupId,
         summaryContent,
+        messageIds.at(-1),
       );
 
       newState.messages = compressedMessages;
