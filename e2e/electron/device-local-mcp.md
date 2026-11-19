@@ -20,6 +20,7 @@ Use the existing Electron test profile and test service. Keep the synthetic DXF 
 ## Local and server routing regressions
 
 - Edit the tool selection of a saved connection. Reopen the form and check the selection and count. Try malformed environment JSON and a valid JSON value that is not a string map. Confirm both produce an environment-specific error before any process starts.
+- If a connection disappears while its settings are open, use the stale row once. Verify that the dialog reports the missing connection, refreshes the list and clears the stale tool selection.
 - Add a disposable local MCP that exposes `inspect_active_drawing_geometry`. Start a new local Agent conversation and regenerate its answer after an actual call. Verify the tool is invoked on both runs and that the UI shows its real API name. Test a continued run with no incoming execution context using the streaming executor regression.
 - Call an installed server MCP from the same Electron profile. In Network, verify the server request and its successful result. In a local-only turn, compare the model request's tool definitions and confirm the local executable, arguments and environment marker are absent.
 - Check that disabling or removing a local server rejects new calls while an accepted tool call finishes on its original connection. The controller test uses a real stdio fixture and verifies that parallel first calls initialize one client.

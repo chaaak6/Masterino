@@ -298,7 +298,7 @@
   "deviceLocalMcp.error.connection": "无法连接本地 MCP 进程，请检查可执行文件和启动参数。",
   "deviceLocalMcp.error.invalidConfig": "请输入可执行文件路径及有效的启动参数。",
   "deviceLocalMcp.error.secureStorage": "此设备的安全存储不可用。",
-  "deviceLocalMcp.error.serverUnavailable": "此本地 MCP 服务器已不可用。请重新打开设置以刷新列表。",
+  "deviceLocalMcp.error.serverUnavailable": "此本地 MCP 服务器已不可用。",
   "deviceLocalMcp.error.toolSelection": "请选择此本地服务已发现的工具。",
   "deviceLocalMcp.invalidEnv": "环境变量必须是有效的 JSON 对象，且所有值须为字符串。",
   "deviceLocalMcp.loadError": "无法加载已保存在此设备的本地 MCP 服务器。",

@@ -1194,8 +1194,7 @@ When I am ___, I need ___
     'Could not connect to the local MCP process. Check the executable and arguments.',
   'deviceLocalMcp.error.invalidConfig': 'Enter an executable path and valid arguments.',
   'deviceLocalMcp.error.secureStorage': 'Secure storage is unavailable on this device.',
-  'deviceLocalMcp.error.serverUnavailable':
-    'This local MCP server is no longer available. Reopen settings to refresh the list.',
+  'deviceLocalMcp.error.serverUnavailable': 'This local MCP server is no longer available.',
   'deviceLocalMcp.error.toolSelection': 'Choose only tools discovered on this local server.',
   'deviceLocalMcp.invalidEnv':
     'Enter a valid JSON object with string values for the environment variables.',

@@ -74,6 +74,7 @@ const DeviceLocalMcpModal = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState(false);
+  const [listRevision, setListRevision] = useState(0);
   const [editing, setEditing] = useState<{ identifier: string; names: string[] }>();
 
   useEffect(() => {
@@ -93,7 +94,7 @@ const DeviceLocalMcpModal = ({
     return () => {
       mounted = false;
     };
-  }, [onSaved, userId]);
+  }, [listRevision, onSaved, userId]);
 
   const resetProbe = () => {
     setTools(undefined);
@@ -123,6 +124,7 @@ const DeviceLocalMcpModal = ({
         message.includes(code),
       )?.[0];
       setError(reason ? t(`deviceLocalMcp.error.${reason}`) : t('deviceLocalMcp.error'));
+      if (reason === 'serverUnavailable' && !onSaved) setListRevision((revision) => revision + 1);
     } finally {
       setBusy(false);
     }
