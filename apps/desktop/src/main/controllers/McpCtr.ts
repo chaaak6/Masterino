@@ -1,15 +1,19 @@
 import { exec } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { constants } from 'node:fs';
+import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
 import type {
   DeviceLocalMcpConfig,
+  DeviceLocalMcpDraft,
+  DeviceLocalMcpPreset,
   DeviceLocalMcpServer,
   DeviceLocalMcpTool,
 } from '@lobechat/electron-client-ipc';
 import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
-import { safeStorage } from 'electron';
+import { app, safeStorage } from 'electron';
 import superjson from 'superjson';
 import { z } from 'zod';
 
@@ -285,6 +289,31 @@ export default class McpCtr extends ControllerModule {
     if (client) await this.closeDeviceLocalClient(client);
     this.deviceLocalClients.delete(identifier);
     connection.closed.resolve();
+  }
+
+  @IpcMethod()
+  async resolveDeviceLocalMcpPreset(preset: DeviceLocalMcpPreset): Promise<DeviceLocalMcpDraft> {
+    if (preset !== 'opencadstudio') throw new Error(deviceLocalMcpErrors.invalidConfig);
+
+    const candidates =
+      process.platform === 'darwin'
+        ? [path.join(app.getPath('home'), 'Applications'), '/Applications'].map((directory) =>
+            path.join(directory, 'OpenCADStudio.app', 'Contents', 'MacOS', 'OpenCADStudio'),
+          )
+        : [];
+
+    for (const command of candidates) {
+      if (
+        await access(command, constants.X_OK).then(
+          () => true,
+          () => false,
+        )
+      )
+        return { args: ['--mcp'], command, name: 'OpenCADStudio' };
+    }
+
+    // The setup form can accept a locally selected executable on other installations.
+    return { args: ['--mcp'], command: '', name: 'OpenCADStudio' };
   }
 
   @IpcMethod()

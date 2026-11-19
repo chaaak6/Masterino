@@ -1,5 +1,6 @@
 import type {
   DeviceLocalMcpConfig,
+  DeviceLocalMcpDraft,
   DeviceLocalMcpServer,
   DeviceLocalMcpTool,
 } from '@lobechat/electron-client-ipc';
@@ -15,7 +16,10 @@ import { userProfileSelectors } from '@/store/user/selectors';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
 interface DeviceLocalMcpModalProps {
+  draft?: DeviceLocalMcpDraft;
   onClose: () => void;
+  onSaved?: (server: DeviceLocalMcpServer) => void;
+  setupUserId?: string;
 }
 
 const envSchema = z.record(z.string());
@@ -50,15 +54,21 @@ const ToolSelection = ({
   </Flexbox>
 );
 
-const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
+const DeviceLocalMcpModal = ({
+  draft,
+  onClose,
+  onSaved,
+  setupUserId,
+}: DeviceLocalMcpModalProps) => {
   const { t } = useTranslation('setting');
-  const userId = useUserStore(userProfileSelectors.userId);
+  const currentUserId = useUserStore(userProfileSelectors.userId);
+  const userId = setupUserId && setupUserId !== currentUserId ? undefined : currentUserId;
   const fieldId = useId();
   const [servers, setServers] = useState<DeviceLocalMcpServer[]>([]);
-  const [name, setName] = useState('');
-  const [command, setCommand] = useState('');
-  const [args, setArgs] = useState('');
-  const [env, setEnv] = useState('');
+  const [name, setName] = useState(draft?.name ?? '');
+  const [command, setCommand] = useState(draft?.command ?? '');
+  const [args, setArgs] = useState(draft?.args?.join('\n') ?? '');
+  const [env, setEnv] = useState(draft?.env ? JSON.stringify(draft.env, null, 2) : '');
   const [tools, setTools] = useState<DeviceLocalMcpTool[]>();
   const [enabledTools, setEnabledTools] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -67,10 +77,14 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
   const [editing, setEditing] = useState<{ identifier: string; names: string[] }>();
 
   useEffect(() => {
+    if (setupUserId && setupUserId !== currentUserId) onClose();
+  }, [currentUserId, onClose, setupUserId]);
+
+  useEffect(() => {
     setServers([]);
     setEditing(undefined);
     setLoadError(false);
-    if (!userId) return;
+    if (!userId || onSaved) return;
     let mounted = true;
     Promise.resolve()
       .then(() => ensureElectronIpc().mcp.listDeviceLocalServers({ userId }))
@@ -79,7 +93,7 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
     return () => {
       mounted = false;
     };
-  }, [t, userId]);
+  }, [onSaved, userId]);
 
   const resetProbe = () => {
     setTools(undefined);
@@ -121,6 +135,10 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
     void run(async () => {
       const discovered = await ensureElectronIpc().mcp.testDeviceLocalServer(config);
       setTools(discovered);
+      if (draft?.name === 'OpenCADStudio' && config.command === draft.command)
+        setEnabledTools(
+          discovered.some((tool) => tool.name === 'ocs_inspect') ? ['ocs_inspect'] : [],
+        );
     });
   };
 
@@ -135,6 +153,10 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
         name,
         userId,
       });
+      if (onSaved) {
+        onSaved(server);
+        return;
+      }
       setServers((current) => [...current, server]);
       setName('');
       setCommand('');
@@ -163,98 +185,102 @@ const DeviceLocalMcpModal = ({ onClose }: DeviceLocalMcpModalProps) => {
   return (
     <Modal
       open
+      cancelButtonProps={{ disabled: busy }}
       cancelText={t('close', { ns: 'common' })}
       confirmLoading={busy}
       okButtonProps={{ disabled: !userId || !name.trim() || enabledTools.length === 0 }}
       okText={t('deviceLocalMcp.save')}
       title={t('deviceLocalMcp.title')}
-      onCancel={onClose}
       onOk={save}
+      onCancel={() => {
+        if (!busy) onClose();
+      }}
     >
       <Flexbox gap={16}>
-        <div>{t('deviceLocalMcp.description')}</div>
+        <div>{t(onSaved ? 'deviceLocalMcp.chatSetup' : 'deviceLocalMcp.description')}</div>
         {loadError && <div role="alert">{t('deviceLocalMcp.loadError')}</div>}
-        {servers.map((server) => (
-          <Flexbox gap={8} key={server.identifier}>
-            <Flexbox horizontal align="center" gap={8} justify="space-between">
-              <div>
-                <strong>{server.name}</strong>
+        {!onSaved &&
+          servers.map((server) => (
+            <Flexbox gap={8} key={server.identifier}>
+              <Flexbox horizontal align="center" gap={8} justify="space-between">
                 <div>
-                  {t('deviceLocalMcp.enabledCount', {
-                    count: server.enabled ? server.enabledTools.length : 0,
-                  })}
+                  <strong>{server.name}</strong>
+                  <div>
+                    {t('deviceLocalMcp.enabledCount', {
+                      count: server.enabled ? server.enabledTools.length : 0,
+                    })}
+                  </div>
                 </div>
-              </div>
-              <Flexbox horizontal gap={8}>
-                <Button
-                  disabled={busy}
-                  size="small"
-                  onClick={() =>
-                    setEditing({ identifier: server.identifier, names: server.enabledTools })
-                  }
-                >
-                  {t('deviceLocalMcp.editTools')}
-                </Button>
-                <Button
-                  disabled={busy}
-                  size="small"
-                  onClick={() => updateServer(server, !server.enabled)}
-                >
-                  {t(server.enabled ? 'deviceLocalMcp.disable' : 'deviceLocalMcp.enable')}
-                </Button>
-                <Button
-                  danger
-                  disabled={busy}
-                  size="small"
-                  onClick={() =>
-                    userId &&
-                    confirmModal({
-                      title: t('deviceLocalMcp.removeConfirm', { name: server.name }),
-                      onOk: () =>
-                        run(async () => {
-                          await ensureElectronIpc().mcp.removeDeviceLocalServer({
-                            identifier: server.identifier,
-                            userId,
-                          });
-                          setServers((current) =>
-                            current.filter((item) => item.identifier !== server.identifier),
-                          );
-                          setEditing((current) =>
-                            current?.identifier === server.identifier ? undefined : current,
-                          );
-                        }),
-                    })
-                  }
-                >
-                  {t('delete', { ns: 'common' })}
-                </Button>
-              </Flexbox>
-            </Flexbox>
-            {editing?.identifier === server.identifier && (
-              <Flexbox gap={8}>
-                <ToolSelection
-                  disabled={busy}
-                  selected={editing.names}
-                  tools={server.tools}
-                  onChange={(names) => setEditing({ identifier: server.identifier, names })}
-                />
                 <Flexbox horizontal gap={8}>
-                  <Button disabled={busy} size="small" onClick={() => setEditing(undefined)}>
-                    {t('cancel', { ns: 'common' })}
+                  <Button
+                    disabled={busy}
+                    size="small"
+                    onClick={() =>
+                      setEditing({ identifier: server.identifier, names: server.enabledTools })
+                    }
+                  >
+                    {t('deviceLocalMcp.editTools')}
                   </Button>
                   <Button
-                    disabled={busy || editing.names.length === 0}
+                    disabled={busy}
                     size="small"
-                    type="primary"
-                    onClick={() => updateServer(server, server.enabled, editing.names)}
+                    onClick={() => updateServer(server, !server.enabled)}
                   >
-                    {t('deviceLocalMcp.saveTools')}
+                    {t(server.enabled ? 'deviceLocalMcp.disable' : 'deviceLocalMcp.enable')}
+                  </Button>
+                  <Button
+                    danger
+                    disabled={busy}
+                    size="small"
+                    onClick={() =>
+                      userId &&
+                      confirmModal({
+                        title: t('deviceLocalMcp.removeConfirm', { name: server.name }),
+                        onOk: () =>
+                          run(async () => {
+                            await ensureElectronIpc().mcp.removeDeviceLocalServer({
+                              identifier: server.identifier,
+                              userId,
+                            });
+                            setServers((current) =>
+                              current.filter((item) => item.identifier !== server.identifier),
+                            );
+                            setEditing((current) =>
+                              current?.identifier === server.identifier ? undefined : current,
+                            );
+                          }),
+                      })
+                    }
+                  >
+                    {t('delete', { ns: 'common' })}
                   </Button>
                 </Flexbox>
               </Flexbox>
-            )}
-          </Flexbox>
-        ))}
+              {editing?.identifier === server.identifier && (
+                <Flexbox gap={8}>
+                  <ToolSelection
+                    disabled={busy}
+                    selected={editing.names}
+                    tools={server.tools}
+                    onChange={(names) => setEditing({ identifier: server.identifier, names })}
+                  />
+                  <Flexbox horizontal gap={8}>
+                    <Button disabled={busy} size="small" onClick={() => setEditing(undefined)}>
+                      {t('cancel', { ns: 'common' })}
+                    </Button>
+                    <Button
+                      disabled={busy || editing.names.length === 0}
+                      size="small"
+                      type="primary"
+                      onClick={() => updateServer(server, server.enabled, editing.names)}
+                    >
+                      {t('deviceLocalMcp.saveTools')}
+                    </Button>
+                  </Flexbox>
+                </Flexbox>
+              )}
+            </Flexbox>
+          ))}
         <Flexbox gap={8}>
           <label htmlFor={`${fieldId}-name`}>{t('deviceLocalMcp.name')}</label>
           <Input

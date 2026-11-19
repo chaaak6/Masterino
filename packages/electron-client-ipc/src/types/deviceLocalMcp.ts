@@ -29,3 +29,14 @@ export const deviceLocalMcpErrors = {
   serverUnavailable: 'DEVICE_LOCAL_MCP_SERVER_UNAVAILABLE',
   toolSelection: 'DEVICE_LOCAL_MCP_TOOL_SELECTION',
 } as const;
+
+export const DeviceLocalMcpSetupIdentifier = 'local-mcp-setup';
+export const DeviceLocalMcpSetupApi = 'configure';
+export type DeviceLocalMcpPreset = 'opencadstudio';
+
+export interface DeviceLocalMcpDraft extends DeviceLocalMcpConfig {
+  name: string;
+}
+
+export const isDeviceLocalMcpToolIdentifier = (identifier: string): boolean =>
+  identifier === DeviceLocalMcpSetupIdentifier || isDeviceLocalMcpIdentifier(identifier);

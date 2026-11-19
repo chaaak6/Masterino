@@ -1,5 +1,10 @@
 import { CURRENT_VERSION, isDesktop } from '@lobechat/const';
-import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
+import {
+  DeviceLocalMcpSetupApi,
+  DeviceLocalMcpSetupIdentifier,
+  isDeviceLocalMcpIdentifier,
+  isDeviceLocalMcpToolIdentifier,
+} from '@lobechat/electron-client-ipc';
 import {
   type ChatToolPayload,
   type CheckMcpInstallResult,
@@ -16,6 +21,7 @@ import { toolsClient } from '@/libs/trpc/client';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
 import { callDeviceLocalMcp, isKnownDeviceLocalMcpServer } from './deviceLocalMcp';
+import { requestDeviceLocalMcpSetup } from './deviceLocalMcpSetup';
 import { discoverService } from './discover';
 
 /**
@@ -42,10 +48,16 @@ class MCPService {
       topicId,
     }: { executionContext?: ExecutionContext; signal?: AbortSignal; topicId?: string },
   ) {
-    if (payload.source === 'client' && isDeviceLocalMcpIdentifier(payload.identifier)) {
+    if (payload.source === 'client' && isDeviceLocalMcpToolIdentifier(payload.identifier)) {
       const { getUserStoreState } = await import('@/store/user/store');
       const { isSignedIn, user } = getUserStoreState();
-      return callDeviceLocalMcp(payload, executionContext, isSignedIn ? user?.id : undefined);
+      const userId = isSignedIn ? user?.id : undefined;
+      if (payload.identifier === DeviceLocalMcpSetupIdentifier) {
+        if (payload.apiName !== DeviceLocalMcpSetupApi)
+          throw new Error('Unknown local MCP setup action');
+        return requestDeviceLocalMcpSetup(payload.arguments, executionContext, userId, signal);
+      }
+      return callDeviceLocalMcp(payload, executionContext, userId);
     }
 
     await discoverService.safeInjectMPToken();

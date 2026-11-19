@@ -1178,6 +1178,8 @@ When I am ___, I need ___
   'tab.advanced.updateChannel.stableDesc': 'Production-ready releases.',
   'tab.advanced.updateChannel.title': 'Update channel',
   'deviceLocalMcp.args': 'Arguments (one per line)',
+  'deviceLocalMcp.chatSetup':
+    'This chat asked to set up a local MCP server. Review the startup settings on this device, test the connection and choose the tools to allow.',
   'deviceLocalMcp.command': 'Executable path',
   'deviceLocalMcp.description':
     'Launch settings stay on this device. Enabled tools run in desktop Agent chats using this device, and their results can be sent to the model.',

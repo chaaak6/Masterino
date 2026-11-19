@@ -53,6 +53,7 @@ import { type ResolvedAgentConfig } from '@/services/chat/mecha';
 import { composeEnabledTools, resolveAgentConfig } from '@/services/chat/mecha';
 import { resolveClientSkills } from '@/services/chat/mecha/skillEngineering';
 import { getDeviceLocalMcpManifests } from '@/services/deviceLocalMcp';
+import { getDeviceLocalMcpSetupManifest } from '@/services/deviceLocalMcpSetup';
 import { localFileService } from '@/services/electron/localFileService';
 import { messageService } from '@/services/message';
 import { scanOperationWorkspace } from '@/services/operationWorkspaceScan';
@@ -798,7 +799,7 @@ export class StreamingExecutorActionImpl {
         });
         prepared = { agentConfig, executionContext: frozenExecutionContext };
       }
-      const deviceLocalMcpManifests = disableTools
+      const installedDeviceLocalMcpManifests = disableTools
         ? undefined
         : await getDeviceLocalMcpManifests(
             frozenExecutionContext,
@@ -807,6 +808,12 @@ export class StreamingExecutorActionImpl {
             log('Could not load device-local MCP tools: %s', (error as Error).message);
             return [];
           });
+      const setupManifest = disableTools
+        ? undefined
+        : getDeviceLocalMcpSetupManifest(frozenExecutionContext, isSignedIn ? user?.id : undefined);
+      const deviceLocalMcpManifests = setupManifest
+        ? [...(installedDeviceLocalMcpManifests ?? []), setupManifest]
+        : installedDeviceLocalMcpManifests;
       const {
         state: initialAgentState,
         context: initialAgentContext,

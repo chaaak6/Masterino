@@ -1,6 +1,6 @@
 import { builtinTools } from '@lobechat/builtin-tools';
 import { ToolArgumentsRepairer, ToolNameResolver } from '@lobechat/context-engine';
-import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
+import { isDeviceLocalMcpToolIdentifier } from '@lobechat/electron-client-ipc';
 import { type ChatToolPayload, type MessageToolCall, type ToolManifest } from '@lobechat/types';
 
 import { type ChatStore } from '@/store/chat/store';
@@ -78,7 +78,7 @@ export class PluginInternalsActionImpl {
     }
 
     for (const manifest of enabledManifests ?? []) {
-      if (manifest.type !== 'mcp' || !isDeviceLocalMcpIdentifier(manifest.identifier)) continue;
+      if (manifest.type !== 'mcp' || !isDeviceLocalMcpToolIdentifier(manifest.identifier)) continue;
       if (manifests[manifest.identifier]) continue;
       manifests[manifest.identifier] = manifest;
       sourceMap[manifest.identifier] = 'client';

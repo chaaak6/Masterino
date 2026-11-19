@@ -285,6 +285,7 @@
   "defaultAgent.model.title": "Model",
   "defaultAgent.title": "New Agent",
   "deviceLocalMcp.args": "Arguments (one per line)",
+  "deviceLocalMcp.chatSetup": "This chat asked to set up a local MCP server. Review the startup settings on this device, test the connection and choose the tools to allow.",
   "deviceLocalMcp.command": "Executable path",
   "deviceLocalMcp.description": "Launch settings stay on this device. Enabled tools run in desktop Agent chats using this device, and their results can be sent to the model.",
   "deviceLocalMcp.disable": "Disable",

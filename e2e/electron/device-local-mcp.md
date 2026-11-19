@@ -23,3 +23,10 @@ Use the existing Electron test profile and test service. Keep the synthetic DXF 
 - Add a disposable local MCP that exposes `inspect_active_drawing_geometry`. Start a new local Agent conversation and regenerate its answer after an actual call. Verify the tool is invoked on both runs and that the UI shows its real API name. Test a continued run with no incoming execution context using the streaming executor regression.
 - Call an installed server MCP from the same Electron profile. In Network, verify the server request and its successful result. In a local-only turn, compare the model request's tool definitions and confirm the local executable, arguments and environment marker are absent.
 - Check that disabling or removing a local server rejects new calls while an accepted tool call finishes on its original connection. The controller test uses a real stdio fixture and verifies that parallel first calls initialize one client.
+
+## Setup initiated by a chat
+
+1. In a signed-in desktop Agent chat using this device, ask the Agent to configure OpenCADStudio. It should open device-only setup with the preset and detect a standard macOS installation. The user tests the connection and confirms the allowed tools.
+2. Confirm the configuration is shown in the existing Skills → Local MCP dialog. Send another message in the same chat and invoke an enabled CAD tool. Restart the same application profile and repeat the read.
+3. Ask to configure another local MCP server. The Agent should open an empty local form. Close it and verify the tool result says setup was cancelled. Check that the browser and nonlocal or tools-disabled sessions omit the setup tool.
+4. Compare Network payloads for local setup and a server MCP turn. Conversation messages and safe tool results use the existing test service. The model sees the setup preset and receipt, while the executable, arguments and environment entered into the dialog stay on the device.

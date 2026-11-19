@@ -285,6 +285,7 @@
   "defaultAgent.model.title": "模型",
   "defaultAgent.title": "新建助理",
   "deviceLocalMcp.args": "启动参数（每行一个）",
+  "deviceLocalMcp.chatSetup": "当前聊天发起了本地 MCP 配置。请核对本机启动设置，测试连接并选择要启用的工具。",
   "deviceLocalMcp.command": "可执行文件路径",
   "deviceLocalMcp.description": "启动配置仅保存在此设备。启用的工具可在桌面端选择本机执行的 Agent 对话中使用，工具结果可发送给模型。",
   "deviceLocalMcp.disable": "停用",

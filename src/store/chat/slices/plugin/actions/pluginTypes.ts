@@ -1,4 +1,4 @@
-import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
+import { isDeviceLocalMcpToolIdentifier } from '@lobechat/electron-client-ipc';
 import {
   type BuiltinToolResult,
   type ChatToolPayload,
@@ -447,7 +447,7 @@ export class PluginTypesActionImpl {
     );
 
     let executionContext: ExecutionContext | undefined;
-    if (isDeviceLocalMcpIdentifier(payload.identifier)) {
+    if (isDeviceLocalMcpToolIdentifier(payload.identifier)) {
       let current = operation;
       while (current && !executionContext) {
         executionContext = current.metadata.executionContext;
