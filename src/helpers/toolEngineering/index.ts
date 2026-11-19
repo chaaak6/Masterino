@@ -168,6 +168,7 @@ export const createAgentToolsEngine = (
   pluginIds?: string[],
   executionContext?: ExecutionContext,
   resolvedConfig?: Partial<LobeAgentConfig>,
+  additionalManifests?: ToolManifest[],
 ) => {
   const searchConfig = getSearchConfig(workingModel.model, workingModel.provider);
   const agentState = getAgentStoreState();
@@ -245,6 +246,7 @@ export const createAgentToolsEngine = (
   });
 
   return createToolsEngine({
+    additionalManifests,
     defaultToolIds: isChatMode ? chatModeAllowedToolIds : defaultToolIds,
     // Explicit activation may bypass normal tool rules, but Memory consent is a
     // privacy boundary and must remain a hard gate.
