@@ -33,7 +33,7 @@
     "package:local": "npm run build:python-runtime && npm run build:main && electron-builder --dir --config electron-builder.mjs --c.mac.notarize=false --c.mac.identity=- --c.asar=false",
     "package:local:reuse": "electron-builder --dir --config electron-builder.mjs --c.mac.notarize=false --c.mac.identity=- --c.asar=false",
     "package:mac": "npm run build:python-runtime && npm run build:main && electron-builder --mac --config electron-builder.mjs  --publish never",
-    "package:mac:local": "npm run build:python-runtime && npm run build:main && cross-env UPDATE_CHANNEL=nightly electron-builder --mac --config electron-builder.mjs --publish never --c.mac.notarize=false --c.mac.identity=-",
+    "package:mac:local": "npm run build:python-runtime && cross-env UPDATE_CHANNEL=nightly npm run build:main && cross-env UPDATE_CHANNEL=nightly electron-builder --mac --config electron-builder.mjs --publish never --c.mac.notarize=false --c.mac.identity=-",
     "package:win": "npm run build:python-runtime && npm run build:main && electron-builder --win --config electron-builder.mjs  --publish never",
     "package:win:test": "cross-env DESKTOP_BUILD_FLAVOR=test npm run package:win",
     "start": "electron-vite preview",

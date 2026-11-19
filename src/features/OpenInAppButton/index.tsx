@@ -87,10 +87,12 @@ const styles = createStaticStyles(({ css }) => ({
 
 export interface OpenInAppButtonProps {
   className?: string;
+  draftFolderPath?: string;
   workingDirectory: string;
 }
 
-const OpenInAppButton = memo<OpenInAppButtonProps>(({ workingDirectory, className }) => {
+const OpenInAppButton = memo((props: OpenInAppButtonProps) => {
+  const { className, draftFolderPath, workingDirectory } = props;
   const { t } = useTranslation('openInApp');
   const { defaultApp, installedApps, launch, ready } = useOpenInApp(workingDirectory);
 
@@ -115,7 +117,10 @@ const OpenInAppButton = memo<OpenInAppButtonProps>(({ workingDirectory, classNam
     [installedApps, launch],
   );
 
-  if (!isDesktop || !workingDirectory) return null;
+  const fileManagerPath =
+    defaultApp === 'finder' || defaultApp === 'explorer' ? draftFolderPath : undefined;
+
+  if (!isDesktop || (!workingDirectory && !fileManagerPath)) return null;
   if (!ready) return null;
 
   const wrapperClassName = [styles.root, className].filter(Boolean).join(' ');
@@ -128,17 +133,23 @@ const OpenInAppButton = memo<OpenInAppButtonProps>(({ workingDirectory, classNam
           className={styles.leftButton}
           role="button"
           onClick={() => {
-            void launch(defaultApp);
+            if (fileManagerPath) {
+              void launch(defaultApp, fileManagerPath);
+            } else {
+              void launch(defaultApp);
+            }
           }}
         >
           <AppIcon icon={defaultIconSrc} id={defaultApp} size={14} />
         </div>
       </Tooltip>
-      <DropdownMenu items={dropdownItems} trigger={['click']}>
-        <div aria-label={t('dropdownLabel')} className={styles.rightButton} role="button">
-          <Icon icon={ChevronDownIcon} size={12} />
-        </div>
-      </DropdownMenu>
+      {workingDirectory && (
+        <DropdownMenu items={dropdownItems} trigger={['click']}>
+          <div aria-label={t('dropdownLabel')} className={styles.rightButton} role="button">
+            <Icon icon={ChevronDownIcon} size={12} />
+          </div>
+        </DropdownMenu>
+      )}
     </div>
   );
 });

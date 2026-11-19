@@ -41,15 +41,27 @@ const styles = createStaticStyles(({ css }) => ({
     }
   `,
   label: css`
-    overflow: hidden;
+    display: inline-flex;
     max-width: 140px;
-    text-overflow: ellipsis;
     white-space: nowrap;
+  `,
+  pathStart: css`
+    overflow: hidden;
+    min-width: 0;
+    text-overflow: ellipsis;
+  `,
+  pathEnd: css`
+    overflow: hidden;
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
   `,
   lock: css`
     color: ${cssVar.colorTextQuaternary};
   `,
 }));
+
+const pathSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 export interface WorkspaceChipProps {
   effective: EffectiveWorkspace;
@@ -64,6 +76,8 @@ const WorkspaceChip = memo<WorkspaceChipProps>(({ effective, repoType }) => {
   const { t } = useTranslation('chat');
   const tw = t as unknown as (key: string, options?: Record<string, unknown>) => string;
   const cwd = effective.cwd ?? effective.workspace?.rootPath ?? '';
+  const pathCharacters = Array.from(pathSegmenter.segment(cwd), ({ segment }) => segment);
+  const midpoint = Math.ceil(pathCharacters.length / 2);
   const isScratch = effective.state === 'scratch';
 
   const tooltip = isScratch
@@ -73,7 +87,10 @@ const WorkspaceChip = memo<WorkspaceChipProps>(({ effective, repoType }) => {
   const contents = (
     <>
       <DirIcon repoType={repoType} />
-      <span className={styles.label}>{cwd}</span>
+      <span aria-hidden className={styles.label}>
+        <span className={styles.pathStart}>{pathCharacters.slice(0, midpoint).join('')}</span>
+        <span className={styles.pathEnd}>{pathCharacters.slice(midpoint).join('')}</span>
+      </span>
       {isScratch && (
         <Tag data-testid="workspace-chip-scratch" size={'small'}>
           {tw('workspaceRuntime.chip.scratch')}

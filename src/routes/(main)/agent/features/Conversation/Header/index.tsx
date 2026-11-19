@@ -5,12 +5,7 @@ import { createStaticStyles, cssVar } from 'antd-style';
 import { memo } from 'react';
 
 import NavHeader from '@/features/NavHeader';
-import OpenInAppButton from '@/features/OpenInAppButton';
-import { useAgentStore } from '@/store/agent';
-import { agentByIdSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
-import { useChatStore } from '@/store/chat';
-import { topicSelectors } from '@/store/chat/selectors';
-import { useElectronStore } from '@/store/electron';
+import ConversationOpenInApp from '@/features/OpenInAppButton/ConversationOpenInApp';
 
 import HeaderActions from './HeaderActions';
 import ShareButton from './ShareButton';
@@ -40,19 +35,6 @@ const headerStyles = createStaticStyles(({ css }) => ({
 }));
 
 const Header = memo(() => {
-  const agentId = useChatStore((s) => s.activeAgentId);
-  const topicWorkingDirectory = useChatStore(topicSelectors.currentTopicWorkingDirectory);
-  const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
-  const agentWorkingDirectory = useAgentStore((s) =>
-    agentId
-      ? agentByIdSelectors.getAgentWorkingDirectoryById(agentId, currentDeviceId)(s)
-      : undefined,
-  );
-  const isLocalSystemEnabled = useAgentStore((s) =>
-    agentId ? chatConfigByIdSelectors.isLocalSystemEnabledById(agentId)(s) : false,
-  );
-  const effectiveWorkingDirectory = topicWorkingDirectory || agentWorkingDirectory || '';
-
   return (
     <div className={headerStyles.container}>
       <NavHeader
@@ -76,9 +58,7 @@ const Header = memo(() => {
             gap={4}
             style={{ backgroundColor: cssVar.colorBgContainer }}
           >
-            {isLocalSystemEnabled && (
-              <OpenInAppButton workingDirectory={effectiveWorkingDirectory} />
-            )}
+            <ConversationOpenInApp />
             <ShareButton />
             <WorkingPanelToggle />
           </Flexbox>

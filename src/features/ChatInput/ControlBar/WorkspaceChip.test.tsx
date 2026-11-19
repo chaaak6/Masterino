@@ -46,8 +46,16 @@ describe('WorkspaceChip', () => {
       />,
     );
 
-    expect(screen.getByText('/projects/acme')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-chip')).toHaveTextContent('/projects/acme');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it.each(['e\u0301', '🇻🇳', '👩‍💻'])('keeps %s together at the path split', (grapheme) => {
+    const cwd = `/${grapheme}/`;
+    render(<WorkspaceChip effective={{ cwd, state: 'scratch' } as any} />);
+
+    expect(screen.getByText(`/${grapheme}`)).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-chip')).toHaveTextContent(cwd);
   });
 
   it('keeps an existing project path display-only', () => {
@@ -71,7 +79,7 @@ describe('WorkspaceChip', () => {
       />,
     );
 
-    expect(screen.getByText('/projects/acme')).toBeInTheDocument();
+    expect(screen.getByTestId('workspace-chip')).toHaveTextContent('/projects/acme');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });

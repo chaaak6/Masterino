@@ -187,6 +187,8 @@ export class ProtocolManager {
       // Parse protocol URL to extract urlType and action
       const parsed = parseProtocolUrl(url);
 
+      if (parsed?.urlType === 'auth' && parsed.action === 'return') return;
+
       if (!parsed) {
         logger.warn(`🔗 [Protocol] Failed to parse protocol URL: ${url}`);
         return;

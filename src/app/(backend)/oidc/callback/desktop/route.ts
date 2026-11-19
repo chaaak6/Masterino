@@ -2,6 +2,7 @@ import debug from 'debug';
 import { type NextRequest } from 'next/server';
 import { after, NextResponse } from 'next/server';
 
+import { getDesktopAuthorizationScheme } from '@/const/desktopAuthorization';
 import { OAuthHandoffModel } from '@/database/models/oauthHandoff';
 import { serverDB } from '@/database/server';
 import { appEnv } from '@/envs/app';
@@ -61,6 +62,11 @@ export const GET = async (req: NextRequest) => {
     log('Handoff record created successfully for id: %s', id);
 
     const successUrl = buildRedirectUrl(req, '/oauth/callback/success');
+    successUrl.search = '';
+    successUrl.searchParams.set('client', 'desktop');
+    const taggedState = /^([a-z-]+)\.[a-f0-9]{32}$/.exec(state);
+    const scheme = getDesktopAuthorizationScheme(taggedState?.[1] ?? null);
+    if (scheme) successUrl.searchParams.set('scheme', scheme);
 
     // Add debug logging
     log('Request host header: %s', req.headers.get('host'));
