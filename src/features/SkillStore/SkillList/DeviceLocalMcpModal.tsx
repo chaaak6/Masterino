@@ -23,6 +23,7 @@ interface DeviceLocalMcpModalProps {
 }
 
 const envSchema = z.record(z.string());
+const errorReasons = Object.keys(deviceLocalMcpErrors) as (keyof typeof deviceLocalMcpErrors)[];
 
 const ToolSelection = ({
   disabled,
@@ -120,9 +121,7 @@ const DeviceLocalMcpModal = ({
       await action();
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : '';
-      const reason = Object.entries(deviceLocalMcpErrors).find(([, code]) =>
-        message.includes(code),
-      )?.[0];
+      const reason = errorReasons.find((key) => message.includes(deviceLocalMcpErrors[key]));
       setError(reason ? t(`deviceLocalMcp.error.${reason}`) : t('deviceLocalMcp.error'));
       if (reason === 'serverUnavailable' && !onSaved) setListRevision((revision) => revision + 1);
     } finally {
@@ -135,7 +134,8 @@ const DeviceLocalMcpModal = ({
     const config = buildConfig();
     if (!config) return;
     void run(async () => {
-      const discovered = await ensureElectronIpc().mcp.testDeviceLocalServer(config);
+      const discovered: DeviceLocalMcpTool[] =
+        await ensureElectronIpc().mcp.testDeviceLocalServer(config);
       setTools(discovered);
       if (draft?.name === 'OpenCADStudio' && config.command === draft.command)
         setEnabledTools(

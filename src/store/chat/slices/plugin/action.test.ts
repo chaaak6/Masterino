@@ -909,6 +909,7 @@ describe('ChatPluginAction', () => {
       const manifest = {
         api: [{ description: 'Read CAD data', name: apiName, parameters: { type: 'object' } }],
         identifier,
+        meta: { title: 'Test CAD connector' },
         type: 'mcp',
       } satisfies ToolManifest;
       const name = new ToolNameResolver().generate(identifier, apiName, 'mcp');
