@@ -61,6 +61,8 @@ const styles = createStaticStyles(({ css }) => ({
   `,
 }));
 
+const pathSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
 export interface WorkspaceChipProps {
   effective: EffectiveWorkspace;
   repoType?: 'git' | 'github';
@@ -74,7 +76,7 @@ const WorkspaceChip = memo<WorkspaceChipProps>(({ effective, repoType }) => {
   const { t } = useTranslation('chat');
   const tw = t as unknown as (key: string, options?: Record<string, unknown>) => string;
   const cwd = effective.cwd ?? effective.workspace?.rootPath ?? '';
-  const pathCharacters = Array.from(cwd);
+  const pathCharacters = Array.from(pathSegmenter.segment(cwd), ({ segment }) => segment);
   const midpoint = Math.ceil(pathCharacters.length / 2);
   const isScratch = effective.state === 'scratch';
 
