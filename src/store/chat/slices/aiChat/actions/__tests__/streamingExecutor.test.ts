@@ -358,7 +358,11 @@ describe('StreamingExecutor actions', () => {
             parentOperationId: parent.operationId,
             skillContext: {
               agentId: TEST_IDS.SESSION_ID,
-              skillPolicy: {},
+              skillPolicy: {
+                includeAgentSkills: true,
+                includeProjectSkills: true,
+                includeUserSkills: true,
+              },
               userId: 'test-user',
               workspace,
               workspaceInit: {
