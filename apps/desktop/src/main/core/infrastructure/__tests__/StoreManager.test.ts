@@ -110,16 +110,56 @@ describe('StoreManager', () => {
       runStoreMigrations(store);
 
       expect(store.set).toHaveBeenCalledWith('updateChannel', 'stable');
-      expect(store.set).toHaveBeenCalledWith(APPLIED_STORE_MIGRATIONS_KEY, [
-        getStoreMigrations()[0].id,
-      ]);
+      expect(store.set).toHaveBeenCalledWith(
+        APPLIED_STORE_MIGRATIONS_KEY,
+        getStoreMigrations().map(({ id }) => id),
+      );
+    });
+
+    it.each([
+      ['https://aihub.bielcrystal.com', 'https://masterino.bielcrystal.com'],
+      [' https://aihub.bielcrystal.com/ ', 'https://masterino.bielcrystal.com'],
+    ])(
+      'upgrades saved cloud server %s before configuration is read',
+      (remoteServerUrl, expected) => {
+        const saved = new Map<string, unknown>([
+          [APPLIED_STORE_MIGRATIONS_KEY, ['001-normalize-update-channel']],
+          ['dataSyncConfig', { active: true, remoteServerUrl, storageMode: 'cloud' }],
+        ]);
+        mockStoreInstance.get.mockImplementation((key) => saved.get(key));
+        mockStoreInstance.set.mockImplementation((key, value) => saved.set(key, value));
+
+        const upgraded = new StoreManager(mockAppCore);
+        expect(upgraded.get('dataSyncConfig')).toEqual({
+          active: false,
+          remoteServerUrl: expected,
+          storageMode: 'cloud',
+        });
+        mockStoreInstance.set.mockClear();
+        new StoreManager(mockAppCore);
+        expect(mockStoreInstance.set).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      { storageMode: 'selfHost', remoteServerUrl: 'https://aihub.bielcrystal.com' },
+      { storageMode: 'cloud', remoteServerUrl: 'https://mlai-test.bielcrystal.com' },
+      { storageMode: 'cloud', remoteServerUrl: 'https://masterino.bielcrystal.com' },
+      { storageMode: 'cloud', remoteServerUrl: 'https://aihub.bielcrystal.com/custom' },
+      { storageMode: 'cloud' },
+    ])('preserves unrelated server configuration %j', (config) => {
+      mockStoreInstance.get.mockImplementation((key) =>
+        key === 'dataSyncConfig' ? config : undefined,
+      );
+      new StoreManager(mockAppCore);
+      expect(mockStoreInstance.set).not.toHaveBeenCalledWith('dataSyncConfig', expect.anything());
     });
 
     it('should skip already applied migrations', () => {
-      const appliedMigrationId = getStoreMigrations()[0].id;
+      const appliedMigrationIds = getStoreMigrations().map(({ id }) => id);
       const store = {
         get: vi.fn((key: string) => {
-          if (key === APPLIED_STORE_MIGRATIONS_KEY) return [appliedMigrationId];
+          if (key === APPLIED_STORE_MIGRATIONS_KEY) return appliedMigrationIds;
           if (key === 'updateChannel') return 'nightly';
         }),
         set: vi.fn(),
