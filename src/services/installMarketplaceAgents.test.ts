@@ -8,6 +8,16 @@ import { useHomeStore } from '@/store/home';
 
 import { installMarketplaceAgents } from './installMarketplaceAgents';
 
+vi.mock('@/services/agent', () => ({
+  agentService: { getAgentByForkedFromIdentifier: vi.fn() },
+}));
+vi.mock('@/services/discover', () => ({
+  discoverService: { getAssistantDetail: vi.fn(), reportAgentEvent: vi.fn() },
+}));
+vi.mock('@/services/marketApi', () => ({ marketApiService: { forkAgent: vi.fn() } }));
+vi.mock('@/store/agent', () => ({ useAgentStore: { getState: vi.fn() } }));
+vi.mock('@/store/home', () => ({ useHomeStore: { getState: vi.fn() } }));
+
 describe('installMarketplaceAgents', () => {
   const createAgent = vi.fn();
   const refreshAgentList = vi.fn();
@@ -71,7 +81,8 @@ describe('installMarketplaceAgents', () => {
       agentId: `agent-${config.params.forkedFromIdentifier}`,
     }));
 
-    const result = await installMarketplaceAgents(sourceIds);
+    const avatar = 'https://market.example/assets/agent-avatars/v1/code.svg';
+    const result = await installMarketplaceAgents(sourceIds, new Map([['src-a', avatar]]));
 
     expect(forkSpy).toHaveBeenCalledTimes(1);
     const [items] = forkSpy.mock.calls[0];
@@ -79,6 +90,11 @@ describe('installMarketplaceAgents', () => {
     expect(items.map((i) => i.sourceIdentifier)).toEqual(sourceIds);
 
     expect(createAgent).toHaveBeenCalledTimes(3);
+    expect(createAgent.mock.calls.map(([input]) => input.config.avatar)).toEqual([
+      avatar,
+      'avatar',
+      'avatar',
+    ]);
     expect(result.installedAgentIds).toHaveLength(3);
     expect(result.skippedAgentIds).toEqual([]);
     expect(refreshAgentList).toHaveBeenCalledTimes(1);

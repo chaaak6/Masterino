@@ -48,6 +48,8 @@
   "login.description": "Ứng dụng {{clientName}} đang yêu cầu sử dụng tài khoản của bạn để đăng nhập",
   "login.title": "Đăng nhập vào {{clientName}}",
   "login.userWelcome": "Chào mừng trở lại, ",
+  "success.openDesktop": "Mở Masterino",
+  "success.returnToDesktop": "Đã hoàn tất cấp quyền trong trình duyệt. Hãy quay lại Masterino để tiếp tục thiết lập. Nếu ứng dụng không mở, hãy chuyển sang Masterino theo cách thủ công.",
   "success.subTitle": "Bạn đã ủy quyền thành công cho ứng dụng truy cập tài khoản của mình. Bây giờ bạn có thể đóng trang này.",
   "success.title": "Ủy quyền thành công"
 }

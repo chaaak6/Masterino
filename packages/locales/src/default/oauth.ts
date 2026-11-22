@@ -54,6 +54,9 @@ export default {
     'The application {{clientName}} is requesting to use your account for sign-in',
   'login.title': 'Sign in to {{clientName}}',
   'login.userWelcome': 'Welcome back, ',
+  'success.openDesktop': 'Open Masterino',
+  'success.returnToDesktop':
+    'Browser authorization is complete. Return to Masterino to continue setup. If it does not open, switch back to the app manually.',
   'success.subTitle':
     'You have successfully authorized the application to access your account. You may now close this page.',
   'success.title': 'Authorization Successful',

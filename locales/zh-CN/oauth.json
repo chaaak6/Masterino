@@ -48,6 +48,8 @@
   "login.description": "应用 {{clientName}} 申请使用你的账户进行登录",
   "login.title": "登录 {{clientName}}",
   "login.userWelcome": "欢迎回来，",
+  "success.openDesktop": "打开 Masterino",
+  "success.returnToDesktop": "浏览器授权已完成，请返回 Masterino 继续设置。如果应用没有打开，请手动切回 Masterino。",
   "success.subTitle": "应用已获得授权。你可以关闭此页面了",
   "success.title": "授权完成"
 }

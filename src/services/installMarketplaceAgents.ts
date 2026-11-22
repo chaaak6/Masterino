@@ -30,6 +30,7 @@ export interface InstallMarketplaceAgentsResult {
 
 export const installMarketplaceAgents = async (
   sourceAgentIds: string[],
+  onboardingAvatars?: ReadonlyMap<string, string>,
 ): Promise<InstallMarketplaceAgentsResult> => {
   if (sourceAgentIds.length === 0) {
     return { failures: [], installedAgentIds: [], skippedAgentIds: [], summaries: [] };
@@ -106,10 +107,11 @@ export const installMarketplaceAgents = async (
         throw new Error(outcome.error.message);
       }
       const fork = outcome.data;
+      const avatar = onboardingAvatars?.get(sourceId) ?? detail.avatar;
       const result = await createAgent({
         config: {
           ...detail.config,
-          avatar: detail.avatar,
+          avatar,
           backgroundColor: detail.backgroundColor,
           description: detail.description,
           editorData: detail.editorData,
@@ -156,7 +158,7 @@ export const installMarketplaceAgents = async (
     }
     const detail = detailBySource.get(sourceId);
     return {
-      avatar: detail?.avatar,
+      avatar: onboardingAvatars?.get(sourceId) ?? detail?.avatar,
       category: detail?.category,
       description: detail?.description || detail?.summary,
       installedAgentId: installedBySource.get(sourceId),

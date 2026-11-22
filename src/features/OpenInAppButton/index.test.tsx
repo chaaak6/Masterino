@@ -155,6 +155,36 @@ describe('<OpenInAppButton />', () => {
     expect(launchMock).toHaveBeenCalledWith('vscode');
   });
 
+  it.each(['finder', 'explorer'])('only routes the %s shortcut to the current draft', (appId) => {
+    hookReturn.defaultApp = appId;
+    const { rerender } = render(
+      <OpenInAppButton draftFolderPath="/tmp/draft-a" workingDirectory="/tmp/original" />,
+    );
+
+    fireEvent.click(screen.getByLabelText(/tooltip/));
+    expect(launchMock).toHaveBeenLastCalledWith(appId, '/tmp/draft-a');
+
+    rerender(<OpenInAppButton draftFolderPath="/tmp/draft-b" workingDirectory="/tmp/original" />);
+    fireEvent.click(screen.getByLabelText(/tooltip/));
+    expect(launchMock).toHaveBeenLastCalledWith(appId, '/tmp/draft-b');
+
+    fireEvent.click(screen.getByTestId('dropdown-item-finder'));
+    expect(launchMock).toHaveBeenLastCalledWith('finder');
+
+    rerender(<OpenInAppButton workingDirectory="/tmp/fixed" />);
+    fireEvent.click(screen.getByLabelText(/tooltip/));
+    expect(launchMock).toHaveBeenLastCalledWith(appId);
+  });
+
+  it('only shows the file manager shortcut when the draft is the only directory', () => {
+    hookReturn.defaultApp = 'finder';
+    render(<OpenInAppButton draftFolderPath="/tmp/draft" workingDirectory="" />);
+
+    fireEvent.click(screen.getByLabelText(/tooltip/));
+    expect(launchMock).toHaveBeenCalledWith('finder', '/tmp/draft');
+    expect(screen.queryByTestId('dropdown-trigger')).not.toBeInTheDocument();
+  });
+
   it('lists only installed apps in the dropdown', () => {
     render(<OpenInAppButton workingDirectory="/tmp/proj" />);
 
