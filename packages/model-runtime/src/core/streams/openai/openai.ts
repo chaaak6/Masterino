@@ -19,8 +19,8 @@ import {
   createFirstErrorHandleTransformer,
   createSSEProtocolTransformer,
   createTokenSpeedCalculator,
-  FIRST_CHUNK_ERROR_KEY,
   generateToolCallId,
+  getStreamErrorChunk,
 } from '../protocol';
 
 /**
@@ -81,29 +81,8 @@ const transformOpenAIStream = (
     streamContext.chunkIndex++;
   }
 
-  // handle the first chunk error
-  if (FIRST_CHUNK_ERROR_KEY in chunk) {
-    delete chunk[FIRST_CHUNK_ERROR_KEY];
-    // @ts-ignore
-    delete chunk['name'];
-    // @ts-ignore
-    delete chunk['stack'];
-
-    const errorData = {
-      body: chunk,
-      message:
-        'message' in chunk
-          ? typeof chunk.message === 'string'
-            ? chunk.message
-            : JSON.stringify(chunk)
-          : JSON.stringify(chunk),
-      type:
-        'errorType' in chunk
-          ? (chunk.errorType as typeof AgentRuntimeErrorType.ProviderBizError)
-          : AgentRuntimeErrorType.ProviderBizError,
-    } satisfies ChatMessageError;
-    return { data: errorData, id: 'first_chunk_error', type: 'error' };
-  }
+  const streamError = getStreamErrorChunk(chunk as unknown as Record<string, unknown>);
+  if (streamError) return streamError;
 
   // MiniMax returns business errors (e.g., insufficient balance) in base_resp, but not through FIRST_CHUNK_ERROR_KEY
   // Typical response: { id: '...', choices: null, base_resp: { status_code: 1008, status_msg: 'insufficient balance' }, usage: {...} }
@@ -660,20 +639,38 @@ export interface OpenAIStreamOptions {
   callbacks?: ChatStreamCallbacks;
   enableStreaming?: boolean; // Choose TPS calculation method (pass false for non-streaming)
   inputStartAt?: number;
+  onUpstreamFinish?: (finishReason: string) => void;
   operationId?: string;
   payload?: ChatPayloadForTransformStream;
 }
 
-const isOpenAITerminalChunk = (chunk: unknown) => {
-  if (!chunk || typeof chunk !== 'object') return false;
+const getOpenAIFinishReason = (chunk: unknown) => {
+  if (!chunk || typeof chunk !== 'object') return undefined;
 
   const { choices } = chunk as OpenAI.ChatCompletionChunk;
-  return (
-    choices?.some(
-      (choice) => choice.finish_reason !== null && choice.finish_reason !== undefined,
-    ) === true
-  );
+  return choices?.find((choice) => typeof choice.finish_reason === 'string' && choice.finish_reason)
+    ?.finish_reason;
 };
+
+export const toOpenAIChatCompletionReadableStream = (
+  stream: Stream<OpenAI.ChatCompletionChunk> | ReadableStream,
+  { abortSignal, abortSignals, onUpstreamFinish, operationId, payload }: OpenAIStreamOptions = {},
+) =>
+  stream instanceof ReadableStream
+    ? stream
+    : convertIterableToStream(stream, {
+        abortSignal,
+        abortSignals,
+        isTerminalChunk: (chunk) => {
+          const finishReason = getOpenAIFinishReason(chunk);
+          if (!finishReason) return false;
+          onUpstreamFinish?.(finishReason);
+          return true;
+        },
+        model: payload?.model,
+        operationId,
+        provider: payload?.provider,
+      });
 
 export const OpenAIStream = (
   stream: Stream<OpenAI.ChatCompletionChunk> | ReadableStream,
@@ -684,6 +681,7 @@ export const OpenAIStream = (
     bizErrorTypeTransformer,
     payload,
     inputStartAt,
+    onUpstreamFinish,
     operationId,
     enableStreaming = true,
   }: OpenAIStreamOptions = {},
@@ -707,17 +705,13 @@ export const OpenAIStream = (
     return [...chunks, { data: reason, id: chunk.id, type: 'stop' } satisfies StreamProtocolChunk];
   };
 
-  const readableStream =
-    stream instanceof ReadableStream
-      ? stream
-      : convertIterableToStream(stream, {
-          abortSignal,
-          abortSignals,
-          isTerminalChunk: isOpenAITerminalChunk,
-          model: payload?.model,
-          operationId,
-          provider: payload?.provider,
-        });
+  const readableStream = toOpenAIChatCompletionReadableStream(stream, {
+    abortSignal,
+    abortSignals,
+    onUpstreamFinish,
+    operationId,
+    payload,
+  });
 
   return (
     readableStream
@@ -732,7 +726,11 @@ export const OpenAIStream = (
           streamStack,
         }),
       )
-      .pipeThrough(createSSEProtocolTransformer((c) => c, streamStack))
+      .pipeThrough(
+        createSSEProtocolTransformer((c) => c, streamStack, {
+          requireTerminalEvent: payload?.provider === 'newapi' ? 'stop' : undefined,
+        }),
+      )
       .pipeThrough(createCallbacksTransformer(callbacks, { streamStack }))
   );
 };

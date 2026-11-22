@@ -26,6 +26,7 @@ export interface ChatItemProps extends Omit<FlexboxProps, 'children' | 'onChange
    */
   error?: AlertProps;
   fontSize?: number;
+  hasSupplementalContent?: boolean;
   /** Attachment-only user messages do not need an empty text bubble. */
   hideMessageBody?: boolean;
   /**

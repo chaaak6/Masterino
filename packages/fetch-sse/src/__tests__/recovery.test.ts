@@ -31,7 +31,7 @@ describe('Given a model stream interrupted before completion', () => {
         recovery: { delayMs: 0 },
         onFinish: finish,
       });
-      expect(fetcher).toHaveBeenCalledTimes(supported ? 3 : 1);
+      expect(fetcher).toHaveBeenCalledTimes(1);
       expect(finish).toHaveBeenCalledWith(
         'legacy answer',
         expect.objectContaining({ type: supported ? 'error' : 'done' }),
@@ -329,6 +329,45 @@ describe('Given a model stream interrupted before completion', () => {
     });
     expect(order).toEqual(['error-saved', 'finish']);
   });
+  it.each(['eof', 'timeout', 'reasoning'] as const)(
+    'keeps generated output after %s and does not replay the request',
+    async (mode) => {
+      const body =
+        mode === 'reasoning'
+          ? 'event: reasoning\ndata: "partial reasoning"\n\n'
+          : 'event: text\ndata: "partial answer"\n\n';
+      const errorFrame =
+        mode === 'timeout'
+          ? 'event: error\ndata: {"type":"upstream_timeout","body":{"retryable":true}}\n\n'
+          : '';
+      const fetcher = vi.fn(
+        async () =>
+          new Response(body + errorFrame, {
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+      );
+      const finish = vi.fn();
+      const retry = vi.fn();
+      await fetchSSE('/test', {
+        fetcher,
+        onFinish: finish,
+        recovery: { delayMs: 0, onRetry: retry },
+        requireTerminalEvent: true,
+      });
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(retry).not.toHaveBeenCalled();
+      expect(finish).toHaveBeenCalledExactlyOnceWith(
+        mode === 'reasoning' ? '' : 'partial answer',
+        expect.objectContaining({
+          type: 'error',
+          ...(mode === 'reasoning' && {
+            reasoning: expect.objectContaining({ content: 'partial reasoning' }),
+          }),
+        }),
+      );
+    },
+  );
+
   it('Then an unexpected EOF is an error, not successful completion', async () => {
     const finish = vi.fn();
     const error = vi.fn();
@@ -345,13 +384,13 @@ describe('Given a model stream interrupted before completion', () => {
     );
   });
 
-  it('When the second attempt succeeds, Then partial output is replaced and only success is committed', async () => {
+  it('When an empty interrupted response recovers, Then only success is committed', async () => {
     let attempts = 0;
     const finish = vi.fn();
     const error = vi.fn();
     const reset = vi.fn();
     await fetchSSE('/test', {
-      fetcher: async () => (++attempts === 1 ? stream('old', false) : stream('new')),
+      fetcher: async () => (++attempts === 1 ? stream('', false) : stream('new')),
       onErrorHandle: error,
       onFinish: finish,
       requireTerminalEvent: true,
@@ -366,26 +405,23 @@ describe('Given a model stream interrupted before completion', () => {
     );
   });
 
-  it('When all attempts fail, Then retries are bounded and one final error is committed', async () => {
+  it('When empty streams repeatedly end early, Then retry only once and report the error', async () => {
     let attempts = 0;
     const finish = vi.fn();
     const error = vi.fn();
     await fetchSSE('/test', {
       fetcher: async () => {
         attempts++;
-        return stream('partial', false);
+        return stream('', false);
       },
       onErrorHandle: error,
       onFinish: finish,
       requireTerminalEvent: true,
       recovery: { delayMs: 0 },
     });
-    expect(attempts).toBe(3);
+    expect(attempts).toBe(2);
     expect(error).toHaveBeenCalledOnce();
-    expect(finish).toHaveBeenCalledExactlyOnceWith(
-      'partial',
-      expect.objectContaining({ type: 'error' }),
-    );
+    expect(finish).toHaveBeenCalledExactlyOnceWith('', expect.objectContaining({ type: 'error' }));
   });
 
   it.each([400, 401, 403, 413])(
@@ -414,7 +450,7 @@ describe('Given a model stream interrupted before completion', () => {
     await fetchSSE('/test', {
       fetcher: async () => {
         attempts++;
-        return stream('partial', false);
+        return stream('', false);
       },
       onMessageHandle: chunks,
       onFinish: finish,
@@ -423,6 +459,6 @@ describe('Given a model stream interrupted before completion', () => {
       signal: controller.signal,
     });
     expect(attempts).toBe(1);
-    expect(finish).toHaveBeenCalledWith('partial', expect.objectContaining({ type: 'abort' }));
+    expect(finish).toHaveBeenCalledWith('', expect.objectContaining({ type: 'abort' }));
   });
 });

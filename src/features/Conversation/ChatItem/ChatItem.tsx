@@ -31,6 +31,7 @@ const ChatItem = memo<ChatItemProps>(
     time,
     editing,
     hideMessageBody,
+    hasSupplementalContent,
     messageExtra,
     children,
     customErrorRender,
@@ -47,7 +48,8 @@ const ChatItem = memo<ChatItemProps>(
     const isUser = placement === 'right';
     const conversationKey = useConversationStore(contextSelectors.conversationKey);
     const isEmptyMessage =
-      !message || String(message).trim() === '' || message === placeholderMessage;
+      !hasSupplementalContent &&
+      (!message || String(message).trim() === '' || message === placeholderMessage);
     const errorContent = error && (
       <ErrorContent customErrorRender={customErrorRender} error={error} id={id} />
     );
