@@ -29,6 +29,9 @@ const WorkspaceScanRecovery = memo<{
   return (
     <Alert
       showIcon
+      description={canOpenSettings ? t('workspaceScan.macOSSettingsDescription') : undefined}
+      title={t(`workspaceScan.${code}`)}
+      type="secondary"
       action={
         <Flexbox horizontal gap={8}>
           {canOpenSettings && (
@@ -46,9 +49,6 @@ const WorkspaceScanRecovery = memo<{
           )}
         </Flexbox>
       }
-      description={canOpenSettings ? t('workspaceScan.macOSSettingsDescription') : undefined}
-      title={t(`workspaceScan.${code}`)}
-      type="secondary"
     />
   );
 });

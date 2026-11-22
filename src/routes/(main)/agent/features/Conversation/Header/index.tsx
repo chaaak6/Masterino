@@ -4,12 +4,10 @@ import { Flexbox } from '@lobehub/ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { memo } from 'react';
 
-import { useEffectiveWorkspace } from '@/hooks/useEffectiveWorkspace';
-
-import { useChatStore } from '@/store/chat';
-
 import NavHeader from '@/features/NavHeader';
 import ConversationOpenInApp from '@/features/OpenInAppButton/ConversationOpenInApp';
+import { useEffectiveWorkspace } from '@/hooks/useEffectiveWorkspace';
+import { useChatStore } from '@/store/chat';
 
 import HeaderActions from './HeaderActions';
 import ShareButton from './ShareButton';

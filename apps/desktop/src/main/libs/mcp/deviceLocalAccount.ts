@@ -50,7 +50,7 @@ export class DeviceLocalMcpAccount {
         `${serverUrl.replace(/\/+$/, '')}/trpc/lambda/user.getUserState`,
         { headers: { 'Oidc-Auth': token }, redirect: 'error', signal: AbortSignal.timeout(5000) },
       );
-      if (!response.ok) throw new Error();
+      if (!response.ok) throw new Error(`Account lookup failed with HTTP ${response.status}`);
       return accountSchema.parse(await response.json()).result.data.json.userId;
     } catch {
       throw new Error(deviceLocalMcpErrors.account);

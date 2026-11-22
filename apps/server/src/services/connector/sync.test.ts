@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DecryptedConnector } from '@/database/models/connector';
-import type { ConnectorCredentials } from '@/database/schemas';
+import { type ConnectorCredentials, ConnectorStatus } from '@/database/schemas';
 import { mcpService } from '@/server/services/mcp';
 
 import {

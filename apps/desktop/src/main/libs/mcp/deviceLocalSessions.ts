@@ -92,6 +92,7 @@ export class DeviceLocalMcpSessions {
       // An edit may have reached the editor. Never replay an interrupted request.
       throw new Error(
         'Could not communicate with the device-local MCP process. Check the drawing before retrying.',
+        { cause: error },
       );
     } finally {
       session.inFlight--;

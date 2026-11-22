@@ -1,6 +1,6 @@
 'use client';
 
-import { resolveTargetDeviceId } from '@/helpers/agentWorkingDirectory';
+import { resolveAgentWorkingDirectory } from '@/helpers/agentWorkingDirectory';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
@@ -16,12 +16,11 @@ const ConversationOpenInApp = () => {
   const currentDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
   const agentWorkingDirectory = useAgentStore((s) => {
     if (!agentId) return;
-    const config = agentByIdSelectors.getAgencyConfigById(agentId)(s);
-    const targetDeviceId = resolveTargetDeviceId(config, currentDeviceId);
-    return (
-      (targetDeviceId ? config?.workingDirByDevice?.[targetDeviceId] : undefined) ??
-      s.localAgentWorkingDirectoryMap[agentId]
-    );
+    return resolveAgentWorkingDirectory({
+      agencyConfig: agentByIdSelectors.getAgencyConfigById(agentId)(s),
+      currentDeviceId,
+      legacyAgentWorkingDirectory: s.localAgentWorkingDirectoryMap[agentId],
+    });
   });
   const isLocalSystemEnabled = useAgentStore((s) =>
     agentId ? chatConfigByIdSelectors.isLocalSystemEnabledById(agentId)(s) : false,

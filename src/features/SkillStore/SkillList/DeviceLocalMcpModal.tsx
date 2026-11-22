@@ -128,7 +128,9 @@ const DeviceLocalMcpModal = ({
       setError(reason ? t(`deviceLocalMcp.error.${reason}`) : t('deviceLocalMcp.error'));
       if (!onSaved && userId && reason === 'serverUnavailable') {
         try {
-          const list = await ensureElectronIpc().mcp.listDeviceLocalServers({ userId });
+          const list: DeviceLocalMcpServer[] = await ensureElectronIpc().mcp.listDeviceLocalServers(
+            { userId },
+          );
           setServers(list);
           setEditing((current) =>
             list.some(({ identifier }) => identifier === current?.identifier) ? current : undefined,
