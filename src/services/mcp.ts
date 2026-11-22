@@ -1,8 +1,15 @@
 import { CURRENT_VERSION, isDesktop } from '@lobechat/const';
 import {
+  DeviceLocalMcpSetupApi,
+  DeviceLocalMcpSetupIdentifier,
+  isDeviceLocalMcpIdentifier,
+  isDeviceLocalMcpToolIdentifier,
+} from '@lobechat/electron-client-ipc';
+import {
   type ChatToolPayload,
   type CheckMcpInstallResult,
   type CustomPluginMetadata,
+  type ExecutionContext,
 } from '@lobechat/types';
 import { isLocalOrPrivateUrl, safeParseJSON } from '@lobechat/utils';
 import { type PluginManifest } from '@lobehub/market-sdk';
@@ -13,6 +20,8 @@ import { type MCPToolCallResult } from '@/libs/mcp';
 import { toolsClient } from '@/libs/trpc/client';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
+import { callDeviceLocalMcp, isKnownDeviceLocalMcpServer } from './deviceLocalMcp';
+import { requestDeviceLocalMcpSetup } from './deviceLocalMcpSetup';
 import { discoverService } from './discover';
 
 /**
@@ -30,11 +39,39 @@ function calculateObjectSizeBytes(obj: any): number {
   }
 }
 
+const getDeviceLocalMcpUserId = async () => {
+  const { getUserStoreState } = await import('@/store/user/store');
+  const { isSignedIn, user } = getUserStoreState();
+  return isSignedIn ? user?.id : undefined;
+};
+
 class MCPService {
+  private async configureDeviceLocalMcp(
+    payload: ChatToolPayload,
+    executionContext: ExecutionContext | undefined,
+    signal?: AbortSignal,
+  ) {
+    if (payload.apiName !== DeviceLocalMcpSetupApi)
+      throw new Error('Unknown local MCP setup action');
+    const userId = await getDeviceLocalMcpUserId();
+    return requestDeviceLocalMcpSetup(payload.arguments, executionContext, userId, signal);
+  }
+
   async invokeMcpToolCall(
     payload: ChatToolPayload,
-    { signal, topicId }: { signal?: AbortSignal; topicId?: string },
+    {
+      executionContext,
+      signal,
+      topicId,
+    }: { executionContext?: ExecutionContext; signal?: AbortSignal; topicId?: string },
   ) {
+    if (payload.source === 'client' && isDeviceLocalMcpToolIdentifier(payload.identifier)) {
+      if (payload.identifier === DeviceLocalMcpSetupIdentifier)
+        return this.configureDeviceLocalMcp(payload, executionContext, signal);
+      const userId = await getDeviceLocalMcpUserId();
+      return callDeviceLocalMcp(payload, executionContext, userId);
+    }
+
     await discoverService.safeInjectMPToken();
 
     const { pluginSelectors } = await import('@/store/tool/selectors');
@@ -77,7 +114,20 @@ class MCPService {
 
     const plugin = installPlugin || customPlugin;
 
-    if (!plugin) return;
+    if (!plugin) {
+      // Older tool messages can arrive without the runtime source. Check the device registry only
+      // after ruling out a regular connector or plugin using this identifier.
+      if (isDesktop && executionContext?.plan.target === 'local') {
+        if (!payload.source && identifier === DeviceLocalMcpSetupIdentifier)
+          return this.configureDeviceLocalMcp(payload, executionContext, signal);
+        if (isDeviceLocalMcpIdentifier(identifier)) {
+          const userId = await getDeviceLocalMcpUserId();
+          if (await isKnownDeviceLocalMcpServer(identifier, executionContext, userId))
+            return callDeviceLocalMcp(payload, executionContext, userId);
+        }
+      }
+      return;
+    }
 
     const connection = plugin.customParams?.mcp;
     const settingsEntries = plugin.settings

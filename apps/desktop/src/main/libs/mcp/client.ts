@@ -133,6 +133,10 @@ export class MCPClient {
     }
   }
 
+  onClose(callback: () => void) {
+    this.mcp.onclose = callback;
+  }
+
   disconnect(): Promise<void> {
     return (this.disconnecting ??= (async () => {
       const close = async () => {

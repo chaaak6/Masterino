@@ -31,6 +31,7 @@ import {
   type MessageMetadata,
   type MessageToolCall,
   type ModelUsage,
+  type ToolManifest,
   TraceNameMap,
   type UIChatMessage,
 } from '@lobechat/types';
@@ -182,6 +183,7 @@ const localizeError = (error: ChatMessageError): ChatMessageError => {
 export const createAgentExecutors = (context: {
   /** Pre-resolved agent config with isSubAgent filtering applied */
   agentConfig: ResolvedAgentConfig;
+  deviceLocalMcpManifests?: ToolManifest[];
   get: () => ChatStore;
   metadata?: Pick<MessageMetadata, 'trigger'>;
   messageKey: string;
@@ -518,7 +520,13 @@ export const createAgentExecutors = (context: {
                 alt: file?.filename || file?.id,
               })),
           transformToolCalls: (calls) =>
-            context.get().internal_transformToolCalls(calls, offeredToolNames),
+            context
+              .get()
+              .internal_transformToolCalls(
+                calls,
+                offeredToolNames,
+                context.deviceLocalMcpManifests,
+              ),
           toggleToolCallingStreaming: internal_toggleToolCallingStreaming,
         },
       );

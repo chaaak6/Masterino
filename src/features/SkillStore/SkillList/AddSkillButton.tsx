@@ -1,5 +1,6 @@
+import { isDesktop } from '@lobechat/const';
 import { Button, DropdownMenu, Flexbox, Icon, Text } from '@lobehub/ui';
-import { ChevronDown, FileArchive, Grid2x2Plus, Link, PenLine } from 'lucide-react';
+import { ChevronDown, FileArchive, Grid2x2Plus, Link, Monitor, PenLine } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +8,7 @@ import { CustomConnectorModal } from '@/features/Connectors';
 import { usePermission } from '@/hooks/usePermission';
 
 import ImportFromUrlModal from './ImportFromUrlModal';
+import { openDeviceLocalMcpSettings } from './openDeviceLocalMcpSetup';
 import UploadSkillModal from './UploadSkillModal';
 
 const MenuLabel = ({ desc, title }: { desc: string; title: ReactNode }) => (
@@ -70,6 +72,19 @@ const AddSkillButton = () => {
               setMcpModal(true);
             },
           },
+          ...(isDesktop
+            ? [
+                {
+                  disabled: !canCreate || !canEdit,
+                  icon: <Icon icon={Monitor} />,
+                  key: 'deviceLocalMcp',
+                  label: t('deviceLocalMcp.title'),
+                  onClick: () => {
+                    if (canCreate && canEdit) openDeviceLocalMcpSettings();
+                  },
+                },
+              ]
+            : []),
         ]}
       >
         <Button disabled={!canCreate} icon={Grid2x2Plus}>

@@ -210,6 +210,21 @@ describe('toolEngineering', () => {
   });
 
   describe('createToolsEngine', () => {
+    it('preserves an installed server MCP when local setup uses the same identifier', () => {
+      const identifier = 'local-mcp-setup';
+      const manifest = (name: string): ToolManifest => ({
+        api: [{ description: name, name, parameters: { type: 'object' } }],
+        identifier,
+        meta: { title: name },
+        type: 'mcp',
+      });
+      mockInstalledPluginManifestList = () => [manifest('read_server')];
+      const engine = createToolsEngine({ additionalManifests: [manifest('configure')] });
+      expect(
+        engine.generateTools({ toolIds: [identifier], model: 'gpt-4', provider: 'openai' }),
+      ).toMatchObject([{ function: { name: 'local-mcp-setup____read_server____mcp' } }]);
+    });
+
     it('should generate tools array for enabled plugins', () => {
       const toolsEngine = createToolsEngine();
       const result = toolsEngine.generateTools({
