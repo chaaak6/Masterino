@@ -69,7 +69,15 @@
 
 - GitHub Actions 构建 [测试候选镜像](https://github.com/chaaak6/Masterino/actions/runs/45011555280)。ACK 只更新了既有的 `masterino-test/deployment/masterino`。网关、Bridge、数据库和 Service 复用。镜像为 `ghcr.io/chaaak6/masterino@sha256:30bbc81a6afa25754cfa09a1a00960b9f4117de454f6b31d262e150784783c29`，源提交为 `75225ead`。
 - 单副本更新使用 `maxSurge: 0`。首次拉取近两分钟，超过首次就绪预算后自动回退。镜像缓存后的重试成功，应用就绪副本为 1，授权配置端点返回 HTTP 200。期间测试站短时返回 503。
-- 更新后退出测试资料并重新授权，成功页出现「打开 Masterino」。Electron 收到授权。专用测试助理在新版服务返回了 DeepSeek 的 `QA_LIVE_1122 56`、GLM 的 `GLM_QA_1122 143` 和 Qwen 的 `QWEN_QA_1122 42`。默认助理在两个不同请求上返回固定 `CUTOVER_OK`，该助理的自由对话用例记为未通过。
+- 更新后退出测试资料并重新授权，成功页出现「打开 Masterino」。Electron 收到授权。专用测试助理在新版服务返回了 DeepSeek 的 `QA_LIVE_1122 56`、GLM 的 `GLM_QA_1122 143` 和 Qwen 的 `QWEN_QA_1122 42`。默认助理当时返回固定 `CUTOVER_OK`。已在下方记录原因、修复和复验结果。
 - 用实际迁移入口和离线持久化文件，分别验了旧 AI Hub 云端、测试云、自托管旧地址和其他云端地址。每个夹具运行两次。仅旧 AI Hub 云端被改为新地址且停用连接。真实生产 OAuth 不在本次测试范围。
 - 定向测试共 654 项通过。包括渲染端 140、Electron 150、SSE 68、服务端与 Agent 流程 178、模型端 95、工作区扫描 23。分支改动范围 ESLint 无错误。全仓类型检查有 42 条，涉及文件均在本次改动范围之外。
 - 上一个 CI 提交的服务端用例缺少测试符号导入，Database 检查在导入排序处失败。两个问题已修复，定向服务端用例与改动范围 lint 已重跑。
+
+## 默认助理固定回复复验
+
+默认助理「小宗狮AI」的 `chatConfig.inputTemplate` 留有测试指令 `Reply exactly CUTOVER_OK. Do not use tools.`。这条模板没有 `{{text}}`，因此 [输入模板处理器](../../packages/context-engine/src/processors/InputTemplate.ts) 将发送给模型的用户消息替换成同一条测试指令。会话里仍显示用户原始问题，容易被误判为上游模型返回固定内容。
+
+通过 Electron 参数面板清空这一个预处理模板。通过现有的测试 PostgreSQL 只读核对，模板已清空，助理的其余字段和聊天设置没有变化。此项修复适用范围是该测试账号的默认助理，继续使用已有的测试服务。
+
+同一账号、同一默认助理和同一个 DeepSeek V4.1 Flash 模型，在独立话题发送相同问题「23 加 19」。修复前回复 `CUTOVER_OK`，修复后回复 `CUTOVER_QA_173 42`，继续追问折扣计算时正确回复 `59 元`。两次正常回复均已保存。输入模板处理器现有 6 项测试通过。
