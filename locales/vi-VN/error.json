@@ -200,5 +200,13 @@
   "upload.storageLimitExceeded": "Dung lượng lưu trữ tệp của bạn đã đạt giới hạn của gói hiện tại. Vui lòng nâng cấp gói hoặc xóa các tệp không sử dụng để giải phóng dung lượng.",
   "upload.title": "Tải tệp thất bại. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau",
   "upload.unknownError": "Lý do lỗi: {{reason}}",
-  "upload.uploadFailed": "Tải tệp thất bại."
+  "upload.uploadFailed": "Tải tệp thất bại.",
+  "workspaceScan.WORKSPACE_ACCESS_DENIED": "Không thể đọc không gian làm việc. Hãy kiểm tra quyền truy cập thư mục rồi thử lại.",
+  "workspaceScan.WORKSPACE_DEVICE_OFFLINE": "Thiết bị gắn với không gian làm việc này đang ngoại tuyến.",
+  "workspaceScan.WORKSPACE_MACOS_FOLDER_ACCESS_DENIED": "macOS đã từ chối quyền truy cập thư mục của không gian làm việc này.",
+  "workspaceScan.WORKSPACE_ROOT_MISSING": "Thư mục của không gian làm việc không tồn tại hoặc đường dẫn này không còn trỏ đến một thư mục.",
+  "workspaceScan.WORKSPACE_SCAN_TIMEOUT": "Đã hết thời gian quét không gian làm việc.",
+  "workspaceScan.macOSSettingsDescription": "Trong Quyền riêng tư & Bảo mật → Tệp và thư mục, hãy cho phép Masterino truy cập thư mục tương ứng. Sau đó quay lại đây và thử lại.",
+  "workspaceScan.openSettings": "Mở Cài đặt hệ thống",
+  "workspaceScan.retry": "Thử lại"
 }
