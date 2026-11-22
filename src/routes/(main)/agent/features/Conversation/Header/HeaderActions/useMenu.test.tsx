@@ -106,6 +106,22 @@ const isActionItem = (
 } => !!item && typeof item === 'object' && 'key' in item;
 
 describe('Conversation header action menu', () => {
+  it('hides the copied project path while preserving history actions on a foreign device', () => {
+    useLocationMock.mockReturnValue({ pathname: '/agent/agent-1' });
+    const { result, rerender } = renderHook(
+      ({ showWorkspaceActions }) => useMenu(showWorkspaceActions),
+      { initialProps: { showWorkspaceActions: false } },
+    );
+    const hasItem = (key: string) =>
+      result.current.menuItems.some((item) => isActionItem(item) && item.key === key);
+
+    expect(hasItem('copyWorkingDirectory')).toBe(false);
+    expect(hasItem('openInPopupWindow')).toBe(true);
+
+    rerender({ showWorkspaceActions: true });
+    expect(hasItem('copyWorkingDirectory')).toBe(true);
+  });
+
   it('includes the desktop popup-window action for the active topic', () => {
     useLocationMock.mockReturnValue({ pathname: '/agent/agent-1' });
 

@@ -6,6 +6,7 @@ import { memo } from 'react';
 
 import NavHeader from '@/features/NavHeader';
 import OpenInAppButton from '@/features/OpenInAppButton';
+import { useEffectiveWorkspace } from '@/hooks/useEffectiveWorkspace';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
@@ -51,6 +52,8 @@ const Header = memo(() => {
   const isLocalSystemEnabled = useAgentStore((s) =>
     agentId ? chatConfigByIdSelectors.isLocalSystemEnabledById(agentId)(s) : false,
   );
+  const { loading, projectUnavailable } = useEffectiveWorkspace(agentId);
+  const showWorkspaceActions = !loading && !projectUnavailable;
   const effectiveWorkingDirectory = topicWorkingDirectory || agentWorkingDirectory || '';
 
   return (
@@ -65,8 +68,8 @@ const Header = memo(() => {
             gap={4}
             style={{ backgroundColor: cssVar.colorBgContainer }}
           >
-            <Tags />
-            <HeaderActions />
+            <Tags showWorkspaceActions={showWorkspaceActions} />
+            <HeaderActions showWorkspaceActions={showWorkspaceActions} />
           </Flexbox>
         }
         right={
@@ -76,7 +79,7 @@ const Header = memo(() => {
             gap={4}
             style={{ backgroundColor: cssVar.colorBgContainer }}
           >
-            {isLocalSystemEnabled && (
+            {showWorkspaceActions && isLocalSystemEnabled && (
               <OpenInAppButton workingDirectory={effectiveWorkingDirectory} />
             )}
             <ShareButton />
