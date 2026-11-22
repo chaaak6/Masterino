@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 
 import {
   agents,
@@ -15,6 +15,7 @@ import {
 import type { LobeChatDatabase } from '../../type';
 import { sanitizeBm25Query } from '../../utils/bm25';
 import { normalizeInboxAgentMeta, normalizeInboxAgentTitle } from '../../utils/inboxAgent';
+import { desktopTopicCondition } from '../../utils/desktopTopicCondition';
 import { buildWorkspaceWhere } from '../../utils/workspace';
 
 export type SearchResultType =
@@ -77,6 +78,7 @@ export interface TopicSearchResult extends BaseSearchResult {
   favorite: boolean | null;
   sessionId: string | null;
   type: 'topic';
+  workspaceDeviceScope?: string;
 }
 
 export interface FileSearchResult extends BaseSearchResult {
@@ -101,6 +103,7 @@ export interface MessageSearchResult extends BaseSearchResult {
   role: string;
   topicId: string | null;
   type: 'message';
+  workspaceDeviceScope?: string;
 }
 
 export interface MemorySearchResult extends BaseSearchResult {
@@ -188,6 +191,7 @@ export interface SearchOptions {
    */
   includeMemory?: boolean;
   limitPerType?: number;
+  localDeviceId?: string;
   offset?: number;
   query: string;
   type?: SearchResultType;
@@ -223,7 +227,15 @@ export class SearchRepo {
    * Search across agents, topics, files, and pages
    */
   async search(options: SearchOptions): Promise<SearchResult[]> {
-    const { query, type, limitPerType = 5, agentId, contextType, includeMemory = false } = options;
+    const {
+      query,
+      type,
+      limitPerType = 5,
+      agentId,
+      contextType,
+      includeMemory = false,
+      localDeviceId,
+    } = options;
 
     // Early return for empty query
     if (!query || query.trim() === '') return [];
@@ -243,10 +255,12 @@ export class SearchRepo {
       searchPromises.push(this.searchChatGroups(trimmedQuery, limits.chatGroup));
     }
     if ((!type || type === 'topic') && limits.topic > 0) {
-      searchPromises.push(this.searchTopics(trimmedQuery, limits.topic, agentId));
+      searchPromises.push(this.searchTopics(trimmedQuery, limits.topic, agentId, localDeviceId));
     }
     if ((!type || type === 'message') && limits.message > 0) {
-      searchPromises.push(this.searchMessages(trimmedQuery, limits.message, agentId));
+      searchPromises.push(
+        this.searchMessages(trimmedQuery, limits.message, agentId, localDeviceId),
+      );
     }
     if ((!type || type === 'file') && limits.file > 0) {
       searchPromises.push(this.searchFiles(trimmedQuery, limits.file));
@@ -454,6 +468,7 @@ export class SearchRepo {
     query: string,
     limit: number,
     agentId?: string,
+    localDeviceId?: string,
   ): Promise<TopicSearchResult[]> {
     const bm25Query = sanitizeBm25Query(query);
 
@@ -484,6 +499,7 @@ export class SearchRepo {
       .where(
         and(
           buildWorkspaceWhere(this.scope, topics),
+          desktopTopicCondition(localDeviceId),
           agentId ? eq(topics.agentId, agentId) : undefined,
           sql`(${topics.title} @@@ ${bm25Query} OR ${topics.content} @@@ ${bm25Query} OR ${topics.description} @@@ ${bm25Query})`,
         ),
@@ -515,6 +531,7 @@ export class SearchRepo {
         title: row.title || '',
         type: 'topic' as const,
         updatedAt: row.updatedAt,
+        ...(localDeviceId ? { workspaceDeviceScope: localDeviceId } : {}),
       }))
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
       .slice(0, limit);
@@ -527,6 +544,7 @@ export class SearchRepo {
     query: string,
     limit: number,
     agentId?: string,
+    localDeviceId?: string,
   ): Promise<MessageSearchResult[]> {
     const bm25Query = sanitizeBm25Query(query);
 
@@ -546,9 +564,19 @@ export class SearchRepo {
       })
       .from(messages)
       .leftJoin(agents, eq(messages.agentId, agents.id))
+      .leftJoin(
+        topics,
+        and(eq(messages.topicId, topics.id), buildWorkspaceWhere(this.scope, topics)),
+      )
       .where(
         and(
           buildWorkspaceWhere(this.scope, messages),
+          localDeviceId
+            ? or(
+                isNull(messages.topicId),
+                and(isNotNull(topics.id), desktopTopicCondition(localDeviceId)),
+              )
+            : undefined,
           ne(messages.role, 'tool'),
           agentId ? eq(messages.agentId, agentId) : undefined,
           sql`${messages.content} @@@ ${bm25Query}`,
@@ -574,6 +602,7 @@ export class SearchRepo {
         topicId: row.topicId,
         type: 'message' as const,
         updatedAt: row.updatedAt,
+        ...(localDeviceId ? { workspaceDeviceScope: localDeviceId } : {}),
       }))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);

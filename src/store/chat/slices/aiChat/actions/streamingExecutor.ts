@@ -21,7 +21,11 @@ import {
   type OperationSkillSet,
   type ToolsEngine,
 } from '@lobechat/context-engine';
-import { buildTaskDetailPrompt, buildTaskListPrompt } from '@lobechat/prompts';
+import {
+  appendWorkspaceInstructions,
+  buildTaskDetailPrompt,
+  buildTaskListPrompt,
+} from '@lobechat/prompts';
 import {
   type ConversationContext,
   type ExecutionContext,
@@ -935,6 +939,10 @@ export class StreamingExecutorActionImpl {
       if (!params.operationSkills && !skillContext.workspaceInit) {
         skillContext.workspaceInit = await scanOperationWorkspace(skillContext.workspace);
       }
+      const systemRole = appendWorkspaceInstructions(
+        agentConfigData.systemRole,
+        skillContext.workspaceInit?.instructions,
+      );
       const operationSkills =
         params.operationSkills ??
         (
@@ -967,7 +975,10 @@ export class StreamingExecutorActionImpl {
 
       const runtime = new AgentRuntime(agent, {
         executors: createAgentExecutors({
-          agentConfig, // Pass pre-resolved config to callLLM executor
+          agentConfig: {
+            ...agentConfig,
+            agentConfig: { ...agentConfigData, systemRole },
+          },
           get: this.#get,
           metadata: params.metadata,
           messageKey,

@@ -1,3 +1,4 @@
+import { isWorkspaceScanErrorCode } from '@lobechat/device-control/workspaceError';
 import type { HeterogeneousAgentSessionError } from '@lobechat/electron-client-ipc';
 import { HeterogeneousAgentSessionErrorCode } from '@lobechat/electron-client-ipc';
 import { type ILobeAgentRuntimeErrorType } from '@lobechat/model-runtime';
@@ -26,6 +27,7 @@ import { getRuntimeErrorMessage } from '@/utils/locale/runtimeErrorMessage';
 
 import ChatInvalidAPIKey from './ChatInvalidApiKey';
 import ContextBudgetError from './ContextBudgetError';
+import WorkspaceScanRecovery from './WorkspaceScanRecovery';
 
 interface ErrorMessageData {
   error?: ChatMessageError | null;
@@ -283,6 +285,26 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
     regenerateAssistantMessage,
     storeApi,
   ]);
+
+  const handleRetryWorkspaceScan = useCallback(() => {
+    if (!canCreate) return;
+    if (onRegenerate) {
+      onRegenerate();
+    } else if (validateRegenerationImages(storeApi.getState().displayMessages, data.id)) {
+      void regenerateAssistantMessage(data.id);
+    }
+  }, [canCreate, data.id, onRegenerate, regenerateAssistantMessage, storeApi]);
+
+  const scanCode: unknown = sessionErrorBody?.workspaceScanCode;
+  if (isWorkspaceScanErrorCode(scanCode)) {
+    return (
+      <WorkspaceScanRecovery
+        code={scanCode}
+        localMacDeviceId={sessionErrorBody?.workspaceScanLocalMacDeviceId}
+        onRetry={canCreate ? handleRetryWorkspaceScan : undefined}
+      />
+    );
+  }
 
   if (isHeterogeneousAgentStatusGuideError(sessionErrorBody)) {
     return (

@@ -4,6 +4,7 @@ import {
   statPath as runStatPath,
   type WorkspaceScanDeps,
 } from '@lobechat/device-control';
+import { WorkspaceScanError } from '@lobechat/device-control/workspaceError';
 import {
   type InitWorkspaceParams,
   type InitWorkspaceResult,
@@ -41,6 +42,17 @@ export default class WorkspaceCtr extends ControllerModule {
   @IpcMethod()
   async initWorkspace(params: InitWorkspaceParams): Promise<InitWorkspaceResult> {
     return runInitWorkspace(params, this.scanDeps);
+  }
+
+  /** Return a plain failure value so Electron's context bridge preserves the code. */
+  @IpcMethod()
+  async scanWorkspace(params: InitWorkspaceParams) {
+    try {
+      return { result: await this.initWorkspace(params) };
+    } catch (error) {
+      if (!(error instanceof WorkspaceScanError)) throw error;
+      return { failure: { code: error.code } };
+    }
   }
 
   @IpcMethod()

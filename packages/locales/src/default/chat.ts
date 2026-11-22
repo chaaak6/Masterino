@@ -78,7 +78,8 @@ export default {
   'attachments.block.image-count':
     'This message has more than 10 images. Remove some images before sending.',
 
-  'workspaceRuntime.otherDeviceProject': 'Project unavailable on this device',
+  'workspaceRuntime.otherDeviceProject':
+    'This topic belongs to another device. Continue on that device or start a new topic here.',
   'localAttachment.errors.fileTooLarge': 'Attachment exceeds 1 GiB. Select a smaller file.',
   'localAttachment.errors.imageTooLarge': 'Image exceeds 10 MiB. Resize it before sending.',
   'localAttachment.errors.imageResolutionExceeded':

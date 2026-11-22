@@ -32,11 +32,15 @@ const recentProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) =
 
 export const recentRouter = router({
   getAll: recentProcedure
-    .input(z.object({ limit: z.number().optional() }).optional())
+    .input(
+      z
+        .object({ limit: z.number().optional(), localDeviceId: z.string().min(1).optional() })
+        .optional(),
+    )
     .query(async ({ ctx, input }): Promise<RecentItem[]> => {
       const limit = input?.limit ?? 10;
 
-      const items = await ctx.recentModel.queryRecent(limit);
+      const items = await ctx.recentModel.queryRecent(limit, input?.localDeviceId);
 
       return items.map((item) => {
         let routePath: string;

@@ -4,8 +4,8 @@ import { projectWorkspaces, topics } from '../schemas';
 
 /**
  * Desktop visibility must constrain both rows and counts before LIMIT/OFFSET.
- * Device projects stay local; account-scoped sandboxes and the existing scratch
- * topic exception remain cross-device.
+ * Local projects and scratch directories stay on their owning device.
+ * Account-scoped sandboxes and ordinary chats can appear on multiple devices.
  */
 export const desktopTopicCondition = (deviceId?: string) => {
   if (deviceId === undefined) return undefined;
@@ -22,8 +22,11 @@ export const desktopTopicCondition = (deviceId?: string) => {
   const kind = sql`coalesce(${metadata}->'executionSnapshot'->>'workspaceKind', ${workspaceField(projectWorkspaces.kind)}, ${metadata}->>'workspaceKind')`;
   const device = sql`coalesce(${metadata}->'executionSnapshot'->>'boundDeviceId', ${owner}, ${metadata}->>'boundDeviceId')`;
   return sql`(
-    ${kind} in ('scratch', 'sandbox')
-    or (${workspaceId} is null and nullif(${metadata}->>'workingDirectory', '') is null)
+    ${kind} = 'sandbox'
+    or (
+      ${kind} is distinct from 'scratch'
+      and ${workspaceId} is null and nullif(${metadata}->>'workingDirectory', '') is null
+    )
     or (${device} = ${deviceId} and (${owner} is null or ${owner} = ${deviceId}))
   )`;
 };

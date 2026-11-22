@@ -1,3 +1,4 @@
+import { WorkspaceScanError } from '@lobechat/device-control/workspaceError';
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 
@@ -668,10 +669,14 @@ export default class GatewayConnectionService extends ServiceModule {
       const data = await this.rpcHandler(method, params);
       client.sendRpcResponse({ requestId, result: { data, success: true } });
     } catch (error) {
-      logger.error(`rpc_request method=${method} failed:`, serializeWireError(error));
+      const wireError =
+        method === 'initWorkspace' && error instanceof WorkspaceScanError
+          ? error.code
+          : serializeWireError(error);
+      logger.error(`rpc_request method=${method} failed:`, wireError);
       client.sendRpcResponse({
         requestId,
-        result: { error: serializeWireError(error), success: false },
+        result: { error: wireError, success: false },
       });
     }
   }
