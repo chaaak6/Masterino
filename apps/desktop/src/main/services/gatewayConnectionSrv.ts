@@ -1,7 +1,7 @@
-import { WorkspaceScanError } from '@lobechat/device-control/workspaceError';
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
 
+import { WorkspaceScanError } from '@lobechat/device-control/workspaceError';
 import type {
   AgentRunRequestMessage,
   GatewayMcpStdioParams,

@@ -14,8 +14,8 @@ import {
 } from '../../schemas';
 import type { LobeChatDatabase } from '../../type';
 import { sanitizeBm25Query } from '../../utils/bm25';
-import { normalizeInboxAgentMeta, normalizeInboxAgentTitle } from '../../utils/inboxAgent';
 import { desktopTopicCondition } from '../../utils/desktopTopicCondition';
+import { normalizeInboxAgentMeta, normalizeInboxAgentTitle } from '../../utils/inboxAgent';
 import { buildWorkspaceWhere } from '../../utils/workspace';
 
 export type SearchResultType =

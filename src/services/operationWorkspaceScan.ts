@@ -5,9 +5,9 @@ import {
 import type { WorkspaceInitResult, WorkspaceRef } from '@lobechat/types';
 
 import { isDesktop } from '@/const/version';
-import { isMacOS } from '@/utils/platform';
 import { projectSkillService } from '@/services/projectSkill';
 import { useElectronStore } from '@/store/electron';
+import { isMacOS } from '@/utils/platform';
 
 export class OperationWorkspaceScanError extends Error {
   constructor(

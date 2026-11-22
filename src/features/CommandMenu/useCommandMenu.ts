@@ -20,8 +20,8 @@ import { useGlobalStore } from '@/store/global';
 import { globalHelpers } from '@/store/global/helpers';
 import { useHomeStore } from '@/store/home';
 
-import { filterDeviceSearchResults } from './filterDeviceSearchResults';
 import { useCommandMenuContext } from './CommandMenuContext';
+import { filterDeviceSearchResults } from './filterDeviceSearchResults';
 import { type ThemeMode } from './types';
 
 /**
