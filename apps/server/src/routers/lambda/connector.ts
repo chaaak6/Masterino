@@ -313,15 +313,27 @@ export const connectorRouter = router({
     }),
 
   /**
-   * Fetch the tool list from the remote MCP server and sync it into
-   * `user_connector_tools`. Manifest-derived fields are overwritten;
-   * user permission settings are preserved.
+   * Sync the remote tool list or the manifest discovered by the desktop for
+   * STDIO. Manifest-derived fields are overwritten; permissions are preserved.
    */
   syncTools: connectorProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        localTools: z
+          .array(
+            z.object({
+              description: z.string().optional(),
+              inputSchema: z.record(z.unknown()).optional(),
+              toolName: z.string().min(1),
+            }),
+          )
+          .optional(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       try {
-        return await syncConnectorToolsById(input.id, ctx);
+        return await syncConnectorToolsById(input.id, ctx, input.localTools);
       } catch (err: any) {
         throw new TRPCError({
           cause: err,

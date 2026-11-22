@@ -216,12 +216,15 @@ export class ToolExecutionService {
       // active, tunnel the call to that device, which spawns the stdio server
       // locally. Standalone Electron (no gateway) falls through to the
       // in-process MCP service below, where spawning is on the user's machine.
-      if (
-        mcpParams.type === 'stdio' &&
-        deviceGateway.isConfigured &&
-        context.activeDeviceId &&
-        context.userId
-      ) {
+      if (mcpParams.type === 'stdio' && deviceGateway.isConfigured) {
+        if (!context.activeDeviceId || !context.userId) {
+          const message = 'Select the device running the local MCP server to use this tool';
+          return {
+            content: message,
+            error: { code: 'MCP_DEVICE_REQUIRED', message },
+            success: false,
+          };
+        }
         return await this.executeMcpViaDevice(payload, context, mcpParams);
       }
 

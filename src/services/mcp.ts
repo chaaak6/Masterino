@@ -43,19 +43,28 @@ class MCPService {
     const s = getToolStoreState();
     const { identifier, arguments: args, apiName } = payload;
 
-    // Connector-first: custom connectors execute server-side with their stored
-    // (encrypted) OAuth token, so route them before the plugin path. The client
-    // has no credentials, hence the dedicated `connector.callTool` endpoint.
-    // Only connectors with a real MCP endpoint are routed here — Lobehub/Composio
-    // skills synced into the connector store have no mcpServerUrl and keep their
-    // original executor path.
     const { connectorSelectors } = await import('@/store/tool/slices/connector');
     const connector = connectorSelectors.connectorByIdentifier(identifier)(s);
-    if (
-      connector &&
-      connector.isEnabled &&
-      (connector.mcpServerUrl || connector.mcpConnectionType === 'stdio')
-    ) {
+
+    if (connector?.mcpConnectionType === 'stdio') {
+      const tool = connector.tools.find((item) => item.toolName === apiName);
+      if (!connector.isEnabled || !tool || tool.permission === 'disabled')
+        throw new Error(`MCP tool "${apiName}" is unavailable for this connector`);
+
+      const config = connector.mcpStdioConfig;
+      if (!isDesktop || !config?.command)
+        throw new Error('Run this MCP tool on the desktop with the local MCP server installed');
+
+      return this.callStdioTool({
+        args: safeParseJSON(args) ?? {},
+        env: config.env,
+        params: { args: config.args, command: config.command, name: identifier, type: 'stdio' },
+        toolName: apiName,
+      });
+    }
+
+    // HTTP connectors execute server-side with their stored credentials.
+    if (connector?.isEnabled && connector.mcpServerUrl) {
       const { lambdaClient } = await import('@/libs/trpc/client');
       return (await lambdaClient.connector.callTool.mutate(
         { args, identifier, toolName: apiName },
@@ -158,9 +167,7 @@ class MCPService {
       } else if (isDesktop && isStdio) {
         // For desktop and stdio, use IPC (main process)
         // Note: IPC doesn't support AbortSignal yet
-        const serialized = superjson.serialize(data);
-        const serializedResult = await ensureElectronIpc().mcp.callTool(serialized as any);
-        result = superjson.deserialize(serializedResult as any) as any;
+        result = await this.callStdioTool(data);
       } else {
         // For other types, use the toolsClient
         result = await toolsClient.mcp.callTool.mutate(data, { signal });
@@ -246,6 +253,12 @@ class MCPService {
 
     // Otherwise use toolsClient (via server relay)
     return toolsClient.mcp.getStreamableMcpServerManifest.query(params, { signal });
+  }
+
+  private async callStdioTool(data: object): Promise<MCPToolCallResult> {
+    const serialized = superjson.serialize(data);
+    const result = await ensureElectronIpc().mcp.callTool(serialized as any);
+    return superjson.deserialize(result as any);
   }
 
   async getStdioMcpServerManifest(

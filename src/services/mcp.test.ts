@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mcpService } from './mcp';
 
+const desktop = vi.hoisted(() => ({ enabled: false }));
+
 const mockElectronIpc = {
   mcp: {
     callTool: vi.fn(),
@@ -16,7 +18,9 @@ const mockElectronIpc = {
 // Mock dependencies
 vi.mock('@lobechat/const', () => ({
   CURRENT_VERSION: '1.0.0',
-  isDesktop: false,
+  get isDesktop() {
+    return desktop.enabled;
+  },
 }));
 
 vi.mock('@lobechat/utils', () => ({
@@ -33,6 +37,7 @@ vi.mock('@lobechat/utils', () => ({
 }));
 
 vi.mock('@/libs/trpc/client', () => ({
+  lambdaClient: { connector: { callTool: { mutate: vi.fn() } } },
   toolsClient: {
     market: {
       callCloudMcpEndpoint: {
@@ -78,12 +83,57 @@ vi.mock('@/store/tool/selectors', () => ({
 
 describe('MCPService', () => {
   beforeEach(() => {
+    desktop.enabled = false;
     vi.clearAllMocks();
     vi.resetModules();
     mockGetToolStoreState.mockReturnValue({});
   });
 
   describe('invokeMcpToolCall', () => {
+    it('runs a synced STDIO connector tool through desktop IPC', async () => {
+      const { lambdaClient } = await import('@/libs/trpc/client');
+      desktop.enabled = true;
+      const command = '/Applications/OpenCADStudio.app/Contents/MacOS/OpenCADStudio';
+      mockGetToolStoreState.mockReturnValue({
+        connectors: [
+          {
+            identifier: 'opencadstudio-local',
+            isEnabled: true,
+            mcpConnectionType: 'stdio',
+            mcpStdioConfig: { args: ['--mcp'], command, env: { DEMO_MODE: '1' } },
+            tools: [{ permission: 'auto', toolName: 'ocs_inspect' }],
+          },
+        ],
+      });
+      const response = { content: 'Drawing is open', success: true };
+      mockElectronIpc.mcp.callTool.mockResolvedValue(superjson.serialize(response));
+      vi.mocked(lambdaClient.connector.callTool.mutate).mockRejectedValueOnce(
+        new Error('Failed to start MCP service process'),
+      );
+
+      const result = await mcpService.invokeMcpToolCall(
+        {
+          apiName: 'ocs_inspect',
+          arguments: '{}',
+          id: 'call',
+          identifier: 'opencadstudio-local',
+          type: 'default',
+        },
+        {},
+      );
+
+      expect(result).toEqual(response);
+      expect(mockElectronIpc.mcp.callTool).toHaveBeenCalledWith(
+        superjson.serialize({
+          args: {},
+          env: { DEMO_MODE: '1' },
+          params: { args: ['--mcp'], command, name: 'opencadstudio-local', type: 'stdio' },
+          toolName: 'ocs_inspect',
+        }),
+      );
+      expect(lambdaClient.connector.callTool.mutate).not.toHaveBeenCalled();
+    });
+
     it('should invoke tool call with installed plugin', async () => {
       const { toolsClient } = await import('@/libs/trpc/client');
       const { discoverService } = await import('./discover');
