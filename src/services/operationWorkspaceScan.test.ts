@@ -9,6 +9,7 @@ vi.mock('@/const/version', () => ({
   },
 }));
 vi.mock('@/services/projectSkill', () => ({ projectSkillService: { scanWorkspace: mocks.scan } }));
+vi.mock('@/utils/platform', () => ({ isMacOS: () => true }));
 vi.mock('@/store/electron', () => ({
   useElectronStore: { getState: () => ({ gatewayDeviceInfo: { deviceId: 'local' } }) },
 }));
@@ -37,6 +38,20 @@ describe('operation workspace scan', () => {
     ).rejects.toThrow('offline');
     expect(mocks.scan).toHaveBeenCalledWith({ scope: '/repo', deviceId: 'remote' });
   });
+  it('keeps the Mac permissions action bound to the device that attempted the local scan', async () => {
+    const code = 'WORKSPACE_MACOS_FOLDER_ACCESS_DENIED';
+    mocks.scan.mockRejectedValueOnce(Object.assign(new Error('Permission denied'), { code }));
+    await expect(
+      scanOperationWorkspace({ kind: 'device', deviceId: 'local', rootPath: '/project' }),
+    ).rejects.toMatchObject({ code, localMacDeviceId: 'local' });
+
+    const data = { errorData: { workspaceScanCode: code } };
+    mocks.scan.mockRejectedValueOnce(Object.assign(new Error('Permission denied'), { data }));
+    await expect(
+      scanOperationWorkspace({ kind: 'device', deviceId: 'remote', rootPath: '/project' }),
+    ).rejects.toMatchObject({ code, localMacDeviceId: undefined });
+  });
+
   it('skips an unbound topic and discovers skills created in scratch', async () => {
     await scanOperationWorkspace();
     expect(mocks.scan).not.toHaveBeenCalled();

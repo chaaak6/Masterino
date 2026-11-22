@@ -44,6 +44,7 @@ export const searchRouter = router({
       z.object({
         agentId: z.string().optional(),
         limitPerType: z.number().optional(),
+        localDeviceId: z.string().min(1).optional(),
         locale: z.string().optional(),
         offset: z.number().optional(),
         query: z.string(),

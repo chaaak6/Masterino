@@ -25,6 +25,7 @@ import type {
   WorkspaceInstructionsItem,
   WorkspaceScanDeps,
 } from './types';
+import { WorkspaceScanError } from './workspaceError';
 
 const SKILL_FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
 
@@ -67,6 +68,36 @@ const resolveScanRoot = async (root: string): Promise<string | undefined> => {
   } catch {
     return undefined;
   }
+};
+
+const isProtectedMacFolder = (candidate: string | undefined): boolean => {
+  if (process.platform !== 'darwin' || !candidate || !path.isAbsolute(candidate)) return false;
+  const [topLevelFolder] = path.relative(os.homedir(), candidate).split(path.sep);
+  return ['Desktop', 'Documents', 'Downloads'].includes(topLevelFolder);
+};
+
+const classifyWorkspaceScanFailure = (error: unknown, scope: string): unknown => {
+  if (!(error instanceof Error)) return error;
+  const { code, path: failedPath } = error as NodeJS.ErrnoException;
+  if (code !== 'EACCES' && code !== 'EPERM') return error;
+
+  return new WorkspaceScanError(
+    isProtectedMacFolder(failedPath) || isProtectedMacFolder(scope)
+      ? 'WORKSPACE_MACOS_FOLDER_ACCESS_DENIED'
+      : 'WORKSPACE_ACCESS_DENIED',
+    { cause: error },
+  );
+};
+
+const requireWorkspaceScanRoot = async (scope: string): Promise<string> => {
+  try {
+    const canonicalRoot = await realpath(scope);
+    if ((await stat(canonicalRoot)).isDirectory()) return canonicalRoot;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException)?.code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+  }
+  throw new WorkspaceScanError('WORKSPACE_ROOT_MISSING');
 };
 
 /**
@@ -342,26 +373,29 @@ export const initWorkspace = async (
   deps: WorkspaceScanDeps = {},
 ): Promise<InitWorkspaceResult> => {
   const root = params.scope;
-  const scanRoot = await resolveScanRoot(root);
-  if (!scanRoot) throw new Error('Workspace scan root is unavailable');
-  await recoverProjectSkillEdit(scanRoot);
+  try {
+    const scanRoot = await requireWorkspaceScanRoot(root);
+    await recoverProjectSkillEdit(scanRoot);
 
-  const seen = new Set<string>();
-  const skills: ProjectSkillItem[] = [];
-  for (const source of SKILL_SOURCES) {
-    for (const skill of await scanSkillsInSource(scanRoot, source)) {
-      if (seen.has(skill.name)) continue;
-      seen.add(skill.name);
-      skills.push(skill);
+    const seen = new Set<string>();
+    const skills: ProjectSkillItem[] = [];
+    for (const source of SKILL_SOURCES) {
+      for (const skill of await scanSkillsInSource(scanRoot, source)) {
+        if (seen.has(skill.name)) continue;
+        seen.add(skill.name);
+        skills.push(skill);
+      }
     }
+    skills.sort((a, b) => a.name.localeCompare(b.name));
+
+    const instructions = await readWorkspaceInstructions(scanRoot);
+
+    await deps.approveProjectRoot?.(root);
+
+    return { instructions, root, skills };
+  } catch (error) {
+    throw classifyWorkspaceScanFailure(error, root);
   }
-  skills.sort((a, b) => a.name.localeCompare(b.name));
-
-  const instructions = await readWorkspaceInstructions(scanRoot);
-
-  await deps.approveProjectRoot?.(root);
-
-  return { instructions, root, skills };
 };
 
 /**

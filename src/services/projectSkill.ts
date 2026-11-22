@@ -1,3 +1,4 @@
+import { WorkspaceScanError } from '@lobechat/device-control/workspaceError';
 import type { ListProjectSkillsResult } from '@lobechat/electron-client-ipc';
 import type { WorkspaceInitResult } from '@lobechat/types';
 
@@ -19,9 +20,13 @@ class ProjectSkillService {
     scope: string;
     deviceId?: string;
   }): Promise<WorkspaceInitResult> {
-    const result = deviceId
-      ? await lambdaClient.device.initWorkspace.query({ deviceId, scope })
-      : await ensureElectronIpc().workspace.initWorkspace({ scope });
+    if (!deviceId) {
+      const { failure, result } = await ensureElectronIpc().workspace.scanWorkspace({ scope });
+      if (failure) throw new WorkspaceScanError(failure.code);
+      return { instructions: result.instructions, skills: result.skills };
+    }
+
+    const result = await lambdaClient.device.initWorkspace.query({ deviceId, scope });
     if (!result)
       throw new Error('Project workspace scan failed; check the device connection and retry.');
     return { instructions: result.instructions ?? [], skills: result.skills ?? [] };

@@ -1,5 +1,6 @@
 import {
   access,
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -62,6 +63,38 @@ describe('executeDeviceRpc', () => {
     expect(result.skills.map((s) => s.name)).toEqual(['spa-routes']);
     expect(result.instructions).toEqual([{ content: '# Agents', source: 'AGENTS.md' }]);
     expect(deps.approveProjectRoot).toHaveBeenCalledWith(root);
+  });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'distinguishes an unreadable project root and re-scans after its permissions recover',
+    async () => {
+      const parent = await mkdtemp(path.join(tmpdir(), 'device-control-permission-'));
+      const scanRoot = path.join(parent, 'project');
+      await mkdir(scanRoot);
+      await writeFile(path.join(scanRoot, 'AGENTS.md'), 'Recovered instructions');
+      const scan = () => executeDeviceRpc('initWorkspace', { scope: scanRoot }, makeDeps());
+      try {
+        await chmod(parent, 0o000);
+        await expect(scan()).rejects.toMatchObject({ code: 'WORKSPACE_ACCESS_DENIED' });
+
+        await chmod(parent, 0o700);
+        await expect(scan()).resolves.toMatchObject({
+          instructions: [{ content: 'Recovered instructions', source: 'AGENTS.md' }],
+        });
+      } finally {
+        await chmod(parent, 0o700);
+        await rm(parent, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it('reports a missing workspace without disclosing its absolute path', async () => {
+    await expect(
+      executeDeviceRpc('initWorkspace', { scope: path.join(root, 'missing') }, makeDeps()),
+    ).rejects.toMatchObject({
+      code: 'WORKSPACE_ROOT_MISSING',
+      message: 'The workspace folder is missing or is no longer a directory.',
+    });
   });
 
   it('does not auto-read workspace instructions through a symlink outside the workspace', async () => {

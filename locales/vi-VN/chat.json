@@ -1235,7 +1235,7 @@
   "workspaceRuntime.intent.confirmDescription": "Dùng {{path}} làm dự án của chủ đề này? Thư mục sẽ được cố định cho chủ đề.",
   "workspaceRuntime.intent.confirmTitle": "Dùng thư mục này làm dự án hiện tại?",
   "workspaceRuntime.intent.keepUnbound": "Tiếp tục mà không liên kết",
-  "workspaceRuntime.otherDeviceProject": "Dự án không có trên thiết bị này",
+  "workspaceRuntime.otherDeviceProject": "Chủ đề này gắn với một thiết bị khác. Hãy tiếp tục trên thiết bị đó hoặc bắt đầu chủ đề mới ở đây.",
   "workspaceRuntime.picker.addPath": "Thêm đường dẫn thư mục",
   "workspaceRuntime.picker.alreadyBound": "Chủ đề này đã có dự án. Hãy tạo chủ đề tham chiếu mới để dùng dự án khác.",
   "workspaceRuntime.picker.bindFailed": "Không thể chọn dự án này. Hãy thử lại.",

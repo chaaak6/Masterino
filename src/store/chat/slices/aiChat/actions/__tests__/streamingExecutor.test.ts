@@ -357,6 +357,20 @@ describe('StreamingExecutor actions', () => {
             parentMessageId: 'approved-tool-message',
             parentMessageType: 'tool',
             parentOperationId: parent.operationId,
+            skillContext: {
+              agentId: TEST_IDS.SESSION_ID,
+              skillPolicy: {
+                includeAgentSkills: true,
+                includeProjectSkills: true,
+                includeUserSkills: true,
+              },
+              userId: 'test-user',
+              workspace,
+              workspaceInit: {
+                instructions: [{ content: 'workspace instruction fixture', source: 'AGENTS.md' }],
+                skills: [],
+              },
+            },
             skipCreateFirstMessage: true,
           });
         });
@@ -381,6 +395,13 @@ describe('StreamingExecutor actions', () => {
           expect.objectContaining({
             params: expect.objectContaining({
               executionContext: expect.objectContaining({ approvalMode: 'auto-run' }),
+              resolvedAgentConfig: expect.objectContaining({
+                agentConfig: expect.objectContaining({
+                  systemRole: expect.stringContaining(
+                    '<project_instructions source="AGENTS.md">\nworkspace instruction fixture',
+                  ),
+                }),
+              }),
             }),
           }),
         );

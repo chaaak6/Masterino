@@ -15,11 +15,13 @@ import { electronSystemService } from '@/services/electron/system';
 import { useAgentStore } from '@/store/agent';
 import { builtinAgentSelectors } from '@/store/agent/selectors/builtinAgentSelectors';
 import { useChatStore } from '@/store/chat';
+import { useElectronStore } from '@/store/electron';
 import { useGlobalStore } from '@/store/global';
 import { globalHelpers } from '@/store/global/helpers';
 import { useHomeStore } from '@/store/home';
 
 import { useCommandMenuContext } from './CommandMenuContext';
+import { filterDeviceSearchResults } from './filterDeviceSearchResults';
 import { type ThemeMode } from './types';
 
 /**
@@ -59,18 +61,23 @@ export const useCommandMenu = () => {
   // Search functionality
   const hasSearch = debouncedSearch.trim().length > 0;
   const searchQuery = debouncedSearch.trim();
+  const deviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
 
   const { data: searchResults, isLoading: isSearching } = useSWR<SearchResult[]>(
-    hasSearch ? ['search', searchQuery, agentId, typeFilter] : null,
+    hasSearch && (!isDesktop || deviceId)
+      ? ['search', searchQuery, agentId, typeFilter, deviceId]
+      : null,
     async () => {
       const locale = globalHelpers.getCurrentLanguage();
-      return lambdaClient.search.query.query({
+      const results = await lambdaClient.search.query.query({
         agentId,
         limitPerType: typeFilter ? 50 : 5, // Show more results when filtering by type
         locale,
+        localDeviceId: isDesktop ? deviceId : undefined,
         query: searchQuery,
         type: typeFilter,
       });
+      return isDesktop && deviceId ? filterDeviceSearchResults(results, deviceId) : results;
     },
     {
       revalidateOnFocus: false,

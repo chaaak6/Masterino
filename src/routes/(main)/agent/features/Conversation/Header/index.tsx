@@ -4,6 +4,10 @@ import { Flexbox } from '@lobehub/ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { memo } from 'react';
 
+import { useEffectiveWorkspace } from '@/hooks/useEffectiveWorkspace';
+
+import { useChatStore } from '@/store/chat';
+
 import NavHeader from '@/features/NavHeader';
 import ConversationOpenInApp from '@/features/OpenInAppButton/ConversationOpenInApp';
 
@@ -35,6 +39,10 @@ const headerStyles = createStaticStyles(({ css }) => ({
 }));
 
 const Header = memo(() => {
+  const agentId = useChatStore((s) => s.activeAgentId);
+  const { loading, projectUnavailable } = useEffectiveWorkspace(agentId);
+  const showWorkspaceActions = !loading && !projectUnavailable;
+
   return (
     <div className={headerStyles.container}>
       <NavHeader
@@ -47,8 +55,8 @@ const Header = memo(() => {
             gap={4}
             style={{ backgroundColor: cssVar.colorBgContainer }}
           >
-            <Tags />
-            <HeaderActions />
+            <Tags showWorkspaceActions={showWorkspaceActions} />
+            <HeaderActions showWorkspaceActions={showWorkspaceActions} />
           </Flexbox>
         }
         right={
@@ -58,7 +66,7 @@ const Header = memo(() => {
             gap={4}
             style={{ backgroundColor: cssVar.colorBgContainer }}
           >
-            <ConversationOpenInApp />
+            {showWorkspaceActions && <ConversationOpenInApp />}
             <ShareButton />
             <WorkingPanelToggle />
           </Flexbox>

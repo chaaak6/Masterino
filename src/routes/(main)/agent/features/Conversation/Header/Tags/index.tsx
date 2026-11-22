@@ -12,7 +12,7 @@ import FolderTag from './FolderTag';
 import MemberCountTag from './MemberCountTag';
 import ThreadSwitcher from './ThreadSwitcher';
 
-const TitleTags = memo(() => {
+const TitleTags = memo<{ showWorkspaceActions: boolean }>(({ showWorkspaceActions }) => {
   const { t } = useTranslation(['topic', 'chat']);
   const activeThreadId = useChatStore((s) => s.activeThreadId);
   const threadTitle = useChatStore((s) =>
@@ -78,7 +78,7 @@ const TitleTags = memo(() => {
           >
             {fallbackTopicTitle}
           </span>
-          <FolderTag />
+          {showWorkspaceActions && <FolderTag />}
         </>
       )}
     </Flexbox>

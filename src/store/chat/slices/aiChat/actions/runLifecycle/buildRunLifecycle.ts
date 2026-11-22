@@ -3,6 +3,7 @@ import { isDesktop } from '@lobechat/const';
 import type { ConversationContext, UIChatMessage } from '@lobechat/types';
 import { t } from 'i18next';
 
+import { OperationWorkspaceScanError } from '@/services/operationWorkspaceScan';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import type { AgentRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
@@ -290,6 +291,14 @@ export const buildRunLifecycle = (
             .optimisticUpdateMessageError(
               assistantId,
               {
+                ...(error instanceof OperationWorkspaceScanError
+                  ? {
+                      body: {
+                        workspaceScanCode: error.code,
+                        workspaceScanLocalMacDeviceId: error.localMacDeviceId,
+                      },
+                    }
+                  : {}),
                 type: 'AgentRuntimeError',
                 message: error instanceof Error ? error.message : 'Agent runtime execution failed',
               },

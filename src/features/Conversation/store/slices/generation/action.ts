@@ -32,6 +32,10 @@ import {
 } from '@/store/chat/utils/activeTopicDocumentContext';
 import { getElectronStoreState } from '@/store/electron';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
+import {
+  checkDesktopProjectSend,
+  ProjectDeviceMismatchError,
+} from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { type Store as ConversationStore } from '../../action';
 
@@ -498,6 +502,25 @@ export const generationSlice: StateCreator<
     const currentIndex = displayMessages.findIndex((c) => c.id === messageId);
     const item = displayMessages[currentIndex];
     if (!item || !validateMessageImages(item)) return;
+
+    if (context.topicId) {
+      try {
+        await checkDesktopProjectSend({
+          agentId: context.agentId,
+          groupId: context.groupId,
+          isNewTopic: false,
+          topicId: context.topicId,
+          topicMetadata: chatStore.topicDataMap
+            ? topicSelectors.getTopicById(context.topicId)(chatStore)?.metadata
+            : undefined,
+        });
+      } catch (error) {
+        if (!(error instanceof ProjectDeviceMismatchError)) throw error;
+        antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+        return;
+      }
+    }
+
     const initialContext = mergeAgentRuntimeInitialContexts(
       await resolveActiveTopicDocumentInitialContext(context),
       buildRetryInitialContext(item.editorData),

@@ -90,16 +90,15 @@ export const resolvePendingTopicExecutionIntent = async (params: {
     topicSnapshot?.workspaceId ??
     metadata.workspaceId ??
     metadata.workingDirectory ??
-    (workspace?.kind === 'device' ? workspace.rootPath : undefined) ??
+    (workspace?.kind === 'device' || workspace?.kind === 'scratch'
+      ? workspace.rootPath
+      : undefined) ??
     (topicId && workspaceState.topicStatesById[topicId]?.unresolvedProject
       ? 'unresolved'
       : undefined);
-  if (
-    isDesktop &&
-    projectId &&
-    (target === 'local' || target === 'device') &&
-    topicSnapshot?.workspaceKind !== 'scratch'
-  ) {
+  const isScratch =
+    topicSnapshot?.workspaceKind === 'scratch' || metadata.workspaceKind === 'scratch';
+  if (isDesktop && (projectId || isScratch) && (target === 'local' || target === 'device')) {
     const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
     if (
       !isTopicVisibleOnDevice(
@@ -112,7 +111,7 @@ export const resolvePendingTopicExecutionIntent = async (params: {
       )
     ) {
       throw new ProjectDeviceMismatchError(
-        'This project belongs to another device. Open it on its original device or use Web.',
+        'This workspace belongs to another device. Open the topic on its original device.',
       );
     }
   }

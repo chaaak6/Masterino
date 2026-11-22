@@ -75,6 +75,39 @@ describe('RecentModel', () => {
       expect(result[0]).toMatchObject({ id: 'topic-mine', type: 'topic', status: null });
     });
 
+    it('applies desktop topic scope before the overall recent limit', async () => {
+      await serverDB.insert(agents).values({ id: 'device-scope-agent', userId, slug: 'inbox' });
+      await serverDB.insert(topics).values([
+        {
+          agentId: 'device-scope-agent',
+          id: 'foreign-scratch',
+          metadata: {
+            boundDeviceId: 'device-b',
+            workspaceId: 'scratch-b',
+            workspaceKind: 'scratch',
+          },
+          updatedAt: minutesAgo(1),
+          userId,
+        },
+        {
+          agentId: 'device-scope-agent',
+          id: 'local-scratch',
+          metadata: {
+            boundDeviceId: 'device-a',
+            workspaceId: 'scratch-a',
+            workspaceKind: 'scratch',
+          },
+          updatedAt: minutesAgo(2),
+          userId,
+        },
+      ]);
+
+      expect((await recentModel.queryRecent(1, 'device-a')).map(({ id }) => id)).toEqual([
+        'local-scratch',
+      ]);
+      expect((await recentModel.queryRecent(1)).map(({ id }) => id)).toEqual(['foreign-scratch']);
+    });
+
     describe('topics arm', () => {
       it('includes inbox-agent topics and group topics', async () => {
         await serverDB.insert(agents).values({ id: 'agent-inbox', userId, slug: 'inbox' });

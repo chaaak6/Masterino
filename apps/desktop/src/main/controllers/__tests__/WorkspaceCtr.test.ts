@@ -113,6 +113,15 @@ describe('WorkspaceCtr', () => {
     });
   });
 
+  it('returns a clone-safe error code for workspace scan failures', async () => {
+    await expect(
+      workspaceCtr.scanWorkspace({ scope: path.join(projectRoot, 'missing') }),
+    ).resolves.toEqual({ failure: { code: 'WORKSPACE_ROOT_MISSING' } });
+    await expect(workspaceCtr.scanWorkspace({ scope: projectRoot })).resolves.toEqual({
+      result: { instructions: [], root: projectRoot, skills: [] },
+    });
+  });
+
   describe('listProjectSkills', () => {
     it('merges both sources while keeping .agents first', async () => {
       await createSkill('.agents/skills', 'alpha', 'A');

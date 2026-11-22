@@ -320,16 +320,19 @@ describe('desktop project isolation', () => {
     expect(result.placementById.remote).toBeUndefined();
   });
 
-  it('hides legacy unidentified paths but keeps scratch and ordinary chat history', () => {
+  it('keeps only the current device scratch topics and ordinary chat history', () => {
     const result = buildWorkspaceTopicNavigation(
       [
         topic('legacy', { metadata: { workingDirectory: '/same/path' } }),
-        topic('scratch', { metadata: snapshotMeta('scratch', 'scratch') }),
+        topic('foreign-scratch', { metadata: snapshotMeta('scratch', 'scratch') }),
+        topic('local-scratch', {
+          metadata: { boundDeviceId: 'mac-a', workspaceId: 'scratch-a', workspaceKind: 'scratch' },
+        }),
         topic('plain'),
       ],
       { ...context, currentDeviceId: 'mac-a', allowLegacyPathGroups: true },
     );
     expect(result.placementById.legacy).toBeUndefined();
-    expect(Object.keys(result.placementById)).toEqual(['scratch', 'plain']);
+    expect(Object.keys(result.placementById)).toEqual(['local-scratch', 'plain']);
   });
 });
