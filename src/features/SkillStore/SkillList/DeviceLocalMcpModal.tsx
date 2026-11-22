@@ -18,8 +18,8 @@ import { ensureElectronIpc } from '@/utils/electron/ipc';
 interface DeviceLocalMcpModalProps {
   draft?: DeviceLocalMcpDraft;
   onClose: () => void;
-  onSavingChange?: (saving: boolean) => void;
   onSaved?: (server: DeviceLocalMcpServer) => void;
+  onSavingChange?: (saving: boolean) => void;
   setupUserId?: string;
 }
 
@@ -74,7 +74,8 @@ const DeviceLocalMcpModal = ({
   const [env, setEnv] = useState(draft?.env ? JSON.stringify(draft.env, null, 2) : '');
   const [tools, setTools] = useState<DeviceLocalMcpTool[]>();
   const [enabledTools, setEnabledTools] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [operation, setOperation] = useState<'probe' | 'mutation'>();
+  const busy = !!operation;
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState(false);
   const [listRevision, setListRevision] = useState(0);
@@ -116,8 +117,8 @@ const DeviceLocalMcpModal = ({
     }
   };
 
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true);
+  const run = async (action: () => Promise<void>, kind: 'probe' | 'mutation' = 'mutation') => {
+    setOperation(kind);
     setError('');
     try {
       await action();
@@ -125,10 +126,10 @@ const DeviceLocalMcpModal = ({
       const message = cause instanceof Error ? cause.message : '';
       const reason = errorReasons.find((key) => message.includes(deviceLocalMcpErrors[key]));
       setError(reason ? t(`deviceLocalMcp.error.${reason}`) : t('deviceLocalMcp.error'));
-      if ((reason === 'serverUnavailable' || reason === 'stopFailed') && !onSaved)
+      if (!onSaved && (reason === 'stopFailed' || (reason === 'serverUnavailable' && !editing)))
         setListRevision((revision) => revision + 1);
     } finally {
-      setBusy(false);
+      setOperation(undefined);
     }
   };
 
@@ -150,7 +151,7 @@ const DeviceLocalMcpModal = ({
             ? ['ocs_inspect']
             : [],
       );
-    });
+    }, 'probe');
   };
 
   const save = () => {
@@ -197,7 +198,7 @@ const DeviceLocalMcpModal = ({
   return (
     <Modal
       open
-      cancelButtonProps={{ disabled: busy }}
+      cancelButtonProps={{ disabled: operation === 'mutation' }}
       cancelText={t('close', { ns: 'common' })}
       confirmLoading={busy}
       okButtonProps={{ disabled: !userId || !name.trim() || enabledTools.length === 0 }}
@@ -205,7 +206,7 @@ const DeviceLocalMcpModal = ({
       title={t('deviceLocalMcp.title')}
       onOk={save}
       onCancel={() => {
-        if (!busy) onClose();
+        if (operation !== 'mutation') onClose();
       }}
     >
       <Flexbox gap={16}>

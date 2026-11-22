@@ -39,7 +39,24 @@ function calculateObjectSizeBytes(obj: any): number {
   }
 }
 
+const getDeviceLocalMcpUserId = async () => {
+  const { getUserStoreState } = await import('@/store/user/store');
+  const { isSignedIn, user } = getUserStoreState();
+  return isSignedIn ? user?.id : undefined;
+};
+
 class MCPService {
+  private async configureDeviceLocalMcp(
+    payload: ChatToolPayload,
+    executionContext: ExecutionContext | undefined,
+    signal?: AbortSignal,
+  ) {
+    if (payload.apiName !== DeviceLocalMcpSetupApi)
+      throw new Error('Unknown local MCP setup action');
+    const userId = await getDeviceLocalMcpUserId();
+    return requestDeviceLocalMcpSetup(payload.arguments, executionContext, userId, signal);
+  }
+
   async invokeMcpToolCall(
     payload: ChatToolPayload,
     {
@@ -49,14 +66,9 @@ class MCPService {
     }: { executionContext?: ExecutionContext; signal?: AbortSignal; topicId?: string },
   ) {
     if (payload.source === 'client' && isDeviceLocalMcpToolIdentifier(payload.identifier)) {
-      const { getUserStoreState } = await import('@/store/user/store');
-      const { isSignedIn, user } = getUserStoreState();
-      const userId = isSignedIn ? user?.id : undefined;
-      if (payload.identifier === DeviceLocalMcpSetupIdentifier) {
-        if (payload.apiName !== DeviceLocalMcpSetupApi)
-          throw new Error('Unknown local MCP setup action');
-        return requestDeviceLocalMcpSetup(payload.arguments, executionContext, userId, signal);
-      }
+      if (payload.identifier === DeviceLocalMcpSetupIdentifier)
+        return this.configureDeviceLocalMcp(payload, executionContext, signal);
+      const userId = await getDeviceLocalMcpUserId();
       return callDeviceLocalMcp(payload, executionContext, userId);
     }
 
@@ -96,16 +108,14 @@ class MCPService {
     if (!plugin) {
       // Older tool messages can arrive without the runtime source. Check the device registry only
       // after ruling out a regular connector or plugin using this identifier.
-      if (
-        isDesktop &&
-        executionContext?.plan.target === 'local' &&
-        isDeviceLocalMcpIdentifier(identifier)
-      ) {
-        const { getUserStoreState } = await import('@/store/user/store');
-        const { isSignedIn, user } = getUserStoreState();
-        const userId = isSignedIn ? user?.id : undefined;
-        if (await isKnownDeviceLocalMcpServer(identifier, executionContext, userId))
-          return callDeviceLocalMcp(payload, executionContext, userId);
+      if (isDesktop && executionContext?.plan.target === 'local') {
+        if (!payload.source && identifier === DeviceLocalMcpSetupIdentifier)
+          return this.configureDeviceLocalMcp(payload, executionContext, signal);
+        if (isDeviceLocalMcpIdentifier(identifier)) {
+          const userId = await getDeviceLocalMcpUserId();
+          if (await isKnownDeviceLocalMcpServer(identifier, executionContext, userId))
+            return callDeviceLocalMcp(payload, executionContext, userId);
+        }
       }
       return;
     }

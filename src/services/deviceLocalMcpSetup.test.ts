@@ -93,4 +93,22 @@ describe('setting up device-local MCP in chat', () => {
     });
     expect(mocks.resolvePreset).not.toHaveBeenCalled();
   });
+
+  it('propagates a chat stop when the dialog closes without saving', async () => {
+    const controller = new AbortController();
+    mocks.open.mockImplementation(() => {
+      controller.abort();
+      return Promise.resolve(undefined);
+    });
+    await expect(
+      requestDeviceLocalMcpSetup('{"preset":"custom"}', local, 'user', controller.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('reports an existing setup dialog without marking the second call as a failure', async () => {
+    mocks.open.mockResolvedValue('already-open');
+    await expect(
+      requestDeviceLocalMcpSetup('{"preset":"custom"}', local, 'user'),
+    ).resolves.toMatchObject({ state: { status: 'already-open' }, success: true });
+  });
 });

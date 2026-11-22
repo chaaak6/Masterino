@@ -7,8 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { CustomConnectorModal } from '@/features/Connectors';
 import { usePermission } from '@/hooks/usePermission';
 
-import DeviceLocalMcpModal from './DeviceLocalMcpModal';
 import ImportFromUrlModal from './ImportFromUrlModal';
+import { openDeviceLocalMcpSettings } from './openDeviceLocalMcpSetup';
 import UploadSkillModal from './UploadSkillModal';
 
 const MenuLabel = ({ desc, title }: { desc: string; title: ReactNode }) => (
@@ -23,7 +23,6 @@ const MenuLabel = ({ desc, title }: { desc: string; title: ReactNode }) => (
 const AddSkillButton = () => {
   const { t } = useTranslation('setting');
   const [showMcpModal, setMcpModal] = useState(false);
-  const [showDeviceLocalMcp, setDeviceLocalMcp] = useState(false);
   const [showUrlModal, setUrlModal] = useState(false);
   const [showUploadModal, setUploadModal] = useState(false);
   const { allowed: canCreate } = usePermission('create_content');
@@ -36,7 +35,6 @@ const AddSkillButton = () => {
       }}
     >
       <CustomConnectorModal open={showMcpModal} onClose={() => setMcpModal(false)} />
-      {showDeviceLocalMcp && <DeviceLocalMcpModal onClose={() => setDeviceLocalMcp(false)} />}
       <ImportFromUrlModal open={showUrlModal} onOpenChange={setUrlModal} />
       <UploadSkillModal open={showUploadModal} onOpenChange={setUploadModal} />
       <DropdownMenu
@@ -82,7 +80,7 @@ const AddSkillButton = () => {
                   key: 'deviceLocalMcp',
                   label: t('deviceLocalMcp.title'),
                   onClick: () => {
-                    if (canCreate && canEdit) setDeviceLocalMcp(true);
+                    if (canCreate && canEdit) openDeviceLocalMcpSettings();
                   },
                 },
               ]

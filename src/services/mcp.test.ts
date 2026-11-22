@@ -1,4 +1,4 @@
-import { type ChatToolPayload, type ToolManifest } from '@lobechat/types';
+import { type ChatToolPayload, type ExecutionContext, type ToolManifest } from '@lobechat/types';
 import superjson from 'superjson';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,11 +12,19 @@ const mockElectronIpc = {
     validMcpServerInstallable: vi.fn(),
   },
 };
+const localMcpSetup = vi.hoisted(() => ({ desktop: false, request: vi.fn() }));
 
 // Mock dependencies
 vi.mock('@lobechat/const', () => ({
   CURRENT_VERSION: '1.0.0',
-  isDesktop: false,
+  get isDesktop() {
+    return localMcpSetup.desktop;
+  },
+}));
+
+vi.mock('./deviceLocalMcpSetup', () => ({ requestDeviceLocalMcpSetup: localMcpSetup.request }));
+vi.mock('@/store/user/store', () => ({
+  getUserStoreState: () => ({ isSignedIn: true, user: { id: 'local-user' } }),
 }));
 
 vi.mock('@lobechat/utils', () => ({
@@ -79,12 +87,43 @@ vi.mock('@/store/tool/selectors', () => ({
 
 describe('MCPService', () => {
   beforeEach(() => {
+    localMcpSetup.desktop = false;
     vi.clearAllMocks();
     vi.resetModules();
     mockGetToolStoreState.mockReturnValue({});
   });
 
   describe('invokeMcpToolCall', () => {
+    it('recovers a saved local setup call without source metadata only in a local desktop run', async () => {
+      localMcpSetup.desktop = true;
+      mockPluginSelectors.getInstalledPluginById.mockReturnValue(() => null);
+      mockPluginSelectors.getCustomPluginById.mockReturnValue(() => null);
+      const receipt = { content: 'setup complete', success: true };
+      localMcpSetup.request.mockResolvedValue(receipt);
+      const payload: ChatToolPayload = {
+        apiName: 'configure',
+        arguments: '{"preset":"custom"}',
+        id: 'setup-call',
+        identifier: 'local-mcp-setup',
+        type: 'default',
+      };
+      const local: ExecutionContext = {
+        plan: { kind: 'device-unrouted', reason: 'no-online-device', target: 'local' },
+        version: 1,
+      };
+      const sandbox: ExecutionContext = { plan: { kind: 'sandbox', target: 'sandbox' }, version: 1 };
+      const signal = new AbortController().signal;
+
+      await expect(
+        mcpService.invokeMcpToolCall(payload, { executionContext: sandbox, signal }),
+      ).resolves.toBeUndefined();
+      expect(localMcpSetup.request).not.toHaveBeenCalled();
+      await expect(
+        mcpService.invokeMcpToolCall(payload, { executionContext: local, signal }),
+      ).resolves.toEqual(receipt);
+      expect(localMcpSetup.request).toHaveBeenCalledWith(payload.arguments, local, 'local-user', signal);
+    });
+
     it.each(['http', 'stdio'])(
       'keeps server-side %s MCP routing for a local-looking identifier',
       async (connectionType) => {

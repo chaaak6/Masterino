@@ -1,12 +1,12 @@
 import { MotionProvider } from '@lobehub/ui';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { m } from 'motion/react';
-import { createElement, type ComponentType, type ReactNode } from 'react';
-import { expect, it, vi } from 'vitest';
+import { type ComponentType, createElement, type ReactNode } from 'react';
+import { beforeEach, expect, it, vi } from 'vitest';
 
 import * as ipc from '@/utils/electron/ipc';
 
-import { openDeviceLocalMcpSetup } from './openDeviceLocalMcpSetup';
+import { openDeviceLocalMcpSettings, openDeviceLocalMcpSetup } from './openDeviceLocalMcpSetup';
 
 const modal = vi.hoisted(() => ({ create: vi.fn(), destroy: vi.fn() }));
 vi.mock('@lobehub/ui', async (original) => ({
@@ -15,6 +15,41 @@ vi.mock('@lobehub/ui', async (original) => ({
 }));
 vi.mock('@/store/user', () => ({ useUserStore: () => 'local-user' }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+
+beforeEach(() => {
+  modal.create.mockReset();
+  modal.destroy.mockClear();
+});
+
+it('opens just one setup dialog when Skills and two chat calls overlap', async () => {
+  let closeSettings = () => {};
+  modal.create.mockImplementation((_component, { onCancelSetup }) => {
+    closeSettings = onCancelSetup;
+    return { destroy: modal.destroy };
+  });
+  const chat = new AbortController();
+  const first = openDeviceLocalMcpSetup(undefined, chat.signal, 'local-user');
+  try {
+    await expect(openDeviceLocalMcpSetup(undefined, undefined, 'local-user')).resolves.toBe(
+      'already-open',
+    );
+    openDeviceLocalMcpSettings();
+    expect(modal.create).toHaveBeenCalledOnce();
+  } finally {
+    chat.abort();
+    await expect(first).resolves.toBeUndefined();
+  }
+
+  openDeviceLocalMcpSettings();
+  try {
+    await expect(openDeviceLocalMcpSetup(undefined, undefined, 'local-user')).resolves.toBe(
+      'already-open',
+    );
+    expect(modal.create).toHaveBeenCalledTimes(2);
+  } finally {
+    closeSettings();
+  }
+});
 
 it('reports an accepted save even if chat is stopped before IPC acknowledges it', async () => {
   const saved = {

@@ -21,6 +21,7 @@ Use the existing Electron test profile and test service. Keep the synthetic DXF 
 
 - Edit the tool selection of a saved connection. Reopen the form and check the selection and count. Try malformed environment JSON and a valid JSON value that is not a string map. Confirm both produce an environment-specific error before any process starts.
 - If a connection disappears while its settings are open, use the stale row once. Verify that the dialog reports the missing connection, refreshes the list and clears the stale tool selection.
+- If saving an edited tool selection returns a temporary unavailable error, confirm the selection stays visible and can be retried.
 - Add a disposable local MCP that exposes `inspect_active_drawing_geometry`. Start a new local Agent conversation and regenerate its answer after an actual call. Verify the tool is invoked on both runs and that the UI shows its real API name. Test a continued run with no incoming execution context using the streaming executor regression.
 - Call an installed server MCP from the same Electron profile. In Network, verify the server request and its successful result. In a local-only turn, compare the model request's tool definitions and confirm the local executable, arguments and environment marker are absent.
 - Check that disabling or removing a local server rejects new calls while an accepted tool call finishes on its original connection. The controller test uses a real stdio fixture and verifies that parallel first calls initialize one client.
@@ -31,6 +32,8 @@ Use the existing Electron test profile and test service. Keep the synthetic DXF 
 2. Confirm the configuration is shown in the existing Skills → Local MCP dialog. Send another message in the same chat and invoke an enabled CAD tool. Restart the same application profile and repeat the read.
 3. Ask to configure another local MCP server. The Agent should open an empty local form. Close it and verify the tool result says setup was cancelled. Check that the browser and nonlocal or tools-disabled sessions omit the setup tool.
 4. Compare Network payloads for local setup and a server MCP turn. Conversation messages and safe tool results use the existing test service. The model sees the setup preset and receipt, while the executable, arguments and environment entered into the dialog stay on the device.
+5. Close chat setup while a slow connection test is running. Verify that the dialog closes and the chat gets a cancellation receipt. With one setup already open, a second chat call should return an already-open receipt. Skills and chat should share one dialog at a time.
+6. Stop generation while setup is open before confirming Save. Verify that the tool call is aborted. A confirmed Save that finishes after Stop should still report what was saved.
 
 ## Recovery and account isolation
 

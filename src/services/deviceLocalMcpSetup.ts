@@ -44,6 +44,7 @@ export const requestDeviceLocalMcpSetup = async (
 ) => {
   if (!userId || !getDeviceLocalMcpSetupManifest(executionContext, userId))
     throw new Error('Local MCP setup is unavailable in this session');
+  signal?.throwIfAborted();
 
   let parsed: z.infer<typeof setupSchema>;
   try {
@@ -60,6 +61,16 @@ export const requestDeviceLocalMcpSetup = async (
   const { openDeviceLocalMcpSetup } =
     await import('@/features/SkillStore/SkillList/openDeviceLocalMcpSetup');
   const server = await openDeviceLocalMcpSetup(draft, signal, userId);
+
+  if (!server || server === 'already-open') signal?.throwIfAborted();
+
+  if (server === 'already-open') {
+    return {
+      content: 'Local MCP setup is already open on this device.',
+      state: { status: 'already-open' },
+      success: true,
+    };
+  }
 
   if (!server) {
     return {
