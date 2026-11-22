@@ -51,3 +51,23 @@ it('refreshes saved connections when an enabled row disappears in another window
   expect(await screen.findByText('Replacement connection')).toBeInTheDocument();
   expect(screen.queryByText('Removed connection')).not.toBeInTheDocument();
 });
+
+it('shows the data boundary in chat setup and keeps existing selected tools when testing again', async () => {
+  const draft = { command: '/local/ocs', name: 'OpenCADStudio' };
+  const tools = ['ocs_inspect', 'ocs_save'].map((name) => ({ inputSchema: {}, name }));
+  const testDeviceLocalServer = vi.fn().mockResolvedValue(tools);
+  vi.spyOn(ipc, 'ensureElectronIpc').mockReturnValue({
+    mcp: { testDeviceLocalServer },
+  } as ReturnType<typeof ipc.ensureElectronIpc>);
+  render(
+    <MotionProvider motion={m}>
+      <DeviceLocalMcpModal draft={draft} onClose={vi.fn()} onSaved={vi.fn()} />
+    </MotionProvider>,
+  );
+  const testConnection = screen.getByRole('button', { name: 'deviceLocalMcp.test' });
+  fireEvent.click(testConnection);
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'ocs_save' }));
+  fireEvent.click(testConnection);
+  expect(await screen.findByRole('checkbox', { name: 'ocs_save' })).toBeChecked();
+  expect(screen.getByText('deviceLocalMcp.description')).toBeInTheDocument();
+});

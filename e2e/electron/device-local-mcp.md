@@ -31,3 +31,12 @@ Use the existing Electron test profile and test service. Keep the synthetic DXF 
 2. Confirm the configuration is shown in the existing Skills → Local MCP dialog. Send another message in the same chat and invoke an enabled CAD tool. Restart the same application profile and repeat the read.
 3. Ask to configure another local MCP server. The Agent should open an empty local form. Close it and verify the tool result says setup was cancelled. Check that the browser and nonlocal or tools-disabled sessions omit the setup tool.
 4. Compare Network payloads for local setup and a server MCP turn. Conversation messages and safe tool results use the existing test service. The model sees the setup preset and receipt, while the executable, arguments and environment entered into the dialog stay on the device.
+
+## Recovery and account isolation
+
+- Start a harmless read through a running device-local connection. Stop only its test stdio process and request another read without restarting Electron. If an edit was in progress when the connection closed, read the current state before retrying the edit.
+- In chat setup, confirm the text describes result sharing. Choose multiple tools and test the connection again. The selection should retain the tools still advertised by the same program.
+- Stop the chat while a user-confirmed Save is in flight. Check the device list and completion receipt against the actual save result.
+- Switch to another authorized test account or sign out. The previous account's connections should be unavailable. Return to the first account and confirm its saved connections remain available.
+- In the same app and test profile, call public tools from an installed market MCP and a separate custom Streamable HTTP MCP. Verify the selected tool source in the tool cards and confirm both requests stay on the server MCP path.
+- For confidential CAD, use an approved device-side bridge with anonymized outputs. Inspect a tool result request for an anonymous receipt and compare the local saved drawing to the input separately.

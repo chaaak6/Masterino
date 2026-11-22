@@ -151,8 +151,14 @@ export const createToolsEngine = (config: ToolsEngineConfig = {}): ToolsEngine =
     ...dropInvalidManifests(composioManifests, 'composio'),
     ...dropInvalidManifests(lobehubSkillManifests, 'lobehubSkills'),
     ...dropInvalidManifests(connectorManifests, 'connectors'),
-    ...dropInvalidManifests(additionalManifests, 'additionalManifests'),
   ];
+
+  const existingIds = new Set(allManifests.map(({ identifier }) => identifier));
+  allManifests.push(
+    ...dropInvalidManifests(additionalManifests, 'additionalManifests').filter(
+      ({ identifier }) => !existingIds.has(identifier),
+    ),
+  );
 
   return new ToolsEngine({
     defaultToolIds,

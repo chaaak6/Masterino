@@ -23,10 +23,12 @@ export const isDeviceLocalMcpIdentifier = (identifier: string): boolean =>
   /^local-mcp-[0-9a-f]{24}$/.test(identifier);
 
 export const deviceLocalMcpErrors = {
+  account: 'DEVICE_LOCAL_MCP_AUTHENTICATED_ACCOUNT_REQUIRED',
   connection: 'DEVICE_LOCAL_MCP_CONNECTION',
   invalidConfig: 'DEVICE_LOCAL_MCP_INVALID_CONFIG',
   secureStorage: 'DEVICE_LOCAL_MCP_SECURE_STORAGE',
   serverUnavailable: 'DEVICE_LOCAL_MCP_SERVER_UNAVAILABLE',
+  stopFailed: 'DEVICE_LOCAL_MCP_CANNOT_STOP_PROCESS',
   toolSelection: 'DEVICE_LOCAL_MCP_TOOL_SELECTION',
 } as const;
 

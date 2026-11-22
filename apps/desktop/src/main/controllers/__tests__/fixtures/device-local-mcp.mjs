@@ -36,5 +36,10 @@ for await (const line of io) {
       result = {};
     }
   }
-  process.stdout.write(JSON.stringify({ id, jsonrpc: '2.0', result }) + '\n');
+  const response = JSON.stringify({ id, jsonrpc: '2.0', result }) + '\n';
+  if (method === 'tools/call' && params.arguments?.exitAfterReply) {
+    process.stdout.write(response, () => process.exit(0));
+  } else {
+    process.stdout.write(response);
+  }
 }

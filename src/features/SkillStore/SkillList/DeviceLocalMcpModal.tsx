@@ -5,8 +5,8 @@ import type {
   DeviceLocalMcpTool,
 } from '@lobechat/electron-client-ipc';
 import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
-import { Button, Flexbox, Input, TextArea } from '@lobehub/ui';
-import { confirmModal, Modal } from '@lobehub/ui/base-ui';
+import { Flexbox, Input, TextArea } from '@lobehub/ui';
+import { Button, confirmModal, Modal } from '@lobehub/ui/base-ui';
 import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -18,6 +18,7 @@ import { ensureElectronIpc } from '@/utils/electron/ipc';
 interface DeviceLocalMcpModalProps {
   draft?: DeviceLocalMcpDraft;
   onClose: () => void;
+  onSavingChange?: (saving: boolean) => void;
   onSaved?: (server: DeviceLocalMcpServer) => void;
   setupUserId?: string;
 }
@@ -59,6 +60,7 @@ const DeviceLocalMcpModal = ({
   draft,
   onClose,
   onSaved,
+  onSavingChange,
   setupUserId,
 }: DeviceLocalMcpModalProps) => {
   const { t } = useTranslation('setting');
@@ -123,24 +125,31 @@ const DeviceLocalMcpModal = ({
       const message = cause instanceof Error ? cause.message : '';
       const reason = errorReasons.find((key) => message.includes(deviceLocalMcpErrors[key]));
       setError(reason ? t(`deviceLocalMcp.error.${reason}`) : t('deviceLocalMcp.error'));
-      if (reason === 'serverUnavailable' && !onSaved) setListRevision((revision) => revision + 1);
+      if ((reason === 'serverUnavailable' || reason === 'stopFailed') && !onSaved)
+        setListRevision((revision) => revision + 1);
     } finally {
       setBusy(false);
     }
   };
 
   const testConnection = () => {
-    resetProbe();
+    if (!userId) return;
     const config = buildConfig();
     if (!config) return;
     void run(async () => {
-      const discovered: DeviceLocalMcpTool[] =
-        await ensureElectronIpc().mcp.testDeviceLocalServer(config);
+      const discovered: DeviceLocalMcpTool[] = await ensureElectronIpc().mcp.testDeviceLocalServer({
+        config,
+        userId,
+      });
+      const names = new Set(discovered.map((tool) => tool.name));
       setTools(discovered);
-      if (draft?.name === 'OpenCADStudio' && config.command === draft.command)
-        setEnabledTools(
-          discovered.some((tool) => tool.name === 'ocs_inspect') ? ['ocs_inspect'] : [],
-        );
+      setEnabledTools((selection) =>
+        tools
+          ? selection.filter((tool) => names.has(tool))
+          : draft?.name === 'OpenCADStudio' && names.has('ocs_inspect')
+            ? ['ocs_inspect']
+            : [],
+      );
     });
   };
 
@@ -148,6 +157,7 @@ const DeviceLocalMcpModal = ({
     if (!userId) return;
     const config = buildConfig();
     if (!config) return;
+    onSavingChange?.(true);
     void run(async () => {
       const server = await ensureElectronIpc().mcp.saveDeviceLocalServer({
         config,
@@ -165,7 +175,7 @@ const DeviceLocalMcpModal = ({
       setArgs('');
       setEnv('');
       resetProbe();
-    });
+    }).finally(() => onSavingChange?.(false));
   };
 
   const updateServer = (server: DeviceLocalMcpServer, enabled: boolean, selection?: string[]) => {
@@ -199,7 +209,8 @@ const DeviceLocalMcpModal = ({
       }}
     >
       <Flexbox gap={16}>
-        <div>{t(onSaved ? 'deviceLocalMcp.chatSetup' : 'deviceLocalMcp.description')}</div>
+        <div>{t('deviceLocalMcp.description')}</div>
+        {onSaved && <div>{t('deviceLocalMcp.chatSetup')}</div>}
         {loadError && <div role="alert">{t('deviceLocalMcp.loadError')}</div>}
         {!onSaved &&
           servers.map((server) => (

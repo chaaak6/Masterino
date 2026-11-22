@@ -5,18 +5,28 @@ import DeviceLocalMcpModal from './DeviceLocalMcpModal';
 
 interface SetupDialogProps {
   draft?: DeviceLocalMcpDraft;
-  onClose: () => void;
+  onCancelSetup: () => void;
+  onHostClose?: () => void;
+  onSavingChange: (saving: boolean) => void;
   onFinish: (server?: DeviceLocalMcpServer) => void;
   open: boolean;
   setupUserId: string;
 }
 
-const SetupDialog = ({ draft, onFinish, open, setupUserId }: SetupDialogProps) =>
+const SetupDialog = ({
+  draft,
+  onCancelSetup,
+  onFinish,
+  onSavingChange,
+  open,
+  setupUserId,
+}: SetupDialogProps) =>
   open ? (
     <DeviceLocalMcpModal
       draft={draft}
       setupUserId={setupUserId}
-      onClose={() => onFinish()}
+      onClose={onCancelSetup}
+      onSavingChange={onSavingChange}
       onSaved={onFinish}
     />
   ) : null;
@@ -36,6 +46,8 @@ export const openDeviceLocalMcpSetup = (
 
     if (setupOpen) throw new Error('A local MCP setup is already open');
     let settled = false;
+    let saving = false;
+    let cancellationRequested = false;
     const finish = (server?: DeviceLocalMcpServer) => {
       if (settled) return;
       settled = true;
@@ -44,12 +56,19 @@ export const openDeviceLocalMcpSetup = (
       modal.destroy();
       resolve(server);
     };
-    const abort = () => finish();
+    const abort = () => {
+      cancellationRequested = true;
+      if (!saving) finish();
+    };
+    const onSavingChange = (active: boolean) => {
+      saving = active;
+      if (!active && cancellationRequested) finish();
+    };
     const modal = createRawModal(
       SetupDialog,
-      { draft, onFinish: finish, setupUserId },
+      { draft, onCancelSetup: abort, onFinish: finish, onSavingChange, setupUserId },
       {
-        onCloseKey: 'onClose',
+        onCloseKey: 'onHostClose',
         openKey: 'open',
       },
     );
