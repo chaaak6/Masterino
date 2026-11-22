@@ -70,9 +70,6 @@ const AssistantMessage = memo<AssistantMessageProps>(
       error?.type === 'upstream_timeout' ||
       error?.body?.reason === 'unexpected_end' ||
       error?.type === 'UnknownChatFetchError';
-    const hasSupplementalContent = Boolean(
-      isInterruptedStream && (item.reasoning?.content?.trim() || item.imageList?.length),
-    );
     const shouldForceShowError =
       isInterruptedStream ||
       (error?.type === 'ProviderBizError' &&
@@ -81,6 +78,16 @@ const AssistantMessage = memo<AssistantMessageProps>(
           (error?.body as any)?.context?.promptFeedback?.blockReason ||
           (error?.body as any)?.context?.finishReason
         ));
+
+    const hasSupplementalContent = Boolean(
+      shouldForceShowError &&
+      (item.reasoning?.content?.trim() ||
+        item.imageList?.length ||
+        item.chunksList?.length ||
+        item.search?.citations?.length ||
+        item.search?.imageResults?.length ||
+        item.metadata?.tempDisplayContent),
+    );
 
     // remove line breaks in artifact tag to make the ast transform easier
     const message = !editing ? normalizeThinkTags(processWithArtifact(content)) : content;

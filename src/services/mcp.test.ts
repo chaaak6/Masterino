@@ -14,7 +14,7 @@ const mockElectronIpc = {
     validMcpServerInstallable: vi.fn(),
   },
 };
-const localMcpSetup = vi.hoisted(() => ({ desktop: false, request: vi.fn() }));
+const localMcpSetup = vi.hoisted(() => ({ request: vi.fn() }));
 
 // Mock dependencies
 vi.mock('@lobechat/const', () => ({
@@ -113,9 +113,6 @@ describe('MCPService', () => {
       });
       const response = { content: 'Drawing is open', success: true };
       mockElectronIpc.mcp.callTool.mockResolvedValue(superjson.serialize(response));
-      vi.mocked(lambdaClient.connector.callTool.mutate).mockRejectedValueOnce(
-        new Error('Failed to start MCP service process'),
-      );
 
       const result = await mcpService.invokeMcpToolCall(
         {
@@ -157,7 +154,10 @@ describe('MCPService', () => {
         plan: { kind: 'device-unrouted', reason: 'no-online-device', target: 'local' },
         version: 1,
       };
-      const sandbox: ExecutionContext = { plan: { kind: 'sandbox', target: 'sandbox' }, version: 1 };
+      const sandbox: ExecutionContext = {
+        plan: { kind: 'sandbox', target: 'sandbox' },
+        version: 1,
+      };
       const signal = new AbortController().signal;
 
       await expect(
@@ -167,46 +167,48 @@ describe('MCPService', () => {
       await expect(
         mcpService.invokeMcpToolCall(payload, { executionContext: local, signal }),
       ).resolves.toEqual(receipt);
-      expect(localMcpSetup.request).toHaveBeenCalledWith(payload.arguments, local, 'local-user', signal);
+      expect(localMcpSetup.request).toHaveBeenCalledWith(
+        payload.arguments,
+        local,
+        'local-user',
+        signal,
+      );
     });
 
-    it.each(['http', 'stdio'])(
-      'keeps server-side %s MCP routing for a local-looking identifier',
-      async (connectionType) => {
-        const { lambdaClient } = await import('@/libs/trpc/client');
-        const identifier = 'local-mcp-0123456789abcdef01234567';
-        mockGetToolStoreState.mockReturnValue({
-          connectors: [
-            {
-              identifier,
-              isEnabled: true,
-              mcpConnectionType: connectionType,
-              mcpServerUrl: connectionType === 'http' ? 'https://mcp.example.com/mcp' : undefined,
-            },
-          ],
-        });
-        const response = { content: 'server result', success: true } as const;
-        vi.mocked(lambdaClient.connector.callTool.mutate).mockResolvedValue(response as never);
-        const signal = new AbortController().signal;
-        await expect(
-          mcpService.invokeMcpToolCall(
-            {
-              apiName: 'inspect',
-              arguments: '{}',
-              id: 'server-call',
-              identifier,
-              source: 'mcp',
-              type: 'mcp',
-            } as ChatToolPayload,
-            { signal },
-          ),
-        ).resolves.toEqual(response);
-        expect(lambdaClient.connector.callTool.mutate).toHaveBeenCalledWith(
-          { args: '{}', identifier, toolName: 'inspect' },
+    it('keeps server-side HTTP MCP routing for a local-looking identifier', async () => {
+      const { lambdaClient } = await import('@/libs/trpc/client');
+      const identifier = 'local-mcp-0123456789abcdef01234567';
+      mockGetToolStoreState.mockReturnValue({
+        connectors: [
+          {
+            identifier,
+            isEnabled: true,
+            mcpConnectionType: 'http',
+            mcpServerUrl: 'https://mcp.example.com/mcp',
+          },
+        ],
+      });
+      const response = { content: 'server result', success: true } as const;
+      vi.mocked(lambdaClient.connector.callTool.mutate).mockResolvedValue(response as never);
+      const signal = new AbortController().signal;
+      await expect(
+        mcpService.invokeMcpToolCall(
+          {
+            apiName: 'inspect',
+            arguments: '{}',
+            id: 'server-call',
+            identifier,
+            source: 'mcp',
+            type: 'mcp',
+          } as ChatToolPayload,
           { signal },
-        );
-      },
-    );
+        ),
+      ).resolves.toEqual(response);
+      expect(lambdaClient.connector.callTool.mutate).toHaveBeenCalledWith(
+        { args: '{}', identifier, toolName: 'inspect' },
+        { signal },
+      );
+    });
 
     it('should invoke tool call with installed plugin', async () => {
       const { toolsClient } = await import('@/libs/trpc/client');

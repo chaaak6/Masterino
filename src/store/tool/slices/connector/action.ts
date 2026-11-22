@@ -94,8 +94,8 @@ export class ConnectorActionImpl {
       false,
       'syncConnectorTools/start',
     );
+    const connector = connectorSelectors.connectorById(id)(this.#get());
     try {
-      const connector = connectorSelectors.connectorById(id)(this.#get());
       if (connector?.mcpConnectionType === 'stdio') {
         if (!isDesktop || !connector.mcpStdioConfig?.command)
           throw new Error('A desktop MCP command is required to sync a STDIO connector');
@@ -114,6 +114,19 @@ export class ConnectorActionImpl {
         await lambdaClient.connector.syncTools.mutate({ id });
       }
       await this.fetchConnectors();
+    } catch (error) {
+      if (isDesktop && connector?.mcpConnectionType === 'stdio') {
+        this.#set(
+          (s) => ({
+            connectors: s.connectors.map((item) =>
+              item.id === id ? { ...item, status: 'error' } : item,
+            ),
+          }),
+          false,
+          'syncConnectorTools/error',
+        );
+      }
+      throw error;
     } finally {
       this.#set(
         (s) => ({ connectorSyncing: { ...s.connectorSyncing, [id]: false } }),

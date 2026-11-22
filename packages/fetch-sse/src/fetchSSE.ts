@@ -608,7 +608,7 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
         observationId,
         reasoning: !!thinking ? { content: thinking, signature: thinkingSignature } : undefined,
         speed,
-        toolCalls,
+        toolCalls: finishedType === 'done' ? toolCalls : undefined,
         traceId,
         type: finishedType,
         usage,
@@ -624,6 +624,7 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
   const maxAttempts = options.recovery
     ? Math.max(1, Math.min(3, options.recovery.maxAttempts ?? 3))
     : 1;
+  let retriedUnexpectedEnd = false;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (options.signal?.aborted) {
       await options.onFinish?.('', { type: 'abort' });
@@ -657,19 +658,20 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
           ((chunk.type === 'text' || chunk.type === 'reasoning') && chunk.text?.trim()) ||
           chunk.type === 'base64_image' ||
           chunk.type === 'content_part' ||
-          chunk.type === 'reasoning_part'
+          chunk.type === 'reasoning_part' ||
+          (chunk.type === 'tool_calls' && chunk.tool_calls.length > 0)
         )
           outputDelivered = true;
         options.onMessageHandle?.(chunk);
       },
     });
-    const attemptLimit =
-      error?.body?.reason === 'unexpected_end' ? Math.min(2, maxAttempts) : maxAttempts;
+    const unexpectedEnd = error?.body?.reason === 'unexpected_end';
     const delay = error && getRetryDelay(error, response);
     if (
       error &&
       options.recovery &&
-      attempt < attemptLimit &&
+      attempt < maxAttempts &&
+      (!unexpectedEnd || !retriedUnexpectedEnd) &&
       delay !== undefined &&
       !outputDelivered &&
       !options.signal?.aborted
@@ -681,10 +683,11 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
       await options.recovery.onRetry?.({
         attempt,
         delayMs,
-        maxAttempts: attemptLimit,
+        maxAttempts,
         offline: typeof navigator !== 'undefined' && !navigator.onLine,
       });
       if (await waitForStreamRetry(delayMs, options.signal)) {
+        if (unexpectedEnd) retriedUnexpectedEnd = true;
         await options.recovery.onAttemptReset?.();
         continue;
       }

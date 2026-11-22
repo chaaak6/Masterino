@@ -106,28 +106,30 @@ export const syncConnectorToolsById = async (
   if (!isStdio && !connector.mcpServerUrl)
     throw new Error('Connector has no MCP server URL configured');
 
-  if (!localTools) {
-    connector = await ensureFreshConnectorToken(connector, ctx.connectorModel);
-    try {
+  try {
+    if (localTools) {
+      if (localTools.length === 0 || localTools.some(({ inputSchema }) => !inputSchema))
+        throw new Error('The desktop MCP server did not provide usable tool schemas');
+    } else {
+      connector = await ensureFreshConnectorToken(connector, ctx.connectorModel);
       const rawTools = await mcpService.listRawTools(buildConnectorMcpParams(connector));
       localTools = rawTools.map(({ description, inputSchema, name }) => ({
         description,
         inputSchema,
         toolName: name,
       }));
-    } catch (err) {
-      await ctx.connectorModel.updateStatus(connectorId, ConnectorStatus.error);
-      throw err;
     }
+
+    const syncInputs = localTools.map((tool) => ({
+      ...tool,
+      crudType: inferCrudType(tool.toolName),
+    }));
+    await ctx.connectorToolModel.upsertMany(connectorId, syncInputs);
+    await ctx.connectorModel.updateStatus(connectorId, ConnectorStatus.connected);
+
+    return { toolCount: syncInputs.length };
+  } catch (error) {
+    await ctx.connectorModel.updateStatus(connectorId, ConnectorStatus.error).catch(() => {});
+    throw error;
   }
-
-  const syncInputs = localTools.map((tool) => ({
-    ...tool,
-    crudType: inferCrudType(tool.toolName),
-  }));
-
-  await ctx.connectorToolModel.upsertMany(connectorId, syncInputs);
-  await ctx.connectorModel.updateStatus(connectorId, ConnectorStatus.connected);
-
-  return { toolCount: syncInputs.length };
 };

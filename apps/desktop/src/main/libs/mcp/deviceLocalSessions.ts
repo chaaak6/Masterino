@@ -1,4 +1,5 @@
 import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
 import type { MCPClient } from './client';
 import type { ToolCallResult } from './types';
@@ -73,10 +74,20 @@ export class DeviceLocalMcpSessions {
     }
 
     session.inFlight++;
+    let ready = false;
     try {
       await session.ready;
+      ready = true;
       return await session.client.callTool(toolName, args);
-    } catch {
+    } catch (error) {
+      if (
+        ready &&
+        !session.retired &&
+        error instanceof McpError &&
+        error.code !== ErrorCode.ConnectionClosed &&
+        error.code !== ErrorCode.RequestTimeout
+      )
+        throw error;
       session.retired = true;
       // An edit may have reached the editor. Never replay an interrupted request.
       throw new Error(

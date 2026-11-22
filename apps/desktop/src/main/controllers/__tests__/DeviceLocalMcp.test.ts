@@ -290,6 +290,21 @@ describe('device-local MCP desktop API', () => {
     expect(initialize).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the drawing session open when a tool rejects its arguments', async () => {
+    const controller = new McpCtr(app);
+    const { identifier } = await controller.saveDeviceLocalServer({
+      ...scope,
+      config: launchConfig,
+      enabledTools: ['inspect'],
+      name: 'Synthetic CAD',
+    });
+    const call = (args?: string) =>
+      controller.callDeviceLocalTool({ ...scope, args, identifier, toolName: 'inspect' });
+    await expect(call()).resolves.toMatchObject({ state: { structuredContent: { calls: 1 } } });
+    await expect(call('{"rejectArguments":true}')).rejects.toThrow('Invalid drawing argument');
+    await expect(call()).resolves.toMatchObject({ state: { structuredContent: { calls: 2 } } });
+  });
+
   it('starts a new session on the next call after the stdio process exits', async () => {
     const controller = new McpCtr(app);
     const { identifier } = await controller.saveDeviceLocalServer({

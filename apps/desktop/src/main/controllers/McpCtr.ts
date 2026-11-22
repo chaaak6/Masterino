@@ -288,16 +288,18 @@ export default class McpCtr extends ControllerModule {
     config: DeviceLocalMcpConfig,
   ): Promise<DeviceLocalMcpTool[]> {
     const client = this.createDeviceLocalClient(config, 'device-local-mcp');
+    let tools: DeviceLocalMcpTool[];
     try {
       await client.initialize();
-      return await client.listTools();
+      tools = await client.listTools();
     } catch {
+      await client.disconnect().catch(() => {});
       throw new Error(deviceLocalMcpErrors.connection);
-    } finally {
-      await client.disconnect().catch(() => {
-        throw new Error(deviceLocalMcpErrors.stopFailed);
-      });
     }
+    await client.disconnect().catch(() => {
+      throw new Error(deviceLocalMcpErrors.stopFailed);
+    });
+    return tools;
   }
 
   @IpcMethod()

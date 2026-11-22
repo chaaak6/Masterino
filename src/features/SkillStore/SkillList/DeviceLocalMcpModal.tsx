@@ -126,8 +126,19 @@ const DeviceLocalMcpModal = ({
       const message = cause instanceof Error ? cause.message : '';
       const reason = errorReasons.find((key) => message.includes(deviceLocalMcpErrors[key]));
       setError(reason ? t(`deviceLocalMcp.error.${reason}`) : t('deviceLocalMcp.error'));
-      if (!onSaved && (reason === 'stopFailed' || (reason === 'serverUnavailable' && !editing)))
+      if (!onSaved && userId && reason === 'serverUnavailable') {
+        try {
+          const list = await ensureElectronIpc().mcp.listDeviceLocalServers({ userId });
+          setServers(list);
+          setEditing((current) =>
+            list.some(({ identifier }) => identifier === current?.identifier) ? current : undefined,
+          );
+        } catch {
+          setLoadError(true);
+        }
+      } else if (!onSaved && reason === 'stopFailed') {
         setListRevision((revision) => revision + 1);
+      }
     } finally {
       setOperation(undefined);
     }

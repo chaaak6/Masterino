@@ -1,6 +1,6 @@
 import type { WorkspaceScanErrorCode } from '@lobechat/device-control/workspaceError';
 import { Alert, Flexbox } from '@lobehub/ui';
-import { Button } from 'antd';
+import { Button } from '@lobehub/ui/base-ui';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 

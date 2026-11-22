@@ -61,7 +61,10 @@ const styles = createStaticStyles(({ css }) => ({
   `,
 }));
 
-const pathSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const pathSegmenter =
+  typeof Intl.Segmenter === 'function'
+    ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    : undefined;
 
 export interface WorkspaceChipProps {
   effective: EffectiveWorkspace;
@@ -76,7 +79,9 @@ const WorkspaceChip = memo<WorkspaceChipProps>(({ effective, repoType }) => {
   const { t } = useTranslation('chat');
   const tw = t as unknown as (key: string, options?: Record<string, unknown>) => string;
   const cwd = effective.cwd ?? effective.workspace?.rootPath ?? '';
-  const pathCharacters = Array.from(pathSegmenter.segment(cwd), ({ segment }) => segment);
+  const pathCharacters = pathSegmenter
+    ? Array.from(pathSegmenter.segment(cwd), ({ segment }) => segment)
+    : Array.from(cwd);
   const midpoint = Math.ceil(pathCharacters.length / 2);
   const isScratch = effective.state === 'scratch';
 

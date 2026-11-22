@@ -238,27 +238,45 @@ describe('Given a model stream interrupted before completion', () => {
     }
   });
 
-  it('When a partial tool call is discarded, Then only the complete retry tool result is committed', async () => {
-    let attempt = 0;
+  it('discards interrupted tool calls without replaying the model request', async () => {
     const finish = vi.fn();
-    const response = (name: string, ended: boolean) =>
-      new Response(
-        `event: tool_calls\ndata: ${JSON.stringify([{ id: name, index: 0, type: 'function', function: { name, arguments: '{}' } }])}\n\n` +
-          (ended ? 'event: stop\ndata: "tool_calls"\n\n' : ''),
-        { headers: { 'Content-Type': 'text/event-stream' } },
-      );
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          'event: tool_calls\ndata: [{"id":"tool","index":0,"type":"function","function":{"name":"edit","arguments":"{}"}}]\n\n',
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+    );
     await fetchSSE('/test', {
-      fetcher: async () =>
-        ++attempt === 1 ? response('old_tool', false) : response('new_tool', true),
+      fetcher,
       onFinish: finish,
       requireTerminalEvent: true,
       recovery: { delayMs: 0 },
     });
-    expect(finish).toHaveBeenCalledOnce();
-    expect(
-      finish.mock.calls[0][1].toolCalls.map((t: { function: { name: string } }) => t.function.name),
-    ).toEqual(['new_tool']);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(finish).toHaveBeenCalledWith(
+      '',
+      expect.objectContaining({ toolCalls: undefined, type: 'error' }),
+    );
   });
+
+  it('allows one empty EOF retry after a transient HTTP failure', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockResolvedValueOnce(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }))
+      .mockResolvedValueOnce(stream('Recovered'));
+    const finish = vi.fn();
+    await fetchSSE('/test', {
+      fetcher,
+      onFinish: finish,
+      requireTerminalEvent: true,
+      recovery: { delayMs: 0 },
+    });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(finish).toHaveBeenCalledWith('Recovered', expect.objectContaining({ type: 'done' }));
+  });
+
   it.each([502, 503, 504])(
     'When HTTP %i is transient, Then the current model call recovers',
     async (status) => {

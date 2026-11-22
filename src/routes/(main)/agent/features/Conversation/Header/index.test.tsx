@@ -21,10 +21,11 @@ vi.mock('@/features/OpenInAppButton', () => ({
   ),
 }));
 vi.mock('@/store/agent', () => ({
-  useAgentStore: (selector: (state: object) => unknown) => selector({}),
+  useAgentStore: (selector: (state: object) => unknown) =>
+    selector({ localAgentWorkingDirectoryMap: {} }),
 }));
 vi.mock('@/store/agent/selectors', () => ({
-  agentByIdSelectors: { getAgentWorkingDirectoryById: () => () => '/agent-default' },
+  agentByIdSelectors: { getAgencyConfigById: () => () => undefined },
   chatConfigByIdSelectors: { isLocalSystemEnabledById: () => () => true },
 }));
 vi.mock('@/store/chat', () => ({

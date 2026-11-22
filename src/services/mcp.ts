@@ -84,12 +84,17 @@ class MCPService {
     const connector = connectorSelectors.connectorByIdentifier(identifier)(s);
 
     if (connector?.mcpConnectionType === 'stdio') {
-      const tool = connector.tools.find((item) => item.toolName === apiName);
+      signal?.throwIfAborted();
+      const tool = connector.tools?.find((item) => item.toolName === apiName);
       if (!connector.isEnabled || !tool || tool.permission === 'disabled')
         throw new Error(`MCP tool "${apiName}" is unavailable for this connector`);
 
       const config = connector.mcpStdioConfig;
-      if (!isDesktop || !config?.command)
+      if (
+        !isDesktop ||
+        !config?.command ||
+        (executionContext && executionContext.plan.target !== 'local')
+      )
         throw new Error('Run this MCP tool on the desktop with the local MCP server installed');
 
       return this.callStdioTool({

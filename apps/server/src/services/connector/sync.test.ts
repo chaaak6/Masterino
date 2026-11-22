@@ -52,6 +52,19 @@ describe('syncConnectorToolsById', () => {
   };
   const localTools = [{ inputSchema: { type: 'object' }, toolName: 'get_drawing' }];
 
+  it.each([{ tools: [] }, { tools: [{ toolName: 'get_drawing' }] }])(
+    'keeps saved permissions when local discovery has no usable schemas (%j)',
+    async ({ tools }) => {
+      const { context, listRawTools, updateStatus, upsertMany } = setup(localConnector);
+      await expect(syncConnectorToolsById(localConnector.id, context, tools)).rejects.toThrow(
+        'did not provide usable tool schemas',
+      );
+      expect(listRawTools).not.toHaveBeenCalled();
+      expect(upsertMany).not.toHaveBeenCalled();
+      expect(updateStatus).toHaveBeenCalledWith(localConnector.id, ConnectorStatus.error);
+    },
+  );
+
   it('stores desktop-discovered tools without spawning the workstation command on the server', async () => {
     const { context, listRawTools, updateStatus, upsertMany } = setup(localConnector);
 

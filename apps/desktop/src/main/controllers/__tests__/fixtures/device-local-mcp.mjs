@@ -25,6 +25,16 @@ for await (const line of io) {
       break;
     }
     case 'tools/call': {
+      if (params.arguments?.rejectArguments) {
+        process.stdout.write(
+          JSON.stringify({
+            error: { code: -32602, message: 'Invalid drawing argument' },
+            id,
+            jsonrpc: '2.0',
+          }) + '\n',
+        );
+        continue;
+      }
       calls++;
       result = {
         content: [{ text: 'factory-r03.dxf', type: 'text' }],

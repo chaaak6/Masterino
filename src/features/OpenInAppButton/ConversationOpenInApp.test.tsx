@@ -25,10 +25,11 @@ vi.mock('@/store/electron', () => ({
     select({ gatewayDeviceInfo: { deviceId: 'device' } }),
 }));
 vi.mock('@/store/agent', () => ({
-  useAgentStore: (select: (value: object) => unknown) => select({}),
+  useAgentStore: (select: (value: object) => unknown) =>
+    select({ localAgentWorkingDirectoryMap: {} }),
 }));
 vi.mock('@/store/agent/selectors', () => ({
-  agentByIdSelectors: { getAgentWorkingDirectoryById: () => () => undefined },
+  agentByIdSelectors: { getAgencyConfigById: () => () => undefined },
   chatConfigByIdSelectors: { isLocalSystemEnabledById: () => () => true },
 }));
 vi.mock('@/store/projectWorkspace', () => ({

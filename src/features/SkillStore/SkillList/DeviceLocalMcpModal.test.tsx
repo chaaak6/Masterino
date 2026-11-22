@@ -1,6 +1,6 @@
 import { deviceLocalMcpErrors, type DeviceLocalMcpServer } from '@lobechat/electron-client-ipc';
 import { MotionProvider } from '@lobehub/ui';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { m } from 'motion/react';
 import { expect, it, vi } from 'vitest';
 
@@ -16,41 +16,46 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-it('refreshes saved connections when an enabled row disappears in another window', async () => {
-  const stale: DeviceLocalMcpServer = {
-    enabled: true,
-    enabledTools: ['inspect'],
-    identifier: 'local-mcp-000000000000000000000001',
-    name: 'Removed connection',
-    tools: [{ inputSchema: {}, name: 'inspect' }],
-  };
-  const replacement: DeviceLocalMcpServer = {
-    ...stale,
-    identifier: 'local-mcp-000000000000000000000002',
-    name: 'Replacement connection',
-  };
-  const listDeviceLocalServers = vi
-    .fn()
-    .mockResolvedValueOnce([stale])
-    .mockResolvedValue([replacement]);
-  const updateDeviceLocalServer = vi
-    .fn()
-    .mockRejectedValue(new Error(deviceLocalMcpErrors.serverUnavailable));
-  vi.spyOn(ipc, 'ensureElectronIpc').mockReturnValue({
-    mcp: { listDeviceLocalServers, updateDeviceLocalServer },
-  } as ReturnType<typeof ipc.ensureElectronIpc>);
+it.each(['disable', 'saveTools'])(
+  'refreshes saved connections when %s targets a removed row',
+  async (action) => {
+    const stale: DeviceLocalMcpServer = {
+      enabled: true,
+      enabledTools: ['inspect'],
+      identifier: 'local-mcp-000000000000000000000001',
+      name: 'Removed connection',
+      tools: [{ inputSchema: {}, name: 'inspect' }],
+    };
+    const replacement: DeviceLocalMcpServer = {
+      ...stale,
+      identifier: 'local-mcp-000000000000000000000002',
+      name: 'Replacement connection',
+    };
+    const listDeviceLocalServers = vi
+      .fn()
+      .mockResolvedValueOnce([stale])
+      .mockResolvedValue([replacement]);
+    const updateDeviceLocalServer = vi
+      .fn()
+      .mockRejectedValue(new Error(deviceLocalMcpErrors.serverUnavailable));
+    vi.spyOn(ipc, 'ensureElectronIpc').mockReturnValue({
+      mcp: { listDeviceLocalServers, updateDeviceLocalServer },
+    } as ReturnType<typeof ipc.ensureElectronIpc>);
 
-  render(
-    <MotionProvider motion={m}>
-      <DeviceLocalMcpModal onClose={vi.fn()} />
-    </MotionProvider>,
-  );
-  fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.disable' }));
+    render(
+      <MotionProvider motion={m}>
+        <DeviceLocalMcpModal onClose={vi.fn()} />
+      </MotionProvider>,
+    );
+    if (action === 'saveTools')
+      fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.editTools' }));
+    fireEvent.click(await screen.findByRole('button', { name: `deviceLocalMcp.${action}` }));
 
-  expect(await screen.findByText('deviceLocalMcp.error.serverUnavailable')).toBeInTheDocument();
-  expect(await screen.findByText('Replacement connection')).toBeInTheDocument();
-  expect(screen.queryByText('Removed connection')).not.toBeInTheDocument();
-});
+    expect(await screen.findByText('deviceLocalMcp.error.serverUnavailable')).toBeInTheDocument();
+    expect(await screen.findByText('Replacement connection')).toBeInTheDocument();
+    expect(screen.queryByText('Removed connection')).not.toBeInTheDocument();
+  },
+);
 
 it('shows the data boundary in chat setup and keeps existing selected tools when testing again', async () => {
   const draft = { command: '/local/ocs', name: 'OpenCADStudio' };
@@ -123,6 +128,9 @@ it('keeps unsaved tool changes available for retry when updating a connection fa
 
   expect(await screen.findByText('deviceLocalMcp.error.serverUnavailable')).toBeInTheDocument();
   expect(screen.getByRole('checkbox', { name: 'save' })).toBeChecked();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'deviceLocalMcp.saveTools' })).toBeEnabled(),
+  );
   fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.saveTools' }));
   expect(updateDeviceLocalServer).toHaveBeenLastCalledWith(
     expect.objectContaining({ enabledTools: ['inspect', 'save'] }),
