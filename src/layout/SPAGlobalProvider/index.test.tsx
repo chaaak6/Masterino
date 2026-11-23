@@ -10,7 +10,7 @@ vi.mock('@lobehub/ui', () => ({
 
 vi.mock('@lobehub/ui/base-ui', () => ({
   ContextMenuHost: () => null,
-  ModalHost: () => null,
+  ModalHost: () => <div data-testid="modal-host" />,
   ToastHost: () => null,
 }));
 
@@ -45,6 +45,12 @@ vi.mock('@/features/DevFeatureFlagPanel', () => ({
 
 vi.mock('@/layout/AuthProvider', () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('@/layout/AuthProvider/MarketAuth', () => ({
+  MarketAuthProvider: ({ children }: { children: ReactNode }) => (
+    <div data-testid="market-auth">{children}</div>
+  ),
 }));
 
 vi.mock('@/layout/GlobalProvider/AppTheme', () => ({
@@ -120,5 +126,8 @@ describe('SPAGlobalProvider', () => {
     );
 
     expect(screen.getByTestId('server-config-provider')).toHaveAttribute('data-is-mobile', 'true');
+    const market = screen.getByTestId('market-auth');
+    expect(market).toContainElement(screen.getByTestId('modal-host'));
+    expect(market).toContainElement(screen.getByText('child'));
   });
 });

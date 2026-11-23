@@ -3,6 +3,7 @@ import type { IEditor } from '@lobehub/editor';
 import { renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
+import { message } from '@/components/AntdStaticMethods';
 import { agentSkillService } from '@/services/skill';
 import { useToolStore } from '@/store/tool';
 
@@ -10,11 +11,18 @@ import type * as localMcpPicker from '../../hooks/useDeviceLocalMcpPicker';
 import { INSERT_ACTION_TAG_COMMAND } from './command';
 import { useSlashActionItems } from './useSlashActionItems';
 
-const picker = vi.hoisted(() => ({ manifests: [] as ToolManifest[] }));
+const picker = vi.hoisted(() => ({
+  loadError: undefined as 'account' | undefined,
+  manifests: [] as ToolManifest[],
+}));
 vi.mock('../../hooks/useAgentId', () => ({ useAgentId: () => 'agent' }));
 vi.mock('../../hooks/useDeviceLocalMcpPicker', async (importOriginal) => ({
   ...(await importOriginal<typeof localMcpPicker>()),
-  useDeviceLocalMcpPicker: () => ({ manifests: picker.manifests, workspace: {} }),
+  useDeviceLocalMcpPicker: () => ({
+    loadError: picker.loadError,
+    manifests: picker.manifests,
+    workspace: {},
+  }),
 }));
 vi.mock('../../store', () => ({ useChatInputStore: () => undefined }));
 vi.mock('@/hooks/useFetchProjectSkills', () => ({ useFetchProjectSkills: () => ({}) }));
@@ -22,10 +30,28 @@ vi.mock('@/hooks/useFetchProjectSkills', () => ({ useFetchProjectSkills: () => (
 const previousSkills = useToolStore.getState().agentSkills;
 
 afterEach(() => {
+  picker.loadError = undefined;
   picker.manifests = [];
   useToolStore.setState({ agentSkills: previousSkills });
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+
+it('gives sign-in feedback when selecting the MCP account error', async () => {
+  picker.loadError = 'account';
+  const warning = vi.spyOn(message, 'warning').mockImplementation(() => undefined as never);
+  const { result } = renderHook(useSlashActionItems);
+  if (typeof result.current !== 'function') throw new Error('Expected a slash item provider');
+  const items = await result.current({
+    leadOffset: 0,
+    matchingString: 'ocs',
+    replaceableString: 'ocs',
+  });
+  const item = items.find((item) => 'key' in item && item.key === 'local-mcp-refresh');
+  if (!item || !('onSelect' in item) || typeof item.onSelect !== 'function')
+    throw new Error('Expected account guidance');
+  item.onSelect({} as IEditor, 'ocs');
+  expect(warning).toHaveBeenCalledOnce();
 });
 
 it('inserts a selected local MCP as a turn-scoped tool tag', async () => {

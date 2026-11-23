@@ -6,7 +6,6 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isDesktop } from '@/const/version';
-import { MarketAuthProvider } from '@/layout/AuthProvider/MarketAuth';
 
 import { AddLocalMcpContext } from './localMcpNavigation';
 import Search from './Search';
@@ -34,11 +33,15 @@ export interface SkillStoreOptions {
 }
 
 export const SkillStoreContent = ({
+  onLocalEditingChange,
   onLocalOpened,
   onUseLocal,
   openLocal,
   setup,
-}: SkillStoreOptions & { onLocalOpened?: () => void }) => {
+}: SkillStoreOptions & {
+  onLocalEditingChange?: (editing: boolean) => void;
+  onLocalOpened?: () => void;
+}) => {
   const { t } = useTranslation('setting');
   const offlineMode = process.env.NEXT_PUBLIC_MASTERLION_OFFLINE_MODE === '1';
   const [selectedTab, setActiveTab] = useState<SkillStoreTab>(
@@ -69,6 +72,7 @@ export const SkillStoreContent = ({
   const isLocal = isDesktop && isMCP && scope === 'local';
 
   const openAddLocal = () => {
+    onLocalEditingChange?.(true);
     onLocalOpened?.();
     setActiveTab(SkillStoreTab.MCP);
     setScope('local');
@@ -129,7 +133,7 @@ export const SkillStoreContent = ({
         </Flexbox>
         <Flexbox height={496} style={{ marginBlockEnd: -12, marginInline: -16 }}>
           {visitedMarket && (
-            <MarketAuthProvider isDesktop={isDesktop}>
+            <>
               {!offlineMode && (
                 <Flexbox
                   flex={1}
@@ -147,7 +151,7 @@ export const SkillStoreContent = ({
               >
                 <MCPList />
               </Flexbox>
-            </MarketAuthProvider>
+            </>
           )}
           {(visitedLocal || setup) && (
             <Flexbox
@@ -159,6 +163,7 @@ export const SkillStoreContent = ({
                 key={setup ? 'setup' : 'management'}
                 onAdd={openAddLocal}
                 onClose={closeAddLocal}
+                onEditingChange={setup ? undefined : onLocalEditingChange}
                 onUse={onUseLocal}
                 visible={isLocal}
                 {...setup}

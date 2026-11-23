@@ -17,6 +17,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { mutate } from '@/libs/swr';
 import { electronKeys } from '@/libs/swr/keys';
 import { useElectronStore } from '@/store/electron';
+import { electronSyncSelectors } from '@/store/electron/selectors';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
@@ -26,6 +27,7 @@ export interface DeviceLocalMcpPanelProps {
   draft?: DeviceLocalMcpDraft;
   onAdd?: () => void;
   onClose: () => void;
+  onEditingChange?: (editing: boolean) => void;
   onSaved?: (server: DeviceLocalMcpServer) => void;
   onSavingChange?: (saving: boolean) => void;
   onUse?: (server: DeviceLocalMcpServer) => void;
@@ -86,6 +88,7 @@ const DeviceLocalMcpPanelForAccount = ({
   draft,
   onAdd,
   onClose,
+  onEditingChange,
   onSaved,
   onSavingChange,
   onUse,
@@ -119,6 +122,10 @@ const DeviceLocalMcpPanelForAccount = ({
   const [loadError, setLoadError] = useState(false);
   const [listRevision, setListRevision] = useState(0);
   const [editing, setEditing] = useState<{ identifier: string; names: string[] }>();
+
+  useEffect(() => {
+    onEditingChange?.(Boolean(addOpen || editing || removing || busy));
+  }, [addOpen, busy, editing, onEditingChange, removing]);
 
   useEffect(() => {
     if (addOpen) form.current?.scrollIntoView?.({ block: 'nearest' });
@@ -579,7 +586,7 @@ const DeviceLocalMcpPanelForAccount = ({
 
 const DeviceLocalMcpPanel = (props: DeviceLocalMcpPanelProps) => {
   const userId = useUserStore(userProfileSelectors.userId);
-  const serverUrl = useElectronStore((s) => s.dataSyncConfig?.remoteServerUrl);
+  const serverUrl = useElectronStore(electronSyncSelectors.remoteServerUrl);
   const { onClose, setupServerUrl, setupUserId } = props;
   const accountChanged = Boolean(
     setupUserId && (setupUserId !== userId || setupServerUrl !== serverUrl),

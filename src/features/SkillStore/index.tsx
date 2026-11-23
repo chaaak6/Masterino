@@ -8,6 +8,7 @@ import { SkillStoreContent, type SkillStoreOptions } from './SkillStoreContent';
 interface SkillStoreSession {
   close: () => void;
   instance: ReturnType<typeof createModal>;
+  localEditing: boolean;
   localOpened: boolean;
   options: SkillStoreOptions;
   setup?: SkillStoreOptions['setup'];
@@ -20,6 +21,9 @@ const renderContent = (options: SkillStoreOptions, close: () => void) => (
   <SkillStoreContent
     key={navigation}
     {...options}
+    onLocalEditingChange={(editing) => {
+      if (active?.close === close) active.localEditing = editing;
+    }}
     onLocalOpened={() => {
       if (active?.close === close) active.localOpened = true;
     }}
@@ -39,7 +43,7 @@ export const createSkillStoreModal = (options: SkillStoreOptions = {}) => {
     const session = active;
     if (options.setup) {
       // Keep the market page mounted so its tab and search survive chat setup.
-      if (session.localOpened) return;
+      if (session.localEditing) return;
       session.setup = options.setup;
       session.instance.update({
         children: renderContent({ ...session.options, setup: options.setup }, session.close),
@@ -85,6 +89,7 @@ export const createSkillStoreModal = (options: SkillStoreOptions = {}) => {
   active = {
     close,
     instance,
+    localEditing: false,
     localOpened: Boolean(options.openLocal),
     options,
     setup: options.setup,

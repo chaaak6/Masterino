@@ -59,16 +59,20 @@ export const useCommandMenu = () => {
   const debouncedSearch = useDebounce(search, { wait: 600 });
 
   // Search functionality
-  const hasSearch = debouncedSearch.trim().length > 0;
+  const inputQuery = search.trim();
+  const hasSearch = inputQuery.length > 0;
   const searchQuery = debouncedSearch.trim();
   const deviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+  const searchRequested = hasSearch && !inputQuery.startsWith('@') && !selectedAgent && !page;
+  const waitingToSearch =
+    searchRequested && (inputQuery !== searchQuery || (isDesktop && !deviceId));
 
   const {
     data: searchResponse,
     error: searchError,
-    isLoading: isSearching,
+    isLoading,
   } = useSWR(
-    hasSearch && !searchQuery.startsWith('@') && (!isDesktop || deviceId)
+    searchRequested && !waitingToSearch
       ? ['search', searchQuery, agentId, typeFilter, deviceId]
       : null,
     async () => {
@@ -236,7 +240,7 @@ export const useCommandMenu = () => {
     handleSendToSelectedAgent,
     handleThemeChange,
     hasSearch,
-    isSearching,
+    isSearching: waitingToSearch || isLoading,
     mounted,
     open,
     page,

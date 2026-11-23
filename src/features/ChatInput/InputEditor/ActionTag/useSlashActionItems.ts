@@ -9,6 +9,7 @@ import { ArchiveIcon, MessageSquarePlusIcon } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { message } from '@/components/AntdStaticMethods';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
 import { useFetchProjectSkills } from '@/hooks/useFetchProjectSkills';
 import { useAgentStore } from '@/store/agent';
@@ -232,10 +233,13 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
               localMcpLoadError === 'account'
                 ? tSetting('deviceLocalMcp.error.account')
                 : `${tSetting('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
-            onSelect:
-              localMcpLoadError === 'retry'
-                ? () => void reloadLocalMcp().catch(() => {})
-                : undefined,
+            onSelect: () => {
+              if (localMcpLoadError === 'account') {
+                message.warning(tSetting('deviceLocalMcp.error.account'));
+              } else {
+                void reloadLocalMcp().catch(() => {});
+              }
+            },
           } as SlashItem)
         : undefined;
 

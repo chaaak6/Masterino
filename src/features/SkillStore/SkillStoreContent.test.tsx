@@ -12,9 +12,6 @@ vi.mock('@/const/version', () => ({
     return env.isDesktop;
   },
 }));
-vi.mock('@/layout/AuthProvider/MarketAuth', () => ({
-  MarketAuthProvider: ({ children }: { children: ReactNode }) => children,
-}));
 vi.mock('@lobehub/ui/base-ui', () => ({ createModal: modal.create }));
 
 vi.mock('react-i18next', () => ({
@@ -180,9 +177,26 @@ describe('SkillStoreContent', () => {
     modal.create.mockReturnValue({ close: vi.fn(), update: modal.update });
     const close = createSkillStoreModal({ openLocal: true });
     try {
+      render(modal.create.mock.lastCall?.[0].children);
+      fireEvent.click(screen.getByRole('button', { name: 'add locally' }));
       expect(
         createSkillStoreModal({ openLocal: true, setup: { onClose: vi.fn() } }),
       ).toBeUndefined();
+    } finally {
+      close?.();
+    }
+  });
+
+  it('lets chat setup start while the local connection list is idle', () => {
+    modal.create.mockReturnValue({ close: vi.fn(), update: modal.update });
+    const close = createSkillStoreModal({ openLocal: true });
+    try {
+      const { rerender } = render(modal.create.mock.lastCall?.[0].children);
+      const finishSetup = createSkillStoreModal({ openLocal: true, setup: { onClose: vi.fn() } });
+      expect(finishSetup).toBeDefined();
+      rerender(modal.update.mock.lastCall?.[0].children);
+      expect(screen.getByLabelText('local setup')).toBeVisible();
+      finishSetup?.();
     } finally {
       close?.();
     }

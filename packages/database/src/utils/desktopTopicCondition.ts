@@ -7,7 +7,10 @@ import { projectWorkspaces, topics } from '../schemas';
  * Local projects and scratch directories stay on their owning device.
  * Account-scoped sandboxes and ordinary chats can appear on multiple devices.
  */
-export const desktopTopicCondition = (deviceId?: string) => {
+export const desktopTopicCondition = (
+  deviceId?: string,
+  { requireResolvedProject = false }: { requireResolvedProject?: boolean } = {},
+) => {
   if (deviceId === undefined) return undefined;
   const metadata = topics.metadata;
   const workspaceId = sql`coalesce(nullif(${metadata}->'executionSnapshot'->>'workspaceId', ''), nullif(${metadata}->>'workspaceId', ''))`;
@@ -21,12 +24,15 @@ export const desktopTopicCondition = (deviceId?: string) => {
   const owner = workspaceField(projectWorkspaces.deviceId);
   const kind = sql`coalesce(${metadata}->'executionSnapshot'->>'workspaceKind', ${workspaceField(projectWorkspaces.kind)}, ${metadata}->>'workspaceKind')`;
   const device = sql`coalesce(${metadata}->'executionSnapshot'->>'boundDeviceId', ${owner}, ${metadata}->>'boundDeviceId')`;
+  const resolvedProject = requireResolvedProject
+    ? sql`and (${workspaceId} is null or ${kind} = 'scratch' or ${owner} is not null)`
+    : sql``;
   return sql`(
     ${kind} = 'sandbox'
     or (
       ${kind} is distinct from 'scratch'
       and ${workspaceId} is null and nullif(${metadata}->>'workingDirectory', '') is null
     )
-    or (${device} = ${deviceId} and (${owner} is null or ${owner} = ${deviceId}))
+    or (${device} = ${deviceId} and (${owner} is null or ${owner} = ${deviceId}) ${resolvedProject})
   )`;
 };

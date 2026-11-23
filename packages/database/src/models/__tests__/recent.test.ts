@@ -80,6 +80,17 @@ describe('RecentModel', () => {
       await serverDB.insert(topics).values([
         {
           agentId: 'device-scope-agent',
+          id: 'removed-local-workspace-topic',
+          metadata: {
+            boundDeviceId: 'device-a',
+            workspaceId: 'removed-workspace',
+            workspaceKind: 'device',
+          },
+          updatedAt: minutesAgo(1.5),
+          userId,
+        },
+        {
+          agentId: 'device-scope-agent',
           id: 'foreign-scratch',
           metadata: {
             boundDeviceId: 'device-b',

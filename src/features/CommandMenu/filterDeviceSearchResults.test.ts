@@ -77,12 +77,21 @@ describe('filterDeviceSearchResults', () => {
     });
   });
 
-  it('reports a missing legacy topic detail as an incomplete search', async () => {
+  it('ignores deleted topics found in a stale search index', async () => {
     vi.mocked(projectWorkspaceService.getTopicState).mockRejectedValue(
       new ProjectWorkspaceSeamUnavailableError(),
     );
     vi.mocked(lambdaClient.topic.getTopicDetail.query).mockResolvedValue(null as never);
     const hits = [{ id: 'missing-topic', type: 'topic' }] as SearchResult[];
+    expect(await filterDeviceSearchResults(hits, 'current')).toEqual({
+      incomplete: false,
+      results: [],
+    });
+  });
+
+  it('reports incomplete results for unverifiable workspace ownership', async () => {
+    vi.mocked(projectWorkspaceService.getTopicState).mockResolvedValue({ unresolvedProject: true });
+    const hits = [{ id: 'unresolved-topic', type: 'topic' }] as SearchResult[];
     expect(await filterDeviceSearchResults(hits, 'current')).toEqual({
       incomplete: true,
       results: [],

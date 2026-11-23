@@ -19,16 +19,15 @@ class RecentService {
     return data.filter(
       ({ id, metadata, type, workspaceDeviceScope }) =>
         type !== 'topic' ||
-        (!topicStatesById[id]?.unresolvedProject &&
-          ((!!currentDeviceId && workspaceDeviceScope === currentDeviceId) ||
-            isTopicVisibleOnDevice(
-              { id, metadata },
-              {
-                currentDeviceId: currentDeviceId ?? null,
-                topicStatesById,
-                workspacesById,
-              },
-            ))),
+        (!!currentDeviceId && workspaceDeviceScope === currentDeviceId) ||
+        isTopicVisibleOnDevice(
+          { id, metadata },
+          {
+            currentDeviceId: currentDeviceId ?? null,
+            topicStatesById,
+            workspacesById,
+          },
+        ),
     );
   };
 }

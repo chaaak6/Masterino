@@ -1,6 +1,7 @@
 import type { DeviceLocalMcpDraft, DeviceLocalMcpServer } from '@lobechat/electron-client-ipc';
 
 import { useElectronStore } from '@/store/electron';
+import { electronSyncSelectors } from '@/store/electron/selectors';
 
 import { createSkillStoreModal } from '..';
 
@@ -47,7 +48,7 @@ export const openDeviceLocalMcpSetup = (
         onClose: abort,
         onSaved: finish,
         onSavingChange,
-        setupServerUrl: useElectronStore.getState().dataSyncConfig?.remoteServerUrl,
+        setupServerUrl: electronSyncSelectors.remoteServerUrl(useElectronStore.getState()),
         setupUserId,
       },
     });

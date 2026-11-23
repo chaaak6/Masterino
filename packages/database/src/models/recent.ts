@@ -77,7 +77,7 @@ export class RecentModel {
       .where(
         and(
           buildWorkspaceWhere(scope, topics),
-          desktopTopicCondition(localDeviceId),
+          desktopTopicCondition(localDeviceId, { requireResolvedProject: true }),
           or(
             isNotNull(topics.groupId),
             eq(agents.slug, 'inbox'),

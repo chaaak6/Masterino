@@ -49,7 +49,9 @@ describe('RecentService', () => {
     const foreign = recentTopic('foreign', {
       metadata: { boundDeviceId: 'other-device', workingDirectory: '/foreign' },
     });
-    const unresolved = recentTopic('unresolved', { workspaceDeviceScope: 'local-device' });
+    const unresolved = recentTopic('unresolved', {
+      metadata: { boundDeviceId: 'local-device', workspaceId: 'gone-workspace' },
+    });
     vi.mocked(lambdaClient.recent.getAll.query).mockResolvedValue([
       scoped,
       cached,
