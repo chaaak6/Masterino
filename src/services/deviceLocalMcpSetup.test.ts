@@ -67,11 +67,13 @@ describe('setting up device-local MCP in chat', () => {
     expect(mocks.resolvePreset).toHaveBeenCalledWith('opencadstudio');
     expect(mocks.open).toHaveBeenCalledWith(launch, undefined, 'user');
     expect(receipt.state).toEqual({
+      enabledToolCount: 1,
       identifier: 'local-mcp-0123456789abcdef01234567',
       name: 'OpenCADStudio',
       status: 'configured',
       tools: ['ocs_inspect'],
     });
+    expect(receipt.content).toContain('The enabled tool count is 1');
     expect(receipt.content).toContain('ocs_inspect');
     expect(JSON.stringify(receipt)).not.toMatch(/Synthetic|--mcp|local-only-marker/);
   });

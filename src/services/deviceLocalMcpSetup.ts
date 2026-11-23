@@ -81,13 +81,14 @@ export const requestDeviceLocalMcpSetup = async (
   }
 
   const receipt = {
+    enabledToolCount: server.enabledTools.length,
     identifier: server.identifier,
     name: server.name,
     status: 'configured',
     tools: server.enabledTools,
   };
   return {
-    content: `Local MCP saved on this device. Only the tools listed in this receipt were enabled. They are available on the next message in this conversation. ${JSON.stringify(receipt)}`,
+    content: `Local MCP saved on this device. The enabled tool count is ${receipt.enabledToolCount}. The tools listed in this receipt are available on the next message in this conversation. ${JSON.stringify(receipt)}`,
     state: receipt,
     success: true,
   };
