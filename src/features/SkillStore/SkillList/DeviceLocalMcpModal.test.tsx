@@ -126,6 +126,7 @@ it('shows the data boundary in chat setup and keeps existing selected tools when
   fireEvent.click(testConnection);
   expect(await screen.findByRole('checkbox', { name: 'ocs_save' })).toBeChecked();
   expect(screen.getByText('deviceLocalMcp.description')).toBeInTheDocument();
+  expect(screen.getByText('deviceLocalMcp.useInChat')).toBeInTheDocument();
 });
 
 it('lets the user close chat setup while connection discovery is pending', () => {

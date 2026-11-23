@@ -187,46 +187,71 @@ describe('Generation Actions', () => {
   });
 
   describe('continueGeneration', () => {
-    it('keeps an unbound Electron continuation in the client runtime', async () => {
-      mockConstEnv.isDesktop = true;
-      vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(
-        () => ({ agencyConfig: {} }) as any,
-      );
-      const { useChatStore } = await import('@/store/chat');
-      vi.mocked(useChatStore.getState).mockReturnValue({
-        completeOperation: mockCompleteOperation,
-        executeClientAgent: mockExecuteClientAgent,
-        executeGatewayAgent: mockExecuteGatewayAgent,
-        failOperation: mockFailOperation,
-        isGatewayModeEnabled: vi.fn(() => false),
-        messagesMap: {},
-        operations: {},
-        operationsByMessage: {},
-        startOperation: mockStartOperation,
-        topicDataMap: {},
-      } as any);
-
-      const context: ConversationContext = {
-        agentId: 'session-1',
-        threadId: null,
-        topicId: 'topic-1',
-      };
-      const store = createStore({ context });
-      act(() => {
-        store.setState({
-          displayMessages: [{ content: 'partial', id: 'msg-1', role: 'assistant' }],
+    it.each([false, true])(
+      'keeps an Electron continuation local with selected MCP = %s',
+      async (selectedMcp) => {
+        mockConstEnv.isDesktop = true;
+        vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(
+          () => ({ agencyConfig: selectedMcp ? { executionTarget: 'local' } : {} }) as any,
+        );
+        const { useChatStore } = await import('@/store/chat');
+        vi.mocked(useChatStore.getState).mockReturnValue({
+          completeOperation: mockCompleteOperation,
+          executeClientAgent: mockExecuteClientAgent,
+          executeGatewayAgent: mockExecuteGatewayAgent,
+          failOperation: mockFailOperation,
+          isGatewayModeEnabled: vi.fn(() => selectedMcp),
+          messagesMap: {},
+          operations: {},
+          operationsByMessage: {},
+          startOperation: mockStartOperation,
+          topicDataMap: {},
         } as any);
-      });
 
-      await act(async () => {
-        await store.getState().continueGenerationMessage('msg-1', 'msg-1');
-      });
+        const context: ConversationContext = {
+          agentId: 'session-1',
+          threadId: null,
+          topicId: 'topic-1',
+        };
+        const store = createStore({ context });
+        act(() => {
+          store.setState({
+            displayMessages: [
+              ...(selectedMcp
+                ? [
+                    {
+                      editorData: {
+                        root: {
+                          children: [
+                            {
+                              actionCategory: 'tool',
+                              actionLabel: 'Local CAD',
+                              actionType: 'local-mcp-000000000000000000000001',
+                              type: 'action-tag',
+                            },
+                          ],
+                        },
+                      },
+                      id: 'request',
+                      role: 'user',
+                    },
+                  ]
+                : []),
+              { content: 'partial', id: 'msg-1', role: 'assistant' },
+            ],
+          } as any);
+        });
 
-      expect(mockExecuteClientAgent).toHaveBeenCalledWith(
-        expect.objectContaining({ context, parentMessageId: 'msg-1' }),
-      );
-      expect(mockExecuteGatewayAgent).not.toHaveBeenCalled();
-    });
+        await act(async () => {
+          await store.getState().continueGenerationMessage('msg-1', 'msg-1');
+        });
+
+        expect(mockExecuteClientAgent).toHaveBeenCalledWith(
+          expect.objectContaining({ context, parentMessageId: 'msg-1' }),
+        );
+        expect(mockExecuteGatewayAgent).not.toHaveBeenCalled();
+      },
+    );
 
     it('should continue generation from assistantGroup message with last child as blockId', async () => {
       // Reset mock to ensure all required functions are available

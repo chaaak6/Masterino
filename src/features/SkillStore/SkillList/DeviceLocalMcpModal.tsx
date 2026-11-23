@@ -228,7 +228,9 @@ const DeviceLocalMcpModalForAccount = ({
     >
       <Flexbox gap={16}>
         <div>{t('deviceLocalMcp.description')}</div>
-        {servers.some((server) => server.enabled) && <div>{t('deviceLocalMcp.useInChat')}</div>}
+        {(onSaved || servers.some((server) => server.enabled)) && (
+          <div>{t('deviceLocalMcp.useInChat', { menu: t('tools.title') })}</div>
+        )}
         {onSaved && <div>{t('deviceLocalMcp.chatSetup')}</div>}
         {loadError && <div role="alert">{t('deviceLocalMcp.loadError')}</div>}
         {!onSaved &&

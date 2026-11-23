@@ -1,6 +1,7 @@
 // Disable the auto sort key eslint rule to make the code more logic and readable
 import { type AgentRuntimeContext } from '@lobechat/agent-runtime';
 import { MESSAGE_CANCEL_FLAT } from '@lobechat/const';
+import { isDeviceLocalMcpToolIdentifier } from '@lobechat/electron-client-ipc';
 import {
   type ChatToolPayload,
   type ConversationContext,
@@ -64,6 +65,7 @@ export class ConversationControlActionImpl {
   #shouldUseGatewayResume = async (
     context: ConversationContext,
     pausedExecutionContext?: ExecutionContext,
+    toolIdentifier?: string,
   ): Promise<boolean> => {
     // Only the client runtime records this pause snapshot. If current workspace
     // settings changed while the card was waiting, do not reroute the same turn.
@@ -97,6 +99,7 @@ export class ConversationControlActionImpl {
             pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
           executionTarget:
             pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget,
+          hasSelectedLocalMcp: !!toolIdentifier && isDeviceLocalMcpToolIdentifier(toolIdentifier),
           heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
           isGatewayMode: this.#get().isGatewayModeEnabled(context.agentId),
         }),
@@ -342,7 +345,13 @@ export class ConversationControlActionImpl {
       // message, persists `intervention=approved`, dispatches the approved
       // tool, and streams results back on the new op. No in-place resume of
       // the paused op — simpler state + avoids stepIndex races.
-      if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
+      if (
+        await this.#shouldUseGatewayResume(
+          effectiveContext,
+          executionContext,
+          approvedToolCallPayload.identifier,
+        )
+      ) {
         // Snapshot paused op IDs before the resume call; retire them only
         // after executeGatewayAgent succeeds so a transient failure leaves
         // the running marker intact and `#shouldUseGatewayResume` still flags
@@ -1142,7 +1151,13 @@ export class ConversationControlActionImpl {
     // `rejected_continue` share the same code path (both surface the
     // rejection to the LLM as user feedback), so a separate `rejected`
     // decision adds complexity without behavioural difference.
-    if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
+    if (
+      await this.#shouldUseGatewayResume(
+        effectiveContext,
+        executionContext,
+        toolMessage.plugin?.identifier,
+      )
+    ) {
       const toolCallId = toolMessage.tool_call_id;
       if (!toolCallId) {
         console.warn(
@@ -1199,7 +1214,13 @@ export class ConversationControlActionImpl {
     // the LLM loop with the rejection content surfaced as user feedback.
     // Skip the client-mode `rejectToolCalling` chain below — that would fire
     // a duplicate halting `reject` before this continue signal.
-    if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
+    if (
+      await this.#shouldUseGatewayResume(
+        effectiveContext,
+        executionContext,
+        toolMessage.plugin?.identifier,
+      )
+    ) {
       const requestMetadata = this.#getResumeContextFromMessageChain(messageId).requestMetadata;
       const toolCallId = toolMessage.tool_call_id;
       if (!toolCallId) {

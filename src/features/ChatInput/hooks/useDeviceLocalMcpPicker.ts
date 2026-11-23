@@ -31,7 +31,14 @@ export const useDeviceLocalMcpPicker = (agentId: string, isHetero: boolean) => {
     workspace.context.plan.target === 'local'
       ? electronKeys.deviceLocalMcp(userId, serverUrl)
       : null;
-  const { data } = useSWR(key, () => getDeviceLocalMcpManifests(workspace.context, userId));
+  const { data, error, mutate } = useSWR(key, () =>
+    getDeviceLocalMcpManifests(workspace.context, userId),
+  );
 
-  return { manifests: key ? data : undefined, workspace };
+  return {
+    loadError: key ? Boolean(error) : false,
+    manifests: key ? data : undefined,
+    reload: mutate,
+    workspace,
+  };
 };

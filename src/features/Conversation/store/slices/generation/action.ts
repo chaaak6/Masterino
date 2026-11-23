@@ -5,6 +5,7 @@ import type {
   ChatImageItem,
   ConversationContext,
   HeterogeneousProviderConfig,
+  RuntimeSelectedTool,
 } from '@lobechat/types';
 import { t } from 'i18next';
 import { type StateCreator } from 'zustand';
@@ -83,6 +84,24 @@ const getFrozenTopicWorkspaceId = (
   // read tolerant of lifecycle tests and transitional store hydration.
   if (!chatStore.topicDataMap) return;
   return topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot?.workspaceId;
+};
+
+const getSelectedLocalMcpRoute = (
+  chatStore: ReturnType<typeof useChatStore.getState>,
+  topicId: string | undefined,
+  selectedTools: RuntimeSelectedTool[] | undefined,
+) => {
+  const hasSelectedLocalMcp = selectedTools?.some(({ identifier }) =>
+    isDeviceLocalMcpIdentifier(identifier),
+  );
+  const topicSnapshot =
+    hasSelectedLocalMcp && topicId
+      ? (getProjectWorkspaceStoreState().topicStatesById?.[topicId]?.snapshot ??
+        (chatStore.topicDataMap
+          ? topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot
+          : undefined))
+      : undefined;
+  return { hasSelectedLocalMcp, topicSnapshot };
 };
 
 /**
@@ -336,7 +355,8 @@ export const generationSlice: StateCreator<
     const chatStore = useChatStore.getState();
 
     // Find the message (blockId refers to the assistant message to continue from)
-    const message = displayMessages.find((m) => m.id === displayMessageId);
+    const messageIndex = displayMessages.findIndex((m) => m.id === displayMessageId);
+    const message = displayMessages[messageIndex];
     if (!message) return;
 
     // ===== Hook: onBeforeContinue =====
@@ -346,15 +366,25 @@ export const generationSlice: StateCreator<
     }
 
     const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
+    const topicId = context.topicId ?? undefined;
+    const previousUserMessage = displayMessages
+      .slice(0, messageIndex + 1)
+      .findLast((item) => item.role === 'user');
+    const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+      chatStore,
+      topicId,
+      parseSelectedToolsFromEditorData(previousUserMessage?.editorData ?? undefined),
+    );
     const runtimeType = await routeDesktopWorkspaceRuntime(
       selectRuntimeType({
-        boundDeviceId: agentConfig?.agencyConfig?.boundDeviceId,
-        executionTarget: agentConfig?.agencyConfig?.executionTarget,
+        boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
+        executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+        hasSelectedLocalMcp,
         heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
         isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
       }),
       {
-        topicId: context.topicId ?? undefined,
+        topicId,
         workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
       },
     );
@@ -562,16 +592,11 @@ export const generationSlice: StateCreator<
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
       const topicId = context.topicId ?? undefined;
-      const hasSelectedLocalMcp = initialContext?.initialContext?.selectedTools?.some(
-        ({ identifier }) => isDeviceLocalMcpIdentifier(identifier),
+      const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+        chatStore,
+        topicId,
+        initialContext?.initialContext?.selectedTools,
       );
-      const topicSnapshot =
-        hasSelectedLocalMcp && topicId
-          ? (getProjectWorkspaceStoreState().topicStatesById?.[topicId]?.snapshot ??
-            (chatStore.topicDataMap
-              ? topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot
-              : undefined))
-          : undefined;
       const runtimeType = await routeDesktopWorkspaceRuntime(
         selectRuntimeType({
           boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,

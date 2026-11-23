@@ -408,7 +408,11 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
   const agentId = useAgentId();
   const editor = useChatInputStore((s) => s.editor);
   const isHetero = useAgentStore(agentByIdSelectors.isAgentHeterogeneousById(agentId));
-  const { manifests: localMcpManifests } = useDeviceLocalMcpPicker(agentId, isHetero);
+  const {
+    loadError: localMcpLoadError,
+    manifests: localMcpManifests,
+    reload: reloadLocalMcp,
+  } = useDeviceLocalMcpPicker(agentId, isHetero);
   const navigate = useWorkspaceAwareNavigate();
   const { updateAgentChatConfig } = useUpdateAgentConfig();
   const [pinnedOpen, setPinnedOpen] = useState(true);
@@ -1428,9 +1432,7 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
     if (!normalizedSearchKeyword) return items;
 
     return items.filter((item) =>
-      String(item.searchText || item.key || '')
-        .toLowerCase()
-        .includes(normalizedSearchKeyword),
+      [item.key, item.searchText].join(' ').toLowerCase().includes(normalizedSearchKeyword),
     );
   };
   const allPinnedItems = allSkillItems.filter((item) => checkedSet.has(String(item.key)));
@@ -1455,6 +1457,14 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
       };
     }),
   );
+  if (localMcpLoadError)
+    localMcpItems.unshift({
+      icon: <Icon icon={McpIcon} size={SKILL_ICON_SIZE} />,
+      key: 'device-local-mcp-refresh',
+      label: `${t('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
+      onClick: () => void reloadLocalMcp().catch(() => {}),
+      searchText: t('deviceLocalMcp.title'),
+    });
 
   const renderActivationGroupLabel = ({
     autoSwitch,

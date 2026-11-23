@@ -49,7 +49,7 @@ it('shares additions and removals between both pickers and hides tools outside l
   const { rerender, result } = renderHook(
     () => ({
       first: useDeviceLocalMcpPicker('agent', false).manifests,
-      second: useDeviceLocalMcpPicker('agent', false).manifests,
+      second: useDeviceLocalMcpPicker('agent', false),
       swr: useSWRConfig(),
     }),
     { wrapper },
@@ -61,12 +61,12 @@ it('shares additions and removals between both pickers and hides tools outside l
     await result.current.swr.mutate(key);
   });
   expect(result.current.first).toEqual([server]);
-  expect(result.current.second).toEqual([server]);
+  expect(result.current.second.manifests).toEqual([server]);
 
   state.target = 'sandbox';
   rerender();
   expect(result.current.first).toBeUndefined();
-  expect(result.current.second).toBeUndefined();
+  expect(result.current.second.manifests).toBeUndefined();
 
   state.target = 'local';
   rerender();
@@ -75,5 +75,11 @@ it('shares additions and removals between both pickers and hides tools outside l
     await result.current.swr.mutate(key);
   });
   expect(result.current.first).toEqual([]);
-  expect(result.current.second).toEqual([]);
+  expect(result.current.second.manifests).toEqual([]);
+
+  load.mockRejectedValue(new Error('Account verification failed'));
+  await act(async () => {
+    await result.current.swr.mutate(key).catch(() => {});
+  });
+  expect(result.current.second.loadError).toBe(true);
 });

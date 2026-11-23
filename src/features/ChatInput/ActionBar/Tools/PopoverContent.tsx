@@ -91,7 +91,7 @@ const styles = createStaticStyles(({ css }) => ({
 }));
 
 const getSearchText = (item: NonNullable<ItemType>) =>
-  String('searchText' in item ? item.searchText : item.key || '').toLowerCase();
+  [item.key, 'searchText' in item ? item.searchText : undefined].join(' ').toLowerCase();
 
 const filterItems = (items: ItemType[], keyword: string): ItemType[] => {
   const lower = keyword.toLowerCase();

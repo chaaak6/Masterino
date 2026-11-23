@@ -44,6 +44,7 @@ const COMMAND_ICONS: Record<string, any> = {
 
 export const useSlashActionItems = (): SlashOptions['items'] => {
   const { t } = useTranslation('editor');
+  const { t: tSetting } = useTranslation('setting');
   const editorInstance = useChatInputStore((s) => s.editor);
   const activeTopicId = useChatStore((s) => s.activeTopicId);
 
@@ -67,7 +68,12 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
   const isHetero = useAgentStore((s) =>
     agentId ? agentByIdSelectors.isAgentHeterogeneousById(agentId)(s) : false,
   );
-  const { manifests: localMcpManifests, workspace } = useDeviceLocalMcpPicker(agentId, isHetero);
+  const {
+    loadError: localMcpLoadError,
+    manifests: localMcpManifests,
+    reload: reloadLocalMcp,
+    workspace,
+  } = useDeviceLocalMcpPicker(agentId, isHetero);
   const workingDirectory = workspace.cwd;
   const effectiveTarget = resolveExecutionTarget(agencyConfig, { isDesktop, isHetero });
   const isDeviceMode = effectiveTarget === 'device' && !!agencyConfig?.boundDeviceId;
@@ -218,6 +224,18 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
         }
       }
 
+      const retryLocalMcp: SlashItem | undefined = localMcpLoadError
+        ? ({
+            icon: McpIcon,
+            key: 'local-mcp-refresh',
+            label: `${tSetting('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
+            onSelect: () => {
+              void reloadLocalMcp().catch(() => {});
+            },
+          } as SlashItem)
+        : undefined;
+      if (retryLocalMcp) allItems.push(retryLocalMcp);
+
       for (const manifest of localMcpManifests ?? []) {
         const tag = createLocalMcpTag(manifest);
         allItems.push({
@@ -286,11 +304,23 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
           keys: ['key', 'label', 'metadata.searchText'],
           threshold: 0.4,
         });
-        return fuse.search(search.matchingString).map((r) => r.item);
+        const results = fuse.search(search.matchingString).map((r) => r.item);
+        if (retryLocalMcp && !results.includes(retryLocalMcp)) results.unshift(retryLocalMcp);
+        return results;
       }
 
       return allItems;
     },
-    [t, editorInstance, activeTopicId, projectSkills, agentDocumentSkills, localMcpManifests],
+    [
+      t,
+      tSetting,
+      editorInstance,
+      activeTopicId,
+      projectSkills,
+      agentDocumentSkills,
+      localMcpLoadError,
+      localMcpManifests,
+      reloadLocalMcp,
+    ],
   );
 };
