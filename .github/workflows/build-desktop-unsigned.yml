@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 265a202995f3494f269feea9df93b24603eff77f
+          ref: 7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50
 
       - name: Validate SemVer and current OSS version
         id: validate
@@ -67,7 +67,7 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           RELEASE_TAG: ${{ inputs.release_tag }}
           STAGED_RUN: ${{ inputs.publish_run_id }}
-          SOURCE_SHA: 265a202995f3494f269feea9df93b24603eff77f
+          SOURCE_SHA: 7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50
         run: |
           set -euo pipefail
 
@@ -179,7 +179,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 265a202995f3494f269feea9df93b24603eff77f
+          ref: 7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50
 
       - name: Setup desktop build environment
         uses: ./.github/actions/desktop-build-setup
@@ -337,7 +337,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 265a202995f3494f269feea9df93b24603eff77f
+          ref: 7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50
 
       - name: Setup merge environment
         uses: ./.github/actions/setup-env
@@ -410,7 +410,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: 265a202995f3494f269feea9df93b24603eff77f
+          ref: 7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50
 
       - name: Verify the staging run
         env:
@@ -429,7 +429,7 @@ jobs:
           name: merged-release
           path: release
       - name: Verify packaged source commit
-        run: test "$(cat release/source-commit.txt)" = "265a202995f3494f269feea9df93b24603eff77f"
+        run: test "$(cat release/source-commit.txt)" = "7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50"
 
       - name: Publish release files to Alibaba Cloud OSS
         uses: ./.github/actions/desktop-publish-oss
@@ -492,7 +492,7 @@ jobs:
             echo
             echo "$RELEASE_NOTES"
             echo
-            echo "- 构建源码：\`265a202995f3494f269feea9df93b24603eff77f\`（保留原有 \`${RELEASE_TAG}\` 标签位置）"
+            echo "- 构建源码：\`7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50\`（保留原有 \`${RELEASE_TAG}\` 标签位置）"
             echo "- 更新通道：canary"
             echo "- macOS：这是仅使用 ad-hoc 签名、未经 Apple 公证的内部测试包，不能直接通过 Gatekeeper。"
             echo '- 安装：拖入 Applications 后，在终端运行 `xattr -dr com.apple.quarantine /Applications/Masterino.app`。'
