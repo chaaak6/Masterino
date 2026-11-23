@@ -36,6 +36,7 @@ export const useDeviceLocalMcpPicker = (agentId: string, isHetero: boolean) => {
   );
 
   return {
+    available: Boolean(key),
     loadError: key ? Boolean(error) : false,
     manifests: key ? data : undefined,
     reload: mutate,

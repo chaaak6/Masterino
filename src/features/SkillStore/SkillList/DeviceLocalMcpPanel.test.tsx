@@ -8,7 +8,7 @@ import * as scopedSWR from '@/libs/swr';
 import { electronKeys } from '@/libs/swr/keys';
 import * as ipc from '@/utils/electron/ipc';
 
-import DeviceLocalMcpModal from './DeviceLocalMcpModal';
+import DeviceLocalMcpPanel from './DeviceLocalMcpPanel';
 
 const account = vi.hoisted(() => ({ userId: 'local-user' }));
 
@@ -23,6 +23,11 @@ afterEach(() => {
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
+
+const selectManagement = async (key: string) => {
+  fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.manage' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: `deviceLocalMcp.${key}` }));
+};
 
 it.each(['disable', 'saveTools'])(
   'refreshes saved connections when %s targets a removed row',
@@ -52,12 +57,15 @@ it.each(['disable', 'saveTools'])(
 
     render(
       <MotionProvider motion={m}>
-        <DeviceLocalMcpModal onClose={vi.fn()} />
+        <DeviceLocalMcpPanel onClose={vi.fn()} />
       </MotionProvider>,
     );
-    if (action === 'saveTools')
-      fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.editTools' }));
-    fireEvent.click(await screen.findByRole('button', { name: `deviceLocalMcp.${action}` }));
+    if (action === 'saveTools') {
+      await selectManagement('editTools');
+      fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.saveTools' }));
+    } else {
+      await selectManagement('disable');
+    }
 
     expect(await screen.findByText('deviceLocalMcp.error.serverUnavailable')).toBeInTheDocument();
     expect(await screen.findByText('Replacement connection')).toBeInTheDocument();
@@ -93,11 +101,11 @@ it('keeps a late connection refresh from showing another account’s servers', a
 
   const renderModal = () => (
     <MotionProvider motion={m}>
-      <DeviceLocalMcpModal onClose={vi.fn()} />
+      <DeviceLocalMcpPanel onClose={vi.fn()} />
     </MotionProvider>
   );
   const { rerender } = render(renderModal());
-  fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.disable' }));
+  await selectManagement('disable');
   await waitFor(() => expect(listDeviceLocalServers).toHaveBeenCalledTimes(2));
 
   account.userId = 'another-user';
@@ -117,7 +125,7 @@ it('shows the data boundary in chat setup and keeps existing selected tools when
   } as ReturnType<typeof ipc.ensureElectronIpc>);
   render(
     <MotionProvider motion={m}>
-      <DeviceLocalMcpModal draft={draft} onClose={vi.fn()} onSaved={vi.fn()} />
+      <DeviceLocalMcpPanel addOpen draft={draft} onClose={vi.fn()} onSaved={vi.fn()} />
     </MotionProvider>,
   );
   const testConnection = screen.getByRole('button', { name: 'deviceLocalMcp.test' });
@@ -139,7 +147,8 @@ it('lets the user close chat setup while connection discovery is pending', () =>
 
   render(
     <MotionProvider motion={m}>
-      <DeviceLocalMcpModal
+      <DeviceLocalMcpPanel
+        addOpen
         draft={{ command: '/local/ocs', name: 'OpenCADStudio' }}
         onClose={onClose}
         onSaved={vi.fn()}
@@ -148,7 +157,7 @@ it('lets the user close chat setup while connection discovery is pending', () =>
   );
   fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.test' }));
   expect(testDeviceLocalServer).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole('button', { name: 'close' }));
+  fireEvent.click(screen.getByRole('button', { name: 'cancel' }));
   expect(onClose).toHaveBeenCalledOnce();
 });
 
@@ -172,7 +181,7 @@ it('refreshes the conversation tool list after saving through chat setup', async
   try {
     render(
       <MotionProvider motion={m}>
-        <DeviceLocalMcpModal draft={draft} onClose={vi.fn()} onSaved={onSaved} />
+        <DeviceLocalMcpPanel addOpen draft={draft} onClose={vi.fn()} onSaved={onSaved} />
       </MotionProvider>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.test' }));
@@ -211,10 +220,10 @@ it('keeps unsaved tool changes available for retry when updating a connection fa
 
   render(
     <MotionProvider motion={m}>
-      <DeviceLocalMcpModal onClose={vi.fn()} />
+      <DeviceLocalMcpPanel onClose={vi.fn()} />
     </MotionProvider>,
   );
-  fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.editTools' }));
+  await selectManagement('editTools');
   fireEvent.click(screen.getByRole('checkbox', { name: 'save' }));
   fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.saveTools' }));
 

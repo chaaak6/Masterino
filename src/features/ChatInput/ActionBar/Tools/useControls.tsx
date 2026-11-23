@@ -409,6 +409,7 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
   const editor = useChatInputStore((s) => s.editor);
   const isHetero = useAgentStore(agentByIdSelectors.isAgentHeterogeneousById(agentId));
   const {
+    available: canUseLocalMcp,
     loadError: localMcpLoadError,
     manifests: localMcpManifests,
     reload: reloadLocalMcp,
@@ -1984,6 +1985,7 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
 
   return {
     autoCount: allAutoItems.length,
+    canUseLocalMcp,
     editPluginDrawer,
     installedPluginItems,
     marketFooter,

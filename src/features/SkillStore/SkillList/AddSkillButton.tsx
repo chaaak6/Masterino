@@ -1,4 +1,3 @@
-import { isDesktop } from '@lobechat/const';
 import { Button, DropdownMenu, Flexbox, Icon, Text } from '@lobehub/ui';
 import { ChevronDown, FileArchive, Grid2x2Plus, Link, Monitor, PenLine } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
@@ -8,7 +7,6 @@ import { CustomConnectorModal } from '@/features/Connectors';
 import { usePermission } from '@/hooks/usePermission';
 
 import ImportFromUrlModal from './ImportFromUrlModal';
-import { openDeviceLocalMcpSettings } from './openDeviceLocalMcpSetup';
 import UploadSkillModal from './UploadSkillModal';
 
 const MenuLabel = ({ desc, title }: { desc: string; title: ReactNode }) => (
@@ -20,7 +18,7 @@ const MenuLabel = ({ desc, title }: { desc: string; title: ReactNode }) => (
   </Flexbox>
 );
 
-const AddSkillButton = () => {
+const AddSkillButton = ({ onAddLocal }: { onAddLocal?: () => void }) => {
   const { t } = useTranslation('setting');
   const [showMcpModal, setMcpModal] = useState(false);
   const [showUrlModal, setUrlModal] = useState(false);
@@ -72,15 +70,15 @@ const AddSkillButton = () => {
               setMcpModal(true);
             },
           },
-          ...(isDesktop
+          ...(onAddLocal
             ? [
                 {
                   disabled: !canCreate || !canEdit,
                   icon: <Icon icon={Monitor} />,
                   key: 'deviceLocalMcp',
-                  label: t('deviceLocalMcp.title'),
+                  label: t('deviceLocalMcp.add'),
                   onClick: () => {
-                    if (canCreate && canEdit) openDeviceLocalMcpSettings();
+                    if (canCreate && canEdit) onAddLocal();
                   },
                 },
               ]

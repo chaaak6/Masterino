@@ -3,7 +3,7 @@
 import { validateVideoFileSize } from '@lobechat/utils/client';
 import type { IconProps } from '@lobehub/ui';
 import { Icon, Popover, Tag } from '@lobehub/ui';
-import { GlobeOffIcon, SkillsIcon } from '@lobehub/ui/icons';
+import { GlobeOffIcon, McpIcon, SkillsIcon } from '@lobehub/ui/icons';
 import { css, cssVar, cx } from 'antd-style';
 import {
   Brain,
@@ -25,8 +25,10 @@ import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { message } from '@/components/AntdStaticMethods';
+import { isDesktop } from '@/const/version';
 import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { openAttachKnowledgeModal } from '@/features/LibraryModal';
+import { createSkillStoreModal } from '@/features/SkillStore';
 import { useIsDark } from '@/hooks/useIsDark';
 import { useModelSupportToolUse } from '@/hooks/useModelSupportToolUse';
 import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
@@ -50,6 +52,7 @@ import { settingsSelectors } from '@/store/user/selectors';
 
 import { useAgentId } from '../../hooks/useAgentId';
 import { useUpdateAgentConfig } from '../../hooks/useUpdateAgentConfig';
+import { INSERT_ACTION_TAG_COMMAND } from '../../InputEditor/ActionTag/command';
 import { useChatInputStore } from '../../store';
 import Action from '../components/Action';
 import { type ActionDropdownMenuItems } from '../components/ActionDropdown';
@@ -335,12 +338,30 @@ const PlusAction = memo(() => {
   const closeDropdown = useCallback(() => setDropdownOpen(false), []);
   const {
     autoCount: skillAutoCount,
+    canUseLocalMcp,
     editPluginDrawer: skillEditPluginDrawer,
     marketFooter: skillMarketFooter,
     marketHeader: skillMarketHeader,
     marketItems: skillItems,
     pinnedCount: skillPinnedCount,
   } = useToolsControls({ closeDropdown });
+  const openLocalMcp = useCallback(() => {
+    closeDropdown();
+    createSkillStoreModal({
+      openLocal: true,
+      onUseLocal:
+        canUseLocalMcp && isAgentModeEnabled && enableFC && editor
+          ? ({ identifier, name }) => {
+              editor.focus();
+              editor.dispatchCommand(INSERT_ACTION_TAG_COMMAND, {
+                category: 'tool',
+                label: name,
+                type: identifier,
+              });
+            }
+          : undefined,
+    });
+  }, [canUseLocalMcp, closeDropdown, editor, enableFC, isAgentModeEnabled]);
 
   const isModelBuiltinSearchInternal = useAiInfraStore(
     aiModelSelectors.isModelBuiltinSearchInternal(model, provider),
@@ -639,7 +660,20 @@ const PlusAction = memo(() => {
         ]
       : uploadItems;
 
-    return [...attachmentsItems, ...capabilityItems];
+    return [
+      ...attachmentsItems,
+      ...(isDesktop
+        ? [
+            {
+              icon: McpIcon,
+              key: 'local-mcp',
+              label: tSetting('deviceLocalMcp.localTab'),
+              onClick: openLocalMcp,
+            },
+          ]
+        : []),
+      ...capabilityItems,
+    ];
   }, [
     activeSearchOption,
     activeWorkspaceId,
@@ -657,6 +691,7 @@ const PlusAction = memo(() => {
     isMemoryEnabled,
     isParamsPanelActive,
     knowledgeEnabledCount,
+    openLocalMcp,
     setShowTypoBar,
     showProviderSearch,
     showTypoBar,

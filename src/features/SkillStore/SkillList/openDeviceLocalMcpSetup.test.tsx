@@ -1,53 +1,42 @@
 import { MotionProvider } from '@lobehub/ui';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { m } from 'motion/react';
-import { type ComponentType, createElement, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
 import * as ipc from '@/utils/electron/ipc';
 
-import { openDeviceLocalMcpSettings, openDeviceLocalMcpSetup } from './openDeviceLocalMcpSetup';
+import type { SkillStoreOptions } from '../SkillStoreContent';
+import DeviceLocalMcpPanel from './DeviceLocalMcpPanel';
+import { openDeviceLocalMcpSetup } from './openDeviceLocalMcpSetup';
 
-const modal = vi.hoisted(() => ({ create: vi.fn(), destroy: vi.fn() }));
-vi.mock('@lobehub/ui', async (original) => ({
-  ...(await original<Record<string, unknown>>()),
-  createRawModal: modal.create,
-}));
+const store = vi.hoisted(() => ({ close: vi.fn(), open: vi.fn() }));
+vi.mock('..', () => ({ createSkillStoreModal: store.open }));
 vi.mock('@/store/user', () => ({ useUserStore: () => 'local-user' }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 
 beforeEach(() => {
-  modal.create.mockReset();
-  modal.destroy.mockClear();
+  store.open.mockReset();
+  store.close.mockClear();
 });
 
-it('opens just one setup dialog when Skills and two chat calls overlap', async () => {
-  let closeSettings = () => {};
-  modal.create.mockImplementation((_component, { onCancelSetup }) => {
-    closeSettings = onCancelSetup;
-    return { destroy: modal.destroy };
-  });
+it('routes one chat setup to local MCP and settles when the store closes', async () => {
   const chat = new AbortController();
+  store.open.mockReturnValue(store.close);
   const first = openDeviceLocalMcpSetup(undefined, chat.signal, 'local-user');
   try {
     await expect(openDeviceLocalMcpSetup(undefined, undefined, 'local-user')).resolves.toBe(
       'already-open',
     );
-    openDeviceLocalMcpSettings();
-    expect(modal.create).toHaveBeenCalledOnce();
+    expect(store.open).toHaveBeenCalledOnce();
+    const options: SkillStoreOptions = store.open.mock.lastCall?.[0];
+    expect(options.openLocal).toBe(true);
+    expect(options.setup?.setupUserId).toBe('local-user');
+    options.setup?.onClose();
+    await expect(first).resolves.toBeUndefined();
+    expect(store.close).toHaveBeenCalledOnce();
   } finally {
     chat.abort();
-    await expect(first).resolves.toBeUndefined();
-  }
-
-  openDeviceLocalMcpSettings();
-  try {
-    await expect(openDeviceLocalMcpSetup(undefined, undefined, 'local-user')).resolves.toBe(
-      'already-open',
-    );
-    expect(modal.create).toHaveBeenCalledTimes(2);
-  } finally {
-    closeSettings();
   }
 });
 
@@ -65,9 +54,9 @@ it('reports an accepted save even if chat is stopped before IPC acknowledges it'
     mcp: { saveDeviceLocalServer, testDeviceLocalServer: vi.fn().mockResolvedValue(saved.tools) },
   } as ReturnType<typeof ipc.ensureElectronIpc>);
   let dialog: ReactNode = null;
-  modal.create.mockImplementation((Component: ComponentType<any>, props: object) => {
-    dialog = createElement(Component, { ...props, open: true });
-    return { destroy: modal.destroy };
+  store.open.mockImplementation(({ setup }: SkillStoreOptions) => {
+    if (setup) dialog = <DeviceLocalMcpPanel addOpen {...setup} />;
+    return store.close;
   });
   const controller = new AbortController();
   const receipt = openDeviceLocalMcpSetup(
