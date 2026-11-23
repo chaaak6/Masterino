@@ -83,26 +83,33 @@ class MCPService {
     const { connectorSelectors } = await import('@/store/tool/slices/connector');
     const connector = connectorSelectors.connectorByIdentifier(identifier)(s);
 
-    if (connector?.mcpConnectionType === 'stdio') {
-      signal?.throwIfAborted();
+    const isStdioConnector = connector?.mcpConnectionType === 'stdio';
+    if (isStdioConnector) {
       const tool = connector.tools?.find((item) => item.toolName === apiName);
-      if (!connector.isEnabled || !tool || tool.permission === 'disabled')
+      const hasActiveManifest = connector.isEnabled && Boolean(connector.tools?.length);
+      if (tool?.permission === 'disabled' || (hasActiveManifest && !tool))
         throw new Error(`MCP tool "${apiName}" is unavailable for this connector`);
 
-      const config = connector.mcpStdioConfig;
-      if (!isDesktop || !config?.command || executionContext?.plan.target !== 'local')
-        throw new Error('Start a run on this desktop with the local MCP server installed');
+      if (hasActiveManifest) {
+        signal?.throwIfAborted();
+        const config = connector.mcpStdioConfig;
+        if (!isDesktop || !config?.command || executionContext?.plan.target !== 'local')
+          throw new Error('Start a run on this desktop with the local MCP server installed');
 
-      return this.callStdioTool({
-        args: safeParseJSON(args) ?? {},
-        env: config.env,
-        params: { args: config.args, command: config.command, name: identifier, type: 'stdio' },
-        toolName: apiName,
-      });
+        return this.callStdioTool(
+          {
+            args: safeParseJSON(args) ?? {},
+            env: config.env,
+            params: { args: config.args, command: config.command, name: identifier, type: 'stdio' },
+            toolName: apiName,
+          },
+          signal,
+        );
+      }
     }
 
     // HTTP connectors execute server-side with their stored credentials.
-    if (connector?.isEnabled && connector.mcpServerUrl) {
+    if (!isStdioConnector && connector?.isEnabled && connector.mcpServerUrl) {
       const { lambdaClient } = await import('@/libs/trpc/client');
       return (await lambdaClient.connector.callTool.mutate(
         { args, identifier, toolName: apiName },
@@ -116,6 +123,9 @@ class MCPService {
     const plugin = installPlugin || customPlugin;
 
     if (!plugin) {
+      if (isStdioConnector)
+        throw new Error(`MCP tool "${apiName}" is unavailable for this connector`);
+
       // Older tool messages can arrive without the runtime source. Check the device registry only
       // after ruling out a regular connector or plugin using this identifier.
       if (isDesktop && executionContext?.plan.target === 'local') {
@@ -131,6 +141,12 @@ class MCPService {
     }
 
     const connection = plugin.customParams?.mcp;
+    if (
+      isStdioConnector &&
+      connection?.type === 'stdio' &&
+      (!isDesktop || executionContext?.plan.target !== 'local')
+    )
+      throw new Error('Start a run on this desktop with the local MCP server installed');
     const settingsEntries = plugin.settings
       ? Object.entries(plugin.settings as Record<string, any>).filter(
           ([, value]) => value !== undefined && value !== null,
@@ -216,15 +232,13 @@ class MCPService {
           toolName: apiName,
         });
       } else if (isDesktop && isStdio) {
-        // For desktop and stdio, use IPC (main process)
-        // Note: IPC doesn't support AbortSignal yet
-        result = await this.callStdioTool(data);
+        result = await this.callStdioTool(data, signal);
       } else {
         // For other types, use the toolsClient
         result = await toolsClient.mcp.callTool.mutate(data, { signal });
       }
 
-      success = true;
+      success = result.success;
       return result;
     } catch (error) {
       const err = error as Error;
@@ -306,10 +320,29 @@ class MCPService {
     return toolsClient.mcp.getStreamableMcpServerManifest.query(params, { signal });
   }
 
-  private async callStdioTool(data: object): Promise<MCPToolCallResult> {
+  private async callStdioTool(data: object, signal?: AbortSignal): Promise<MCPToolCallResult> {
     const serialized = superjson.serialize(data);
-    const result = await ensureElectronIpc().mcp.callTool(serialized as any);
-    return superjson.deserialize(result as any);
+    const mcp = ensureElectronIpc().mcp;
+    if (!signal) return superjson.deserialize((await mcp.callTool(serialized as any)) as any);
+
+    signal.throwIfAborted();
+    const requestId = crypto.randomUUID();
+    const stopped = Promise.withResolvers<never>();
+    const onAbort = () => {
+      stopped.reject(signal.reason);
+      // Older desktop builds accept the call but do not have the cancellation handler.
+      void mcp.cancelStdioToolCall?.(requestId).catch(() => {});
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    try {
+      const result = await Promise.race([
+        mcp.callTool(serialized as any, requestId),
+        stopped.promise,
+      ]);
+      return superjson.deserialize(result as any);
+    } finally {
+      signal.removeEventListener('abort', onAbort);
+    }
   }
 
   async getStdioMcpServerManifest(

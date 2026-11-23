@@ -1,13 +1,17 @@
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
+import type { IpcMainInvokeEvent, WebContents } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type RemoteServerConfigCtr from '@/controllers/RemoteServerConfigCtr';
 import type { App } from '@/core/App';
 import { MCPClient } from '@/libs/mcp/client';
+import type { DeviceLocalMcpScope } from '@/libs/mcp/deviceLocalAccount';
 import { DeviceLocalMcpAccount } from '@/libs/mcp/deviceLocalAccount';
 import { DeviceLocalMcpSessions } from '@/libs/mcp/deviceLocalSessions';
+import { runWithIpcContext } from '@/utils/ipc';
 
 import McpCtr from '../McpCtr';
 
@@ -66,9 +70,46 @@ describe('device-local MCP desktop API', () => {
     await MCPClient.cleanupAll();
   });
 
+  it('cancels a legacy STDIO tool over IPC only from its initiating window', async () => {
+    const controller = new McpCtr(app);
+    const sender = (id: number) => ({
+      event: {} as IpcMainInvokeEvent,
+      sender: { id } as WebContents,
+    });
+    const started = Promise.withResolvers<AbortSignal>();
+    const original = MCPClient.prototype.callTool;
+    vi.spyOn(MCPClient.prototype, 'callTool').mockImplementationOnce(function (
+      this: MCPClient,
+      toolName,
+      args,
+      signal,
+    ) {
+      started.resolve(signal!);
+      return original.call(this, toolName, args, signal);
+    });
+    const disconnect = vi.spyOn(MCPClient.prototype, 'disconnect');
+    const input = {
+      args: { waitForCancel: true },
+      env: launchConfig.env,
+      params: { ...launchConfig, name: 'legacy-cad' },
+      toolName: 'inspect',
+    };
+    const call = runWithIpcContext(sender(1), () =>
+      controller.callTool({ json: input }, 'tool-request'),
+    );
+    const rejected = expect(call).rejects.toMatchObject({ name: 'AbortError' });
+    const signal = await started.promise;
+    await runWithIpcContext(sender(2), () => controller.cancelStdioToolCall('tool-request'));
+    expect(signal.aborted).toBe(false);
+    await runWithIpcContext(sender(1), () => controller.cancelStdioToolCall('tool-request'));
+    await rejected;
+    expect(signal.aborted).toBe(true);
+    expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
   it('checks that a tool is still enabled after an in-flight account lookup', async () => {
     const sessions = new DeviceLocalMcpSessions();
-    const pendingScope = Promise.withResolvers<string>();
+    const pendingScope = Promise.withResolvers<DeviceLocalMcpScope>();
     const createClient = vi.fn();
     let enabled = true;
     const invocation = sessions.call(
@@ -85,12 +126,54 @@ describe('device-local MCP desktop API', () => {
     );
     const rejected = expect(invocation).rejects.toThrow('unavailable');
 
-    pendingScope.resolve('verified-scope');
+    pendingScope.resolve({ id: 'verified-scope', matches: () => true });
     enabled = false;
     await sessions.retire('cad');
     await rejected;
     expect(createClient).not.toHaveBeenCalled();
   });
+
+  it.each(['disable', 'remove', 'deselect'])(
+    'never dispatches an initializing tool after users %s it',
+    async (action) => {
+      const controller = new McpCtr(app);
+      const { identifier } = await controller.saveDeviceLocalServer({
+        ...scope,
+        config: launchConfig,
+        enabledTools: ['inspect', 'write'],
+        name: 'Synthetic CAD',
+      });
+      const started = Promise.withResolvers<void>();
+      const initializing = Promise.withResolvers<void>();
+      vi.spyOn(MCPClient.prototype, 'initialize').mockImplementationOnce(() => {
+        started.resolve();
+        return initializing.promise;
+      });
+      const callTool = vi.spyOn(MCPClient.prototype, 'callTool');
+      const disconnect = vi.spyOn(MCPClient.prototype, 'disconnect');
+      const call = controller.callDeviceLocalTool({ ...scope, identifier, toolName: 'write' });
+      const result = expect(call).rejects.toThrow(/unavailable/i);
+      await started.promise;
+
+      try {
+        if (action === 'remove') await controller.removeDeviceLocalServer({ ...scope, identifier });
+        else if (action === 'disable')
+          await controller.updateDeviceLocalServer({ ...scope, enabled: false, identifier });
+        else
+          await controller.updateDeviceLocalServer({
+            ...scope,
+            enabled: true,
+            enabledTools: ['inspect'],
+            identifier,
+          });
+      } finally {
+        initializing.resolve();
+        await result;
+      }
+      expect(callTool).not.toHaveBeenCalled();
+      expect(disconnect).toHaveBeenCalledTimes(action === 'deselect' ? 0 : 1);
+    },
+  );
 
   it('checks the same account again when its access token refreshes during lookup', async () => {
     let token = 'before-refresh';
@@ -112,11 +195,69 @@ describe('device-local MCP desktop API', () => {
     token = 'after-refresh';
     firstResponse.resolve(new Response(null, { status: 401 }));
 
-    await expect(lookup).resolves.toMatch(/^[a-f0-9]{64}$/);
+    await expect(lookup).resolves.toMatchObject({ id: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(fetch).toHaveBeenLastCalledWith(
       'https://test.example/trpc/lambda/user.getUserState',
       expect.objectContaining({ headers: { 'Oidc-Auth': token }, redirect: 'error' }),
     );
+  });
+
+  it('keeps saved tools after changing the remote URL trailing slash', async () => {
+    const controller = new McpCtr(app);
+    const [installed] = await Promise.all(
+      ['First CAD', 'Second CAD'].map((name) =>
+        controller.saveDeviceLocalServer({
+          ...scope,
+          config: launchConfig,
+          enabledTools: ['inspect'],
+          name,
+        }),
+      ),
+    );
+    const legacyScope = createHash('sha256')
+      .update(JSON.stringify(['https://test.example/', scope.userId]))
+      .digest('hex');
+    const records = mock.settings.deviceLocalMcpServers as {
+      scope: string;
+      server: { identifier: string };
+    }[];
+    const legacyRecord = records.find((item) => item.server.identifier === installed.identifier)!;
+    legacyRecord.scope = legacyScope;
+    const listed = await controller.listDeviceLocalServers(scope);
+    expect(listed).toContainEqual(installed);
+    expect(listed).toHaveLength(2);
+    await expect(
+      controller.callDeviceLocalTool({
+        ...scope,
+        identifier: installed.identifier,
+        toolName: 'inspect',
+      }),
+    ).resolves.toMatchObject({ success: true });
+    await controller.updateDeviceLocalServer({
+      ...scope,
+      enabled: false,
+      identifier: installed.identifier,
+    });
+    expect(mock.settings.deviceLocalMcpServers).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ scope: legacyScope })]),
+    );
+  });
+
+  it('reports a legacy STDIO tool error and preserves its details', async () => {
+    const controller = new McpCtr(app);
+
+    await expect(
+      controller.runStdioMcpTool({
+        args: { toolError: true },
+        env: launchConfig.env,
+        params: { ...launchConfig, name: 'synthetic-cad', type: 'stdio' },
+        toolName: 'inspect',
+      }),
+    ).resolves.toMatchObject({
+      content: 'Invalid drawing argument',
+      state: { isError: true },
+      success: false,
+    });
   });
 
   it('discovers, persists, and invokes only authorized tools without returning launch configuration', async () => {

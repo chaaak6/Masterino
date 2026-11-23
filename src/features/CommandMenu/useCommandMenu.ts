@@ -63,7 +63,11 @@ export const useCommandMenu = () => {
   const searchQuery = debouncedSearch.trim();
   const deviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
 
-  const { data: searchResults, isLoading: isSearching } = useSWR<SearchResult[]>(
+  const {
+    data: searchResponse,
+    error: searchError,
+    isLoading: isSearching,
+  } = useSWR(
     hasSearch && (!isDesktop || deviceId)
       ? ['search', searchQuery, agentId, typeFilter, deviceId]
       : null,
@@ -77,7 +81,9 @@ export const useCommandMenu = () => {
         query: searchQuery,
         type: typeFilter,
       });
-      return isDesktop && deviceId ? filterDeviceSearchResults(results, deviceId) : results;
+      return isDesktop && deviceId
+        ? filterDeviceSearchResults(results, deviceId)
+        : { incomplete: false, results };
     },
     {
       revalidateOnFocus: false,
@@ -238,7 +244,8 @@ export const useCommandMenu = () => {
     pathname,
     search,
     searchQuery,
-    searchResults: searchResults || ([] as SearchResult[]),
+    searchResults: searchResponse?.results ?? ([] as SearchResult[]),
+    searchUnavailable: Boolean(searchError || searchResponse?.incomplete),
     selectedAgent,
     setSearch,
     setSelectedAgent,

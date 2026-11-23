@@ -25,6 +25,7 @@ for await (const line of io) {
       break;
     }
     case 'tools/call': {
+      if (params.arguments?.waitForCancel) continue;
       if (params.arguments?.rejectArguments) {
         process.stdout.write(
           JSON.stringify({
@@ -34,6 +35,10 @@ for await (const line of io) {
           }) + '\n',
         );
         continue;
+      }
+      if (params.arguments?.toolError) {
+        result = { content: [{ text: 'Invalid drawing argument', type: 'text' }], isError: true };
+        break;
       }
       calls++;
       result = {

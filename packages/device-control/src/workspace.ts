@@ -82,7 +82,7 @@ const classifyWorkspaceScanFailure = (error: unknown, scope: string): unknown =>
   if (code !== 'EACCES' && code !== 'EPERM') return error;
 
   return new WorkspaceScanError(
-    isProtectedMacFolder(failedPath) || isProtectedMacFolder(scope)
+    code === 'EPERM' && (isProtectedMacFolder(failedPath) || isProtectedMacFolder(scope))
       ? 'WORKSPACE_MACOS_FOLDER_ACCESS_DENIED'
       : 'WORKSPACE_ACCESS_DENIED',
     { cause: error },

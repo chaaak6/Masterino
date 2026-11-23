@@ -260,6 +260,51 @@ describe('Given a model stream interrupted before completion', () => {
     );
   });
 
+  it('retains received tool calls in the cancellation receipt without retrying', async () => {
+    const cancellation = new AbortController();
+    const finish = vi.fn();
+    const error = vi.fn();
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              init?.signal?.addEventListener('abort', () => controller.error(init.signal?.reason), {
+                once: true,
+              });
+              controller.enqueue(
+                new TextEncoder().encode(
+                  'event: tool_calls\ndata: [{"id":"tool","index":0,"type":"function","function":{"name":"edit","arguments":"{}"}}]\n\n',
+                ),
+              );
+            },
+          }),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+    );
+    await fetchSSE('/test', {
+      fetcher,
+      onErrorHandle: error,
+      onFinish: finish,
+      onMessageHandle: (chunk) => {
+        if (chunk.type === 'tool_calls') cancellation.abort();
+      },
+      recovery: { delayMs: 0 },
+      requireTerminalEvent: true,
+      signal: cancellation.signal,
+    });
+
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(error).not.toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledWith(
+      '',
+      expect.objectContaining({
+        toolCalls: [expect.objectContaining({ id: 'tool' })],
+        type: 'abort',
+      }),
+    );
+  });
+
   it('allows one empty EOF retry after a transient HTTP failure', async () => {
     const fetcher = vi
       .fn()

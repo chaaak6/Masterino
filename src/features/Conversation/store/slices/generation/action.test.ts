@@ -3,11 +3,13 @@ import type * as LobechatConstModule from '@lobechat/const';
 import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import { messageService } from '@/services/message';
 import { agentSelectors } from '@/store/agent/selectors';
 import * as agentDispatcher from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import * as heterogeneousAgentExecutor from '@/store/chat/slices/aiChat/actions/heterogeneousAgentExecutor';
 import { INPUT_LOADING_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
+import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { type ConversationContext, type ConversationHooks } from '../../../types';
 import { createStore } from '../../index';
@@ -28,6 +30,11 @@ const mockExecuteClientAgent = vi.fn();
 const mockIsGatewayModeEnabled = vi.fn(() => false);
 const mockExecuteGatewayAgent = vi.fn();
 const mockConstEnv = vi.hoisted(() => ({ isDesktop: false }));
+
+vi.mock('@/components/AntdStaticMethods', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  message: { error: vi.fn() },
+}));
 
 vi.mock('@lobechat/const', async (importOriginal) => {
   const actual = await importOriginal<typeof LobechatConstModule>();
@@ -717,6 +724,27 @@ describe('Generation Actions', () => {
   });
 
   describe('regenerateUserMessage', () => {
+    it('reports an unavailable workspace and leaves the current reply branch in place', async () => {
+      const check = vi
+        .spyOn(topicExecutionIntent, 'checkDesktopProjectSend')
+        .mockRejectedValueOnce(new Error('Workspace service unavailable'));
+      try {
+        const store = createStore({
+          context: { agentId: 'session-1', threadId: null, topicId: 'topic-1' },
+        });
+        store.setState({
+          displayMessages: [{ content: 'Hello', id: 'msg-1', role: 'user' }],
+        } as any);
+
+        await expect(store.getState().regenerateUserMessage('msg-1')).resolves.toBeUndefined();
+        expect(antdMessage.error).toHaveBeenCalledOnce();
+        expect(mockStartOperation).not.toHaveBeenCalled();
+        expect(mockSwitchMessageBranch).not.toHaveBeenCalled();
+      } finally {
+        check.mockRestore();
+      }
+    });
+
     it('should pass operationId to switchMessageBranch for correct context', async () => {
       // Re-setup mock with all required properties
       const { useChatStore } = await import('@/store/chat');

@@ -3,7 +3,7 @@ import type { OpenInAppId } from '@lobechat/electron-client-ipc';
 import { DropdownMenu, type DropdownMenuProps, Icon, Tooltip } from '@lobehub/ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { ChevronDownIcon } from 'lucide-react';
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { APP_ICONS } from './apps';
@@ -91,6 +91,8 @@ export interface OpenInAppButtonProps {
   workingDirectory: string;
 }
 
+const isFileManager = (id: OpenInAppId) => id === 'finder' || id === 'explorer' || id === 'files';
+
 const OpenInAppButton = memo((props: OpenInAppButtonProps) => {
   const { className, draftFolderPath, workingDirectory } = props;
   const { t } = useTranslation('openInApp');
@@ -103,6 +105,13 @@ const OpenInAppButton = memo((props: OpenInAppButtonProps) => {
 
   const defaultDisplayName = defaultAppEntry?.displayName ?? defaultApp;
   const defaultIconSrc = defaultAppEntry?.icon;
+  const launchApp = useCallback(
+    (id: OpenInAppId) => {
+      if (draftFolderPath && isFileManager(id)) void launch(id, draftFolderPath);
+      else void launch(id);
+    },
+    [draftFolderPath, launch],
+  );
 
   const dropdownItems = useMemo<DropdownMenuProps['items']>(
     () =>
@@ -110,17 +119,13 @@ const OpenInAppButton = memo((props: OpenInAppButtonProps) => {
         icon: <AppIcon icon={app.icon} id={app.id} size={14} />,
         key: app.id,
         label: app.displayName,
-        onClick: () => {
-          void launch(app.id);
-        },
+        onClick: () => launchApp(app.id),
       })),
-    [installedApps, launch],
+    [installedApps, launchApp],
   );
 
-  const fileManagerPath =
-    defaultApp === 'finder' || defaultApp === 'explorer' ? draftFolderPath : undefined;
-
-  if (!isDesktop || (!workingDirectory && !fileManagerPath)) return null;
+  if (!isDesktop || (!workingDirectory && !(draftFolderPath && isFileManager(defaultApp))))
+    return null;
   if (!ready) return null;
 
   const wrapperClassName = [styles.root, className].filter(Boolean).join(' ');
@@ -132,13 +137,7 @@ const OpenInAppButton = memo((props: OpenInAppButtonProps) => {
           aria-label={t('tooltip', { appName: defaultDisplayName })}
           className={styles.leftButton}
           role="button"
-          onClick={() => {
-            if (fileManagerPath) {
-              void launch(defaultApp, fileManagerPath);
-            } else {
-              void launch(defaultApp);
-            }
-          }}
+          onClick={() => launchApp(defaultApp)}
         >
           <AppIcon icon={defaultIconSrc} id={defaultApp} size={14} />
         </div>

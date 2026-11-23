@@ -9,9 +9,6 @@ import { electronSystemService } from '@/services/electron/system';
 import { useElectronStore } from '@/store/electron';
 import { isMacOS } from '@/utils/platform';
 
-const filesAndFoldersSettings =
-  'x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_FilesAndFolders';
-
 const WorkspaceScanRecovery = memo<{
   code: WorkspaceScanErrorCode;
   localMacDeviceId?: string;
@@ -37,7 +34,10 @@ const WorkspaceScanRecovery = memo<{
           {canOpenSettings && (
             <Button
               size="small"
-              onClick={() => void electronSystemService.openExternalLink(filesAndFoldersSettings)}
+              onClick={() => {
+                // The card also gives the manual path if System Settings cannot be opened.
+                void electronSystemService.openFilesAndFoldersSettings().catch(() => {});
+              }}
             >
               {t('workspaceScan.openSettings')}
             </Button>

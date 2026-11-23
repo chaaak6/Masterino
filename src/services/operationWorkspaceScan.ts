@@ -5,6 +5,7 @@ import {
 import type { WorkspaceInitResult, WorkspaceRef } from '@lobechat/types';
 
 import { isDesktop } from '@/const/version';
+import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { projectSkillService } from '@/services/projectSkill';
 import { useElectronStore } from '@/store/electron';
 import { isMacOS } from '@/utils/platform';
@@ -25,7 +26,10 @@ export async function scanOperationWorkspace(
 ): Promise<WorkspaceInitResult | undefined> {
   if (!workspace || !['device', 'scratch'].includes(workspace.kind) || !workspace.deviceId)
     return undefined;
-  const localDeviceId = useElectronStore.getState().gatewayDeviceInfo?.deviceId;
+  const localDeviceId = isDesktop
+    ? (useElectronStore.getState().gatewayDeviceInfo?.deviceId ??
+      (await gatewayConnectionService.getDeviceInfo().catch(() => undefined))?.deviceId)
+    : undefined;
   const local = isDesktop && localDeviceId === workspace.deviceId;
   try {
     return await projectSkillService.scanWorkspace({

@@ -2,6 +2,7 @@ import { isDesktop } from '@/const/version';
 import { lambdaClient } from '@/libs/trpc/client';
 import { type RecentItem } from '@/server/routers/lambda/recent';
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
+import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace/store';
 import { isTopicVisibleOnDevice } from '@/store/projectWorkspace/topicNavigation';
 
 class RecentService {
@@ -13,16 +14,18 @@ class RecentService {
       limit,
       localDeviceId: currentDeviceId,
     });
-    // The existing API exposes topic metadata even before server-side scoping is deployed.
+    const { topicStatesById, workspacesById } = getProjectWorkspaceStoreState();
+    // Older servers omit the scope marker. Use available ownership evidence for those rows.
     return data.filter(
-      ({ id, metadata, type }) =>
+      ({ id, metadata, type, workspaceDeviceScope }) =>
         type !== 'topic' ||
+        (!!currentDeviceId && workspaceDeviceScope === currentDeviceId) ||
         isTopicVisibleOnDevice(
           { id, metadata },
           {
             currentDeviceId: currentDeviceId ?? null,
-            topicStatesById: {},
-            workspacesById: {},
+            topicStatesById,
+            workspacesById,
           },
         ),
     );

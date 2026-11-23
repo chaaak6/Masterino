@@ -608,7 +608,8 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
         observationId,
         reasoning: !!thinking ? { content: thinking, signature: thinkingSignature } : undefined,
         speed,
-        toolCalls: finishedType === 'done' ? toolCalls : undefined,
+        // Explicit cancellation still uses tool calls to record interrupted tool messages.
+        toolCalls: finishedType === 'error' ? undefined : toolCalls,
         traceId,
         type: finishedType,
         usage,

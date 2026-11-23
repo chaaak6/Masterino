@@ -334,6 +334,21 @@ export async function openFullDiskAccessSettings(): Promise<void> {
   }
 }
 
+export async function openFilesAndFoldersSettings(systemVersion: string): Promise<void> {
+  if (!electronIs.macOS()) return;
+
+  // Launch Services can accept a URL even when its pane does not exist on this OS version.
+  const isLegacy = Number.parseInt(systemVersion, 10) < 13;
+  const privacyPane = isLegacy
+    ? 'x-apple.systempreferences:com.apple.preference.security'
+    : 'x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension';
+  try {
+    await shell.openExternal(`${privacyPane}?Privacy_FilesAndFolders`);
+  } catch {
+    await shell.openExternal(isLegacy ? `${privacyPane}?Privacy` : privacyPane);
+  }
+}
+
 /**
  * Check if Input Monitoring permission is granted
  */

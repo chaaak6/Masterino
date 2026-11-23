@@ -9,14 +9,30 @@ const accountSchema = z.object({
   result: z.object({ data: z.object({ json: z.object({ userId: z.string().min(1) }) }) }),
 });
 
+const normalizeServerUrl = (url?: string | null) => url?.trim().replace(/\/+$/, '');
+
+const hashScope = (serverUrl: string, userId: string) =>
+  createHash('sha256')
+    .update(JSON.stringify([serverUrl, userId]))
+    .digest('hex');
+
+export interface DeviceLocalMcpScope {
+  id: string;
+  matches: (stored: string) => boolean;
+}
+
 export class DeviceLocalMcpAccount {
   private cached?: { expires: number; key: string; userId: Promise<string> };
 
-  async getScope(remote: RemoteServerConfigCtr, requestedUserId: string) {
-    const [serverUrl, initialToken] = await Promise.all([
+  async getScope(
+    remote: RemoteServerConfigCtr,
+    requestedUserId: string,
+  ): Promise<DeviceLocalMcpScope> {
+    const [rawServerUrl, initialToken] = await Promise.all([
       remote.getRemoteServerUrl(),
       remote.getAccessToken(),
     ]);
+    const serverUrl = normalizeServerUrl(rawServerUrl);
     if (!serverUrl || !initialToken || !requestedUserId)
       throw new Error(deviceLocalMcpErrors.account);
 
@@ -30,7 +46,7 @@ export class DeviceLocalMcpAccount {
         remote.getRemoteServerUrl(),
         remote.getAccessToken(),
       ]);
-      if (currentUrl !== serverUrl || !currentToken) break;
+      if (normalizeServerUrl(currentUrl) !== serverUrl || !currentToken) break;
       if (currentToken !== token) {
         token = currentToken;
         continue;
@@ -38,9 +54,13 @@ export class DeviceLocalMcpAccount {
       if ('error' in outcome) throw outcome.error;
       if (outcome.userId !== requestedUserId) break;
 
-      return createHash('sha256')
-        .update(JSON.stringify([serverUrl, outcome.userId]))
-        .digest('hex');
+      const id = hashScope(serverUrl, outcome.userId);
+      // Read records saved before URL normalization, including after changing the trailing slash.
+      const compatibleScopes = new Set([id, hashScope(`${serverUrl}/`, outcome.userId)]);
+      for (const url of [rawServerUrl, currentUrl]) {
+        if (url) compatibleScopes.add(hashScope(url, outcome.userId));
+      }
+      return { id, matches: (stored) => compatibleScopes.has(stored) };
     }
     throw new Error(deviceLocalMcpErrors.account);
   }
@@ -65,10 +85,11 @@ export class DeviceLocalMcpAccount {
 
   private async fetchUserId(serverUrl: string, token: string) {
     try {
-      const response = await fetch(
-        `${serverUrl.replace(/\/+$/, '')}/trpc/lambda/user.getUserState`,
-        { headers: { 'Oidc-Auth': token }, redirect: 'error', signal: AbortSignal.timeout(5000) },
-      );
+      const response = await fetch(`${serverUrl}/trpc/lambda/user.getUserState`, {
+        headers: { 'Oidc-Auth': token },
+        redirect: 'error',
+        signal: AbortSignal.timeout(5000),
+      });
       if (response.status === 401 || response.status === 403)
         throw new Error(deviceLocalMcpErrors.account);
       if (!response.ok) throw new Error(`Account lookup failed with HTTP ${response.status}`);

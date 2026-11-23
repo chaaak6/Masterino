@@ -155,7 +155,7 @@ describe('<OpenInAppButton />', () => {
     expect(launchMock).toHaveBeenCalledWith('vscode');
   });
 
-  it.each(['finder', 'explorer'])('only routes the %s shortcut to the current draft', (appId) => {
+  it.each(['finder', 'explorer', 'files'])('routes %s to the current draft', (appId) => {
     hookReturn.defaultApp = appId;
     const { rerender } = render(
       <OpenInAppButton draftFolderPath="/tmp/draft-a" workingDirectory="/tmp/original" />,
@@ -169,7 +169,9 @@ describe('<OpenInAppButton />', () => {
     expect(launchMock).toHaveBeenLastCalledWith(appId, '/tmp/draft-b');
 
     fireEvent.click(screen.getByTestId('dropdown-item-finder'));
-    expect(launchMock).toHaveBeenLastCalledWith('finder');
+    expect(launchMock).toHaveBeenLastCalledWith('finder', '/tmp/draft-b');
+    fireEvent.click(screen.getByTestId('dropdown-item-vscode'));
+    expect(launchMock).toHaveBeenLastCalledWith('vscode');
 
     rerender(<OpenInAppButton workingDirectory="/tmp/fixed" />);
     fireEvent.click(screen.getByLabelText(/tooltip/));

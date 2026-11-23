@@ -9,7 +9,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import os, { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -96,6 +96,37 @@ describe('executeDeviceRpc', () => {
       message: 'The workspace folder is missing or is no longer a directory.',
     });
   });
+
+  it.skipIf(process.platform !== 'darwin')(
+    'distinguishes POSIX access denial from a macOS protected-folder denial',
+    async () => {
+      const protectedProject = path.join(root, 'Downloads', 'project');
+      await mkdir(protectedProject, { recursive: true });
+      const mockHome = vi.spyOn(os, 'homedir').mockReturnValue(root);
+      try {
+        const scan = (code: string) =>
+          executeDeviceRpc(
+            'initWorkspace',
+            { scope: protectedProject },
+            {
+              ...makeDeps(),
+              approveProjectRoot: async () => {
+                throw Object.assign(new Error('Permission denied'), {
+                  code,
+                  path: path.join(protectedProject, '.agents'),
+                });
+              },
+            },
+          );
+        await expect(scan('EACCES')).rejects.toMatchObject({ code: 'WORKSPACE_ACCESS_DENIED' });
+        await expect(scan('EPERM')).rejects.toMatchObject({
+          code: 'WORKSPACE_MACOS_FOLDER_ACCESS_DENIED',
+        });
+      } finally {
+        mockHome.mockRestore();
+      }
+    },
+  );
 
   it('does not auto-read workspace instructions through a symlink outside the workspace', async () => {
     const scanRoot = await mkdtemp(path.join(tmpdir(), 'device-control-instructions-'));

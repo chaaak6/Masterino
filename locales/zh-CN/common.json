@@ -175,6 +175,7 @@
   "cmdk.search.files": "文件",
   "cmdk.search.folder": "文件夹",
   "cmdk.search.folders": "文件夹",
+  "cmdk.search.incomplete": "部分搜索结果暂不可用，请重试。",
   "cmdk.search.knowledgeBase": "知识库",
   "cmdk.search.knowledgeBases": "知识库",
   "cmdk.search.loading": "搜索中…",

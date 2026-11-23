@@ -515,8 +515,11 @@ export const generationSlice: StateCreator<
             : undefined,
         });
       } catch (error) {
-        if (!(error instanceof ProjectDeviceMismatchError)) throw error;
-        antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+        antdMessage.error(
+          error instanceof ProjectDeviceMismatchError
+            ? t('workspaceRuntime.otherDeviceProject', { ns: 'chat' })
+            : t('workspaceRuntime.picker.loadError', { ns: 'chat' }),
+        );
         return;
       }
     }

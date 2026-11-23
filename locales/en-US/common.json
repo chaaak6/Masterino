@@ -175,6 +175,7 @@
   "cmdk.search.files": "Files",
   "cmdk.search.folder": "Folder",
   "cmdk.search.folders": "Folders",
+  "cmdk.search.incomplete": "Some search results are unavailable. Try again.",
   "cmdk.search.knowledgeBase": "Library",
   "cmdk.search.knowledgeBases": "Libraries",
   "cmdk.search.loading": "Searching...",

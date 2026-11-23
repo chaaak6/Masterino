@@ -18,6 +18,7 @@ import superjson from 'superjson';
 import { z } from 'zod';
 
 import FileService from '@/services/fileSrv';
+import { getIpcContext } from '@/utils/ipc';
 import { createLogger } from '@/utils/logger';
 
 import { MCPClient, MCPConnectionError } from '../libs/mcp/client';
@@ -202,6 +203,7 @@ export default class McpCtr extends ControllerModule {
 
   private readonly localSessions = new DeviceLocalMcpSessions();
   private readonly localAccount = new DeviceLocalMcpAccount();
+  private readonly stdioCalls = new Map<string, AbortController>();
 
   private get fileService() {
     return this.app.getService(FileService);
@@ -324,7 +326,8 @@ export default class McpCtr extends ControllerModule {
     }
 
     const tools = await this.probeDeviceLocalServer(config);
-    if ((await this.localScope(userId)) !== scope) throw new Error(deviceLocalMcpErrors.account);
+    if ((await this.localScope(userId)).id !== scope.id)
+      throw new Error(deviceLocalMcpErrors.account);
     const server = {
       enabled: true,
       enabledTools: this.selectLocalTools(tools, enabledTools),
@@ -337,7 +340,7 @@ export default class McpCtr extends ControllerModule {
     );
     this.app.storeManager.set('deviceLocalMcpServers', [
       ...this.localServers,
-      { encryptedConfig: encryptedConfig.toString('base64'), scope, server },
+      { encryptedConfig: encryptedConfig.toString('base64'), scope: scope.id, server },
     ]);
     return server;
   }
@@ -345,7 +348,9 @@ export default class McpCtr extends ControllerModule {
   @IpcMethod()
   async listDeviceLocalServers({ userId }: { userId: string }): Promise<DeviceLocalMcpServer[]> {
     const scope = await this.localScope(userId);
-    return this.localServers.filter((item) => item.scope === scope).map(({ server }) => server);
+    return this.localServers
+      .filter((item) => scope.matches(item.scope))
+      .map(({ server }) => server);
   }
 
   @IpcMethod()
@@ -363,7 +368,7 @@ export default class McpCtr extends ControllerModule {
     const scope = await this.localScope(userId);
     const records = this.localServers;
     const record = records.find(
-      (item) => item.scope === scope && item.server.identifier === identifier,
+      (item) => scope.matches(item.scope) && item.server.identifier === identifier,
     );
     if (!record) throw new Error(deviceLocalMcpErrors.serverUnavailable);
 
@@ -377,7 +382,7 @@ export default class McpCtr extends ControllerModule {
 
     this.app.storeManager.set(
       'deviceLocalMcpServers',
-      records.map((item) => (item === record ? { ...item, server } : item)),
+      records.map((item) => (item === record ? { ...item, scope: scope.id, server } : item)),
     );
     if (!server.enabled) await this.localSessions.retire(identifier);
     return server;
@@ -388,7 +393,7 @@ export default class McpCtr extends ControllerModule {
     const scope = await this.localScope(userId);
     if (
       !this.localServers.some(
-        (item) => item.scope === scope && item.server.identifier === identifier,
+        (item) => scope.matches(item.scope) && item.server.identifier === identifier,
       )
     )
       return;
@@ -396,7 +401,7 @@ export default class McpCtr extends ControllerModule {
     this.app.storeManager.set(
       'deviceLocalMcpServers',
       this.localServers.filter(
-        (item) => item.scope !== scope || item.server.identifier !== identifier,
+        (item) => !scope.matches(item.scope) || item.server.identifier !== identifier,
       ),
     );
     await this.localSessions.retire(identifier);
@@ -420,7 +425,7 @@ export default class McpCtr extends ControllerModule {
     const raw = await this.localSessions.call(identifier, toolName, callArguments.data, {
       authorize: (scope) => {
         const record = this.localServers.find(
-          (item) => item.scope === scope && item.server.identifier === identifier,
+          (item) => scope.matches(item.scope) && item.server.identifier === identifier,
         );
         if (!record?.server.enabled || !record.server.enabledTools.includes(toolName))
           throw new Error('This device-local MCP tool is unavailable');
@@ -582,9 +587,26 @@ export default class McpCtr extends ControllerModule {
   }
 
   @IpcMethod()
-  async callTool(payload: SuperJSONSerialized<CallToolInput>) {
+  async callTool(payload: SuperJSONSerialized<CallToolInput>, requestId?: string) {
     const input = deserializePayload<CallToolInput>(payload);
-    return serializePayload(await this.runStdioMcpTool(input));
+    const sender = getIpcContext()?.sender;
+    if (!sender || !requestId) return serializePayload(await this.runStdioMcpTool(input));
+
+    const key = `${sender.id}:${requestId}`;
+    if (this.stdioCalls.has(key)) throw new Error('Duplicate MCP request');
+    const controller = new AbortController();
+    this.stdioCalls.set(key, controller);
+    try {
+      return serializePayload(await this.runStdioMcpTool(input, controller.signal));
+    } finally {
+      this.stdioCalls.delete(key);
+    }
+  }
+
+  @IpcMethod()
+  async cancelStdioToolCall(requestId: string) {
+    const sender = getIpcContext()?.sender;
+    if (sender) this.stdioCalls.get(`${sender.id}:${requestId}`)?.abort();
   }
 
   /**
@@ -596,6 +618,7 @@ export default class McpCtr extends ControllerModule {
    */
   async runStdioMcpTool(
     input: CallToolInput,
+    signal?: AbortSignal,
   ): Promise<{ content: string; state: unknown; success: boolean }> {
     const params: MCPClientParams = {
       args: input.params.args || [],
@@ -607,20 +630,27 @@ export default class McpCtr extends ControllerModule {
 
     let client: MCPClient | undefined;
     try {
-      client = await this.createClient(params);
+      signal?.throwIfAborted();
+      if (this.app.isQuiting) throw new Error('Application is shutting down');
+      client = new MCPClient(params);
+      await client.initialize({ signal });
+      signal?.throwIfAborted();
       const args = safeParseToRecord(input.args);
 
-      const raw = (await client.callTool(input.toolName, args)) as ToolCallResult;
+      const raw = await client.callTool(input.toolName, args, signal);
+      signal?.throwIfAborted();
       const processed = raw.isError ? raw.content : await this.processContentBlocks(raw.content);
 
       const content = await toMarkdown(processed, (key) => this.fileService.getFileHTTPURL(key));
+      signal?.throwIfAborted();
 
       return {
         content,
         state: { ...raw, content: processed },
-        success: true,
+        success: !raw.isError,
       };
     } catch (error) {
+      signal?.throwIfAborted();
       // If it's an MCPConnectionError with stderr logs, enhance the error message
       if (error instanceof MCPConnectionError && error.stderrLogs.length > 0) {
         const stderrOutput = error.stderrLogs.join('\n');

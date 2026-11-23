@@ -40,6 +40,7 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
     isSearching,
     searchQuery,
     searchResults,
+    searchUnavailable,
     selectedAgent,
   } = useCommandMenu();
 
@@ -133,7 +134,7 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
           <Command.List ref={listRef}>
             {/* Hide cmdk's Empty when we have search results or are loading them,
                since force-mounted items aren't counted by cmdk's internal filter */}
-            {!(hasSearch && (searchResults.length > 0 || isSearching)) && (
+            {!(hasSearch && (searchResults.length > 0 || isSearching || searchUnavailable)) && (
               <Command.Empty>{t('cmdk.noResults')}</Command.Empty>
             )}
 
@@ -171,14 +172,21 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
             {page === 'ask-ai' && <AskAIMenu />}
 
             {!page && !selectedAgent && hasSearch && !search.trimStart().startsWith('@') && (
-              <SearchResults
-                isLoading={isSearching}
-                results={searchResults}
-                searchQuery={searchQuery}
-                typeFilter={typeFilter}
-                onClose={onClose}
-                onSetTypeFilter={setTypeFilter}
-              />
+              <>
+                {searchUnavailable && (
+                  <div className={styles.itemContent} role="status">
+                    {t('cmdk.search.incomplete')}
+                  </div>
+                )}
+                <SearchResults
+                  isLoading={isSearching}
+                  results={searchResults}
+                  searchQuery={searchQuery}
+                  typeFilter={typeFilter}
+                  onClose={onClose}
+                  onSetTypeFilter={setTypeFilter}
+                />
+              </>
             )}
           </Command.List>
 
