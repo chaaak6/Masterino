@@ -238,7 +238,7 @@ class MCPService {
         result = await toolsClient.mcp.callTool.mutate(data, { signal });
       }
 
-      success = result.success;
+      success = result?.success === true;
       return result;
     } catch (error) {
       const err = error as Error;
