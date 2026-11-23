@@ -1208,6 +1208,8 @@ When I am ___, I need ___
   'deviceLocalMcp.saveTools': 'Save tool selection',
   'deviceLocalMcp.test': 'Test local connection',
   'deviceLocalMcp.title': 'Local MCP (this device only)',
+  'deviceLocalMcp.useInChat':
+    'In a chat on this device, type / or open + → Skills to choose a local MCP.',
   'tab.addCustomMcp': 'Add Custom MCP Skill',
   'tab.addCustomMcp.desc': 'Manually configure a custom MCP server',
   'tab.addCustomSkill': 'Add',

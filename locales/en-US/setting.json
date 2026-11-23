@@ -310,6 +310,7 @@
   "deviceLocalMcp.saveTools": "Save tool selection",
   "deviceLocalMcp.test": "Test local connection",
   "deviceLocalMcp.title": "Local MCP (this device only)",
+  "deviceLocalMcp.useInChat": "In a chat on this device, type / or open + → Skills to choose a local MCP.",
   "devices.actions.edit": "Edit",
   "devices.actions.remove": "Remove",
   "devices.capabilities.commands.desc": "Safely execute terminal commands in your environment.",

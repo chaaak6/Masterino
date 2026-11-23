@@ -1,5 +1,6 @@
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
 import { LOADING_FLAT } from '@lobechat/const';
+import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import type {
   ChatImageItem,
   ConversationContext,
@@ -560,15 +561,27 @@ export const generationSlice: StateCreator<
 
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
+      const topicId = context.topicId ?? undefined;
+      const hasSelectedLocalMcp = initialContext?.initialContext?.selectedTools?.some(
+        ({ identifier }) => isDeviceLocalMcpIdentifier(identifier),
+      );
+      const topicSnapshot =
+        hasSelectedLocalMcp && topicId
+          ? (getProjectWorkspaceStoreState().topicStatesById?.[topicId]?.snapshot ??
+            (chatStore.topicDataMap
+              ? topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot
+              : undefined))
+          : undefined;
       const runtimeType = await routeDesktopWorkspaceRuntime(
         selectRuntimeType({
-          boundDeviceId: agentConfig?.agencyConfig?.boundDeviceId,
-          executionTarget: agentConfig?.agencyConfig?.executionTarget,
+          boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
+          executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+          hasSelectedLocalMcp,
           heterogeneousProvider,
           isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
         }),
         {
-          topicId: context.topicId ?? undefined,
+          topicId,
           workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
         },
       );

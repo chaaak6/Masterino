@@ -4,6 +4,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { m } from 'motion/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
+import * as scopedSWR from '@/libs/swr';
+import { electronKeys } from '@/libs/swr/keys';
 import * as ipc from '@/utils/electron/ipc';
 
 import DeviceLocalMcpModal from './DeviceLocalMcpModal';
@@ -147,6 +149,46 @@ it('lets the user close chat setup while connection discovery is pending', () =>
   expect(testDeviceLocalServer).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole('button', { name: 'close' }));
   expect(onClose).toHaveBeenCalledOnce();
+});
+
+it('refreshes the conversation tool list after saving through chat setup', async () => {
+  const draft = { command: '/local/ocs', name: 'OpenCADStudio' };
+  const server: DeviceLocalMcpServer = {
+    enabled: true,
+    enabledTools: ['ocs_inspect'],
+    identifier: 'local-mcp-000000000000000000000001',
+    name: draft.name,
+    tools: [{ inputSchema: {}, name: 'ocs_inspect' }],
+  };
+  vi.spyOn(ipc, 'ensureElectronIpc').mockReturnValue({
+    mcp: {
+      saveDeviceLocalServer: vi.fn().mockResolvedValue(server),
+      testDeviceLocalServer: vi.fn().mockResolvedValue(server.tools),
+    },
+  } as ReturnType<typeof ipc.ensureElectronIpc>);
+  const refresh = vi.spyOn(scopedSWR, 'mutate').mockResolvedValue(undefined);
+  const onSaved = vi.fn();
+  try {
+    render(
+      <MotionProvider motion={m}>
+        <DeviceLocalMcpModal draft={draft} onClose={vi.fn()} onSaved={onSaved} />
+      </MotionProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.test' }));
+    expect(await screen.findByRole('checkbox', { name: 'ocs_inspect' })).toBeChecked();
+    expect(refresh).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.save' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(server));
+    const matcher = refresh.mock.lastCall?.[0];
+    if (typeof matcher !== 'function') throw new Error('Expected a cache key matcher');
+    expect(matcher(electronKeys.deviceLocalMcp(account.userId, 'https://test.example'))).toBe(true);
+    expect(matcher(electronKeys.deviceLocalMcp('another-user', 'https://test.example'))).toBe(
+      false,
+    );
+  } finally {
+    refresh.mockRestore();
+  }
 });
 
 it('keeps unsaved tool changes available for retry when updating a connection fails', async () => {

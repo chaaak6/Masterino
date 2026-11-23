@@ -11,6 +11,8 @@ import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
+import { mutate } from '@/libs/swr';
+import { electronKeys } from '@/libs/swr/keys';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
@@ -136,6 +138,14 @@ const DeviceLocalMcpModalForAccount = ({
         setListRevision((revision) => revision + 1);
       }
     } finally {
+      if (kind === 'mutation' && userId) {
+        void mutate(
+          (key) =>
+            Array.isArray(key) && key[0] === electronKeys.deviceLocalMcp.root && key[1] === userId,
+          undefined,
+          { revalidate: true },
+        ).catch(() => {});
+      }
       setOperation(undefined);
     }
   };
@@ -218,6 +228,7 @@ const DeviceLocalMcpModalForAccount = ({
     >
       <Flexbox gap={16}>
         <div>{t('deviceLocalMcp.description')}</div>
+        {servers.some((server) => server.enabled) && <div>{t('deviceLocalMcp.useInChat')}</div>}
         {onSaved && <div>{t('deviceLocalMcp.chatSetup')}</div>}
         {loadError && <div role="alert">{t('deviceLocalMcp.loadError')}</div>}
         {!onSaved &&

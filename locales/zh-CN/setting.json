@@ -310,6 +310,7 @@
   "deviceLocalMcp.saveTools": "保存工具选择",
   "deviceLocalMcp.test": "测试本地连接",
   "deviceLocalMcp.title": "本地 MCP（仅此设备）",
+  "deviceLocalMcp.useInChat": "在本机对话中输入 /，或打开「＋ → 技能」，即可选用本地 MCP。",
   "devices.actions.edit": "编辑",
   "devices.actions.remove": "移除",
   "devices.capabilities.commands.desc": "在你的环境中安全地执行终端命令。",

@@ -51,7 +51,10 @@ import { connectorSelectors } from '@/store/tool/slices/connector';
 import { LobehubSkillStatus } from '@/store/tool/slices/lobehubSkillStore/types';
 
 import { useAgentId } from '../../hooks/useAgentId';
+import { createLocalMcpTag, useDeviceLocalMcpPicker } from '../../hooks/useDeviceLocalMcpPicker';
 import { useUpdateAgentConfig } from '../../hooks/useUpdateAgentConfig';
+import { INSERT_ACTION_TAG_COMMAND } from '../../InputEditor/ActionTag/command';
+import { useChatInputStore } from '../../store';
 import ComposioServerItem from './ComposioServerItem';
 import ComposioSkillIcon from './ComposioSkillIcon';
 import LobehubSkillIcon from './LobehubSkillIcon';
@@ -403,6 +406,9 @@ const styles = createStaticStyles(({ css }) => ({
 export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = {}) => {
   const { t } = useTranslation('setting');
   const agentId = useAgentId();
+  const editor = useChatInputStore((s) => s.editor);
+  const isHetero = useAgentStore(agentByIdSelectors.isAgentHeterogeneousById(agentId));
+  const { manifests: localMcpManifests } = useDeviceLocalMcpPicker(agentId, isHetero);
   const navigate = useWorkspaceAwareNavigate();
   const { updateAgentChatConfig } = useUpdateAgentConfig();
   const [pinnedOpen, setPinnedOpen] = useState(true);
@@ -1432,6 +1438,23 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
   // App-fixed tools always lead the pinned section, ahead of user-pinned plugins.
   const pinnedItems = filterBySearch([...fixedItems, ...allPinnedItems]);
   const autoItems = filterBySearch(allAutoItems);
+  const localMcpItems = filterBySearch(
+    (localMcpManifests ?? []).map((manifest) => {
+      const tag = createLocalMcpTag(manifest);
+      return {
+        disabled: !editor,
+        icon: <Icon icon={McpIcon} size={SKILL_ICON_SIZE} />,
+        key: tag.type,
+        label: tag.label,
+        onClick: () => {
+          closeDropdown?.();
+          editor?.focus();
+          editor?.dispatchCommand(INSERT_ACTION_TAG_COMMAND, tag);
+        },
+        searchText: [tag.label, ...manifest.api.map(({ name }) => name)].join(' '),
+      };
+    }),
+  );
 
   const renderActivationGroupLabel = ({
     autoSwitch,
@@ -1515,7 +1538,7 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
   );
 
   const marketFooter =
-    allSkillItems.length > 0 || fixedItems.length > 0 ? (
+    allSkillItems.length > 0 || fixedItems.length > 0 || !!localMcpManifests?.length ? (
       <>
         <button
           aria-label={t('plus.addSkills', { ns: 'chat' })}
@@ -1547,6 +1570,16 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
     ) : undefined;
 
   const marketItems: ItemType[] = [
+    ...(localMcpItems.length > 0
+      ? [
+          {
+            children: localMcpItems,
+            key: 'device-local-mcp',
+            label: t('deviceLocalMcp.title'),
+            type: 'group' as const,
+          },
+        ]
+      : []),
     ...(pinnedItems.length > 0
       ? [
           {

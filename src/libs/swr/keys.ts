@@ -787,6 +787,11 @@ export const sidebarKeys = {
 export const electronKeys = {
   appTrayVisible: def('electron:getAppTrayVisible', () => ['electron:getAppTrayVisible']),
   desktopHotkeys: def('electron:getDesktopHotkeys', () => ['electron:getDesktopHotkeys']),
+  deviceLocalMcp: def('electron:deviceLocalMcp', (userId: string, serverUrl?: string) => [
+    'electron:deviceLocalMcp',
+    userId,
+    serverUrl,
+  ]),
   gatewayDeviceInfo: def('electron:getGatewayDeviceInfo', () => ['electron:getGatewayDeviceInfo']),
   proxySettings: def('electron:getProxySettings', () => ['electron:getProxySettings']),
   remoteServerConfig: def('electron:getRemoteServerConfig', () => [

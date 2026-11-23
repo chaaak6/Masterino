@@ -310,6 +310,7 @@
   "deviceLocalMcp.saveTools": "Lưu lựa chọn công cụ",
   "deviceLocalMcp.test": "Kiểm tra kết nối cục bộ",
   "deviceLocalMcp.title": "MCP cục bộ (chỉ trên thiết bị này)",
+  "deviceLocalMcp.useInChat": "Trong cuộc trò chuyện trên thiết bị này, nhập / hoặc mở + → Kỹ năng để chọn MCP cục bộ.",
   "devices.actions.edit": "Chỉnh sửa",
   "devices.actions.remove": "Xóa",
   "devices.capabilities.commands.desc": "Thực thi lệnh terminal một cách an toàn trong môi trường của bạn.",

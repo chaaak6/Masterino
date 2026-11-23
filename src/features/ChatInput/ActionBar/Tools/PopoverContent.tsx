@@ -90,6 +90,9 @@ const styles = createStaticStyles(({ css }) => ({
   `,
 }));
 
+const getSearchText = (item: NonNullable<ItemType>) =>
+  String('searchText' in item ? item.searchText : item.key || '').toLowerCase();
+
 const filterItems = (items: ItemType[], keyword: string): ItemType[] => {
   const lower = keyword.toLowerCase();
 
@@ -98,19 +101,16 @@ const filterItems = (items: ItemType[], keyword: string): ItemType[] => {
       if (!item) return null;
 
       if (item.type === 'group' && 'children' in item && item.children) {
-        const filtered = item.children.filter((child) => {
-          if (!child) return false;
-          const key = String(child.key || '').toLowerCase();
-          return key.includes(lower);
-        });
+        const filtered = item.children.filter(
+          (child) => child && getSearchText(child).includes(lower),
+        );
         if (filtered.length === 0) return null;
         return { ...item, children: filtered };
       }
 
       if (item.type === 'divider') return item;
 
-      const key = String('key' in item ? item.key : '').toLowerCase();
-      return key.includes(lower) ? item : null;
+      return getSearchText(item).includes(lower) ? item : null;
     })
     .filter(Boolean) as ItemType[];
 };
