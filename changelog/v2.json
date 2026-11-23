@@ -2444,6 +2444,15 @@
   {
     "children": {
       "fixes": [
+        "restore desktop downloads in web and WeCom."
+      ]
+    },
+    "date": "2026-11-23",
+    "version": "1.3.16"
+  },
+  {
+    "children": {
+      "fixes": [
         "retain document fallback for legacy attachments.",
         "recover home input and preserve attachment and category behavior.",
         "support DeepSeek Flash input completion and settings navigation.",
