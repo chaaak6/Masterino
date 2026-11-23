@@ -157,6 +157,7 @@ export const StreamRecoveryHarness = () => {
           'reset-recovery',
           'recovery-long',
           'always-eof',
+          'partial-eof',
           'transient',
           'rate-limit',
           'unauthorized',

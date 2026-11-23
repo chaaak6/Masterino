@@ -30,6 +30,7 @@ export const STORE_DEFAULTS: ElectronMainStore = {
   appTrayVisible: true,
   autoDownloadUpdates: false,
   dataSyncConfig: { storageMode: 'cloud' },
+  deviceLocalMcpServers: [],
   encryptedTokens: {},
   gatewayDeviceDescription: '',
   gatewayDeviceId: '',

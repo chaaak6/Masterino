@@ -33,7 +33,7 @@ import {
 } from '@lobechat/context-engine';
 import type { LobeChatDatabase } from '@lobechat/database';
 import { isRemoteHeterogeneousType } from '@lobechat/heterogeneous-agents';
-import { buildTaskManagerDefaultsPrompt } from '@lobechat/prompts';
+import { appendWorkspaceInstructions, buildTaskManagerDefaultsPrompt } from '@lobechat/prompts';
 import type {
   ChatFileItem,
   ChatTopicBotContext,
@@ -713,17 +713,10 @@ export class AiAgentService {
         }),
       ]);
 
-      if (workspaceInit.instructions.length > 0) {
-        const block = workspaceInit.instructions
-          .map(
-            ({ content, source }) =>
-              `<project_instructions source="${source}">\n${content}\n</project_instructions>`,
-          )
-          .join('\n\n');
-        params.agentConfig.systemRole = params.agentConfig.systemRole
-          ? `${params.agentConfig.systemRole}\n\n${block}`
-          : block;
-      }
+      params.agentConfig.systemRole = appendWorkspaceInstructions(
+        params.agentConfig.systemRole,
+        workspaceInit.instructions,
+      );
 
       const registry = new SkillRegistryService({
         providers: [

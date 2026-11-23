@@ -1,5 +1,6 @@
 import {
   access,
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -8,7 +9,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import os, { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -63,6 +64,69 @@ describe('executeDeviceRpc', () => {
     expect(result.instructions).toEqual([{ content: '# Agents', source: 'AGENTS.md' }]);
     expect(deps.approveProjectRoot).toHaveBeenCalledWith(root);
   });
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'distinguishes an unreadable project root and re-scans after its permissions recover',
+    async () => {
+      const parent = await mkdtemp(path.join(tmpdir(), 'device-control-permission-'));
+      const scanRoot = path.join(parent, 'project');
+      await mkdir(scanRoot);
+      await writeFile(path.join(scanRoot, 'AGENTS.md'), 'Recovered instructions');
+      const scan = () => executeDeviceRpc('initWorkspace', { scope: scanRoot }, makeDeps());
+      try {
+        await chmod(parent, 0o000);
+        await expect(scan()).rejects.toMatchObject({ code: 'WORKSPACE_ACCESS_DENIED' });
+
+        await chmod(parent, 0o700);
+        await expect(scan()).resolves.toMatchObject({
+          instructions: [{ content: 'Recovered instructions', source: 'AGENTS.md' }],
+        });
+      } finally {
+        await chmod(parent, 0o700);
+        await rm(parent, { force: true, recursive: true });
+      }
+    },
+  );
+
+  it('reports a missing workspace without disclosing its absolute path', async () => {
+    await expect(
+      executeDeviceRpc('initWorkspace', { scope: path.join(root, 'missing') }, makeDeps()),
+    ).rejects.toMatchObject({
+      code: 'WORKSPACE_ROOT_MISSING',
+      message: 'The workspace folder is missing or is no longer a directory.',
+    });
+  });
+
+  it.skipIf(process.platform !== 'darwin')(
+    'distinguishes POSIX access denial from a macOS protected-folder denial',
+    async () => {
+      const protectedProject = path.join(root, 'Downloads', 'project');
+      await mkdir(protectedProject, { recursive: true });
+      const mockHome = vi.spyOn(os, 'homedir').mockReturnValue(root);
+      try {
+        const scan = (code: string) =>
+          executeDeviceRpc(
+            'initWorkspace',
+            { scope: protectedProject },
+            {
+              ...makeDeps(),
+              approveProjectRoot: async () => {
+                throw Object.assign(new Error('Permission denied'), {
+                  code,
+                  path: path.join(protectedProject, '.agents'),
+                });
+              },
+            },
+          );
+        await expect(scan('EACCES')).rejects.toMatchObject({ code: 'WORKSPACE_ACCESS_DENIED' });
+        await expect(scan('EPERM')).rejects.toMatchObject({
+          code: 'WORKSPACE_MACOS_FOLDER_ACCESS_DENIED',
+        });
+      } finally {
+        mockHome.mockRestore();
+      }
+    },
+  );
 
   it('does not auto-read workspace instructions through a symlink outside the workspace', async () => {
     const scanRoot = await mkdtemp(path.join(tmpdir(), 'device-control-instructions-'));

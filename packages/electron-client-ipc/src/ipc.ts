@@ -31,8 +31,10 @@ const createInvokeProxy = <IpcServices>(invoke: IpcInvoke): IpcServices =>
               if (typeof methodKey !== 'string') return undefined;
 
               const channel = `${groupKey}.${methodKey}`;
-              return (payload?: unknown) =>
-                payload === undefined ? invoke(channel) : invoke(channel, payload);
+              return (...args: unknown[]) =>
+                args.length === 1 && args[0] === undefined
+                  ? invoke(channel)
+                  : invoke(channel, ...args);
             },
           },
         );

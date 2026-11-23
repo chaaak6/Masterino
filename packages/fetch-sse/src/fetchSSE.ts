@@ -258,6 +258,7 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
   let finishReason: string | undefined;
   let response!: Response;
   let sawTerminalEvent = false;
+  let receivedErrorType: string | undefined;
   const fetchStartTime = Date.now();
 
   const { text, speed: smoothingSpeed } = standardizeAnimationStyle(
@@ -388,6 +389,7 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
 
       switch (ev.event) {
         case 'error': {
+          receivedErrorType = data?.type;
           finishedType = 'error';
           options.onErrorHandle?.(data);
           break;
@@ -586,6 +588,19 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
         thinkingController.flushQueue();
       }
 
+      const requestId = response.headers.get('X-Request-ID');
+      if (requestId && response.headers.get('X-Masterino-Stream-Protocol') === 'terminal-v1') {
+        console.info('[model-stream:client]', {
+          elapsedMs: Date.now() - fetchStartTime,
+          errorType: receivedErrorType,
+          finishReason,
+          operationId: traceId ?? requestId,
+          outcome: options.signal?.aborted ? 'abort' : finishedType,
+          receivedTerminal: receivedErrorType ? 'error' : sawTerminalEvent ? 'stop' : 'none',
+          requestId,
+        });
+      }
+
       await options?.onFinish?.(output, {
         ...(finishReason && { finishReason }),
         grounding,
@@ -593,7 +608,8 @@ const fetchSSEAttempt = async (url: string, options: RequestInit & FetchSSEOptio
         observationId,
         reasoning: !!thinking ? { content: thinking, signature: thinkingSignature } : undefined,
         speed,
-        toolCalls,
+        // Explicit cancellation still uses tool calls to record interrupted tool messages.
+        toolCalls: finishedType === 'error' ? undefined : toolCalls,
         traceId,
         type: finishedType,
         usage,
@@ -609,6 +625,7 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
   const maxAttempts = options.recovery
     ? Math.max(1, Math.min(3, options.recovery.maxAttempts ?? 3))
     : 1;
+  let retriedUnexpectedEnd = false;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (options.signal?.aborted) {
       await options.onFinish?.('', { type: 'abort' });
@@ -616,7 +633,7 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
     }
     let error: ChatMessageError | undefined;
     let finish: Parameters<OnFinishHandler> | undefined;
-    let mediaDelivered = false;
+    let outputDelivered = false;
     let recoveryPending = attempt > 1;
     const response = await fetchSSEAttempt(url, {
       ...options,
@@ -639,21 +656,25 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
           options.recovery?.onRecovered?.();
         }
         if (
+          ((chunk.type === 'text' || chunk.type === 'reasoning') && chunk.text?.trim()) ||
           chunk.type === 'base64_image' ||
           chunk.type === 'content_part' ||
-          chunk.type === 'reasoning_part'
+          chunk.type === 'reasoning_part' ||
+          (chunk.type === 'tool_calls' && chunk.tool_calls.length > 0)
         )
-          mediaDelivered = true;
+          outputDelivered = true;
         options.onMessageHandle?.(chunk);
       },
     });
+    const unexpectedEnd = error?.body?.reason === 'unexpected_end';
     const delay = error && getRetryDelay(error, response);
     if (
       error &&
       options.recovery &&
       attempt < maxAttempts &&
+      (!unexpectedEnd || !retriedUnexpectedEnd) &&
       delay !== undefined &&
-      !mediaDelivered &&
+      !outputDelivered &&
       !options.signal?.aborted
     ) {
       const delayMs = Math.max(
@@ -667,6 +688,7 @@ export const fetchSSE = async (url: string, options: RequestInit & FetchSSEOptio
         offline: typeof navigator !== 'undefined' && !navigator.onLine,
       });
       if (await waitForStreamRetry(delayMs, options.signal)) {
+        if (unexpectedEnd) retriedUnexpectedEnd = true;
         await options.recovery.onAttemptReset?.();
         continue;
       }

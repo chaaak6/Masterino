@@ -1,8 +1,13 @@
+import { isDesktop } from '@lobechat/const';
+import type { ToolManifest } from '@lobechat/types';
+
 import type { ConnectorToolPermission } from '@/database/schemas';
 import { lambdaClient } from '@/libs/trpc/client';
+import { mcpService } from '@/services/mcp';
 import type { StoreSetter } from '@/store/types';
 
 import type { ToolStore } from '../../store';
+import { connectorSelectors } from './selectors';
 
 type Setter = StoreSetter<ToolStore>;
 
@@ -10,10 +15,13 @@ export const createConnectorSlice = (set: Setter, get: () => ToolStore, _api?: u
   new ConnectorActionImpl(set, get, _api);
 
 export class ConnectorActionImpl {
+  readonly #get: () => ToolStore;
+
   readonly #set: Setter;
 
-  constructor(set: Setter, _get: () => ToolStore, _api?: unknown) {
+  constructor(set: Setter, get: () => ToolStore, _api?: unknown) {
     void _api;
+    this.#get = get;
     this.#set = set;
   }
 
@@ -86,9 +94,39 @@ export class ConnectorActionImpl {
       false,
       'syncConnectorTools/start',
     );
+    const connector = connectorSelectors.connectorById(id)(this.#get());
     try {
-      await lambdaClient.connector.syncTools.mutate({ id });
+      if (connector?.mcpConnectionType === 'stdio') {
+        if (!isDesktop || !connector.mcpStdioConfig?.command)
+          throw new Error('A desktop MCP command is required to sync a STDIO connector');
+
+        const manifest: ToolManifest = await mcpService.getStdioMcpServerManifest({
+          ...connector.mcpStdioConfig,
+          name: connector.identifier,
+        });
+        const localTools = manifest.api.map(({ description, name, parameters }) => ({
+          description,
+          inputSchema: parameters,
+          toolName: name,
+        }));
+        await lambdaClient.connector.syncTools.mutate({ id, localTools });
+      } else {
+        await lambdaClient.connector.syncTools.mutate({ id });
+      }
       await this.fetchConnectors();
+    } catch (error) {
+      if (isDesktop && connector?.mcpConnectionType === 'stdio') {
+        this.#set(
+          (s) => ({
+            connectors: s.connectors.map((item) =>
+              item.id === id ? { ...item, status: 'error' } : item,
+            ),
+          }),
+          false,
+          'syncConnectorTools/error',
+        );
+      }
+      throw error;
     } finally {
       this.#set(
         (s) => ({ connectorSyncing: { ...s.connectorSyncing, [id]: false } }),

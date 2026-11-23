@@ -260,6 +260,10 @@ export default {
 
   'cmdk.search.folders': 'Folders',
 
+  'cmdk.search.deviceUnavailable': 'This device is unavailable for conversation search.',
+  'cmdk.search.failed': 'Search failed. Try again.',
+  'cmdk.search.incomplete': 'Some search results are unavailable. Try again.',
+
   'cmdk.search.knowledgeBase': 'Library',
 
   'cmdk.search.knowledgeBases': 'Libraries',

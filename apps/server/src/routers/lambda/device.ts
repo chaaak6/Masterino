@@ -1,3 +1,4 @@
+import { WorkspaceScanError } from '@lobechat/device-control/workspaceError';
 import { REMOTE_HETEROGENEOUS_AGENT_CONFIGS } from '@lobechat/heterogeneous-agents';
 import type { DeviceChannel, DeviceListItem, WorkingDirEntry } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
@@ -378,10 +379,23 @@ export const deviceRouter = router({
   initWorkspace: deviceProcedure
     .input(z.object({ deviceId: z.string().min(1), scope: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
-      const result = await deviceGateway.initWorkspace({ ...input, userId: ctx.userId });
-      if (!result)
-        throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Workspace scan unavailable' });
-      return result;
+      try {
+        const result = await deviceGateway.initWorkspace({ ...input, userId: ctx.userId });
+        if (!result) {
+          throw new TRPCError({
+            code: 'PRECONDITION_FAILED',
+            message: 'Workspace scan unavailable',
+          });
+        }
+        return result;
+      } catch (error) {
+        if (!(error instanceof WorkspaceScanError)) throw error;
+        throw new TRPCError({
+          cause: { data: { workspaceScanCode: error.code } },
+          code: 'PRECONDITION_FAILED',
+          message: error.message,
+        });
+      }
     }),
 
   listProjectSkills: deviceProcedure

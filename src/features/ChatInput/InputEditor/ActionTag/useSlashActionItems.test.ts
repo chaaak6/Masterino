@@ -1,25 +1,84 @@
-import type { SkillListItem } from '@lobechat/types';
+import type { SkillListItem, ToolManifest } from '@lobechat/types';
+import type { IEditor } from '@lobehub/editor';
 import { renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { agentSkillService } from '@/services/skill';
 import { useToolStore } from '@/store/tool';
 
+import type * as localMcpPicker from '../../hooks/useDeviceLocalMcpPicker';
+import { INSERT_ACTION_TAG_COMMAND } from './command';
 import { useSlashActionItems } from './useSlashActionItems';
 
-vi.mock('../../hooks/useAgentId', () => ({ useAgentId: () => undefined }));
-vi.mock('../../store', () => ({ useChatInputStore: () => undefined }));
-vi.mock('@/hooks/useEffectiveWorkingDirectory', () => ({
-  useEffectiveWorkingDirectory: () => undefined,
+const picker = vi.hoisted(() => ({
+  loadError: undefined as 'account' | undefined,
+  manifests: [] as ToolManifest[],
+  warn: vi.fn(),
 }));
+vi.mock('@/components/AntdStaticMethods', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  message: { warning: picker.warn },
+}));
+vi.mock('../../hooks/useAgentId', () => ({ useAgentId: () => 'agent' }));
+vi.mock('../../hooks/useDeviceLocalMcpPicker', async (importOriginal) => ({
+  ...(await importOriginal<typeof localMcpPicker>()),
+  useDeviceLocalMcpPicker: () => ({
+    loadError: picker.loadError,
+    manifests: picker.manifests,
+    workspace: {},
+  }),
+}));
+vi.mock('../../store', () => ({ useChatInputStore: () => undefined }));
 vi.mock('@/hooks/useFetchProjectSkills', () => ({ useFetchProjectSkills: () => ({}) }));
 
 const previousSkills = useToolStore.getState().agentSkills;
 
 afterEach(() => {
+  picker.loadError = undefined;
+  picker.warn.mockClear();
+  picker.manifests = [];
   useToolStore.setState({ agentSkills: previousSkills });
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+
+it('gives sign-in feedback when selecting the MCP account error', async () => {
+  picker.loadError = 'account';
+  vi.spyOn(agentSkillService, 'list').mockResolvedValue({ data: [], total: 0 });
+  const { result } = renderHook(useSlashActionItems);
+  if (typeof result.current !== 'function') throw new Error('Expected a slash item provider');
+  const items = await result.current(null);
+  const item = items.find((item) => 'key' in item && item.key === 'local-mcp-refresh');
+  if (!item || !('onSelect' in item) || typeof item.onSelect !== 'function')
+    throw new Error('Expected account guidance');
+  item.onSelect({} as IEditor, '');
+  expect(picker.warn).toHaveBeenCalledOnce();
+});
+
+it('inserts a selected local MCP as a turn-scoped tool tag', async () => {
+  const identifier = 'local-mcp-000000000000000000000001';
+  picker.manifests = [
+    {
+      api: [{ description: 'Inspect the drawing', name: 'ocs_inspect', parameters: {} }],
+      identifier,
+      meta: { title: 'OpenCADStudio' },
+      type: 'mcp',
+    },
+  ];
+  vi.spyOn(agentSkillService, 'list').mockResolvedValue({ data: [], total: 0 });
+  const { result } = renderHook(useSlashActionItems);
+  if (typeof result.current !== 'function') throw new Error('Expected a slash item provider');
+  const items = await result.current(null);
+  const item = items.find((item) => 'label' in item && item.label === 'OpenCADStudio');
+  if (!item || !('onSelect' in item) || typeof item.onSelect !== 'function')
+    throw new Error('Expected a selectable MCP item');
+  const dispatchCommand = vi.fn();
+  item.onSelect({ dispatchCommand } as unknown as IEditor, '');
+  expect(dispatchCommand).toHaveBeenCalledWith(INSERT_ACTION_TAG_COMMAND, {
+    category: 'tool',
+    label: 'OpenCADStudio',
+    type: identifier,
+  });
 });
 
 it('offers a skill installed externally since the previous slash menu opened', async () => {

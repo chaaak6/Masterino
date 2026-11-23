@@ -1,3 +1,4 @@
+import { isWorkspaceScanErrorCode } from '@lobechat/device-control/workspaceError';
 import type { HeterogeneousAgentSessionError } from '@lobechat/electron-client-ipc';
 import { HeterogeneousAgentSessionErrorCode } from '@lobechat/electron-client-ipc';
 import { type ILobeAgentRuntimeErrorType } from '@lobechat/model-runtime';
@@ -26,6 +27,7 @@ import { getRuntimeErrorMessage } from '@/utils/locale/runtimeErrorMessage';
 
 import ChatInvalidAPIKey from './ChatInvalidApiKey';
 import ContextBudgetError from './ContextBudgetError';
+import WorkspaceScanRecovery from './WorkspaceScanRecovery';
 
 interface ErrorMessageData {
   error?: ChatMessageError | null;
@@ -260,7 +262,11 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
   const enableBusinessFeatures = useServerConfigStore(serverConfigSelectors.enableBusinessFeatures);
   const { allowed: canCreate } = usePermission('create_content');
   const sessionErrorBody = error?.body;
-  const rawErrorMessage = getRawErrorMessage(error) || alertError?.message;
+  const rawErrorMessage = getRawErrorMessage(error);
+  const message =
+    error?.type === AgentRuntimeErrorType.UpstreamTotalTimeout
+      ? alertError?.message || rawErrorMessage
+      : rawErrorMessage || alertError?.message;
 
   const storeApi = useConversationStoreApi();
   const regenerateAssistantMessage = useConversationStore((s) => s.regenerateAssistantMessage);
@@ -283,6 +289,26 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
     regenerateAssistantMessage,
     storeApi,
   ]);
+
+  const handleRetryWorkspaceScan = useCallback(() => {
+    if (!canCreate) return;
+    if (onRegenerate) {
+      onRegenerate();
+    } else if (validateRegenerationImages(storeApi.getState().displayMessages, data.id)) {
+      void regenerateAssistantMessage(data.id);
+    }
+  }, [canCreate, data.id, onRegenerate, regenerateAssistantMessage, storeApi]);
+
+  const scanCode: unknown = sessionErrorBody?.workspaceScanCode;
+  if (isWorkspaceScanErrorCode(scanCode)) {
+    return (
+      <WorkspaceScanRecovery
+        code={scanCode}
+        localMacDeviceId={sessionErrorBody?.workspaceScanLocalMacDeviceId}
+        onRetry={canCreate ? handleRetryWorkspaceScan : undefined}
+      />
+    );
+  }
 
   if (isHeterogeneousAgentStatusGuideError(sessionErrorBody)) {
     return (
@@ -368,7 +394,7 @@ const ErrorMessageExtra = memo<ErrorExtraProps>(({ error: alertError, data, onRe
       id={data.id}
       error={{
         ...alertError,
-        ...(rawErrorMessage ? { message: rawErrorMessage } : {}),
+        ...(message ? { message } : {}),
         extra: data.error?.body ? (
           <Highlighter
             actionIconSize={'small'}

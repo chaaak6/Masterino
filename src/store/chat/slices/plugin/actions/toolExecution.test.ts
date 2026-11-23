@@ -317,6 +317,21 @@ describe('raw tool execution boundary', () => {
     },
   );
 
+  it('passes the parent operation execution target for an ordinary MCP connector', async () => {
+    const actions = createActions();
+    const executionContext = { plan: { kind: 'sandbox', target: 'sandbox' }, version: 1 };
+    actions.messageOperationMap['tool-message-1'] = 'tool-op';
+    actions.operations['tool-op'] = { metadata: {}, parentOperationId: 'agent-op' };
+    actions.operations['agent-op'] = { metadata: { executionContext } };
+
+    await actions.internal_executeDifferentTypePlugin('tool-message-1', mcpPayload);
+
+    expect(mcpService.invokeMcpToolCall).toHaveBeenCalledWith(
+      mcpPayload,
+      expect.objectContaining({ executionContext }),
+    );
+  });
+
   it('executes an MCP tool once and returns the unified result without persistence', async () => {
     vi.mocked(mcpService.invokeMcpToolCall).mockResolvedValue({
       content: 'mcp result',

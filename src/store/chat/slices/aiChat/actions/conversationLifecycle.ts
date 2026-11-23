@@ -12,6 +12,7 @@ import {
   formatSelectedSkillsContext,
   formatSelectedToolsContext,
 } from '@lobechat/context-engine';
+import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import { chainCompressContext } from '@lobechat/prompts';
 import type {
   ChatImageItem,
@@ -496,6 +497,7 @@ export class ConversationLifecycleActionImpl {
       boundDeviceId:
         pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
       executionTarget: pendingExecution?.intent.target,
+      hasSelectedLocalMcp: selectedTools.some((tool) => isDeviceLocalMcpIdentifier(tool.identifier)),
       heterogeneousProvider,
       isGatewayMode: this.#get().isGatewayModeEnabled(agentId),
       // Callers that need to pin the runtime (e.g. task topics that were
@@ -987,7 +989,8 @@ export class ConversationLifecycleActionImpl {
       const toolContext = formatSelectedToolsContext(dedupedTools);
       const contextSuffix = [skillContext, toolContext].filter(Boolean).join('\n');
       const persistedContent = contextSuffix ? `${message}\n\n${contextSuffix}` : message;
-      const newTopicTitle = message.slice(0, 80) || t('defaultTitle', { ns: 'topic' });
+      const newTopicTitle =
+        markdownToTxt(message).trimStart().slice(0, 80) || t('defaultTitle', { ns: 'topic' });
 
       data = await aiChatService.sendMessageInServer(
         {

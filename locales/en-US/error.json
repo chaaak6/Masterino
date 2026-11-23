@@ -200,5 +200,13 @@
   "upload.storageLimitExceeded": "Your file storage has reached the plan limit. Please upgrade your plan or delete unused files to free up space.",
   "upload.title": "File upload failed. Please check your network connection or try again later",
   "upload.unknownError": "Error reason: {{reason}}",
-  "upload.uploadFailed": "File upload failed."
+  "upload.uploadFailed": "File upload failed.",
+  "workspaceScan.WORKSPACE_ACCESS_DENIED": "Can't read the workspace. Check access to the folder and try again.",
+  "workspaceScan.WORKSPACE_DEVICE_OFFLINE": "The device bound to this workspace is offline.",
+  "workspaceScan.WORKSPACE_MACOS_FOLDER_ACCESS_DENIED": "macOS denied access to this workspace folder.",
+  "workspaceScan.WORKSPACE_ROOT_MISSING": "The workspace folder is missing or is no longer a directory.",
+  "workspaceScan.WORKSPACE_SCAN_TIMEOUT": "The workspace scan timed out.",
+  "workspaceScan.macOSSettingsDescription": "In Privacy & Security → Files and Folders, allow Masterino to access this folder. Return here and retry.",
+  "workspaceScan.openSettings": "Open System Settings",
+  "workspaceScan.retry": "Retry"
 }

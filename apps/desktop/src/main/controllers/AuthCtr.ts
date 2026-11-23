@@ -13,6 +13,7 @@ import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import { appendVercelCookie } from '@/utils/http-headers';
 import { createLogger } from '@/utils/logger';
 import { netFetch } from '@/utils/net-fetch';
+import { getProtocolScheme } from '@/utils/protocol';
 
 import { ControllerModule, IpcMethod } from './index';
 import RemoteServerConfigCtr from './RemoteServerConfigCtr';
@@ -421,7 +422,7 @@ export default class AuthCtr extends ControllerModule {
       this.ensureAuthorizationAttemptCurrent(attemptId, abortController);
 
       // Generate state parameter to prevent CSRF attacks
-      const state = crypto.randomBytes(16).toString('hex');
+      const state = `${getProtocolScheme()}.${crypto.randomBytes(16).toString('hex')}`;
       this.authRequestState = state;
       const attempt: AuthorizationAttempt = {
         abortController,
@@ -528,6 +529,24 @@ export default class AuthCtr extends ControllerModule {
     }
   }
 
+  private focusOnboardingWindow() {
+    try {
+      const manager = this.app.browserManager;
+      const window = manager?.getMainWindow()?.browserWindow;
+      if (!window || window.isDestroyed()) return;
+
+      const location = new URL(window.webContents.getURL());
+      if (
+        location.pathname.startsWith('/desktop-onboarding') ||
+        location.hash.startsWith('#/desktop-onboarding')
+      ) {
+        manager.showMainWindow();
+      }
+    } catch (error) {
+      logger.warn('Could not focus the desktop onboarding window:', error);
+    }
+  }
+
   /**
    * Start polling mechanism to get credentials
    */
@@ -608,6 +627,7 @@ export default class AuthCtr extends ControllerModule {
             logger.info('Authorization successful');
             this.clearAuthorizationState();
             this.broadcastAuthorizationSuccessful();
+            this.focusOnboardingWindow();
           } else {
             logger.warn(`Authorization failed: ${exchangeResult.error || 'Unknown error'}`);
             this.clearAuthorizationState();

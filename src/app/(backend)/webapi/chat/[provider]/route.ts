@@ -29,7 +29,8 @@ export const maxDuration = 300;
 export const POST = checkAuth(async (req: Request, { params, userId, serverDB }) => {
   const provider = (await params)!.provider!;
   const inboundTracePayload = getTracePayload(req);
-  const operationId = inboundTracePayload?.traceId || randomUUID();
+  const requestId = randomUUID();
+  const operationId = inboundTracePayload?.traceId || requestId;
   let traceOptions: ReturnType<typeof createTraceOptions> | undefined;
   let requestedModel: string | undefined;
   const recordedLimits = new Set<number>();
@@ -80,7 +81,7 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
     }
 
     const responseHeaders = new Headers(traceOptions?.headers);
-    responseHeaders.set('X-Request-ID', operationId);
+    responseHeaders.set('X-Request-ID', requestId);
     if (provider === 'newapi') responseHeaders.set('X-Masterino-Stream-Protocol', 'terminal-v1');
 
     const execute = () =>
@@ -98,7 +99,7 @@ export const POST = checkAuth(async (req: Request, { params, userId, serverDB })
             },
             headers: Object.fromEntries(responseHeaders.entries()),
             metadata: { operationId, provider },
-            requestHeaders: { 'X-Request-ID': operationId },
+            requestHeaders: { 'X-Request-ID': requestId },
             signal,
             user: userId,
           }),

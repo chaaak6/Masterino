@@ -5,8 +5,8 @@ import type {
 } from 'openai/resources/index.mjs';
 import type { Stream } from 'openai/streaming';
 
-import type { ChatStreamCallbacks } from '../../types';
 import { convertOpenAIUsage } from '../usageConverters';
+import { type OpenAIStreamOptions, toOpenAIChatCompletionReadableStream } from './openai/openai';
 import type {
   ChatPayloadForTransformStream,
   StreamContext,
@@ -15,11 +15,12 @@ import type {
   StreamToolCallChunkData,
 } from './protocol';
 import {
-  convertIterableToStream,
   createCallbacksTransformer,
+  createFirstErrorHandleTransformer,
   createSSEProtocolTransformer,
   createTokenSpeedCalculator,
   generateToolCallId,
+  getStreamErrorChunk,
   setOpenAIChatCompletionUsageMissingDiagnostics,
 } from './protocol';
 
@@ -28,6 +29,9 @@ export const transformQwenStream = (
   streamContext?: StreamContext,
   payload?: ChatPayloadForTransformStream,
 ): StreamProtocolChunk | StreamProtocolChunk[] => {
+  const streamError = getStreamErrorChunk(chunk as unknown as Record<string, unknown>);
+  if (streamError) return streamError;
+
   if (streamContext) {
     if (streamContext.chunkIndex === undefined) {
       streamContext.chunkIndex = 0;
@@ -192,21 +196,11 @@ export const QwenAIStream = (
   stream: Stream<OpenAI.ChatCompletionChunk> | ReadableStream,
   // TODO: preserve for RFC 097
 
-  {
-    callbacks,
-    payload,
-    inputStartAt,
-    enableStreaming = true,
-  }: {
-    callbacks?: ChatStreamCallbacks;
-    enableStreaming?: boolean;
-    inputStartAt?: number;
-    payload?: ChatPayloadForTransformStream;
-  } = {},
+  options: OpenAIStreamOptions = {},
 ) => {
+  const { callbacks, enableStreaming = true, inputStartAt, payload } = options;
   const streamContext: StreamContext = { id: '' };
-  const readableStream =
-    stream instanceof ReadableStream ? stream : convertIterableToStream(stream);
+  const readableStream = toOpenAIChatCompletionReadableStream(stream, options);
 
   const transformWithPayload = (
     chunk: OpenAI.ChatCompletionChunk,
@@ -225,12 +219,19 @@ export const QwenAIStream = (
 
   return readableStream
     .pipeThrough(
+      createFirstErrorHandleTransformer(options.bizErrorTypeTransformer, payload?.provider),
+    )
+    .pipeThrough(
       createTokenSpeedCalculator(transformWithPayload, {
         enableStreaming,
         inputStartAt,
         streamStack: streamContext,
       }),
     )
-    .pipeThrough(createSSEProtocolTransformer((c) => c, streamContext))
+    .pipeThrough(
+      createSSEProtocolTransformer((c) => c, streamContext, {
+        requireTerminalEvent: payload?.provider === 'newapi' ? 'stop' : undefined,
+      }),
+    )
     .pipeThrough(createCallbacksTransformer(callbacks, { streamStack: streamContext }));
 };

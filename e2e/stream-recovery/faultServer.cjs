@@ -163,11 +163,6 @@ http
       res.end('event: text\ndata: invalid-json\n\n');
       return;
     }
-    event('text', scenario === 'eof-recovery' && attempt === 1 ? 'Discarded partial' : 'Report');
-    if (scenario === 'legacy-eof') {
-      res.end();
-      return;
-    }
     if (
       scenario === 'always-eof' ||
       (['eof-recovery', 'recovery-long'].includes(scenario) && attempt === 1)
@@ -176,7 +171,13 @@ http
       return;
     }
     if (scenario === 'reset-recovery' && attempt === 1) {
+      res.flushHeaders();
       setTimeout(() => res.destroy(), 100);
+      return;
+    }
+    event('text', 'Report');
+    if (['legacy-eof', 'partial-eof'].includes(scenario)) {
+      res.end();
       return;
     }
     if (scenario === 'provider-error') {

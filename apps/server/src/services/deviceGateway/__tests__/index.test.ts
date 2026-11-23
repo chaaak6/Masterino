@@ -579,6 +579,21 @@ describe('DeviceGateway', () => {
       expect(result).toBeUndefined();
     });
 
+    it.each([
+      ['{"error":"DEVICE_NOT_FOUND","success":false}', 'WORKSPACE_DEVICE_OFFLINE'],
+      ['{"error":"DEVICE_OFFLINE","success":false}', 'WORKSPACE_DEVICE_OFFLINE'],
+      ['{"error":"TIMEOUT","success":false}', 'WORKSPACE_SCAN_TIMEOUT'],
+      ['WORKSPACE_MACOS_FOLDER_ACCESS_DENIED', 'WORKSPACE_MACOS_FOLDER_ACCESS_DENIED'],
+      ['WORKSPACE_ROOT_MISSING', 'WORKSPACE_ROOT_MISSING'],
+    ])('preserves the cause of the failed scan (%s)', async (error, code) => {
+      configure();
+      mockClient.invokeRpc.mockResolvedValue({ error, success: false });
+      const proxy = new DeviceGateway();
+      await expect(
+        proxy.initWorkspace({ deviceId: 'dev-1', scope: '/proj', userId: 'user-1' }),
+      ).rejects.toMatchObject({ code });
+    });
+
     it('returns undefined when the rpc succeeds without data', async () => {
       configure();
       mockClient.invokeRpc.mockResolvedValue({ success: true });

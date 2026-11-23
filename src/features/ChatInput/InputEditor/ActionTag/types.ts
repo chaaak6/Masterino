@@ -3,7 +3,7 @@
  *
  * 1. Command      — Built-in, line-start only (slash menu), executed client-side before send
  * 2. Skill        — Skill package, inserted via @ mention, preloaded before execution
- * 3. Tool         — Explicit tool selection, inserted via @ mention, context injected directly
+ * 3. Tool         — Explicit tool selection, context injected directly
  * 4. ProjectSkill — Hetero-agent project skill (e.g. `.agents/skills/<name>/SKILL.md`),
  *                   inserted via slash menu, serialized as literal `/skill-name` so the
  *                   underlying CLI agent resolves and runs the skill itself.

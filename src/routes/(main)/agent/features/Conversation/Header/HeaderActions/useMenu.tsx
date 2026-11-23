@@ -64,7 +64,9 @@ const TopicInfoHeader = ({ authorName, title, updatedAtLabel }: TopicInfoHeaderP
   </Block>
 );
 
-export const useMenu = (): { menuHeader?: ReactNode; menuItems: DropdownItem[] } => {
+export const useMenu = (
+  showWorkspaceActions = true,
+): { menuHeader?: ReactNode; menuItems: DropdownItem[] } => {
   const { t } = useTranslation(['chat', 'topic', 'common', 'file']);
   const { message } = App.useApp();
   const { pathname } = useLocation();
@@ -248,7 +250,7 @@ export const useMenu = (): { menuHeader?: ReactNode; menuItems: DropdownItem[] }
         { type: 'divider' as const },
       );
 
-      if (isDesktop && workingDirectory) {
+      if (showWorkspaceActions && isDesktop && workingDirectory) {
         items.push({
           icon: <Icon icon={Copy} />,
           key: 'copyWorkingDirectory',
@@ -340,6 +342,7 @@ export const useMenu = (): { menuHeader?: ReactNode; menuItems: DropdownItem[] }
     activeAgentId,
     pathname,
     workingDirectory,
+    showWorkspaceActions,
     wideScreen,
     docId,
     autoRenameTopicTitle,

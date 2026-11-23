@@ -54,6 +54,15 @@ const getOperationContextFromMessage =
     return operation?.context;
   };
 
+/** Return the nearest accepted execution target, including for child tool operations. */
+const getExecutionContext = (operationId: string | undefined) => (s: ChatStoreState) => {
+  let operation = operationId ? s.operations[operationId] : undefined;
+  while (operation) {
+    if (operation.metadata?.executionContext) return operation.metadata.executionContext;
+    operation = operation.parentOperationId ? s.operations[operation.parentOperationId] : undefined;
+  }
+};
+
 /**
  * Get operations by message ID
  */
@@ -647,6 +656,7 @@ export const operationSelectors = {
   getCurrentOperationLabel,
   getCurrentOperationProgress,
   getDeepestRunningOperationByMessage,
+  getExecutionContext,
   getOperationById,
   getOperationContextFromMessage,
   getAgentRuntimeStartTimeByContext,

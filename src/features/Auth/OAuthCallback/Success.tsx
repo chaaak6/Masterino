@@ -1,10 +1,13 @@
 'use client';
 
 import { FluentEmoji, Text } from '@lobehub/ui';
+import { Button } from '@lobehub/ui/base-ui';
 import { Result } from 'antd';
 import React, { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
+
+import { getDesktopAuthorizationScheme } from '@/const/desktopAuthorization';
 
 const SuccessPage = memo(() => {
   const { t } = useTranslation('oauth');
@@ -15,7 +18,7 @@ const SuccessPage = memo(() => {
     // Check if this is a LobeHub Skill OAuth callback
     const provider = searchParams.get('provider');
 
-    if (provider && window.opener) {
+    if (searchParams.get('client') !== 'desktop' && provider && window.opener) {
       // Notify parent window about successful OAuth
       window.opener.postMessage(
         {
@@ -45,18 +48,30 @@ const SuccessPage = memo(() => {
 
   const provider = searchParams.get('provider');
 
+  const isDesktop = searchParams.get('client') === 'desktop';
+  const desktopScheme = isDesktop && getDesktopAuthorizationScheme(searchParams.get('scheme'));
+
   return (
     <Result
       icon={<FluentEmoji emoji={'✅'} size={96} type={'anim'} />}
       status="success"
+      extra={
+        desktopScheme && (
+          <Button href={`${desktopScheme}://auth/return`} type="primary">
+            {t('success.openDesktop')}
+          </Button>
+        )
+      }
       subTitle={
         <Text fontSize={16} type="secondary">
-          {provider
-            ? t('success.subTitleWithCountdown', {
-                countdown,
-                defaultValue: `You may close this page. Auto-closing in ${countdown}s...`,
-              })
-            : t('success.subTitle')}
+          {isDesktop
+            ? t('success.returnToDesktop')
+            : provider
+              ? t('success.subTitleWithCountdown', {
+                  countdown,
+                  defaultValue: `You may close this page. Auto-closing in ${countdown}s...`,
+                })
+              : t('success.subTitle')}
         </Text>
       }
       title={

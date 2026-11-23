@@ -66,13 +66,28 @@ const AssistantMessage = memo<AssistantMessageProps>(
 
     const errorContent = useErrorContent(error);
 
+    const isInterruptedStream =
+      error?.type === 'upstream_timeout' ||
+      error?.body?.reason === 'unexpected_end' ||
+      error?.type === 'UnknownChatFetchError';
     const shouldForceShowError =
-      error?.type === 'ProviderBizError' &&
-      (error?.body as any)?.provider === 'google' &&
-      !!(
-        (error?.body as any)?.context?.promptFeedback?.blockReason ||
-        (error?.body as any)?.context?.finishReason
-      );
+      isInterruptedStream ||
+      (error?.type === 'ProviderBizError' &&
+        (error?.body as any)?.provider === 'google' &&
+        !!(
+          (error?.body as any)?.context?.promptFeedback?.blockReason ||
+          (error?.body as any)?.context?.finishReason
+        ));
+
+    const hasSupplementalContent = Boolean(
+      shouldForceShowError &&
+      (item.reasoning?.content?.trim() ||
+        item.imageList?.length ||
+        item.chunksList?.length ||
+        item.search?.citations?.length ||
+        item.search?.imageResults?.length ||
+        item.metadata?.tempDisplayContent),
+    );
 
     // remove line breaks in artifact tag to make the ast transform easier
     const message = !editing ? normalizeThinkTags(processWithArtifact(content)) : content;
@@ -95,6 +110,7 @@ const AssistantMessage = memo<AssistantMessageProps>(
     const hasEmptyErrorMessage = Boolean(
       errorContent &&
       error &&
+      !hasSupplementalContent &&
       (message === LOADING_FLAT || !message || String(message).trim() === ''),
     );
 
@@ -106,6 +122,7 @@ const AssistantMessage = memo<AssistantMessageProps>(
         belowMessage={hasEmptyErrorMessage ? footerRender : undefined}
         customErrorRender={(error) => <ErrorMessageExtra data={item} error={error} />}
         editing={editing}
+        hasSupplementalContent={hasSupplementalContent}
         id={id}
         loading={generating || isCreating}
         message={message}

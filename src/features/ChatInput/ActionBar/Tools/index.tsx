@@ -1,5 +1,5 @@
 import { Blocks } from 'lucide-react';
-import { memo, Suspense, useCallback } from 'react';
+import { memo, Suspense, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { createSkillStoreModal } from '@/features/SkillStore';
@@ -14,7 +14,9 @@ import { useControls } from './useControls';
 
 const Tools = memo(() => {
   const { t } = useTranslation('setting');
-  const { marketItems, editPluginDrawer, pinnedCount, autoCount } = useControls();
+  const [open, setOpen] = useState(false);
+  const closeDropdown = useCallback(() => setOpen(false), []);
+  const { marketItems, editPluginDrawer, pinnedCount, autoCount } = useControls({ closeDropdown });
 
   const agentId = useAgentId();
   const model = useAgentStore((s) => agentByIdSelectors.getAgentModelById(agentId)(s));
@@ -33,8 +35,10 @@ const Tools = memo(() => {
     <Suspense fallback={<Action disabled icon={Blocks} title={t('tools.title')} />}>
       <Action
         icon={Blocks}
+        open={open}
         showTooltip={false}
         title={t('tools.title')}
+        onOpenChange={setOpen}
         popover={{
           content: (
             <PopoverContent
