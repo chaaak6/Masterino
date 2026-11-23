@@ -24,6 +24,22 @@ import { useCommandMenuContext } from './CommandMenuContext';
 import { filterDeviceSearchResults } from './filterDeviceSearchResults';
 import { type ThemeMode } from './types';
 
+export const getSearchAvailability = ({
+  debouncePending,
+  deviceMissing,
+  isDeviceLoading,
+  requested,
+}: {
+  debouncePending: boolean;
+  deviceMissing: boolean;
+  isDeviceLoading: boolean;
+  requested: boolean;
+}) => {
+  if (!requested) return 'idle';
+  if (deviceMissing) return isDeviceLoading ? 'loading' : 'deviceUnavailable';
+  return debouncePending ? 'loading' : 'ready';
+};
+
 /**
  * Shared methods for CommandMenu
  */
@@ -62,19 +78,26 @@ export const useCommandMenu = () => {
   const inputQuery = search.trim();
   const hasSearch = inputQuery.length > 0;
   const searchQuery = debouncedSearch.trim();
-  const deviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+  const knownDeviceId = useElectronStore((s) => s.gatewayDeviceInfo?.deviceId);
+  const useFetchGatewayDeviceInfo = useElectronStore((s) => s.useFetchGatewayDeviceInfo);
   const searchRequested = hasSearch && !inputQuery.startsWith('@') && !selectedAgent && !page;
-  const waitingToSearch =
-    searchRequested && (inputQuery !== searchQuery || (isDesktop && !deviceId));
+  const { data: deviceInfo, isLoading: isDeviceLoading } = useFetchGatewayDeviceInfo(
+    isDesktop && searchRequested && !knownDeviceId,
+  );
+  const deviceId = knownDeviceId ?? deviceInfo?.deviceId;
+  const searchAvailability = getSearchAvailability({
+    debouncePending: inputQuery !== searchQuery,
+    deviceMissing: isDesktop && !deviceId,
+    isDeviceLoading,
+    requested: searchRequested,
+  });
 
   const {
     data: searchResponse,
     error: searchError,
     isLoading,
   } = useSWR(
-    searchRequested && !waitingToSearch
-      ? ['search', searchQuery, agentId, typeFilter, deviceId]
-      : null,
+    searchAvailability === 'ready' ? ['search', searchQuery, agentId, typeFilter, deviceId] : null,
     async () => {
       const locale = globalHelpers.getCurrentLanguage();
       const results = await lambdaClient.search.query.query({
@@ -240,13 +263,14 @@ export const useCommandMenu = () => {
     handleSendToSelectedAgent,
     handleThemeChange,
     hasSearch,
-    isSearching: waitingToSearch || isLoading,
+    isSearching: searchAvailability === 'loading' || isLoading,
     mounted,
     open,
     page,
     pages,
     pathname,
     search,
+    searchDeviceUnavailable: searchAvailability === 'deviceUnavailable',
     searchQuery,
     searchResults: searchResponse?.results ?? ([] as SearchResult[]),
     searchFailed: Boolean(searchError && !searchResponse),

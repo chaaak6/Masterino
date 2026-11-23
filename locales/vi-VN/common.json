@@ -171,6 +171,7 @@
   "cmdk.search.chatGroup": "Nhóm Đại Diện",
   "cmdk.search.chatGroups": "Các Nhóm Đại Diện",
   "cmdk.search.communityAgent": "Tác nhân cộng đồng",
+  "cmdk.search.deviceUnavailable": "Thiết bị hiện tại không khả dụng để tìm kiếm cuộc trò chuyện.",
   "cmdk.search.failed": "Tìm kiếm thất bại. Vui lòng thử lại.",
   "cmdk.search.file": "Tệp",
   "cmdk.search.files": "Tệp",

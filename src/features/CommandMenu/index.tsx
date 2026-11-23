@@ -38,6 +38,7 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
     handleSendToSelectedAgent,
     hasSearch,
     isSearching,
+    searchDeviceUnavailable,
     searchQuery,
     searchResults,
     searchFailed,
@@ -140,7 +141,11 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
                since force-mounted items aren't counted by cmdk's internal filter */}
             {!(
               showSearchResults &&
-              (searchResults.length > 0 || isSearching || searchFailed || searchIncomplete)
+              (searchResults.length > 0 ||
+                isSearching ||
+                searchDeviceUnavailable ||
+                searchFailed ||
+                searchIncomplete)
             ) && <Command.Empty>{t('cmdk.noResults')}</Command.Empty>}
 
             {/* Show send command when agent is selected */}
@@ -178,9 +183,15 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
 
             {showSearchResults && (
               <>
-                {(searchFailed || searchIncomplete) && (
+                {(searchDeviceUnavailable || searchFailed || searchIncomplete) && (
                   <div className={styles.itemContent} role="status">
-                    {t(searchFailed ? 'cmdk.search.failed' : 'cmdk.search.incomplete')}
+                    {t(
+                      searchDeviceUnavailable
+                        ? 'cmdk.search.deviceUnavailable'
+                        : searchFailed
+                          ? 'cmdk.search.failed'
+                          : 'cmdk.search.incomplete',
+                    )}
                   </div>
                 )}
                 <SearchResults

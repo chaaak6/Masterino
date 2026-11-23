@@ -171,6 +171,7 @@
   "cmdk.search.chatGroup": "团队",
   "cmdk.search.chatGroups": "团队",
   "cmdk.search.communityAgent": "社区助理",
+  "cmdk.search.deviceUnavailable": "当前设备不可用，暂时无法搜索会话。",
   "cmdk.search.failed": "搜索失败，请重试。",
   "cmdk.search.file": "文件",
   "cmdk.search.files": "文件",
