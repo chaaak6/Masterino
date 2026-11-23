@@ -1460,10 +1460,15 @@ export const useControls = ({ closeDropdown }: { closeDropdown?: () => void } = 
   );
   if (localMcpLoadError)
     localMcpItems.unshift({
+      disabled: localMcpLoadError === 'account',
       icon: <Icon icon={McpIcon} size={SKILL_ICON_SIZE} />,
       key: 'device-local-mcp-refresh',
-      label: `${t('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
-      onClick: () => void reloadLocalMcp().catch(() => {}),
+      label:
+        localMcpLoadError === 'account'
+          ? t('deviceLocalMcp.error.account')
+          : `${t('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
+      onClick:
+        localMcpLoadError === 'retry' ? () => void reloadLocalMcp().catch(() => {}) : undefined,
       searchText: t('deviceLocalMcp.title'),
     });
 

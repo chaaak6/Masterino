@@ -132,6 +132,14 @@ describe('SkillStoreContent', () => {
     expect(screen.queryByText('deviceLocalMcp.localTab')).toBeNull();
   });
 
+  it('does not mount market lists on a direct local visit', () => {
+    render(<SkillStoreContent openLocal />);
+    expect(screen.queryByTestId('mcp-list')).toBeNull();
+    expect(screen.queryByTestId('skill-list')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.serverTab' }));
+    expect(screen.getByTestId('mcp-list')).toBeVisible();
+  });
+
   it('reuses the open store when chat starts local setup', () => {
     const onClose = vi.fn();
     modal.create.mockReturnValue({ close: vi.fn(), update: modal.update });
@@ -145,5 +153,38 @@ describe('SkillStoreContent', () => {
       close?.();
     }
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('restores the existing tab when chat setup finishes', () => {
+    const closeWindow = vi.fn();
+    modal.create.mockReturnValue({ close: closeWindow, update: modal.update });
+    const close = createSkillStoreModal();
+    try {
+      const { rerender } = render(modal.create.mock.lastCall?.[0].children);
+      fireEvent.click(screen.getByRole('button', { name: 'skillStore.tabs.skills' }));
+      const finishSetup = createSkillStoreModal({ openLocal: true, setup: { onClose: vi.fn() } });
+      rerender(modal.update.mock.lastCall?.[0].children);
+      expect(screen.getByLabelText('local setup')).toBeVisible();
+
+      finishSetup?.();
+      rerender(modal.update.mock.lastCall?.[0].children);
+      expect(screen.getByTestId('skill-list')).toBeVisible();
+      expect(screen.queryByLabelText('local setup')).toBeNull();
+      expect(closeWindow).not.toHaveBeenCalled();
+    } finally {
+      close?.();
+    }
+  });
+
+  it('does not replace a local configuration already opened by the user', () => {
+    modal.create.mockReturnValue({ close: vi.fn(), update: modal.update });
+    const close = createSkillStoreModal({ openLocal: true });
+    try {
+      expect(
+        createSkillStoreModal({ openLocal: true, setup: { onClose: vi.fn() } }),
+      ).toBeUndefined();
+    } finally {
+      close?.();
+    }
   });
 });

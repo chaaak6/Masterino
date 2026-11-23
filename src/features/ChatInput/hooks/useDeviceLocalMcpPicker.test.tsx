@@ -1,4 +1,5 @@
 import type * as appConst from '@lobechat/const';
+import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
 import type { ToolManifest } from '@lobechat/types';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -77,9 +78,17 @@ it('shares additions and removals between both pickers and hides tools outside l
   expect(result.current.first).toEqual([]);
   expect(result.current.second.manifests).toEqual([]);
 
-  load.mockRejectedValue(new Error('Account verification failed'));
+  load.mockResolvedValue([server]);
+  await act(async () => {
+    await result.current.swr.mutate(key);
+  });
+  expect(result.current.first).toEqual([server]);
+
+  load.mockRejectedValue(new Error(deviceLocalMcpErrors.account));
   await act(async () => {
     await result.current.swr.mutate(key).catch(() => {});
   });
-  expect(result.current.second.loadError).toBe(true);
+  expect(result.current.first).toBeUndefined();
+  expect(result.current.second.manifests).toBeUndefined();
+  expect(result.current.second.loadError).toBe('account');
 });

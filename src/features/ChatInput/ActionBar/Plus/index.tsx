@@ -53,7 +53,7 @@ import { settingsSelectors } from '@/store/user/selectors';
 import { useAgentId } from '../../hooks/useAgentId';
 import { useUpdateAgentConfig } from '../../hooks/useUpdateAgentConfig';
 import { INSERT_ACTION_TAG_COMMAND } from '../../InputEditor/ActionTag/command';
-import { useChatInputStore } from '../../store';
+import { useChatInputStore, useStoreApi } from '../../store';
 import Action from '../components/Action';
 import { type ActionDropdownMenuItems } from '../components/ActionDropdown';
 import { useControls as useKnowledgeControls } from '../Knowledge/useControls';
@@ -324,6 +324,7 @@ const PlusAction = memo(() => {
   const userMemoryConsent = useUserStore(settingsSelectors.memoryEnabled);
   const [showTypoBar, setShowTypoBar] = useChatInputStore((s) => [s.showTypoBar, s.setShowTypoBar]);
   const editor = useChatInputStore((s) => s.editor);
+  const inputStore = useStoreApi();
   const { canUploadImage, canUploadVideo } = useVisualMediaUploadAbility(model, provider);
   const enableFC = useModelSupportToolUse(model, provider);
   const handleOpenKnowledge = useCallback(() => {
@@ -347,11 +348,20 @@ const PlusAction = memo(() => {
   } = useToolsControls({ closeDropdown });
   const openLocalMcp = useCallback(() => {
     closeDropdown();
+    const source = inputStore.getState();
     createSkillStoreModal({
       openLocal: true,
       onUseLocal:
         canUseLocalMcp && isAgentModeEnabled && enableFC && editor
           ? ({ identifier, name }) => {
+              const current = inputStore.getState();
+              if (
+                current.editor !== editor ||
+                current.agentId !== source.agentId ||
+                current.draftKey !== source.draftKey ||
+                current.topicId !== source.topicId
+              )
+                return;
               editor.focus();
               editor.dispatchCommand(INSERT_ACTION_TAG_COMMAND, {
                 category: 'tool',
@@ -361,7 +371,7 @@ const PlusAction = memo(() => {
             }
           : undefined,
     });
-  }, [canUseLocalMcp, closeDropdown, editor, enableFC, isAgentModeEnabled]);
+  }, [canUseLocalMcp, closeDropdown, editor, enableFC, inputStore, isAgentModeEnabled]);
 
   const isModelBuiltinSearchInternal = useAiInfraStore(
     aiModelSelectors.isModelBuiltinSearchInternal(model, provider),

@@ -9,13 +9,14 @@ import { Flexbox, Icon, Input, Text, TextArea } from '@lobehub/ui';
 import { Button, DropdownMenu, Select } from '@lobehub/ui/base-ui';
 import { createStaticStyles } from 'antd-style';
 import { Ellipsis, Monitor, Plus, Search } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import { usePermission } from '@/hooks/usePermission';
 import { mutate } from '@/libs/swr';
 import { electronKeys } from '@/libs/swr/keys';
+import { useElectronStore } from '@/store/electron';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/selectors';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
@@ -28,7 +29,9 @@ export interface DeviceLocalMcpPanelProps {
   onSaved?: (server: DeviceLocalMcpServer) => void;
   onSavingChange?: (saving: boolean) => void;
   onUse?: (server: DeviceLocalMcpServer) => void;
+  setupServerUrl?: string;
   setupUserId?: string;
+  visible?: boolean;
 }
 
 const envSchema = z.record(z.string());
@@ -87,10 +90,12 @@ const DeviceLocalMcpPanelForAccount = ({
   onSavingChange,
   onUse,
   userId,
+  visible = true,
 }: DeviceLocalMcpPanelProps & { userId?: string }) => {
   const { t } = useTranslation('setting');
   const { allowed: canCreate } = usePermission('create_content');
   const { allowed: canEdit } = usePermission('edit_own_content');
+  const canAdd = canCreate && canEdit;
   const fieldId = useId();
   const form = useRef<HTMLDivElement>(null);
   const formRevision = useRef(0);
@@ -120,27 +125,31 @@ const DeviceLocalMcpPanelForAccount = ({
   }, [addOpen]);
 
   useEffect(() => {
-    setServers([]);
-    setEditing(undefined);
+    if (!userId || onSaved || !visible) return;
     setLoadError(false);
-    if (!userId || onSaved) return;
     setLoading(true);
     let mounted = true;
     Promise.resolve()
       .then(() => ensureElectronIpc().mcp.listDeviceLocalServers({ userId }))
-      .then((list: DeviceLocalMcpServer[]) => mounted && setServers(list))
+      .then((list: DeviceLocalMcpServer[]) => {
+        if (!mounted) return;
+        setServers(list);
+        setEditing((current) =>
+          list.some(({ identifier }) => identifier === current?.identifier) ? current : undefined,
+        );
+      })
       .catch(() => mounted && setLoadError(true))
       .finally(() => mounted && setLoading(false));
     return () => {
       mounted = false;
     };
-  }, [listRevision, onSaved, userId]);
+  }, [listRevision, onSaved, userId, visible]);
 
-  const resetProbe = () => {
+  const resetProbe = useCallback(() => {
     setTools(undefined);
     setEnabledTools([]);
     setError('');
-  };
+  }, []);
 
   const buildConfig = (): DeviceLocalMcpConfig | undefined => {
     const config = { args: args.split(/\r?\n/).filter(Boolean), command: command.trim() };
@@ -199,7 +208,7 @@ const DeviceLocalMcpPanelForAccount = ({
   };
 
   const testConnection = () => {
-    if (!userId) return;
+    if (!userId || !canAdd) return;
     const config = buildConfig();
     if (!config) return;
     const revision = formRevision.current;
@@ -221,7 +230,7 @@ const DeviceLocalMcpPanelForAccount = ({
     }, 'probe');
   };
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     formRevision.current += 1;
     setPreset('');
     setName('');
@@ -231,7 +240,11 @@ const DeviceLocalMcpPanelForAccount = ({
     setAdvanced(false);
     resetProbe();
     onClose();
-  };
+  }, [onClose, resetProbe]);
+
+  useEffect(() => {
+    if (!visible && addOpen && operation !== 'mutation') resetForm();
+  }, [addOpen, operation, resetForm, visible]);
 
   const selectPreset = (value: string) => {
     setPreset(value);
@@ -250,13 +263,13 @@ const DeviceLocalMcpPanelForAccount = ({
         setCommand(preset.command);
         setArgs(preset.args?.join('\n') ?? '');
         setEnv(preset.env ? JSON.stringify(preset.env, null, 2) : '');
-        setAdvanced(!preset.command);
+        if (!preset.command) setAdvanced(true);
       }, 'preset');
     }
   };
 
   const save = () => {
-    if (!userId) return;
+    if (!userId || !canAdd) return;
     const config = buildConfig();
     if (!config) return;
     onSavingChange?.(true);
@@ -300,6 +313,7 @@ const DeviceLocalMcpPanelForAccount = ({
       setServers((current) => current.filter((item) => item.identifier !== identifier));
       setEditing((current) => (current?.identifier === identifier ? undefined : current));
       setRemoving(undefined);
+      setListRevision((revision) => revision + 1);
     });
   };
 
@@ -324,7 +338,7 @@ const DeviceLocalMcpPanelForAccount = ({
             <Button
               aria-controls={`${fieldId}-form`}
               aria-expanded={Boolean(addOpen)}
-              disabled={!userId || !canCreate || !canEdit || busy || loading || addOpen}
+              disabled={!userId || !canAdd || busy || loading || addOpen}
               icon={<Icon icon={Plus} size={16} />}
               onClick={onAdd}
             >
@@ -450,13 +464,14 @@ const DeviceLocalMcpPanelForAccount = ({
       {addOpen && (
         <Flexbox className={styles.card} gap={12} id={`${fieldId}-form`} ref={form}>
           <strong>{t('deviceLocalMcp.add')}</strong>
+          {!canAdd && <Text type="secondary">{t('workspace.general.noPermissionHint')}</Text>}
           {onSaved && <Text type="secondary">{t('deviceLocalMcp.chatSetup')}</Text>}
           <Text type="secondary">{t('deviceLocalMcp.description')}</Text>
           <Flexbox horizontal align="end" gap={8} wrap="wrap">
             <Flexbox flex={1} gap={4}>
               <label htmlFor={`${fieldId}-preset`}>{t('deviceLocalMcp.preset')}</label>
               <Select
-                disabled={busy || Boolean(onSaved)}
+                disabled={busy || !canAdd || Boolean(onSaved)}
                 id={`${fieldId}-preset`}
                 placeholder={t('deviceLocalMcp.choosePreset')}
                 value={preset || null}
@@ -470,7 +485,7 @@ const DeviceLocalMcpPanelForAccount = ({
               />
             </Flexbox>
             <Button
-              disabled={busy || !userId || !command.trim()}
+              disabled={busy || !userId || !canAdd || !command.trim()}
               loading={operation === 'probe'}
               onClick={testConnection}
             >
@@ -543,7 +558,9 @@ const DeviceLocalMcpPanelForAccount = ({
               {t('cancel', { ns: 'common' })}
             </Button>
             <Button
-              disabled={busy || loading || !userId || !name.trim() || enabledTools.length === 0}
+              disabled={
+                busy || loading || !userId || !canAdd || !name.trim() || enabledTools.length === 0
+              }
               loading={operation === 'mutation'}
               type="primary"
               onClick={save}
@@ -553,7 +570,7 @@ const DeviceLocalMcpPanelForAccount = ({
           </Flexbox>
         </Flexbox>
       )}
-      {(onSaved || servers.some((server) => server.enabled)) && (
+      {servers.some((server) => server.enabled) && (
         <Text type="secondary">{t('deviceLocalMcp.useInChat', { menu: t('tools.title') })}</Text>
       )}
     </Flexbox>
@@ -562,15 +579,24 @@ const DeviceLocalMcpPanelForAccount = ({
 
 const DeviceLocalMcpPanel = (props: DeviceLocalMcpPanelProps) => {
   const userId = useUserStore(userProfileSelectors.userId);
-  const { onClose, setupUserId } = props;
-  const accountChanged = !!setupUserId && setupUserId !== userId;
+  const serverUrl = useElectronStore((s) => s.dataSyncConfig?.remoteServerUrl);
+  const { onClose, setupServerUrl, setupUserId } = props;
+  const accountChanged = Boolean(
+    setupUserId && (setupUserId !== userId || setupServerUrl !== serverUrl),
+  );
 
   useEffect(() => {
     if (accountChanged) onClose();
   }, [accountChanged, onClose]);
 
   if (accountChanged) return null;
-  return <DeviceLocalMcpPanelForAccount key={userId} {...props} userId={userId} />;
+  return (
+    <DeviceLocalMcpPanelForAccount
+      key={JSON.stringify([serverUrl, userId])}
+      {...props}
+      userId={userId}
+    />
+  );
 };
 
 export default DeviceLocalMcpPanel;

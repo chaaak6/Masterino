@@ -76,4 +76,16 @@ describe('filterDeviceSearchResults', () => {
       results: hits.slice(1),
     });
   });
+
+  it('reports a missing legacy topic detail as an incomplete search', async () => {
+    vi.mocked(projectWorkspaceService.getTopicState).mockRejectedValue(
+      new ProjectWorkspaceSeamUnavailableError(),
+    );
+    vi.mocked(lambdaClient.topic.getTopicDetail.query).mockResolvedValue(null as never);
+    const hits = [{ id: 'missing-topic', type: 'topic' }] as SearchResult[];
+    expect(await filterDeviceSearchResults(hits, 'current')).toEqual({
+      incomplete: true,
+      results: [],
+    });
+  });
 });

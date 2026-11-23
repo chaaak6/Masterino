@@ -14,7 +14,7 @@ vi.mock('@/services/electron/gatewayConnection', () => ({
 }));
 vi.mock('@/store/projectWorkspace/store', () => ({
   getProjectWorkspaceStoreState: () => ({
-    topicStatesById: {},
+    topicStatesById: { unresolved: { unresolvedProject: true } },
     workspacesById: {
       'cached-workspace': {
         deviceId: 'local-device',
@@ -49,7 +49,13 @@ describe('RecentService', () => {
     const foreign = recentTopic('foreign', {
       metadata: { boundDeviceId: 'other-device', workingDirectory: '/foreign' },
     });
-    vi.mocked(lambdaClient.recent.getAll.query).mockResolvedValue([scoped, cached, foreign]);
+    const unresolved = recentTopic('unresolved', { workspaceDeviceScope: 'local-device' });
+    vi.mocked(lambdaClient.recent.getAll.query).mockResolvedValue([
+      scoped,
+      cached,
+      foreign,
+      unresolved,
+    ]);
 
     await expect(recentService.getAll(20)).resolves.toEqual([scoped, cached]);
     expect(lambdaClient.recent.getAll.query).toHaveBeenCalledWith({

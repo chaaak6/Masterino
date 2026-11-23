@@ -68,7 +68,7 @@ export const useCommandMenu = () => {
     error: searchError,
     isLoading: isSearching,
   } = useSWR(
-    hasSearch && (!isDesktop || deviceId)
+    hasSearch && !searchQuery.startsWith('@') && (!isDesktop || deviceId)
       ? ['search', searchQuery, agentId, typeFilter, deviceId]
       : null,
     async () => {
@@ -245,7 +245,8 @@ export const useCommandMenu = () => {
     search,
     searchQuery,
     searchResults: searchResponse?.results ?? ([] as SearchResult[]),
-    searchUnavailable: Boolean(searchError || searchResponse?.incomplete),
+    searchFailed: Boolean(searchError && !searchResponse),
+    searchIncomplete: Boolean(searchResponse?.incomplete || (searchError && searchResponse)),
     selectedAgent,
     setSearch,
     setSelectedAgent,

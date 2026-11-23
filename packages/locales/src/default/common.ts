@@ -260,6 +260,7 @@ export default {
 
   'cmdk.search.folders': 'Folders',
 
+  'cmdk.search.failed': 'Search failed. Try again.',
   'cmdk.search.incomplete': 'Some search results are unavailable. Try again.',
 
   'cmdk.search.knowledgeBase': 'Library',

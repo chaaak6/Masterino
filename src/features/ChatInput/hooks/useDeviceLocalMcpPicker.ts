@@ -1,4 +1,5 @@
 import { isDesktop } from '@lobechat/const';
+import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
 import { type ToolManifest } from '@lobechat/types';
 import useSWR from 'swr';
 
@@ -35,10 +36,17 @@ export const useDeviceLocalMcpPicker = (agentId: string, isHetero: boolean) => {
     getDeviceLocalMcpManifests(workspace.context, userId),
   );
 
+  const loadError =
+    key && error
+      ? error instanceof Error && error.message.includes(deviceLocalMcpErrors.account)
+        ? 'account'
+        : 'retry'
+      : undefined;
+
   return {
-    available: Boolean(key),
-    loadError: key ? Boolean(error) : false,
-    manifests: key ? data : undefined,
+    available: Boolean(key && !error),
+    loadError,
+    manifests: key && !error ? data : undefined,
     reload: mutate,
     workspace,
   };

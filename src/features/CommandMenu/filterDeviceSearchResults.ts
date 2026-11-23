@@ -30,7 +30,10 @@ export const filterDeviceSearchResults = async (results: SearchResult[], deviceI
           throw error;
         });
         const topic = state ? undefined : await lambdaClient.topic.getTopicDetail.query({ id });
-        if (!state && !topic) return;
+        if (!state && !topic) {
+          incomplete = true;
+          return;
+        }
         if (
           isTopicVisibleOnDevice(
             { id, metadata: topic?.metadata as ChatTopicMetadata | undefined },

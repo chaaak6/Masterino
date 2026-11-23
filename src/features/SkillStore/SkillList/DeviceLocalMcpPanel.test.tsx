@@ -10,13 +10,19 @@ import * as ipc from '@/utils/electron/ipc';
 
 import DeviceLocalMcpPanel from './DeviceLocalMcpPanel';
 
-const account = vi.hoisted(() => ({ userId: 'local-user' }));
+const account = vi.hoisted(() => ({ canCreate: true, userId: 'local-user' }));
 
 vi.mock('@/store/user', () => ({
   useUserStore: () => account.userId,
 }));
+vi.mock('@/hooks/usePermission', () => ({
+  usePermission: (action: string) => ({
+    allowed: action !== 'create_content' || account.canCreate,
+  }),
+}));
 
 afterEach(() => {
+  account.canCreate = true;
   account.userId = 'local-user';
 });
 
@@ -28,6 +34,37 @@ const selectManagement = async (key: string) => {
   fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.manage' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: `deviceLocalMcp.${key}` }));
 };
+
+it('blocks chat setup save after create permission is withdrawn', async () => {
+  const probe = vi.fn().mockResolvedValue([{ inputSchema: {}, name: 'ocs_inspect' }]);
+  const save = vi.fn();
+  vi.spyOn(ipc, 'ensureElectronIpc').mockReturnValue({
+    mcp: { saveDeviceLocalServer: save, testDeviceLocalServer: probe },
+  } as ReturnType<typeof ipc.ensureElectronIpc>);
+  const panel = () => (
+    <MotionProvider motion={m}>
+      <DeviceLocalMcpPanel
+        addOpen
+        draft={{ command: '/local/ocs', name: 'OpenCADStudio' }}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />
+    </MotionProvider>
+  );
+  const { rerender } = render(panel());
+  fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.test' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'deviceLocalMcp.save' })).toBeEnabled(),
+  );
+
+  account.canCreate = false;
+  rerender(panel());
+  expect(screen.getByRole('button', { name: 'deviceLocalMcp.test' })).toBeDisabled();
+  const saveButton = screen.getByRole('button', { name: 'deviceLocalMcp.save' });
+  expect(saveButton).toBeDisabled();
+  fireEvent.click(saveButton);
+  expect(save).not.toHaveBeenCalled();
+});
 
 it.each(['disable', 'saveTools'])(
   'refreshes saved connections when %s targets a removed row',
@@ -134,7 +171,7 @@ it('shows the data boundary in chat setup and keeps existing selected tools when
   fireEvent.click(testConnection);
   expect(await screen.findByRole('checkbox', { name: 'ocs_save' })).toBeChecked();
   expect(screen.getByText('deviceLocalMcp.description')).toBeInTheDocument();
-  expect(screen.getByText('deviceLocalMcp.useInChat')).toBeInTheDocument();
+  expect(screen.queryByText('deviceLocalMcp.useInChat')).not.toBeInTheDocument();
 });
 
 it('lets the user close chat setup while connection discovery is pending', () => {

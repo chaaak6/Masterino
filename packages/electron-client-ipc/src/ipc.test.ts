@@ -56,6 +56,10 @@ describe('getElectronIpc', () => {
     await (ipc as any).windows.closeWindow();
     expect(invoke).toHaveBeenCalledWith('windows.closeWindow');
 
+    const payload = { json: { toolName: 'inspect' } };
+    await (ipc as any).mcp.callTool(payload, 'request-id');
+    expect(invoke).toHaveBeenCalledWith('mcp.callTool', payload, 'request-id');
+
     const cached = getElectronIpc();
     expect(cached).toBe(ipc);
   });

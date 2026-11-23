@@ -1,11 +1,13 @@
-import { Button, DropdownMenu, Flexbox, Icon, Text } from '@lobehub/ui';
+import { Button, Flexbox, Icon, Text } from '@lobehub/ui';
+import { DropdownMenu } from '@lobehub/ui/base-ui';
 import { ChevronDown, FileArchive, Grid2x2Plus, Link, Monitor, PenLine } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CustomConnectorModal } from '@/features/Connectors';
 import { usePermission } from '@/hooks/usePermission';
 
+import { AddLocalMcpContext } from '../localMcpNavigation';
 import ImportFromUrlModal from './ImportFromUrlModal';
 import UploadSkillModal from './UploadSkillModal';
 
@@ -18,7 +20,8 @@ const MenuLabel = ({ desc, title }: { desc: string; title: ReactNode }) => (
   </Flexbox>
 );
 
-const AddSkillButton = ({ onAddLocal }: { onAddLocal?: () => void }) => {
+const AddSkillButton = () => {
+  const onAddLocal = useContext(AddLocalMcpContext);
   const { t } = useTranslation('setting');
   const [showMcpModal, setMcpModal] = useState(false);
   const [showUrlModal, setUrlModal] = useState(false);
@@ -36,7 +39,6 @@ const AddSkillButton = ({ onAddLocal }: { onAddLocal?: () => void }) => {
       <ImportFromUrlModal open={showUrlModal} onOpenChange={setUrlModal} />
       <UploadSkillModal open={showUploadModal} onOpenChange={setUploadModal} />
       <DropdownMenu
-        nativeButton={false}
         placement="bottomRight"
         items={[
           {

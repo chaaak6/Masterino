@@ -1,5 +1,7 @@
 import type { DeviceLocalMcpDraft, DeviceLocalMcpServer } from '@lobechat/electron-client-ipc';
 
+import { useElectronStore } from '@/store/electron';
+
 import { createSkillStoreModal } from '..';
 
 let setupPending = false;
@@ -40,7 +42,14 @@ export const openDeviceLocalMcpSetup = (
     };
     const close = createSkillStoreModal({
       openLocal: true,
-      setup: { draft, onClose: abort, onSaved: finish, onSavingChange, setupUserId },
+      setup: {
+        draft,
+        onClose: abort,
+        onSaved: finish,
+        onSavingChange,
+        setupServerUrl: useElectronStore.getState().dataSyncConfig?.remoteServerUrl,
+        setupUserId,
+      },
     });
     if (!close) {
       resolve('already-open');

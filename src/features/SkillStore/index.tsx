@@ -3,43 +3,61 @@
 import { createModal } from '@lobehub/ui/base-ui';
 import { t } from 'i18next';
 
-import { isDesktop } from '@/const/version';
-import { MarketAuthProvider } from '@/layout/AuthProvider/MarketAuth';
+import { SkillStoreContent, type SkillStoreOptions } from './SkillStoreContent';
 
-import { SkillStoreContent,type SkillStoreOptions } from './SkillStoreContent';
+interface SkillStoreSession {
+  close: () => void;
+  instance: ReturnType<typeof createModal>;
+  localOpened: boolean;
+  options: SkillStoreOptions;
+  setup?: SkillStoreOptions['setup'];
+}
 
-let active:
-  | {
-      close: () => void;
-      instance: ReturnType<typeof createModal>;
-      setup?: SkillStoreOptions['setup'];
-    }
-  | undefined;
+let active: SkillStoreSession | undefined;
 let navigation = 0;
+
+const renderContent = (options: SkillStoreOptions, close: () => void) => (
+  <SkillStoreContent
+    key={navigation}
+    {...options}
+    onLocalOpened={() => {
+      if (active?.close === close) active.localOpened = true;
+    }}
+    onUseLocal={
+      options.onUseLocal &&
+      ((server) => {
+        close();
+        options.onUseLocal?.(server);
+      })
+    }
+  />
+);
 
 export const createSkillStoreModal = (options: SkillStoreOptions = {}) => {
   if (active?.setup) return;
-  const renderContent = (close: () => void) => (
-    <MarketAuthProvider isDesktop={isDesktop}>
-      <SkillStoreContent
-        key={++navigation}
-        {...options}
-        onUseLocal={
-          options.onUseLocal &&
-          ((server) => {
-            close();
-            options.onUseLocal?.(server);
-          })
-        }
-      />
-    </MarketAuthProvider>
-  );
   if (active) {
-    if (options.openLocal) {
-      active.setup = options.setup;
-      active.instance.update({ children: renderContent(active.close) });
+    const session = active;
+    if (options.setup) {
+      // Keep the market page mounted so its tab and search survive chat setup.
+      if (session.localOpened) return;
+      session.setup = options.setup;
+      session.instance.update({
+        children: renderContent({ ...session.options, setup: options.setup }, session.close),
+      });
+      return () => {
+        if (active !== session) return;
+        session.setup = undefined;
+        session.instance.update({ children: renderContent(session.options, session.close) });
+      };
     }
-    return active.close;
+
+    if (options.openLocal && !session.localOpened) {
+      session.options = options;
+      session.localOpened = true;
+      navigation += 1;
+      session.instance.update({ children: renderContent(options, session.close) });
+    }
+    return session.close;
   }
 
   const dismiss = () => {
@@ -53,7 +71,7 @@ export const createSkillStoreModal = (options: SkillStoreOptions = {}) => {
     instance.close();
   };
   const instance = createModal({
-    children: renderContent(close),
+    children: renderContent(options, close),
     footer: null,
     onOpenChange: (open) => {
       if (!open) dismiss();
@@ -64,6 +82,12 @@ export const createSkillStoreModal = (options: SkillStoreOptions = {}) => {
     title: t('skillStore.title', { ns: 'setting' }),
     width: 'min(80%, 800px)',
   });
-  active = { close, instance, setup: options.setup };
+  active = {
+    close,
+    instance,
+    localOpened: Boolean(options.openLocal),
+    options,
+    setup: options.setup,
+  };
   return close;
 };

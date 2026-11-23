@@ -224,17 +224,20 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
         }
       }
 
-      const retryLocalMcp: SlashItem | undefined = localMcpLoadError
+      const localMcpStatus: SlashItem | undefined = localMcpLoadError
         ? ({
             icon: McpIcon,
             key: 'local-mcp-refresh',
-            label: `${tSetting('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
-            onSelect: () => {
-              void reloadLocalMcp().catch(() => {});
-            },
+            label:
+              localMcpLoadError === 'account'
+                ? tSetting('deviceLocalMcp.error.account')
+                : `${tSetting('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
+            onSelect:
+              localMcpLoadError === 'retry'
+                ? () => void reloadLocalMcp().catch(() => {})
+                : undefined,
           } as SlashItem)
         : undefined;
-      if (retryLocalMcp) allItems.push(retryLocalMcp);
 
       for (const manifest of localMcpManifests ?? []) {
         const tag = createLocalMcpTag(manifest);
@@ -305,10 +308,11 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
           threshold: 0.4,
         });
         const results = fuse.search(search.matchingString).map((r) => r.item);
-        if (retryLocalMcp && !results.includes(retryLocalMcp)) results.unshift(retryLocalMcp);
+        if (localMcpStatus) results.push(localMcpStatus);
         return results;
       }
 
+      if (localMcpStatus) allItems.push(localMcpStatus);
       return allItems;
     },
     [
