@@ -90,12 +90,8 @@ class MCPService {
         throw new Error(`MCP tool "${apiName}" is unavailable for this connector`);
 
       const config = connector.mcpStdioConfig;
-      if (
-        !isDesktop ||
-        !config?.command ||
-        (executionContext && executionContext.plan.target !== 'local')
-      )
-        throw new Error('Run this MCP tool on the desktop with the local MCP server installed');
+      if (!isDesktop || !config?.command || executionContext?.plan.target !== 'local')
+        throw new Error('Start a run on this desktop with the local MCP server installed');
 
       return this.callStdioTool({
         args: safeParseJSON(args) ?? {},

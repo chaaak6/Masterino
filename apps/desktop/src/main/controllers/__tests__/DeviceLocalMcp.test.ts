@@ -3,8 +3,11 @@ import { fileURLToPath } from 'node:url';
 import { deviceLocalMcpErrors } from '@lobechat/electron-client-ipc';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type RemoteServerConfigCtr from '@/controllers/RemoteServerConfigCtr';
 import type { App } from '@/core/App';
 import { MCPClient } from '@/libs/mcp/client';
+import { DeviceLocalMcpAccount } from '@/libs/mcp/deviceLocalAccount';
+import { DeviceLocalMcpSessions } from '@/libs/mcp/deviceLocalSessions';
 
 import McpCtr from '../McpCtr';
 
@@ -61,6 +64,59 @@ describe('device-local MCP desktop API', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     await MCPClient.cleanupAll();
+  });
+
+  it('checks that a tool is still enabled after an in-flight account lookup', async () => {
+    const sessions = new DeviceLocalMcpSessions();
+    const pendingScope = Promise.withResolvers<string>();
+    const createClient = vi.fn();
+    let enabled = true;
+    const invocation = sessions.call(
+      'cad',
+      'inspect',
+      {},
+      {
+        authorize: () => {
+          if (!enabled) throw new Error('unavailable');
+          return createClient;
+        },
+        getScope: () => pendingScope.promise,
+      },
+    );
+    const rejected = expect(invocation).rejects.toThrow('unavailable');
+
+    pendingScope.resolve('verified-scope');
+    enabled = false;
+    await sessions.retire('cad');
+    await rejected;
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it('checks the same account again when its access token refreshes during lookup', async () => {
+    let token = 'before-refresh';
+    const firstResponse = Promise.withResolvers<Response>();
+    const fetch = vi
+      .fn()
+      .mockReturnValueOnce(firstResponse.promise)
+      .mockResolvedValueOnce(
+        Response.json({ result: { data: { json: { userId: scope.userId } } } }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    const remote = {
+      getAccessToken: async () => token,
+      getRemoteServerUrl: async () => 'https://test.example',
+    } as RemoteServerConfigCtr;
+
+    const lookup = new DeviceLocalMcpAccount().getScope(remote, scope.userId);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    token = 'after-refresh';
+    firstResponse.resolve(new Response(null, { status: 401 }));
+
+    await expect(lookup).resolves.toMatch(/^[a-f0-9]{64}$/);
+    expect(fetch).toHaveBeenLastCalledWith(
+      'https://test.example/trpc/lambda/user.getUserState',
+      expect.objectContaining({ headers: { 'Oidc-Auth': token }, redirect: 'error' }),
+    );
   });
 
   it('discovers, persists, and invokes only authorized tools without returning launch configuration', async () => {

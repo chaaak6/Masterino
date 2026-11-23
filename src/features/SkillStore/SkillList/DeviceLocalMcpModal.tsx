@@ -56,16 +56,14 @@ const ToolSelection = ({
   </Flexbox>
 );
 
-const DeviceLocalMcpModal = ({
+const DeviceLocalMcpModalForAccount = ({
   draft,
   onClose,
   onSaved,
   onSavingChange,
-  setupUserId,
-}: DeviceLocalMcpModalProps) => {
+  userId,
+}: DeviceLocalMcpModalProps & { userId?: string }) => {
   const { t } = useTranslation('setting');
-  const currentUserId = useUserStore(userProfileSelectors.userId);
-  const userId = setupUserId && setupUserId !== currentUserId ? undefined : currentUserId;
   const fieldId = useId();
   const [servers, setServers] = useState<DeviceLocalMcpServer[]>([]);
   const [name, setName] = useState(draft?.name ?? '');
@@ -80,10 +78,6 @@ const DeviceLocalMcpModal = ({
   const [loadError, setLoadError] = useState(false);
   const [listRevision, setListRevision] = useState(0);
   const [editing, setEditing] = useState<{ identifier: string; names: string[] }>();
-
-  useEffect(() => {
-    if (setupUserId && setupUserId !== currentUserId) onClose();
-  }, [currentUserId, onClose, setupUserId]);
 
   useEffect(() => {
     setServers([]);
@@ -367,6 +361,19 @@ const DeviceLocalMcpModal = ({
       </Flexbox>
     </Modal>
   );
+};
+
+const DeviceLocalMcpModal = (props: DeviceLocalMcpModalProps) => {
+  const userId = useUserStore(userProfileSelectors.userId);
+  const { onClose, setupUserId } = props;
+  const accountChanged = !!setupUserId && setupUserId !== userId;
+
+  useEffect(() => {
+    if (accountChanged) onClose();
+  }, [accountChanged, onClose]);
+
+  if (accountChanged) return null;
+  return <DeviceLocalMcpModalForAccount key={userId} {...props} userId={userId} />;
 };
 
 export default DeviceLocalMcpModal;

@@ -122,7 +122,12 @@ describe('MCPService', () => {
           identifier: 'opencadstudio-local',
           type: 'default',
         },
-        {},
+        {
+          executionContext: {
+            plan: { kind: 'device', deviceId: 'this-desktop', target: 'local' },
+            version: 1,
+          },
+        },
       );
 
       expect(result).toEqual(response);
@@ -136,6 +141,42 @@ describe('MCPService', () => {
       );
       expect(lambdaClient.connector.callTool.mutate).not.toHaveBeenCalled();
     });
+
+    it.each([
+      undefined,
+      { plan: { kind: 'sandbox', target: 'sandbox' }, version: 1 },
+      { plan: { deviceId: 'another-desktop', kind: 'device', target: 'device' }, version: 1 },
+    ] satisfies (ExecutionContext | undefined)[])(
+      'does not spawn a synced STDIO tool outside a confirmed local run (%j)',
+      async (executionContext) => {
+        desktop.enabled = true;
+        mockGetToolStoreState.mockReturnValue({
+          connectors: [
+            {
+              identifier: 'opencadstudio-local',
+              isEnabled: true,
+              mcpConnectionType: 'stdio',
+              mcpStdioConfig: { command: 'ocs' },
+              tools: [{ permission: 'auto', toolName: 'ocs_inspect' }],
+            },
+          ],
+        });
+
+        await expect(
+          mcpService.invokeMcpToolCall(
+            {
+              apiName: 'ocs_inspect',
+              arguments: '{}',
+              id: 'call',
+              identifier: 'opencadstudio-local',
+              type: 'default',
+            },
+            { executionContext },
+          ),
+        ).rejects.toThrow('Start a run on this desktop');
+        expect(mockElectronIpc.mcp.callTool).not.toHaveBeenCalled();
+      },
+    );
 
     it('recovers a saved local setup call without source metadata only in a local desktop run', async () => {
       desktop.enabled = true;

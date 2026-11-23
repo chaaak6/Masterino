@@ -417,10 +417,8 @@ export default class McpCtr extends ControllerModule {
     const callArguments = z.record(z.unknown()).safeParse(args ? this.parseLocalArgs(args) : {});
     if (!callArguments.success) throw new Error('Invalid arguments for the device-local MCP tool');
 
-    const raw = await this.localSessions.call(
-      identifier,
-      async () => {
-        const scope = await this.localScope(userId);
+    const raw = await this.localSessions.call(identifier, toolName, callArguments.data, {
+      authorize: (scope) => {
         const record = this.localServers.find(
           (item) => item.scope === scope && item.server.identifier === identifier,
         );
@@ -433,9 +431,8 @@ export default class McpCtr extends ControllerModule {
             identifier,
           );
       },
-      toolName,
-      callArguments.data,
-    );
+      getScope: () => this.localScope(userId),
+    });
     const processed = raw.isError ? raw.content : await this.processContentBlocks(raw.content);
     return {
       content: await toMarkdown(processed, (key) => this.fileService.getFileHTTPURL(key)),

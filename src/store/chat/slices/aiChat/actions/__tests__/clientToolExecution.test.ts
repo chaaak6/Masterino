@@ -336,6 +336,25 @@ describe('internal_executeClientTool', () => {
       );
     });
 
+    it('passes the frozen target when a gateway call falls back to an MCP connector', async () => {
+      hasExecutorMock.mockReturnValue(false);
+      const { action, state } = setup();
+      const executionContext = {
+        plan: { deviceId: 'other', kind: 'device', target: 'device' },
+        version: 1,
+      };
+      state.operations['op-1'].metadata = { executionContext };
+
+      await action.internal_executeClientTool(makeData({ identifier: 'mcp-demo' }), {
+        operationId: 'op-1',
+      });
+
+      expect(invokeMcpToolCallMock).toHaveBeenCalledWith(
+        expect.objectContaining({ identifier: 'mcp-demo' }),
+        expect.objectContaining({ executionContext }),
+      );
+    });
+
     it('sends failure tool_result when MCP returns an error result', async () => {
       hasExecutorMock.mockReturnValue(false);
       invokeMcpToolCallMock.mockResolvedValue({

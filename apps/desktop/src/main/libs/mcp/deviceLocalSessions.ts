@@ -40,13 +40,18 @@ export class DeviceLocalMcpSessions {
 
   async call(
     identifier: string,
-    authorize: () => Promise<() => MCPClient>,
     toolName: string,
     args: Record<string, unknown>,
+    access: {
+      authorize: (scope: string) => () => MCPClient;
+      getScope: () => Promise<string>;
+    },
   ): Promise<ToolCallResult> {
     let session: Session;
     for (;;) {
-      const createClient = await authorize();
+      const scope = await access.getScope();
+      // Recheck after the async account lookup. Disable/remove update the record before retiring.
+      const createClient = access.authorize(scope);
       const current = this.sessions.get(identifier);
       if (current?.retired) {
         await current.drained.promise;

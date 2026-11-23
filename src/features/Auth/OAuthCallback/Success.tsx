@@ -1,7 +1,8 @@
 'use client';
 
 import { FluentEmoji, Text } from '@lobehub/ui';
-import { Button, Result } from 'antd';
+import { Button } from '@lobehub/ui/base-ui';
+import { Result } from 'antd';
 import React, { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -52,6 +53,8 @@ const SuccessPage = memo(() => {
 
   return (
     <Result
+      icon={<FluentEmoji emoji={'✅'} size={96} type={'anim'} />}
+      status="success"
       extra={
         desktopScheme && (
           <Button href={`${desktopScheme}://auth/return`} type="primary">
@@ -59,8 +62,6 @@ const SuccessPage = memo(() => {
           </Button>
         )
       }
-      icon={<FluentEmoji emoji={'✅'} size={96} type={'anim'} />}
-      status="success"
       subTitle={
         <Text fontSize={16} type="secondary">
           {isDesktop

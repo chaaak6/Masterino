@@ -1,16 +1,22 @@
 import { deviceLocalMcpErrors, type DeviceLocalMcpServer } from '@lobechat/electron-client-ipc';
 import { MotionProvider } from '@lobehub/ui';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { m } from 'motion/react';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 
 import * as ipc from '@/utils/electron/ipc';
 
 import DeviceLocalMcpModal from './DeviceLocalMcpModal';
 
+const account = vi.hoisted(() => ({ userId: 'local-user' }));
+
 vi.mock('@/store/user', () => ({
-  useUserStore: () => 'local-user',
+  useUserStore: () => account.userId,
 }));
+
+afterEach(() => {
+  account.userId = 'local-user';
+});
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -56,6 +62,49 @@ it.each(['disable', 'saveTools'])(
     expect(screen.queryByText('Removed connection')).not.toBeInTheDocument();
   },
 );
+
+it('keeps a late connection refresh from showing another account’s servers', async () => {
+  const first: DeviceLocalMcpServer = {
+    enabled: true,
+    enabledTools: ['inspect'],
+    identifier: 'local-mcp-000000000000000000000001',
+    name: 'First account CAD',
+    tools: [{ inputSchema: {}, name: 'inspect' }],
+  };
+  const second: DeviceLocalMcpServer = {
+    ...first,
+    identifier: 'local-mcp-000000000000000000000002',
+    name: 'Second account CAD',
+  };
+  const refresh = Promise.withResolvers<DeviceLocalMcpServer[]>();
+  const listDeviceLocalServers = vi
+    .fn()
+    .mockResolvedValueOnce([first])
+    .mockReturnValueOnce(refresh.promise)
+    .mockResolvedValueOnce([second]);
+  const updateDeviceLocalServer = vi
+    .fn()
+    .mockRejectedValue(new Error(deviceLocalMcpErrors.serverUnavailable));
+  vi.spyOn(ipc, 'ensureElectronIpc').mockReturnValue({
+    mcp: { listDeviceLocalServers, updateDeviceLocalServer },
+  } as ReturnType<typeof ipc.ensureElectronIpc>);
+
+  const renderModal = () => (
+    <MotionProvider motion={m}>
+      <DeviceLocalMcpModal onClose={vi.fn()} />
+    </MotionProvider>
+  );
+  const { rerender } = render(renderModal());
+  fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.disable' }));
+  await waitFor(() => expect(listDeviceLocalServers).toHaveBeenCalledTimes(2));
+
+  account.userId = 'another-user';
+  rerender(renderModal());
+  expect(await screen.findByText(second.name)).toBeInTheDocument();
+  await act(async () => refresh.resolve([first]));
+  expect(screen.queryByText(first.name)).not.toBeInTheDocument();
+  expect(screen.getByText(second.name)).toBeInTheDocument();
+});
 
 it('shows the data boundary in chat setup and keeps existing selected tools when testing again', async () => {
   const draft = { command: '/local/ocs', name: 'OpenCADStudio' };

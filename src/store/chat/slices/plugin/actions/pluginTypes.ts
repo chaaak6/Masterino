@@ -1,11 +1,9 @@
-import { isDeviceLocalMcpToolIdentifier } from '@lobechat/electron-client-ipc';
 import {
   type BuiltinToolResult,
   type ChatToolPayload,
   type RuntimeStepContext,
   type SubAgentCallbacks,
 } from '@lobechat/types';
-import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import debug from 'debug';
 
 import { type MCPToolCallResult } from '@/libs/mcp';
@@ -14,6 +12,7 @@ import { mcpService } from '@/services/mcp';
 import { messageService } from '@/services/message';
 import { archiveToolResultViaServer } from '@/services/toolResultArchive';
 import { AI_RUNTIME_OPERATION_TYPES } from '@/store/chat/slices/operation';
+import { operationSelectors } from '@/store/chat/slices/operation/selectors';
 import { type ChatStore } from '@/store/chat/store';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace';
 import { useToolStore } from '@/store/tool';
@@ -446,16 +445,7 @@ export class PluginTypesActionImpl {
       abortController?.signal.aborted,
     );
 
-    let executionContext: ExecutionContext | undefined;
-    if (isDeviceLocalMcpToolIdentifier(payload.identifier)) {
-      let current = operation;
-      while (current && !executionContext) {
-        executionContext = current.metadata.executionContext;
-        current = current.parentOperationId
-          ? this.#get().operations[current.parentOperationId]
-          : undefined;
-      }
-    }
+    const executionContext = operationSelectors.getExecutionContext(operationId)(this.#get());
 
     const result = await mcpService.invokeMcpToolCall(payload, {
       ...(executionContext && { executionContext }),
