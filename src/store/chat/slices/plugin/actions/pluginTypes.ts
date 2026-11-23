@@ -1,6 +1,7 @@
 import {
   type BuiltinToolResult,
   type ChatToolPayload,
+  type ExecutionContext,
   type RuntimeStepContext,
   type SubAgentCallbacks,
 } from '@lobechat/types';
