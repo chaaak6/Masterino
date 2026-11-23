@@ -431,6 +431,15 @@ jobs:
       - name: Verify packaged source commit
         run: test "$(cat release/source-commit.txt)" = "7af1f2c8568fe3eab9e07ac88a50a09a9d0bfd50"
 
+      - name: Make the verified staging artifact available to the OSS publisher
+        uses: actions/upload-artifact@v6
+        with:
+          name: merged-release
+          path: release/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+
       - name: Publish release files to Alibaba Cloud OSS
         uses: ./.github/actions/desktop-publish-oss
         with:
