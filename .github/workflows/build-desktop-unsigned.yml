@@ -3,6 +3,10 @@ name: Build Unsigned Desktop
 on:
   workflow_dispatch:
     inputs:
+      publish_run_id:
+        description: Successful staging run ID to publish after service acceptance
+        type: string
+        required: false
       acknowledge_unsigned_macos:
         description: I understand the macOS artifacts are unsigned internal builds
         required: true
@@ -48,6 +52,8 @@ jobs:
       version: ${{ steps.validate.outputs.version }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: 265a202995f3494f269feea9df93b24603eff77f
 
       - name: Validate SemVer and current OSS version
         id: validate
@@ -60,6 +66,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           INPUT_VERSION: ${{ inputs.version }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          STAGED_RUN: ${{ inputs.publish_run_id }}
+          SOURCE_SHA: 265a202995f3494f269feea9df93b24603eff77f
         run: |
           set -euo pipefail
 
@@ -79,13 +87,18 @@ jobs:
             exit 1
           fi
 
-          release_state="$(gh release view "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --json isDraft,isPrerelease \
-            --jq '[.isDraft, .isPrerelease] | @tsv')"
-          if [ "$release_state" != $'false\tfalse' ]; then
-            echo "Release $RELEASE_TAG must be an existing published, non-prerelease release" >&2
-            exit 1
+          if [[ -n "$STAGED_RUN" ]]; then
+            [[ "$STAGED_RUN" =~ ^[0-9]+$ ]]
+            actual_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq .object.sha)"
+            test "$actual_sha" = "$SOURCE_SHA"
+            release_state="$(gh release view "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json isDraft,isPrerelease \
+              --jq '[.isDraft, .isPrerelease] | @tsv')"
+            if [ "$release_state" != $'false\tfalse' ]; then
+              echo "Release $RELEASE_TAG must be an existing published, non-prerelease release" >&2
+              exit 1
+            fi
           fi
 
           desktop_version="$(node -p "require('./apps/desktop/package.json').version")"
@@ -146,6 +159,7 @@ jobs:
           echo "Validated desktop version $INPUT_VERSION (current OSS: ${current_version:-none}; source: $desktop_version)"
 
   build:
+    if: inputs.publish_run_id == ''
     name: Build ${{ matrix.name }}
     needs: validate-version
     runs-on: ${{ matrix.os }}
@@ -164,6 +178,8 @@ jobs:
             artifact: desktop-windows-x64
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: 265a202995f3494f269feea9df93b24603eff77f
 
       - name: Setup desktop build environment
         uses: ./.github/actions/desktop-build-setup
@@ -273,6 +289,40 @@ jobs:
           if ($signature.SignerCertificate) { throw 'Unexpected Authenticode signature found' }
           Write-Host "Verified unsigned Windows installer: $($installer.Name)"
 
+      - name: Exercise a Windows 1.3.15 upgrade
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_VERSION: ${{ inputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setupDir = Join-Path $env:RUNNER_TEMP 'masterino-upgrade'
+          New-Item -ItemType Directory -Path $setupDir | Out-Null
+          gh release download v1.3.15 --pattern 'Masterino-1.3.15-setup.exe' --dir $setupDir
+          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch the current Windows installer' }
+          $oldInstaller = Join-Path $setupDir 'Masterino-1.3.15-setup.exe'
+          $newInstaller = Get-ChildItem apps/desktop/release -Filter "Masterino-$env:TARGET_VERSION-setup.exe" | Select-Object -First 1
+          if (-not $newInstaller) { throw 'Candidate installer not found' }
+          $oldInstall = Start-Process -FilePath $oldInstaller -ArgumentList '/S' -Wait -PassThru
+          if ($oldInstall.ExitCode -ne 0) { throw "1.3.15 install failed: $($oldInstall.ExitCode)" }
+          $paths = @(
+            (Join-Path $env:LOCALAPPDATA 'Programs\Masterino\Masterino.exe'),
+            (Join-Path $env:ProgramFiles 'Masterino\Masterino.exe')
+          )
+          $binary = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $binary) { throw 'Installed Masterino executable not found' }
+          if ((Get-Item $binary).VersionInfo.ProductVersion -notlike '1.3.15*') { throw 'Unexpected initial version' }
+          $profile = Join-Path $env:APPDATA 'Masterino'
+          New-Item -ItemType Directory -Path $profile -Force | Out-Null
+          $fixture = Join-Path $profile 'existing-profile-qa.txt'
+          Set-Content $fixture 'profile upgrade marker'
+          $next = Start-Process -FilePath $newInstaller.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($next.ExitCode -ne 0) { throw "Candidate upgrade failed: $($next.ExitCode)" }
+          if ((Get-Item $binary).VersionInfo.ProductVersion -notlike "$env:TARGET_VERSION*") { throw 'Installed binary was not upgraded' }
+          if ((Get-Content $fixture) -ne 'profile upgrade marker') { throw 'Existing profile files were not preserved' }
+          Write-Host "Windows installer upgrade 1.3.15 to $env:TARGET_VERSION passed"
+
       - name: Upload build artifacts
         uses: ./.github/actions/desktop-upload-artifacts
         with:
@@ -280,11 +330,14 @@ jobs:
           retention-days: '7'
 
   merge:
+    if: inputs.publish_run_id == ''
     name: Merge desktop release artifacts
     needs: [validate-version, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: 265a202995f3494f269feea9df93b24603eff77f
 
       - name: Setup merge environment
         uses: ./.github/actions/setup-env
@@ -335,6 +388,9 @@ jobs:
           test -f "release/${DESKTOP_CHANNEL}-mac.yml"
           test "$(find release -maxdepth 1 -name '*.zip' | wc -l)" -eq 2
 
+      - name: Record build source
+        run: git rev-parse HEAD > release/source-commit.txt
+
       - name: Upload merged release
         uses: actions/upload-artifact@v6
         with:
@@ -345,12 +401,35 @@ jobs:
 
   publish:
     name: Publish OSS and GitHub release
-    needs: [validate-version, merge]
+    if: inputs.publish_run_id != ''
+    needs: [validate-version]
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: 265a202995f3494f269feea9df93b24603eff77f
+
+      - name: Verify the staging run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGED_RUN: ${{ inputs.publish_run_id }}
+        run: |
+          set -euo pipefail
+          gh run view "$STAGED_RUN" --json conclusion,headBranch,workflowName | jq -e '
+            .conclusion == "success" and .headBranch == "codex/pr173-desktop-staging" and .workflowName == "Build Unsigned Desktop"
+          '
+      - name: Download the tested installers and update files
+        uses: actions/download-artifact@v7
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.publish_run_id }}
+          name: merged-release
+          path: release
+      - name: Verify packaged source commit
+        run: test "$(cat release/source-commit.txt)" = "265a202995f3494f269feea9df93b24603eff77f"
 
       - name: Publish release files to Alibaba Cloud OSS
         uses: ./.github/actions/desktop-publish-oss
@@ -413,7 +492,7 @@ jobs:
             echo
             echo "$RELEASE_NOTES"
             echo
-            echo "- 构建源码：\`${GITHUB_SHA}\`（保留原有 \`${RELEASE_TAG}\` 标签位置）"
+            echo "- 构建源码：\`265a202995f3494f269feea9df93b24603eff77f\`（保留原有 \`${RELEASE_TAG}\` 标签位置）"
             echo "- 更新通道：canary"
             echo "- macOS：这是仅使用 ad-hoc 签名、未经 Apple 公证的内部测试包，不能直接通过 Gatekeeper。"
             echo '- 安装：拖入 Applications 后，在终端运行 `xattr -dr com.apple.quarantine /Applications/Masterino.app`。'
