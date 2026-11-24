@@ -147,20 +147,26 @@ export const messageRouter = router({
       z.object({
         agentId: z.string(),
         groupId: z.string().nullable().optional(),
+        includeTimelineSnapshot: z.boolean().default(true),
         messageIds: z.array(z.string()),
         threadId: z.string().nullable().optional(),
         topicId: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { topicId, messageIds, agentId, groupId, threadId } = input;
+      const { topicId, messageIds, agentId, groupId, threadId, includeTimelineSnapshot } = input;
 
-      return ctx.messageService.createCompressionGroup(topicId, messageIds, {
-        agentId,
-        groupId,
-        threadId,
+      return ctx.messageService.createCompressionGroup(
         topicId,
-      });
+        messageIds,
+        {
+          agentId,
+          groupId,
+          threadId,
+          topicId,
+        },
+        includeTimelineSnapshot,
+      );
     }),
 
   createMessage: messageProcedure

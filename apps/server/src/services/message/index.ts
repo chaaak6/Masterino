@@ -370,6 +370,7 @@ export class MessageService {
     topicId: string,
     messageIds: string[],
     options?: QueryOptions,
+    includeTimelineSnapshot = false,
   ): Promise<{
     messageGroupId: string;
     messages?: UIChatMessage[];
@@ -417,8 +418,23 @@ export class MessageService {
       topicId,
     });
 
+    const messages = includeTimelineSnapshot
+      ? [
+          ...(await this.queryMessages({ ...options, topicId })),
+          {
+            compressedMessages: [],
+            content: '...',
+            createdAt: Date.now(),
+            id: messageGroupId,
+            role: 'compressedGroup' as const,
+            topicId,
+            updatedAt: Date.now(),
+          },
+        ]
+      : undefined;
     return {
       messageGroupId,
+      ...(messages && { messages }),
       messagesToSummarize,
       success: true,
     };

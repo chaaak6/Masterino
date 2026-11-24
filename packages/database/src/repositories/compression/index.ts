@@ -354,15 +354,22 @@ export class CompressionRepository {
    * Delete a compression group and unmark all associated messages
    */
   async deleteCompressionGroup(groupId: string): Promise<void> {
-    // 1. Unmark all messages
-    await this.db
-      .update(messages)
-      .set({ messageGroupId: null })
-      .where(and(this.messagesOwnership(), eq(messages.messageGroupId, groupId)));
+    await this.db.transaction(async (tx) => {
+      const scope = and(eq(messageGroups.id, groupId), this.groupsOwnership());
+      const [group] = await tx
+        .select({ id: messageGroups.id })
+        .from(messageGroups)
+        .where(scope)
+        .for('update');
+      if (!group) return;
 
-    // 2. Delete the group
-    await this.db
-      .delete(messageGroups)
-      .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
+      // Publication takes the same lock before associating the source rows.
+      // Detach them before deleting the group, whose foreign key cascades.
+      await tx
+        .update(messages)
+        .set({ messageGroupId: null })
+        .where(and(this.messagesOwnership(), eq(messages.messageGroupId, groupId)));
+      await tx.delete(messageGroups).where(scope);
+    });
   }
 }

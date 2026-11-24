@@ -65,6 +65,7 @@ export const createCompressionInstruction = (
   messages: GeneralAgentCallLLMInstructionPayload['messages'],
   runtimeInput: RuntimeContextBudgetInput,
   existingSummary?: string,
+  parentMessageId?: string,
 ): AgentInstruction => {
   const decision = evaluation.decision;
   if (decision.kind !== 'compress') {
@@ -93,6 +94,7 @@ export const createCompressionInstruction = (
       messages,
       observedWindowTokens: runtimeInput.observedWindowTokens,
       outputReserveTokens: runtimeInput.outputReserveTokens,
+      parentMessageId,
       payloadFingerprint: evaluation.payloadFingerprint,
       preservedIds: decision.preservedIds,
       providerMedia: runtimeInput.providerMedia,

@@ -248,10 +248,14 @@ describe('RuntimeExecutors', () => {
     total: 0,
   });
 
-  const createCompressContextInstruction = (messages: any[]) => ({
+  const createCompressContextInstruction = (
+    messages: any[],
+    selection?: { candidateIds: string[]; parentMessageId: string },
+  ) => ({
     payload: {
       currentTokenCount: 1000,
       messages,
+      ...selection,
     },
     type: 'compress_context' as const,
   });
@@ -1611,12 +1615,13 @@ describe('RuntimeExecutors', () => {
 
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState({
-        messages: [{ content: 'x '.repeat(70000), role: 'user' }],
+        messages: [{ content: 'x '.repeat(70000), id: 'msg-history', role: 'user' }],
       });
 
-      const instruction = createCompressContextInstruction([
-        { content: 'x '.repeat(70000), role: 'user' },
-      ]);
+      const instruction = createCompressContextInstruction(
+        [{ content: 'x '.repeat(70000), id: 'msg-history', role: 'user' }],
+        { candidateIds: ['msg-history'], parentMessageId: 'assistant-existing' },
+      );
 
       const result = await executors.compress_context!(instruction, state);
 
@@ -1703,11 +1708,14 @@ describe('RuntimeExecutors', () => {
 
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState({
-        messages: [{ content: 'history', role: 'user' }],
+        messages: [{ content: 'history', id: 'msg-history', role: 'user' }],
         modelRuntimeConfig: undefined,
       });
 
-      const instruction = createCompressContextInstruction([{ content: 'history', role: 'user' }]);
+      const instruction = createCompressContextInstruction(
+        [{ content: 'history', id: 'msg-history', role: 'user' }],
+        { candidateIds: ['msg-history'], parentMessageId: 'assistant-existing' },
+      );
 
       const result = await executors.compress_context!(instruction, state);
 
@@ -1720,7 +1728,7 @@ describe('RuntimeExecutors', () => {
       expect(mockCancelCompression).not.toHaveBeenCalled();
       expect(result.nextContext?.payload as any).toMatchObject({
         code: 'SUMMARY_FAILED',
-        compressedMessages: [{ content: 'history', role: 'user' }],
+        compressedMessages: [{ content: 'history', id: 'msg-history', role: 'user' }],
         outcome: 'failed',
         parentMessageId: 'assistant-existing',
       });
@@ -1734,10 +1742,13 @@ describe('RuntimeExecutors', () => {
       ]);
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState({
-        messages: [{ content: 'history', role: 'user' }],
+        messages: [{ content: 'history', id: 'msg-history', role: 'user' }],
       });
 
-      const instruction = createCompressContextInstruction([{ content: 'history', role: 'user' }]);
+      const instruction = createCompressContextInstruction(
+        [{ content: 'history', id: 'msg-history', role: 'user' }],
+        { candidateIds: ['msg-history'], parentMessageId: 'assistant-existing' },
+      );
 
       const result = await executors.compress_context!(instruction, state);
 
@@ -1788,7 +1799,7 @@ describe('RuntimeExecutors', () => {
 
       expect(mockCreateCompressionGroup).toHaveBeenCalledWith(
         'topic-123',
-        ['msg-history', 'assistant-existing'],
+        ['msg-history'],
         expect.any(Object),
       );
       expect((result.nextContext?.payload as any).compressedMessages).toEqual([
@@ -1797,7 +1808,7 @@ describe('RuntimeExecutors', () => {
       ]);
     });
 
-    it('should fallback to messagesToSummarize when finalizeCompression does not return messages', async () => {
+    it('retains the published summary when finalization does not return a timeline', async () => {
       const mockChat = vi.fn().mockImplementation(async (_payload, options) => {
         await options?.callback?.onText?.('summary');
         return new Response('done');
@@ -1820,15 +1831,18 @@ describe('RuntimeExecutors', () => {
 
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState({
-        messages: [{ content: 'history', role: 'user' }],
+        messages: [{ content: 'history', id: 'msg-history', role: 'user' }],
       });
 
-      const instruction = createCompressContextInstruction(state.messages);
+      const instruction = createCompressContextInstruction(state.messages, {
+        candidateIds: ['msg-history'],
+        parentMessageId: 'assistant-existing',
+      });
 
       const result = await executors.compress_context!(instruction, state);
 
-      expect((result.nextContext?.payload as any).compressedMessages).toEqual([
-        { content: 'history', id: 'msg-history', role: 'user' },
+      expect((result.nextContext?.payload as any).compressedMessages).toMatchObject([
+        { content: 'summary', id: 'group-123', role: 'compressedGroup' },
       ]);
     });
 
@@ -1897,10 +1911,13 @@ describe('RuntimeExecutors', () => {
 
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState({
-        messages: [{ content: 'history', role: 'user' }],
+        messages: [{ content: 'history', id: 'msg-history', role: 'user' }],
       });
 
-      const instruction = createCompressContextInstruction(state.messages);
+      const instruction = createCompressContextInstruction(state.messages, {
+        candidateIds: ['msg-history'],
+        parentMessageId: 'assistant-existing',
+      });
 
       const result = await executors.compress_context!(instruction, state);
 

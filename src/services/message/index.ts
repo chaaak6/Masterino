@@ -257,7 +257,10 @@ export class MessageService {
     messages: UIChatMessage[];
     messagesToSummarize: UIChatMessage[];
   }> => {
-    const result = await lambdaClient.message.createCompressionGroup.mutate(params);
+    const result = await lambdaClient.message.createCompressionGroup.mutate({
+      ...params,
+      includeTimelineSnapshot: false,
+    });
     return {
       messageGroupId: result.messageGroupId,
       messages: (result.messages || []) as unknown as UIChatMessage[],
