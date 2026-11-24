@@ -4517,6 +4517,7 @@ describe('RuntimeExecutors', () => {
         expect.objectContaining({
           agentId: 'agent-123',
           content: '',
+          metadata: { toolExecutionRuntime: 'server' },
           parentId: 'assistant-msg-1',
           pluginIntervention: { status: 'pending' },
           role: 'tool',
@@ -4527,6 +4528,7 @@ describe('RuntimeExecutors', () => {
       expect(mockMessageModel.create).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
+          metadata: { toolExecutionRuntime: 'server' },
           parentId: 'assistant-msg-1',
           pluginIntervention: { status: 'pending' },
           tool_call_id: 'tool-call-2',

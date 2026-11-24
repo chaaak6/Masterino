@@ -183,6 +183,7 @@ export const MessageMetadataSchema = ModelUsageSchema.merge(ModelPerformanceSche
   // External-signal lineage for Monitor-style callback turns ().
   signal: MessageSignalSchema.optional(),
   subAgentId: z.string().optional(),
+  toolExecutionRuntime: z.literal('server').optional(),
   toolExecutionTimeMs: z.number().optional(),
   trigger: z.nativeEnum(RequestTrigger).optional(),
   // role='verify' card: which Agent Run (agent_operations.id) it renders.
@@ -353,6 +354,8 @@ export interface MessageMetadata {
   taskTitle?: string;
   // message content is multimodal, display content in the streaming, won't save to db
   tempDisplayContent?: string;
+  /** Runtime that owns a pending tool approval. */
+  toolExecutionRuntime?: 'server';
   /**
    * Tool execution time for tool messages (ms)
    */

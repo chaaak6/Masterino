@@ -1135,6 +1135,59 @@ describe('ConversationControl actions', () => {
         executeGatewayAgentSpy.mockRestore();
       });
 
+      it('resumes a stored server tool approval over Gateway without a WebSocket or a running operation', async () => {
+        const { result } = renderHook(() => useChatStore());
+
+        const agentId = 'server-agent';
+        const topicId = 'server-topic';
+        const chatKey = messageMapKey({ agentId, topicId });
+        const toolMessage = createMockMessage({
+          id: 'tool-msg-1',
+          metadata: { toolExecutionRuntime: 'server' },
+          plugin: {
+            apiName: 'readFile',
+            arguments: '{}',
+            identifier: 'lobe-local-system',
+            type: 'default',
+          },
+          role: 'tool',
+          tool_call_id: 'call_xyz',
+        });
+
+        act(() => {
+          useChatStore.setState({
+            activeAgentId: agentId,
+            activeTopicId: topicId,
+            dbMessagesMap: { [chatKey]: [toolMessage] },
+            messagesMap: { [chatKey]: [toolMessage] },
+          });
+        });
+
+        vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
+        vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+        const executeGatewayAgent = vi
+          .spyOn(result.current, 'executeGatewayAgent')
+          .mockResolvedValue({} as any);
+        const executeClientAgent = vi
+          .spyOn(result.current, 'executeClientAgent')
+          .mockResolvedValue(undefined);
+
+        await act(async () => {
+          await result.current.approveToolCalling('tool-msg-1', 'group-1');
+        });
+
+        expect(executeGatewayAgent).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            resumeApproval: expect.objectContaining({
+              decision: 'approved',
+              parentMessageId: 'tool-msg-1',
+              toolCallId: 'call_xyz',
+            }),
+          }),
+        );
+        expect(executeClientAgent).not.toHaveBeenCalled();
+      });
+
       it('should leave the paused server op running when the Gateway resume call fails so retries stay on the server-mode path', async () => {
         const { result } = renderHook(() => useChatStore());
 

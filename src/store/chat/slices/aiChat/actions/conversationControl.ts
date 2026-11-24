@@ -48,31 +48,20 @@ export class ConversationControlActionImpl {
   }
 
   /**
-   * Decide whether approve/reject/reject_continue should go through the
-   * Gateway resume path (new op carrying `resumeApproval`) instead of the
-   * local `executeClientAgent` path. Mirrors the "interrupt + new op"
-   * pattern from .
-   *
-   * Routes via `selectRuntimeType` so approve/reject align with how the
-   * conversation was dispatched at sendMessage time. Hetero resume is not yet
-   * implemented and falls through to client local resume — see .
-   *
-   * We deliberately do **not** look for a living `execServerAgentRuntime`
-   * op here. The server's `waiting_for_human` → `agent_runtime_end` signal
-   * marks the paused op `completed` client-side, and `startOperation` runs
-   * `cleanupCompletedOperations(30_000)` on every new op, which means the
-   * paused op is typically gone by the time the user clicks approve — so
-   * scanning for it would flip us back into client-mode against a live
-   * Gateway backend.
+   * Persisted server approvals resume in a new server operation, even after
+   * the original operation has completed and been removed from the store.
+   * Older approvals use the configured runtime unless a client pause was saved.
    */
   #shouldUseGatewayResume = async (
     context: ConversationContext,
     pausedExecutionContext?: ExecutionContext,
-    toolIdentifier?: string,
+    toolMessage?: UIChatMessage,
   ): Promise<boolean> => {
     // Only the client runtime records this pause snapshot. If current workspace
     // settings changed while the card was waiting, do not reroute the same turn.
     if (pausedExecutionContext) return false;
+    if (toolMessage?.metadata?.toolExecutionRuntime === 'server') return true;
+    const toolIdentifier = toolMessage?.plugin?.identifier;
     const agentConfig = context.agentId
       ? agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState())
       : undefined;
@@ -355,7 +344,7 @@ export class ConversationControlActionImpl {
         await this.#shouldUseGatewayResume(
           effectiveContext,
           executionContext,
-          approvedToolCallPayload.identifier,
+          refreshedToolMessage ?? toolMessage,
         )
       ) {
         // Snapshot paused op IDs before the resume call; retire them only
@@ -1168,13 +1157,7 @@ export class ConversationControlActionImpl {
     // `rejected_continue` share the same code path (both surface the
     // rejection to the LLM as user feedback), so a separate `rejected`
     // decision adds complexity without behavioural difference.
-    if (
-      await this.#shouldUseGatewayResume(
-        effectiveContext,
-        executionContext,
-        toolMessage.plugin?.identifier,
-      )
-    ) {
+    if (await this.#shouldUseGatewayResume(effectiveContext, executionContext, toolMessage)) {
       const toolCallId = toolMessage.tool_call_id;
       if (!toolCallId) {
         console.warn(
@@ -1231,13 +1214,7 @@ export class ConversationControlActionImpl {
     // the LLM loop with the rejection content surfaced as user feedback.
     // Skip the client-mode `rejectToolCalling` chain below — that would fire
     // a duplicate halting `reject` before this continue signal.
-    if (
-      await this.#shouldUseGatewayResume(
-        effectiveContext,
-        executionContext,
-        toolMessage.plugin?.identifier,
-      )
-    ) {
+    if (await this.#shouldUseGatewayResume(effectiveContext, executionContext, toolMessage)) {
       const requestMetadata = this.#getResumeContextFromMessageChain(messageId).requestMetadata;
       const toolCallId = toolMessage.tool_call_id;
       if (!toolCallId) {

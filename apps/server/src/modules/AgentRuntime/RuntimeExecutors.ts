@@ -4151,6 +4151,7 @@ export const createRuntimeExecutors = (
             toolMessageId = payload.parentMessageId;
             await ctx.messageModel.updateToolMessage(toolMessageId, {
               content: '',
+              metadata: { toolExecutionRuntime: 'server' },
               pluginState: pendingState,
             });
             await ctx.messageModel.updateMessagePlugin(toolMessageId, {
@@ -4160,6 +4161,7 @@ export const createRuntimeExecutors = (
             const toolMessage = await ctx.messageModel.create({
               agentId: state.metadata!.agentId!,
               content: '',
+              metadata: { toolExecutionRuntime: 'server' },
               parentId: payload.parentMessageId,
               plugin: chatToolPayload as any,
               pluginIntervention: { status: 'pending' },
@@ -4916,6 +4918,7 @@ export const createRuntimeExecutors = (
               const toolMessage = await ctx.messageModel.create({
                 agentId: state.metadata!.agentId!,
                 content: '',
+                metadata: { toolExecutionRuntime: 'server' },
                 parentId: parentMessageId,
                 plugin: chatToolPayload as any,
                 pluginIntervention: { status: 'pending' },
@@ -5734,6 +5737,7 @@ export const createRuntimeExecutors = (
           const toolMessage = await ctx.messageModel.create({
             agentId: state.metadata!.agentId!,
             content: '',
+            metadata: { toolExecutionRuntime: 'server' },
             parentId: parentAssistantId,
             plugin: toolPayload as any,
             pluginIntervention: { status: 'pending' },

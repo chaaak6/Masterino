@@ -2631,8 +2631,16 @@ describe('ConversationLifecycle actions', () => {
         });
       });
 
-      // gateway routing was actually taken (precondition for the assertion below)
-      expect(executeGatewayAgentSpy).toHaveBeenCalled();
+      expect(executeGatewayAgentSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          optimisticMessageIds: {
+            assistant: expect.any(String),
+            user: expect.any(String),
+          },
+        }),
+      );
+      const { assistant, user } = executeGatewayAgentSpy.mock.calls[0][0].optimisticMessageIds;
+      expect(assistant).not.toBe(user);
       // and the client-side post-persist title hook was NOT reached
       expect(summaryTopicTitleSpy).not.toHaveBeenCalled();
     });

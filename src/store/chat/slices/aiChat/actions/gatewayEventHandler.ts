@@ -201,7 +201,7 @@ export const createGatewayEventHandler = (
      */
     gatewayOperationId?: string;
     operationId: string;
-    tempMessageIds?: string[];
+    optimisticMessageIds?: Record<string, string>;
   },
 ) => {
   const { context, operationId } = params;
@@ -212,7 +212,7 @@ export const createGatewayEventHandler = (
 
   const pagedHistory = !!context.topicId && usesPagedGatewayHistory(context);
   const storeKey = messageMapKey(context);
-  const temporaryIds = new Set(params.tempMessageIds);
+  const optimisticMessageIds = new Map(Object.entries(params.optimisticMessageIds ?? {}));
   let updateCursor: MessageHistoryCursor | undefined;
   let hasGatewayHistoryApi = true;
 
@@ -225,10 +225,9 @@ export const createGatewayEventHandler = (
 
     const current = get().dbMessagesMap[storeKey] ?? [];
     const byId = new Map(current.map((message) => [message.id, message]));
-    if (messages.some(({ id }) => id === params.assistantMessageId)) {
-      for (const id of temporaryIds) byId.delete(id);
-    }
     for (const message of messages) {
+      const optimisticId = optimisticMessageIds.get(message.id);
+      if (optimisticId) byId.delete(optimisticId);
       const previous = byId.get(message.id);
       if (
         previous &&

@@ -60,7 +60,12 @@ function createMockStore() {
 
 function createHandler(
   store: ReturnType<typeof createMockStore>,
-  overrides?: { assistantMessageId?: string; gatewayOperationId?: string; main?: boolean },
+  overrides?: {
+    assistantMessageId?: string;
+    gatewayOperationId?: string;
+    main?: boolean;
+    optimisticMessageIds?: Record<string, string>;
+  },
 ) {
   const get = vi.fn(() => store) as any;
   return createGatewayEventHandler(get, {
@@ -72,6 +77,7 @@ function createHandler(
     } as any,
     gatewayOperationId: overrides?.gatewayOperationId,
     operationId: 'op-1',
+    optimisticMessageIds: overrides?.optimisticMessageIds,
   });
 }
 
@@ -104,14 +110,22 @@ describe('createGatewayEventHandler', () => {
       role: 'assistant',
       updatedAt: 3,
     };
-    store.dbMessagesMap[messageMapKey(context)] = [older];
+    const user = { content: 'prompt', createdAt: 2, id: 'msg-user', role: 'user', updatedAt: 2 };
+    const otherTemp = { ...user, createdAt: 4, id: 'temp-other' };
+    store.dbMessagesMap[messageMapKey(context)] = [
+      older,
+      { ...user, id: 'temp-user' },
+      { ...assistant, id: 'temp-assistant' },
+      otherTemp,
+    ];
 
-    await createHandler(store, { main: true })(
-      makeEvent('agent_runtime_end', { uiMessages: [assistant] }),
-    );
+    await createHandler(store, {
+      main: true,
+      optimisticMessageIds: { 'msg-initial': 'temp-assistant', 'msg-user': 'temp-user' },
+    })(makeEvent('agent_runtime_end', { uiMessages: [user, assistant] }));
 
     expect(store.replaceMessages).toHaveBeenCalledWith(
-      [older, assistant],
+      [older, user, assistant, otherTemp],
       expect.objectContaining({ context }),
     );
     expect(messageService.getMessages).not.toHaveBeenCalled();
