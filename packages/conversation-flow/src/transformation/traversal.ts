@@ -2,7 +2,10 @@ export type Traversal = Generator<Traversal, void, void>;
 
 /** Run one continuation at a time while retaining the order of depth-first traversal. */
 export function runTraversal(root: Traversal): void {
-  const pending = [root];
+  const first = root.next();
+  if (first.done) return;
+
+  const pending = [root, first.value];
   try {
     while (pending.length) {
       const step = pending.at(-1)!.next();

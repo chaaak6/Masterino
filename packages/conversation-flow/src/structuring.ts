@@ -11,17 +11,23 @@ import type { HelperMaps, IdNode } from './types';
 export function buildIdTree(helperMaps: HelperMaps): IdNode[] {
   const { childrenMap, messageMap } = helperMaps;
 
-  const mainFlowNodes = (ids: string[]): IdNode[] =>
-    ids
-      .filter((id) => messageMap.has(id) && !messageMap.get(id)?.threadId)
-      .map((id) => ({ children: [], id }));
+  const mainFlowNodes = (ids: string[] | undefined): IdNode[] => {
+    const nodes: IdNode[] = [];
+    for (const id of ids ?? []) {
+      const message = messageMap.get(id);
+      if (message && !message.threadId) nodes.push({ children: [], id });
+    }
+    return nodes;
+  };
 
-  const roots = mainFlowNodes(childrenMap.get(null) ?? []);
+  const roots = mainFlowNodes(childrenMap.get(null));
   const pending = [...roots];
 
   while (pending.length) {
     const node = pending.pop()!;
-    node.children = mainFlowNodes(childrenMap.get(node.id) ?? []);
+    const children = childrenMap.get(node.id);
+    if (!children?.length) continue;
+    node.children = mainFlowNodes(children);
     for (const child of node.children) pending.push(child);
   }
 

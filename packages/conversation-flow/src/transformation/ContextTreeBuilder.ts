@@ -159,10 +159,10 @@ export class ContextTreeBuilder {
     // Priority 6: Branch — multiple NON-TOOL children (dual-form reader invariant: tool children are inline data, not branch candidates).
     // Tool children are inline data of their assistant (handled by Priority 4),
     // never branch candidates.
-    const nonToolChildren = idNode.children.filter(
-      (child) => this.messageMap.get(child.id)?.role !== 'tool',
-    );
-    if (nonToolChildren.length > 1) {
+    if (
+      idNode.children.length > 1 &&
+      idNode.children.filter((child) => this.messageMap.get(child.id)?.role !== 'tool').length > 1
+    ) {
       // Add current message node
       const messageNode = this.createMessageNode(message);
       contextTree.push(messageNode);

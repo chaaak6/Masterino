@@ -308,8 +308,14 @@ export class FlatListBuilder {
         continue;
       }
 
+      const childMessages = this.childrenMap.get(message.id);
+      if (!childMessages?.length) {
+        flatList.push(message);
+        processedIds.add(message.id);
+        continue;
+      }
+
       // Priority 3a: Compare mode from user message metadata
-      const childMessages = this.childrenMap.get(message.id) ?? [];
       // Non-tool children only are branch candidates (dual-form reader invariant: tool children are inline, not branches):
       // a tool child is inline data of its assistant, never a sibling branch.
       const nonToolChildMessages = childMessages.filter(
