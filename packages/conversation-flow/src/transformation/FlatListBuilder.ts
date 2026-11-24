@@ -29,6 +29,10 @@ export class FlatListBuilder {
    * Only includes messages in the active path
    */
   flatten(messages: Message[]): Message[] {
+    return this.project(messages).flatList;
+  }
+
+  project(messages: Message[]) {
     const flatList: Message[] = [];
     const processedIds = new Set<string>();
 
@@ -47,7 +51,7 @@ export class FlatListBuilder {
     // Build the active path by traversing from root
     runTraversal(this.buildFlatListRecursive(rootParentId, flatList, processedIds, messages));
 
-    return flatList;
+    return { flatList, messageIds: processedIds };
   }
 
   /**

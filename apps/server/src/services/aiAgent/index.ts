@@ -3468,6 +3468,7 @@ export class AiAgentService {
           isSubAgent: appContext?.isSubAgent,
           scope: appContext?.scope,
           sourceMessageId: userMessageRecord?.id ?? parentMessageId ?? undefined,
+          syncGatewayMessagesById: appContext?.syncGatewayMessagesById,
           taskId: operationTaskId,
           threadId: appContext?.threadId,
           topicId,

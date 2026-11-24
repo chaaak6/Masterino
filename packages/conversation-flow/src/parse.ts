@@ -3,6 +3,19 @@ import { buildIdTree } from './structuring';
 import { Transformer } from './transformation';
 import type { Message, MessageGroupMetadata, ParseResult } from './types';
 
+const normalizeSubAgentMessages = (messages: Message[]) =>
+  messages.map((message) => {
+    if (message.metadata?.scope === 'sub_agent' && message.metadata.subAgentId) {
+      return { ...message, agentId: message.metadata.subAgentId };
+    }
+    return message;
+  });
+
+export function projectConversationHistory(messages: Message[]) {
+  const normalized = normalizeSubAgentMessages(messages);
+  return new Transformer(buildHelperMaps(normalized)).project(normalized);
+}
+
 /**
  * Main parse function - the brain of the conversation flow engine
  *
@@ -21,16 +34,7 @@ import type { Message, MessageGroupMetadata, ParseResult } from './types';
  * @returns ParseResult containing messageMap, displayTree, and flatList
  */
 export function parse(messages: Message[], messageGroups?: MessageGroupMetadata[]): ParseResult {
-  // Pre-processing: Transform sub_agent messages before building helper maps
-  // This ensures FlatListBuilder and MessageCollector see the correct agentId
-  // and won't merge messages from different agents into the same group
-  // Only applies to scope: 'sub_agent' (agent-to-agent calls, not group orchestration)
-  const processedMessages = messages.map((msg) => {
-    if (msg.metadata?.scope === 'sub_agent' && msg.metadata?.subAgentId) {
-      return { ...msg, agentId: msg.metadata.subAgentId };
-    }
-    return msg;
-  });
+  const processedMessages = normalizeSubAgentMessages(messages);
 
   // Phase 1: Indexing
   // Build helper maps for O(1) access patterns

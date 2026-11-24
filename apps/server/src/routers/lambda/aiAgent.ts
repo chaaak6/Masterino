@@ -161,6 +161,7 @@ const ExecAgentSchema = z
           .optional(),
         scope: z.string().optional().nullable(),
         sessionId: z.string().optional(),
+        syncGatewayMessagesById: z.boolean().optional(),
         taskId: z.string().optional().nullable(),
         threadId: z.string().optional().nullable(),
         topicId: z.string().optional().nullable(),

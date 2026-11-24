@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { messageService } from '@/services/message';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNotification';
 
 import { createGatewayEventHandler } from '../gatewayEventHandler';
 
 vi.mock('@/services/message', () => ({
   messageService: {
+    getGatewayHistory: vi.fn().mockResolvedValue({ messages: [] }),
     getMessages: vi.fn().mockResolvedValue([]),
     updateMessageError: vi.fn().mockResolvedValue({ success: true }),
   },
@@ -32,6 +34,7 @@ function createMockStore() {
   return {
     associateMessageWithOperation: vi.fn(),
     completeOperation: vi.fn(),
+    dbMessagesMap: {} as Record<string, any[]>,
     failOperation: vi.fn(),
     internal_dispatchMessage: vi.fn(),
     internal_executeClientTool: vi.fn().mockResolvedValue(undefined),
@@ -57,12 +60,16 @@ function createMockStore() {
 
 function createHandler(
   store: ReturnType<typeof createMockStore>,
-  overrides?: { assistantMessageId?: string; gatewayOperationId?: string },
+  overrides?: { assistantMessageId?: string; gatewayOperationId?: string; main?: boolean },
 ) {
   const get = vi.fn(() => store) as any;
   return createGatewayEventHandler(get, {
     assistantMessageId: overrides?.assistantMessageId ?? 'msg-initial',
-    context: { agentId: 'agent-1', scope: 'session', topicId: 'topic-1' } as any,
+    context: {
+      agentId: 'agent-1',
+      scope: overrides?.main ? 'main' : 'session',
+      topicId: 'topic-1',
+    } as any,
     gatewayOperationId: overrides?.gatewayOperationId,
     operationId: 'op-1',
   });
@@ -84,6 +91,30 @@ const flush = async () => {
 describe('createGatewayEventHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('merges a Gateway completion into previously loaded history by ID', async () => {
+    const store = createMockStore();
+    const context = { agentId: 'agent-1', scope: 'main' as const, topicId: 'topic-1' };
+    const older = { content: 'older page', createdAt: 1, id: 'older', updatedAt: 1 };
+    const assistant = {
+      content: 'done',
+      createdAt: 3,
+      id: 'msg-initial',
+      role: 'assistant',
+      updatedAt: 3,
+    };
+    store.dbMessagesMap[messageMapKey(context)] = [older];
+
+    await createHandler(store, { main: true })(
+      makeEvent('agent_runtime_end', { uiMessages: [assistant] }),
+    );
+
+    expect(store.replaceMessages).toHaveBeenCalledWith(
+      [older, assistant],
+      expect.objectContaining({ context }),
+    );
+    expect(messageService.getMessages).not.toHaveBeenCalled();
   });
 
   it('waits for the final message snapshot before completing', async () => {
@@ -120,8 +151,15 @@ describe('createGatewayEventHandler', () => {
     try {
       const store = createMockStore();
       let release!: (messages: any[]) => void;
-      store.completeOperation.mockImplementation((id) => { store.operations[id].status = 'completed'; });
-      vi.mocked(messageService.getMessages).mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+      store.completeOperation.mockImplementation((id) => {
+        store.operations[id].status = 'completed';
+      });
+      vi.mocked(messageService.getMessages).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
       const pending = createHandler(store)(makeEvent('agent_runtime_end'));
       await vi.advanceTimersByTimeAsync(5000);
       expect(store.completeOperation).toHaveBeenCalledWith('op-1');
@@ -130,7 +168,9 @@ describe('createGatewayEventHandler', () => {
       release([{ id: 'msg-initial', content: 'late snapshot' }]);
       await Promise.resolve();
       expect(store.replaceMessages).not.toHaveBeenCalled();
-    } finally { vi.useRealTimers(); }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not replace stopped content when an already-started snapshot arrives late', async () => {

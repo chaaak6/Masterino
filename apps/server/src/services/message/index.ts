@@ -141,6 +141,10 @@ export class MessageService {
     return this.messageModel.queryHistoryPage(params, this.postProcessUrl);
   }
 
+  async queryGatewayHistory(params: Parameters<MessageModel['queryGatewayHistory']>[0]) {
+    return this.messageModel.queryGatewayHistory(params, this.postProcessUrl);
+  }
+
   async queryAgentMessages(
     params: QueryMessageParams,
     postProcessUrl = this.postProcessUrl,

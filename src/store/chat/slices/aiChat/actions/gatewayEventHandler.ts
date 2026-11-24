@@ -7,19 +7,23 @@ import type {
   ToolExecuteData,
   ToolStartData,
 } from '@lobechat/agent-gateway-client';
+import { LOADING_FLAT } from '@lobechat/const';
 import type {
   BuiltinToolResult,
   ChatMessageError,
   ConversationContext,
+  MessageHistoryCursor,
   UIChatMessage,
 } from '@lobechat/types';
 import { AgentRuntimeErrorType } from '@lobechat/types';
 import { toast } from '@lobehub/ui/base-ui';
+import { TRPCClientError } from '@trpc/client';
 import { t } from 'i18next';
 
 import { messageService } from '@/services/message';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
 import type { ChatStore } from '@/store/chat/store';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNotification';
 
 // Lazy-loaded to break the import cycle:
@@ -32,22 +36,8 @@ const loadGetExecutor = async () => {
   return mod.getExecutor;
 };
 
-/**
- * Fetch messages from DB and replace them in the chat store's dbMessagesMap.
- * This updates the ConversationArea component via React subscription:
- *   dbMessagesMap → ConversationArea (messages prop) → ConversationStore → UI
- */
-const fetchAndReplaceMessages = async (
-  get: () => ChatStore,
-  context: ConversationContext,
-  operationId: string,
-) => {
-  const messages = await messageService.getMessages(context);
-  const status = get().operations[operationId]?.status;
-  if (status !== 'cancelled' && status !== 'completed')
-    get().replaceMessages(messages, { context });
-  return messages;
-};
+export const usesPagedGatewayHistory = (context: ConversationContext) =>
+  !context.groupId && !context.threadId && (!context.scope || context.scope === 'main');
 
 interface ChatToolPayloadLike {
   apiName?: unknown;
@@ -193,7 +183,7 @@ const toChatMessageError = (data: unknown): ChatMessageError => {
  * Supports multi-step agent execution (LLM → tool calls → next LLM → ...)
  * using a hybrid approach:
  * - Current LLM step: real-time streaming via stream_chunk
- * - Step transitions: fetchAndReplaceMessages from DB at stream_start / tool_end / step_complete
+ * - Step transitions: synchronize persisted changes at stream_start / tool_end / step_complete
  *
  * The handler queues incoming events and processes them sequentially,
  * ensuring that stream_chunk waits for stream_start's DB fetch to resolve
@@ -211,6 +201,7 @@ export const createGatewayEventHandler = (
      */
     gatewayOperationId?: string;
     operationId: string;
+    tempMessageIds?: string[];
   },
 ) => {
   const { context, operationId } = params;
@@ -218,6 +209,95 @@ export const createGatewayEventHandler = (
 
   // Dispatch context — ensures internal_dispatchMessage resolves the correct messageMapKey
   const dispatchContext = { operationId };
+
+  const pagedHistory = !!context.topicId && usesPagedGatewayHistory(context);
+  const storeKey = messageMapKey(context);
+  const temporaryIds = new Set(params.tempMessageIds);
+  let updateCursor: MessageHistoryCursor | undefined;
+  let hasGatewayHistoryApi = true;
+
+  const applyPersistedMessages = (messages: UIChatMessage[], action?: string, final = false) => {
+    if (!pagedHistory) {
+      get().replaceMessages(messages, { action, context });
+      return;
+    }
+    if (!messages.length) return;
+
+    const current = get().dbMessagesMap[storeKey] ?? [];
+    const byId = new Map(current.map((message) => [message.id, message]));
+    if (messages.some(({ id }) => id === params.assistantMessageId)) {
+      for (const id of temporaryIds) byId.delete(id);
+    }
+    for (const message of messages) {
+      const previous = byId.get(message.id);
+      if (
+        previous &&
+        (!final || typeof previous.updatedAt !== 'number') &&
+        new Date(previous.updatedAt) > new Date(message.updatedAt)
+      )
+        continue;
+      const placeholder = message.content === LOADING_FLAT || !message.content;
+      const liveAssistant =
+        !final && message.id === currentAssistantMessageId && previous?.role === 'assistant';
+      byId.set(message.id, {
+        ...message,
+        branch: message.branch ?? previous?.branch,
+        compressionBoundary: message.compressionBoundary ?? previous?.compressionBoundary,
+        ...(liveAssistant &&
+          placeholder &&
+          previous.content !== LOADING_FLAT && {
+            content: previous.content,
+          }),
+        ...(liveAssistant && message.reasoning == null && { reasoning: previous.reasoning }),
+      });
+    }
+    const merged = [...byId.values()].sort(
+      (a, b) =>
+        +new Date(a.createdAt) - +new Date(b.createdAt) || (a.id < b.id ? -1 : Number(a.id > b.id)),
+    );
+    get().replaceMessages(merged, { action, context });
+  };
+
+  const refreshPersistedMessages = async (
+    final = false,
+    remoteWrite = false,
+  ): Promise<UIChatMessage[]> => {
+    const shouldApply = () => {
+      const status = get().operations[operationId]?.status;
+      return status !== 'cancelled' && status !== 'completed';
+    };
+    if (pagedHistory && hasGatewayHistoryApi) {
+      try {
+        if (remoteWrite) {
+          const page = await messageService.getHistoryPage({ topicId: context.topicId! });
+          if (shouldApply()) applyPersistedMessages(page.messages);
+          return page.messages;
+        }
+        // Reconcile the final run once, including writes that committed out of
+        // updatedAt order while parallel tools were running.
+        let cursor = final ? undefined : updateCursor;
+        do {
+          const page = await messageService.getGatewayHistory({
+            assistantMessageId: params.assistantMessageId,
+            cursor,
+            topicId: context.topicId!,
+          });
+          if (!shouldApply()) break;
+          applyPersistedMessages(page.messages, undefined, final);
+          if (page.cursor) updateCursor = page.cursor;
+          cursor = page.nextCursor;
+        } while (cursor);
+        return get().dbMessagesMap[storeKey] ?? [];
+      } catch (error) {
+        if (!(error instanceof TRPCClientError) || error.data?.code !== 'NOT_FOUND') throw error;
+        hasGatewayHistoryApi = false;
+      }
+    }
+    // Older servers still emit snapshots. Merge them into the paged timeline.
+    const messages = await messageService.getMessages(context);
+    if (shouldApply()) applyPersistedMessages(messages, undefined, final);
+    return messages;
+  };
 
   // Mutable — switches to new assistant message ID on each stream_start
   let currentAssistantMessageId = params.assistantMessageId;
@@ -326,15 +406,19 @@ export const createGatewayEventHandler = (
           // placeholder into `dbMessagesMap` so subsequent chunks can
           // dispatch to it, and (b) resolves the next-step assistant id for
           // the `newStep` fallback.
-          if (!newAssistantMessageId) {
-            const messages = await fetchAndReplaceMessages(get, context, operationId).catch(
+          if (
+            !newAssistantMessageId ||
+            (pagedHistory &&
+              !get().dbMessagesMap[storeKey]?.some(({ id }) => id === newAssistantMessageId))
+          ) {
+            const messages = await refreshPersistedMessages(false, !newAssistantMessageId).catch(
               (error) => {
                 console.error(error);
                 return undefined;
               },
             );
 
-            if (data?.newStep) {
+            if (!newAssistantMessageId && data?.newStep) {
               const resolvedAssistantMessageId = findNextAssistantMessageId(
                 messages as GatewayMessageLike[] | undefined,
                 currentAssistantMessageId,
@@ -426,7 +510,7 @@ export const createGatewayEventHandler = (
             // waiting for `agent_runtime_end` (which won't fire while paused
             // in `waiting_for_human`).
             if ((data as any).toolMessageIds) {
-              fetchAndReplaceMessages(get, context, operationId).catch(console.error);
+              refreshPersistedMessages().catch(console.error);
             }
           }
         });
@@ -501,7 +585,14 @@ export const createGatewayEventHandler = (
         // assistant placeholder while DB fan-out is still in flight, which
         // clobbers the in-memory streamed assistantGroup.
         if (Array.isArray(data?.uiMessages)) {
-          get().replaceMessages(data.uiMessages, { action: 'gateway/step_start', context });
+          const messages = data.uiMessages;
+          const apply = () => applyPersistedMessages(messages, 'gateway/step_start');
+          if (pagedHistory) enqueue(apply);
+          else apply();
+        } else if (pagedHistory) {
+          enqueue(async () => {
+            await refreshPersistedMessages().catch(console.error);
+          });
         }
 
         if (data?.phase === 'human_approval' && data.requiresApproval && data.pendingToolsCalling) {
@@ -544,7 +635,7 @@ export const createGatewayEventHandler = (
         const data = event.data as ToolEndData | undefined;
         enqueue(async () => {
           await Promise.all([
-            fetchAndReplaceMessages(get, context, operationId).catch(console.error),
+            refreshPersistedMessages().catch(console.error),
             dispatchOnAfterCall(data).catch(console.error),
           ]);
         });
@@ -567,7 +658,7 @@ export const createGatewayEventHandler = (
               sourceId: `${operationId}:gateway:step_complete:${event.stepIndex}`,
               sourceType: 'client.gateway.step_complete',
             });
-            await fetchAndReplaceMessages(get, context, operationId).catch(console.error);
+            await refreshPersistedMessages().catch(console.error);
           });
         }
         break;
@@ -599,10 +690,7 @@ export const createGatewayEventHandler = (
           // to a DB refetch only if the snapshot is absent (older server
           // builds, or push-event delivery edge cases).
           if (Array.isArray(data?.uiMessages)) {
-            get().replaceMessages(data.uiMessages, {
-              action: 'gateway/agent_runtime_end',
-              context,
-            });
+            applyPersistedMessages(data.uiMessages, 'gateway/agent_runtime_end', true);
           } else if (
             (data?.reason === 'interrupted' || data?.reason === 'waiting_for_async_tool') &&
             hasStreamedContent
@@ -630,7 +718,7 @@ export const createGatewayEventHandler = (
             try {
               // Sync is best-effort after the server confirms completion; never hold the composer indefinitely.
               await Promise.race([
-                fetchAndReplaceMessages(get, context, operationId),
+                refreshPersistedMessages(true),
                 new Promise<never>((_resolve, reject) => {
                   refreshTimeout = setTimeout(
                     () => reject(new Error('Final snapshot refresh timed out')),
@@ -668,7 +756,7 @@ export const createGatewayEventHandler = (
         // Remote hetero agent (openclaw / hermes) wrote a message to DB via
         // `lh notify`. DB is the source of truth — just refresh the message list.
         enqueue(async () => {
-          await fetchAndReplaceMessages(get, context, operationId).catch(console.error);
+          await refreshPersistedMessages(false, true).catch(console.error);
         });
         break;
       }
@@ -702,20 +790,26 @@ export const createGatewayEventHandler = (
           get().failOperation(operationId, { message: errorMessage, type: 'AgentStreamError' });
 
           const updateResult = await messageService
-            .updateMessageError(currentAssistantMessageId, messageError, {
-              agentId: context.agentId,
-              groupId: context.groupId,
-              threadId: context.threadId,
-              topicId: context.topicId,
-            })
+            .updateMessageError(
+              currentAssistantMessageId,
+              messageError,
+              pagedHistory
+                ? undefined
+                : {
+                    agentId: context.agentId,
+                    groupId: context.groupId,
+                    threadId: context.threadId,
+                    topicId: context.topicId,
+                  },
+            )
             .catch(console.error);
 
           if (get().operations[operationId]?.status === 'cancelled') return;
           if (updateResult?.success && updateResult.messages) {
-            get().replaceMessages(updateResult.messages, { context });
+            applyPersistedMessages(updateResult.messages);
           } else {
             // Fallback when the mutation response doesn't include messages.
-            await fetchAndReplaceMessages(get, context, operationId).catch(console.error);
+            await refreshPersistedMessages().catch(console.error);
           }
 
           if (get().operations[operationId]?.status === 'cancelled') return;

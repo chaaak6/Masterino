@@ -27,7 +27,7 @@ import type { StoreSetter } from '@/store/types';
 import { useUserStore } from '@/store/user';
 import { settingsSelectors, toolInterventionSelectors } from '@/store/user/selectors';
 
-import { createGatewayEventHandler } from './gatewayEventHandler';
+import { createGatewayEventHandler, usesPagedGatewayHistory } from './gatewayEventHandler';
 
 type Setter = StoreSetter<ChatStore>;
 
@@ -406,6 +406,7 @@ export class GatewayActionImpl {
           ...(historyHeadId && { historyHeadId }),
           ...(initialTopicMetadata && { initialTopicMetadata }),
           scope: context.scope,
+          ...(usesPagedGatewayHistory(context) && { syncGatewayMessagesById: true }),
           taskId,
           threadId: context.threadId,
           topicId: context.topicId,
@@ -444,7 +445,9 @@ export class GatewayActionImpl {
       }
       try {
         const newContext = { ...context, topicId: result.topicId };
-        const messages = await messageService.getMessages(newContext);
+        const messages = usesPagedGatewayHistory(newContext)
+          ? (await messageService.getHistoryPage({ topicId: result.topicId })).messages
+          : await messageService.getMessages(newContext);
         this.#get().replaceMessages(messages, { context: newContext });
       } catch {
         /* non-critical */
@@ -554,6 +557,7 @@ export class GatewayActionImpl {
       // the same WS that gatewayConnections is keyed on.
       gatewayOperationId: result.operationId,
       operationId: gatewayOpId,
+      tempMessageIds,
     });
 
     this.#get().connectToGateway({

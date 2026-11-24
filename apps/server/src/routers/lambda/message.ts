@@ -306,11 +306,27 @@ export const messageRouter = router({
     )
     .query(({ input, ctx }) => ctx.messageService.queryAgentMessages(input)),
 
+  getGatewayHistory: messageProcedure
+    .input(
+      z.object({
+        assistantMessageId: z.string().min(1).max(255),
+        cursor: z
+          .object({ createdAt: z.string().datetime(), id: z.string().min(1).max(255) })
+          .optional(),
+        topicId: z.string().min(1),
+      }),
+    )
+    .query(({ input, ctx }) => ctx.messageService.queryGatewayHistory(input)),
+
   getHistoryPage: messageProcedure
     .input(
       z.object({
         cursor: z
-          .object({ createdAt: z.string().datetime(), id: z.string().min(1).max(255) })
+          .object({
+            branchKey: z.string().max(64).optional(),
+            createdAt: z.string().datetime(),
+            id: z.string().min(1).max(255),
+          })
           .optional(),
         groupId: z.string().nullable().optional(),
         topicId: z.string().min(1),

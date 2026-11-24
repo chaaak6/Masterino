@@ -60,6 +60,10 @@ export class MessageService {
     return data as unknown as UIChatMessage[];
   };
 
+  getGatewayHistory = (
+    params: Parameters<typeof lambdaClient.message.getGatewayHistory.query>[0],
+  ) => lambdaClient.message.getGatewayHistory.query(params);
+
   getHistoryPage = (params: Parameters<typeof lambdaClient.message.getHistoryPage.query>[0]) =>
     lambdaClient.message.getHistoryPage.query(params);
 

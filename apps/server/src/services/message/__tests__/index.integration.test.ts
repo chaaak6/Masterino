@@ -166,9 +166,112 @@ describe('MessageService Integration Tests', () => {
         userId,
       })),
     ]);
-    const page = await new MessageService(serverDB, userId).queryHistoryPage({ topicId });
-    expect(page.messages.slice(0, 2).map(({ id }) => id)).toEqual(['fork-root', 'chosen-answer']);
+    const service = new MessageService(serverDB, userId);
+    const page = await service.queryHistoryPage({ topicId });
+    expect(page.messages.map(({ id }) => id)).toEqual(['fork-root', 'chosen-answer']);
+    expect(page.messages[1].branch).toMatchObject({ activeBranchIndex: 0, count: 2 });
     expect(page.nextCursor).toBeUndefined();
+
+    await service.updateMetadata('fork-root', { activeBranchIndex: 1 }, { topicId });
+    const newer = await service.queryHistoryPage({ topicId });
+    expect(newer.messages).toHaveLength(50);
+    expect(newer.messages.map(({ id }) => id)).not.toContain('chosen-answer');
+    expect(newer.nextCursor).toBeDefined();
+    const oldest = await service.queryHistoryPage({ cursor: newer.nextCursor, topicId });
+    expect(oldest.messages.map(({ id }) => id)).toEqual(['fork-root', 'inactive-0']);
+    expect(oldest.messages[1].branch).toMatchObject({ activeBranchIndex: 1, count: 2 });
+  });
+
+  it('pages Gateway writes within one run and resumes by the last changed row', async () => {
+    const topicId = 'gateway-history';
+    const at = (value: number) => new Date(Date.UTC(2026, 0, 1) + value * 1000);
+    const service = new MessageService(serverDB, userId);
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values([
+      { id: 'history', role: 'assistant', createdAt: at(0), updatedAt: at(0), topicId, userId },
+      {
+        id: 'question',
+        parentId: 'history',
+        role: 'user',
+        createdAt: at(1),
+        updatedAt: at(1),
+        topicId,
+        userId,
+      },
+      {
+        id: 'run',
+        parentId: 'question',
+        role: 'assistant',
+        createdAt: at(2),
+        updatedAt: at(2),
+        topicId,
+        userId,
+      },
+      {
+        id: 'other-answer',
+        parentId: 'question',
+        role: 'assistant',
+        createdAt: at(3),
+        updatedAt: at(3),
+        topicId,
+        userId,
+      },
+      ...Array.from({ length: 51 }, (_, index) => ({
+        id: `result-${index}`,
+        parentId: 'run',
+        role: 'tool' as const,
+        createdAt: at(4 + index),
+        updatedAt: at(4 + index),
+        topicId,
+        userId,
+      })),
+      {
+        id: 'final',
+        parentId: 'result-50',
+        role: 'assistant',
+        createdAt: at(55),
+        updatedAt: at(55),
+        topicId,
+        userId,
+      },
+      {
+        id: 'next-question',
+        parentId: 'final',
+        role: 'user',
+        createdAt: at(56),
+        updatedAt: at(56),
+        topicId,
+        userId,
+      },
+    ]);
+    const params = { assistantMessageId: 'run', topicId };
+    const first = await service.queryGatewayHistory(params);
+    expect(first.messages).toHaveLength(50);
+    expect(first.nextCursor).toBeDefined();
+    const second = await service.queryGatewayHistory({ ...params, cursor: first.nextCursor });
+    expect(second.messages.map(({ id }) => id)).toEqual([
+      'result-48',
+      'result-49',
+      'result-50',
+      'final',
+    ]);
+    expect(second.nextCursor).toBeUndefined();
+    const seen = [...first.messages, ...second.messages].map(({ id }) => id);
+    expect(seen).toContain('question');
+    expect(seen).not.toContain('other-answer');
+    expect(seen).not.toContain('history');
+    expect(seen).not.toContain('next-question');
+
+    await service.updateMessage(
+      'result-0',
+      { content: 'persisted result' },
+      {},
+      { returnUpdatedMessage: true },
+    );
+    const delta = await service.queryGatewayHistory({ ...params, cursor: second.cursor });
+    expect(delta.messages).toMatchObject([{ id: 'result-0', content: 'persisted result' }]);
+    const unauthorized = new MessageService(serverDB, otherUserId);
+    expect((await unauthorized.queryGatewayHistory(params)).messages).toEqual([]);
   });
 
   it('acknowledges a saved assistant tool call beyond the legacy history page', async () => {

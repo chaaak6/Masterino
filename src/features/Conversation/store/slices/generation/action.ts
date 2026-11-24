@@ -1,5 +1,6 @@
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
 import { LOADING_FLAT } from '@lobechat/const';
+import { parse } from '@lobechat/conversation-flow';
 import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import type {
   ChatImageItem,
@@ -560,7 +561,8 @@ export const generationSlice: StateCreator<
       buildRetryInitialContext(item.editorData),
     );
 
-    // Get context messages up to and including the target message
+    const usesPagedHistory =
+      !!context.topicId && !context.groupId && !context.threadId && context.scope === 'main';
     const contextMessages = displayMessages.slice(0, currentIndex + 1);
     if (contextMessages.length <= 0) return;
 
@@ -577,17 +579,32 @@ export const generationSlice: StateCreator<
     });
 
     try {
-      // Calculate next branch index by counting children of this user message
-      // We need to count how many assistant messages have this user message as parent
-      const { dbMessages } = get();
-      const childrenCount = dbMessages.filter((m) => m.parentId === messageId).length;
-      // New branch index = current children count (since index is 0-based)
-      const nextBranchIndex = childrenCount;
-
-      // Switch to the new branch so the UI shows the incoming response immediately
-      await chatStore.switchMessageBranch(messageId, nextBranchIndex, {
-        operationId,
-      });
+      const children = get().dbMessages.filter(
+        (m) => m.parentId === messageId && m.role !== 'tool',
+      );
+      if (usesPagedHistory) {
+        // The page contains the selected child and its total sibling count.
+        // The optimistic index is relative to the rows in memory; PostgreSQL
+        // keeps the index relative to all siblings.
+        const branchIndex = Math.max(
+          children.length,
+          ...children.map((child) => child.branch?.count ?? 0),
+        );
+        const selected = await messageService.updateMessageMetadata(messageId, {
+          activeBranchIndex: branchIndex,
+        });
+        if (!selected?.success) throw new Error('Reply branch selection was not committed');
+        chatStore.internal_dispatchMessage(
+          {
+            id: messageId,
+            type: 'updateMessageMetadata',
+            value: { activeBranchIndex: children.length },
+          },
+          { operationId },
+        );
+      } else {
+        await chatStore.switchMessageBranch(messageId, children.length, { operationId });
+      }
 
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
@@ -654,11 +671,18 @@ export const generationSlice: StateCreator<
       }
 
       // ── Client mode: run agent locally ──
-      // Execute agent runtime with full context from ConversationStore
+      const messages = usesPagedHistory
+        ? parse(
+            await messageService.getAgentHistory({
+              historyHeadId: messageId,
+              topicId: context.topicId!,
+            }),
+          ).flatList
+        : contextMessages;
       await chatStore.executeClientAgent({
         context,
         initialContext,
-        messages: contextMessages,
+        messages,
         parentMessageId: messageId,
         parentMessageType: 'user',
         parentOperationId: operationId,

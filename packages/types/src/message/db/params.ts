@@ -36,11 +36,13 @@ export interface QueryMessageParams {
 }
 
 export interface MessageHistoryCursor {
+  branchKey?: string;
   createdAt: string;
   id: string;
 }
 
 export interface MessageHistoryPage {
+  branchKey?: string;
   messages: UIChatMessage[];
   nextCursor?: MessageHistoryCursor;
 }

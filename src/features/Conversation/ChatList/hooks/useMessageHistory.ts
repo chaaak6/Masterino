@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useClientDataSWRWithSync } from '@/libs/swr';
 import { messageKeys } from '@/libs/swr/keys';
 import { messageService } from '@/services/message';
-import { getChatStoreState } from '@/store/chat';
+import { getChatStoreState, useChatStore } from '@/store/chat';
 import { operationSelectors } from '@/store/chat/selectors';
 
 import { useConversationStoreApi } from '../../store';
@@ -51,12 +51,15 @@ export const mergeHistoryPage = (
 export const useMessageHistory = (context: ConversationContext, enabled: boolean) => {
   const store = useConversationStoreApi();
   const previousHead = useRef(new Set<string>());
+  const branchKey = useRef<string>(undefined);
   const cursor = useRef<MessageHistoryCursor | undefined>(undefined);
   const hasOlderPages = useRef(false);
   const inFlight = useRef(false);
   const active = useRef(true);
   const [hasOlder, setHasOlder] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const running = useChatStore(operationSelectors.isAgentRuntimeRunningByContext(context));
+  const wasRunning = useRef(running);
   const isRunning = useCallback(
     () => operationSelectors.isAgentRuntimeRunningByContext(context)(getChatStoreState()),
     [context],
@@ -87,6 +90,20 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
       onData: (page) => {
         if (!page || !active.current || isRunning()) return;
         const state = store.getState();
+        const pathChanged =
+          !!page.branchKey &&
+          page.branchKey !== branchKey.current &&
+          (branchKey.current !== undefined || page.branchKey !== 'linear');
+        branchKey.current = page.branchKey;
+        if (pathChanged) {
+          cursor.current = page.nextCursor;
+          hasOlderPages.current = false;
+          setHasOlder(!!page.nextCursor);
+          previousHead.current = new Set(page.messages.map(({ id }) => id));
+          state.replaceMessages(page.messages);
+          store.setState({ messagesInit: true });
+          return;
+        }
         const oldHead = previousHead.current;
         if (
           !hasOlderPages.current ||
@@ -102,6 +119,12 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
     },
   );
 
+  useEffect(() => {
+    const settled = wasRunning.current && !running;
+    wasRunning.current = running;
+    if (settled && enabled) void newest.mutate();
+  }, [enabled, newest.mutate, running]);
+
   const loadOlder = useCallback(async () => {
     const before = cursor.current;
     const topicId = context.topicId;
@@ -116,6 +139,10 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
       });
       if (!active.current || cursor.current !== before || isRunning()) return;
       const state = store.getState();
+      if (page.branchKey && before.branchKey && page.branchKey !== before.branchKey) {
+        await newest.mutate();
+        return;
+      }
       state.replaceMessages(mergeHistoryPage(state.dbMessages, page, previousHead.current, false));
       cursor.current = page.nextCursor;
       setHasOlder(!!page.nextCursor);
@@ -125,7 +152,7 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
     } finally {
       inFlight.current = false;
     }
-  }, [enabled, context.groupId, context.topicId, isRunning, store]);
+  }, [enabled, context.groupId, context.topicId, isRunning, newest.mutate, store]);
 
   return {
     hasOlder,

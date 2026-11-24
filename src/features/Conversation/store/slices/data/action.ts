@@ -4,7 +4,7 @@ import debug from 'debug';
 import { type SWRResponse } from 'swr';
 import { type StateCreator } from 'zustand/vanilla';
 
-import { useClientDataSWRWithSync } from '@/libs/swr';
+import { mutate, useClientDataSWRWithSync } from '@/libs/swr';
 import { messageKeys } from '@/libs/swr/keys';
 import { messageService } from '@/services/message';
 import { getChatStoreState } from '@/store/chat';
@@ -182,7 +182,16 @@ export const dataSlice: StateCreator<
 
     // Get the current message to find its parent
     const message = dataSelectors.getDbMessageById(messageId)(state);
-    if (!message || !message.parentId) return;
+    if (!message) return;
+    const branch = message.branch;
+    if (branch?.parentMessageId && branchIndex >= 0 && branchIndex < branch.count) {
+      const result = await messageService.updateMessageMetadata(branch.parentMessageId, {
+        activeBranchIndex: branchIndex,
+      });
+      if (result?.success) await mutate(messageKeys.historyPage(state.context));
+      return;
+    }
+    if (!message.parentId) return;
 
     // Update the parent's metadata.activeBranchIndex
     // because the branch indicator is on the child message,

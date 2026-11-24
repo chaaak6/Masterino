@@ -656,6 +656,9 @@ export class AgentRuntimeService {
     const agentId: string | undefined = agentState?.metadata?.agentId;
     const topicId: string | undefined = agentState?.metadata?.topicId;
     if (!agentId || !topicId) return undefined;
+    const { groupId, scope, syncGatewayMessagesById, threadId } = agentState.metadata ?? {};
+    if (syncGatewayMessagesById && !groupId && !threadId && (!scope || scope === 'main'))
+      return undefined;
 
     try {
       return await this.messageService.queryMessages({ agentId, topicId });

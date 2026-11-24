@@ -1,5 +1,6 @@
 import { INBOX_SESSION_ID } from '@lobechat/const';
-import { parse } from '@lobechat/conversation-flow';
+import { parse, projectConversationHistory } from '@lobechat/conversation-flow';
+import type { Message } from '@lobechat/conversation-flow';
 import type {
   ChatFileItem,
   ChatImageItem,
@@ -534,47 +535,170 @@ export class MessageModel {
           this.matchGroup(groupId),
           isNull(messages.threadId),
         );
-        const readRows = () =>
-          transaction
+        const forks = await transaction
+          .select({ parentId: messages.parentId })
+          .from(messages)
+          .where(and(scope, isNotNull(messages.parentId), sql`${messages.role} <> 'tool'`))
+          .groupBy(messages.parentId)
+          .having(sql`count(*) > 1`);
+        let branchKey = 'linear';
+        let branchFilter: SQL | undefined;
+        const branches = new Map<string, NonNullable<UIChatMessage['branch']>>();
+        const forkParents = forks.flatMap(({ parentId }) => (parentId ? [parentId] : []));
+        const [complexRow] = forkParents.length
+          ? await transaction
+              .select({ id: messages.id })
+              .from(messages)
+              .where(
+                and(
+                  scope,
+                  or(
+                    notInArray(messages.role, ['user', 'assistant']),
+                    sql`case when jsonb_typeof(${messages.tools}) = 'array' then jsonb_array_length(${messages.tools}) > 0 else false end`,
+                    sql`${messages.metadata}->>'isSupervisor' = 'true'`,
+                  ),
+                ),
+              )
+              .limit(1)
+          : [];
+        if (forkParents.length && !complexRow) {
+          // In ordinary chat, resolve only the rows adjacent to forks. Keep
+          // excluded subtrees inside PostgreSQL; only page payloads cross the wire.
+          const parents = await transaction
+            .select({ id: messages.id, metadata: messages.metadata })
+            .from(messages)
+            .where(and(scope, inArray(messages.id, forkParents)));
+          const children = await transaction
             .select({
-              createdAt: sql<string>`to_char(${messages.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+              hasChildren: sql<boolean>`exists (select 1 from messages descendant
+                where descendant.parent_id = ${messages.id}
+                  and descendant.topic_id = ${messages.topicId}
+                  and descendant.thread_id is null
+                  and descendant.user_id = ${messages.userId})`,
               id: messages.id,
-              messageGroupId: messages.messageGroupId,
+              parentId: messages.parentId,
             })
             .from(messages)
-            .where(
-              and(
-                scope,
-                cursor &&
-                  sql`(${messages.createdAt}, ${messages.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id})`,
-              ),
-            )
-            .orderBy(desc(messages.createdAt), desc(messages.id));
-        const rows = await readRows().limit(pageSize + 1);
-        // A partial graph can promote an inactive answer to a root and
-        // attach the next send to it. Keep the branch controls authoritative
-        // until the timeline can render a branch from an incomplete graph.
-        const [fork] =
-          !cursor && rows.length > pageSize
-            ? await transaction
-                .select({ parentId: messages.parentId })
-                .from(messages)
-                .where(and(scope, isNotNull(messages.parentId), sql`${messages.role} <> 'tool'`))
-                .groupBy(messages.parentId)
-                .having(sql`count(*) > 1`)
-                .limit(1)
-            : [];
-        const page = fork ? await readRows() : rows.slice(0, pageSize);
-        const model = new MessageModel(transaction, this.userId, this.workspaceId);
-        const hydrated: UIChatMessage[] = [];
-        for (let offset = 0; offset < page.length; offset += 500) {
-          hydrated.push(
-            ...(await model.queryByIds(
-              page.slice(offset, offset + 500).map(({ id }) => id),
-              { postProcessUrl },
-            )),
+            .where(and(scope, inArray(messages.parentId, forkParents)))
+            .orderBy(asc(messages.createdAt), asc(messages.id));
+          const childrenByParent = new Map<string | null, typeof children>();
+          for (const child of children) {
+            const siblings = childrenByParent.get(child.parentId) ?? [];
+            siblings.push(child);
+            childrenByParent.set(child.parentId, siblings);
+          }
+          const excluded: string[] = [];
+          for (const parent of parents) {
+            const siblings = childrenByParent.get(parent.id)!;
+            const index = parent.metadata?.activeBranchIndex;
+            const active =
+              typeof index === 'number' && index >= 0 && index <= siblings.length
+                ? index
+                : Math.max(
+                    0,
+                    siblings.findIndex(({ hasChildren }) => hasChildren),
+                  );
+            const selected = siblings[active];
+            if (selected)
+              branches.set(selected.id, {
+                activeBranchIndex: active,
+                count: siblings.length,
+                parentMessageId: parent.id,
+              });
+            for (const child of siblings) {
+              if (child !== selected) excluded.push(child.id);
+            }
+          }
+          if (excluded.length)
+            branchFilter = sql`${messages.id} not in (
+            with recursive excluded(id) as (
+              select unnest(${sql.param(excluded)}::text[])
+              union
+              select ${messages.id} from ${messages} join excluded on ${messages.parentId} = excluded.id
+              where ${scope}
+            ) select id from excluded
+          )`;
+        } else if (forkParents.length) {
+          // Follow the renderer's branch, tool, compare and task traversal using
+          // link metadata only. Inactive payloads and joined media are never hydrated.
+          const graph = await transaction
+            .select({
+              agentId: messages.agentId,
+              createdAt: messages.createdAt,
+              id: messages.id,
+              metadata: sql<Message['metadata']>`jsonb_strip_nulls(jsonb_build_object(
+                'activeBranchIndex', ${messages.metadata}->'activeBranchIndex',
+                'agentCouncil', ${messages.metadata}->'agentCouncil',
+                'compare', ${messages.metadata}->'compare',
+                'isSupervisor', ${messages.metadata}->'isSupervisor',
+                'scope', ${messages.metadata}->'scope',
+                'signal', ${messages.metadata}->'signal',
+                'subAgentId', ${messages.metadata}->'subAgentId'
+              ))`,
+              parentId: messages.parentId,
+              role: messages.role,
+              tool_call_id: messagePlugins.toolCallId,
+              tools: sql<Message['tools']>`case when jsonb_typeof(${messages.tools}) = 'array' then
+                (select jsonb_agg(jsonb_build_object('id', item->>'id'))
+                 from jsonb_array_elements(${messages.tools}) item)
+              end`,
+            })
+            .from(messages)
+            .leftJoin(messagePlugins, eq(messagePlugins.id, messages.id))
+            .where(scope)
+            .orderBy(asc(messages.createdAt), asc(messages.id));
+          const projection = projectConversationHistory(
+            graph.map(
+              (row) =>
+                ({
+                  ...row,
+                  content: '',
+                  createdAt: +row.createdAt,
+                  updatedAt: +row.createdAt,
+                }) as Message,
+            ),
           );
+          branchFilter = sql`${messages.id} = any(${sql.param([...projection.messageIds])}::text[])`;
+          for (const row of projection.flatList) {
+            if (row.branch && row.parentId)
+              branches.set(row.id, { ...row.branch, parentMessageId: row.parentId });
+          }
         }
+        if (forkParents.length) {
+          branchKey = Array.from(
+            new Uint8Array(
+              await crypto.subtle.digest(
+                'SHA-256',
+                new TextEncoder().encode(JSON.stringify([...branches].sort())),
+              ),
+            ),
+            (byte) => byte.toString(16).padStart(2, '0'),
+          ).join('');
+        }
+        const before = cursor?.branchKey && cursor.branchKey !== branchKey ? undefined : cursor;
+        const rows = await transaction
+          .select({
+            createdAt: sql<string>`to_char(${messages.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+            id: messages.id,
+            messageGroupId: messages.messageGroupId,
+          })
+          .from(messages)
+          .where(
+            and(
+              scope,
+              branchFilter,
+              before &&
+                sql`(${messages.createdAt}, ${messages.id}) < (${before.createdAt}::timestamptz, ${before.id})`,
+            ),
+          )
+          .orderBy(desc(messages.createdAt), desc(messages.id))
+          .limit(pageSize + 1);
+        const page = rows.slice(0, pageSize);
+        const model = new MessageModel(transaction, this.userId, this.workspaceId);
+        const hydrated = await model.queryByIds(
+          page.map(({ id }) => id),
+          { postProcessUrl },
+        );
         const byId = new Map(hydrated.map((entry) => [entry.id, entry]));
         const groups = [
           ...new Set(
@@ -606,16 +730,87 @@ export class MessageModel {
           }),
         );
         return {
+          branchKey,
           messages: page.reverse().flatMap(({ id }) => {
             const entry = byId.get(id);
             return entry
-              ? [boundaries.has(id) ? { ...entry, compressionBoundary: true } : entry]
+              ? [
+                  {
+                    ...entry,
+                    ...(branches.has(id) && { branch: branches.get(id) }),
+                    ...(boundaries.has(id) && { compressionBoundary: true }),
+                  },
+                ]
               : [];
           }),
           nextCursor:
-            !fork && rows.length > pageSize
-              ? { createdAt: page[0].createdAt, id: page[0].id }
+            rows.length > pageSize
+              ? { branchKey, createdAt: page[0].createdAt, id: page[0].id }
               : undefined,
+        };
+      },
+      { accessMode: 'read only', isolationLevel: 'repeatable read' },
+    );
+  };
+
+  /** Read persisted changes from a single Gateway run, using its initial assistant as the root. */
+  queryGatewayHistory = async (
+    {
+      assistantMessageId,
+      cursor,
+      topicId,
+    }: { assistantMessageId: string; cursor?: MessageHistoryCursor; topicId: string },
+    postProcessUrl?: QueryMessagesOptions['postProcessUrl'],
+  ): Promise<MessageHistoryPage & { cursor?: MessageHistoryCursor }> => {
+    const pageSize = 50;
+    return this.db.transaction(
+      async (transaction) => {
+        const scope = and(
+          this.ownership(),
+          eq(messages.topicId, topicId),
+          isNull(messages.groupId),
+          isNull(messages.threadId),
+        );
+        const ids = sql`with recursive run(id) as (
+          select ${messages.id} from ${messages}
+          where ${scope} and ${messages.id} = ${assistantMessageId} and ${messages.role} = 'assistant'
+          union
+          select ${messages.id} from ${messages} join run on ${messages.parentId} = run.id
+          where ${scope} and ${messages.role} <> 'user'
+        )
+        select id from run
+        union
+        select ${messages.parentId} from ${messages} join run on ${messages.id} = run.id
+        where ${messages.id} = ${assistantMessageId}`;
+        const rows = await transaction
+          .select({
+            id: messages.id,
+            updatedAt: sql<string>`to_char(${messages.updatedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+          })
+          .from(messages)
+          .where(
+            and(
+              scope,
+              sql`${messages.id} in (${ids})`,
+              cursor &&
+                sql`(${messages.updatedAt}, ${messages.id}) > (${cursor.createdAt}::timestamptz, ${cursor.id})`,
+            ),
+          )
+          .orderBy(asc(messages.updatedAt), asc(messages.id))
+          .limit(pageSize + 1);
+        const page = rows.slice(0, pageSize);
+        const last = page.at(-1);
+        const model = new MessageModel(transaction, this.userId, this.workspaceId);
+        return {
+          messages: await model.queryByIds(
+            page.map(({ id }) => id),
+            { postProcessUrl },
+          ),
+          ...(last && { cursor: { createdAt: last.updatedAt, id: last.id } }),
+          ...(last &&
+            rows.length > pageSize && {
+              nextCursor: { createdAt: last.updatedAt, id: last.id },
+            }),
         };
       },
       { accessMode: 'read only', isolationLevel: 'repeatable read' },

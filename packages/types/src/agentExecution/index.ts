@@ -94,6 +94,8 @@ export interface ExecAgentAppContext {
   isSubAgent?: boolean;
   /** Scope identifier */
   scope?: string | null;
+  /** Client synchronizes the run by message ID and can omit Gateway timeline snapshots. */
+  syncGatewayMessagesById?: boolean;
   /** Session ID */
   sessionId?: string;
   /** Optional assistant message id that anchors the run (e.g. parent for an isolated thread). */

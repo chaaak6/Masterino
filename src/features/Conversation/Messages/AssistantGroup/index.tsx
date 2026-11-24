@@ -161,7 +161,7 @@ const GroupMessage = memo<GroupMessageProps>(
         actions={
           !disableEditing && (
             <>
-              {isDevMode && branch && (
+              {branch && (isDevMode || branch.parentMessageId) && (
                 <MessageBranch
                   activeBranchIndex={branch.activeBranchIndex}
                   count={branch.count}

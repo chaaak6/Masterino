@@ -108,6 +108,8 @@ interface UIMessageBranch {
   activeBranchIndex: number;
   /** Total number of branches */
   count: number;
+  /** The owning parent when only the selected branch was loaded. */
+  parentMessageId?: string;
 }
 
 /**
