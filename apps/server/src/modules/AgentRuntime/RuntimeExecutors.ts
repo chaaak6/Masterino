@@ -3399,7 +3399,7 @@ export const createRuntimeExecutors = (
       const messageIds = [
         ...new Set(
           messagesToCompress.flatMap((message) => {
-            const members =
+            const members: UIChatMessage[] =
               message.role === 'assistantGroup' && message.children?.length
                 ? message.children
                 : [message];

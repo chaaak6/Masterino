@@ -153,6 +153,8 @@ function protectRecentTurns(
   let end = latestUser;
   for (let start = end - 1; start >= 0; start--) {
     if (input.messages[start].role !== 'user') continue;
+    const tail = input.messages[end - 1];
+    if (tail.role !== 'assistant' && tail.role !== 'assistantGroup') break;
     const turnIds: string[] = [];
     let turnTokens = 0;
     for (let index = start; index < end; index++) {
