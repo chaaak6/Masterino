@@ -166,6 +166,7 @@ describe('RuntimeExecutors', () => {
       // default so existing tests don't have to stub it.
       findById: vi.fn().mockResolvedValue({ id: 'msg-existing' }),
       query: vi.fn().mockResolvedValue([]),
+      queryByIds: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue({}),
       updateMessagePlugin: vi.fn().mockResolvedValue({ success: true }),
       updateToolMessage: vi.fn().mockResolvedValue({ success: true }),
@@ -4725,18 +4726,21 @@ describe('RuntimeExecutors', () => {
         return Promise.resolve({ id: `tool-msg-${callCount}` });
       });
 
-      // Mock query to return messages from database
-      mockMessageModel.query = vi.fn().mockResolvedValue([
-        { id: 'msg-1', content: 'Hello', role: 'user' },
-        { id: 'msg-2', content: 'Response', role: 'assistant', tool_calls: [] },
-        { id: 'tool-msg-1', content: 'Tool result 1', role: 'tool', tool_call_id: 'tool-call-1' },
-        { id: 'tool-msg-2', content: 'Tool result 2', role: 'tool', tool_call_id: 'tool-call-2' },
-      ]);
+      mockMessageModel.queryByIds.mockImplementation(async (ids: string[]) =>
+        ids.map((id, index) => ({
+          content: `Tool result ${index + 1}`,
+          id,
+          parentId: 'assistant-msg-123',
+          role: 'tool',
+          tool_call_id: `tool-call-${index + 1}`,
+        })),
+      );
     });
 
     it('should execute multiple tools concurrently and create tool messages', async () => {
       const executors = createRuntimeExecutors(ctx);
-      const state = createMockState();
+      const assistant = { content: '', id: 'assistant-msg-123', role: 'assistant' as const };
+      const state = createMockState({ messages: [assistant] });
 
       const instruction = {
         payload: {
@@ -4761,7 +4765,13 @@ describe('RuntimeExecutors', () => {
         type: 'call_tools_batch' as const,
       };
 
-      await executors.call_tools_batch!(instruction, state);
+      const result = await executors.call_tools_batch!(instruction, state);
+
+      expect(result.newState.messages).toEqual([
+        assistant,
+        expect.objectContaining({ id: 'tool-msg-1', tool_call_id: 'tool-call-1' }),
+        expect.objectContaining({ id: 'tool-msg-2', tool_call_id: 'tool-call-2' }),
+      ]);
 
       // Should execute both tools
       expect(mockToolExecutionService.executeTool).toHaveBeenCalledTimes(2);
@@ -5224,7 +5234,7 @@ describe('RuntimeExecutors', () => {
       );
     });
 
-    it('should refresh messages from database after batch execution', async () => {
+    it('keeps the current history while hydrating the committed result', async () => {
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState({ messages: [{ content: 'old', role: 'user' }] });
 
@@ -5246,21 +5256,13 @@ describe('RuntimeExecutors', () => {
 
       const result = await executors.call_tools_batch!(instruction, state);
 
-      // Should query messages from database with agentId, threadId, and topicId
-      expect(mockMessageModel.query).toHaveBeenCalledWith(
-        {
-          agentId: 'agent-123',
-          threadId: 'thread-123',
-          topicId: 'topic-123',
-        },
-        expect.any(Object),
-      );
-
-      // Messages should be refreshed from database (4 messages from mock)
-      expect(result.newState.messages).toHaveLength(4);
+      expect(result.newState.messages).toEqual([
+        { content: 'old', role: 'user' },
+        expect.objectContaining({ id: 'tool-msg-1', tool_call_id: 'tool-call-1' }),
+      ]);
     });
 
-    it('should include id in refreshed messages', async () => {
+    it('keeps the committed message ID in the next step', async () => {
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState();
 
@@ -5289,8 +5291,7 @@ describe('RuntimeExecutors', () => {
       });
 
       // Verify specific message ids
-      expect(result.newState.messages[0].id).toBe('msg-1');
-      expect(result.newState.messages[2].id).toBe('tool-msg-1');
+      expect(result.newState.messages[0].id).toBe('tool-msg-1');
     });
 
     it('should return last tool message ID as parentMessageId in nextContext', async () => {
@@ -5579,7 +5580,7 @@ describe('RuntimeExecutors', () => {
       );
     });
 
-    it('should query messages with correct metadata fields when state.metadata is defined', async () => {
+    it('keeps the conversation scope on each persisted tool message', async () => {
       const executors = createRuntimeExecutors(ctx);
       const state = createMockState({
         metadata: {
@@ -5607,14 +5608,12 @@ describe('RuntimeExecutors', () => {
 
       await executors.call_tools_batch!(instruction, state);
 
-      // Should query messages with agentId, threadId, and topicId from state.metadata
-      expect(mockMessageModel.query).toHaveBeenCalledWith(
-        {
+      expect(mockMessageModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({
           agentId: 'agent-abc',
           threadId: 'thread-xyz',
           topicId: 'topic-abc-123',
-        },
-        expect.any(Object),
+        }),
       );
     });
 
@@ -5692,28 +5691,6 @@ describe('RuntimeExecutors', () => {
     });
 
     it('should preserve messages in newState even when state.metadata.topicId is undefined', async () => {
-      // Regression test: When state.metadata.topicId is undefined, previously the query
-      // only passed topicId, which caused isNull(topicId) condition and returned 0 messages.
-      // This led to "messages: at least one message is required" error in the next call_llm step.
-      //
-      // Fix: Now we also pass agentId and threadId, so even when topicId is undefined,
-      // the query can still find messages by agentId scope.
-
-      // Mock: query returns messages when agentId is provided (regardless of topicId)
-      mockMessageModel.query = vi
-        .fn()
-        .mockImplementation((params: { agentId?: string; topicId?: string }) => {
-          // With the fix, agentId is always passed, so we can find messages
-          if (params.agentId) {
-            return Promise.resolve([
-              { id: 'msg-1', content: 'Hello', role: 'user' },
-              { id: 'msg-2', content: 'Response', role: 'assistant', tool_calls: [] },
-            ]);
-          }
-          // Without agentId (old buggy behavior), return empty
-          return Promise.resolve([]);
-        });
-
       const executors = createRuntimeExecutors(ctx);
       // State with undefined topicId but has agentId
       const state = createMockState({
@@ -5746,19 +5723,10 @@ describe('RuntimeExecutors', () => {
 
       const result = await executors.call_tools_batch!(instruction, state);
 
-      // Verify agentId is passed in the query
-      expect(mockMessageModel.query).toHaveBeenCalledWith(
-        {
-          agentId: 'agent-123',
-          threadId: 'thread-123',
-          topicId: undefined,
-        },
-        expect.any(Object),
-      );
-
-      // Expected: newState.messages should NOT be empty
-      // The next call_llm step needs messages to work properly
-      expect(result.newState.messages.length).toBeGreaterThan(0);
+      expect(result.newState.messages).toEqual([
+        ...state.messages,
+        expect.objectContaining({ id: 'tool-msg-1', role: 'tool' }),
+      ]);
     });
 
     it('should accumulate tool usage in newState after batch execution', async () => {

@@ -35,6 +35,10 @@ export interface CompressionGroupMetadata {
 
   // Compression range
   startMessageId?: string;
+  /** Membership and version recorded atomically with the published summary. */
+  coverage?: { ids: string[]; updatedAt: string };
+  /** Source versions captured before generating a summary. */
+  stagedSources?: { id: string; updatedAt: string }[];
 }
 
 /**

@@ -44,6 +44,7 @@ import {
 } from '@lobechat/context-engine';
 import { parse } from '@lobechat/conversation-flow';
 import {
+  AgentRuntimeErrorType,
   applyModelExtendParams,
   type ChatStreamPayload,
   consumeStreamUntilDone,
@@ -2847,6 +2848,14 @@ export const createRuntimeExecutors = (
               });
               if (budgetedCall.kind === 'fail') {
                 const evaluation = budgetedCall.evaluations.at(-1);
+                if (budgetedCall.decision.code === 'DUPLICATE_REQUEST') {
+                  throw {
+                    contextBudget: { decision: budgetedCall.decision, trace: evaluation?.trace },
+                    contextBudgetAttemptState: budgetedCall.attemptState,
+                    errorType: AgentRuntimeErrorType.AgentRuntimeError,
+                    message: 'The Agent stopped before sending a repeated request.',
+                  };
+                }
                 const budgetError = new FinalContextWindowError({
                   contextWindowTokens: evaluation?.window.windowTokens ?? 32_000,
                   model,
@@ -4532,6 +4541,7 @@ export const createRuntimeExecutors = (
         reason: 'client_tool_execution',
       };
       newState.pendingToolsCalling = clientTools;
+      newState.metadata = { ...newState.metadata, pendingToolAssistantMessageId: parentMessageId };
 
       return {
         events: [
@@ -5103,31 +5113,19 @@ export const createRuntimeExecutors = (
       }
     }
 
-    // Refresh messages from database to ensure state is in sync
-
-    // Query latest messages from database
-    // Must pass agentId to ensure correct query scope, otherwise when topicId is undefined,
-    // the query will use isNull(topicId) condition which won't find messages with actual topicId
-    //
-    // postProcessUrl resolves keys in imageList/videoList/fileList to external URLs;
-    // without it the next LLM call sees raw keys and providers reject them.
-    const latestMessages = await ctx.messageModel.query(
-      {
-        agentId: state.metadata?.agentId,
-        threadId: state.metadata?.threadId,
-        topicId: state.metadata?.topicId,
-      },
-      { postProcessUrl: buildPostProcessUrl(ctx) },
-    );
-
-    // Use conversation-flow parse to resolve branching into linear flat list
-    // parse() handles assistantGroup, compare, supervisor, etc. virtual message types
-    const { flatList } = parse(latestMessages);
-    newState.messages = flatList;
-
-    log(
-      `[${operationLogId}][call_tools_batch] Refreshed ${newState.messages.length} messages from database`,
-    );
+    // Keep the operation's selected history. Only these tool records were
+    // written by this step. Early history pages can never replace them.
+    const persistedTools = await ctx.messageModel.queryByIds(toolMessageIds, {
+      postProcessUrl: buildPostProcessUrl(ctx),
+    });
+    const toolById = new Map(persistedTools.map((message) => [message.id, message]));
+    newState.messages = [
+      ...newState.messages.filter((message) => !toolById.has(message.id)),
+      ...toolMessageIds.flatMap((id) => {
+        const tool = toolById.get(id);
+        return tool ? [tool] : [];
+      }),
+    ];
 
     // Get the last tool message ID as parentMessageId for next LLM call
     const lastToolMessageId = toolMessageIds.at(-1);
@@ -5186,6 +5184,7 @@ export const createRuntimeExecutors = (
         reason: pauseReason,
       };
       newState.pendingToolsCalling = pendingTools;
+      newState.metadata = { ...newState.metadata, pendingToolAssistantMessageId: parentMessageId };
 
       return {
         events: [

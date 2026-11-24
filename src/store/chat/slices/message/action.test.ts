@@ -683,6 +683,7 @@ describe('chatMessage actions', () => {
         messageId,
         expect.objectContaining({ content: newContent }),
         { agentId: 'session-id', topicId: 'topic-id' },
+        { returnUpdatedMessage: true },
       );
     });
 
@@ -706,20 +707,39 @@ describe('chatMessage actions', () => {
       );
     });
 
-    it('should replace messages after updating content', async () => {
+    it('retains the later tool result when an assistant write is acknowledged', async () => {
       const { result } = renderHook(() => useChatStore());
-      const messageId = 'message-id';
-      const newContent = 'Updated content';
-      const replaceMessagesSpy = vi.spyOn(result.current, 'replaceMessages');
+      const context = { agentId: 'session-id', topicId: 'topic-id' };
+      const key = messageMapKey(context);
+      const assistant: UIChatMessage = {
+        content: '',
+        createdAt: 1001,
+        id: 'late-assistant',
+        role: 'assistant',
+        updatedAt: 1001,
+      };
+      const tool: UIChatMessage = {
+        content: 'QA tool result',
+        createdAt: 1002,
+        id: 'late-result',
+        parentId: assistant.id,
+        role: 'tool',
+        updatedAt: 1002,
+      };
+      useChatStore.setState({ dbMessagesMap: { [key]: [assistant, tool] } });
+      vi.spyOn(messageService, 'updateMessage').mockResolvedValueOnce({
+        message: { ...assistant, content: 'Saved assistant', updatedAt: 1003 },
+        success: true,
+      });
 
       await act(async () => {
-        await result.current.optimisticUpdateMessageContent(messageId, newContent);
+        await result.current.optimisticUpdateMessageContent(assistant.id, 'Saved assistant');
       });
 
-      expect(replaceMessagesSpy).toHaveBeenCalledWith([], {
-        action: 'optimisticUpdateMessageContent',
-        context: { agentId: 'session-id', topicId: 'topic-id', threadId: undefined },
-      });
+      expect(useChatStore.getState().dbMessagesMap[key]).toEqual([
+        { ...assistant, content: 'Saved assistant', updatedAt: 1003 },
+        tool,
+      ]);
     });
   });
 
@@ -847,6 +867,7 @@ describe('chatMessage actions', () => {
         messageId,
         expect.objectContaining({ content, tools: undefined }),
         { agentId: contextSessionId, topicId: contextTopicId },
+        { returnUpdatedMessage: true },
       );
     });
 
@@ -877,6 +898,7 @@ describe('chatMessage actions', () => {
         messageId,
         { error },
         { agentId: contextSessionId, topicId: contextTopicId },
+        { returnUpdatedMessage: true },
       );
     });
 
@@ -1346,6 +1368,7 @@ describe('chatMessage actions', () => {
           messageId,
           expect.objectContaining({ content: newContent }),
           expect.anything(),
+          { returnUpdatedMessage: true },
         );
 
         // Verify: global messages should remain untouched
@@ -1495,6 +1518,7 @@ describe('chatMessage actions', () => {
             groupId: groupContext.groupId,
             topicId: groupContext.topicId,
           }),
+          { returnUpdatedMessage: true },
         );
       });
 
@@ -1560,6 +1584,7 @@ describe('chatMessage actions', () => {
             groupId: groupContext.groupId,
             topicId: groupContext.topicId,
           }),
+          { returnUpdatedMessage: true },
         );
       });
 

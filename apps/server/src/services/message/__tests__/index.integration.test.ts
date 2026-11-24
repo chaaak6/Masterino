@@ -54,6 +54,54 @@ afterEach(async () => {
 });
 
 describe('MessageService Integration Tests', () => {
+  it('acknowledges a saved assistant tool call beyond the legacy history page', async () => {
+    const topicId = 'long-conversation';
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values(
+      Array.from({ length: 1002 }, (_, index) => ({
+        content: index < 1000 ? 'Earlier turn' : '',
+        createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+        id: `long-message-${index}`,
+        parentId: index ? `long-message-${index - 1}` : null,
+        role: index % 2 === 0 ? 'user' : 'assistant',
+        topicId,
+        userId,
+      })),
+    );
+    const service = new MessageService(serverDB, userId);
+    const tools = [
+      {
+        apiName: 'read',
+        arguments: '{}',
+        id: 'late-call',
+        identifier: 'qa',
+        type: 'builtin' as const,
+      },
+    ];
+
+    const result = await service.updateMessage(
+      'long-message-1001',
+      { tools },
+      { topicId },
+      { returnUpdatedMessage: true },
+    );
+
+    expect(Object.keys(result).sort()).toEqual(['message', 'success']);
+    expect(result).toMatchObject({
+      message: expect.objectContaining({
+        id: 'long-message-1001',
+        parentId: 'long-message-1000',
+        tools,
+      }),
+      success: true,
+    });
+
+    const history = await service.queryMessages({ topicId });
+    expect(history).toHaveLength(1002);
+    expect(history.at(0)?.id).toBe('long-message-0');
+    expect(history.at(-1)?.id).toBe('long-message-1001');
+  });
+
   describe('createMessage', () => {
     it('should create message with agentId and return message list', async () => {
       const messageService = new MessageService(serverDB, userId);
@@ -373,6 +421,78 @@ describe('MessageService Integration Tests', () => {
   });
 
   describe('finalizeCompression', () => {
+    it('uses a verified prefix with the latest 80 originals and falls back after an edit', async () => {
+      const topicId = 'compressed-long-conversation';
+      const id = (index: number) => `long-prefix-${String(index).padStart(4, '0')}`;
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values(
+        Array.from({ length: 3000 }, (_, index) => ({
+          content: index === 2999 ? 'Latest original' : 'Earlier turn',
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+          id: id(index),
+          parentId: index ? id(index - 1) : null,
+          role: index % 2 === 0 ? 'user' : 'assistant',
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const ids = Array.from({ length: 2920 }, (_, index) => id(index));
+      const staged = await service.createCompressionGroup(topicId, ids);
+      await service.finalizeCompression(staged.messageGroupId, 'Confirmed earlier decision', {
+        agentId: 'unused',
+        topicId,
+      });
+
+      const context = await service.queryAgentMessages({ topicId });
+      expect(context).toHaveLength(81);
+      expect(context.find((entry) => entry.role === 'compressedGroup')).toMatchObject({
+        compressedMessages: [],
+        content: 'Confirmed earlier decision',
+        lastMessageId: id(2919),
+      });
+      expect(
+        context.filter((entry) => entry.role !== 'compressedGroup').map((entry) => entry.id),
+      ).toEqual(Array.from({ length: 80 }, (_, index) => id(2920 + index)));
+
+      await service.updateMessage(id(10), { content: 'Edited earlier decision' }, {});
+      const recovered = await service.queryAgentMessages({ topicId });
+      expect(recovered).toHaveLength(3000);
+      expect(recovered.find((entry) => entry.id === id(10))?.content).toBe(
+        'Edited earlier decision',
+      );
+      expect(recovered.some((entry) => entry.role === 'compressedGroup')).toBe(false);
+    });
+
+    it('leaves originals visible while summarizing and rejects publication after a source edit', async () => {
+      const topicId = 'compression-edit';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values({
+        content: 'Original text',
+        id: 'compression-source',
+        role: 'user',
+        topicId,
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+        userId,
+      });
+      const service = new MessageService(serverDB, userId);
+      const staged = await service.createCompressionGroup(topicId, ['compression-source']);
+      expect((await service.queryMessages({ topicId })).map(({ id }) => id)).toEqual([
+        'compression-source',
+      ]);
+
+      await service.updateMessage('compression-source', { content: 'Edited text' }, {});
+      await expect(
+        service.finalizeCompression(staged.messageGroupId, 'Old summary', {
+          agentId: 'unused',
+          topicId,
+        }),
+      ).rejects.toThrow('Compression source changed before publication');
+      expect(await service.queryMessages({ topicId })).toEqual([
+        expect.objectContaining({ content: 'Edited text' }),
+      ]);
+    });
+
     it('should create assistant message with correct parentId (last compressed message ID, not messageGroupId)', async () => {
       const messageService = new MessageService(serverDB, userId);
 

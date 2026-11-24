@@ -506,6 +506,7 @@ describe('Message CRUD Actions', () => {
         'msg-1',
         expect.objectContaining({ content: 'Updated content' }),
         expect.any(Object),
+        { returnUpdatedMessage: true },
       );
     });
   });

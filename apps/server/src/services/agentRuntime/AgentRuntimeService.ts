@@ -966,7 +966,7 @@ export class AgentRuntimeService {
         // the pending set, refresh messages from the DB (to pick up the tool
         // results written out-of-band), and re-enter the LLM with them.
         if (resumeAsyncTool && currentState.status === 'waiting_for_async_tool') {
-          const refreshed = await this.refreshMessagesFromDB(currentState);
+          const refreshed = await this.refreshMessagesFromDB(currentState, true);
           const pendingTools = (currentState.pendingToolsCalling ?? []) as ChatToolPayload[];
           const resumeParentMessageId = this.resolveAsyncToolResumeParentMessageId(
             refreshed,
@@ -975,6 +975,7 @@ export class AgentRuntimeService {
           currentState = structuredClone(currentState);
           currentState.messages = refreshed;
           currentState.pendingToolsCalling = [];
+          delete currentState.metadata?.pendingToolAssistantMessageId;
           currentState.lastModified = new Date().toISOString();
           if (hasPendingWorkspaceBindFailure(currentState)) {
             forcedStepResult = interruptForPendingWorkspaceBindFailure(currentState, []);
@@ -2364,7 +2365,10 @@ export class AgentRuntimeService {
    * runtime. Used when resuming a parked op so the next LLM step sees tool
    * results written out-of-band (e.g. by a sub-agent completion bridge).
    */
-  private async refreshMessagesFromDB(state: AgentState): Promise<AgentState['messages']> {
+  private async refreshMessagesFromDB(
+    state: AgentState,
+    resumeTools = false,
+  ): Promise<AgentState['messages']> {
     let postProcessUrl: ((path: string | null) => Promise<string>) | undefined;
     try {
       const fileService = new FileService(this.serverDB, this.userId);
@@ -2374,13 +2378,31 @@ export class AgentRuntimeService {
       postProcessUrl = undefined;
     }
 
+    const assistantId = state.metadata?.pendingToolAssistantMessageId;
+    const pending = state.pendingToolsCalling ?? [];
+    if (resumeTools && typeof assistantId === 'string' && pending.length) {
+      const results = await this.messageModel.queryToolResults(
+        assistantId,
+        pending.map(({ id }) => id),
+        postProcessUrl,
+      );
+      const resultByCall = new Map(results.map((message) => [message.tool_call_id, message]));
+      const ordered = pending.map(({ id }) => {
+        const result = resultByCall.get(id);
+        if (!result) throw new Error('Could not synchronize a completed tool result');
+        return result;
+      });
+      const resultIds = new Set(ordered.map(({ id }) => id));
+      return [...state.messages.filter(({ id }) => !resultIds.has(id)), ...ordered];
+    }
+
     const dbMessages = await this.messageModel.query(
       {
         agentId: state.metadata?.agentId,
         threadId: state.metadata?.threadId,
         topicId: state.metadata?.topicId,
       },
-      { postProcessUrl },
+      { complete: true, postProcessUrl },
     );
 
     const { flatList } = parse(dbMessages);

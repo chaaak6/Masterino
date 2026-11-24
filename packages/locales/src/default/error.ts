@@ -18,6 +18,8 @@ export default {
   'contextBudget.actionsLabel': 'Recovery actions',
   'contextBudget.desc.NO_CANDIDATES':
     'The conversation still exceeds the context window, and there is no earlier history that can be summarized. Your messages are unchanged.',
+  'contextBudget.desc.DUPLICATE_REQUEST':
+    'The next request would repeat an earlier step. The request was stopped before reaching the model.',
   'contextBudget.desc.RETRY_EXHAUSTED':
     'The context was compressed once and the model still rejected the request. Automatic retries will not continue.',
   'contextBudget.desc.SUMMARY_FAILED':
@@ -57,6 +59,7 @@ export default {
   'contextBudget.source.toolResult': 'Tool result',
   'contextBudget.source.tools': 'Tool definitions',
   'contextBudget.title.NO_CANDIDATES': 'Nothing left to compress',
+  'contextBudget.title.DUPLICATE_REQUEST': 'Repeated request stopped',
   'contextBudget.title.RETRY_EXHAUSTED': 'Automatic recovery stopped',
   'contextBudget.title.SUMMARY_FAILED': 'Context summary failed',
   'contextBudget.title.TAIL_TOO_LARGE': 'Latest message is too large for the context window',

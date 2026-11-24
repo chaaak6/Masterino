@@ -7,6 +7,7 @@ import {
   type QueryMessageParams,
   type UIChatMessage,
   type UpdateMessageParams,
+  type UpdateMessageResult,
 } from '@lobechat/types';
 import { createTimingHelpers, getDurationMs } from '@lobechat/utils';
 
@@ -106,6 +107,7 @@ export class MessageService {
       { agentId, groupId, sessionId, threadId, topicId },
       {
         ...this.getQueryOptions(),
+        ...(topicId ? { complete: true } : {}),
         ...(modelTiming ? { timing: modelTiming } : {}),
       },
     );
@@ -126,7 +128,18 @@ export class MessageService {
    * the same payload the client would otherwise fetch.
    */
   async queryMessages(params: QueryMessageParams): Promise<UIChatMessage[]> {
-    return this.messageModel.query(params, this.getQueryOptions());
+    return this.messageModel.query(params, { ...this.getQueryOptions(), complete: true });
+  }
+
+  async queryAgentMessages(
+    params: QueryMessageParams,
+    postProcessUrl = this.postProcessUrl,
+  ): Promise<UIChatMessage[]> {
+    return this.messageModel.query(params, {
+      postProcessUrl,
+      compactSummaries: true,
+      complete: true,
+    });
   }
 
   /**
@@ -148,13 +161,13 @@ export class MessageService {
     const messages = await this.messageModel.query(
       {
         agentId: params.agentId,
-        current: 0,
         groupId: params.groupId,
-        pageSize: 9999,
+        ...(!params.topicId && { pageSize: 9999 }),
         threadId: params.threadId,
         topicId: params.topicId,
       },
       {
+        complete: Boolean(params.topicId),
         postProcessUrl: this.postProcessUrl,
       },
     );
@@ -249,18 +262,23 @@ export class MessageService {
     id: string,
     value: UpdateMessageParams,
     options: QueryOptions,
-  ): Promise<{ messages?: UIChatMessage[]; success: boolean }> {
+    response?: { returnUpdatedMessage?: boolean },
+  ): Promise<UpdateMessageResult> {
     const updateStartedAt = Date.now();
     const modelTiming = createModelTiming(options, 'lambda.message.update.dbUpdate');
-    if (modelTiming) {
-      await this.messageModel.update(id, value as any, modelTiming);
-    } else {
-      await this.messageModel.update(id, value as any);
-    }
+    const updated = modelTiming
+      ? await this.messageModel.update(id, value, modelTiming)
+      : await this.messageModel.update(id, value);
     logMessageTiming(options, 'lambda.message.update.dbUpdate:done', {
       stageMs: getDurationMs(updateStartedAt),
       valueKeys: Object.keys(value ?? {}),
     });
+
+    if (response?.returnUpdatedMessage) {
+      if (!updated.success) return { success: false };
+      const [message] = await this.messageModel.queryByIds([id], this.getQueryOptions());
+      return message ? { message, success: true } : { success: false };
+    }
 
     return this.queryWithSuccess(options);
   }
@@ -342,7 +360,7 @@ export class MessageService {
 
   /**
    * Create a compression group for messages
-   * Creates a placeholder group, marks messages as compressed, and returns updated messages
+   * Stages exact source versions while keeping the originals readable.
    *
    * @param topicId - The topic ID
    * @param messageIds - IDs of messages to compress
@@ -358,31 +376,49 @@ export class MessageService {
     messagesToSummarize: UIChatMessage[];
     success: boolean;
   }> {
-    // 1. Get messages that need to be summarized (before marking them as compressed)
-    const allMessages = await this.messageModel.query(
-      { topicId, ...options },
-      this.getQueryOptions(),
-    );
-
-    const messagesToSummarize = allMessages.filter((msg) => messageIds.includes(msg.id));
+    const candidates = [...new Set(messageIds)];
+    if (candidates.length === 0) throw new Error('No messages to compress');
+    const sourceMessages: UIChatMessage[] = [];
+    for (let offset = 0; offset < candidates.length; offset += 500) {
+      sourceMessages.push(
+        ...(await this.messageModel.queryByIds(
+          candidates.slice(offset, offset + 500),
+          this.getQueryOptions(),
+        )),
+      );
+    }
+    const byId = new Map(sourceMessages.map((message) => [message.id, message]));
+    const messagesToSummarize = candidates.map((id) => {
+      const source = byId.get(id);
+      if (
+        !source ||
+        source.topicId !== topicId ||
+        (source.threadId ?? null) !== (options?.threadId ?? null)
+      ) {
+        throw new Error('Compression source is missing from the requested conversation');
+      }
+      return source;
+    });
 
     // 2. Create compression group with placeholder content
     const messageGroupId = await this.compressionRepository.createCompressionGroup({
       content: '...', // Placeholder content
-      messageIds,
+      messageIds: candidates,
       metadata: {
         compressionStatus: 'pending',
-        originalMessageCount: messageIds.length,
+        endMessageId: candidates.at(-1),
+        originalMessageCount: candidates.length,
+        stagedSources: messagesToSummarize.map(({ id, updatedAt }) => ({
+          id,
+          updatedAt: new Date(updatedAt).toISOString(),
+        })),
+        startMessageId: candidates[0],
       },
       topicId,
     });
 
-    // 3. Query updated messages (compressed messages will be grouped)
-    const messages = await this.messageModel.query({ topicId, ...options }, this.getQueryOptions());
-
     return {
       messageGroupId,
-      messages,
       messagesToSummarize,
       success: true,
     };
@@ -408,14 +444,11 @@ export class MessageService {
     const { agentId, groupId, threadId, topicId } = params;
 
     // 1. Update compression group with actual content
-    await this.compressionRepository.updateCompressionContent(messageGroupId, content, {
-      compressedAt: new Date().toISOString(),
-      compressionStatus: 'completed',
-    });
+    await this.compressionRepository.completeCompression(messageGroupId, topicId, content);
 
     // 2. Query final messages
     const queryOptions = { agentId, groupId, threadId, topicId };
-    const finalMessages = await this.messageModel.query(queryOptions, this.getQueryOptions());
+    const finalMessages = await this.queryMessages(queryOptions);
 
     return {
       messages: finalMessages,
@@ -433,7 +466,7 @@ export class MessageService {
   ): Promise<{ messages: UIChatMessage[] }> {
     await this.compressionRepository.updateMetadata(messageGroupId, metadata);
 
-    const messages = await this.messageModel.query(context, this.getQueryOptions());
+    const messages = await this.queryMessages(context);
 
     return { messages };
   }
@@ -452,7 +485,7 @@ export class MessageService {
     await this.compressionRepository.deleteCompressionGroup(messageGroupId);
 
     // Query updated messages
-    const messages = await this.messageModel.query(context, this.getQueryOptions());
+    const messages = await this.queryMessages(context);
 
     return { messages, success: true };
   }
@@ -467,7 +500,7 @@ export class MessageService {
   ): Promise<{ messages: UIChatMessage[]; success: boolean }> {
     await this.compressionRepository.markCompressionFailed(messageGroupId);
 
-    const messages = await this.messageModel.query(context, this.getQueryOptions());
+    const messages = await this.queryMessages(context);
 
     return { messages, success: true };
   }

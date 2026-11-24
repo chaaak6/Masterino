@@ -21,6 +21,7 @@ import {
   mergeModelCatalogEntry,
 } from '@lobechat/business-model-bank';
 import { LOADING_FLAT } from '@lobechat/const';
+import { parse } from '@lobechat/conversation-flow';
 import {
   type AgentManagementContext,
   type BotPlatformContext,
@@ -133,6 +134,7 @@ import { resolveAttachmentsByFileIds } from '@/server/services/file/resolveAttac
 import { HeterogeneousAgentService } from '@/server/services/heterogeneousAgent';
 import type { ConversationHistoryEntry } from '@/server/services/heterogeneousAgent/cloudHeteroContext';
 import { MarketService } from '@/server/services/market';
+import { MessageService } from '@/server/services/message';
 import { createEffectiveModelCatalog } from '@/server/services/modelCatalog';
 import { ProjectWorkspaceService } from '@/server/services/projectWorkspace';
 import {
@@ -2423,7 +2425,7 @@ export class AiAgentService {
             threadId: appContext?.threadId,
             topicId: appContext?.topicId ?? undefined,
           },
-          { postProcessUrl },
+          { complete: true, postProcessUrl },
         );
         const idSet = new Set(existingMessageIds);
         historyMessagesCache = messages.filter((msg) => idSet.has(msg.id));
@@ -2432,15 +2434,20 @@ export class AiAgentService {
         // Exclude the turn we just persisted above (`selfMessageIds`) — history
         // must be the PRIOR turns only; the current prompt is appended separately
         // as the in-memory `userMessage`, so leaving it in would double-count it.
-        const messages = await this.messageModel.query(
+        const messages = await new MessageService(
+          this.db,
+          this.userId,
+          this.workspaceId,
+        ).queryAgentMessages(
           {
             sessionId: appContext?.sessionId,
             threadId: appContext?.threadId,
             topicId: appContext?.topicId,
           },
-          { postProcessUrl },
+          postProcessUrl,
         );
-        historyMessagesCache = messages.filter((msg) => !selfMessageIds.has(msg.id));
+        const prior = messages.filter((msg) => !selfMessageIds.has(msg.id));
+        historyMessagesCache = appContext.groupId ? prior : parse(prior).flatList;
       } else {
         historyMessagesCache = [];
       }
