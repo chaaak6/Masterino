@@ -4346,8 +4346,8 @@ export const createRuntimeExecutors = (
           role: 'tool' as const,
           tool_call_id: chatToolPayload.id,
         };
-        // Approval resumes already contain the pending tool message. Replace it
-        // so context reordering cannot retain its empty content over the result.
+        // Resumed history can hold the pending row inside an assistant group.
+        // Update the existing result before the context engine flattens it.
         const pendingToolIndex = payload.skipCreateToolMessage
           ? newState.messages.findIndex(
               (message) =>
@@ -4355,8 +4355,22 @@ export const createRuntimeExecutors = (
                 (message.id === toolMessageId || message.tool_call_id === chatToolPayload.id),
             )
           : -1;
+        const groupedPendingTool =
+          payload.skipCreateToolMessage && pendingToolIndex < 0
+            ? (newState.messages as UIChatMessage[])
+                .flatMap((message) => message.children ?? [])
+                .flatMap((child) => child.tools ?? [])
+                .find((tool) => tool.id === chatToolPayload.id && tool.result?.id === toolMessageId)
+            : undefined;
         if (pendingToolIndex >= 0) newState.messages[pendingToolIndex] = resultMessage;
-        else newState.messages.push(resultMessage);
+        else if (groupedPendingTool) {
+          groupedPendingTool.result = {
+            content: resultMessage.content,
+            error: executionResult.error,
+            id: toolMessageId,
+            state: executionResult.state,
+          };
+        } else newState.messages.push(resultMessage);
 
         events.push({ id: chatToolPayload.id, result: executionResult, type: 'tool_result' });
 

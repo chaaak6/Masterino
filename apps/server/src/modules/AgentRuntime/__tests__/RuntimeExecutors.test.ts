@@ -1,5 +1,6 @@
 import { type AgentState } from '@lobechat/agent-runtime';
 import { BRANDING_PROVIDER } from '@lobechat/business-const';
+import { GroupMessageFlattenProcessor } from '@lobechat/context-engine';
 import { consumeStreamUntilDone } from '@lobechat/model-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -4400,6 +4401,57 @@ describe('RuntimeExecutors', () => {
             metadata: { toolExecutionTimeMs: 100 },
           }),
         );
+      });
+
+      it('replaces the grouped pending result before the next model request', async () => {
+        const tool = {
+          apiName: 'search',
+          arguments: '{}',
+          id: 'call-approved',
+          identifier: 'web-search',
+          type: 'default' as const,
+        };
+        const state = createMockState({
+          messages: [
+            {
+              children: [
+                {
+                  id: 'calling-assistant',
+                  tools: [{ ...tool, result: { content: '', id: 'pending-tool' } }],
+                },
+              ],
+              id: 'assistant-group',
+              role: 'assistantGroup',
+            },
+          ],
+        });
+
+        const result = await createRuntimeExecutors(ctx).call_tool!(
+          {
+            payload: {
+              parentMessageId: 'pending-tool',
+              skipCreateToolMessage: true,
+              toolCalling: tool,
+            },
+            type: 'call_tool',
+          },
+          state,
+        );
+        const processed = await new GroupMessageFlattenProcessor().process({
+          initialState: { messages: [] },
+          isAborted: false,
+          messages: result.newState.messages,
+          metadata: {},
+        });
+
+        expect(processed.messages.filter(({ role }) => role === 'tool')).toEqual([
+          expect.objectContaining({
+            content: 'Tool result',
+            id: 'pending-tool',
+            tool_call_id: tool.id,
+          }),
+        ]);
+        expect(processed.messages[0].tools).toEqual([tool]);
       });
 
       it('should return the existing toolMessageId as parentMessageId for the next LLM step', async () => {
