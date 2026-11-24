@@ -21,7 +21,6 @@ import {
   mergeModelCatalogEntry,
 } from '@lobechat/business-model-bank';
 import { LOADING_FLAT } from '@lobechat/const';
-import { parse } from '@lobechat/conversation-flow';
 import {
   type AgentManagementContext,
   type BotPlatformContext,
@@ -32,6 +31,7 @@ import {
   type ToolExecutor,
   type ToolSource,
 } from '@lobechat/context-engine';
+import { parse } from '@lobechat/conversation-flow';
 import type { LobeChatDatabase } from '@lobechat/database';
 import { isRemoteHeterogeneousType } from '@lobechat/heterogeneous-agents';
 import { appendWorkspaceInstructions, buildTaskManagerDefaultsPrompt } from '@lobechat/prompts';

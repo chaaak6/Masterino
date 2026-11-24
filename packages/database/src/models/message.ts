@@ -90,7 +90,6 @@ import { recomputeTopicUsage } from './topicUsage';
  */
 export interface QueryMessagesOptions {
   compactSummaries?: boolean;
-  skipMessageGroups?: boolean;
   /**
    * Current page number (0-indexed)
    */
@@ -106,6 +105,7 @@ export interface QueryMessagesOptions {
     path: string | null,
     file: { fileType: string; id?: string | null },
   ) => Promise<string>;
+  skipMessageGroups?: boolean;
   timing?: ModelTimingContext;
   /**
    * Topic ID for MessageGroup aggregation queries
