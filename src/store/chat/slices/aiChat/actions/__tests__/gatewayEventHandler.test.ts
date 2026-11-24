@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { messageService } from '@/services/message';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
-import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNotification';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import { createGatewayEventHandler } from '../gatewayEventHandler';
 

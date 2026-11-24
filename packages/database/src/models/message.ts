@@ -1,6 +1,6 @@
 import { INBOX_SESSION_ID } from '@lobechat/const';
-import { parse, projectConversationHistory } from '@lobechat/conversation-flow';
 import type { Message } from '@lobechat/conversation-flow';
+import { parse, projectConversationHistory } from '@lobechat/conversation-flow';
 import type {
   ChatFileItem,
   ChatImageItem,

@@ -23,8 +23,8 @@ import { t } from 'i18next';
 import { messageService } from '@/services/message';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
 import type { ChatStore } from '@/store/chat/store';
-import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNotification';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 // Lazy-loaded to break the import cycle:
 //   gateway.ts → gatewayEventHandler.ts → executors/index.ts (which pulls in

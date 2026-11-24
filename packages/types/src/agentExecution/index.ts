@@ -94,8 +94,6 @@ export interface ExecAgentAppContext {
   isSubAgent?: boolean;
   /** Scope identifier */
   scope?: string | null;
-  /** Client synchronizes the run by message ID and can omit Gateway timeline snapshots. */
-  syncGatewayMessagesById?: boolean;
   /** Session ID */
   sessionId?: string;
   /** Optional assistant message id that anchors the run (e.g. parent for an isolated thread). */
@@ -106,6 +104,8 @@ export interface ExecAgentAppContext {
    * avoid recursion into the analyzeIntent pipeline.
    */
   suppressSignal?: boolean;
+  /** Client synchronizes the run by message ID and can omit Gateway timeline snapshots. */
+  syncGatewayMessagesById?: boolean;
   /** Current task identifier when executing from a task detail surface */
   taskId?: string | null;
   /** Thread ID for threaded conversations */
