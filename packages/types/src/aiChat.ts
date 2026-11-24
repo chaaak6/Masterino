@@ -160,6 +160,7 @@ export const AiSendMessageServerSchema = z.object({
     })
     .optional(),
   preloadMessages: z.array(SendPreloadMessageSchema).optional(),
+  returnMessagePair: z.boolean().optional(),
   newUserMessage: z.object({
     attachments: MessageAttachmentsSchema.nullable().optional(),
     content: z.string(),
@@ -184,6 +185,7 @@ export const AiSendMessageServerSchema = z.object({
 });
 
 export interface SendMessageServerResponse {
+  __isPartialMessages?: boolean;
   assistantMessageId: string;
   /**
    * If a new thread was created, this will be the thread ID

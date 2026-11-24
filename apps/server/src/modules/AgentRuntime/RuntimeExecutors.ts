@@ -563,7 +563,7 @@ const precedingCheckpoints = (messages: UIChatMessage[], firstCandidateId: strin
   const prefix = messages.slice(0, start).filter(({ role }) => role !== 'system');
   if (
     !prefix.every(({ role, lastMessageId }) => role === 'compressedGroup' && lastMessageId) ||
-    prefix.at(-1)?.lastMessageId !== messages[start].parentId
+    (messages[start].parentId && prefix.at(-1)?.lastMessageId !== messages[start].parentId)
   )
     return [];
   return prefix.map(({ id }) => id);

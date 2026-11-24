@@ -14,6 +14,7 @@ interface GetMessagesAndTopicsParams {
   current?: number;
   groupId?: string;
   includeTopic?: boolean;
+  messageIds?: string[];
   pageSize?: number;
   sessionId?: string;
   threadId?: string;
@@ -40,8 +41,14 @@ export class AiChatService {
   }
 
   async getMessagesAndTopics(params: GetMessagesAndTopicsParams) {
-    const { topicFilter, topicPageSize, timingRequestId, timingStartedAt, ...messageParams } =
-      params;
+    const {
+      messageIds,
+      topicFilter,
+      topicPageSize,
+      timingRequestId,
+      timingStartedAt,
+      ...messageParams
+    } = params;
     const timingContext = toTimingContext({ timingRequestId, timingStartedAt });
     const messageTiming = createPrefixedTimingContext(
       timingContext,
@@ -54,12 +61,19 @@ export class AiChatService {
     const messageQueryPromise = runTimedStage(
       timingContext,
       'lambda.aiChat.messagesAndTopics.messageModel.query',
-      () =>
-        this.messageModel.query(messageParams, {
-          postProcessUrl: (path, file) =>
-            this.fileService.getFileAccessUrl({ id: file.id, url: path }),
-          ...(messageTiming ? { timing: messageTiming } : {}),
-        }),
+      () => {
+        const postProcessUrl: NonNullable<
+          Parameters<MessageModel['queryByIds']>[1]
+        >['postProcessUrl'] = (path, file) =>
+          this.fileService.getFileAccessUrl({ id: file.id, url: path });
+        return messageIds
+          ? this.messageModel.queryByIds(messageIds, { postProcessUrl })
+          : this.messageModel.query(messageParams, {
+              ...(params.topicId && { complete: true }),
+              postProcessUrl,
+              ...(messageTiming ? { timing: messageTiming } : {}),
+            });
+      },
       {
         hasAgentId: !!params.agentId,
         hasThreadId: !!params.threadId,

@@ -441,7 +441,12 @@ export class MessageService {
       ) {
         throw new Error('Compression source is missing from the requested conversation');
       }
-      if (previousEnd && !stagedSources.length && source.parentId !== previousEnd)
+      if (
+        previousEnd &&
+        !stagedSources.length &&
+        source.parentId &&
+        source.parentId !== previousEnd
+      )
         throw new Error('Previous summary does not precede the compression source');
       stagedSources.push({ id, updatedAt: new Date(source.updatedAt).toISOString() });
       return source;

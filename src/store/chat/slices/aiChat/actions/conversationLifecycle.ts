@@ -498,7 +498,9 @@ export class ConversationLifecycleActionImpl {
       boundDeviceId:
         pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
       executionTarget: pendingExecution?.intent.target,
-      hasSelectedLocalMcp: selectedTools.some((tool) => isDeviceLocalMcpIdentifier(tool.identifier)),
+      hasSelectedLocalMcp: selectedTools.some((tool) =>
+        isDeviceLocalMcpIdentifier(tool.identifier),
+      ),
       heterogeneousProvider,
       isGatewayMode: this.#get().isGatewayModeEnabled(agentId),
       // Callers that need to pin the runtime (e.g. task topics that were
@@ -1008,6 +1010,12 @@ export class ConversationLifecycleActionImpl {
             parentId,
           },
           preloadMessages: undefined,
+          ...(topicId &&
+            context.scope === 'main' &&
+            !context.groupId &&
+            !context.threadId && {
+              returnMessagePair: true,
+            }),
           // if there is topicId, then add topicId to message
           topicId: topicId ?? undefined,
           topicFilter: this.#getTopicFilter(
@@ -1135,7 +1143,7 @@ export class ConversationLifecycleActionImpl {
         ...data,
         messages: responseMeta.__isPartialMessages
           ? mergePartialPersistedMessages(
-              this.#get().messagesMap[finalMessageKey] || [],
+              this.#get().dbMessagesMap[finalMessageKey] || [],
               persistedMessages,
               [tempId, tempAssistantId],
             )
@@ -1319,7 +1327,8 @@ export class ConversationLifecycleActionImpl {
             execContext.topicId &&
             !execContext.groupId &&
             !execContext.threadId &&
-            displayMessages.some(({ role }) => role === 'compressedGroup')
+            (data.__isPartialMessages ||
+              displayMessages.some(({ role }) => role === 'compressedGroup'))
           ) {
             const history = await messageService.getAgentHistory({
               historyHeadId: data.userMessageId,

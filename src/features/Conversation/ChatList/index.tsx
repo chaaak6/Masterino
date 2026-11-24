@@ -278,7 +278,7 @@ const ChatList = memo<ChatListProps>(
                 <button
                   type="button"
                   onClick={() => {
-                    void history.loadOlder();
+                    void history.retry();
                   }}
                 >
                   {t('retry')}

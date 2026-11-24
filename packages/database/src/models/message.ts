@@ -528,31 +528,53 @@ export class MessageModel {
     const pageSize = 50;
     return this.db.transaction(
       async (transaction) => {
-        const rows = await transaction
-          .select({
-            createdAt: sql<string>`to_char(${messages.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
-            id: messages.id,
-            messageGroupId: messages.messageGroupId,
-          })
-          .from(messages)
-          .where(
-            and(
-              this.ownership(),
-              eq(messages.topicId, topicId),
-              this.matchGroup(groupId),
-              isNull(messages.threadId),
-              cursor &&
-                sql`(${messages.createdAt}, ${messages.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id})`,
-            ),
-          )
-          .orderBy(desc(messages.createdAt), desc(messages.id))
-          .limit(pageSize + 1);
-        const page = rows.slice(0, pageSize);
-        const model = new MessageModel(transaction, this.userId, this.workspaceId);
-        const hydrated = await model.queryByIds(
-          page.map(({ id }) => id),
-          { postProcessUrl },
+        const scope = and(
+          this.ownership(),
+          eq(messages.topicId, topicId),
+          this.matchGroup(groupId),
+          isNull(messages.threadId),
         );
+        const readRows = () =>
+          transaction
+            .select({
+              createdAt: sql<string>`to_char(${messages.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+              id: messages.id,
+              messageGroupId: messages.messageGroupId,
+            })
+            .from(messages)
+            .where(
+              and(
+                scope,
+                cursor &&
+                  sql`(${messages.createdAt}, ${messages.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id})`,
+              ),
+            )
+            .orderBy(desc(messages.createdAt), desc(messages.id));
+        const rows = await readRows().limit(pageSize + 1);
+        // A partial graph can promote an inactive answer to a root and
+        // attach the next send to it. Keep the branch controls authoritative
+        // until the timeline can render a branch from an incomplete graph.
+        const [fork] =
+          !cursor && rows.length > pageSize
+            ? await transaction
+                .select({ parentId: messages.parentId })
+                .from(messages)
+                .where(and(scope, isNotNull(messages.parentId), sql`${messages.role} <> 'tool'`))
+                .groupBy(messages.parentId)
+                .having(sql`count(*) > 1`)
+                .limit(1)
+            : [];
+        const page = fork ? await readRows() : rows.slice(0, pageSize);
+        const model = new MessageModel(transaction, this.userId, this.workspaceId);
+        const hydrated: UIChatMessage[] = [];
+        for (let offset = 0; offset < page.length; offset += 500) {
+          hydrated.push(
+            ...(await model.queryByIds(
+              page.slice(offset, offset + 500).map(({ id }) => id),
+              { postProcessUrl },
+            )),
+          );
+        }
         const byId = new Map(hydrated.map((entry) => [entry.id, entry]));
         const groups = [
           ...new Set(
@@ -591,7 +613,9 @@ export class MessageModel {
               : [];
           }),
           nextCursor:
-            rows.length > pageSize ? { createdAt: page[0].createdAt, id: page[0].id } : undefined,
+            !fork && rows.length > pageSize
+              ? { createdAt: page[0].createdAt, id: page[0].id }
+              : undefined,
         };
       },
       { accessMode: 'read only', isolationLevel: 'repeatable read' },
@@ -1586,8 +1610,9 @@ export class MessageModel {
     const compactParents = new Map<string, string | null>();
     if (compactSummaries) {
       const active: { id: string; updatedAt: string }[] = [];
-      let boundary: string | null = null;
+      let previousBoundary: (typeof groupMessageRecords)[number] | undefined;
       for (const group of groups) {
+        const boundary = previousBoundary?.id ?? null;
         if (group.type !== MessageGroupType.Compression) continue;
         const members = groupRecords.get(group.id) ?? [];
         const orderedIds = members.map(({ id }) => id as string);
@@ -1596,7 +1621,7 @@ export class MessageModel {
         if (
           !first ||
           !last ||
-          first.parentId !== boundary ||
+          (first.parentId !== boundary && first.parentId !== null) ||
           first.role !== 'user' ||
           last.role !== 'assistant' ||
           last.hasToolCalls
@@ -1625,8 +1650,16 @@ export class MessageModel {
           continue;
         const earlierIds = new Set<string>();
         const verified = members.every((row, index) => {
+          const prior = members[index - 1];
+          // Older Gateway turns start at their own user root after a complete
+          // previous turn. These are chronological continuations, not forks.
+          const legacyRoot =
+            row.role === 'user' &&
+            row.parentId === null &&
+            (!prior || (prior.role === 'assistant' && !prior.hasToolCalls));
           const parentMatches =
             row.parentId === (index === 0 ? boundary : orderedIds[index - 1]) ||
+            legacyRoot ||
             (row.role === 'tool' && !!row.parentId && earlierIds.has(row.parentId));
           earlierIds.add(row.id);
           return (
@@ -1651,7 +1684,13 @@ export class MessageModel {
               notInArray(messages.id, orderedIds),
               selected && sql`${messages.id} = any(${sql.param([...selected])}::text[])`,
               or(
-                boundary ? eq(messages.parentId, boundary) : isNull(messages.parentId),
+                boundary ? eq(messages.parentId, boundary) : undefined,
+                and(
+                  isNull(messages.parentId),
+                  sql`(${messages.createdAt}, ${messages.id}) <= (${last.createdAt}, ${last.id})`,
+                  previousBoundary &&
+                    sql`(${messages.createdAt}, ${messages.id}) > (${previousBoundary.createdAt}, ${previousBoundary.id})`,
+                ),
                 inArray(messages.parentId, orderedIds.slice(0, -1)),
               ),
             ),
@@ -1661,14 +1700,14 @@ export class MessageModel {
         compactGroupIds.add(group.id);
         const parent = replacing.length
           ? (compactParents.get(replacing[0].id) ?? null)
-          : first.parentId;
+          : (first.parentId ?? boundary);
         compactParents.set(group.id, parent);
         for (const previous of replacing) replacedGroupIds.add(previous.id);
         active.splice(active.length - replacing.length, replacing.length, {
           id: group.id,
           updatedAt: group.updatedAt.toISOString(),
         });
-        boundary = last.id;
+        previousBoundary = last;
       }
     }
 

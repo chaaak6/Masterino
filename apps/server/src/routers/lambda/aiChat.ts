@@ -423,6 +423,12 @@ export const aiChatRouter = router({
 
       // retrieve latest messages and topic with
       log('retrieving messages and topics');
+      const returnMessagePair =
+        input.returnMessagePair &&
+        !isCreateNewTopic &&
+        !threadId &&
+        !input.groupId &&
+        !input.preloadMessages?.length;
       const { messages, topics } = await runTimedStage(
         timingContext,
         'lambda.aiChat.messagesAndTopics.query',
@@ -431,6 +437,7 @@ export const aiChatRouter = router({
             agentId: input.agentId,
             groupId: input.groupId,
             includeTopic: isCreateNewTopic,
+            ...(returnMessagePair && { messageIds: [userMessageItem.id, assistantMessageItem.id] }),
             sessionId,
             threadId,
             topicFilter: input.topicFilter,
@@ -454,6 +461,7 @@ export const aiChatRouter = router({
       });
 
       return {
+        ...(returnMessagePair && { __isPartialMessages: true }),
         assistantMessageId: assistantMessageItem.id,
         createdThreadId,
         isCreateNewTopic,

@@ -1,5 +1,6 @@
 import type { MessageHistoryCursor, MessageHistoryPage, UIChatMessage } from '@lobechat/types';
-import { useCallback, useRef, useState } from 'react';
+import { TRPCClientError } from '@trpc/client';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useClientDataSWRWithSync } from '@/libs/swr';
 import { messageKeys } from '@/libs/swr/keys';
@@ -53,16 +54,37 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
   const cursor = useRef<MessageHistoryCursor | undefined>(undefined);
   const hasOlderPages = useRef(false);
   const inFlight = useRef(false);
+  const active = useRef(true);
   const [loadError, setLoadError] = useState(false);
-  const isRunning = () =>
-    operationSelectors.isAgentRuntimeRunningByContext(context)(getChatStoreState());
+  const isRunning = useCallback(
+    () => operationSelectors.isAgentRuntimeRunningByContext(context)(getChatStoreState()),
+    [context],
+  );
+
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, [store]);
 
   const newest = useClientDataSWRWithSync<MessageHistoryPage>(
     enabled ? messageKeys.historyPage(context) : null,
-    () => messageService.getHistoryPage({ groupId: context.groupId, topicId: context.topicId! }),
+    async () => {
+      try {
+        return await messageService.getHistoryPage({
+          groupId: context.groupId,
+          topicId: context.topicId!,
+        });
+      } catch (error) {
+        if (!(error instanceof TRPCClientError) || error.data?.code !== 'NOT_FOUND') throw error;
+        // During a rolling deployment, older servers still use the list RPC.
+        return { messages: await messageService.getMessages(context) };
+      }
+    },
     {
       onData: (page) => {
-        if (!page || isRunning()) return;
+        if (!page || !active.current || isRunning()) return;
         const state = store.getState();
         const oldHead = previousHead.current;
         if (
@@ -81,7 +103,7 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
   const loadOlder = useCallback(async () => {
     const before = cursor.current;
     const topicId = context.topicId;
-    if (!enabled || !topicId || !before || inFlight.current) return;
+    if (!enabled || !topicId || !before || inFlight.current || isRunning()) return;
     inFlight.current = true;
     setLoadError(false);
     try {
@@ -90,22 +112,23 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
         groupId: context.groupId,
         topicId,
       });
-      if (cursor.current !== before) return;
+      if (!active.current || cursor.current !== before || isRunning()) return;
       const state = store.getState();
       state.replaceMessages(mergeHistoryPage(state.dbMessages, page, previousHead.current, false));
       cursor.current = page.nextCursor;
       hasOlderPages.current = true;
     } catch {
-      setLoadError(true);
+      if (active.current) setLoadError(true);
     } finally {
       inFlight.current = false;
     }
-  }, [enabled, context.groupId, context.topicId, store]);
+  }, [enabled, context.groupId, context.topicId, isRunning, store]);
 
   return {
     isValidating: newest.isValidating,
     loadError: loadError || !!newest.error,
     loadOlder,
     reload: newest.mutate,
+    retry: newest.error ? newest.mutate : loadOlder,
   };
 };

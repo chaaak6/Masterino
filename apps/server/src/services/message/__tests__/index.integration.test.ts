@@ -87,6 +87,43 @@ describe('MessageService Integration Tests', () => {
     expect(last.nextCursor).toBeUndefined();
   });
 
+  it('preserves an older selected answer when the newer branch fills the first page', async () => {
+    const topicId = 'fork-before-window';
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values([
+      {
+        id: 'fork-root',
+        content: 'question',
+        role: 'user',
+        metadata: { activeBranchIndex: 0 },
+        createdAt: new Date(0),
+        topicId,
+        userId,
+      },
+      {
+        id: 'chosen-answer',
+        content: 'selected',
+        role: 'assistant',
+        parentId: 'fork-root',
+        createdAt: new Date(1000),
+        topicId,
+        userId,
+      },
+      ...Array.from({ length: 51 }, (_, index) => ({
+        content: 'inactive',
+        createdAt: new Date(2000 + index * 1000),
+        id: `inactive-${index}`,
+        parentId: index ? `inactive-${index - 1}` : 'fork-root',
+        role: index % 2 ? ('user' as const) : ('assistant' as const),
+        topicId,
+        userId,
+      })),
+    ]);
+    const page = await new MessageService(serverDB, userId).queryHistoryPage({ topicId });
+    expect(page.messages.slice(0, 2).map(({ id }) => id)).toEqual(['fork-root', 'chosen-answer']);
+    expect(page.nextCursor).toBeUndefined();
+  });
+
   it('acknowledges a saved assistant tool call beyond the legacy history page', async () => {
     const topicId = 'long-conversation';
     await serverDB.insert(topics).values({ id: topicId, userId });
@@ -510,6 +547,45 @@ describe('MessageService Integration Tests', () => {
         'Original 2',
         'Original 3',
         'Original 4',
+      ]);
+      const rebuilt = await service.createCompressionGroup(topicId, [id(0), id(1), id(2), id(3)]);
+      await service.finalizeCompression(rebuilt.messageGroupId, 'Rebuilt from edited originals', {
+        agentId: 'unused',
+        topicId,
+      });
+      const afterRebuild = await service.queryAgentMessages({ historyHeadId: id(4), topicId });
+      expect(afterRebuild.map(({ content }) => content)).toEqual([
+        'Rebuilt from edited originals',
+        'Original 4',
+      ]);
+    });
+
+    it('reuses a checkpoint covering completed turns from a legacy Gateway forest', async () => {
+      const topicId = 'legacy-gateway-checkpoint';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      const id = (index: number) => `legacy-root-${index}`;
+      await serverDB.insert(messages).values(
+        Array.from({ length: 6 }, (_, index) => ({
+          content: id(index),
+          createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+          id: id(index),
+          parentId: index % 2 ? id(index - 1) : null,
+          role: index % 2 ? 'assistant' : 'user',
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const summary = await service.createCompressionGroup(topicId, [id(0), id(1), id(2), id(3)]);
+      await service.finalizeCompression(summary.messageGroupId, 'Shared chronological decisions', {
+        agentId: 'unused',
+        topicId,
+      });
+      const context = await service.queryAgentMessages({ historyHeadId: id(5), topicId });
+      expect(context.map(({ content }) => content)).toEqual([
+        'Shared chronological decisions',
+        id(4),
+        id(5),
       ]);
     });
 

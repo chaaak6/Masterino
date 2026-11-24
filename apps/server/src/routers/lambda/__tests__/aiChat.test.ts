@@ -85,6 +85,26 @@ describe('aiChatRouter', () => {
     return mockCreateUserAndAssistantMessages;
   };
 
+  it('acknowledges only the persisted pair for paged desktop history', async () => {
+    const pair = [{ id: 'new-user' }, { id: 'new-assistant' }];
+    mockMessageModel(vi.fn().mockResolvedValueOnce(pair[0]).mockResolvedValueOnce(pair[1]));
+    const read = vi.fn().mockResolvedValue({ messages: pair });
+    vi.mocked(AiChatService).mockImplementation(() => ({ getMessagesAndTopics: read }) as any);
+    const result = await aiChatRouter.createCaller(mockCtx as any).sendMessageInServer({
+      newAssistantMessage: { model: 'gpt-4o', provider: 'openai' },
+      newUserMessage: { content: 'continue' },
+      returnMessagePair: true,
+      sessionId: 's1',
+      topicId: 'long-topic',
+    });
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageIds: ['new-user', 'new-assistant'],
+      }),
+    );
+    expect(result).toMatchObject({ __isPartialMessages: true, messages: pair });
+  });
+
   it('should create topic optionally, create user/assistant messages, and return payload', async () => {
     const mockCreateTopic = vi.fn().mockResolvedValue({ id: 't1' });
     const mockCreateMessage = vi

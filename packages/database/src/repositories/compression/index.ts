@@ -1,6 +1,6 @@
 import type { CompressionGroupMetadata } from '@lobechat/types';
 import { MessageGroupType } from '@lobechat/types';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { MessageGroupItem } from '../../schemas';
 import { messageGroups, messages } from '../../schemas';
@@ -208,7 +208,6 @@ export class CompressionRepository {
         const scope = and(
           this.messagesOwnership(),
           eq(messages.topicId, topicId),
-          isNull(messages.messageGroupId),
           inArray(messages.id, ids),
         );
         const rows = await tx
@@ -310,7 +309,12 @@ export class CompressionRepository {
 
     await this.db
       .update(messageGroups)
-      .set({ metadata: newMetadata, updatedAt: new Date() })
+      .set({
+        metadata: newMetadata,
+        updatedAt: Object.keys(metadata).every((key) => key === 'expanded')
+          ? sql`${messageGroups.updatedAt}`
+          : new Date(),
+      })
       .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
   }
 
