@@ -788,6 +788,7 @@ describe('GeneralChatAgent', () => {
       });
 
       const context = createMockContext('tool_result', {
+        assistantMessageId: 'resume-placeholder',
         parentMessageId: 'tool-msg-1',
         result: { data: 'result' },
       });
@@ -797,6 +798,7 @@ describe('GeneralChatAgent', () => {
       expect(result).toEqual({
         type: 'call_llm',
         payload: {
+          assistantMessageId: 'resume-placeholder',
           messages: state.messages,
           model: 'gpt-4o-mini',
           parentMessageId: 'tool-msg-1',

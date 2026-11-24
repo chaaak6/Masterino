@@ -169,12 +169,14 @@ describe('MessageService Integration Tests', () => {
     const service = new MessageService(serverDB, userId);
     const page = await service.queryHistoryPage({ topicId });
     expect(page.messages.map(({ id }) => id)).toEqual(['fork-root', 'chosen-answer']);
+    expect(page.branchSelections).toEqual({ 'fork-root': 'chosen-answer' });
     expect(page.messages[1].branch).toMatchObject({ activeBranchIndex: 0, count: 2 });
     expect(page.nextCursor).toBeUndefined();
 
     await service.updateMetadata('fork-root', { activeBranchIndex: 1 }, { topicId });
     const newer = await service.queryHistoryPage({ topicId });
     expect(newer.messages).toHaveLength(50);
+    expect(newer.branchSelections).toEqual({ 'fork-root': 'inactive-0' });
     expect(newer.messages.map(({ id }) => id)).not.toContain('chosen-answer');
     expect(newer.nextCursor).toBeDefined();
     const oldest = await service.queryHistoryPage({ cursor: newer.nextCursor, topicId });

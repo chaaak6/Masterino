@@ -7,6 +7,7 @@ import {
 import type { ContextWindowRejectionObservation } from '@lobechat/types/src/modelCatalog';
 
 export interface GeneralAgentCallLLMInstructionPayload {
+  assistantMessageId?: string;
   /** Force create a new assistant message (e.g., after compression) */
   createAssistantMessage?: boolean;
   isFirstMessage?: boolean;
@@ -31,6 +32,7 @@ export interface GeneralAgentCallingToolInstructionPayload {
 }
 
 export interface GeneralAgentCallToolResultPayload {
+  assistantMessageId?: string;
   data: any;
   executionTime: number;
   isSuccess: boolean;
@@ -118,6 +120,7 @@ export interface GeneralAgentConfig {
  * Payload for compression_result phase
  */
 export interface GeneralAgentCompressionResultPayload {
+  assistantMessageId?: string;
   /** Compressed messages (summary + pinned + recent) */
   compressedMessages: any[];
   /** Compression group ID in database */

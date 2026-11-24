@@ -1536,7 +1536,7 @@ export const createRuntimeExecutors = (
 
     // Get or create assistant message
     // If assistantMessageId is provided in payload, use existing message instead of creating new one
-    const existingAssistantMessageId = (llmPayload as any).assistantMessageId;
+    const existingAssistantMessageId = llmPayload.assistantMessageId;
     let assistantMessageItem: { id: string };
 
     if (existingAssistantMessageId) {
@@ -3350,6 +3350,9 @@ export const createRuntimeExecutors = (
       budgetPayload.payloadFingerprint || inputMeasurement.payloadFingerprint;
     const compressionTrigger = budgetPayload.trigger ?? 'threshold';
     const forwardedBudgetContext = {
+      ...(budgetPayload.assistantMessageId && {
+        assistantMessageId: budgetPayload.assistantMessageId,
+      }),
       catalogSnapshot: budgetPayload.catalogSnapshot,
       observedWindowTokens: budgetPayload.observedWindowTokens,
       outputReserveTokens: budgetPayload.outputReserveTokens,
@@ -4466,6 +4469,7 @@ export const createRuntimeExecutors = (
           newState,
           nextContext: {
             payload: {
+              ...(payload.assistantMessageId && { assistantMessageId: payload.assistantMessageId }),
               data: executionResult,
               executionTime,
               isSuccess,

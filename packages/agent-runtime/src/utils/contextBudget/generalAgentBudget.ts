@@ -66,6 +66,7 @@ export const createCompressionInstruction = (
   runtimeInput: RuntimeContextBudgetInput,
   existingSummary?: string,
   parentMessageId?: string,
+  assistantMessageId?: string,
 ): AgentInstruction => {
   const decision = evaluation.decision;
   if (decision.kind !== 'compress') {
@@ -85,6 +86,7 @@ export const createCompressionInstruction = (
 
   return {
     payload: {
+      ...(assistantMessageId && { assistantMessageId }),
       attempt: decision.attempt,
       budgetTokens: evaluation.budgetTokens,
       candidateIds: decision.candidateIds,

@@ -110,6 +110,7 @@ export class AgentRuntime {
       if (runtimeContext.phase === 'human_approved_tool') {
         const approvedPayload = runtimeContext.payload as {
           approvedToolCall: ChatToolPayload;
+          assistantMessageId?: string;
           parentMessageId: string;
           skipCreateToolMessage: boolean;
         };
@@ -117,6 +118,9 @@ export class AgentRuntime {
 
         rawInstructions = {
           payload: {
+            ...(approvedPayload.assistantMessageId && {
+              assistantMessageId: approvedPayload.assistantMessageId,
+            }),
             parentMessageId: approvedPayload.parentMessageId,
             skipCreateToolMessage: approvedPayload.skipCreateToolMessage,
             toolCalling,

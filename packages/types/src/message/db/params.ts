@@ -43,6 +43,8 @@ export interface MessageHistoryCursor {
 
 export interface MessageHistoryPage {
   branchKey?: string;
+  /** Selected child IDs keyed by the parent at each visible fork. */
+  branchSelections?: Record<string, string>;
   messages: UIChatMessage[];
   nextCursor?: MessageHistoryCursor;
 }

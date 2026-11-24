@@ -48,10 +48,27 @@ export const mergeHistoryPage = (
   return [...byId.values()].sort(compareMessages);
 };
 
+export const sharesOlderHistory = (
+  previous: MessageHistoryPage['branchSelections'],
+  page: MessageHistoryPage,
+) => {
+  const next = page.branchSelections;
+  if (!previous || !next || !page.nextCursor) return false;
+
+  // Existing choices are still selected, and every new fork starts in
+  // the freshly fetched window. The already loaded prefix is still valid.
+  const pageIds = new Set(page.messages.map(({ id }) => id));
+  return (
+    Object.entries(previous).every(([parent, selected]) => next[parent] === selected) &&
+    Object.keys(next).every((parent) => Object.hasOwn(previous, parent) || pageIds.has(parent))
+  );
+};
+
 export const useMessageHistory = (context: ConversationContext, enabled: boolean) => {
   const store = useConversationStoreApi();
   const previousHead = useRef(new Set<string>());
   const branchKey = useRef<string>(undefined);
+  const branchSelections = useRef<MessageHistoryPage['branchSelections']>(undefined);
   const cursor = useRef<MessageHistoryCursor | undefined>(undefined);
   const hasOlderPages = useRef(false);
   const inFlight = useRef(false);
@@ -94,8 +111,10 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
           !!page.branchKey &&
           page.branchKey !== branchKey.current &&
           (branchKey.current !== undefined || page.branchKey !== 'linear');
+        const keepOlderHistory = pathChanged && sharesOlderHistory(branchSelections.current, page);
         branchKey.current = page.branchKey;
-        if (pathChanged) {
+        branchSelections.current = page.branchSelections;
+        if (pathChanged && !keepOlderHistory) {
           cursor.current = page.nextCursor;
           hasOlderPages.current = false;
           setHasOlder(!!page.nextCursor);
@@ -111,8 +130,19 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
         ) {
           cursor.current = page.nextCursor;
           setHasOlder(!!page.nextCursor);
+        } else if (keepOlderHistory && cursor.current) {
+          cursor.current = { ...cursor.current, branchKey: page.branchKey };
         }
-        state.replaceMessages(mergeHistoryPage(state.dbMessages, page, oldHead, true));
+        // At a new fork, the refreshed window is authoritative even for
+        // recent Gateway rows that were never part of the previous head page.
+        const refreshedIds = keepOlderHistory
+          ? new Set(
+              state.dbMessages
+                .filter((message) => compareMessages(message, page.messages.at(-1)!) <= 0)
+                .map(({ id }) => id),
+            )
+          : oldHead;
+        state.replaceMessages(mergeHistoryPage(state.dbMessages, page, refreshedIds, true));
         store.setState({ messagesInit: true });
         previousHead.current = new Set(page.messages.map(({ id }) => id));
       },

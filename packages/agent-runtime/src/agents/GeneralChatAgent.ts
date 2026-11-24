@@ -437,6 +437,7 @@ export class GeneralChatAgent implements Agent {
         runtimeInput,
         this.findExistingSummary(payload.messages),
         payload.parentMessageId,
+        payload.assistantMessageId,
       );
     }
     if (evaluation.decision.kind === 'fail') {
@@ -584,7 +585,7 @@ export class GeneralChatAgent implements Agent {
       }
 
       case 'tool_result': {
-        const { data, parentMessageId, stop } =
+        const { assistantMessageId, data, parentMessageId, stop } =
           context.payload as GeneralAgentCallToolResultPayload;
 
         // Legacy async agent invocation path. `callAgent({ runAsTask: true })`
@@ -665,6 +666,7 @@ export class GeneralChatAgent implements Agent {
         // No pending tools, continue to call LLM with tool results
         return this.toLLMCall(
           {
+            ...(assistantMessageId && { assistantMessageId }),
             messages: state.messages,
             model: this.config.modelRuntimeConfig?.model,
             parentMessageId,
@@ -798,7 +800,9 @@ export class GeneralChatAgent implements Agent {
           };
         }
         const llmPayload = {
-          createAssistantMessage: true,
+          ...(compressionPayload.assistantMessageId
+            ? { assistantMessageId: compressionPayload.assistantMessageId }
+            : { createAssistantMessage: true }),
           messages: compressionPayload.compressedMessages,
           model: this.config.modelRuntimeConfig?.model,
           parentMessageId: compressionPayload.parentMessageId,

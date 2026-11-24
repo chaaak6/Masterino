@@ -731,6 +731,11 @@ export class MessageModel {
         );
         return {
           branchKey,
+          ...(!before && {
+            branchSelections: Object.fromEntries(
+              [...branches].map(([id, { parentMessageId }]) => [parentMessageId, id]),
+            ),
+          }),
           messages: page.reverse().flatMap(({ id }) => {
             const entry = byId.get(id);
             return entry
