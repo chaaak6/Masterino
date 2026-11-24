@@ -217,6 +217,16 @@ export default class Browser {
 
   private setupEventListeners(browserWindow: BrowserWindow): void {
     this.setupReadyToShowListener(browserWindow);
+    if (isMac && this.identifier === 'app') {
+      browserWindow.webContents.on('did-finish-load', () => {
+        if (!browserWindow.isDestroyed() && browserWindow.isVisible()) {
+          // A reload replaces the document in the same translucent macOS window.
+          // Request a fresh frame even if Chromium retained the old surface.
+          browserWindow.webContents.invalidate();
+          logger.debug('[app] Requested compositor frame after renderer load.');
+        }
+      });
+    }
     this.setupCloseListener(browserWindow);
     this.setupFocusListener(browserWindow);
     this.setupFullscreenListener(browserWindow);

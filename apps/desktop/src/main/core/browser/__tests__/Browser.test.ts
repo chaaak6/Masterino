@@ -41,6 +41,7 @@ const {
     show: vi.fn(),
     unmaximize: vi.fn(),
     webContents: {
+      invalidate: vi.fn(),
       openDevTools: vi.fn(),
       send: vi.fn(),
       session: {
@@ -794,6 +795,22 @@ describe('Browser', () => {
 
       expect(mockEvent.preventDefault).not.toHaveBeenCalled();
     });
+  });
+
+  it('requests a fresh compositor frame when the macOS main window loads', () => {
+    mockEnv.isMac = true;
+    new Browser({ ...defaultOptions, identifier: 'app' }, mockApp);
+    const didFinishLoad = mockBrowserWindow.webContents.on.mock.calls.find(
+      ([name]) => name === 'did-finish-load',
+    )?.[1];
+
+    expect(didFinishLoad).toBeTypeOf('function');
+    didFinishLoad();
+    expect(mockBrowserWindow.webContents.invalidate).toHaveBeenCalledTimes(1);
+
+    mockBrowserWindow.isVisible.mockReturnValue(false);
+    didFinishLoad();
+    expect(mockBrowserWindow.webContents.invalidate).toHaveBeenCalledTimes(1);
   });
 
   describe('top-level navigation handling', () => {
