@@ -77,6 +77,8 @@ export interface ExecAgentAppContext {
   editingAgentId?: string;
   /** Group ID for group chat */
   groupId?: string | null;
+  /** Last persisted message on the selected path before this user turn. */
+  historyHeadId?: string;
   /**
    * Initial metadata to merge into the topic when a new topic is created for
    * this execution. Ignored when a topicId is already provided (existing topic).

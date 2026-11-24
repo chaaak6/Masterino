@@ -12,6 +12,7 @@ import {
   formatSelectedSkillsContext,
   formatSelectedToolsContext,
 } from '@lobechat/context-engine';
+import { parse } from '@lobechat/conversation-flow';
 import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import { chainCompressContext } from '@lobechat/prompts';
 import type {
@@ -926,6 +927,9 @@ export class ConversationLifecycleActionImpl {
         const result = await this.#get().executeGatewayAgent({
           context: operationContext,
           fileIds: fileIdList,
+          ...(context.topicId && parentId && !context.groupId && !context.threadId
+            ? { historyHeadId: parentId }
+            : {}),
           message,
           metadata: requestMetadata,
           parentOperationId: operationId,
@@ -1308,9 +1312,22 @@ export class ConversationLifecycleActionImpl {
             parentOperationId: operationId,
           });
         } else {
-          const displayMessages = displayMessageSelectors.getDisplayMessagesByKey(
+          let displayMessages = displayMessageSelectors.getDisplayMessagesByKey(
             messageMapKey(execContext),
           )(this.#get());
+          if (
+            execContext.topicId &&
+            !execContext.groupId &&
+            !execContext.threadId &&
+            displayMessages.some(({ role }) => role === 'compressedGroup')
+          ) {
+            const history = await messageService.getAgentHistory({
+              historyHeadId: data.userMessageId,
+              topicId: execContext.topicId,
+            });
+            const assistant = displayMessages.find(({ id }) => id === data.assistantMessageId);
+            displayMessages = parse(assistant ? [...history, assistant] : history).flatList;
+          }
 
           // When agents are @mentioned, inject a slim callAgent-only manifest
           // so the AI can delegate directly without activating the full agent-management tool
@@ -1562,8 +1579,13 @@ export class ConversationLifecycleActionImpl {
 
     const contextKey = messageMapKey(context as any);
     const dbMessages = dbMessageSelectors.getDbMessagesByKey(contextKey)(this.#get()) || [];
-    const messageIds = getCompressionCandidateMessageIds(dbMessages);
-
+    let messageIds = getCompressionCandidateMessageIds(dbMessages);
+    const lastVisible = displayMessageSelectors
+      .getDisplayMessagesByKey(contextKey)(this.#get())
+      .at(-1);
+    const historyHeadId =
+      lastVisible?.lastMessageId ??
+      (lastVisible && displayMessageSelectors.findLastMessageId(lastVisible.id)(this.#get()));
     if (messageIds.length === 0) {
       antdMessage.info(
         t('contextBudget.title.NO_CANDIDATES', {
@@ -1600,6 +1622,20 @@ export class ConversationLifecycleActionImpl {
     let persistedCompressionGroupId: string | undefined;
 
     try {
+      if (historyHeadId && !context.groupId && !context.threadId) {
+        const history = await messageService.getAgentHistory({ historyHeadId, topicId });
+        if (!history.some(({ role }) => role !== 'compressedGroup')) {
+          this.#get().internal_dispatchMessage(
+            { type: 'deleteMessages', ids: [tempId] },
+            { operationId },
+          );
+          this.#get().completeOperation(operationId);
+          return;
+        }
+        messageIds = history.map(({ id }) => id);
+      }
+      if (abortController.signal.aborted) throw createAbortError();
+
       // 1. Create compression group on server
       const result = await messageService.createCompressionGroup({
         agentId,

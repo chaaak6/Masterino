@@ -110,6 +110,21 @@ export class CompressionRepository {
     return groups.length > 0 ? groups.at(-1)! : null;
   }
 
+  async queryCheckpoints(topicId: string, ids: string[]) {
+    if (!ids.length) return [];
+    return this.db
+      .select()
+      .from(messageGroups)
+      .where(
+        and(
+          this.groupsOwnership(),
+          eq(messageGroups.topicId, topicId),
+          eq(messageGroups.type, MessageGroupType.Compression),
+          inArray(messageGroups.id, ids),
+        ),
+      );
+  }
+
   /**
    * Update compression group content
    */
@@ -165,6 +180,28 @@ export class CompressionRepository {
       }
 
       const { stagedSources, ...publishedMetadata } = metadata;
+      if (metadata.previousSummaries?.length) {
+        const predecessors = await tx
+          .select({ id: messageGroups.id, updatedAt: messageGroups.updatedAt })
+          .from(messageGroups)
+          .where(
+            and(
+              this.groupsOwnership(),
+              eq(messageGroups.topicId, topicId),
+              inArray(
+                messageGroups.id,
+                metadata.previousSummaries.map(({ id }) => id),
+              ),
+            ),
+          )
+          .orderBy(messageGroups.id)
+          .for('share');
+        const versions = new Map(
+          predecessors.map(({ id, updatedAt }) => [id, updatedAt.toISOString()]),
+        );
+        if (metadata.previousSummaries.some(({ id, updatedAt }) => versions.get(id) !== updatedAt))
+          throw new Error('Previous summary changed before publication');
+      }
       const completedAt = new Date();
       if (stagedSources) {
         const ids = stagedSources.map(({ id }) => id);

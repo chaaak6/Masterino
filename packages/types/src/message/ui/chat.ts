@@ -190,6 +190,8 @@ export interface UIChatMessage {
    * Used for rendering expanded view with conversation-flow parsing
    */
   compressedMessages?: UIChatMessage[];
+  /** A completed compression group ends at this original timeline row. */
+  compressionBoundary?: boolean;
   content: string;
   createdAt: number;
   /** Lexical editor JSON state for rich text rendering */
@@ -208,6 +210,8 @@ export interface UIChatMessage {
   groupId?: string;
   id: string;
   imageList?: ChatImageItem[];
+  /** Last original message covered by a compression group. */
+  lastMessageId?: string;
   members?: UIChatMessage[];
   metadata?: MessageMetadata | null;
   model?: string | null;

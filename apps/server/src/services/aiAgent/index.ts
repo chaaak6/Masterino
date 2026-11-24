@@ -1662,6 +1662,21 @@ export class AiAgentService {
 
     await throwIfExecutionAborted('message creation');
 
+    const historyHeadId =
+      appContext?.topicId && !appContext.groupId && !appContext.threadId
+        ? ((effectiveResume ? parentMessageId : appContext.historyHeadId) ?? undefined)
+        : undefined;
+    if (historyHeadId && !effectiveResume) {
+      const historyHead = await this.messageModel.findById(historyHeadId);
+      if (
+        !historyHead ||
+        historyHead.topicId !== topicId ||
+        historyHead.threadId ||
+        historyHead.groupId
+      )
+        throw new Error('History head is not in the requested conversation');
+    }
+
     // Persist the user turn. `selfMessageIds` lets the normal-path history loader
     // exclude this freshly-created turn — history must be the PRIOR turns only,
     // otherwise the new prompt is double-counted in the LLM context.
@@ -1673,6 +1688,7 @@ export class AiAgentService {
           content: prompt,
           files: runAttachments.fileIds,
           metadata: requestTriggerMetadata,
+          parentId: historyHeadId,
           role: 'user',
           threadId: appContext?.threadId ?? undefined,
           topicId,
@@ -2440,6 +2456,7 @@ export class AiAgentService {
           this.workspaceId,
         ).queryAgentMessages(
           {
+            historyHeadId,
             sessionId: appContext?.sessionId,
             threadId: appContext?.threadId,
             topicId: appContext?.topicId,

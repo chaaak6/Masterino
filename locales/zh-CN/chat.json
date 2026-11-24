@@ -171,6 +171,7 @@
   "compression.inProgress": "正在压缩上下文…",
   "compression.inProgressHint": "正在摘要较早的消息，以便继续对话。",
   "compression.summary": "摘要",
+  "compression.marker": "消息已压缩",
   "confirmClearCurrentMessages": "确认清空当前会话消息吗？清空后无法恢复",
   "confirmRemoveChatGroupItemAlert": "确认删除该群组吗？群组专有助理将会被同样删除，外部助理不受影响",
   "confirmRemoveGroupItemAlert": "确认删除该分类吗？分类内的助理会移回默认列表",

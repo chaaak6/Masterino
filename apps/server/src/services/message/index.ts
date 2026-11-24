@@ -1,9 +1,11 @@
 import {
   type CommitToolResultInput,
   type CommitToolResultResult,
+  type CompressionGroupMetadata,
   type CreateMessageParams,
   type EnsureToolMessageInput,
   type EnsureToolMessageResult,
+  type MessageHistoryCursor,
   type QueryMessageParams,
   type UIChatMessage,
   type UpdateMessageParams,
@@ -129,6 +131,14 @@ export class MessageService {
    */
   async queryMessages(params: QueryMessageParams): Promise<UIChatMessage[]> {
     return this.messageModel.query(params, { ...this.getQueryOptions(), complete: true });
+  }
+
+  async queryHistoryPage(params: {
+    cursor?: MessageHistoryCursor;
+    groupId?: string | null;
+    topicId: string;
+  }) {
+    return this.messageModel.queryHistoryPage(params, this.postProcessUrl);
   }
 
   async queryAgentMessages(
@@ -389,7 +399,40 @@ export class MessageService {
       );
     }
     const byId = new Map(sourceMessages.map((message) => [message.id, message]));
+    const earlier = await this.compressionRepository.queryCheckpoints(
+      topicId,
+      candidates.filter((id) => !byId.has(id)),
+    );
+    const checkpoints = new Map(earlier.map((group) => [group.id, group]));
+    const previousSummaries: NonNullable<CompressionGroupMetadata['previousSummaries']> = [];
+    const stagedSources: NonNullable<CompressionGroupMetadata['stagedSources']> = [];
+    let previousEnd: string | undefined;
     const messagesToSummarize = candidates.map((id) => {
+      const checkpoint = checkpoints.get(id);
+      if (checkpoint) {
+        const coverage: CompressionGroupMetadata = JSON.parse(checkpoint.description ?? '{}');
+        const end = coverage.coverage?.ids.at(-1);
+        if (
+          !end ||
+          coverage.compressionStatus !== 'completed' ||
+          !checkpoint.content ||
+          options?.threadId ||
+          stagedSources.length
+        ) {
+          throw new Error('Previous summary is not a verified prefix of the compression source');
+        }
+        previousEnd = end;
+        previousSummaries.push({ id, updatedAt: checkpoint.updatedAt.toISOString() });
+        return {
+          content: checkpoint.content,
+          createdAt: checkpoint.createdAt.getTime(),
+          id,
+          lastMessageId: end,
+          role: 'compressedGroup' as const,
+          topicId,
+          updatedAt: checkpoint.updatedAt.getTime(),
+        } satisfies UIChatMessage;
+      }
       const source = byId.get(id);
       if (
         !source ||
@@ -398,8 +441,12 @@ export class MessageService {
       ) {
         throw new Error('Compression source is missing from the requested conversation');
       }
+      if (previousEnd && !stagedSources.length && source.parentId !== previousEnd)
+        throw new Error('Previous summary does not precede the compression source');
+      stagedSources.push({ id, updatedAt: new Date(source.updatedAt).toISOString() });
       return source;
     });
+    if (!stagedSources.length) throw new Error('Compression requires new source messages');
 
     // 2. Create compression group with placeholder content
     const messageGroupId = await this.compressionRepository.createCompressionGroup({
@@ -407,13 +454,11 @@ export class MessageService {
       messageIds: candidates,
       metadata: {
         compressionStatus: 'pending',
-        endMessageId: candidates.at(-1),
-        originalMessageCount: candidates.length,
-        stagedSources: messagesToSummarize.map(({ id, updatedAt }) => ({
-          id,
-          updatedAt: new Date(updatedAt).toISOString(),
-        })),
-        startMessageId: candidates[0],
+        endMessageId: stagedSources.at(-1)?.id,
+        originalMessageCount: stagedSources.length,
+        ...(previousSummaries.length ? { previousSummaries } : {}),
+        stagedSources,
+        startMessageId: stagedSources[0].id,
       },
       topicId,
     });

@@ -291,6 +291,27 @@ export const messageRouter = router({
     return ctx.messageModel.getTokenHeatmaps();
   }),
 
+  getAgentHistory: messageProcedure
+    .input(
+      z.object({
+        historyHeadId: z.string().min(1).max(255).optional(),
+        topicId: z.string().min(1),
+      }),
+    )
+    .query(({ input, ctx }) => ctx.messageService.queryAgentMessages(input)),
+
+  getHistoryPage: messageProcedure
+    .input(
+      z.object({
+        cursor: z
+          .object({ createdAt: z.string().datetime(), id: z.string().min(1).max(255) })
+          .optional(),
+        groupId: z.string().nullable().optional(),
+        topicId: z.string().min(1),
+      }),
+    )
+    .query(({ input, ctx }) => ctx.messageService.queryHistoryPage(input)),
+
   getMessages: publicProcedure
     .use(cloudWorkspaceAuth)
     .use(serverDatabase)

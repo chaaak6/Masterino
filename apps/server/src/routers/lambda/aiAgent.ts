@@ -143,6 +143,7 @@ const ExecAgentSchema = z
         /** The agent being edited when scope is 'agent_builder' (not the builder builtin itself). */
         editingAgentId: z.string().optional(),
         groupId: z.string().optional().nullable(),
+        historyHeadId: z.string().min(1).max(255).optional(),
         initialTopicMetadata: z
           .object({
             repos: z.array(z.string()).optional(),

@@ -54,6 +54,39 @@ afterEach(async () => {
 });
 
 describe('MessageService Integration Tests', () => {
+  it('pages the newest 50 rows first and keeps the cursor usable after anchor deletion', async () => {
+    const topicId = 'history-page';
+    const id = (index: number) => `page-row-${String(index).padStart(3, '0')}`;
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values(
+      Array.from({ length: 121 }, (_, index) => ({
+        content: String(index),
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        id: id(index),
+        role: 'user' as const,
+        topicId,
+        userId,
+      })),
+    );
+    const service = new MessageService(serverDB, userId);
+
+    const first = await service.queryHistoryPage({ topicId });
+    expect(first.messages.map((entry) => entry.id)).toEqual(
+      Array.from({ length: 50 }, (_, i) => id(i + 71)),
+    );
+    expect(first.nextCursor).toBeDefined();
+    await serverDB.delete(messages).where(eq(messages.id, id(71)));
+    const second = await service.queryHistoryPage({ cursor: first.nextCursor, topicId });
+    expect(second.messages.map((entry) => entry.id)).toEqual(
+      Array.from({ length: 50 }, (_, i) => id(i + 21)),
+    );
+    const last = await service.queryHistoryPage({ cursor: second.nextCursor, topicId });
+    expect(last.messages.map((entry) => entry.id)).toEqual(
+      Array.from({ length: 21 }, (_, i) => id(i)),
+    );
+    expect(last.nextCursor).toBeUndefined();
+  });
+
   it('acknowledges a saved assistant tool call beyond the legacy history page', async () => {
     const topicId = 'long-conversation';
     await serverDB.insert(topics).values({ id: topicId, userId });
@@ -421,6 +454,109 @@ describe('MessageService Integration Tests', () => {
   });
 
   describe('finalizeCompression', () => {
+    it('rolls a prior summary forward and restores originals if the prior coverage changes', async () => {
+      const topicId = 'rolling-history';
+      const id = (i: number) => `rolling-${i}`;
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values(
+        Array.from({ length: 5 }, (_, index) => ({
+          content: `Original ${index}`,
+          createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+          id: id(index),
+          parentId: index ? id(index - 1) : null,
+          role: index % 2 === 0 ? 'user' : 'assistant',
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const old = await service.createCompressionGroup(topicId, [id(0), id(1)]);
+      await service.finalizeCompression(old.messageGroupId, 'Older decision', {
+        agentId: 'unused',
+        topicId,
+      });
+      const updated = await service.createCompressionGroup(topicId, [
+        old.messageGroupId,
+        id(2),
+        id(3),
+      ]);
+      expect(updated.messagesToSummarize.map(({ content }) => content)).toEqual([
+        'Older decision',
+        'Original 2',
+        'Original 3',
+      ]);
+      await service.finalizeCompression(updated.messageGroupId, 'Merged decisions', {
+        agentId: 'unused',
+        topicId,
+      });
+      const context = await service.queryAgentMessages({ historyHeadId: id(4), topicId });
+      expect(context.map(({ content }) => content)).toEqual(['Merged decisions', 'Original 4']);
+      expect(context[0].lastMessageId).toBe(id(3));
+      const timeline = await service.queryHistoryPage({ topicId });
+      expect(timeline.messages.map(({ content }) => content)).toEqual(
+        Array.from({ length: 5 }, (_, index) => `Original ${index}`),
+      );
+      expect(
+        timeline.messages
+          .filter(({ compressionBoundary }) => compressionBoundary)
+          .map(({ id }) => id),
+      ).toEqual([id(1), id(3)]);
+
+      await service.updateMessage(id(0), { content: 'Edited decision' }, {});
+      const recovered = await service.queryAgentMessages({ historyHeadId: id(4), topicId });
+      expect(recovered.map(({ content }) => content)).toEqual([
+        'Edited decision',
+        'Original 1',
+        'Original 2',
+        'Original 3',
+        'Original 4',
+      ]);
+    });
+
+    it('reuses only the summary covered by the explicitly selected answer', async () => {
+      const topicId = 'history-branch';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      const rows = [
+        { id: 'branch-root', parentId: null, role: 'user' as const },
+        { id: 'branch-a', parentId: 'branch-root', role: 'assistant' as const },
+        { id: 'branch-b', parentId: 'branch-root', role: 'assistant' as const },
+        { id: 'branch-next-a', parentId: 'branch-a', role: 'user' as const },
+        { id: 'branch-next-b', parentId: 'branch-b', role: 'user' as const },
+      ];
+      await serverDB.insert(messages).values(
+        rows.map((row, index) => ({
+          ...row,
+          content: row.id,
+          createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const summary = await service.createCompressionGroup(topicId, ['branch-root', 'branch-a']);
+      await service.finalizeCompression(summary.messageGroupId, 'Decision A', {
+        agentId: 'unused',
+        topicId,
+      });
+
+      const branchA = await service.queryAgentMessages({ historyHeadId: 'branch-next-a', topicId });
+      expect(branchA.map(({ content }) => content)).toEqual(['Decision A', 'branch-next-a']);
+
+      const branchB = await service.queryAgentMessages({ historyHeadId: 'branch-next-b', topicId });
+      expect(branchB.map(({ content }) => content)).toEqual([
+        'branch-root',
+        'branch-b',
+        'branch-next-b',
+      ]);
+      await service.updateMetadata('branch-root', { activeBranchIndex: 1 }, { topicId });
+      await service.updateMetadata('branch-root', { activeBranchIndex: 0 }, { topicId });
+      const afterSwitching = await service.queryAgentMessages({
+        historyHeadId: 'branch-next-a',
+        topicId,
+      });
+      expect(afterSwitching.map(({ content }) => content)).toEqual(['Decision A', 'branch-next-a']);
+    });
+
     it('keeps the source messages when cancellation and publication overlap', async () => {
       const topicId = 'compression-cancel';
       await serverDB.insert(topics).values({ id: topicId, userId });
