@@ -261,9 +261,10 @@ export class PluginOptimisticUpdateActionImpl {
 
     if (options?.returnUpdatedMessage) {
       if (!result?.success) throw new Error('Tool message update was not committed');
-      if (result.message && messageMapKey(internal_getConversationContext(context)) === key) {
+      const confirmed = result.message ?? result.messages?.find((message) => message.id === id);
+      if (confirmed && messageMapKey(internal_getConversationContext(context)) === key) {
         internal_dispatchMessage(
-          { expected, type: 'acknowledgeMessage', value: result.message },
+          { expected, type: 'acknowledgeMessage', value: confirmed },
           context,
         );
       }

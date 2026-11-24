@@ -254,9 +254,10 @@ export class MessageOptimisticUpdateActionImpl {
       const expected = this.#get().dbMessagesMap[key]?.find((message) => message.id === id);
       const result = await messageService.updateMessagePlugin(id, value, ctx, options);
       if (!result?.success) throw new Error('Tool approval was not committed');
-      if (result.message && messageMapKey(internal_getConversationContext(context)) === key) {
+      const confirmed = result.message ?? result.messages?.find((message) => message.id === id);
+      if (confirmed && messageMapKey(internal_getConversationContext(context)) === key) {
         internal_dispatchMessage(
-          { expected, type: 'acknowledgeMessage', value: result.message },
+          { expected, type: 'acknowledgeMessage', value: confirmed },
           context,
         );
       }

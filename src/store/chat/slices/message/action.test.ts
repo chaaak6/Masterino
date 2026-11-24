@@ -1011,13 +1011,25 @@ describe('chatMessage actions', () => {
       });
     });
 
-    it('keeps the loaded timeline when an older server sends a snapshot in response to approval', async () => {
+    it('merges only the approved tool when an older server sends a whole snapshot', async () => {
       const { result } = renderHook(() => useChatStore());
       const replaceMessagesSpy = vi.spyOn(result.current, 'replaceMessages');
+      const approval = { intervention: { status: 'approved' as const } };
+      const tool: UIChatMessage = {
+        content: '',
+        createdAt: 1,
+        id: 'tool-message',
+        role: 'tool',
+        updatedAt: 1,
+      };
+      const confirmed = { ...tool, pluginIntervention: approval.intervention, updatedAt: 2 };
+      const earlier = { ...tool, id: 'user-message', role: 'user' as const };
+      const unseen = { ...earlier, id: 'previous-page' };
+      const key = messageMapKey({ agentId: 'session-id', topicId: 'topic-id' });
+      useChatStore.setState({ dbMessagesMap: { [key]: [earlier, tool] } });
       const updatePluginSpy = vi
         .spyOn(messageService, 'updateMessagePlugin')
-        .mockResolvedValue({ messages: [], success: true });
-      const approval = { intervention: { status: 'approved' as const } };
+        .mockResolvedValue({ messages: [unseen, earlier, confirmed], success: true });
       await act(async () => {
         await result.current.optimisticUpdateMessagePlugin('tool-message', approval, undefined, {
           returnUpdatedMessage: true,
@@ -1031,6 +1043,7 @@ describe('chatMessage actions', () => {
         { returnUpdatedMessage: true },
       );
       expect(replaceMessagesSpy).not.toHaveBeenCalled();
+      expect(useChatStore.getState().dbMessagesMap[key]).toEqual([earlier, confirmed]);
     });
 
     it('should sync mirrored tool state into the parent assistant tools array', async () => {
