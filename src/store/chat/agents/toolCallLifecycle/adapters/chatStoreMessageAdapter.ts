@@ -177,6 +177,7 @@ export const createChatStoreToolCallMessageAdapter = ({
             pluginState: result.state,
           },
           { operationId },
+          { returnUpdatedMessage: true },
         );
         throwIfAborted(signal);
         return;

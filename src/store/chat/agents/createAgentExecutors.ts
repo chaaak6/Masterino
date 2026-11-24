@@ -1112,6 +1112,7 @@ export const createAgentExecutors = (context: {
               pluginState: result.state,
             },
             updateContext,
+            { returnUpdatedMessage: true },
           );
           await context.get().optimisticUpdateMessagePlugin(
             toolMessageId,
@@ -1119,6 +1120,7 @@ export const createAgentExecutors = (context: {
               intervention: { status: 'pending' },
             },
             updateContext,
+            { returnUpdatedMessage: true },
           );
           return {
             events: [

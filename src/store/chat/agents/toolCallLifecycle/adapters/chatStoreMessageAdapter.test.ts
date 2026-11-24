@@ -62,6 +62,7 @@ describe('createChatStoreToolCallMessageAdapter', () => {
       'tool-1',
       { content: '', pluginError: null, pluginState: state },
       { operationId: 'commit-1' },
+      { returnUpdatedMessage: true },
     );
   });
 
@@ -106,11 +107,7 @@ describe('createChatStoreToolCallMessageAdapter', () => {
       },
     });
 
-    expect(optimisticUpdateToolMessage).not.toHaveBeenCalledWith(
-      'tool-1',
-      expect.objectContaining({ pluginState: state }),
-      expect.anything(),
-    );
+    expect(optimisticUpdateToolMessage).not.toHaveBeenCalled();
     expect(messageService.commitToolResult).toHaveBeenCalledTimes(1);
   });
 
@@ -154,6 +151,7 @@ describe('createChatStoreToolCallMessageAdapter', () => {
       'tool-1',
       expect.objectContaining({ pluginState: state }),
       expect.anything(),
+      { returnUpdatedMessage: true },
     );
     expect(messageService.commitToolResult).not.toHaveBeenCalled();
   });

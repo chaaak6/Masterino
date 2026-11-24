@@ -711,6 +711,7 @@ export const messageRouter = router({
       z
         .object({
           id: z.string(),
+          returnUpdatedMessage: z.boolean().optional(),
           value: z.object({
             content: z.string().optional(),
             metadata: z.object({}).passthrough().optional(),
@@ -721,7 +722,7 @@ export const messageRouter = router({
         .extend(basicContextSchema.shape),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, value, agentId, ...options } = input;
+      const { id, value, agentId, returnUpdatedMessage, ...options } = input;
       const resolved = await resolveContext(
         { agentId, ...options },
         ctx.serverDB,
@@ -729,7 +730,7 @@ export const messageRouter = router({
         ctx.workspaceId ?? undefined,
       );
 
-      return ctx.messageService.updateToolMessage(id, value, resolved);
+      return ctx.messageService.updateToolMessage(id, value, resolved, { returnUpdatedMessage });
     }),
   updateTranslate: messageProcedure
     .use(withScopedPermission('message:update'))

@@ -206,9 +206,10 @@ export class MessageService {
       pluginState?: Record<string, any>;
     },
     ctx?: MessageQueryContext,
+    options?: { returnUpdatedMessage?: boolean },
   ): Promise<UpdateMessageResult> => {
     return abortableRequest.execute(`tool-message-${id}`, (signal) =>
-      lambdaClient.message.updateToolMessage.mutate({ ...ctx, id, value }, { signal }),
+      lambdaClient.message.updateToolMessage.mutate({ ...ctx, ...options, id, value }, { signal }),
     );
   };
 

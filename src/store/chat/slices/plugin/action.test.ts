@@ -1392,6 +1392,7 @@ describe('ChatPluginAction', () => {
             groupId: groupContext.groupId,
             topicId: groupContext.topicId,
           }),
+          undefined,
         );
       });
     });

@@ -70,6 +70,19 @@ describe('MessageService Integration Tests', () => {
     });
 
     const service = new MessageService(serverDB, userId);
+    await expect(
+      service.updateToolMessage(
+        id,
+        { pluginState: { path: '/test/log' } },
+        { topicId },
+        {
+          returnUpdatedMessage: true,
+        },
+      ),
+    ).resolves.toMatchObject({
+      message: { id, pluginState: { path: '/test/log' } },
+      success: true,
+    });
     const result = await service.updateMessagePlugin(
       id,
       { intervention: { status: 'approved' } },

@@ -262,10 +262,7 @@ export class MessageService {
     response?: { returnUpdatedMessage?: boolean },
   ): Promise<UpdateMessageResult> {
     await this.messageModel.updateMessagePlugin(id, value);
-    if (response?.returnUpdatedMessage) {
-      const [message] = await this.messageModel.queryByIds([id], this.getQueryOptions());
-      return message ? { message, success: true } : { success: false };
-    }
+    if (response?.returnUpdatedMessage) return this.queryUpdatedMessage(id);
     return this.queryWithSuccess(options);
   }
 
@@ -291,11 +288,15 @@ export class MessageService {
 
     if (response?.returnUpdatedMessage) {
       if (!updated.success) return { success: false };
-      const [message] = await this.messageModel.queryByIds([id], this.getQueryOptions());
-      return message ? { message, success: true } : { success: false };
+      return this.queryUpdatedMessage(id);
     }
 
     return this.queryWithSuccess(options);
+  }
+
+  private async queryUpdatedMessage(id: string): Promise<UpdateMessageResult> {
+    const [message] = await this.messageModel.queryByIds([id], this.getQueryOptions());
+    return message ? { message, success: true } : { success: false };
   }
 
   /**
@@ -321,11 +322,13 @@ export class MessageService {
       pluginState?: Record<string, any>;
     },
     options?: QueryOptions,
-  ): Promise<{ messages?: UIChatMessage[]; success: boolean }> {
+    response?: { returnUpdatedMessage?: boolean },
+  ): Promise<UpdateMessageResult> {
     const result = await this.messageModel.updateToolMessage(id, value);
     if (!result.success) {
       return { success: false };
     }
+    if (response?.returnUpdatedMessage) return this.queryUpdatedMessage(id);
     return this.queryWithSuccess(options);
   }
 

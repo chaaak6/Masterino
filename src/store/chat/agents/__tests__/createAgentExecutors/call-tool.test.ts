@@ -102,11 +102,13 @@ describe('call_tool executor', () => {
       expect.any(String),
       { intervention: { status: 'pending' } },
       expect.anything(),
+      { returnUpdatedMessage: true },
     );
     expect(mockStore.optimisticUpdateToolMessage).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ content: '', pluginError: null }),
       expect.anything(),
+      { returnUpdatedMessage: true },
     );
     expect(mockStore.preservePausedExecutionContext).toHaveBeenCalledWith(
       expect.any(String),
@@ -168,7 +170,7 @@ describe('call_tool executor', () => {
     expect(result.events).not.toContainEqual(
       expect.objectContaining({ type: 'human_approve_required' }),
     );
-      expect(mockStore.preservePausedExecutionContext).not.toHaveBeenCalled();
+    expect(mockStore.preservePausedExecutionContext).not.toHaveBeenCalled();
   });
 
   it('still parks a credential path card in auto-approve mode', async () => {
