@@ -1,7 +1,7 @@
 'use client';
 
 import isEqual from 'fast-deep-equal';
-import type { KeyboardEvent, PointerEvent, ReactElement, ReactNode } from 'react';
+import type { KeyboardEvent, PointerEvent, ReactElement, ReactNode, WheelEvent } from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { VListHandle } from 'virtua';
 import { VList } from 'virtua';
@@ -31,6 +31,7 @@ import BackBottom from './BackBottom';
 
 const CONVERSATION_FOOTER_ID = '__conversation_footer__';
 const CONVERSATION_HEADER_ID = '__conversation_header__';
+const HISTORY_TOP_THRESHOLD = 160;
 const USER_SCROLL_INTENT_TTL_MS = 500;
 const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' ']);
 
@@ -114,8 +115,27 @@ const VirtualizedList = memo<VirtualizedListProps>(
         if (SCROLL_KEYS.has(event.key)) {
           markUserScrollIntent();
         }
+        if (
+          (event.key === 'Home' || event.key === 'ArrowUp' || event.key === 'PageUp') &&
+          (virtuaRef.current?.scrollOffset ?? Infinity) < HISTORY_TOP_THRESHOLD
+        ) {
+          onReachTop?.();
+        }
       },
-      [markUserScrollIntent],
+      [markUserScrollIntent, onReachTop],
+    );
+
+    const handleWheel = useCallback(
+      (event: WheelEvent<HTMLDivElement>) => {
+        markUserScrollIntent();
+        if (
+          event.deltaY < 0 &&
+          (virtuaRef.current?.scrollOffset ?? Infinity) < HISTORY_TOP_THRESHOLD
+        ) {
+          onReachTop?.();
+        }
+      },
+      [markUserScrollIntent, onReachTop],
     );
 
     // Check if at bottom based on scroll position
@@ -150,7 +170,7 @@ const VirtualizedList = memo<VirtualizedListProps>(
         const hasUserScrollIntent =
           Date.now() - lastUserScrollIntentAtRef.current <= USER_SCROLL_INTENT_TTL_MS;
         onScrollOffset(ref.scrollOffset, hasUserScrollIntent);
-        if (hasUserScrollIntent && ref.scrollOffset < 160) onReachTop?.();
+        if (hasUserScrollIntent && ref.scrollOffset < HISTORY_TOP_THRESHOLD) onReachTop?.();
       }
 
       // Check if at bottom
@@ -289,7 +309,7 @@ const VirtualizedList = memo<VirtualizedListProps>(
         onPointerDownCapture={markUserScrollIntent}
         onPointerMoveCapture={handlePointerMove}
         onTouchMoveCapture={markUserScrollIntent}
-        onWheelCapture={markUserScrollIntent}
+        onWheelCapture={handleWheel}
       >
         {/* Debug Inspector - placed outside VList so it won't be recycled by the virtual list */}
         {OPEN_DEV_INSPECTOR && <DebugInspector />}

@@ -86,7 +86,7 @@ const ChatList = memo<ChatListProps>(
     paginateHistory,
     showWelcome,
   }) => {
-    const { t } = useTranslation(['common', 'chat']);
+    const { t } = useTranslation(['common', 'chat', 'topic']);
     // Fetch messages (SWR key is null when skipFetch is true)
     const context = useConversationStore((s) => s.context);
     const activeWorkspaceId = useActiveWorkspaceId();
@@ -272,16 +272,16 @@ const ChatList = memo<ChatListProps>(
           dataSource={displayMessageIds}
           footerSlot={mergedFooterSlot}
           headerSlot={
-            paginate && history.loadError ? (
+            paginate && (history.loadError || history.hasOlder) ? (
               <>
                 {headerSlot}
                 <button
                   type="button"
                   onClick={() => {
-                    void history.retry();
+                    void (history.loadError ? history.retry() : history.loadOlder());
                   }}
                 >
-                  {t('retry')}
+                  {history.loadError ? t('retry') : t('loadMore', { ns: 'topic' })}
                 </button>
               </>
             ) : (

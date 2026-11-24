@@ -272,15 +272,21 @@ export const messageRouter = router({
         agentId: z.string(),
         content: z.string(),
         groupId: z.string().nullable().optional(),
+        includeTimelineSnapshot: z.boolean().default(true),
         messageGroupId: z.string(),
         threadId: z.string().nullable().optional(),
         topicId: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { messageGroupId, content, ...params } = input;
+      const { messageGroupId, content, includeTimelineSnapshot, ...params } = input;
 
-      return ctx.messageService.finalizeCompression(messageGroupId, content, params);
+      return ctx.messageService.finalizeCompression(
+        messageGroupId,
+        content,
+        params,
+        includeTimelineSnapshot,
+      );
     }),
 
   getHeatmaps: messageProcedure.query(async ({ ctx }) => {

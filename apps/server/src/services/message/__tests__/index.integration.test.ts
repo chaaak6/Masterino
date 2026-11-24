@@ -610,10 +610,14 @@ describe('MessageService Integration Tests', () => {
       );
       const service = new MessageService(serverDB, userId);
       const summary = await service.createCompressionGroup(topicId, ['branch-root', 'branch-a']);
-      await service.finalizeCompression(summary.messageGroupId, 'Decision A', {
-        agentId: 'unused',
-        topicId,
-      });
+      await expect(
+        service.finalizeCompression(
+          summary.messageGroupId,
+          'Decision A',
+          { agentId: 'unused', topicId },
+          false,
+        ),
+      ).resolves.toEqual({ boundaryMessageId: 'branch-a', success: true });
 
       const branchA = await service.queryAgentMessages({ historyHeadId: 'branch-next-a', topicId });
       expect(branchA.map(({ content }) => content)).toEqual(['Decision A', 'branch-next-a']);

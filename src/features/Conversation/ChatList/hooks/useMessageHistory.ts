@@ -55,6 +55,7 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
   const hasOlderPages = useRef(false);
   const inFlight = useRef(false);
   const active = useRef(true);
+  const [hasOlder, setHasOlder] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const isRunning = useCallback(
     () => operationSelectors.isAgentRuntimeRunningByContext(context)(getChatStoreState()),
@@ -92,6 +93,7 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
           (page.messages.length && !page.messages.some(({ id }) => oldHead.has(id)))
         ) {
           cursor.current = page.nextCursor;
+          setHasOlder(!!page.nextCursor);
         }
         state.replaceMessages(mergeHistoryPage(state.dbMessages, page, oldHead, true));
         store.setState({ messagesInit: true });
@@ -116,6 +118,7 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
       const state = store.getState();
       state.replaceMessages(mergeHistoryPage(state.dbMessages, page, previousHead.current, false));
       cursor.current = page.nextCursor;
+      setHasOlder(!!page.nextCursor);
       hasOlderPages.current = true;
     } catch {
       if (active.current) setLoadError(true);
@@ -125,6 +128,7 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
   }, [enabled, context.groupId, context.topicId, isRunning, store]);
 
   return {
+    hasOlder,
     isValidating: newest.isValidating,
     loadError: loadError || !!newest.error,
     loadOlder,

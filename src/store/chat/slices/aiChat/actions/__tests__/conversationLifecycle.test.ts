@@ -229,7 +229,7 @@ describe('ConversationLifecycle actions', () => {
     });
 
     describe('message creation', () => {
-      it('should render pending compressedGroup immediately for /compact', async () => {
+      it('marks the published boundary and keeps loaded history and the latest turn after /compact', async () => {
         setupMockSelectors({
           agentConfig: {
             chatConfig: { compressionModelId: 'summary-model' },
@@ -244,6 +244,8 @@ describe('ConversationLifecycle actions', () => {
         const existingMessages = [
           createMockMessage({ id: 'user-1', role: 'user', topicId }),
           createMockMessage({ id: 'assistant-1', role: 'assistant', topicId }),
+          createMockMessage({ id: 'user-2', role: 'user', topicId }),
+          createMockMessage({ id: 'assistant-2', role: 'assistant', topicId }),
         ];
 
         await act(async () => {
@@ -277,20 +279,16 @@ describe('ConversationLifecycle actions', () => {
             expect(useChatStore.getState().dbMessagesMap[key].map(({ id }) => id)).toEqual([
               'user-1',
               'assistant-1',
+              'user-2',
+              'assistant-2',
               expect.stringMatching(/^tmp_compress_/),
             ]);
           });
-        vi.spyOn(messageService, 'finalizeCompression').mockResolvedValue({
-          messages: [
-            {
-              id: 'group-1',
-              content: 'summary',
-              role: 'compressedGroup',
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            } as any,
-          ],
-        });
+        const finalizeCompressionSpy = vi
+          .spyOn(messageService, 'finalizeCompression')
+          .mockResolvedValue({
+            boundaryMessageId: 'assistant-1',
+          });
 
         const optimisticCreateTmpMessageSpy = vi.spyOn(
           result.current,
@@ -345,6 +343,14 @@ describe('ConversationLifecycle actions', () => {
           expect.objectContaining({
             params: expect.objectContaining({ model: 'summary-model', provider: 'aihub' }),
           }),
+        );
+        expect(finalizeCompressionSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ includeTimelineSnapshot: false }),
+        );
+        expect(useChatStore.getState().dbMessagesMap[key]).toEqual(
+          existingMessages.map((message) =>
+            message.id === 'assistant-1' ? { ...message, compressionBoundary: true } : message,
+          ),
         );
       });
 

@@ -155,8 +155,8 @@ export class CompressionRepository {
       .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
   }
 
-  async completeCompression(groupId: string, topicId: string, content: string): Promise<void> {
-    await this.db.transaction(async (tx) => {
+  async completeCompression(groupId: string, topicId: string, content: string) {
+    return this.db.transaction(async (tx) => {
       const [group] = await tx
         .select({ description: messageGroups.description, topicId: messageGroups.topicId })
         .from(messageGroups)
@@ -174,7 +174,7 @@ export class CompressionRepository {
       const metadata: CompressionGroupMetadata = group.description
         ? JSON.parse(group.description)
         : {};
-      if (metadata.compressionStatus === 'completed') return;
+      if (metadata.compressionStatus === 'completed') return metadata.endMessageId;
       if (metadata.compressionStatus === 'failed' || !content.trim()) {
         throw new Error('Compression cannot be completed');
       }
@@ -238,6 +238,7 @@ export class CompressionRepository {
           } satisfies CompressionGroupMetadata),
         })
         .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
+      return publishedMetadata.endMessageId;
     });
   }
 

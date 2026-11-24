@@ -281,13 +281,15 @@ export class MessageService {
     agentId: string;
     content: string;
     groupId?: string | null;
+    includeTimelineSnapshot?: boolean;
     messageGroupId: string;
     threadId?: string | null;
     topicId: string;
-  }): Promise<{ messages?: UIChatMessage[] }> => {
+  }): Promise<{ boundaryMessageId?: string; messages?: UIChatMessage[] }> => {
     const result = await lambdaClient.message.finalizeCompression.mutate(params);
     return {
-      messages: (result.messages || []) as unknown as UIChatMessage[],
+      boundaryMessageId: result.boundaryMessageId,
+      messages: result.messages as unknown as UIChatMessage[] | undefined,
     };
   };
 
