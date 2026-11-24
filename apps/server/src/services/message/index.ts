@@ -259,8 +259,13 @@ export class MessageService {
     id: string,
     value: any,
     options: QueryOptions,
-  ): Promise<{ messages?: UIChatMessage[]; success: boolean }> {
+    response?: { returnUpdatedMessage?: boolean },
+  ): Promise<UpdateMessageResult> {
     await this.messageModel.updateMessagePlugin(id, value);
+    if (response?.returnUpdatedMessage) {
+      const [message] = await this.messageModel.queryByIds([id], this.getQueryOptions());
+      return message ? { message, success: true } : { success: false };
+    }
     return this.queryWithSuccess(options);
   }
 

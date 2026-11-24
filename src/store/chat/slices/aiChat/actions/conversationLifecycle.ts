@@ -1587,7 +1587,8 @@ export class ConversationLifecycleActionImpl {
     const { agentId, topicId } = context;
     if (!topicId) return;
 
-    const usesPagedHistory = !context.groupId && !context.threadId;
+    const usesPagedHistory =
+      !context.groupId && !context.threadId && (!context.scope || context.scope === 'main');
     const contextKey = messageMapKey(context as any);
     const dbMessages = dbMessageSelectors.getDbMessagesByKey(contextKey)(this.#get()) || [];
     let messageIds = getCompressionCandidateMessageIds(dbMessages);

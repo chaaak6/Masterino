@@ -228,8 +228,12 @@ export class MessageOptimisticUpdateActionImpl {
     id: string,
     value: Partial<MessagePluginItem>,
     context?: OptimisticUpdateContext,
+    options?: { returnUpdatedMessage?: boolean },
   ): Promise<void> => {
-    const { internal_dispatchMessage, replaceMessages } = this.#get();
+    const { internal_dispatchMessage, internal_getConversationContext, replaceMessages } =
+      this.#get();
+    const ctx = internal_getConversationContext(context);
+    const key = messageMapKey(ctx);
     const toolMessage = dbMessageSelectors.getDbMessageById(id)(this.#get());
 
     internal_dispatchMessage({ id, type: 'updateMessagePlugin', value }, context);
@@ -246,7 +250,19 @@ export class MessageOptimisticUpdateActionImpl {
       );
     }
 
-    const ctx = this.#get().internal_getConversationContext(context);
+    if (options?.returnUpdatedMessage) {
+      const expected = this.#get().dbMessagesMap[key]?.find((message) => message.id === id);
+      const result = await messageService.updateMessagePlugin(id, value, ctx, options);
+      if (!result?.success) throw new Error('Tool approval was not committed');
+      if (result.message && messageMapKey(internal_getConversationContext(context)) === key) {
+        internal_dispatchMessage(
+          { expected, type: 'acknowledgeMessage', value: result.message },
+          context,
+        );
+      }
+      return;
+    }
+
     const result = await messageService.updateMessagePlugin(id, value, ctx);
 
     if (result?.success && result.messages) {

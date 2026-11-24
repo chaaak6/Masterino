@@ -1,6 +1,7 @@
 // Disable the auto sort key eslint rule to make the code more logic and readable
 import { type AgentRuntimeContext } from '@lobechat/agent-runtime';
 import { MESSAGE_CANCEL_FLAT } from '@lobechat/const';
+import { parse } from '@lobechat/conversation-flow';
 import { isDeviceLocalMcpToolIdentifier } from '@lobechat/electron-client-ipc';
 import {
   type ChatToolPayload,
@@ -10,7 +11,9 @@ import {
   type WorkingModel,
 } from '@lobechat/types';
 import type { ExecutionContext } from '@lobechat/types/src/executionContext';
+import { TRPCClientError } from '@trpc/client';
 
+import { messageService } from '@/services/message';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { selectRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
@@ -286,6 +289,8 @@ export class ConversationControlActionImpl {
     };
 
     const { agentId, topicId, threadId, scope } = effectiveContext;
+    const usesPagedHistory =
+      !!topicId && !effectiveContext.groupId && !threadId && (!scope || scope === 'main');
 
     // 1. Get tool message and verify it exists
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
@@ -315,6 +320,7 @@ export class ConversationControlActionImpl {
         toolMessageId,
         { intervention: { status: 'approved' } },
         optimisticContext,
+        ...(usesPagedHistory ? ([{ returnUpdatedMessage: true }] as const) : []),
       );
       const refreshedToolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
       const approvedToolCall = refreshedToolMessage?.plugin ?? toolMessage.plugin;
@@ -404,7 +410,18 @@ export class ConversationControlActionImpl {
 
       // 3. Get current messages for state construction using context
       const chatKey = messageMapKey({ agentId, topicId, threadId, scope });
-      const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
+      let currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
+      if (usesPagedHistory) {
+        try {
+          const history = await messageService.getAgentHistory({
+            historyHeadId: toolMessageId,
+            topicId,
+          });
+          currentMessages = parse(history).flatList;
+        } catch (error) {
+          if (!(error instanceof TRPCClientError) || error.data?.code !== 'NOT_FOUND') throw error;
+        }
+      }
       const currentRequestMetadata = this.#getResumeContextFromMessageChain(
         toolMessageId,
         currentMessages,

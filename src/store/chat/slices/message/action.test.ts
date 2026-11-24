@@ -1011,6 +1011,28 @@ describe('chatMessage actions', () => {
       });
     });
 
+    it('keeps the loaded timeline when an older server sends a snapshot in response to approval', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const replaceMessagesSpy = vi.spyOn(result.current, 'replaceMessages');
+      const updatePluginSpy = vi
+        .spyOn(messageService, 'updateMessagePlugin')
+        .mockResolvedValue({ messages: [], success: true });
+      const approval = { intervention: { status: 'approved' as const } };
+      await act(async () => {
+        await result.current.optimisticUpdateMessagePlugin('tool-message', approval, undefined, {
+          returnUpdatedMessage: true,
+        });
+      });
+
+      expect(updatePluginSpy).toHaveBeenCalledWith(
+        'tool-message',
+        approval,
+        expect.objectContaining({ topicId: 'topic-id' }),
+        { returnUpdatedMessage: true },
+      );
+      expect(replaceMessagesSpy).not.toHaveBeenCalled();
+    });
+
     it('should sync mirrored tool state into the parent assistant tools array', async () => {
       const { result } = renderHook(() => useChatStore());
       const assistantMessage = {

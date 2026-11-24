@@ -559,12 +559,13 @@ export const messageRouter = router({
       z
         .object({
           id: z.string(),
+          returnUpdatedMessage: z.boolean().optional(),
           value: UpdateMessagePluginSchema.partial(),
         })
         .extend(basicContextSchema.shape),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, value, agentId, ...options } = input;
+      const { id, value, agentId, returnUpdatedMessage, ...options } = input;
       const resolved = await resolveContext(
         { agentId, ...options },
         ctx.serverDB,
@@ -572,7 +573,7 @@ export const messageRouter = router({
         ctx.workspaceId ?? undefined,
       );
 
-      return ctx.messageService.updateMessagePlugin(id, value, resolved);
+      return ctx.messageService.updateMessagePlugin(id, value, resolved, { returnUpdatedMessage });
     }),
 
   updateMessageRAG: messageProcedure

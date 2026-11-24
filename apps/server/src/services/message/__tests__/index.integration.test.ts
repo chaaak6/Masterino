@@ -5,6 +5,7 @@ import {
   agentsToSessions,
   files,
   messageGroups,
+  messagePlugins,
   messages,
   sessions,
   topics,
@@ -54,12 +55,42 @@ afterEach(async () => {
 });
 
 describe('MessageService Integration Tests', () => {
+  it('acknowledges an approved tool message without fetching its conversation', async () => {
+    const topicId = 'approval-history';
+    const id = 'approval-history-tool';
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values({ content: '', id, role: 'tool', topicId, userId });
+    await serverDB.insert(messagePlugins).values({
+      apiName: 'readFile',
+      id,
+      identifier: 'local-system',
+      intervention: { status: 'pending' },
+      toolCallId: 'approval-history-call',
+      userId,
+    });
+
+    const service = new MessageService(serverDB, userId);
+    const result = await service.updateMessagePlugin(
+      id,
+      { intervention: { status: 'approved' } },
+      { topicId },
+      { returnUpdatedMessage: true },
+    );
+
+    expect(result).toMatchObject({
+      message: { id, pluginIntervention: { status: 'approved' } },
+      success: true,
+    });
+    expect(result.messages).toBeUndefined();
+  });
+
   it('pages the newest 50 rows first and keeps the cursor usable after anchor deletion', async () => {
     const topicId = 'history-page';
-    const id = (index: number) => `page-row-${String(index).padStart(3, '0')}`;
+    const rowCount = 3001;
+    const id = (index: number) => `page-row-${String(index).padStart(4, '0')}`;
     await serverDB.insert(topics).values({ id: topicId, userId });
     await serverDB.insert(messages).values(
-      Array.from({ length: 121 }, (_, index) => ({
+      Array.from({ length: rowCount }, (_, index) => ({
         content: String(index),
         createdAt: new Date('2026-01-01T00:00:00Z'),
         id: id(index),
@@ -72,20 +103,23 @@ describe('MessageService Integration Tests', () => {
 
     const first = await service.queryHistoryPage({ topicId });
     expect(first.messages.map((entry) => entry.id)).toEqual(
-      Array.from({ length: 50 }, (_, i) => id(i + 71)),
+      Array.from({ length: 50 }, (_, i) => id(i + rowCount - 50)),
     );
     expect(first.nextCursor).toBeDefined();
-    await serverDB.delete(messages).where(eq(messages.id, id(71)));
-    const second = await service.queryHistoryPage({ cursor: first.nextCursor, topicId });
-    expect(second.messages.map((entry) => entry.id)).toEqual(
-      Array.from({ length: 50 }, (_, i) => id(i + 21)),
-    );
-    const last = await service.queryHistoryPage({ cursor: second.nextCursor, topicId });
-    expect(last.messages.map((entry) => entry.id)).toEqual(
-      Array.from({ length: 21 }, (_, i) => id(i)),
-    );
-    expect(last.nextCursor).toBeUndefined();
-  });
+    await serverDB.delete(messages).where(eq(messages.id, first.nextCursor!.id));
+
+    const loaded = first.messages.map(({ id }) => id).reverse();
+    let cursor = first.nextCursor;
+    for (let batch = 1; batch < Math.ceil(rowCount / 50); batch++) {
+      expect(cursor).toBeDefined();
+      const page = await service.queryHistoryPage({ cursor, topicId });
+      expect(page.messages.length).toBeLessThanOrEqual(50);
+      loaded.push(...page.messages.map(({ id }) => id).reverse());
+      cursor = page.nextCursor;
+    }
+    expect(cursor).toBeUndefined();
+    expect(loaded).toEqual(Array.from({ length: rowCount }, (_, i) => id(rowCount - 1 - i)));
+  }, 15_000);
 
   it('preserves an older selected answer when the newer branch fills the first page', async () => {
     const topicId = 'fork-before-window';

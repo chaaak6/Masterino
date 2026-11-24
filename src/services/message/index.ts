@@ -179,8 +179,9 @@ export class MessageService {
     id: string,
     value: Partial<Omit<MessagePluginItem, 'id'>>,
     ctx?: MessageQueryContext,
+    options?: { returnUpdatedMessage?: boolean },
   ): Promise<UpdateMessageResult> => {
-    return lambdaClient.message.updateMessagePlugin.mutate({ ...ctx, id, value });
+    return lambdaClient.message.updateMessagePlugin.mutate({ ...ctx, ...options, id, value });
   };
 
   updateMessageRAG = async (
