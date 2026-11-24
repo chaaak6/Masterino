@@ -7,7 +7,7 @@
  * InMemory implementations when Redis is not available (test environment).
  */
 import { type LobeChatDatabase } from '@lobechat/database';
-import { agents, messages } from '@lobechat/database/schemas';
+import { agents, messages, topics } from '@lobechat/database/schemas';
 import { getTestDB } from '@lobechat/database/test-utils';
 import { eq } from 'drizzle-orm';
 import OpenAI from 'openai';
@@ -336,7 +336,23 @@ describe('Multi-Round Tool Execution', () => {
     mockExecuteTool.mockRestore();
   }, 30_000);
 
-  it('should maintain correct state.messages structure in AgentState across tool rounds', async () => {
+  it('sends calls and results together across tool rounds after 1,000 records', async () => {
+    const [topic] = await serverDB
+      .insert(topics)
+      .values({ agentId: testAgentWithToolsId, userId })
+      .returning({ id: topics.id });
+    const history = Array.from({ length: 1001 }, (_, index) => ({
+      agentId: testAgentWithToolsId,
+      content: index === 1000 ? 'QA-LATEST-USER-1000' : 'Earlier turn',
+      createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+      id: `${topic.id}-history-${index}`,
+      parentId: index ? `${topic.id}-history-${index - 1}` : null,
+      role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+      topicId: topic.id,
+      userId,
+    }));
+    await serverDB.insert(messages).values(history);
+
     let callCount = 0;
     mockResponsesCreate.mockImplementation(() => {
       callCount++;
@@ -361,44 +377,38 @@ describe('Multi-Round Tool Execution', () => {
 
     const createResult = await caller.execAgent({
       agentId: testAgentWithToolsId,
-      prompt: 'Multi-round tool test',
+      appContext: { topicId: topic.id },
+      parentMessageId: history[1000].id,
+      prompt: history[1000].content,
     });
 
-    // Wait for async execution to complete
     const finalState = await waitForOperationComplete(
       inMemoryAgentStateManager,
       createResult.operationId,
     );
 
     expect(finalState.status).toBe('done');
-
-    // After state.messages stores parse-processed UIChatMessage[]
-    // Tool messages are wrapped in virtual 'assistantGroup' nodes by conversation-flow parse()
-    // The chain detector combines consecutive assistant+tool rounds into a single assistantGroup
-    expect(finalState.messages.length).toBeGreaterThan(0);
-
-    // After state.messages stores parse-processed UIChatMessage[]
-    // Tool messages are wrapped in virtual 'assistantGroup' nodes by conversation-flow parse()
-    // The chain detector combines consecutive assistant+tool rounds into a single assistantGroup
-    expect(finalState.messages.length).toBeGreaterThan(0);
-
-    // parse() combines the multi-round assistant+tool chain into one assistantGroup
-    const assistantGroupMessages = finalState.messages.filter(
-      (m: { role: string }) => m.role === 'assistantGroup',
+    expect(mockResponsesCreate).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(mockResponsesCreate.mock.calls[0][0].input)).toContain(
+      'QA-LATEST-USER-1000',
     );
-    expect(assistantGroupMessages).toHaveLength(1);
 
-    // The assistantGroup children are assistant messages, each with a tools array
-    // containing the tool calls for that round
-    const group = assistantGroupMessages[0] as any;
-    expect(group.children).toHaveLength(2); // 2 rounds of tool calls
-
-    // Each child should have 2 tools (search + crawl per round)
-    const totalToolCalls = group.children.reduce(
-      (sum: number, child: any) => sum + (child.tools?.length ?? 0),
-      0,
-    );
-    expect(totalToolCalls).toBe(4);
+    for (const round of [1, 2]) {
+      const { input } = mockResponsesCreate.mock.calls[round][0];
+      for (const tool of ['search', 'crawl']) {
+        const callId = `call_${tool}_round${round}`;
+        const callIndex = input.findIndex(
+          (item: { call_id?: string; type?: string }) =>
+            item.type === 'function_call' && item.call_id === callId,
+        );
+        const resultIndex = input.findIndex(
+          (item: { call_id?: string; type?: string }) =>
+            item.type === 'function_call_output' && item.call_id === callId,
+        );
+        expect(callIndex).toBeGreaterThanOrEqual(0);
+        expect(resultIndex).toBeGreaterThan(callIndex);
+      }
+    }
 
     mockExecuteTool.mockRestore();
   }, 30_000);
