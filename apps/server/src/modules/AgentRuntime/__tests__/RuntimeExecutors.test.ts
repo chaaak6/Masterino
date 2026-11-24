@@ -606,14 +606,6 @@ describe('RuntimeExecutors', () => {
         messagesToSummarize: [{ content: 'x'.repeat(150_000), id: 'old-history', role: 'user' }],
         success: true,
       });
-      mockFinalizeCompression.mockResolvedValue({
-        messages: [
-          { content: 'summary-or-answer', id: 'auto-group', role: 'compressedGroup' },
-          { content: 'continue', id: 'latest-user', role: 'user' },
-          { content: '', id: 'msg-123', role: 'assistant' },
-        ],
-        success: true,
-      });
       const executors = createRuntimeExecutors(ctx);
       const messages = [
         { content: 'x'.repeat(150_000), id: 'old-history', role: 'user' },
@@ -666,6 +658,7 @@ describe('RuntimeExecutors', () => {
         'auto-group',
         'summary-or-answer',
         expect.any(Object),
+        false,
       );
       const providerPayload = chat.mock.calls.at(-1)?.[0];
       expect(providerPayload.messages).toEqual(
@@ -1629,9 +1622,10 @@ describe('RuntimeExecutors', () => {
       expect(mockFinalizeCompression).toHaveBeenCalledTimes(1);
       expect(mockChat).toHaveBeenCalledTimes(1);
       expect(result.nextContext?.phase).toBe('compression_result');
-      expect((result.nextContext?.payload as any).compressedMessages[0]).toEqual({
+      expect((result.nextContext?.payload as any).compressedMessages[0]).toMatchObject({
         content: 'summary',
         id: 'group-123',
+        lastMessageId: 'msg-history',
         role: 'compressedGroup',
       });
       expect((result.nextContext?.payload as any).parentMessageId).toBe('assistant-existing');
@@ -1802,8 +1796,13 @@ describe('RuntimeExecutors', () => {
         ['msg-history'],
         expect.any(Object),
       );
-      expect((result.nextContext?.payload as any).compressedMessages).toEqual([
-        { content: 'summary', id: 'group-123', role: 'compressedGroup' },
+      expect((result.nextContext?.payload as any).compressedMessages).toMatchObject([
+        {
+          content: 'summary',
+          id: 'group-123',
+          lastMessageId: 'msg-history',
+          role: 'compressedGroup',
+        },
         { content: 'continue with this exact instruction', role: 'user' },
       ]);
     });
@@ -1846,7 +1845,7 @@ describe('RuntimeExecutors', () => {
       ]);
     });
 
-    it('should not duplicate the preserved trailing user message when it is already present in finalized messages', async () => {
+    it('keeps the current continuation when a timeline would return another branch', async () => {
       const preservedMessage = {
         content: 'continue with this exact instruction',
         id: 'msg-follow-up',
@@ -1870,10 +1869,7 @@ describe('RuntimeExecutors', () => {
         success: true,
       });
       mockFinalizeCompression.mockResolvedValue({
-        messages: [
-          { content: 'summary', id: 'group-123', role: 'compressedGroup' },
-          preservedMessage,
-        ],
+        messages: [{ content: 'another branch', id: 'other-user', role: 'user' }],
         success: true,
       });
 
@@ -1886,8 +1882,13 @@ describe('RuntimeExecutors', () => {
 
       const result = await executors.compress_context!(instruction, state);
 
-      expect((result.nextContext?.payload as any).compressedMessages).toEqual([
-        { content: 'summary', id: 'group-123', role: 'compressedGroup' },
+      expect((result.nextContext?.payload as any).compressedMessages).toMatchObject([
+        {
+          content: 'summary',
+          id: 'group-123',
+          lastMessageId: 'msg-history',
+          role: 'compressedGroup',
+        },
         preservedMessage,
       ]);
     });
@@ -7167,6 +7168,7 @@ describe('RuntimeExecutors', () => {
           identifier: 'lobe-agent-management',
         }),
       ]);
+      expect(result.newState.metadata?.pendingToolAssistantMessageId).toBe('assistant-msg-id');
       expect(result.events).toEqual([
         expect.objectContaining({
           canResume: true,

@@ -456,11 +456,13 @@ export class MessageService {
       threadId?: string | null;
       topicId: string;
     },
+    includeTimelineSnapshot = true,
   ): Promise<{ messages?: UIChatMessage[]; success: boolean }> {
     const { agentId, groupId, threadId, topicId } = params;
 
     // 1. Update compression group with actual content
     await this.compressionRepository.completeCompression(messageGroupId, topicId, content);
+    if (!includeTimelineSnapshot) return { success: true };
 
     // 2. Query final messages
     const queryOptions = { agentId, groupId, threadId, topicId };

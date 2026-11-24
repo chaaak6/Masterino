@@ -557,6 +557,35 @@ export const resolveCompressionSummaryBudgetTokens = (params: {
   return Math.max(1, (matchingSnapshot?.entry.contextWindowTokens ?? 32_000) - 1024);
 };
 
+const replaceRuntimeHistoryWithSummary = (
+  messages: UIChatMessage[],
+  candidateIds: string[],
+  groupId: string,
+  content: string,
+): UIChatMessage[] => {
+  const covered = new Set(candidateIds);
+  const first = messages.find((message) => covered.has(message.id));
+  const last = messages.findLast((message) => covered.has(message.id));
+  if (!first || !last) return messages;
+
+  return messages.flatMap((message) => {
+    if (message.id === first.id) {
+      return [
+        {
+          content,
+          createdAt: first.createdAt,
+          id: groupId,
+          lastMessageId: last.id,
+          parentId: first.parentId,
+          role: 'compressedGroup' as const,
+          updatedAt: first.updatedAt,
+        },
+      ];
+    }
+    return covered.has(message.id) ? [] : [message];
+  });
+};
+
 const renderMessageForCompression = (message: UIChatMessage) => {
   const content = Array.isArray(message.content)
     ? message.content.map((part: any) => {
@@ -2426,11 +2455,15 @@ export const createRuntimeExecutors = (
             compressionGroup.messageGroupId,
             finalSummary,
             compressionQuery,
+            false,
           );
-          if (!Array.isArray(finalized.messages)) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
+          if (!finalized.success) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
 
-          const stateMessages = (finalized.messages as UIChatMessage[]).filter(
-            (message) => message.id !== assistantMessageItem.id,
+          const stateMessages = replaceRuntimeHistoryWithSummary(
+            state.messages.filter((message) => message.id !== assistantMessageItem.id),
+            persistedCandidateIds,
+            compressionGroup.messageGroupId,
+            finalSummary,
           );
           persistedAutoCompression = {
             inputFingerprint: evaluation.payloadFingerprint,
@@ -3588,29 +3621,20 @@ export const createRuntimeExecutors = (
         );
       }
 
-      await messageService.finalizeCompression(compressionResult.messageGroupId, summaryContent, {
-        agentId: state.metadata?.agentId,
-        threadId: state.metadata?.threadId,
-        topicId,
-      });
+      await messageService.finalizeCompression(
+        compressionResult.messageGroupId,
+        summaryContent,
+        { agentId: state.metadata?.agentId, threadId: state.metadata?.threadId, topicId },
+        false,
+      );
       pendingCompression = undefined;
 
-      const summarized = new Set(messagesToCompress.map((message) => message.id));
-      const firstCovered = messagesToCompress[0];
-      const compressedMessages = messages.flatMap((message) => {
-        if (message.id === firstCovered.id) {
-          return [
-            {
-              content: summaryContent,
-              createdAt: message.createdAt,
-              id: compressionResult.messageGroupId,
-              role: 'compressedGroup' as const,
-              updatedAt: message.updatedAt,
-            },
-          ];
-        }
-        return summarized.has(message.id) ? [] : [message];
-      });
+      const compressedMessages = replaceRuntimeHistoryWithSummary(
+        messages,
+        messagesToCompress.map((message) => message.id),
+        compressionResult.messageGroupId,
+        summaryContent,
+      );
 
       newState.messages = compressedMessages;
 
@@ -3808,6 +3832,12 @@ export const createRuntimeExecutors = (
             reason: 'client_tool_execution',
           };
           newState.pendingToolsCalling = [chatToolPayload];
+          newState.metadata = {
+            ...newState.metadata,
+            pendingToolAssistantMessageId: payload.skipCreateToolMessage
+              ? undefined
+              : payload.parentMessageId,
+          };
 
           return {
             events: [
@@ -4042,6 +4072,10 @@ export const createRuntimeExecutors = (
             reason: 'async_tool',
           };
           newState.pendingToolsCalling = [chatToolPayload];
+          newState.metadata = {
+            ...newState.metadata,
+            pendingToolAssistantMessageId: payload.parentMessageId,
+          };
           return {
             events: [
               {
