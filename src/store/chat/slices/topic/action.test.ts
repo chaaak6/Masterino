@@ -345,6 +345,31 @@ describe('topic action', () => {
   });
 
   describe('startNewTopic', () => {
+    it('keeps unsaved messages when saving the previous topic fails', async () => {
+      const agentId = 'draft-owner';
+      const key = messageMapKey({ agentId });
+      const messages = [
+        { id: 'unsaved', content: 'Keep this message', role: 'user' },
+      ] as UIChatMessage[];
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeGroupId: undefined,
+          activeTopicId: undefined,
+          messagesMap: { [key]: messages },
+        });
+      });
+      const state = useChatStore.getState();
+      const save = vi.spyOn(state, 'saveToTopic').mockResolvedValueOnce(undefined);
+      const refresh = vi.spyOn(state, 'refreshMessages');
+      await act(async () => {
+        await state.startNewTopic();
+      });
+      expect(save).toHaveBeenCalledOnce();
+      expect(refresh).not.toHaveBeenCalled();
+      expect(useChatStore.getState().messagesMap[key]).toEqual(messages);
+    });
+
     it('replaces stale state with the explicit project selected by a sidebar entry', async () => {
       const { result } = renderHook(() => useChatStore());
       const draftKey = buildDraftConversationKey({ agentId: 'agent-1' });

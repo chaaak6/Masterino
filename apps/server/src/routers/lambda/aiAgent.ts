@@ -523,9 +523,7 @@ const assertGroupTaskContext = async (
   ) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Group task context not found' });
   }
-  await ctx.groupModel.assertAgentsInScope([agentId]).catch(() => {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Group member not found' });
-  });
+  await ctx.groupModel.assertAgentsInScope([agentId]);
 };
 
 export const aiAgentRouter = router({

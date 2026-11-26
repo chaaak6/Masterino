@@ -35,6 +35,9 @@ const sleep = (ms: number) =>
     setTimeout(resolve, ms);
   });
 
+const resolveTaskTimeout = (timeout?: number) =>
+  timeout && Number.isFinite(timeout) && timeout > 0 ? Math.min(timeout, 2_147_483_647) : 1_800_000;
+
 export interface GroupOrchestrationExecutorsContext {
   get: () => ChatStore;
   /**
@@ -445,6 +448,7 @@ export const createGroupOrchestrationExecutors = (
         log(`[${sessionLogId}] Created task message: ${taskMessageId}`);
 
         // 2. Create task via backend API (backend creates thread with sourceMessageId)
+        const maxWait = resolveTaskTimeout(timeout);
         const createResult = await aiAgentService
           .execSubAgentTask({
             agentId,
@@ -452,7 +456,7 @@ export const createGroupOrchestrationExecutors = (
             instruction,
             parentMessageId: taskMessageId,
             title,
-            timeout,
+            timeout: maxWait,
             topicId,
           })
           .catch((error: unknown) => ({
@@ -481,7 +485,6 @@ export const createGroupOrchestrationExecutors = (
 
         // 3. Poll for task completion
         const pollInterval = 3000; // 3 seconds
-        const maxWait = timeout || 1_800_000; // Default 30 minutes
         const startTime = Date.now();
 
         while (Date.now() - startTime < maxWait) {
@@ -753,10 +756,7 @@ export const createGroupOrchestrationExecutors = (
             timedOut = true;
             get().cancelOperation(taskOperationId, 'Group task timed out');
           },
-          timeout:
-            timeout && Number.isFinite(timeout) && timeout > 0
-              ? Math.min(timeout, 2_147_483_647)
-              : 1_800_000,
+          timeout: resolveTaskTimeout(timeout),
         });
 
         get().replaceMessages(threadMessages, { context: subContext });
@@ -1014,7 +1014,7 @@ export const createGroupOrchestrationExecutors = (
         agentId: t.agentId,
         status: 'pending',
         instruction: t.instruction,
-        timeout: t.timeout || 1_800_000, // Default 30 minutes
+        timeout: resolveTaskTimeout(t.timeout),
         title: t.title,
       }));
 

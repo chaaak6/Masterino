@@ -10,6 +10,7 @@ import { agentService } from '@/services/agent';
 import { useAgentStore } from '@/store/agent';
 import { useChatStore } from '@/store/chat';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { sameChatAttachmentDraft, toPageSelections } from '@/store/file/slices/chat/drafts';
 import { useHomeStore } from '@/store/home';
@@ -57,8 +58,9 @@ export const useSend = () => {
   const { agentId: activeAgentId } = useResolvedHomeAgentId();
   // Home and a new conversation can stay mounted at once; keep their drafts separate.
   // Wait for the owner before mounting the input so hydration cannot replace a draft.
-  const attachmentScope =
-    activeAgentId ? `home_${messageMapKey({ agentId: activeAgentId })}` : undefined;
+  const attachmentScope = activeAgentId
+    ? `home_${messageMapKey({ agentId: activeAgentId })}`
+    : undefined;
 
   // Daily-brief hint paired with the home WelcomeText. Pressing Enter on an
   // empty input "accepts" the hint as the message — like a smart-compose
@@ -111,8 +113,13 @@ export const useSend = () => {
         try {
           await checkDesktopProjectSend({ agentId: activeAgentId, isNewTopic: true });
         } catch (error) {
-          if (!(error instanceof ProjectDeviceMismatchError)) throw error;
-          antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+          if (error instanceof ProjectDeviceMismatchError) {
+            antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+          } else if (error instanceof DesktopDeviceIdentityUnavailableError) {
+            antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+          } else {
+            throw error;
+          }
           return;
         }
       }

@@ -532,7 +532,10 @@ export class AgentGroupRepository {
               tx.select({ id: threads.id }).from(threads).where(eq(threads.agentId, agents.id)),
             ),
             notExists(
-              tx.select({ id: messages.id }).from(messages).where(eq(messages.agentId, agents.id)),
+              tx
+                .select({ id: messages.id })
+                .from(messages)
+                .where(or(eq(messages.agentId, agents.id), eq(messages.targetId, agents.id))),
             ),
           ),
         )

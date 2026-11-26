@@ -798,9 +798,15 @@ export class ConversationControlActionImpl {
     };
 
     const { topicId, threadId } = effectiveContext;
-
+    const localTask = getLocalTaskApproval(effectiveContext);
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
-    if (!toolMessage) return;
+    if (!toolMessage) {
+      if (localTask) {
+        this.#get().clearPausedExecutionContext(toolMessageId);
+        this.#get().cancelOperation(localTask.operationId, 'User cancelled interaction');
+      }
+      return;
+    }
 
     const { operationId } = startOperation({
       type: 'cancelToolInteraction',
@@ -815,7 +821,6 @@ export class ConversationControlActionImpl {
     const optimisticContext = { operationId };
 
     const toolContent = 'User cancelled this interaction.';
-    const localTask = getLocalTaskApproval(effectiveContext);
     try {
       await this.#get().optimisticUpdateMessagePlugin(
         toolMessageId,
@@ -1171,9 +1176,6 @@ export class ConversationControlActionImpl {
     reason?: string,
     context?: ConversationContext,
   ): Promise<void> => {
-    const toolMessage = dbMessageSelectors.getDbMessageById(messageId)(this.#get());
-    if (!toolMessage) return;
-
     const { executeClientAgent, startOperation, completeOperation } = this.#get();
 
     // Build effective context from provided context or global state
@@ -1184,6 +1186,12 @@ export class ConversationControlActionImpl {
     };
 
     const { agentId, topicId, threadId } = effectiveContext;
+    const localTask = getLocalTaskApproval(effectiveContext);
+    const toolMessage = dbMessageSelectors.getDbMessageById(messageId)(this.#get());
+    if (!toolMessage) {
+      localTask?.report({ status: 'error' });
+      return;
+    }
     const executionContext = this.#get().pausedExecutionContextByMessage[messageId];
 
     // Server-mode: start a **new** Gateway op with `decision='rejected_continue'`.
@@ -1258,12 +1266,6 @@ export class ConversationControlActionImpl {
       return;
     }
 
-    // Client-mode path: reject first (persists rejection + updates content),
-    // then spin up a local runtime with phase='user_input' to continue.
-    const localTask = getLocalTaskApproval(effectiveContext);
-    if (localTask) await this.#get().rejectToolCalling(messageId, reason, context, true);
-    else await this.#get().rejectToolCalling(messageId, reason, context);
-
     // Create an operation to manage the continue execution
     const { operationId } = startOperation({
       type: 'rejectToolCalling',
@@ -1277,33 +1279,27 @@ export class ConversationControlActionImpl {
       metadata: { executionContext },
     });
 
-    // Get current messages for state construction using context
-    const chatKey = messageMapKey(effectiveContext);
-    const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
-    const { requestMetadata, workingModel } = this.#getResumeContextFromMessageChain(
-      messageId,
-      currentMessages,
-    );
-
-    // Create agent state and context to continue from rejected tool message
-    const { state, context: initialContext } = this.#get().internal_createAgentState({
-      messages: currentMessages,
-      parentMessageId: messageId,
-      agentId,
-      topicId,
-      threadId: threadId ?? undefined,
-      operationId,
-      workingModel,
-    });
-
-    // Override context with 'userInput' phase to continue as if user provided feedback
-    const agentRuntimeContext: AgentRuntimeContext = {
-      ...initialContext,
-      phase: 'user_input',
-    };
-
-    // Execute agent runtime from rejected tool message position to continue
     try {
+      if (localTask) await this.#get().rejectToolCalling(messageId, reason, context, true);
+      else await this.#get().rejectToolCalling(messageId, reason, context);
+
+      const chatKey = messageMapKey(effectiveContext);
+      const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
+      const { requestMetadata, workingModel } = this.#getResumeContextFromMessageChain(
+        messageId,
+        currentMessages,
+      );
+      const { state, context: initialContext } = this.#get().internal_createAgentState({
+        messages: currentMessages,
+        parentMessageId: messageId,
+        agentId,
+        topicId,
+        threadId: threadId ?? undefined,
+        operationId,
+        workingModel,
+      });
+      const agentRuntimeContext: AgentRuntimeContext = { ...initialContext, phase: 'user_input' };
+
       await executeClientAgent({
         context: effectiveContext,
         executionContext,
@@ -1322,6 +1318,10 @@ export class ConversationControlActionImpl {
     } catch (error) {
       const err = error as Error;
       console.error('[rejectAndContinueToolCalling] Error executing agent runtime:', err);
+      if (localTask) {
+        this.#get().clearPausedExecutionContext(messageId);
+        localTask.report({ error: err.message, status: 'error' });
+      }
       this.#get().failOperation(operationId, {
         type: 'rejectToolCalling',
         message: err.message || 'Unknown error',

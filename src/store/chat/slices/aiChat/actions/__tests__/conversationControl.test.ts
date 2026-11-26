@@ -166,7 +166,7 @@ const setupPausedAuthorityResume = (kind: 'scratch' | 'device', mode: 'approve' 
 };
 
 describe('ConversationControl actions', () => {
-  it.each(['approve', 'submit', 'skip', 'cancel', 'reject'] as const)(
+  it.each(['approve', 'submit', 'skip', 'cancel', 'reject', 'rejectAndContinue'] as const)(
     'settles a local group task on %s even if persistence fails',
     async (decision) => {
       const context: ConversationContext = {
@@ -195,6 +195,8 @@ describe('ConversationControl actions', () => {
           approve: () => state.approveToolCalling(toolMessage.id, 'assistant-group', context),
           cancel: () => state.cancelToolInteraction(toolMessage.id, context),
           reject: () => state.rejectToolCalling(toolMessage.id, undefined, context),
+          rejectAndContinue: () =>
+            state.rejectAndContinueToolCalling(toolMessage.id, undefined, context),
           skip: () => state.skipToolInteraction(toolMessage.id, undefined, context),
           submit: () => state.submitToolInteraction(toolMessage.id, { answer: 'yes' }, context),
         };
@@ -211,6 +213,34 @@ describe('ConversationControl actions', () => {
       }
     },
   );
+
+  it('cancels the waiting member even when its tool message has been unloaded', async () => {
+    const context: ConversationContext = {
+      agentId: TEST_IDS.SESSION_ID,
+      groupId: 'group-task',
+      scope: 'thread',
+      threadId: 'member-thread',
+      topicId: TEST_IDS.TOPIC_ID,
+    };
+    useChatStore.setState({ dbMessagesMap: {} });
+    const state = useChatStore.getState();
+    const { abortController, operationId } = state.startOperation({
+      context,
+      type: 'execClientSubAgent',
+    });
+    const approval = trackLocalTaskApproval(context, operationId, abortController.signal, {
+      onTimeout: vi.fn(),
+      timeout: 30_000,
+    });
+    approval.report({ status: 'waiting_for_human' });
+    try {
+      await state.cancelToolInteraction('unloaded-member-tool', context);
+      expect(abortController.signal.aborted).toBe(true);
+      await expect(approval.result).resolves.toMatchObject({ status: 'interrupted' });
+    } finally {
+      approval.dispose();
+    }
+  });
 
   describe('stopGenerateMessage', () => {
     it('should cancel running generateAI operations in current context', () => {

@@ -194,7 +194,9 @@ export class ChatTopicActionImpl {
 
     if (hasTopic) await switchTopic(null, { resetFileSelection: true });
     else {
-      await saveToTopic();
+      const hadMessages = displayMessageSelectors.activeDisplayMessages(this.#get()).length > 0;
+      const savedTopicId = await saveToTopic();
+      if (hadMessages && !savedTopicId) return;
       await useAgentStore.getState().disableAllFiles();
       await refreshMessages();
     }

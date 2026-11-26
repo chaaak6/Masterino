@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { type LobeChatDatabase } from '@lobechat/database';
-import { agents, chatGroupsAgents, topics } from '@lobechat/database/schemas';
+import { agents, chatGroupsAgents, messages, topics } from '@lobechat/database/schemas';
 import { closeTestDB, getTestDB } from '@lobechat/database/test-utils';
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
@@ -23,9 +23,13 @@ it('preserves another group’s shared member and historical agent when deleting
     const caller = agentGroupRouter.createCaller({ jwtPayload: { userId }, userId });
     const { agentIds, groupId, supervisorAgentId } = await caller.createGroupWithMembers({
       groupConfig: { title: 'Group to delete' },
-      members: [{ title: 'Shared virtual member' }, { title: 'Historical member' }],
+      members: [
+        { title: 'Shared virtual member' },
+        { title: 'Historical member' },
+        { title: 'Member addressed in a saved message' },
+      ],
     });
-    const [sharedId, historicalId] = agentIds;
+    const [sharedId, historicalId, targetedId] = agentIds;
     const { groupId: otherGroupId } = await caller.createGroupWithMembers({
       groupConfig: { title: 'Group to keep' },
       members: [],
@@ -36,6 +40,14 @@ it('preserves another group’s shared member and historical agent when deleting
       .values({ agentId: historicalId, groupId: otherGroupId, userId })
       .returning({ id: topics.id });
     await caller.removeAgentsFromGroup({ agentIds: [historicalId], groupId: otherGroupId });
+    await testDB.insert(messages).values({
+      content: 'Addressed to a member who did not respond',
+      groupId: otherGroupId,
+      role: 'user',
+      targetId: targetedId,
+      topicId: historicalTopic.id,
+      userId,
+    });
 
     await expect(caller.deleteGroup({ id: groupId })).resolves.toMatchObject({
       deletedVirtualAgentIds: [supervisorAgentId],
@@ -53,6 +65,9 @@ it('preserves another group’s shared member and historical agent when deleting
         where: eq(topics.id, historicalTopic.id),
       }),
     ).resolves.toMatchObject({ agentId: historicalId });
+    await expect(
+      testDB.query.agents.findFirst({ where: eq(agents.id, targetedId) }),
+    ).resolves.toMatchObject({ id: targetedId });
   } finally {
     await cleanupTestUser(testDB, userId);
   }

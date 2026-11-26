@@ -33,9 +33,10 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
 
     // Use task message's agentId to query with the correct SubAgent ID that created the thread
     // Fall back to activeAgentId if task message doesn't have agentId (shouldn't happen normally)
-    const [activeAgentId, activeTopicId, useFetchMessages] = useChatStore((s) => [
+    const [activeAgentId, activeTopicId, replaceMessages, useFetchMessages] = useChatStore((s) => [
       s.activeAgentId,
       s.activeTopicId,
+      s.replaceMessages,
       s.useFetchMessages,
     ]);
 
@@ -100,7 +101,12 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
     }
 
     return (
-      <ConversationProvider skipFetch context={threadContext} messages={rawThreadMessages}>
+      <ConversationProvider
+        skipFetch
+        context={threadContext}
+        messages={rawThreadMessages}
+        onMessagesChange={(updated, context) => replaceMessages(updated, { context })}
+      >
         {assistant && (
           <TaskMessages
             duration={taskDetail?.duration}

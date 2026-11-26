@@ -255,6 +255,9 @@ export default class GatewayConnectionService extends ServiceModule {
    * when the machine id is unavailable. Caches the result for this session.
    */
   resolveDeviceIdentity(userId: string): { deviceId: string; identitySource: IdentitySource } {
+    if (this.identityUserId === userId && this.deviceId && this.identitySource) {
+      return { deviceId: this.deviceId, identitySource: this.identitySource };
+    }
     const fallbackId = this.app.storeManager.get('gatewayDeviceId') as string | undefined;
     const identity = deriveDeviceId(userId, { fallbackId });
     this.deviceId = identity.deviceId;
