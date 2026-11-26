@@ -1497,6 +1497,7 @@ describe('GatewayConnectionCtr', () => {
 
       expect(resolveIdentity).toHaveBeenCalledWith(userId);
       expect(info.deviceId).toBe(mockGatewayConnectionSrv.getDeviceId());
+      expect(info.identityVerified).toBe(true);
       expect(MockGatewayClient.lastInstance).toBeNull();
     });
 
@@ -1514,6 +1515,7 @@ describe('GatewayConnectionCtr', () => {
         description: '',
         deviceId: 'my-device',
         hostname: 'mock-hostname',
+        identityVerified: false,
         name: 'mock-hostname',
         platform: process.platform,
       });

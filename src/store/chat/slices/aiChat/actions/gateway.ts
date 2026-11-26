@@ -728,8 +728,7 @@ export class GatewayActionImpl {
         const assistant = messages?.find(({ id }) => id === assistantMessageId);
         const notice = t('streamRecoveryExpired', { ns: 'error' });
         const hasSavedOutput =
-          savedMessages &&
-          ((assistant?.content && assistant.content !== LOADING_FLAT) || assistant?.tools?.length);
+          (assistant?.content && assistant.content !== LOADING_FLAT) || assistant?.tools?.length;
         if (messages && assistant && !assistant.error && !hasSavedOutput) {
           state.replaceMessages(
             messages.map((message) =>
@@ -741,7 +740,9 @@ export class GatewayActionImpl {
           );
         } else {
           if (savedMessages) state.replaceMessages(savedMessages, { context: scopeContext });
-          if (!assistant?.error && state.activeTopicId === topicId) antdMessage.warning(notice);
+          if (!savedMessages && !assistant?.error && state.activeTopicId === topicId) {
+            antdMessage.warning(notice);
+          }
         }
 
         const topic = getTopic(state);

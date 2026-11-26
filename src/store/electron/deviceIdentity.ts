@@ -16,7 +16,7 @@ export const resolveDesktopDeviceId = async () => {
   const device = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
   if (useUserStore.getState().user?.id !== userId) return;
   if (!device) return verifiedDevice?.userId === userId ? verifiedDevice?.deviceId : undefined;
-  if (!device.deviceId || device.deviceId === 'unknown') {
+  if (!device.deviceId || device.deviceId === 'unknown' || device.identityVerified === false) {
     verifiedDevice = undefined;
     return;
   }

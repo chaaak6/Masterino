@@ -247,8 +247,13 @@ const deleteReplacedMessage = async (
         operationId,
       });
     }
-  } finally {
     chatStore.completeOperation(operationId);
+  } catch (error) {
+    chatStore.failOperation(operationId, {
+      message: error instanceof Error ? error.message : String(error),
+      type: 'RegenerateError',
+    });
+    antdMessage.error(t('unknownError.title', { ns: 'error' }));
   }
 };
 
@@ -598,6 +603,7 @@ export const generationSlice: StateCreator<
       context: { ...context, messageId },
       type: 'regenerate',
     });
+    let restorePreviousBranch: (() => Promise<void>) | undefined;
 
     try {
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
@@ -631,9 +637,24 @@ export const generationSlice: StateCreator<
       // Calculate next branch index by counting children of this user message
       // We need to count how many assistant messages have this user message as parent
       const { dbMessages } = get();
-      const childrenCount = dbMessages.filter((m) => m.parentId === messageId).length;
+      const branches = dbMessages.filter((m) => m.parentId === messageId);
       // New branch index = current children count (since index is 0-based)
-      const nextBranchIndex = childrenCount;
+      const nextBranchIndex = branches.length;
+      if (branches.length) {
+        const visibleReply = displayMessages[currentIndex + 1];
+        const previousBranchIndex =
+          item.metadata?.activeBranchIndex ??
+          Math.max(
+            0,
+            branches.findIndex(({ id }) => id === visibleReply?.id),
+          );
+        restorePreviousBranch = async () => {
+          const selectedBranch = get().dbMessages.find(({ id }) => id === messageId)?.metadata
+            ?.activeBranchIndex;
+          if (selectedBranch !== undefined && selectedBranch !== nextBranchIndex) return;
+          await chatStore.switchMessageBranch(messageId, previousBranchIndex, { operationId });
+        };
+      }
 
       // Switch to the new branch so the UI shows the incoming response immediately
       await chatStore.switchMessageBranch(messageId, nextBranchIndex, {
@@ -693,16 +714,21 @@ export const generationSlice: StateCreator<
         parentOperationId: operationId,
       });
 
+      const replaceable = result?.status === 'done' || result?.status === 'waiting_for_human';
+      if (!replaceable) {
+        const restore = restorePreviousBranch;
+        restorePreviousBranch = undefined;
+        await restore?.();
+      }
       chatStore.completeOperation(operationId);
 
       // ===== Hook: onRegenerateComplete =====
       if (hooks.onRegenerateComplete) {
         hooks.onRegenerateComplete(messageId);
       }
-      if (result?.status === 'done' || result?.status === 'waiting_for_human') {
-        return { branchIndex: nextBranchIndex };
-      }
+      if (replaceable) return { branchIndex: nextBranchIndex };
     } catch (error) {
+      await restorePreviousBranch?.().catch(() => {});
       chatStore.failOperation(operationId, {
         message: error instanceof Error ? error.message : String(error),
         type: 'RegenerateError',

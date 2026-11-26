@@ -4,6 +4,7 @@ import { RequestTrigger } from '@lobechat/types';
 import { TRPCClientError } from '@trpc/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import type * as ConstVersion from '@/const/version';
 import { aiAgentService } from '@/services/aiAgent';
 import { messageService } from '@/services/message';
@@ -32,6 +33,10 @@ vi.mock('@/services/topic', () => ({
   topicService: {
     updateTopicMetadata: vi.fn().mockResolvedValue(undefined),
   },
+}));
+
+vi.mock('@/components/AntdStaticMethods', () => ({
+  message: { warning: vi.fn() },
 }));
 
 const mockUserDefaultConfig = vi.hoisted(() => ({
@@ -1355,6 +1360,7 @@ describe('GatewayActionImpl', () => {
       'reloads saved content when the run is unavailable: $content',
       async ({ content, showError }) => {
         const { action, startOperation, state } = createReconnectTestAction({ id: 'ast-1' });
+        state.activeTopicId = 'topic-1';
         const context = {
           agentId: 'agent-1',
           groupId: 'group-1',
@@ -1385,6 +1391,7 @@ describe('GatewayActionImpl', () => {
           ? { ...savedMessage, error: expect.objectContaining({ type: 'AgentRuntimeError' }) }
           : savedMessage;
         expect(state.replaceMessages).toHaveBeenCalledWith([expected], { context });
+        expect(antdMessage.warning).not.toHaveBeenCalled();
       },
     );
 
@@ -1403,6 +1410,30 @@ describe('GatewayActionImpl', () => {
           context: expect.objectContaining({ agentId: 'original-agent' }),
         }),
       );
+    });
+
+    it('keeps the local reply intact when token refresh is forbidden', async () => {
+      const { action, startOperation, state } = createReconnectTestAction({ id: 'ast-1' });
+      const context = {
+        agentId: 'agent-1',
+        groupId: 'group-1',
+        scope: 'group' as const,
+        topicId: 'topic-1',
+      };
+      state.activeTopicId = context.topicId;
+      state.dbMessagesMap[messageMapKey(context)] = [{ id: 'ast-1', content: 'Saved result' }];
+      vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+        Object.assign(new TRPCClientError('Forbidden'), { data: { code: 'FORBIDDEN' } }),
+      );
+      await action.reconnectToGatewayOperation({
+        ...context,
+        assistantMessageId: 'ast-1',
+        operationId: 'server-op-1',
+      });
+
+      expect(state.replaceMessages).not.toHaveBeenCalled();
+      expect(startOperation).not.toHaveBeenCalled();
+      expect(antdMessage.warning).toHaveBeenCalledOnce();
     });
 
     // After a DB rehydrate (e.g. quit + relaunch), `createdAt` can arrive as an

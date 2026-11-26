@@ -14,6 +14,8 @@ import { ThreadStatus, ThreadType } from '@lobechat/types';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MessageModel } from '@/database/models/message';
+
 import { aiAgentRouter } from '../../aiAgent';
 import { cleanupTestUser, createTestUser } from './setup';
 
@@ -148,6 +150,41 @@ describe('createClientGroupAgentTaskThread Integration', () => {
         topicId: testTopicId,
       }),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('reads the completed member result and thread status after reopening the topic', async () => {
+    const taskId = `task_${userId}`;
+    await serverDB.insert(messages).values({
+      agentId: workerAgentId,
+      content: '',
+      groupId: testGroupId,
+      id: taskId,
+      role: 'task',
+      topicId: testTopicId,
+      userId,
+    });
+    const caller = aiAgentRouter.createCaller(createTestContext());
+    const { threadId } = await caller.createClientGroupAgentTaskThread({
+      groupId: testGroupId,
+      instruction: 'Return a test marker',
+      parentMessageId: taskId,
+      subAgentId: workerAgentId,
+      topicId: testTopicId,
+    });
+    await caller.updateClientTaskThreadStatus({
+      completionReason: 'done',
+      resultContent: 'Saved member result',
+      threadId,
+    });
+
+    const reloaded = await new MessageModel(serverDB, userId).query({
+      groupId: testGroupId,
+      topicId: testTopicId,
+    });
+    expect(reloaded.find(({ id }) => id === taskId)).toMatchObject({
+      content: 'Saved member result',
+      taskDetail: { clientMode: true, status: ThreadStatus.Completed, threadId },
+    });
   });
 
   describe('basic functionality', () => {

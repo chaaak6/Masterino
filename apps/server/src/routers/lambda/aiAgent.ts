@@ -636,7 +636,21 @@ export const aiAgentRouter = router({
   createClientTaskThread: aiAgentWriteProcedure
     .input(CreateClientTaskThreadSchema)
     .mutation(async ({ input, ctx }) => {
-      const { agentId, groupId, instruction, parentMessageId, title, topicId } = input;
+      const {
+        agentId,
+        groupId: requestedGroupId,
+        instruction,
+        parentMessageId,
+        title,
+        topicId,
+      } = input;
+      const topic = await ctx.topicModel.findById(topicId);
+      if (!topic || (requestedGroupId && requestedGroupId !== topic.groupId)) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task topic not found' });
+      }
+      const groupId = topic.groupId ?? undefined;
+      if (groupId)
+        await assertGroupTaskContext(ctx, { agentId, groupId, parentMessageId, topicId });
 
       log('createClientTaskThread: agentId=%s, groupId=%s', agentId, groupId);
 

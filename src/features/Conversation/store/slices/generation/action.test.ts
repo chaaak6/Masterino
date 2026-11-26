@@ -521,6 +521,55 @@ describe('Generation Actions', () => {
   });
 
   describe('delAndRegenerateMessage', () => {
+    beforeEach(async () => {
+      const { useChatStore } = await import('@/store/chat');
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        operations: {},
+        operationsByMessage: {},
+        completeOperation: mockCompleteOperation,
+        deleteMessage: mockDeleteMessage,
+        executeClientAgent: mockExecuteClientAgent,
+        failOperation: mockFailOperation,
+        isGatewayModeEnabled: mockIsGatewayModeEnabled,
+        startOperation: mockStartOperation,
+        switchMessageBranch: mockSwitchMessageBranch,
+      } as any);
+    });
+
+    it('returns to the original branch if the replacement is cancelled', async () => {
+      mockExecuteClientAgent.mockResolvedValueOnce({ status: 'interrupted' });
+      const store = createStore({ context: { agentId: 'session-1', topicId: 'topic-1' } });
+      const prompt = { id: 'msg-1', role: 'user', content: 'Hello' };
+      const reply = { id: 'msg-2', role: 'assistant', content: 'Old reply', parentId: prompt.id };
+      store.setState({ dbMessages: [prompt, reply], displayMessages: [prompt, reply] } as any);
+
+      await store.getState().delAndRegenerateMessage(reply.id);
+
+      expect(mockDeleteMessage).not.toHaveBeenCalled();
+      expect(mockSwitchMessageBranch).toHaveBeenNthCalledWith(1, prompt.id, 1, {
+        operationId: 'test-op-id',
+      });
+      expect(mockSwitchMessageBranch).toHaveBeenNthCalledWith(2, prompt.id, 0, {
+        operationId: 'test-op-id',
+      });
+    });
+
+    it('reports failure if the old reply cannot be deleted', async () => {
+      mockExecuteClientAgent.mockResolvedValueOnce({ status: 'done' });
+      mockDeleteMessage.mockRejectedValueOnce(new Error('Delete failed'));
+      const store = createStore({ context: { agentId: 'session-1', topicId: 'topic-1' } });
+      const prompt = { id: 'msg-1', role: 'user', content: 'Hello' };
+      const reply = { id: 'msg-2', role: 'assistant', content: 'Old reply', parentId: prompt.id };
+      store.setState({ dbMessages: [prompt, reply], displayMessages: [prompt, reply] } as any);
+
+      await expect(store.getState().delAndRegenerateMessage(reply.id)).resolves.toBeUndefined();
+      expect(mockFailOperation).toHaveBeenCalledWith('test-op-id', {
+        message: 'Delete failed',
+        type: 'RegenerateError',
+      });
+      expect(antdMessage.error).toHaveBeenCalledOnce();
+    });
+
     it('should create operation with context and pass operationId to deleteMessage', async () => {
       // Re-setup mock to ensure all required functions are available
       const { useChatStore } = await import('@/store/chat');

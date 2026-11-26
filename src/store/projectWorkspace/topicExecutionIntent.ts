@@ -103,11 +103,12 @@ export const resolvePendingTopicExecutionIntent = async (params: {
     topicSnapshot?.workspaceKind === 'scratch' || metadata.workspaceKind === 'scratch';
   if (isDesktop && (projectId || isScratch) && (target === 'local' || target === 'device')) {
     const currentDeviceId = await resolveDesktopDeviceId();
+    if (!currentDeviceId) throw new DesktopDeviceIdentityUnavailableError();
     if (
       !isTopicVisibleOnDevice(
         { id: topicId ?? '', metadata },
         {
-          currentDeviceId: currentDeviceId ?? null,
+          currentDeviceId,
           topicStatesById: workspaceState.topicStatesById,
           workspacesById: workspaceState.workspacesById,
         },
@@ -168,6 +169,7 @@ export const checkDesktopProjectSend = async (
         },
       )
     ) {
+      if (!currentDeviceId) throw new DesktopDeviceIdentityUnavailableError();
       throw new ProjectDeviceMismatchError('This project is unavailable on this device.');
     }
     // Do not partially hydrate the store here: sendMessage still loads workspace details/env.

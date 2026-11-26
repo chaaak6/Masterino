@@ -310,6 +310,9 @@ export default class GatewayConnectionService extends ServiceModule {
       description: this.getDeviceDescription(),
       deviceId: this.getDeviceId(),
       hostname: os.hostname(),
+      identityVerified: Boolean(
+        token && this.identityUserId && (userId || this.status === 'connected'),
+      ),
       name: this.getDeviceName(),
       platform: process.platform,
     };
