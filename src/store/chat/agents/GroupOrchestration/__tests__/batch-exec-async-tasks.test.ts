@@ -178,6 +178,7 @@ describe('createGroupOrchestrationExecutors', () => {
         totalOutputTokens: 4,
         totalTokens: 10,
       });
+      expect(getLocalTaskApproval(context)).toBeUndefined();
     } finally {
       approval.dispose();
       vi.useRealTimers();

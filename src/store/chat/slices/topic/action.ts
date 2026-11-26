@@ -29,6 +29,7 @@ import {
   resolvePendingTopicExecutionIntent,
   type WorkspaceDraftIntent,
 } from '@/store/projectWorkspace';
+import { ProjectDeviceMismatchError } from '@/store/projectWorkspace/topicExecutionIntent';
 import { type StoreSetter } from '@/store/types';
 import { useUserStore } from '@/store/user';
 import { systemAgentSelectors, userGeneralSettingsSelectors } from '@/store/user/selectors';
@@ -1117,8 +1118,13 @@ export class ChatTopicActionImpl {
           isNewTopic: true,
         });
       } catch (error) {
-        if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
-        message.error(error.message);
+        if (error instanceof DesktopDeviceIdentityUnavailableError) {
+          message.error(error.message);
+        } else if (error instanceof ProjectDeviceMismatchError) {
+          message.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+        } else {
+          throw error;
+        }
         return;
       }
     }

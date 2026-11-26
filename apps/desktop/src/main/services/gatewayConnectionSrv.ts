@@ -32,6 +32,12 @@ import { ServiceModule } from './index';
 
 const logger = createLogger('services:GatewayConnectionSrv');
 
+const supersededConnection = {
+  error: 'Gateway connection attempt was superseded',
+  success: false,
+  superseded: true,
+} as const;
+
 // This is an implementation claim from the packaged Electron main process,
 // not a copy of the server manifest. Bump an entry only when the matching
 // controller path and local-file-shell implementation ship in this app.
@@ -380,7 +386,7 @@ export default class GatewayConnectionService extends ServiceModule {
   private async doConnect(verifiedIdentity?: {
     token: string;
     userId: string;
-  }): Promise<{ error?: string; success: boolean }> {
+  }): Promise<{ error?: string; success: boolean; superseded?: true }> {
     if (this.app.isQuiting) return { success: false, error: 'Application is shutting down' };
     // Clean up any existing client
     this.authenticatedGatewayIdentity = undefined;
@@ -462,6 +468,7 @@ export default class GatewayConnectionService extends ServiceModule {
 
     const result = await client.connect();
     initialConnectPending = false;
+    if (this.client !== client) return supersededConnection;
     if ('code' in result) {
       this.setConnectionError({
         code: result.code,
@@ -482,15 +489,14 @@ export default class GatewayConnectionService extends ServiceModule {
     // A legacy token may not be locally decodable even though the gateway can
     // verify it. Reconnect once with the verified identity so deviceId remains
     // stable and the live socket matches the registered device row.
-    if (!userId && authenticatedUserId && this.client === client) {
+    if (!userId && authenticatedUserId) {
       await client.disconnect();
-      if (this.client === client) {
-        this.client = null;
-        return this.doConnect({ token, userId: authenticatedUserId });
-      }
+      if (this.client !== client) return supersededConnection;
+      this.client = null;
+      return this.doConnect({ token, userId: authenticatedUserId });
     }
 
-    if (authenticatedUserId && this.client === client) {
+    if (authenticatedUserId) {
       const identity = this.resolveDeviceIdentity(authenticatedUserId);
       this.authenticatedGatewayIdentity = { client, token, userId: authenticatedUserId };
       await this.deviceRegistrar?.({
@@ -633,7 +639,7 @@ export default class GatewayConnectionService extends ServiceModule {
       }
       if (!this.app.storeManager.get('gatewayEnabled')) return;
       const reconnectResult = await this.doConnect();
-      if (!reconnectResult.success) {
+      if (!reconnectResult.success && !reconnectResult.superseded) {
         this.failConnection('AUTH_REQUIRED', reconnectResult.error || reason, false);
       }
     })().finally(() => {

@@ -61,8 +61,10 @@ export const trackLocalTaskApproval = (
     clearTimeout(timer);
   };
   const finish = ({ status, taskMessages, error }: LocalTaskRun) => {
+    if (finished) return;
     finished = true;
     pause();
+    if (approvals.get(key) === entry) approvals.delete(key);
     settle({ ...metrics, status, ...(error && { error }), ...(taskMessages && { taskMessages }) });
   };
   const abort = () => finish({ status: 'interrupted' });

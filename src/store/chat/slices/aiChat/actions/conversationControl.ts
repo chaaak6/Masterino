@@ -1136,7 +1136,6 @@ export class ConversationControlActionImpl {
         message: (error as Error).message,
         type: 'rejectToolCalling',
       });
-      if (continueLocalRun) localTask?.report({ status: 'error' });
       throw error;
     } finally {
       stopLocalTask();

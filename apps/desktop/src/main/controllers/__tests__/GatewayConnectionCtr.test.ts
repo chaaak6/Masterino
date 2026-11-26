@@ -1579,6 +1579,32 @@ describe('GatewayConnectionCtr', () => {
       expect(MockGatewayClient.lastOptions.userId).toBeUndefined();
     });
 
+    it('does not report success when another connection replaces an opaque-token retry', async () => {
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const firstAuth = Promise.withResolvers<{ success: true; userId: string }>();
+      MockGatewayClient.nextConnectResult = firstAuth.promise;
+      const firstConnection = ctr.connect();
+      await vi.advanceTimersByTimeAsync(0);
+      const oldClient = MockGatewayClient.lastInstance!;
+      const finishOldDisconnect = Promise.withResolvers<void>();
+      oldClient.disconnect.mockImplementationOnce(() => finishOldDisconnect.promise);
+      firstAuth.resolve({ success: true, userId: 'first-user' });
+      await vi.advanceTimersByTimeAsync(0);
+
+      await ctr.disconnect();
+      await expect(ctr.connect()).resolves.toMatchObject({ success: true });
+      finishOldDisconnect.resolve();
+
+      await expect(firstConnection).resolves.toMatchObject({
+        error: 'Gateway connection attempt was superseded',
+        success: false,
+      });
+      expect(MockGatewayClient.lastInstance).not.toBe(oldClient);
+    });
+
     it('should return device information', async () => {
       mockStoreGet.mockImplementation((key: string) => {
         if (key === 'gatewayEnabled') return true;

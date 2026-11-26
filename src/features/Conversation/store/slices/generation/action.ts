@@ -679,7 +679,17 @@ export const generationSlice: StateCreator<
           parentMessageId: messageId,
         });
 
-        return result.success ? { branchIndex: nextBranchIndex } : undefined;
+        if (!result.success) {
+          const restore = restorePreviousBranch;
+          restorePreviousBranch = undefined;
+          await restore?.();
+          chatStore.failOperation(operationId, {
+            message: result.error || result.message,
+            type: 'RegenerateError',
+          });
+          return;
+        }
+        return { branchIndex: nextBranchIndex };
       }
 
       // ── Hetero mode: re-run the local CLI against the original user prompt ──
