@@ -1,16 +1,13 @@
 'use client';
 
+import { ActionIcon, Flexbox, Icon, menuSharedStyles } from '@lobehub/ui';
 import {
-  ActionIcon,
   DropdownMenuPopup,
   DropdownMenuPortal,
   DropdownMenuPositioner,
   DropdownMenuSubmenuRoot,
   DropdownMenuSubmenuTrigger,
-  Flexbox,
-  Icon,
-  menuSharedStyles,
-} from '@lobehub/ui';
+} from '@lobehub/ui/base-ui';
 import { cssVar, cx } from 'antd-style';
 import { LucideArrowRight, LucideBolt } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -29,7 +26,9 @@ import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwar
 import { buildWorkspaceAwarePath } from '@/features/Workspace/workspaceAwarePath';
 import type { EnabledProviderWithModels } from '@/types/index';
 
+import { useGenerationModelDisabledReason } from '../../hooks/useGenerationModelDisabledReason';
 import GenerationMultipleProvidersItem from './GenerationMultipleProvidersItem';
+import UnavailableGenerationModel from './UnavailableGenerationModel';
 
 export interface GenerationListItemRendererProps {
   activeKey: string;
@@ -47,6 +46,7 @@ const GenerationListItemRenderer = memo<GenerationListItemRendererProps>(
     const navigate = useWorkspaceAwareNavigate();
     const activeSlug = useActiveWorkspaceSlug();
     const [detailOpen, setDetailOpen] = useState(false);
+    const getDisabledReason = useGenerationModelDisabledReason(enabledList, pricingMode);
 
     switch (item.type) {
       case 'no-provider': {
@@ -124,6 +124,19 @@ const GenerationListItemRenderer = memo<GenerationListItemRendererProps>(
       case 'provider-model-item': {
         const key = menuKey(item.provider.id, item.model.id);
         const isActive = key === activeKey;
+        const disabledReason = getDisabledReason(item.model.id, item.provider.id);
+        if (disabledReason) {
+          return (
+            <UnavailableGenerationModel reason={disabledReason}>
+              <ModelItemComponent
+                {...item.model}
+                providerId={item.provider.id}
+                showBadge={false}
+                showPopover={false}
+              />
+            </UnavailableGenerationModel>
+          );
+        }
         return (
           <Flexbox style={{ marginBlock: 1, marginInline: 4 }}>
             <DropdownMenuSubmenuRoot open={detailOpen} onOpenChange={setDetailOpen}>
@@ -167,6 +180,19 @@ const GenerationListItemRenderer = memo<GenerationListItemRendererProps>(
         const singleProvider = item.data.providers[0];
         const key = menuKey(singleProvider.id, item.data.model.id);
         const isActive = key === activeKey;
+        const disabledReason = getDisabledReason(item.data.model.id, singleProvider.id);
+        if (disabledReason) {
+          return (
+            <UnavailableGenerationModel reason={disabledReason}>
+              <ModelItemComponent
+                {...item.data.model}
+                providerId={singleProvider.id}
+                showBadge={false}
+                showPopover={false}
+              />
+            </UnavailableGenerationModel>
+          );
+        }
         return (
           <Flexbox style={{ marginBlock: 1, marginInline: 4 }}>
             <DropdownMenuSubmenuRoot open={detailOpen} onOpenChange={setDetailOpen}>

@@ -7,6 +7,7 @@ import {
 } from 'model-bank';
 import { extractDefaultValues } from 'model-bank';
 
+import { isImageModelAvailable } from '@/helpers/imageModelAvailability';
 import { aiProviderSelectors, getAiInfraStoreState } from '@/store/aiInfra';
 import { useGlobalStore } from '@/store/global';
 import { type StoreSetter } from '@/store/types';
@@ -284,7 +285,11 @@ export class GenerationConfigActionImpl {
     );
   };
 
-  setModelAndProviderOnSelect = (model: string, provider: string): void => {
+  setModelAndProviderOnSelect = (model: string, provider: string): boolean => {
+    const enabledList = aiProviderSelectors.enabledImageModelList(getAiInfraStoreState());
+    // Recheck at the action boundary: the directory can change after a row was rendered.
+    if (!isImageModelAvailable(enabledList, model, provider)) return false;
+
     const previousParameters = this.#get().parameters;
     const { defaultValues, parametersSchema, initialActiveRatio } = prepareModelConfigState(
       model,
@@ -318,6 +323,7 @@ export class GenerationConfigActionImpl {
         lastSelectedImageProvider: provider,
       });
     }
+    return true;
   };
 
   setImageNum = (imageNum: number): void => {

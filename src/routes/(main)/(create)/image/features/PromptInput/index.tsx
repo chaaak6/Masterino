@@ -2,6 +2,7 @@
 
 import { ModelIcon } from '@lobehub/icons';
 import { ActionIcon, Flexbox, Segmented, Text } from '@lobehub/ui';
+import { toast } from '@lobehub/ui/base-ui';
 import { Divider, Switch } from 'antd';
 import { Images } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -124,6 +125,7 @@ const PromptExtendItem = memo(() => {
 const PromptInput = ({ showTitle = false }: PromptInputProps) => {
   const isDarkMode = useIsDark();
   const { t } = useTranslation('image');
+  const { t: tComponents } = useTranslation('components');
   const { allowed: canCreate } = usePermission('create_content');
   const { value, setValue } = useGenerationConfigParam('prompt');
   const { value: imageUrl, setValue: setImageUrl } = useGenerationConfigParam('imageUrl');
@@ -309,7 +311,9 @@ const PromptInput = ({ showTitle = false }: PromptInputProps) => {
               onModelChange={async ({ model, provider }) => {
                 if (!canCreate) return;
 
-                setModelAndProviderOnSelect(model, provider);
+                if (!setModelAndProviderOnSelect(model, provider)) {
+                  toast.error(tComponents('ModelSwitchPanel.imageModelUnavailable'));
+                }
               }}
             >
               <ActionIcon

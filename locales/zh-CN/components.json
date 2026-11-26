@@ -151,6 +151,7 @@
   "ModelSwitchPanel.aihubPricing.perRequest": "/ 次",
   "ModelSwitchPanel.aihubPricing.request": "请求",
   "ModelSwitchPanel.aihubPricing.unavailable": "价格暂未获取",
+  "ModelSwitchPanel.imageModelUnavailable": "暂不可用：图片生成配置不完整",
   "ModelSwitchPanel.byModel": "按模型",
   "ModelSwitchPanel.byProvider": "按提供商",
   "ModelSwitchPanel.catalogCheckFailed": "模型信息暂未更新 ·",

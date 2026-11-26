@@ -259,6 +259,8 @@ export const sharedOptimizeDeps = {
     'antd',
     '@ant-design/icons',
     '@lobehub/ui',
+    // Share menu/theme contexts between the root and base-ui entry points in dev.
+    '@lobehub/ui/base-ui',
     '@lobehub/ui > @emotion/react',
     'antd-style',
     'zustand',

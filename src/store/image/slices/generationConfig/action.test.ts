@@ -7,6 +7,7 @@ import {
 import { extractDefaultValues, fluxSchnellParamsSchema } from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { aiProviderSelectors } from '@/store/aiInfra';
 import { useImageStore } from '@/store/image';
 
 const localStorageMock = vi.hoisted(() => {
@@ -228,6 +229,25 @@ describe('GenerationConfigAction', () => {
   });
 
   describe('Model and Provider Selection', () => {
+    it.each([undefined, null, {}, { prompt: { default: 42 } }])(
+      'rejects unavailable image models without changing the current draft (%j)',
+      (parameters) => {
+        const malformed = { ...testImageModels[0], abilities: {}, id: 'unconfigured-image' };
+        Reflect.set(malformed, 'parameters', parameters);
+        vi.spyOn(aiProviderSelectors, 'enabledImageModelList').mockReturnValue([
+          { id: 'newapi', name: 'Aihub', source: 'builtin', children: [malformed] },
+        ]);
+        const before = useImageStore.getState();
+        expect(before.setModelAndProviderOnSelect('unconfigured-image', 'newapi')).toBe(false);
+        const after = useImageStore.getState();
+        expect(after.model).toBe(before.model);
+        expect(after.provider).toBe(before.provider);
+        expect(after.parameters).toBe(before.parameters);
+        expect(after.parametersSchema).toBe(before.parametersSchema);
+        expect(localStorageMock.setItem).not.toHaveBeenCalled();
+      },
+    );
+
     it('should set complete configuration for flux/schnell model', () => {
       const { result } = renderHook(() => useImageStore());
 
