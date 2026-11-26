@@ -520,6 +520,43 @@ describe('GatewayActionImpl', () => {
         expect(mockClient.disconnect).toHaveBeenCalled();
         await vi.waitFor(() => expect(onSessionComplete).toHaveBeenCalledOnce());
       });
+
+      it.each(['success', 'failure'])(
+        'ignores token refresh %s after replacing the connection',
+        async (outcome) => {
+          const { action, mockClient, state } = createTestAction();
+          const replacement = createMockClient();
+          const onSessionComplete = vi.fn();
+          let settleRefresh!: () => void;
+          vi.mocked(aiAgentService.refreshGatewayToken).mockReturnValueOnce(
+            new Promise((resolve, reject) => {
+              settleRefresh = () =>
+                outcome === 'success'
+                  ? resolve({ token: 'fresh-token' })
+                  : reject(new Error('refresh API down'));
+            }),
+          );
+          const options = {
+            gatewayUrl: 'https://gateway.test.com',
+            operationId: 'op-1',
+            token: 'old-token',
+            topicId: TEST_TOPIC_ID,
+          };
+          action.connectToGateway({ ...options, onSessionComplete });
+          mockClient.emitEvent('auth_expired');
+
+          action.createClient = () => replacement;
+          action.connectToGateway(options);
+          settleRefresh();
+          await Promise.resolve();
+          await Promise.resolve();
+
+          expect(state.gatewayConnections['op-1']?.client).toBe(replacement);
+          expect(replacement.disconnect).not.toHaveBeenCalled();
+          expect(mockClient.reconnect).not.toHaveBeenCalled();
+          expect(onSessionComplete).not.toHaveBeenCalled();
+        },
+      );
     });
 
     it('should disconnect existing connection before creating new one', () => {

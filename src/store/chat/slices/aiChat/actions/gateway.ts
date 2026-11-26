@@ -115,6 +115,8 @@ export class GatewayActionImpl {
     const client = gatewayUrl
       ? this.createClient({ gatewayUrl, operationId, resumeOnConnect, token })
       : new SameOriginAgentStreamClient(operationId, topicId);
+    const isCurrentConnection = () =>
+      this.#get().gatewayConnections[operationId]?.client === client;
 
     // Track connection in store
     this.#set(
@@ -131,7 +133,7 @@ export class GatewayActionImpl {
     // Connection attempts are still recovering until they authenticate.
     let recovering = false;
     client.on('status_changed', (status) => {
-      if (this.#get().gatewayConnections[operationId]?.client !== client) return;
+      if (!isCurrentConnection()) return;
       if (status === 'reconnecting') recovering = true;
       else if (status === 'connected' || status === 'disconnected') recovering = false;
       this.#get().updateOperationMetadata(localOperationId, {
@@ -212,7 +214,7 @@ export class GatewayActionImpl {
     client.on('recovery_exhausted', onConnectionLost);
     client.on('disconnected', () => {
       // Explicit teardown removes the connection before disconnecting the client.
-      if (this.#get().gatewayConnections[operationId]?.client !== client) return;
+      if (!isCurrentConnection()) return;
       if (!receivedTerminalEvent) {
         onConnectionLost();
         return;
@@ -244,9 +246,11 @@ export class GatewayActionImpl {
     client.on('auth_expired', async () => {
       try {
         const { token: fresh } = await aiAgentService.refreshGatewayToken(topicId);
+        if (!isCurrentConnection()) return;
         client.updateToken(fresh);
         await client.reconnect();
       } catch (error) {
+        if (!isCurrentConnection()) return;
         console.error(`[Gateway] Token refresh failed for operation ${operationId}:`, error);
         this.disconnectFromGateway(operationId);
         onConnectionLost();
