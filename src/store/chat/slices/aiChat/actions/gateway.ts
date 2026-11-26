@@ -726,7 +726,7 @@ export class GatewayActionImpl {
 
         const messages = savedMessages ?? state.dbMessagesMap[messageMapKey(scopeContext)];
         const assistant = messages?.find(({ id }) => id === assistantMessageId);
-        const notice = t('streamRecoveryUnavailable', { ns: 'error' });
+        const notice = t('streamRecoveryExpired', { ns: 'error' });
         const hasSavedOutput =
           savedMessages &&
           ((assistant?.content && assistant.content !== LOADING_FLAT) || assistant?.tools?.length);
