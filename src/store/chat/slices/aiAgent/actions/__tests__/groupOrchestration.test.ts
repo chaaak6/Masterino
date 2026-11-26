@@ -198,6 +198,7 @@ describe('groupOrchestration actions', () => {
         instruction: 'Return the calculation result',
         runInClient,
         supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        title: 'Calculation',
         toolMessageId: 'tool-message',
       });
       expect(dispatch).toHaveBeenCalledWith(
@@ -206,7 +207,7 @@ describe('groupOrchestration actions', () => {
           topicId: TEST_IDS.TOPIC_ID,
           initialResult: expect.objectContaining({
             payload: expect.objectContaining({
-              params: expect.objectContaining({ runInClient: expected }),
+              params: expect.objectContaining({ runInClient: expected, title: 'Calculation' }),
             }),
           }),
         }),

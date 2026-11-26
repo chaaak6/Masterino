@@ -336,6 +336,7 @@ describe('GroupManagementExecutor', () => {
         instruction: 'Do something',
         supervisorAgentId: 'supervisor-agent',
         timeout: 30000,
+        title: 'Test Task',
         toolMessageId: 'test-message-id',
       });
     });
