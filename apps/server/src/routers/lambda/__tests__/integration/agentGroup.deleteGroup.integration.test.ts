@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { type LobeChatDatabase } from '@lobechat/database';
 import { agents } from '@lobechat/database/schemas';
-import { getTestDB } from '@lobechat/database/test-utils';
+import { closeTestDB, getTestDB } from '@lobechat/database/test-utils';
 import { inArray } from 'drizzle-orm';
-import { expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 
 import { agentGroupRouter } from '../../agentGroup';
 import { cleanupTestUser, createTestUser } from './setup';
@@ -13,8 +13,13 @@ vi.mock('@/database/core/db-adaptor', () => ({
   getServerDB: vi.fn(() => testDB),
 }));
 
-it('deleting a group removes its virtual supervisor and retains an unlinked virtual member', async () => {
+beforeAll(async () => {
   testDB = await getTestDB();
+});
+
+afterAll(closeTestDB);
+
+it('deleting a group removes its virtual supervisor and retains an unlinked virtual member', async () => {
   const userId = await createTestUser(testDB);
   try {
     const caller = agentGroupRouter.createCaller({ jwtPayload: { userId }, userId });
