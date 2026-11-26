@@ -193,6 +193,17 @@ describe('topicSelectors', () => {
 
       expect(topicSelectors.getTopicById('group-topic', 'group-1')(state)).toEqual(groupTopic);
     });
+
+    it('finds a topic in the active member cache only when the group matches', () => {
+      const state = merge(initialStore, {
+        activeAgentId: 'test',
+        activeGroupId: 'group-1',
+        topicDataMap: createTopicDataMap('test', 'group-1'),
+      });
+
+      expect(topicSelectors.getTopicById('topic1', 'group-1')(state)).toEqual(topicItems[0]);
+      expect(topicSelectors.getTopicById('topic1', 'group-2')(state)).toBeUndefined();
+    });
   });
 
   describe('groupedTopicsSelector', () => {

@@ -46,6 +46,7 @@
   "contextBudget.title.SUMMARY_FAILED": "上下文摘要失败",
   "contextBudget.title.TAIL_TOO_LARGE": "最新消息超出上下文窗口",
   "contextBudget.toolResultPlaceholder": "[已移除工具结果以缩减上下文]",
+  "desktopDeviceIdentityUnavailable": "无法验证这台电脑的设备身份，请稍后重试。",
   "error.backHome": "返回首页",
   "error.desc": "页面暂时不可用。你可以返回首页，或稍后重试（你的设置不会因此丢失）",
   "error.retry": "重新加载",

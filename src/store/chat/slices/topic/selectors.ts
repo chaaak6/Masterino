@@ -54,8 +54,15 @@ const currentTopicCount = (s: ChatStoreState): number => currentTopicData(s)?.to
 const getTopicById =
   (id: string, groupId?: string | null) =>
   (s: ChatStoreState): ChatTopic | undefined => {
-    const topics = groupId ? s.topicDataMap[topicMapKey({ groupId })]?.items : currentTopics(s);
-    return topics?.find((topic) => topic.id === id);
+    if (!groupId) return currentTopics(s)?.find((topic) => topic.id === id);
+
+    const groupTopic = s.topicDataMap[topicMapKey({ groupId })]?.items.find(
+      (topic) => topic.id === id,
+    );
+    return (
+      groupTopic ??
+      (s.activeGroupId === groupId ? currentTopics(s)?.find((topic) => topic.id === id) : undefined)
+    );
   };
 
 /**

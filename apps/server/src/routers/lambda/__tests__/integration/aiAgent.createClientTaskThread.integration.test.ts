@@ -368,6 +368,26 @@ describe('createClientTaskThread Integration', () => {
   });
 
   describe('different agents', () => {
+    it('allows an enabled supervisor to run an isolated task from its own group message', async () => {
+      await serverDB
+        .update(chatGroupsAgents)
+        .set({ role: 'supervisor' })
+        .where(eq(chatGroupsAgents.agentId, testAgentId));
+      const caller = aiAgentRouter.createCaller(createTestContext());
+      const params = { instruction: 'Run locally', parentMessageId, topicId: testTopicId };
+
+      const result = await caller.createClientTaskThread({ ...params, agentId: testAgentId });
+      expect(result.success).toBe(true);
+      await expect(
+        caller.createClientGroupAgentTaskThread({
+          ...params,
+          groupId: testGroupId,
+          subAgentId: testAgentId,
+          title: 'Group delegation',
+        }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    });
+
     it('should create threads for different agents in the same topic', async () => {
       // Create second agent
       const [agent2] = await serverDB

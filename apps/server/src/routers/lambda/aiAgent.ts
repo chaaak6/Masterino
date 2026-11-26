@@ -486,12 +486,14 @@ const assertGroupTaskContext = async (
     workspaceId?: string | null;
   },
   {
+    allowSupervisor = false,
     groupId,
     topicId,
     parentMessageId,
     agentId,
   }: {
     agentId: string;
+    allowSupervisor?: boolean;
     groupId: string;
     parentMessageId: string;
     topicId: string;
@@ -519,7 +521,11 @@ const assertGroupTaskContext = async (
     topic?.groupId !== groupId ||
     parent?.groupId !== groupId ||
     parent.topicId !== topicId ||
-    !members.some((member) => member.agentId === agentId && member.role !== 'supervisor')
+    !members.some(
+      (member) =>
+        member.agentId === agentId &&
+        (member.role !== 'supervisor' || (allowSupervisor && parent.agentId === agentId)),
+    )
   ) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Group task context not found' });
   }
@@ -648,7 +654,13 @@ export const aiAgentRouter = router({
       }
       const groupId = topic.groupId ?? undefined;
       if (groupId)
-        await assertGroupTaskContext(ctx, { agentId, groupId, parentMessageId, topicId });
+        await assertGroupTaskContext(ctx, {
+          agentId,
+          allowSupervisor: true,
+          groupId,
+          parentMessageId,
+          topicId,
+        });
 
       log('createClientTaskThread: agentId=%s, groupId=%s', agentId, groupId);
 

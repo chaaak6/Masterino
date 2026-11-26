@@ -61,6 +61,7 @@ export default {
   'contextBudget.title.SUMMARY_FAILED': 'Context summary failed',
   'contextBudget.title.TAIL_TOO_LARGE': 'Latest message is too large for the context window',
   'contextBudget.toolResultPlaceholder': '[Tool result removed to reduce context size]',
+  'desktopDeviceIdentityUnavailable': 'Unable to verify this desktop’s device identity',
   'error.backHome': 'Back to Home',
   'error.desc': 'Give it a try later, or go back to the known world.',
   'error.stack': 'Error Stack',

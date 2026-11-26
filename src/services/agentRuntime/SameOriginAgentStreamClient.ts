@@ -5,6 +5,7 @@ import { aiAgentService } from '@/services/aiAgent';
 
 const INITIAL_CONNECTION_TIMEOUT = 45_000;
 const RECOVERY_TIMEOUT = 30_000;
+const RECOVERY_ACTIVITY_TIMEOUT = 45_000;
 const STREAM_IDLE_TIMEOUT = 90_000;
 
 /** Server executes tools through Device Gateway; this channel only receives events. */
@@ -66,12 +67,10 @@ export class SameOriginAgentStreamClient {
     this.controller = new AbortController();
     const controller = this.controller;
     let openedAt: number | undefined;
-    const resetIfHealthy = () => {
-      // Headers alone do not prove recovery: bound repeated immediate EOF.
-      if (openedAt !== undefined && Date.now() - openedAt >= 10_000) {
-        this.recoveryStartedAt = undefined;
-        this.retryDelay = 1000;
-      }
+    const recover = () => {
+      this.clearRecoveryTimer();
+      this.recoveryStartedAt = undefined;
+      this.retryDelay = 1000;
     };
     const params = new URLSearchParams({
       lastEventId: this.cursor,
@@ -105,6 +104,9 @@ export class SameOriginAgentStreamClient {
           throw new Error(`Invalid stream response (${response.status})`);
         }
         this.clearRecoveryTimer();
+        // The endpoint emits a heartbeat every 30 seconds. Give a resumed
+        // subscription time to receive one, within the same recovery window.
+        this.startRecoveryTimer(RECOVERY_ACTIVITY_TIMEOUT);
         this.refreshIdleTimer();
         openedAt = Date.now();
         this.emit('status_changed', 'connected');
@@ -112,15 +114,17 @@ export class SameOriginAgentStreamClient {
       },
       onmessage: (message) => {
         if (this.stopped || this.terminal || this.controller !== controller) return;
-        resetIfHealthy();
         // The SSE parser emits comment-only heartbeat frames as empty messages.
         this.refreshIdleTimer();
-        if (!message.data) return;
+        if (!message.data) {
+          // The server sends an initial comment before its periodic heartbeat.
+          if (openedAt !== undefined && Date.now() - openedAt >= 10_000) recover();
+          return;
+        }
         const event = JSON.parse(message.data) as AgentStreamEvent;
         if (event.operationId !== this.operationId) throw new Error('Stream operation mismatch');
         if (message.id && message.id === this.cursor) return;
-        this.recoveryStartedAt = undefined;
-        this.retryDelay = 1000;
+        recover();
         this.emit('agent_event', event);
         this.cursor = message.id || event.id || this.cursor;
         if (event.type === 'agent_runtime_end' || event.type === 'error') {
@@ -141,7 +145,7 @@ export class SameOriginAgentStreamClient {
         if (this.stopped || this.terminal || this.controller !== controller) return;
         this.clearInitialConnectionTimer();
         clearTimeout(this.idleTimer);
-        resetIfHealthy();
+        this.clearRecoveryTimer();
         this.recoveryStartedAt ??= Date.now();
         if (Date.now() - this.recoveryStartedAt >= RECOVERY_TIMEOUT) {
           this.expireRecovery();
@@ -155,10 +159,10 @@ export class SameOriginAgentStreamClient {
       });
   }
 
-  private startRecoveryTimer(): void {
+  private startRecoveryTimer(timeout = RECOVERY_TIMEOUT): void {
     if (this.recoveryStartedAt === undefined) return;
     const elapsed = Date.now() - this.recoveryStartedAt;
-    this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), RECOVERY_TIMEOUT - elapsed);
+    this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), timeout - elapsed);
   }
 
   private refreshIdleTimer(): void {

@@ -737,6 +737,20 @@ describe('Generation Actions', () => {
   });
 
   describe('delAndResendThreadMessage', () => {
+    it('regenerates the reply without deleting the original thread prompt', async () => {
+      const store = createStore({
+        context: { agentId: 'session-1', threadId: 'thread-1', topicId: 'topic-1' },
+      });
+      store.setState({ displayMessages: [{ content: 'Hello', id: 'msg-1', role: 'user' }] } as any);
+      const regenerateUserMessage = vi.fn().mockResolvedValue({ branchIndex: 1 });
+      store.setState({ regenerateUserMessage });
+
+      await store.getState().delAndResendThreadMessage('msg-1');
+
+      expect(regenerateUserMessage).toHaveBeenCalledWith('msg-1');
+      expect(mockDeleteMessage).not.toHaveBeenCalled();
+    });
+
     it('retains the original message if regeneration is blocked before starting', async () => {
       const workspace = vi
         .spyOn(topicExecutionIntent, 'checkDesktopProjectSend')
@@ -756,7 +770,7 @@ describe('Generation Actions', () => {
       }
     });
 
-    it('should create operation with context and pass operationId to deleteMessage', async () => {
+    it('should create an operation with thread context when replacing a reply', async () => {
       // Re-setup mock to ensure startOperation is available
       const { useChatStore } = await import('@/store/chat');
       vi.mocked(useChatStore.getState).mockReturnValue({
@@ -786,12 +800,15 @@ describe('Generation Actions', () => {
       // Set displayMessages after store creation
       act(() => {
         store.setState({
-          displayMessages: [{ id: 'msg-1', role: 'user', content: 'Hello' }],
+          displayMessages: [
+            { id: 'msg-1', role: 'user', content: 'Hello' },
+            { id: 'reply-1', role: 'assistant', content: 'Failed reply', parentId: 'msg-1' },
+          ],
         } as any);
       });
 
       await act(async () => {
-        await store.getState().delAndResendThreadMessage('msg-1');
+        await store.getState().delAndResendThreadMessage('reply-1');
       });
 
       // Should create operation with context including threadId
@@ -802,9 +819,9 @@ describe('Generation Actions', () => {
 
       // Should pass operationId to deleteMessage
       expect(mockDeleteMessage).toHaveBeenCalledWith(
-        'msg-1',
+        'reply-1',
         { operationId: 'test-op-id' },
-        expect.objectContaining({ id: 'msg-1' }),
+        expect.objectContaining({ id: 'reply-1' }),
       );
 
       // Should complete operation

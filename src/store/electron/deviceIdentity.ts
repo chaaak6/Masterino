@@ -1,3 +1,5 @@
+import { t } from 'i18next';
+
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { useUserStore } from '@/store/user';
 
@@ -5,7 +7,8 @@ export class DesktopDeviceIdentityUnavailableError extends Error {
   override name = 'DesktopDeviceIdentityUnavailableError';
 
   constructor() {
-    super('Unable to verify this desktop’s device identity');
+    const defaultValue = 'Unable to verify this desktop’s device identity';
+    super(t('desktopDeviceIdentityUnavailable', { defaultValue, ns: 'error' }) || defaultValue);
   }
 }
 

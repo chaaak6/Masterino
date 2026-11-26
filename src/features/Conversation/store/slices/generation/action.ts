@@ -539,7 +539,7 @@ export const generationSlice: StateCreator<
         : displayMessages.find((item) => item.id === current?.parentId);
     if (!current || !userMessage) return;
     const replacement = await get().regenerateUserMessage(userMessage.id);
-    if (!replacement) return;
+    if (!replacement || current.role === 'user') return;
     await deleteReplacedMessage(useChatStore.getState(), context, current, replacement.branchIndex);
   },
 

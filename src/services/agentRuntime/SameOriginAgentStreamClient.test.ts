@@ -138,6 +138,28 @@ describe('same-origin device agent stream', () => {
     client.disconnect();
   });
 
+  it('expires recovery when the next connection delivers headers and no heartbeat or events', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
+      await options.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+      options.onmessage!({ data: '', event: '', id: '' });
+      return new Promise<void>((resolve) => {
+        options.signal?.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const exhausted = vi.fn();
+    client.on('recovery_exhausted', exhausted);
+    client.connect();
+
+    await vi.advanceTimersByTimeAsync(91_000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(2);
+    expect(exhausted).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(44_000);
+    expect(vi.mocked(fetchEventSource).mock.calls[1][1].signal?.aborted).toBe(true);
+    expect(exhausted).toHaveBeenCalledOnce();
+  });
+
   it('bounds repeated immediate EOF even when headers and empty frames arrive', async () => {
     vi.useFakeTimers();
     vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
