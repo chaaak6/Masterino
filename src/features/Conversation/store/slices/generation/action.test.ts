@@ -1123,23 +1123,39 @@ describe('Generation Actions', () => {
       expect(mockCompleteOperation).toHaveBeenCalledWith('test-op-id');
     });
 
-    it.each([false, true])(
-      'restores the previous reply after gateway rejection unless another branch was selected (%s)',
-      async (switchedBranch) => {
+    it.each([
+      { name: 'previous explicit selection', previousIndex: 0, switchedBranch: false },
+      { name: 'concurrent selection', previousIndex: 0, switchedBranch: true },
+      { name: 'visible grouped reply', previousIndex: 1, switchedBranch: false },
+      {
+        hiddenReply: true,
+        name: 'reply with descendants when the display row is missing',
+        previousIndex: 1,
+        switchedBranch: false,
+      },
+    ])(
+      'uses the $name after gateway rejection',
+      async ({ hiddenReply, previousIndex, switchedBranch }) => {
         const { useChatStore } = await import('@/store/chat');
         const context = { agentId: 'session-1', topicId: 'topic-1' };
         const prompt = {
           content: 'Hello',
           id: 'msg-1',
-          metadata: { activeBranchIndex: 0 },
+          metadata: { activeBranchIndex: previousIndex === 0 ? 0 : undefined },
           role: 'user',
         };
         const reply = { id: 'msg-2', role: 'assistant', content: 'Old reply', parentId: prompt.id };
         const anotherReply = { ...reply, id: 'msg-3', content: 'Another reply' };
-        const livePrompt = { ...prompt, metadata: { ...prompt.metadata } };
+        const followUp = {
+          id: 'msg-4',
+          role: 'user',
+          content: 'Follow-up',
+          parentId: anotherReply.id,
+        };
+        const livePrompt = { ...prompt, metadata: { activeBranchIndex: previousIndex } };
         const key = messageMapKey(context);
         vi.mocked(useChatStore.getState).mockReturnValue({
-          dbMessagesMap: { [key]: [livePrompt, reply, anotherReply] },
+          dbMessagesMap: { [key]: [livePrompt, reply, anotherReply, followUp] },
           operations: {},
           operationsByMessage: {},
           executeGatewayAgent: mockExecuteGatewayAgent,
@@ -1156,9 +1172,19 @@ describe('Generation Actions', () => {
           return { error: 'Gateway did not accept the request', success: false };
         });
         const store = createStore({ context });
+        const visibleReply =
+          previousIndex === 0
+            ? reply
+            : {
+                ...anotherReply,
+                branch: { activeBranchIndex: 1, count: 2 },
+                children: [{ content: anotherReply.content, id: anotherReply.id }],
+                id: 'virtual-reply',
+                role: 'assistantGroup',
+              };
         store.setState({
-          dbMessages: [prompt, reply, anotherReply],
-          displayMessages: [prompt, reply],
+          dbMessages: [prompt, reply, anotherReply, followUp],
+          displayMessages: hiddenReply ? [prompt] : [prompt, visibleReply],
         } as any);
 
         await expect(store.getState().regenerateUserMessage(prompt.id)).resolves.toBeUndefined();
@@ -1168,7 +1194,7 @@ describe('Generation Actions', () => {
         });
         expect(mockSwitchMessageBranch).toHaveBeenCalledTimes(switchedBranch ? 1 : 2);
         if (!switchedBranch) {
-          expect(mockSwitchMessageBranch).toHaveBeenLastCalledWith(prompt.id, 0, {
+          expect(mockSwitchMessageBranch).toHaveBeenLastCalledWith(prompt.id, previousIndex, {
             operationId: 'test-op-id',
           });
         }

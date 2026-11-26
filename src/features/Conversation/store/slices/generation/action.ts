@@ -640,17 +640,23 @@ export const generationSlice: StateCreator<
       // Calculate next branch index by counting children of this user message
       // We need to count how many assistant messages have this user message as parent
       const { dbMessages } = get();
-      const branches = dbMessages.filter((m) => m.parentId === messageId);
+      const branches = dbMessages.filter((m) => m.parentId === messageId && m.role !== 'tool');
       // New branch index = current children count (since index is 0-based)
       const nextBranchIndex = branches.length;
       if (branches.length) {
         const visibleReply = displayMessages[currentIndex + 1];
+        const visibleBranchIndex = branches.findIndex(({ id }) => id === visibleReply?.id);
         const previousBranchIndex =
           item.metadata?.activeBranchIndex ??
-          Math.max(
-            0,
-            branches.findIndex(({ id }) => id === visibleReply?.id),
-          );
+          visibleReply?.branch?.activeBranchIndex ??
+          (visibleBranchIndex >= 0
+            ? visibleBranchIndex
+            : Math.max(
+                0,
+                branches.findIndex(({ id }) =>
+                  dbMessages.some((message) => message.parentId === id),
+                ),
+              ));
         restorePreviousBranch = async () => {
           const currentMessages = useChatStore.getState().dbMessagesMap[messageMapKey(context)];
           const selectedBranch = currentMessages?.find(({ id }) => id === messageId)?.metadata
