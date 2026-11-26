@@ -5,6 +5,7 @@ import { aiAgentService } from '@/services/aiAgent';
 
 const INITIAL_CONNECTION_TIMEOUT = 45_000;
 const RECOVERY_TIMEOUT = 30_000;
+const STREAM_IDLE_TIMEOUT = 90_000;
 
 /** Server executes tools through Device Gateway; this channel only receives events. */
 export class SameOriginAgentStreamClient {
@@ -13,6 +14,7 @@ export class SameOriginAgentStreamClient {
   private retry?: ReturnType<typeof setTimeout>;
   private initialConnectionTimer?: ReturnType<typeof setTimeout>;
   private recoveryTimer?: ReturnType<typeof setTimeout>;
+  private idleTimer?: ReturnType<typeof setTimeout>;
   private cursor = '0';
   private stopped = true;
   private terminal = false;
@@ -103,6 +105,7 @@ export class SameOriginAgentStreamClient {
           throw new Error(`Invalid stream response (${response.status})`);
         }
         this.clearRecoveryTimer();
+        this.refreshIdleTimer();
         openedAt = Date.now();
         this.emit('status_changed', 'connected');
         this.emit('connected');
@@ -110,6 +113,8 @@ export class SameOriginAgentStreamClient {
       onmessage: (message) => {
         if (this.stopped || this.terminal || this.controller !== controller) return;
         resetIfHealthy();
+        // The SSE parser emits comment-only heartbeat frames as empty messages.
+        this.refreshIdleTimer();
         if (!message.data) return;
         const event = JSON.parse(message.data) as AgentStreamEvent;
         if (event.operationId !== this.operationId) throw new Error('Stream operation mismatch');
@@ -120,6 +125,7 @@ export class SameOriginAgentStreamClient {
         this.cursor = message.id || event.id || this.cursor;
         if (event.type === 'agent_runtime_end' || event.type === 'error') {
           this.terminal = true;
+          clearTimeout(this.idleTimer);
           controller.abort();
           this.emit('session_complete');
         }
@@ -134,6 +140,7 @@ export class SameOriginAgentStreamClient {
       .finally(() => {
         if (this.stopped || this.terminal || this.controller !== controller) return;
         this.clearInitialConnectionTimer();
+        clearTimeout(this.idleTimer);
         resetIfHealthy();
         this.recoveryStartedAt ??= Date.now();
         if (Date.now() - this.recoveryStartedAt >= RECOVERY_TIMEOUT) {
@@ -154,6 +161,11 @@ export class SameOriginAgentStreamClient {
     this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), RECOVERY_TIMEOUT - elapsed);
   }
 
+  private refreshIdleTimer(): void {
+    clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => this.expireRecovery(), STREAM_IDLE_TIMEOUT);
+  }
+
   private clearInitialConnectionTimer(): void {
     clearTimeout(this.initialConnectionTimer);
     this.initialConnectionTimer = undefined;
@@ -168,6 +180,7 @@ export class SameOriginAgentStreamClient {
     this.terminal = true;
     this.clearInitialConnectionTimer();
     this.clearRecoveryTimer();
+    clearTimeout(this.idleTimer);
     clearTimeout(this.retry);
     this.controller?.abort();
     this.emit('status_changed', 'disconnected');
@@ -178,6 +191,7 @@ export class SameOriginAgentStreamClient {
     this.stopped = true;
     this.clearInitialConnectionTimer();
     this.clearRecoveryTimer();
+    clearTimeout(this.idleTimer);
     clearTimeout(this.retry);
     this.controller?.abort();
     this.emit('status_changed', 'disconnected');
@@ -186,6 +200,7 @@ export class SameOriginAgentStreamClient {
 
   async reconnect(): Promise<void> {
     this.clearRecoveryTimer();
+    clearTimeout(this.idleTimer);
     clearTimeout(this.retry);
     this.controller?.abort();
     this.stopped = false;

@@ -1,6 +1,6 @@
 // Disable the auto sort key eslint rule to make the code more logic and readable
 import { type AgentRuntimeContext } from '@lobechat/agent-runtime';
-import { MESSAGE_CANCEL_FLAT } from '@lobechat/const';
+import { isDesktop, MESSAGE_CANCEL_FLAT } from '@lobechat/const';
 import { isDeviceLocalMcpToolIdentifier } from '@lobechat/electron-client-ipc';
 import {
   type ChatToolPayload,
@@ -109,7 +109,7 @@ export class ConversationControlActionImpl {
     const runtime = await selectConversationRuntime({
       boundDeviceId:
         pendingExecution?.intent.targetDeviceId ??
-        (context.groupId && executionTarget === 'local'
+        (isDesktop && context.groupId && executionTarget === 'local'
           ? undefined
           : agentConfig?.agencyConfig?.boundDeviceId),
       executionTarget,
@@ -121,7 +121,7 @@ export class ConversationControlActionImpl {
     return (await routeDesktopWorkspaceRuntime(runtime, { topicId, workspaceId })) === 'gateway';
   };
 
-  #resolveRejectionRoute = async (
+  #resolveInterventionRoute = async (
     context: ConversationContext,
     executionContext: ExecutionContext | undefined,
     toolIdentifier: string | undefined,
@@ -322,6 +322,12 @@ export class ConversationControlActionImpl {
     const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
+    const useGateway = await this.#resolveInterventionRoute(
+      effectiveContext,
+      executionContext,
+      toolMessage.plugin?.identifier,
+    );
+    if (useGateway === undefined) return;
 
     // Create an operation to carry the context for optimistic updates
     // This ensures optimistic updates use the correct agentId/topicId
@@ -362,13 +368,7 @@ export class ConversationControlActionImpl {
       // message, persists `intervention=approved`, dispatches the approved
       // tool, and streams results back on the new op. No in-place resume of
       // the paused op — simpler state + avoids stepIndex races.
-      if (
-        await this.#shouldUseGatewayResume(
-          effectiveContext,
-          executionContext,
-          approvedToolCallPayload.identifier,
-        )
-      ) {
+      if (useGateway) {
         // Snapshot paused op IDs before the resume call; retire them only
         // after executeGatewayAgent succeeds so a transient failure leaves
         // the running marker intact and `#shouldUseGatewayResume` still flags
@@ -509,6 +509,12 @@ export class ConversationControlActionImpl {
     const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
+    const useGateway = await this.#resolveInterventionRoute(
+      effectiveContext,
+      executionContext,
+      toolMessage.plugin?.identifier,
+    );
+    if (useGateway === undefined) return;
 
     const { operationId } = startOperation({
       type: 'submitToolInteraction',
@@ -572,13 +578,7 @@ export class ConversationControlActionImpl {
         ? resumeContext.requestMetadata
         : this.#getResumeContextFromMessageChain(toolMessageId, currentMessages).requestMetadata;
 
-      if (
-        await this.#shouldUseGatewayResume(
-          effectiveContext,
-          executionContext,
-          toolMessage.plugin?.identifier,
-        )
-      ) {
+      if (useGateway) {
         const pausedOpIds = this.#getRunningServerOps(effectiveContext).map((op) => op.id);
         await this.#get().executeGatewayAgent({
           context: effectiveContext,
@@ -660,6 +660,12 @@ export class ConversationControlActionImpl {
     const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
+    const useGateway = await this.#resolveInterventionRoute(
+      effectiveContext,
+      executionContext,
+      toolMessage.plugin?.identifier,
+    );
+    if (useGateway === undefined) return;
 
     const { operationId } = startOperation({
       type: 'skipToolInteraction',
@@ -711,7 +717,7 @@ export class ConversationControlActionImpl {
 
       if (!userMsg) throw new Error('Failed to create user message');
 
-      if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
+      if (useGateway) {
         const pausedOpIds = this.#getRunningServerOps(effectiveContext).map((op) => op.id);
         try {
           await this.#get().executeGatewayAgent({
@@ -822,6 +828,7 @@ export class ConversationControlActionImpl {
         undefined,
         optimisticContext,
       );
+      this.#get().clearPausedExecutionContext(toolMessageId);
       completeOperation(operationId);
     } catch (error) {
       this.#get().failOperation(operationId, {
@@ -830,9 +837,10 @@ export class ConversationControlActionImpl {
       });
       throw error;
     } finally {
-      this.#get().clearPausedExecutionContext(toolMessageId);
-      if (localTask)
+      if (localTask) {
+        this.#get().clearPausedExecutionContext(toolMessageId);
         this.#get().cancelOperation(localTask.operationId, 'User cancelled interaction');
+      }
     }
   };
 
@@ -1067,7 +1075,7 @@ export class ConversationControlActionImpl {
       return;
     }
     const executionContext = this.#get().pausedExecutionContextByMessage[messageId];
-    const useGateway = await this.#resolveRejectionRoute(
+    const useGateway = await this.#resolveInterventionRoute(
       effectiveContext,
       executionContext,
       toolMessage.plugin?.identifier,
@@ -1183,7 +1191,7 @@ export class ConversationControlActionImpl {
     // the LLM loop with the rejection content surfaced as user feedback.
     // Skip the client-mode `rejectToolCalling` chain below — that would fire
     // a duplicate halting `reject` before this continue signal.
-    const useGateway = await this.#resolveRejectionRoute(
+    const useGateway = await this.#resolveInterventionRoute(
       effectiveContext,
       executionContext,
       toolMessage.plugin?.identifier,

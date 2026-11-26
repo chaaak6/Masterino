@@ -67,6 +67,25 @@ describe('same-origin device agent stream', () => {
     expect(unavailable).toHaveBeenCalledOnce();
   });
 
+  it('keeps heartbeats alive and releases a stream that goes silent afterwards', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+    client.connect();
+    const stream = vi.mocked(fetchEventSource).mock.calls[0][1];
+    await stream.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(30_000);
+      stream.onmessage!({ data: '', event: '', id: '' });
+    }
+    expect(unavailable).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(90_000);
+    expect(stream.signal?.aborted).toBe(true);
+    expect(unavailable).toHaveBeenCalledOnce();
+  });
+
   it('aborts a stalled retry and releases the subscription at its deadline', async () => {
     vi.useFakeTimers();
     vi.mocked(fetchEventSource)

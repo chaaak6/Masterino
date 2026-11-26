@@ -514,6 +514,24 @@ describe('AgentStreamClient', () => {
       expect(client.connectionStatus).toBe('disconnected');
     });
 
+    it('keeps an authenticated retry alive through a missed heartbeat', async () => {
+      const client = createClient();
+      const unavailable = vi.fn();
+      client.on('recovery_exhausted', unavailable);
+      const first = await connectAndAuth(client);
+      first.simulateClose();
+      await vi.advanceTimersByTimeAsync(1001);
+      const retry = getLatestWs();
+      retry.simulateMessage({ type: 'auth_success' });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(client.connectionStatus).toBe('connected');
+      expect(unavailable).not.toHaveBeenCalled();
+      retry.simulateMessage({ type: 'heartbeat_ack' });
+      retry.simulateClose();
+      expect(client.connectionStatus).toBe('reconnecting');
+      expect(unavailable).not.toHaveBeenCalled();
+    });
+
     it('releases an interrupted subscription when reconnect never authenticates', async () => {
       const client = createClient();
       const unavailable = vi.fn();

@@ -1,5 +1,5 @@
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
-import { LOADING_FLAT } from '@lobechat/const';
+import { isDesktop, LOADING_FLAT } from '@lobechat/const';
 import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import type {
   ChatImageItem,
@@ -383,7 +383,7 @@ export const generationSlice: StateCreator<
         await selectConversationRuntime({
           boundDeviceId:
             topicSnapshot?.boundDeviceId ??
-            (context.groupId && executionTarget === 'local'
+            (isDesktop && context.groupId && executionTarget === 'local'
               ? undefined
               : agentConfig?.agencyConfig?.boundDeviceId),
           executionTarget,
@@ -604,7 +604,7 @@ export const generationSlice: StateCreator<
         await selectConversationRuntime({
           boundDeviceId:
             topicSnapshot?.boundDeviceId ??
-            (context.groupId && executionTarget === 'local'
+            (isDesktop && context.groupId && executionTarget === 'local'
               ? undefined
               : agentConfig?.agencyConfig?.boundDeviceId),
           executionTarget,

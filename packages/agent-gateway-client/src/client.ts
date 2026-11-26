@@ -68,6 +68,7 @@ export class AgentStreamClient extends TypedEmitter {
   private connectionTimer?: ReturnType<typeof setTimeout>;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private recoveryTimer?: ReturnType<typeof setTimeout>;
+  private recoveryExpired = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = INITIAL_RECONNECT_DELAY;
   private missedHeartbeats = 0;
@@ -427,6 +428,10 @@ export class AgentStreamClient extends TypedEmitter {
 
   private scheduleReconnect(): void {
     this.clearReconnectTimer();
+    if (this.recoveryExpired) {
+      this.expireRecovery();
+      return;
+    }
     this.startRecoveryTimer();
 
     const delay = this.reconnectDelay;
@@ -443,10 +448,18 @@ export class AgentStreamClient extends TypedEmitter {
 
   private startRecoveryTimer(): void {
     this.recoveryTimer ??= setTimeout(() => {
-      this.cleanup();
-      this.setStatus('disconnected');
-      this.emit('recovery_exhausted');
+      this.recoveryExpired = true;
+      // An authenticated socket still has the heartbeat watchdog. A missed
+      // heartbeat is tolerated while the same socket is open, but a later
+      // close cannot grant an unproductive reconnect loop a fresh budget.
+      if (this._status !== 'connected') this.expireRecovery();
     }, RECOVERY_TIMEOUT);
+  }
+
+  private expireRecovery(): void {
+    this.cleanup();
+    this.setStatus('disconnected');
+    this.emit('recovery_exhausted');
   }
 
   private clearConnectionTimer(): void {
@@ -457,6 +470,7 @@ export class AgentStreamClient extends TypedEmitter {
   private clearRecoveryTimer(): void {
     clearTimeout(this.recoveryTimer);
     this.recoveryTimer = undefined;
+    this.recoveryExpired = false;
   }
 
   private clearReconnectTimer(): void {

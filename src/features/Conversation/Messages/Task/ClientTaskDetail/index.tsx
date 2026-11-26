@@ -13,12 +13,13 @@ import { displayMessageSelectors, operationSelectors } from '@/store/chat/select
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import { resolveAssistantGroupFromMessages } from '../../AssistantGroup/utils/resolveAssistantGroupFromMessages';
-import { ErrorState, isProcessingStatus, TaskMessages } from '../../Tasks/shared';
+import { CompletedState, ErrorState, isProcessingStatus, TaskMessages } from '../../Tasks/shared';
 import InitializingState from './InitializingState';
 
 interface ClientTaskDetailProps {
   /** Agent ID from the task message (use task's agentId, not activeAgentId) */
   agentId?: string;
+  content?: string;
   /** Group ID from the task message (use task's groupId, not activeGroupId) */
   groupId?: string;
   taskDetail?: TaskDetail;
@@ -26,7 +27,7 @@ interface ClientTaskDetailProps {
 }
 
 const ClientTaskDetail = memo<ClientTaskDetailProps>(
-  ({ agentId: propAgentId, groupId, taskDetail, topicId }) => {
+  ({ agentId: propAgentId, content, groupId, taskDetail, topicId }) => {
     const threadId = taskDetail?.threadId;
     const isProcessing = isProcessingStatus(taskDetail?.status);
 
@@ -85,13 +86,18 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
         <ErrorState taskDetail={taskDetail} />
       ) : undefined;
 
-    if (!threadMessages)
-      return errorState ?? (isLoading ? <BubblesLoading /> : <InitializingState />);
+    const messages = threadMessages ?? [];
+    const { assistantId } = resolveAssistantGroupFromMessages(messages);
+    const assistant = messages.find(({ id }) => id === assistantId);
 
-    const { assistantId } = resolveAssistantGroupFromMessages(threadMessages);
-    const assistant = threadMessages.find(({ id }) => id === assistantId);
-
-    if (!assistant && pendingInterventions.length === 0) return errorState ?? <InitializingState />;
+    if (!assistant && pendingInterventions.length === 0) {
+      if (errorState) return errorState;
+      if (isLoading && !rawThreadMessages) return <BubblesLoading />;
+      if (taskDetail?.status === ThreadStatus.Completed) {
+        return <CompletedState content={content} taskDetail={taskDetail} />;
+      }
+      return <InitializingState />;
+    }
 
     return (
       <ConversationProvider skipFetch context={threadContext} messages={rawThreadMessages}>
@@ -99,7 +105,7 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
           <TaskMessages
             duration={taskDetail?.duration}
             isProcessing={isProcessing}
-            messages={threadMessages}
+            messages={messages}
             model={assistant.model ?? undefined}
             provider={assistant.provider ?? undefined}
             startTime={assistant.createdAt}

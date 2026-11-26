@@ -497,7 +497,7 @@ export class ConversationLifecycleActionImpl {
     let runtimeType = await selectConversationRuntime({
       boundDeviceId:
         pendingExecution?.intent.targetDeviceId ??
-        (context.groupId && executionTarget === 'local'
+        (isDesktop && context.groupId && executionTarget === 'local'
           ? undefined
           : agentConfig?.agencyConfig?.boundDeviceId),
       executionTarget,

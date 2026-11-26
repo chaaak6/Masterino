@@ -636,6 +636,7 @@ export class StreamingExecutorActionImpl {
     workingDirectory?: string;
   }): Promise<{
     cost?: Cost;
+    error?: string;
     model?: string;
     provider?: string;
     status?: AgentState['status'];
@@ -1317,9 +1318,21 @@ export class StreamingExecutorActionImpl {
         state.status === 'done' && (taskResume || initialMemberTask)
           ? this.#get().dbMessagesMap[messageKey]
           : undefined;
+      const error = state.error as unknown;
+      const errorMessage =
+        state.interruption?.reason ??
+        (typeof error === 'string'
+          ? error
+          : error &&
+              typeof error === 'object' &&
+              'message' in error &&
+              typeof error.message === 'string'
+            ? error.message
+            : undefined);
       const { requeued } = await runLifecycle.completeRun(completeEvent);
       const result = {
         cost: state.cost,
+        ...(errorMessage && { error: errorMessage }),
         model,
         provider: provider ?? undefined,
         status: state.status,
@@ -1345,7 +1358,10 @@ export class StreamingExecutorActionImpl {
         runScope,
         runtimeType: 'client',
       });
-      taskResume?.report({ status: 'error' });
+      taskResume?.report({
+        ...(error instanceof Error && { error: error.message }),
+        status: 'error',
+      });
       throw error;
     }
   };

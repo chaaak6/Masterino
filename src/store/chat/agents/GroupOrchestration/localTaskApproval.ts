@@ -5,6 +5,7 @@ import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 interface LocalTaskRun {
   cost?: Cost;
+  error?: string;
   status?: AgentState['status'];
   taskMessages?: UIChatMessage[];
   usage?: Usage;
@@ -19,6 +20,7 @@ interface LocalTaskMetrics {
 }
 
 interface LocalTaskResult extends LocalTaskMetrics {
+  error?: string;
   status?: AgentState['status'];
   taskMessages?: UIChatMessage[];
 }
@@ -58,16 +60,16 @@ export const trackLocalTaskApproval = (
     startedAt = undefined;
     clearTimeout(timer);
   };
-  const finish = (status: AgentState['status'] | undefined, taskMessages?: UIChatMessage[]) => {
+  const finish = ({ status, taskMessages, error }: LocalTaskRun) => {
     finished = true;
     pause();
-    settle({ ...metrics, status, ...(taskMessages && { taskMessages }) });
+    settle({ ...metrics, status, ...(error && { error }), ...(taskMessages && { taskMessages }) });
   };
-  const abort = () => finish('interrupted');
+  const abort = () => finish({ status: 'interrupted' });
 
   const entry = {
     operationId,
-    report: ({ cost, status, taskMessages, usage }: LocalTaskRun) => {
+    report: ({ cost, error, status, taskMessages, usage }: LocalTaskRun) => {
       if (finished) return;
       pause();
       metrics.totalCost = addMetric(metrics.totalCost, cost?.total);
@@ -75,7 +77,7 @@ export const trackLocalTaskApproval = (
       metrics.totalInputTokens = addMetric(metrics.totalInputTokens, usage?.llm?.tokens?.input);
       metrics.totalOutputTokens = addMetric(metrics.totalOutputTokens, usage?.llm?.tokens?.output);
       metrics.totalTokens = addMetric(metrics.totalTokens, usage?.llm?.tokens?.total);
-      if (status !== 'waiting_for_human') finish(status, taskMessages);
+      if (status !== 'waiting_for_human') finish({ error, status, taskMessages });
     },
     resume: () => {
       if (finished || startedAt !== undefined) return;

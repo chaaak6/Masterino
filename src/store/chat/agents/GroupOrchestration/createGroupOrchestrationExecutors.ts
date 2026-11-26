@@ -740,7 +740,10 @@ export const createGroupOrchestrationExecutors = (
             timedOut = true;
             get().cancelOperation(taskOperationId, 'Group task timed out');
           },
-          timeout: Math.min(Math.max(timeout ?? 1_800_000, 1), 2_147_483_647),
+          timeout:
+            timeout && Number.isFinite(timeout) && timeout > 0
+              ? Math.min(timeout, 2_147_483_647)
+              : 1_800_000,
         });
 
         get().replaceMessages(threadMessages, { context: subContext });
@@ -760,8 +763,14 @@ export const createGroupOrchestrationExecutors = (
         approval.report(runtimeResult || { status: 'done' });
         if (runtimeResult?.status === 'waiting_for_human')
           publishTaskState({ status: ThreadStatus.InReview });
-        const { status, taskMessages, totalCost, totalTokens, ...messageMetrics } =
-          await approval.result;
+        const {
+          error: runtimeError,
+          status,
+          taskMessages,
+          totalCost,
+          totalTokens,
+          ...messageMetrics
+        } = await approval.result;
 
         const taskOperation = get().operations[taskOperationId];
         if (
@@ -771,7 +780,11 @@ export const createGroupOrchestrationExecutors = (
         ) {
           const reason = abortController.signal.reason;
           throw new Error(
-            typeof reason === 'string' ? reason : 'Group task was interrupted or failed',
+            typeof reason === 'string'
+              ? reason
+              : (runtimeError ??
+                  taskOperation?.metadata.error?.message ??
+                  'Group task was interrupted or failed'),
           );
         }
         log(`[${sessionLogId}] Client-side AgentRuntime execution completed`);
