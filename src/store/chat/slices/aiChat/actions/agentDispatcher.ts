@@ -4,6 +4,7 @@ import { type DeviceExecutionTarget, type HeterogeneousProviderConfig } from '@l
 
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
+import { getElectronStoreState } from '@/store/electron';
 
 /**
  * Which agent runtime should handle an operation.
@@ -139,19 +140,22 @@ export const selectRuntimeType = (
 /** Keep sends and intervention resumes on the same device for a desktop group. */
 export const selectConversationRuntime = async (
   context: RuntimeSelectionContext & { groupId?: string | null },
+  { isDesktop = defaultIsDesktop }: SelectRuntimeTypeOptions = {},
 ): Promise<AgentRuntimeType> => {
   const { boundDeviceId, executionTarget, groupId, heterogeneousProvider, parentRuntime } = context;
   if (
     !parentRuntime &&
-    defaultIsDesktop &&
+    isDesktop &&
     groupId &&
     !heterogeneousProvider &&
-    (!executionTarget || executionTarget === 'local')
+    executionTarget === 'local'
   ) {
     if (!boundDeviceId) return 'client';
     const currentDevice = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
-    return currentDevice?.deviceId === boundDeviceId ? 'client' : 'gateway';
+    const deviceId = currentDevice?.deviceId ?? getElectronStoreState().gatewayDeviceInfo?.deviceId;
+    if (!deviceId) throw new Error('Unable to verify this desktop’s device identity');
+    return deviceId === boundDeviceId ? 'client' : 'gateway';
   }
 
-  return selectRuntimeType(context);
+  return selectRuntimeType(context, { isDesktop });
 };

@@ -5,6 +5,7 @@ import {
   type ConnectionStatus,
 } from '@lobechat/agent-gateway-client';
 import type { ConversationContext, ExecAgentResult, MessageMetadata } from '@lobechat/types';
+import { TRPCClientError } from '@trpc/client';
 import { t } from 'i18next';
 
 import { SameOriginAgentStreamClient } from '@/services/agentRuntime/SameOriginAgentStreamClient';
@@ -31,6 +32,10 @@ import { settingsSelectors, toolInterventionSelectors } from '@/store/user/selec
 import { createGatewayEventHandler } from './gatewayEventHandler';
 
 type Setter = StoreSetter<ChatStore>;
+
+const isTerminalTokenRefreshError = (error: unknown) =>
+  error instanceof TRPCClientError &&
+  ['NOT_FOUND', 'FORBIDDEN', 'UNAUTHORIZED'].includes(error.data?.code);
 
 // ─── Types ───
 
@@ -239,14 +244,8 @@ export class GatewayActionImpl {
       fireSessionComplete(new Error(`Agent connection unavailable: ${reason}`));
     });
 
-    // Handle expired-but-recoverable auth: the JWT is past `exp` but the op
-    // is still alive on the server. Refresh the token, hand it to the client,
-    // and reconnect. If the refresh itself fails (refresh API down, server
-    // refused refresh, etc.), fall back to terminal — leaving the op
-    // `running` would freeze the input. The server keeps the ws open after
-    // `auth_expired` to give the client a chance to recover, so we must
-    // explicitly `disconnect()` before completing — otherwise heartbeat and
-    // autoReconnect would keep running past the local op's lifetime.
+    // An expired JWT can be refreshed while the operation is still running.
+    // A transport failure leaves saved results recoverable on the next visit.
     client.on('auth_expired', async () => {
       try {
         const { token: fresh } = await aiAgentService.refreshGatewayToken(topicId);
@@ -256,6 +255,11 @@ export class GatewayActionImpl {
       } catch (error) {
         if (!isCurrentConnection()) return;
         console.error(`[Gateway] Token refresh failed for operation ${operationId}:`, error);
+        if (isTerminalTokenRefreshError(error)) {
+          this.disconnectFromGateway(operationId);
+          fireSessionComplete(new Error('Agent connection unavailable'));
+          return;
+        }
         onConnectionLost();
       }
     });
@@ -673,10 +677,27 @@ export class GatewayActionImpl {
       ?.runningOperation?.operationId;
     if (topicCurrentOpId && topicCurrentOpId !== operationId) return;
 
-    // Get a fresh JWT token (original expired after 5 min)
-    const { token } = agentGatewayUrl
-      ? await aiAgentService.refreshGatewayToken(topicId)
-      : { token: '' };
+    // Get a fresh JWT token (original expired after 5 min).
+    let token = '';
+    if (agentGatewayUrl) {
+      try {
+        ({ token } = await aiAgentService.refreshGatewayToken(topicId));
+      } catch (error) {
+        if (!isTerminalTokenRefreshError(error)) throw error;
+        const state = this.#get();
+        const topic = topicSelectors.getTopicById(topicId)(state);
+        if (topic?.metadata?.runningOperation?.operationId === operationId) {
+          state.internal_dispatchTopic({
+            agentId: fallbackAgentId,
+            id: topicId,
+            type: 'updateTopic',
+            value: { metadata: { ...topic.metadata, runningOperation: null } },
+          });
+          await state.updateTopicStatus?.({ agentId: fallbackAgentId, status: 'active', topicId });
+        }
+        return;
+      }
+    }
 
     // Re-check after the async token refresh: a newer executeGatewayAgent call may have
     // taken over for this topic while we were waiting. If so, bail to avoid a duplicate stream.

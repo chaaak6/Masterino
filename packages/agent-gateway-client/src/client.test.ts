@@ -463,6 +463,26 @@ describe('AgentStreamClient', () => {
       expect(onReconnecting).toHaveBeenCalledWith(1000);
     });
 
+    it('gives a fresh stalled handshake a separate recovery window', async () => {
+      const client = createClient();
+      const unavailable = vi.fn();
+      client.on('recovery_exhausted', unavailable);
+
+      client.connect();
+      const first = getLatestWs();
+      await vi.advanceTimersByTimeAsync(45_000);
+
+      expect(client.connectionStatus).toBe('reconnecting');
+      expect(unavailable).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1001);
+      const retry = getLatestWs();
+      expect(retry).not.toBe(first);
+      retry.simulateMessage({ type: 'auth_success' });
+
+      expect(client.connectionStatus).toBe('connected');
+      expect(unavailable).not.toHaveBeenCalled();
+    });
+
     it('releases an initial resume subscription when authentication stalls', async () => {
       const client = createClient({ resumeOnConnect: true });
       const unavailable = vi.fn();

@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { selectRuntimeType } from '../agentDispatcher';
+import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
+import { useElectronStore } from '@/store/electron';
+
+import { selectConversationRuntime, selectRuntimeType } from '../agentDispatcher';
 
 const heteroProvider = { command: 'claude', type: 'claude-code' as const };
 const remoteHeteroProvider = { type: 'openclaw' as const };
@@ -23,13 +26,31 @@ describe('selectRuntimeType', () => {
     );
   });
 
-  it.each([false, true])('routes ordinary device chat through gateway (desktop=%s)', (isDesktop) => {
-    expect(selectRuntimeType({ executionTarget: 'device', boundDeviceId: 'device-a', isGatewayMode: false }, { isDesktop })).toBe('gateway');
-  });
+  it.each([false, true])(
+    'routes ordinary device chat through gateway (desktop=%s)',
+    (isDesktop) => {
+      expect(
+        selectRuntimeType(
+          { executionTarget: 'device', boundDeviceId: 'device-a', isGatewayMode: false },
+          { isDesktop },
+        ),
+      ).toBe('gateway');
+    },
+  );
 
   it('keeps a synced desktop-local topic on its device when opened from web', () => {
-    expect(selectRuntimeType({ executionTarget: 'local', boundDeviceId: 'device-a', isGatewayMode: false }, { isDesktop: false })).toBe('gateway');
-    expect(selectRuntimeType({ executionTarget: 'local', boundDeviceId: 'device-a', isGatewayMode: false }, { isDesktop: true })).toBe('client');
+    expect(
+      selectRuntimeType(
+        { executionTarget: 'local', boundDeviceId: 'device-a', isGatewayMode: false },
+        { isDesktop: false },
+      ),
+    ).toBe('gateway');
+    expect(
+      selectRuntimeType(
+        { executionTarget: 'local', boundDeviceId: 'device-a', isGatewayMode: false },
+        { isDesktop: true },
+      ),
+    ).toBe('client');
   });
 
   describe('on web (isDesktop = false)', () => {
@@ -211,5 +232,48 @@ describe('selectRuntimeType', () => {
         selectRuntimeType({ parentRuntime: 'hetero', isGatewayMode: true }, { isDesktop: false }),
       ).toBe('hetero');
     });
+  });
+});
+
+describe('selectConversationRuntime', () => {
+  const opts = { isDesktop: true };
+  const group = { groupId: 'group-a', isGatewayMode: true };
+  const local = { ...group, executionTarget: 'local' as const };
+
+  it('retains the gateway for legacy group topics without a local execution target', async () => {
+    await expect(selectConversationRuntime(group, opts)).resolves.toBe('gateway');
+    await expect(selectConversationRuntime(local, opts)).resolves.toBe('client');
+  });
+
+  it('uses verified local device identity through a transient IPC error', async () => {
+    const previous = useElectronStore.getState().gatewayDeviceInfo;
+    const lookup = vi
+      .spyOn(gatewayConnectionService, 'getDeviceInfo')
+      .mockRejectedValue(new Error('IPC unavailable'));
+    try {
+      useElectronStore.setState({
+        gatewayDeviceInfo: {
+          description: '',
+          deviceId: 'this-device',
+          hostname: 'desktop',
+          name: 'Desktop',
+          platform: 'darwin',
+        },
+      });
+      await expect(
+        selectConversationRuntime({ ...local, boundDeviceId: 'this-device' }, opts),
+      ).resolves.toBe('client');
+      await expect(
+        selectConversationRuntime({ ...local, boundDeviceId: 'other-device' }, opts),
+      ).resolves.toBe('gateway');
+
+      useElectronStore.setState({ gatewayDeviceInfo: undefined });
+      await expect(
+        selectConversationRuntime({ ...local, boundDeviceId: 'this-device' }, opts),
+      ).rejects.toThrow('Unable to verify');
+    } finally {
+      lookup.mockRestore();
+      useElectronStore.setState({ gatewayDeviceInfo: previous });
+    }
   });
 });

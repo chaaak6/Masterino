@@ -185,7 +185,15 @@ describe('createGroupOrchestrationExecutors', () => {
 
   it('publishes a terminal task card after the local worker finishes', async () => {
     vi.mocked(messageService.updateMessageMetadata).mockRejectedValueOnce(new Error('offline'));
-    const store = createMockStore({ completeOperation: vi.fn(), replaceMessages: vi.fn() });
+    const { usage } = createInitialState();
+    const store = createMockStore({
+      completeOperation: vi.fn(),
+      executeClientAgent: vi.fn().mockResolvedValue({
+        status: 'done',
+        usage: { ...usage, llm: { ...usage.llm, processingTimeMs: 180 } },
+      }),
+      replaceMessages: vi.fn(),
+    });
     vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockResolvedValue({
       messages: [],
       startedAt: '2026-11-16T08:00:00.000Z',
@@ -228,6 +236,7 @@ describe('createGroupOrchestrationExecutors', () => {
         value: expect.objectContaining({
           taskDetail: expect.objectContaining({
             clientMode: true,
+            duration: 180,
             status: ThreadStatus.Completed,
             threadId: 'local-thread',
           }),

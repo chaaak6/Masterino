@@ -93,13 +93,19 @@ export class ConversationControlActionImpl {
         ? topicSelectors.getTopicById(topicId)(this.#get())?.metadata
         : undefined,
     });
+    // The local default used for new desktop topics is not proof that a legacy
+    // group turn was created on this desktop. Older gateway turns lack a snapshot.
+    const hasSelectedLocalMcp = !!toolIdentifier && isDeviceLocalMcpToolIdentifier(toolIdentifier);
+    const executionTarget =
+      context.groupId && !topicSnapshot && !hasSelectedLocalMcp
+        ? agentConfig?.agencyConfig?.executionTarget
+        : (pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget);
     const runtime = await selectConversationRuntime({
       boundDeviceId:
         pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-      executionTarget:
-        pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget,
+      executionTarget,
       groupId: context.groupId,
-      hasSelectedLocalMcp: !!toolIdentifier && isDeviceLocalMcpToolIdentifier(toolIdentifier),
+      hasSelectedLocalMcp,
       heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
       isGatewayMode: this.#get().isGatewayModeEnabled(context.agentId),
     });

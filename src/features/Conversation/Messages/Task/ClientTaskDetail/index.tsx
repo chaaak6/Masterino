@@ -80,16 +80,18 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
       [isProcessing, threadMessages],
     );
 
-    if (taskDetail?.status === ThreadStatus.Failed || taskDetail?.status === ThreadStatus.Cancel) {
-      return <ErrorState taskDetail={taskDetail} />;
-    }
+    const errorState =
+      taskDetail?.status === ThreadStatus.Failed || taskDetail?.status === ThreadStatus.Cancel ? (
+        <ErrorState taskDetail={taskDetail} />
+      ) : undefined;
 
-    if (!threadMessages) return isLoading ? <BubblesLoading /> : <InitializingState />;
+    if (!threadMessages)
+      return errorState ?? (isLoading ? <BubblesLoading /> : <InitializingState />);
 
     const { assistantId } = resolveAssistantGroupFromMessages(threadMessages);
     const assistant = threadMessages.find(({ id }) => id === assistantId);
 
-    if (!assistant && pendingInterventions.length === 0) return <InitializingState />;
+    if (!assistant && pendingInterventions.length === 0) return errorState ?? <InitializingState />;
 
     return (
       <ConversationProvider skipFetch context={threadContext} messages={rawThreadMessages}>
@@ -104,6 +106,7 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
             totalCost={taskDetail?.totalCost}
           />
         )}
+        {errorState}
         {pendingInterventions.length > 0 && (
           <InterventionBar interventions={pendingInterventions} />
         )}

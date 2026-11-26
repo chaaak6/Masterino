@@ -12,6 +12,7 @@ import type {
 
 const HEARTBEAT_INTERVAL = 30_000; // 30s
 const INITIAL_RECONNECT_DELAY = 1000; // 1s
+const INITIAL_CONNECTION_TIMEOUT = 45_000;
 const RECOVERY_TIMEOUT = 45_000;
 const MAX_RECONNECT_DELAY = 30_000; // 30s
 const MAX_MISSED_HEARTBEATS = 3;
@@ -64,6 +65,7 @@ class TypedEmitter {
  */
 export class AgentStreamClient extends TypedEmitter {
   private ws: WebSocket | null = null;
+  private connectionTimer?: ReturnType<typeof setTimeout>;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private recoveryTimer?: ReturnType<typeof setTimeout>;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -128,6 +130,7 @@ export class AgentStreamClient extends TypedEmitter {
     if (this._status === 'connected' || this._status === 'connecting') return;
     this.intentionalDisconnect = false;
     this.sessionEnded = false;
+    if (this.resumeOnConnect) this.startRecoveryTimer();
     this.doConnect();
   }
 
@@ -176,6 +179,7 @@ export class AgentStreamClient extends TypedEmitter {
     this.intentionalDisconnect = false;
     this.sessionEnded = false;
     this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    this.startRecoveryTimer();
     this.doConnect();
   }
 
@@ -183,7 +187,6 @@ export class AgentStreamClient extends TypedEmitter {
 
   private doConnect(): void {
     this.clearReconnectTimer();
-    this.startRecoveryTimer();
     this.setStatus('connecting');
 
     try {
@@ -196,12 +199,17 @@ export class AgentStreamClient extends TypedEmitter {
       ws.onerror = this.handleError;
 
       this.ws = ws;
+      // A fresh handshake gets its own deadline. The recovery budget starts
+      // only when that attempt fails, and also bounds any stalled retries.
+      if (!this.recoveryTimer) {
+        this.connectionTimer = setTimeout(() => {
+          this.closeWebSocket();
+          this.handleClose();
+        }, INITIAL_CONNECTION_TIMEOUT);
+      }
     } catch (error) {
       console.error('[AgentStreamClient] Failed to create WebSocket:', error);
-      this.setStatus('disconnected');
-      if (this.autoReconnect && !this.sessionEnded) {
-        this.scheduleReconnect();
-      }
+      this.handleClose();
     }
   }
 
@@ -231,6 +239,7 @@ export class AgentStreamClient extends TypedEmitter {
 
       switch (message.type) {
         case 'auth_success': {
+          this.clearConnectionTimer();
           this.clearRecoveryTimer();
           this.setStatus('connected');
           this.startHeartbeat();
@@ -359,6 +368,7 @@ export class AgentStreamClient extends TypedEmitter {
   };
 
   private handleClose = (): void => {
+    this.clearConnectionTimer();
     this.stopHeartbeat();
     this.ws = null;
 
@@ -433,6 +443,11 @@ export class AgentStreamClient extends TypedEmitter {
       this.setStatus('disconnected');
       this.emit('recovery_exhausted');
     }, RECOVERY_TIMEOUT);
+  }
+
+  private clearConnectionTimer(): void {
+    clearTimeout(this.connectionTimer);
+    this.connectionTimer = undefined;
   }
 
   private clearRecoveryTimer(): void {
@@ -527,6 +542,7 @@ export class AgentStreamClient extends TypedEmitter {
   }
 
   private cleanup(): void {
+    this.clearConnectionTimer();
     this.stopHeartbeat();
     this.clearRecoveryTimer();
     this.clearReconnectTimer();

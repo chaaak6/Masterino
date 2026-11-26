@@ -18,7 +18,7 @@ import { getAgentStoreState } from '@/store/agent';
 import { agentByIdSelectors, agentSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
-import { selectRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
+import { selectConversationRuntime } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import {
   parseMentionedAgentsFromEditorData,
   parseSelectedSkillsFromEditorData,
@@ -86,16 +86,16 @@ const getFrozenTopicWorkspaceId = (
   return topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot?.workspaceId;
 };
 
-const getSelectedLocalMcpRoute = (
+const getGenerationRoute = (
   chatStore: ReturnType<typeof useChatStore.getState>,
-  topicId: string | undefined,
+  { groupId, topicId }: ConversationContext,
   selectedTools: RuntimeSelectedTool[] | undefined,
 ) => {
   const hasSelectedLocalMcp = selectedTools?.some(({ identifier }) =>
     isDeviceLocalMcpIdentifier(identifier),
   );
   const topicSnapshot =
-    hasSelectedLocalMcp && topicId
+    (groupId || hasSelectedLocalMcp) && topicId
       ? (getProjectWorkspaceStoreState().topicStatesById?.[topicId]?.snapshot ??
         (chatStore.topicDataMap
           ? topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot
@@ -370,15 +370,16 @@ export const generationSlice: StateCreator<
     const previousUserMessage = displayMessages
       .slice(0, messageIndex + 1)
       .findLast((item) => item.role === 'user');
-    const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+    const { hasSelectedLocalMcp, topicSnapshot } = getGenerationRoute(
       chatStore,
-      topicId,
+      context,
       parseSelectedToolsFromEditorData(previousUserMessage?.editorData ?? undefined),
     );
     const runtimeType = await routeDesktopWorkspaceRuntime(
-      selectRuntimeType({
+      await selectConversationRuntime({
         boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
         executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+        groupId: context.groupId,
         hasSelectedLocalMcp,
         heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
         isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
@@ -592,15 +593,16 @@ export const generationSlice: StateCreator<
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
       const topicId = context.topicId ?? undefined;
-      const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+      const { hasSelectedLocalMcp, topicSnapshot } = getGenerationRoute(
         chatStore,
-        topicId,
+        context,
         initialContext?.initialContext?.selectedTools,
       );
       const runtimeType = await routeDesktopWorkspaceRuntime(
-        selectRuntimeType({
+        await selectConversationRuntime({
           boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
           executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+          groupId: context.groupId,
           hasSelectedLocalMcp,
           heterogeneousProvider,
           isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),

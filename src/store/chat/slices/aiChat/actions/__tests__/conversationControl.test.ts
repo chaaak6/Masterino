@@ -1545,6 +1545,41 @@ describe('ConversationControl actions', () => {
   });
 
   describe('submitToolInteraction', () => {
+    it('resumes an older Gateway group turn through the server on desktop', async () => {
+      mockConstEnv.isDesktop = true;
+      const context: ConversationContext = {
+        agentId: TEST_IDS.SESSION_ID,
+        groupId: 'legacy-group',
+        scope: 'thread',
+        threadId: 'legacy-thread',
+        topicId: TEST_IDS.TOPIC_ID,
+      };
+      const tool = createMockMessage({ id: 'legacy-tool', role: 'tool' });
+      const messageMap = { [messageMapKey(context)]: [tool] };
+      useChatStore.setState({ dbMessagesMap: messageMap, messagesMap: messageMap });
+      const state = useChatStore.getState();
+      vi.spyOn(state, 'isGatewayModeEnabled').mockReturnValue(true);
+      vi.spyOn(state, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+      vi.spyOn(state, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+      const executeClientAgent = vi.spyOn(state, 'executeClientAgent');
+      const executeGatewayAgent = vi.spyOn(state, 'executeGatewayAgent').mockResolvedValue({
+        assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+        operationId: 'gateway-op',
+      });
+
+      await state.submitToolInteraction(tool.id, { answer: 'continue' }, context, {
+        createUserMessage: false,
+      });
+
+      expect(executeGatewayAgent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context,
+          resumeInteraction: { parentMessageId: tool.id, phase: 'tool_result' },
+        }),
+      );
+      expect(executeClientAgent).not.toHaveBeenCalled();
+    });
+
     it('continues a submitted interaction with the model persisted on its assistant turn', async () => {
       mockConstEnv.isDesktop = true;
       const { result } = renderHook(() => useChatStore());

@@ -1,5 +1,6 @@
 import type { AgentStreamEvent } from '@lobechat/agent-gateway-client';
 import { RequestTrigger } from '@lobechat/types';
+import { TRPCClientError } from '@trpc/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as ConstVersion from '@/const/version';
@@ -495,12 +496,19 @@ describe('GatewayActionImpl', () => {
         expect(onSessionComplete).not.toHaveBeenCalled();
       });
 
-      it('should fire onSessionComplete when token refresh itself throws', async () => {
+      it.each([
+        ['transport failure', new Error('refresh API down'), true],
+        [
+          'missing operation',
+          Object.assign(new TRPCClientError('No running operation'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+          false,
+        ],
+      ] as const)('settles a token refresh %s', async (_label, error, recoverable) => {
         const { action, mockClient } = createTestAction();
         const onSessionComplete = vi.fn();
-        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
-          new Error('refresh API down'),
-        );
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(error);
 
         action.connectToGateway({
           gatewayUrl: 'https://gateway.test.com',
@@ -519,6 +527,13 @@ describe('GatewayActionImpl', () => {
         expect(mockClient.reconnect).not.toHaveBeenCalled();
         expect(mockClient.disconnect).toHaveBeenCalled();
         await vi.waitFor(() => expect(onSessionComplete).toHaveBeenCalledOnce());
+        if (recoverable) {
+          expect(onSessionComplete).toHaveBeenCalledWith(expect.any(Error), {
+            serverMayBeRunning: true,
+          });
+        } else {
+          expect(onSessionComplete).toHaveBeenCalledWith(expect.any(Error));
+        }
       });
 
       it.each(['success', 'failure'])(

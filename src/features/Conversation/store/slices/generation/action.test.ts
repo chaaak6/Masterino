@@ -1189,7 +1189,7 @@ describe('Generation Actions', () => {
   describe('regenerate hetero branch characterization (lifecycle refactor regression net)', () => {
     // The hetero regenerate path lives behind `runtimeType === 'hetero'`. We
     // force that decision (it normally requires desktop + a local CLI provider)
-    // by stubbing `selectRuntimeType`, and supply a `heterogeneousProvider` via
+    // by stubbing `selectConversationRuntime`, and supply a `heterogeneousProvider` via
     // the agent config selector so the `runtimeType === 'hetero' && provider`
     // guard passes.
     const heterogeneousProvider = { type: 'claude-code' } as any;
@@ -1238,7 +1238,7 @@ describe('Generation Actions', () => {
 
     beforeEach(() => {
       // Force the hetero routing decision.
-      vi.spyOn(agentDispatcher, 'selectRuntimeType').mockReturnValue('hetero');
+      vi.spyOn(agentDispatcher, 'selectConversationRuntime').mockResolvedValue('hetero');
       // Supply a config that carries the hetero provider used by the branch.
       vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(
         () => ({ agencyConfig: { heterogeneousProvider } }) as any,
@@ -1394,7 +1394,7 @@ describe('Generation Actions', () => {
     // ~336): CLIs have no "continue a cut-off response" primitive, so the
     // button is a documented no-op. Lock that no runtime is dispatched.
     beforeEach(() => {
-      vi.spyOn(agentDispatcher, 'selectRuntimeType').mockReturnValue('hetero');
+      vi.spyOn(agentDispatcher, 'selectConversationRuntime').mockResolvedValue('hetero');
       vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(
         () =>
           ({

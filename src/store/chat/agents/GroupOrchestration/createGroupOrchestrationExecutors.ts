@@ -793,7 +793,7 @@ export const createGroupOrchestrationExecutors = (
         publishTaskState(
           {
             completedAt: new Date().toISOString(),
-            duration: Date.now() - new Date(startedAt).getTime(),
+            duration: messageMetrics.duration,
             status: ThreadStatus.Completed,
             totalCost,
             totalMessages: subTaskMessages.length,

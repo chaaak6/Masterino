@@ -318,8 +318,8 @@ Action:
 - broadcast: \`agentIds\` (array), \`instruction\` (optional shared guidance)
 
 **Task Execution:**
-- executeAgentTask: \`agentId\`, \`title\` (brief UI label), \`task\` (detailed instructions with expected deliverables), \`timeout\` (optional, default 30min)
-- executeAgentTasks: \`tasks\` (array of {agentId, title, task, timeout?}), \`skipCallSupervisor\` (optional)
+- executeAgentTask: \`agentId\`, \`title\` (brief UI label), \`instruction\` (detailed instructions with expected deliverables), \`timeout\` (optional, default 30min)
+- executeAgentTasks: \`tasks\` (array of {agentId, title, instruction, timeout?}), \`skipCallSupervisor\` (optional)
 
 **⚠️ CRITICAL: JSON Array Format for executeAgentTasks**
 The \`tasks\` parameter MUST be a proper JSON array, NOT a stringified JSON string.
