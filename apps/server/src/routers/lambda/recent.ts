@@ -19,6 +19,7 @@ export interface RecentItem {
   title: string;
   type: 'topic' | 'document' | 'task';
   updatedAt: Date;
+  workspaceDeviceScope?: string;
 }
 
 const recentProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) => {
@@ -32,11 +33,15 @@ const recentProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) =
 
 export const recentRouter = router({
   getAll: recentProcedure
-    .input(z.object({ limit: z.number().optional() }).optional())
+    .input(
+      z
+        .object({ limit: z.number().optional(), localDeviceId: z.string().min(1).optional() })
+        .optional(),
+    )
     .query(async ({ ctx, input }): Promise<RecentItem[]> => {
       const limit = input?.limit ?? 10;
 
-      const items = await ctx.recentModel.queryRecent(limit);
+      const items = await ctx.recentModel.queryRecent(limit, input?.localDeviceId);
 
       return items.map((item) => {
         let routePath: string;
@@ -74,6 +79,9 @@ export const recentRouter = router({
           title: item.title,
           type: item.type,
           updatedAt: item.updatedAt,
+          ...(item.type === 'topic' && input?.localDeviceId
+            ? { workspaceDeviceScope: input.localDeviceId }
+            : {}),
         };
       });
     }),

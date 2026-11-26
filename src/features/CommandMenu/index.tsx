@@ -38,8 +38,11 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
     handleSendToSelectedAgent,
     hasSearch,
     isSearching,
+    searchDeviceUnavailable,
     searchQuery,
     searchResults,
+    searchFailed,
+    searchIncomplete,
     selectedAgent,
   } = useCommandMenu();
 
@@ -81,6 +84,9 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
     },
     [],
   );
+
+  const showSearchResults =
+    !page && !selectedAgent && hasSearch && !search.trimStart().startsWith('@');
 
   return (
     <div className={styles.overlay} data-closing={isClosing} onClick={onClose}>
@@ -133,9 +139,14 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
           <Command.List ref={listRef}>
             {/* Hide cmdk's Empty when we have search results or are loading them,
                since force-mounted items aren't counted by cmdk's internal filter */}
-            {!(hasSearch && (searchResults.length > 0 || isSearching)) && (
-              <Command.Empty>{t('cmdk.noResults')}</Command.Empty>
-            )}
+            {!(
+              showSearchResults &&
+              (searchResults.length > 0 ||
+                isSearching ||
+                searchDeviceUnavailable ||
+                searchFailed ||
+                searchIncomplete)
+            ) && <Command.Empty>{t('cmdk.noResults')}</Command.Empty>}
 
             {/* Show send command when agent is selected */}
             {selectedAgent && (
@@ -170,15 +181,28 @@ const CommandMenuContent = memo<CommandMenuContentProps>(({ isClosing, onClose }
             {page === 'theme' && <ThemeMenu />}
             {page === 'ask-ai' && <AskAIMenu />}
 
-            {!page && !selectedAgent && hasSearch && !search.trimStart().startsWith('@') && (
-              <SearchResults
-                isLoading={isSearching}
-                results={searchResults}
-                searchQuery={searchQuery}
-                typeFilter={typeFilter}
-                onClose={onClose}
-                onSetTypeFilter={setTypeFilter}
-              />
+            {showSearchResults && (
+              <>
+                {(searchDeviceUnavailable || searchFailed || searchIncomplete) && (
+                  <div className={styles.itemContent} role="status">
+                    {t(
+                      searchDeviceUnavailable
+                        ? 'cmdk.search.deviceUnavailable'
+                        : searchFailed
+                          ? 'cmdk.search.failed'
+                          : 'cmdk.search.incomplete',
+                    )}
+                  </div>
+                )}
+                <SearchResults
+                  isLoading={isSearching}
+                  results={searchResults}
+                  searchQuery={searchQuery}
+                  typeFilter={typeFilter}
+                  onClose={onClose}
+                  onSetTypeFilter={setTypeFilter}
+                />
+              </>
             )}
           </Command.List>
 

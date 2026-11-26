@@ -136,20 +136,19 @@ describe('TopicModel - Query', () => {
         pageSize: 2,
         current: 2,
       });
-      expect(first.total).toBe(5);
+      expect(first.total).toBe(4);
       expect([...first.items, ...second.items, ...third.items].map((t) => t.id).sort()).toEqual([
         'local-0',
         'local-1',
         'local-2',
         'plain',
-        'scratch',
       ]);
       expect((await topicModel.query({ containerId: sessionId })).total).toBe(41);
       expect(
         (await topicModel.queryTopics({ localDeviceId: 'mac-a', pageSize: 50 }))
           .map((t) => t.id)
           .sort(),
-      ).toEqual(['local-0', 'local-1', 'local-2', 'plain', 'scratch']);
+      ).toEqual(['local-0', 'local-1', 'local-2', 'plain']);
     });
 
     it('should query topics by user ID', async () => {

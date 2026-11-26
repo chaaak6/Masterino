@@ -6,6 +6,7 @@ import { produce } from 'immer';
 
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { mcpService } from '@/services/mcp';
+import { operationSelectors } from '@/store/chat/slices/operation/selectors';
 import { type ChatStore } from '@/store/chat/store';
 import { hasExecutor, invokeExecutor } from '@/store/tool/slices/builtin/executors';
 import { type StoreSetter } from '@/store/types';
@@ -262,6 +263,9 @@ export class ClientToolExecutionActionImpl {
       }
 
       // ─── MCP fallback — unified dispatch, mirrors invokeMCPTypePlugin shape ───
+      const executionContext = operationSelectors.getExecutionContext(
+        context.localOperationId ?? operationId,
+      )(this.#get());
       const mcpResult = await this.#raceAgainstDeadline(
         () =>
           mcpService
@@ -274,6 +278,7 @@ export class ClientToolExecutionActionImpl {
                 type: 'default',
               },
               {
+                executionContext,
                 signal: operation?.abortController?.signal,
                 topicId: operationTopicId,
               },

@@ -8,8 +8,8 @@ import HeaderSlot from '@/routes/(main)/agent/(chat)/_layout/HeaderSlot';
 
 import { useMenu } from './useMenu';
 
-const HeaderActions = memo(() => {
-  const { menuHeader, menuItems } = useMenu();
+const HeaderActions = memo<{ showWorkspaceActions?: boolean }>(({ showWorkspaceActions }) => {
+  const { menuHeader, menuItems } = useMenu(showWorkspaceActions);
 
   return (
     <>

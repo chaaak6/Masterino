@@ -1,4 +1,9 @@
-import type { ChatCitationItem, ModelPerformance, ModelUsage } from '@lobechat/types';
+import type {
+  ChatCitationItem,
+  ChatMessageError,
+  ModelPerformance,
+  ModelUsage,
+} from '@lobechat/types';
 import type { Pricing } from 'model-bank';
 
 import { parseToolCalls } from '../../helpers';
@@ -444,10 +449,10 @@ export const convertIterableToStream = <T>(
 export const createSSEProtocolTransformer = (
   transformer: (chunk: any, stack: StreamContext) => StreamProtocolChunk | StreamProtocolChunk[],
   streamStack?: StreamContext,
-  options?: { requireTerminalEvent?: boolean },
+  options?: { requireTerminalEvent?: boolean | 'stop' },
 ) => {
   let hasTerminalEvent = false;
-  const requireTerminalEvent = Boolean(options?.requireTerminalEvent);
+  const requireTerminalEvent = options?.requireTerminalEvent;
 
   return new TransformStream({
     flush(controller) {
@@ -476,7 +481,12 @@ export const createSSEProtocolTransformer = (
         controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
 
         // mark terminal when receiving any of these events
-        if (type === 'stop' || type === 'usage' || type === 'error') hasTerminalEvent = true;
+        if (
+          type === 'stop' ||
+          type === 'error' ||
+          (type === 'usage' && requireTerminalEvent !== 'stop')
+        )
+          hasTerminalEvent = true;
       });
     },
   });
@@ -651,6 +661,22 @@ export function createCallbacksTransformer(
 }
 
 export const FIRST_CHUNK_ERROR_KEY = '_isFirstChunkError';
+
+export const getStreamErrorChunk = (
+  chunk: Record<string, unknown>,
+): StreamProtocolChunk | undefined => {
+  if (!(FIRST_CHUNK_ERROR_KEY in chunk)) return;
+
+  const { [FIRST_CHUNK_ERROR_KEY]: _marker, name: _name, stack: _stack, ...body } = chunk;
+  const data = {
+    body,
+    message: typeof body.message === 'string' ? body.message : JSON.stringify(body),
+    type:
+      (body.errorType as typeof AgentRuntimeErrorType.ProviderBizError | undefined) ??
+      AgentRuntimeErrorType.ProviderBizError,
+  } satisfies ChatMessageError;
+  return { data, id: 'first_chunk_error', type: 'error' };
+};
 
 export const createFirstErrorHandleTransformer = (
   errorHandler?: (errorJson: any) => any,

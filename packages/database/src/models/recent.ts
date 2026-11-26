@@ -4,6 +4,7 @@ import { unionAll } from 'drizzle-orm/pg-core';
 
 import { agents, DOCUMENT_FOLDER_TYPE, documents, messages, tasks, topics } from '../schemas';
 import type { LobeChatDatabase } from '../type';
+import { desktopTopicCondition } from '../utils/desktopTopicCondition';
 import { buildWorkspaceWhere } from '../utils/workspace';
 
 export interface RecentDbItem {
@@ -40,7 +41,7 @@ export class RecentModel {
     this.workspaceId = workspaceId;
   }
 
-  queryRecent = async (limit: number = 10): Promise<RecentDbItem[]> => {
+  queryRecent = async (limit = 10, localDeviceId?: string): Promise<RecentDbItem[]> => {
     const scope = { userId: this.userId, workspaceId: this.workspaceId };
 
     // `tasks` uses `createdByUserId` instead of `userId`, so apply the
@@ -76,6 +77,7 @@ export class RecentModel {
       .where(
         and(
           buildWorkspaceWhere(scope, topics),
+          desktopTopicCondition(localDeviceId, { requireResolvedProject: true }),
           or(
             isNotNull(topics.groupId),
             eq(agents.slug, 'inbox'),

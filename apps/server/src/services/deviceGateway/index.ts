@@ -2,6 +2,10 @@ import path from 'node:path';
 
 import { type DeviceAttachment } from '@lobechat/builtin-tool-remote-device';
 import {
+  isWorkspaceScanErrorCode,
+  WorkspaceScanError,
+} from '@lobechat/device-control/workspaceError';
+import {
   type DeviceMessageApiResult,
   type DeviceStatusResult,
   type DeviceSystemInfo,
@@ -42,6 +46,16 @@ import debug from 'debug';
 import { gatewayEnv } from '@/envs/gateway';
 
 const log = debug('lobe-server:device-gateway');
+
+const readRpcErrorCode = (value?: string): string | undefined => {
+  if (!value?.startsWith('{')) return value;
+  try {
+    const { error } = JSON.parse(value);
+    return typeof error === 'string' ? error : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 /**
  * Is `target` the same as, or nested inside, `root`?
@@ -151,8 +165,8 @@ export class DeviceGateway {
    * (`invokeRpc`) — a server-internal channel the agent never sees, distinct
    * from the LLM-facing tool-call path.
    *
-   * Returns `undefined` when the gateway is unconfigured, the device is offline,
-   * or the call fails — callers fall back to the cached scan.
+   * Classified errors reach the caller; unconfigured gateways and failures
+   * from older clients keep the existing undefined result.
    */
   async initWorkspace(params: {
     deviceId: string;
@@ -174,6 +188,12 @@ export class DeviceGateway {
       }>({ deviceId, timeout, userId }, { method: 'initWorkspace', params: { scope } });
 
       if (!result.success || !result.data) {
+        const code = readRpcErrorCode(result.error);
+        if (isWorkspaceScanErrorCode(code)) throw new WorkspaceScanError(code);
+        if (code === 'DEVICE_OFFLINE' || code === 'DEVICE_NOT_FOUND') {
+          throw new WorkspaceScanError('WORKSPACE_DEVICE_OFFLINE');
+        }
+        if (code === 'TIMEOUT') throw new WorkspaceScanError('WORKSPACE_SCAN_TIMEOUT');
         log('initWorkspace: failed for deviceId=%s — %s', deviceId, result.error);
         return undefined;
       }
@@ -188,6 +208,10 @@ export class DeviceGateway {
         })),
       };
     } catch (error) {
+      if (error instanceof WorkspaceScanError) throw error;
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        throw new WorkspaceScanError('WORKSPACE_SCAN_TIMEOUT');
+      }
       log('initWorkspace: error for deviceId=%s — %O', deviceId, error);
       return undefined;
     }

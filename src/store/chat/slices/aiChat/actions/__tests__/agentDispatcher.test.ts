@@ -7,6 +7,22 @@ const remoteHeteroProvider = { type: 'openclaw' as const };
 const remoteHeteroProviderHermes = { type: 'hermes' as const };
 
 describe('selectRuntimeType', () => {
+  it('uses local execution for an explicit local MCP selection on a local desktop turn', () => {
+    const context = {
+      executionTarget: 'local' as const,
+      hasSelectedLocalMcp: true,
+      isGatewayMode: true,
+    };
+    expect(selectRuntimeType(context, { isDesktop: true })).toBe('client');
+    expect(selectRuntimeType(context, { isDesktop: false })).toBe('gateway');
+    expect(selectRuntimeType({ ...context, executionTarget: 'device' }, { isDesktop: true })).toBe(
+      'gateway',
+    );
+    expect(selectRuntimeType({ ...context, parentRuntime: 'gateway' }, { isDesktop: true })).toBe(
+      'gateway',
+    );
+  });
+
   it.each([false, true])('routes ordinary device chat through gateway (desktop=%s)', (isDesktop) => {
     expect(selectRuntimeType({ executionTarget: 'device', boundDeviceId: 'device-a', isGatewayMode: false }, { isDesktop })).toBe('gateway');
   });

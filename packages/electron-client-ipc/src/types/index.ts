@@ -1,4 +1,5 @@
 export * from './dataSync';
+export * from './deviceLocalMcp';
 export * from './git';
 export * from './heterogeneousAgent';
 export * from './imessageBridge';

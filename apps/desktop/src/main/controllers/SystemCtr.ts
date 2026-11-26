@@ -5,15 +5,15 @@ import { app, dialog, nativeTheme, shell } from 'electron';
 import * as electronIs from 'electron-is';
 import { pathExists, readdir } from 'fs-extra';
 
-import { getPythonEnvironment } from '@/modules/pythonRuntime';
-
 import { legacyLocalDbDir } from '@/const/dir';
+import { getPythonEnvironment } from '@/modules/pythonRuntime';
 import { detectRepoType } from '@/utils/git';
 import { createLogger } from '@/utils/logger';
 import {
   getAccessibilityStatus,
   getFullDiskAccessStatus,
   getMediaAccessStatus,
+  openFilesAndFoldersSettings,
   openFullDiskAccessSettings,
   requestAccessibilityAccess,
   requestMicrophoneAccess,
@@ -162,6 +162,11 @@ export default class SystemController extends ControllerModule {
   @IpcMethod()
   async openFullDiskAccessSettings() {
     return openFullDiskAccessSettings();
+  }
+
+  @IpcMethod()
+  async openFilesAndFoldersSettings() {
+    return openFilesAndFoldersSettings(process.getSystemVersion());
   }
 
   @IpcMethod()

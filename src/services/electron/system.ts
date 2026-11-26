@@ -64,6 +64,10 @@ class ElectronSystemService {
     return this.ipc.system.openExternalLink(url);
   }
 
+  async openFilesAndFoldersSettings(): Promise<void> {
+    return this.ipc.system.openFilesAndFoldersSettings();
+  }
+
   async openLogsDirectory(): Promise<void> {
     return this.ipc.system.openLogsDirectory();
   }

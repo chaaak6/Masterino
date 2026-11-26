@@ -3,7 +3,7 @@
 import { validateVideoFileSize } from '@lobechat/utils/client';
 import type { IconProps } from '@lobehub/ui';
 import { Icon, Popover, Tag } from '@lobehub/ui';
-import { GlobeOffIcon, SkillsIcon } from '@lobehub/ui/icons';
+import { GlobeOffIcon, McpIcon, SkillsIcon } from '@lobehub/ui/icons';
 import { css, cssVar, cx } from 'antd-style';
 import {
   Brain,
@@ -25,8 +25,10 @@ import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { message } from '@/components/AntdStaticMethods';
+import { isDesktop } from '@/const/version';
 import { useAttachmentScope } from '@/features/ChatInput/hooks/useAttachmentScope';
 import { openAttachKnowledgeModal } from '@/features/LibraryModal';
+import { createSkillStoreModal } from '@/features/SkillStore';
 import { useIsDark } from '@/hooks/useIsDark';
 import { useModelSupportToolUse } from '@/hooks/useModelSupportToolUse';
 import { useVisualMediaUploadAbility } from '@/hooks/useVisualMediaUploadAbility';
@@ -50,7 +52,8 @@ import { settingsSelectors } from '@/store/user/selectors';
 
 import { useAgentId } from '../../hooks/useAgentId';
 import { useUpdateAgentConfig } from '../../hooks/useUpdateAgentConfig';
-import { useChatInputStore } from '../../store';
+import { INSERT_ACTION_TAG_COMMAND } from '../../InputEditor/ActionTag/command';
+import { useChatInputStore, useStoreApi } from '../../store';
 import Action from '../components/Action';
 import { type ActionDropdownMenuItems } from '../components/ActionDropdown';
 import { useControls as useKnowledgeControls } from '../Knowledge/useControls';
@@ -321,6 +324,7 @@ const PlusAction = memo(() => {
   const userMemoryConsent = useUserStore(settingsSelectors.memoryEnabled);
   const [showTypoBar, setShowTypoBar] = useChatInputStore((s) => [s.showTypoBar, s.setShowTypoBar]);
   const editor = useChatInputStore((s) => s.editor);
+  const inputStore = useStoreApi();
   const { canUploadImage, canUploadVideo } = useVisualMediaUploadAbility(model, provider);
   const enableFC = useModelSupportToolUse(model, provider);
   const handleOpenKnowledge = useCallback(() => {
@@ -335,12 +339,39 @@ const PlusAction = memo(() => {
   const closeDropdown = useCallback(() => setDropdownOpen(false), []);
   const {
     autoCount: skillAutoCount,
+    canUseLocalMcp,
     editPluginDrawer: skillEditPluginDrawer,
     marketFooter: skillMarketFooter,
     marketHeader: skillMarketHeader,
     marketItems: skillItems,
     pinnedCount: skillPinnedCount,
   } = useToolsControls({ closeDropdown });
+  const openLocalMcp = useCallback(() => {
+    closeDropdown();
+    const source = inputStore.getState();
+    createSkillStoreModal({
+      openLocal: true,
+      onUseLocal:
+        canUseLocalMcp && isAgentModeEnabled && enableFC && editor
+          ? ({ identifier, name }) => {
+              const current = inputStore.getState();
+              if (
+                current.editor !== editor ||
+                current.agentId !== source.agentId ||
+                current.draftKey !== source.draftKey ||
+                current.topicId !== source.topicId
+              )
+                return;
+              editor.focus();
+              editor.dispatchCommand(INSERT_ACTION_TAG_COMMAND, {
+                category: 'tool',
+                label: name,
+                type: identifier,
+              });
+            }
+          : undefined,
+    });
+  }, [canUseLocalMcp, closeDropdown, editor, enableFC, inputStore, isAgentModeEnabled]);
 
   const isModelBuiltinSearchInternal = useAiInfraStore(
     aiModelSelectors.isModelBuiltinSearchInternal(model, provider),
@@ -639,7 +670,20 @@ const PlusAction = memo(() => {
         ]
       : uploadItems;
 
-    return [...attachmentsItems, ...capabilityItems];
+    return [
+      ...attachmentsItems,
+      ...(isDesktop
+        ? [
+            {
+              icon: McpIcon,
+              key: 'local-mcp',
+              label: tSetting('deviceLocalMcp.localTab'),
+              onClick: openLocalMcp,
+            },
+          ]
+        : []),
+      ...capabilityItems,
+    ];
   }, [
     activeSearchOption,
     activeWorkspaceId,
@@ -657,6 +701,7 @@ const PlusAction = memo(() => {
     isMemoryEnabled,
     isParamsPanelActive,
     knowledgeEnabledCount,
+    openLocalMcp,
     setShowTypoBar,
     showProviderSearch,
     showTypoBar,

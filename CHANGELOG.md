@@ -2,6 +2,33 @@
 
 # Changelog
 
+### [Version 1.3.16](https://github.com/chaaak6/Masterino/compare/v1.3.15...v1.3.16)
+
+<sup>Released on **2026-11-23**</sup>
+
+#### 🐛 Bug Fixes
+
+- **mcp**: connect local STDIO tools through the desktop.
+- **misc**: restore desktop downloads in web and WeCom.
+
+<br/>
+
+<details>
+<summary><kbd>Improvements and Fixes</kbd></summary>
+
+#### What's fixed
+
+- **mcp**: connect local STDIO tools through the desktop ([9ecca3e](https://github.com/chaaak6/Masterino/commit/9ecca3e))
+- **misc**: restore desktop downloads in web and WeCom ([f6cdea2](https://github.com/chaaak6/Masterino/commit/f6cdea2))
+
+</details>
+
+<div align="right">
+
+[![](https://img.shields.io/badge/-BACK_TO_TOP-151515?style=flat-square)](#readme-top)
+
+</div>
+
 ## [Version 1.3.14](https://github.com/chaaak6/Masterino/compare/v1.3.13...v1.3.14)
 
 <sup>Released on **2026-11-12**</sup>

@@ -1,9 +1,11 @@
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
 import { LOADING_FLAT } from '@lobechat/const';
+import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import type {
   ChatImageItem,
   ConversationContext,
   HeterogeneousProviderConfig,
+  RuntimeSelectedTool,
 } from '@lobechat/types';
 import { t } from 'i18next';
 import { type StateCreator } from 'zustand';
@@ -32,6 +34,10 @@ import {
 } from '@/store/chat/utils/activeTopicDocumentContext';
 import { getElectronStoreState } from '@/store/electron';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
+import {
+  checkDesktopProjectSend,
+  ProjectDeviceMismatchError,
+} from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { type Store as ConversationStore } from '../../action';
 
@@ -78,6 +84,24 @@ const getFrozenTopicWorkspaceId = (
   // read tolerant of lifecycle tests and transitional store hydration.
   if (!chatStore.topicDataMap) return;
   return topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot?.workspaceId;
+};
+
+const getSelectedLocalMcpRoute = (
+  chatStore: ReturnType<typeof useChatStore.getState>,
+  topicId: string | undefined,
+  selectedTools: RuntimeSelectedTool[] | undefined,
+) => {
+  const hasSelectedLocalMcp = selectedTools?.some(({ identifier }) =>
+    isDeviceLocalMcpIdentifier(identifier),
+  );
+  const topicSnapshot =
+    hasSelectedLocalMcp && topicId
+      ? (getProjectWorkspaceStoreState().topicStatesById?.[topicId]?.snapshot ??
+        (chatStore.topicDataMap
+          ? topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot
+          : undefined))
+      : undefined;
+  return { hasSelectedLocalMcp, topicSnapshot };
 };
 
 /**
@@ -331,7 +355,8 @@ export const generationSlice: StateCreator<
     const chatStore = useChatStore.getState();
 
     // Find the message (blockId refers to the assistant message to continue from)
-    const message = displayMessages.find((m) => m.id === displayMessageId);
+    const messageIndex = displayMessages.findIndex((m) => m.id === displayMessageId);
+    const message = displayMessages[messageIndex];
     if (!message) return;
 
     // ===== Hook: onBeforeContinue =====
@@ -341,15 +366,25 @@ export const generationSlice: StateCreator<
     }
 
     const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
+    const topicId = context.topicId ?? undefined;
+    const previousUserMessage = displayMessages
+      .slice(0, messageIndex + 1)
+      .findLast((item) => item.role === 'user');
+    const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+      chatStore,
+      topicId,
+      parseSelectedToolsFromEditorData(previousUserMessage?.editorData ?? undefined),
+    );
     const runtimeType = await routeDesktopWorkspaceRuntime(
       selectRuntimeType({
-        boundDeviceId: agentConfig?.agencyConfig?.boundDeviceId,
-        executionTarget: agentConfig?.agencyConfig?.executionTarget,
+        boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
+        executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+        hasSelectedLocalMcp,
         heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
         isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
       }),
       {
-        topicId: context.topicId ?? undefined,
+        topicId,
         workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
       },
     );
@@ -498,6 +533,28 @@ export const generationSlice: StateCreator<
     const currentIndex = displayMessages.findIndex((c) => c.id === messageId);
     const item = displayMessages[currentIndex];
     if (!item || !validateMessageImages(item)) return;
+
+    if (context.topicId) {
+      try {
+        await checkDesktopProjectSend({
+          agentId: context.agentId,
+          groupId: context.groupId,
+          isNewTopic: false,
+          topicId: context.topicId,
+          topicMetadata: chatStore.topicDataMap
+            ? topicSelectors.getTopicById(context.topicId)(chatStore)?.metadata
+            : undefined,
+        });
+      } catch (error) {
+        antdMessage.error(
+          error instanceof ProjectDeviceMismatchError
+            ? t('workspaceRuntime.otherDeviceProject', { ns: 'chat' })
+            : t('workspaceRuntime.picker.loadError', { ns: 'chat' }),
+        );
+        return;
+      }
+    }
+
     const initialContext = mergeAgentRuntimeInitialContexts(
       await resolveActiveTopicDocumentInitialContext(context),
       buildRetryInitialContext(item.editorData),
@@ -534,15 +591,22 @@ export const generationSlice: StateCreator<
 
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
+      const topicId = context.topicId ?? undefined;
+      const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+        chatStore,
+        topicId,
+        initialContext?.initialContext?.selectedTools,
+      );
       const runtimeType = await routeDesktopWorkspaceRuntime(
         selectRuntimeType({
-          boundDeviceId: agentConfig?.agencyConfig?.boundDeviceId,
-          executionTarget: agentConfig?.agencyConfig?.executionTarget,
+          boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
+          executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+          hasSelectedLocalMcp,
           heterogeneousProvider,
           isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
         }),
         {
-          topicId: context.topicId ?? undefined,
+          topicId,
           workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
         },
       );

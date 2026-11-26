@@ -1,7 +1,7 @@
 import { isDesktop } from '@lobechat/const';
 import { type ProjectSkillItem } from '@lobechat/electron-client-ipc';
 import type { IEditor, SlashOptions } from '@lobehub/editor';
-import { SkillsIcon } from '@lobehub/ui/icons';
+import { McpIcon, SkillsIcon } from '@lobehub/ui/icons';
 import isEqual from 'fast-deep-equal';
 import Fuse from 'fuse.js';
 import { $getSelection, $isRangeSelection } from 'lexical';
@@ -9,8 +9,8 @@ import { ArchiveIcon, MessageSquarePlusIcon } from 'lucide-react';
 import { useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { message } from '@/components/AntdStaticMethods';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
-import { useEffectiveWorkingDirectory } from '@/hooks/useEffectiveWorkingDirectory';
 import { useFetchProjectSkills } from '@/hooks/useFetchProjectSkills';
 import { useAgentStore } from '@/store/agent';
 import { agentByIdSelectors } from '@/store/agent/selectors';
@@ -20,6 +20,7 @@ import { agentDocumentSkillsSelectors } from '@/store/tool/selectors';
 import type { AgentDocumentSkillItem } from '@/store/tool/slices/agentDocumentSkills/initialState';
 
 import { useAgentId } from '../../hooks/useAgentId';
+import { createLocalMcpTag, useDeviceLocalMcpPicker } from '../../hooks/useDeviceLocalMcpPicker';
 import { useChatInputStore } from '../../store';
 import { INSERT_ACTION_TAG_COMMAND, type InsertActionTagPayload } from './command';
 import { type ActionTagData, BUILTIN_COMMANDS } from './types';
@@ -44,6 +45,7 @@ const COMMAND_ICONS: Record<string, any> = {
 
 export const useSlashActionItems = (): SlashOptions['items'] => {
   const { t } = useTranslation('editor');
+  const { t: tSetting } = useTranslation('setting');
   const editorInstance = useChatInputStore((s) => s.editor);
   const activeTopicId = useChatStore((s) => s.activeTopicId);
 
@@ -52,10 +54,6 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
   // cwd. Both homogeneous and heterogeneous runtimes accept project skills now
   // (see commit dd4a4e7595), so we no longer gate on the hetero provider.
   const agentId = useAgentId();
-  // Unified cwd: topic > agent's per-device choice > device default > home.
-  // This is what makes project skills load even when only a device default is
-  // set (and for local-device runs), not just an explicit agent/topic pick.
-  const workingDirectory = useEffectiveWorkingDirectory(agentId);
 
   // Device-bound (remote) runs scan project skills on that device over the
   // `device.listProjectSkills` RPC; the local desktop reads over Electron IPC.
@@ -71,6 +69,13 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
   const isHetero = useAgentStore((s) =>
     agentId ? agentByIdSelectors.isAgentHeterogeneousById(agentId)(s) : false,
   );
+  const {
+    loadError: localMcpLoadError,
+    manifests: localMcpManifests,
+    reload: reloadLocalMcp,
+    workspace,
+  } = useDeviceLocalMcpPicker(agentId, isHetero);
+  const workingDirectory = workspace.cwd;
   const effectiveTarget = resolveExecutionTarget(agencyConfig, { isDesktop, isHetero });
   const isDeviceMode = effectiveTarget === 'device' && !!agencyConfig?.boundDeviceId;
   const remoteDeviceId = isDeviceMode ? agencyConfig.boundDeviceId : undefined;
@@ -220,6 +225,41 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
         }
       }
 
+      const localMcpStatus: SlashItem | undefined = localMcpLoadError
+        ? ({
+            icon: McpIcon,
+            key: 'local-mcp-refresh',
+            label:
+              localMcpLoadError === 'account'
+                ? tSetting('deviceLocalMcp.error.account')
+                : `${tSetting('deviceLocalMcp.loadError')} ${t('retry', { ns: 'common' })}`,
+            onSelect: () => {
+              if (localMcpLoadError === 'account') {
+                message.warning(tSetting('deviceLocalMcp.error.account'));
+              } else {
+                void reloadLocalMcp().catch(() => {});
+              }
+            },
+          } as SlashItem)
+        : undefined;
+
+      for (const manifest of localMcpManifests ?? []) {
+        const tag = createLocalMcpTag(manifest);
+        allItems.push({
+          icon: McpIcon,
+          key: `local-mcp-${tag.type}`,
+          label: tag.label,
+          metadata: {
+            category: tag.category,
+            searchText: manifest.api.map(({ name }) => name).join(' '),
+            type: tag.type,
+          },
+          onSelect: (editor: IEditor) => {
+            editor.dispatchCommand(INSERT_ACTION_TAG_COMMAND, tag);
+          },
+        } as SlashItem);
+      }
+
       // CLI and Agent installs can update the server while this window stays open.
       if (!search?.matchingString && !pendingSkillRefresh.current) {
         pendingSkillRefresh.current = useToolStore
@@ -267,12 +307,28 @@ export const useSlashActionItems = (): SlashOptions['items'] => {
 
       // Fuzzy filtering
       if (search?.matchingString && search.matchingString.length > 0) {
-        const fuse = new Fuse(allItems, { keys: ['key', 'label'], threshold: 0.4 });
-        return fuse.search(search.matchingString).map((r) => r.item);
+        const fuse = new Fuse(allItems, {
+          keys: ['key', 'label', 'metadata.searchText'],
+          threshold: 0.4,
+        });
+        const results = fuse.search(search.matchingString).map((r) => r.item);
+        if (localMcpStatus) results.push(localMcpStatus);
+        return results;
       }
 
+      if (localMcpStatus) allItems.push(localMcpStatus);
       return allItems;
     },
-    [t, editorInstance, activeTopicId, projectSkills, agentDocumentSkills],
+    [
+      t,
+      tSetting,
+      editorInstance,
+      activeTopicId,
+      projectSkills,
+      agentDocumentSkills,
+      localMcpLoadError,
+      localMcpManifests,
+      reloadLocalMcp,
+    ],
   );
 };

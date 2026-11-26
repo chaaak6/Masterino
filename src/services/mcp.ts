@@ -1,8 +1,15 @@
 import { CURRENT_VERSION, isDesktop } from '@lobechat/const';
 import {
+  DeviceLocalMcpSetupApi,
+  DeviceLocalMcpSetupIdentifier,
+  isDeviceLocalMcpIdentifier,
+  isDeviceLocalMcpToolIdentifier,
+} from '@lobechat/electron-client-ipc';
+import {
   type ChatToolPayload,
   type CheckMcpInstallResult,
   type CustomPluginMetadata,
+  type ExecutionContext,
 } from '@lobechat/types';
 import { isLocalOrPrivateUrl, safeParseJSON } from '@lobechat/utils';
 import { type PluginManifest } from '@lobehub/market-sdk';
@@ -13,6 +20,8 @@ import { type MCPToolCallResult } from '@/libs/mcp';
 import { toolsClient } from '@/libs/trpc/client';
 import { ensureElectronIpc } from '@/utils/electron/ipc';
 
+import { callDeviceLocalMcp, isKnownDeviceLocalMcpServer } from './deviceLocalMcp';
+import { requestDeviceLocalMcpSetup } from './deviceLocalMcpSetup';
 import { discoverService } from './discover';
 
 /**
@@ -30,11 +39,39 @@ function calculateObjectSizeBytes(obj: any): number {
   }
 }
 
+const getDeviceLocalMcpUserId = async () => {
+  const { getUserStoreState } = await import('@/store/user/store');
+  const { isSignedIn, user } = getUserStoreState();
+  return isSignedIn ? user?.id : undefined;
+};
+
 class MCPService {
+  private async configureDeviceLocalMcp(
+    payload: ChatToolPayload,
+    executionContext: ExecutionContext | undefined,
+    signal?: AbortSignal,
+  ) {
+    if (payload.apiName !== DeviceLocalMcpSetupApi)
+      throw new Error('Unknown local MCP setup action');
+    const userId = await getDeviceLocalMcpUserId();
+    return requestDeviceLocalMcpSetup(payload.arguments, executionContext, userId, signal);
+  }
+
   async invokeMcpToolCall(
     payload: ChatToolPayload,
-    { signal, topicId }: { signal?: AbortSignal; topicId?: string },
+    {
+      executionContext,
+      signal,
+      topicId,
+    }: { executionContext?: ExecutionContext; signal?: AbortSignal; topicId?: string },
   ) {
+    if (payload.source === 'client' && isDeviceLocalMcpToolIdentifier(payload.identifier)) {
+      if (payload.identifier === DeviceLocalMcpSetupIdentifier)
+        return this.configureDeviceLocalMcp(payload, executionContext, signal);
+      const userId = await getDeviceLocalMcpUserId();
+      return callDeviceLocalMcp(payload, executionContext, userId);
+    }
+
     await discoverService.safeInjectMPToken();
 
     const { pluginSelectors } = await import('@/store/tool/selectors');
@@ -43,19 +80,36 @@ class MCPService {
     const s = getToolStoreState();
     const { identifier, arguments: args, apiName } = payload;
 
-    // Connector-first: custom connectors execute server-side with their stored
-    // (encrypted) OAuth token, so route them before the plugin path. The client
-    // has no credentials, hence the dedicated `connector.callTool` endpoint.
-    // Only connectors with a real MCP endpoint are routed here — Lobehub/Composio
-    // skills synced into the connector store have no mcpServerUrl and keep their
-    // original executor path.
     const { connectorSelectors } = await import('@/store/tool/slices/connector');
     const connector = connectorSelectors.connectorByIdentifier(identifier)(s);
-    if (
-      connector &&
-      connector.isEnabled &&
-      (connector.mcpServerUrl || connector.mcpConnectionType === 'stdio')
-    ) {
+
+    const isStdioConnector = connector?.mcpConnectionType === 'stdio';
+    if (isStdioConnector) {
+      const tool = connector.tools?.find((item) => item.toolName === apiName);
+      const hasActiveManifest = connector.isEnabled && Boolean(connector.tools?.length);
+      if (tool?.permission === 'disabled' || (hasActiveManifest && !tool))
+        throw new Error(`MCP tool "${apiName}" is unavailable for this connector`);
+
+      if (hasActiveManifest) {
+        signal?.throwIfAborted();
+        const config = connector.mcpStdioConfig;
+        if (!isDesktop || !config?.command || executionContext?.plan.target !== 'local')
+          throw new Error('Start a run on this desktop with the local MCP server installed');
+
+        return this.callStdioTool(
+          {
+            args: safeParseJSON(args) ?? {},
+            env: config.env,
+            params: { args: config.args, command: config.command, name: identifier, type: 'stdio' },
+            toolName: apiName,
+          },
+          signal,
+        );
+      }
+    }
+
+    // HTTP connectors execute server-side with their stored credentials.
+    if (!isStdioConnector && connector?.isEnabled && connector.mcpServerUrl) {
       const { lambdaClient } = await import('@/libs/trpc/client');
       return (await lambdaClient.connector.callTool.mutate(
         { args, identifier, toolName: apiName },
@@ -68,9 +122,31 @@ class MCPService {
 
     const plugin = installPlugin || customPlugin;
 
-    if (!plugin) return;
+    if (!plugin) {
+      if (isStdioConnector)
+        throw new Error(`MCP tool "${apiName}" is unavailable for this connector`);
+
+      // Older tool messages can arrive without the runtime source. Check the device registry only
+      // after ruling out a regular connector or plugin using this identifier.
+      if (isDesktop && executionContext?.plan.target === 'local') {
+        if (!payload.source && identifier === DeviceLocalMcpSetupIdentifier)
+          return this.configureDeviceLocalMcp(payload, executionContext, signal);
+        if (isDeviceLocalMcpIdentifier(identifier)) {
+          const userId = await getDeviceLocalMcpUserId();
+          if (await isKnownDeviceLocalMcpServer(identifier, executionContext, userId))
+            return callDeviceLocalMcp(payload, executionContext, userId);
+        }
+      }
+      return;
+    }
 
     const connection = plugin.customParams?.mcp;
+    if (
+      isStdioConnector &&
+      connection?.type === 'stdio' &&
+      (!isDesktop || executionContext?.plan.target !== 'local')
+    )
+      throw new Error('Start a run on this desktop with the local MCP server installed');
     const settingsEntries = plugin.settings
       ? Object.entries(plugin.settings as Record<string, any>).filter(
           ([, value]) => value !== undefined && value !== null,
@@ -156,17 +232,13 @@ class MCPService {
           toolName: apiName,
         });
       } else if (isDesktop && isStdio) {
-        // For desktop and stdio, use IPC (main process)
-        // Note: IPC doesn't support AbortSignal yet
-        const serialized = superjson.serialize(data);
-        const serializedResult = await ensureElectronIpc().mcp.callTool(serialized as any);
-        result = superjson.deserialize(serializedResult as any) as any;
+        result = await this.callStdioTool(data, signal);
       } else {
         // For other types, use the toolsClient
         result = await toolsClient.mcp.callTool.mutate(data, { signal });
       }
 
-      success = true;
+      success = result?.success === true;
       return result;
     } catch (error) {
       const err = error as Error;
@@ -246,6 +318,31 @@ class MCPService {
 
     // Otherwise use toolsClient (via server relay)
     return toolsClient.mcp.getStreamableMcpServerManifest.query(params, { signal });
+  }
+
+  private async callStdioTool(data: object, signal?: AbortSignal): Promise<MCPToolCallResult> {
+    const serialized = superjson.serialize(data);
+    const mcp = ensureElectronIpc().mcp;
+    if (!signal) return superjson.deserialize((await mcp.callTool(serialized as any)) as any);
+
+    signal.throwIfAborted();
+    const requestId = crypto.randomUUID();
+    const stopped = Promise.withResolvers<never>();
+    const onAbort = () => {
+      stopped.reject(signal.reason);
+      // Older desktop builds accept the call but do not have the cancellation handler.
+      void mcp.cancelStdioToolCall?.(requestId).catch(() => {});
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    try {
+      const result = await Promise.race([
+        mcp.callTool(serialized as any, requestId),
+        stopped.promise,
+      ]);
+      return superjson.deserialize(result as any);
+    } finally {
+      signal.removeEventListener('abort', onAbort);
+    }
   }
 
   async getStdioMcpServerManifest(

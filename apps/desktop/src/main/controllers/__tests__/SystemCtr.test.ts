@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { App } from '@/core/App';
 import type { IpcContext } from '@/utils/ipc';
 import { IpcHandler } from '@/utils/ipc/base';
-import { __resetMacPermissionsModuleCache, __setMacPermissionsModule } from '@/utils/permissions';
+import {
+  __resetMacPermissionsModuleCache,
+  __setMacPermissionsModule,
+  openFilesAndFoldersSettings,
+} from '@/utils/permissions';
 
 import SystemController from '../SystemCtr';
 
@@ -348,6 +352,28 @@ describe('SystemController', () => {
         'x-apple.systempreferences:com.apple.preference.security?Privacy',
       );
     });
+
+    it.each([
+      ['12.7.6', 'com.apple.preference.security'],
+      ['13.0.0', 'com.apple.settings.PrivacySecurity.extension'],
+    ])('opens the Files and Folders pane for macOS %s', async (version, pane) => {
+      await openFilesAndFoldersSettings(version);
+      expect(shell.openExternal).toHaveBeenCalledExactlyOnceWith(
+        `x-apple.systempreferences:${pane}?Privacy_FilesAndFolders`,
+      );
+    });
+
+    it.each([
+      ['12.7.6', 'com.apple.preference.security?Privacy'],
+      ['13.0.0', 'com.apple.settings.PrivacySecurity.extension'],
+    ])(
+      'opens the general Privacy pane on macOS %s if the folder link fails',
+      async (version, pane) => {
+        vi.mocked(shell.openExternal).mockRejectedValueOnce(new Error('Unavailable pane'));
+        await openFilesAndFoldersSettings(version);
+        expect(shell.openExternal).toHaveBeenLastCalledWith(`x-apple.systempreferences:${pane}`);
+      },
+    );
 
     it('should return granted if Full Disk Access is already granted', async () => {
       permissionsMock.getAuthStatus.mockReturnValue('authorized');

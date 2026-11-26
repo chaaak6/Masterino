@@ -178,7 +178,7 @@ describe('AgentPickerStep', () => {
     fireEvent.click(continueButton);
 
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
-    expect(installMarketplaceAgents).toHaveBeenCalledWith(['t1']);
+    expect(installMarketplaceAgents).toHaveBeenCalledWith(['t1'], new Map([['t1', '🤖']]));
     expect(finishOnboarding).toHaveBeenCalledTimes(1);
     expect(metrics.trackOnboardingStepCompleted).toHaveBeenCalledWith({
       action: 'continue',

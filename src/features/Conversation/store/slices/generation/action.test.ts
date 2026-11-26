@@ -3,11 +3,13 @@ import type * as LobechatConstModule from '@lobechat/const';
 import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import { messageService } from '@/services/message';
 import { agentSelectors } from '@/store/agent/selectors';
 import * as agentDispatcher from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import * as heterogeneousAgentExecutor from '@/store/chat/slices/aiChat/actions/heterogeneousAgentExecutor';
 import { INPUT_LOADING_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
+import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { type ConversationContext, type ConversationHooks } from '../../../types';
 import { createStore } from '../../index';
@@ -28,6 +30,11 @@ const mockExecuteClientAgent = vi.fn();
 const mockIsGatewayModeEnabled = vi.fn(() => false);
 const mockExecuteGatewayAgent = vi.fn();
 const mockConstEnv = vi.hoisted(() => ({ isDesktop: false }));
+
+vi.mock('@/components/AntdStaticMethods', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  message: { error: vi.fn() },
+}));
 
 vi.mock('@lobechat/const', async (importOriginal) => {
   const actual = await importOriginal<typeof LobechatConstModule>();
@@ -180,46 +187,71 @@ describe('Generation Actions', () => {
   });
 
   describe('continueGeneration', () => {
-    it('keeps an unbound Electron continuation in the client runtime', async () => {
-      mockConstEnv.isDesktop = true;
-      vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(
-        () => ({ agencyConfig: {} }) as any,
-      );
-      const { useChatStore } = await import('@/store/chat');
-      vi.mocked(useChatStore.getState).mockReturnValue({
-        completeOperation: mockCompleteOperation,
-        executeClientAgent: mockExecuteClientAgent,
-        executeGatewayAgent: mockExecuteGatewayAgent,
-        failOperation: mockFailOperation,
-        isGatewayModeEnabled: vi.fn(() => false),
-        messagesMap: {},
-        operations: {},
-        operationsByMessage: {},
-        startOperation: mockStartOperation,
-        topicDataMap: {},
-      } as any);
-
-      const context: ConversationContext = {
-        agentId: 'session-1',
-        threadId: null,
-        topicId: 'topic-1',
-      };
-      const store = createStore({ context });
-      act(() => {
-        store.setState({
-          displayMessages: [{ content: 'partial', id: 'msg-1', role: 'assistant' }],
+    it.each([false, true])(
+      'keeps an Electron continuation local with selected MCP = %s',
+      async (selectedMcp) => {
+        mockConstEnv.isDesktop = true;
+        vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(
+          () => ({ agencyConfig: selectedMcp ? { executionTarget: 'local' } : {} }) as any,
+        );
+        const { useChatStore } = await import('@/store/chat');
+        vi.mocked(useChatStore.getState).mockReturnValue({
+          completeOperation: mockCompleteOperation,
+          executeClientAgent: mockExecuteClientAgent,
+          executeGatewayAgent: mockExecuteGatewayAgent,
+          failOperation: mockFailOperation,
+          isGatewayModeEnabled: vi.fn(() => selectedMcp),
+          messagesMap: {},
+          operations: {},
+          operationsByMessage: {},
+          startOperation: mockStartOperation,
+          topicDataMap: {},
         } as any);
-      });
 
-      await act(async () => {
-        await store.getState().continueGenerationMessage('msg-1', 'msg-1');
-      });
+        const context: ConversationContext = {
+          agentId: 'session-1',
+          threadId: null,
+          topicId: 'topic-1',
+        };
+        const store = createStore({ context });
+        act(() => {
+          store.setState({
+            displayMessages: [
+              ...(selectedMcp
+                ? [
+                    {
+                      editorData: {
+                        root: {
+                          children: [
+                            {
+                              actionCategory: 'tool',
+                              actionLabel: 'Local CAD',
+                              actionType: 'local-mcp-000000000000000000000001',
+                              type: 'action-tag',
+                            },
+                          ],
+                        },
+                      },
+                      id: 'request',
+                      role: 'user',
+                    },
+                  ]
+                : []),
+              { content: 'partial', id: 'msg-1', role: 'assistant' },
+            ],
+          } as any);
+        });
 
-      expect(mockExecuteClientAgent).toHaveBeenCalledWith(
-        expect.objectContaining({ context, parentMessageId: 'msg-1' }),
-      );
-      expect(mockExecuteGatewayAgent).not.toHaveBeenCalled();
-    });
+        await act(async () => {
+          await store.getState().continueGenerationMessage('msg-1', 'msg-1');
+        });
+
+        expect(mockExecuteClientAgent).toHaveBeenCalledWith(
+          expect.objectContaining({ context, parentMessageId: 'msg-1' }),
+        );
+        expect(mockExecuteGatewayAgent).not.toHaveBeenCalled();
+      },
+    );
 
     it('should continue generation from assistantGroup message with last child as blockId', async () => {
       // Reset mock to ensure all required functions are available
@@ -717,6 +749,27 @@ describe('Generation Actions', () => {
   });
 
   describe('regenerateUserMessage', () => {
+    it('reports an unavailable workspace and leaves the current reply branch in place', async () => {
+      const check = vi
+        .spyOn(topicExecutionIntent, 'checkDesktopProjectSend')
+        .mockRejectedValueOnce(new Error('Workspace service unavailable'));
+      try {
+        const store = createStore({
+          context: { agentId: 'session-1', threadId: null, topicId: 'topic-1' },
+        });
+        store.setState({
+          displayMessages: [{ content: 'Hello', id: 'msg-1', role: 'user' }],
+        } as any);
+
+        await expect(store.getState().regenerateUserMessage('msg-1')).resolves.toBeUndefined();
+        expect(antdMessage.error).toHaveBeenCalledOnce();
+        expect(mockStartOperation).not.toHaveBeenCalled();
+        expect(mockSwitchMessageBranch).not.toHaveBeenCalled();
+      } finally {
+        check.mockRestore();
+      }
+    });
+
     it('should pass operationId to switchMessageBranch for correct context', async () => {
       // Re-setup mock with all required properties
       const { useChatStore } = await import('@/store/chat');

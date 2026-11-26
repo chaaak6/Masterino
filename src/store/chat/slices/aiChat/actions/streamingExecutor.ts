@@ -21,13 +21,18 @@ import {
   type OperationSkillSet,
   type ToolsEngine,
 } from '@lobechat/context-engine';
-import { buildTaskDetailPrompt, buildTaskListPrompt } from '@lobechat/prompts';
+import {
+  appendWorkspaceInstructions,
+  buildTaskDetailPrompt,
+  buildTaskListPrompt,
+} from '@lobechat/prompts';
 import {
   type ConversationContext,
   type ExecutionContext,
   type MessageMetadata,
   type RunSubAgentResult,
   type RuntimeInitialContext,
+  type ToolManifest,
   type UIChatMessage,
   type WorkingModel,
 } from '@lobechat/types';
@@ -51,6 +56,8 @@ import { isCanUseVideo } from '@/services/chat/helper';
 import { type ResolvedAgentConfig } from '@/services/chat/mecha';
 import { composeEnabledTools, resolveAgentConfig } from '@/services/chat/mecha';
 import { resolveClientSkills } from '@/services/chat/mecha/skillEngineering';
+import { getDeviceLocalMcpManifests } from '@/services/deviceLocalMcp';
+import { getDeviceLocalMcpSetupManifest } from '@/services/deviceLocalMcpSetup';
 import { localFileService } from '@/services/electron/localFileService';
 import { messageService } from '@/services/message';
 import { scanOperationWorkspace } from '@/services/operationWorkspaceScan';
@@ -155,11 +162,65 @@ export class StreamingExecutorActionImpl {
     this.#get = get;
   }
 
+  private resolveAgentExecutionContext({
+    agentConfigData,
+    operationId,
+    operationWorkingDirectory,
+    topicId,
+  }: {
+    agentConfigData: ResolvedAgentConfig['agentConfig'];
+    operationId?: string;
+    operationWorkingDirectory?: string;
+    topicId?: string | null;
+  }): ExecutionContext {
+    // Resolve the same topic execution evidence before exposing tools to the model.
+    const workspaceState = getProjectWorkspaceStoreState();
+    const topicState = topicId ? workspaceState.topicStatesById[topicId] : undefined;
+    const boundTopic = topicId ? topicSelectors.getTopicById(topicId)(this.#get()) : undefined;
+    const snapshot = topicState?.snapshot ?? boundTopic?.metadata?.executionSnapshot;
+    const workspace = topicState?.workspace;
+    return (
+      (operationId ? this.#get().operations[operationId]?.metadata?.executionContext : undefined) ??
+      resolveFrozenClientExecutionContext({
+        agencyConfig: agentConfigData.agencyConfig,
+        chatConfig: agentConfigData.chatConfig,
+        isDesktop,
+        isHetero: !!agentConfigData.agencyConfig?.heterogeneousProvider,
+        operationId: operationId ?? 'initial',
+        snapshot,
+        requestedDeviceId:
+          snapshot?.boundDeviceId ??
+          workspace?.deviceId ??
+          agentConfigData.agencyConfig?.boundDeviceId,
+        topic: boundTopic
+          ? {
+              boundDeviceId: boundTopic.metadata?.boundDeviceId,
+              workingDirectory: boundTopic.metadata?.workingDirectory,
+              workspaceId: boundTopic.metadata?.workspaceId,
+            }
+          : undefined,
+        initialTopicMetadata:
+          !topicId && operationWorkingDirectory
+            ? { workingDirectory: operationWorkingDirectory }
+            : undefined,
+        topicId: topicId ?? undefined,
+        topicGrants: Object.values(workspaceState.grantsByTopicDevice).flat(),
+        workspaces: {
+          ...workspaceState.workspacesById,
+          ...(workspace?.id ? { [workspace.id]: workspace } : {}),
+        },
+        envFiles: workspace?.id ? workspaceState.workspacesById[workspace.id]?.envFiles : undefined,
+      })
+    );
+  }
+
   internal_createAgentState = ({
     messages,
     parentMessageId,
     agentId: paramAgentId,
+    deviceLocalMcpManifests,
     disableTools,
+    prepared,
     topicId: paramTopicId,
     threadId,
     initialState,
@@ -173,6 +234,8 @@ export class StreamingExecutorActionImpl {
     messages: UIChatMessage[];
     parentMessageId: string;
     agentId?: string;
+    deviceLocalMcpManifests?: ToolManifest[];
+    prepared?: { agentConfig: ResolvedAgentConfig; executionContext: ExecutionContext };
     disableTools?: boolean;
     topicId?: string | null;
     threadId?: string;
@@ -216,13 +279,15 @@ export class StreamingExecutorActionImpl {
     // This ensures runtime plugins (e.g., 'lobe-agent-builder' for Agent Builder) are included
     // - isSubAgent: filters out lobe-agent tool to prevent nested sub-agent creation
     // - disableTools: clears all plugins for broadcast scenarios
-    const resolvedAgentConfig = resolveAgentConfig({
-      agentId: effectiveAgentId || '',
-      disableTools, // Clear plugins for broadcast scenarios
-      groupId, // Pass groupId for supervisor detection
-      isSubAgent, // Filter out lobe-agent in sub-agent context
-      scope, // Pass scope from operation context
-    });
+    const resolvedAgentConfig =
+      prepared?.agentConfig ??
+      resolveAgentConfig({
+        agentId: effectiveAgentId || '',
+        disableTools, // Clear plugins for broadcast scenarios
+        groupId, // Pass groupId for supervisor detection
+        isSubAgent, // Filter out lobe-agent in sub-agent context
+        scope, // Pass scope from operation context
+      });
 
     const agentConfig = workingModel
       ? {
@@ -280,6 +345,7 @@ export class StreamingExecutorActionImpl {
     const runtimePluginIds = [
       ...new Set([
         ...(pluginIds || []),
+        ...(deviceLocalMcpManifests?.map(({ identifier }) => identifier) ?? []),
         ...(hasTopicReference ? ['lobe-topic-reference'] : []),
         ...(shouldEnableVisualUnderstanding ? [LobeAgentManifest.identifier] : []),
       ]),
@@ -298,43 +364,13 @@ export class StreamingExecutorActionImpl {
       hasTopicReference,
     );
 
-    // Resolve the same topic execution evidence before exposing tools to the model.
-    const workspaceState = getProjectWorkspaceStoreState();
-    const topicState = topicId ? workspaceState.topicStatesById[topicId] : undefined;
-    const boundTopic = topicId ? topicSelectors.getTopicById(topicId)(this.#get()) : undefined;
-    const snapshot = topicState?.snapshot ?? boundTopic?.metadata?.executionSnapshot;
-    const workspace = topicState?.workspace;
     const executionContext =
-      operation?.metadata?.executionContext ??
-      resolveFrozenClientExecutionContext({
-        agencyConfig: agentConfigData.agencyConfig,
-        chatConfig: agentConfigData.chatConfig,
-        isDesktop,
-        isHetero: !!agentConfigData.agencyConfig?.heterogeneousProvider,
-        operationId: operationId ?? 'initial',
-        snapshot,
-        requestedDeviceId:
-          snapshot?.boundDeviceId ??
-          workspace?.deviceId ??
-          agentConfigData.agencyConfig?.boundDeviceId,
-        topic: boundTopic
-          ? {
-              boundDeviceId: boundTopic.metadata?.boundDeviceId,
-              workingDirectory: boundTopic.metadata?.workingDirectory,
-              workspaceId: boundTopic.metadata?.workspaceId,
-            }
-          : undefined,
-        initialTopicMetadata:
-          !topicId && operationWorkingDirectory
-            ? { workingDirectory: operationWorkingDirectory }
-            : undefined,
-        topicId: topicId ?? undefined,
-        topicGrants: Object.values(workspaceState.grantsByTopicDevice).flat(),
-        workspaces: {
-          ...workspaceState.workspacesById,
-          ...(workspace?.id ? { [workspace.id]: workspace } : {}),
-        },
-        envFiles: workspace?.id ? workspaceState.workspacesById[workspace.id]?.envFiles : undefined,
+      prepared?.executionContext ??
+      this.resolveAgentExecutionContext({
+        agentConfigData,
+        operationId,
+        operationWorkingDirectory,
+        topicId,
       });
     // Generate tools using ToolsEngine (centralized here, passed to chatService via agentConfig)
     // When disableTools is true (broadcast mode), skipDefaultTools prevents default tools from being added
@@ -343,6 +379,7 @@ export class StreamingExecutorActionImpl {
       effectivePluginIds,
       executionContext,
       agentConfigData,
+      ...(deviceLocalMcpManifests?.length ? [deviceLocalMcpManifests] : []),
     );
     // When skillActivateMode is 'manual':
     // Exclude only discovery tools (activator, skill-store) so runtime-managed defaults
@@ -762,6 +799,42 @@ export class StreamingExecutorActionImpl {
       // Step 1: Create Agent State (resolves config once)
       // ===========================================
       // agentConfig already has isSubAgent filtering applied and is passed to callLLM executor
+      const { isSignedIn, user } = getUserStoreState();
+      let prepared:
+        | { agentConfig: ResolvedAgentConfig; executionContext: ExecutionContext }
+        | undefined;
+      if (isDesktop && !disableTools && isSignedIn && user?.id && !frozenExecutionContext) {
+        const operation = this.#get().operations[operationId];
+        const agentConfig = resolveAgentConfig({
+          agentId: effectiveAgentId || '',
+          disableTools,
+          groupId: operation?.context.groupId,
+          isSubAgent,
+          scope: operation?.context.scope,
+        });
+        frozenExecutionContext = this.resolveAgentExecutionContext({
+          agentConfigData: agentConfig.agentConfig,
+          operationId,
+          operationWorkingDirectory: params.workingDirectory,
+          topicId,
+        });
+        prepared = { agentConfig, executionContext: frozenExecutionContext };
+      }
+      const installedDeviceLocalMcpManifests = disableTools
+        ? undefined
+        : await getDeviceLocalMcpManifests(
+            frozenExecutionContext,
+            isSignedIn ? user?.id : undefined,
+          ).catch((error) => {
+            log('Could not load device-local MCP tools: %s', (error as Error).message);
+            return [];
+          });
+      const setupManifest = disableTools
+        ? undefined
+        : getDeviceLocalMcpSetupManifest(frozenExecutionContext, isSignedIn ? user?.id : undefined);
+      const deviceLocalMcpManifests = setupManifest
+        ? [...(installedDeviceLocalMcpManifests ?? []), setupManifest]
+        : installedDeviceLocalMcpManifests;
       const {
         state: initialAgentState,
         context: initialAgentContext,
@@ -771,7 +844,9 @@ export class StreamingExecutorActionImpl {
         messages,
         parentMessageId: params.parentMessageId,
         agentId,
+        deviceLocalMcpManifests,
         disableTools,
+        ...(prepared && { prepared }),
         topicId,
         threadId: threadId ?? undefined,
         initialState: params.initialState,
@@ -956,6 +1031,10 @@ export class StreamingExecutorActionImpl {
       if (!params.operationSkills && !skillContext.workspaceInit) {
         skillContext.workspaceInit = await scanOperationWorkspace(skillContext.workspace);
       }
+      const systemRole = appendWorkspaceInstructions(
+        agentConfigData.systemRole,
+        skillContext.workspaceInit?.instructions,
+      );
       const operationSkills =
         params.operationSkills ??
         (
@@ -988,7 +1067,11 @@ export class StreamingExecutorActionImpl {
 
       const runtime = new AgentRuntime(agent, {
         executors: createAgentExecutors({
-          agentConfig, // Pass pre-resolved config to callLLM executor
+          agentConfig: {
+            ...agentConfig,
+            agentConfig: { ...agentConfigData, systemRole },
+          },
+          deviceLocalMcpManifests,
           get: this.#get,
           metadata: params.metadata,
           messageKey,

@@ -1,8 +1,18 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createSkillStoreModal } from '.';
 import { SkillStoreContent } from './SkillStoreContent';
+
+const env = vi.hoisted(() => ({ isDesktop: true }));
+const modal = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn() }));
+vi.mock('@/const/version', () => ({
+  get isDesktop() {
+    return env.isDesktop;
+  },
+}));
+vi.mock('@lobehub/ui/base-ui', () => ({ createModal: modal.create }));
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -11,11 +21,23 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('@lobehub/ui', () => ({
-  Flexbox: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Segmented: ({ options, value }: { options: { label: string; value: string }[]; value: string }) => (
+  Flexbox: ({ children, style }: { children: ReactNode; style?: React.CSSProperties }) => (
+    <div style={style}>{children}</div>
+  ),
+  Segmented: ({
+    onChange,
+    options,
+    value,
+  }: {
+    onChange: (value: string) => void;
+    options: { label: string; value: string }[];
+    value: string;
+  }) => (
     <div data-testid="segmented" data-value={value}>
       {options.map((option) => (
-        <span key={option.value}>{option.label}</span>
+        <button key={option.value} type="button" onClick={() => onChange(option.value)}>
+          {option.label}
+        </button>
       ))}
     </div>
   ),
@@ -26,7 +48,27 @@ vi.mock('./Search', () => ({
 }));
 
 vi.mock('./SkillList/AddSkillButton', () => ({
-  default: () => <button type="button">add</button>,
+  default: ({ onAddLocal }: { onAddLocal?: () => void }) => (
+    <button type="button" onClick={onAddLocal}>
+      add
+    </button>
+  ),
+}));
+
+vi.mock('./SkillList/DeviceLocalMcpPanel', () => ({
+  default: ({ addOpen, onAdd }: { addOpen: boolean; onAdd: () => void }) => (
+    <section>
+      <button type="button" onClick={onAdd}>
+        add locally
+      </button>
+      {addOpen && (
+        <label>
+          local setup
+          <input />
+        </label>
+      )}
+    </section>
+  ),
 }));
 
 vi.mock('./SkillList/LobeHub', () => ({
@@ -43,6 +85,7 @@ vi.mock('./SkillList/MCP', () => ({
 
 afterEach(() => {
   cleanup();
+  env.isDesktop = true;
   delete process.env.NEXT_PUBLIC_MASTERLION_OFFLINE_MODE;
 });
 
@@ -64,5 +107,98 @@ describe('SkillStoreContent', () => {
     expect(screen.getByText('skillStore.tabs.lobehub')).toBeInTheDocument();
     expect(screen.getByTestId('lobehub-list')).toBeInTheDocument();
     expect(screen.getByTestId('segmented')).toHaveAttribute('data-value', 'lobehub');
+  });
+
+  it('opens server MCP by default and expands local setup inside the same content', () => {
+    render(<SkillStoreContent />);
+    fireEvent.click(screen.getByRole('button', { name: 'skillStore.tabs.mcp' }));
+    expect(screen.getByTestId('mcp-list')).toBeVisible();
+    expect(screen.queryByLabelText('local setup')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.localTab' }));
+    expect(screen.getByTestId('mcp-list')).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'add locally' }));
+    expect(screen.getByLabelText('local setup')).toBeVisible();
+  });
+
+  it('keeps local MCP navigation desktop-only', () => {
+    env.isDesktop = false;
+    render(<SkillStoreContent openLocal />);
+    fireEvent.click(screen.getByRole('button', { name: 'skillStore.tabs.mcp' }));
+    expect(screen.getByTestId('mcp-list')).toBeVisible();
+    expect(screen.queryByText('deviceLocalMcp.localTab')).toBeNull();
+  });
+
+  it('does not mount market lists on a direct local visit', () => {
+    render(<SkillStoreContent openLocal />);
+    expect(screen.queryByTestId('mcp-list')).toBeNull();
+    expect(screen.queryByTestId('skill-list')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'deviceLocalMcp.serverTab' }));
+    expect(screen.getByTestId('mcp-list')).toBeVisible();
+  });
+
+  it('reuses the open store when chat starts local setup', () => {
+    const onClose = vi.fn();
+    modal.create.mockReturnValue({ close: vi.fn(), update: modal.update });
+    const close = createSkillStoreModal();
+    try {
+      createSkillStoreModal({ openLocal: true, setup: { onClose } });
+      expect(modal.create).toHaveBeenCalledOnce();
+      render(modal.update.mock.lastCall?.[0].children);
+      expect(screen.getByLabelText('local setup')).toBeVisible();
+    } finally {
+      close?.();
+    }
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('restores the existing tab when chat setup finishes', () => {
+    const closeWindow = vi.fn();
+    modal.create.mockReturnValue({ close: closeWindow, update: modal.update });
+    const close = createSkillStoreModal();
+    try {
+      const { rerender } = render(modal.create.mock.lastCall?.[0].children);
+      fireEvent.click(screen.getByRole('button', { name: 'skillStore.tabs.skills' }));
+      const finishSetup = createSkillStoreModal({ openLocal: true, setup: { onClose: vi.fn() } });
+      rerender(modal.update.mock.lastCall?.[0].children);
+      expect(screen.getByLabelText('local setup')).toBeVisible();
+
+      finishSetup?.();
+      rerender(modal.update.mock.lastCall?.[0].children);
+      expect(screen.getByTestId('skill-list')).toBeVisible();
+      expect(screen.queryByLabelText('local setup')).toBeNull();
+      expect(closeWindow).not.toHaveBeenCalled();
+    } finally {
+      close?.();
+    }
+  });
+
+  it('does not replace a local configuration already opened by the user', () => {
+    modal.create.mockReturnValue({ close: vi.fn(), update: modal.update });
+    const close = createSkillStoreModal({ openLocal: true });
+    try {
+      render(modal.create.mock.lastCall?.[0].children);
+      fireEvent.click(screen.getByRole('button', { name: 'add locally' }));
+      expect(
+        createSkillStoreModal({ openLocal: true, setup: { onClose: vi.fn() } }),
+      ).toBeUndefined();
+    } finally {
+      close?.();
+    }
+  });
+
+  it('lets chat setup start while the local connection list is idle', () => {
+    modal.create.mockReturnValue({ close: vi.fn(), update: modal.update });
+    const close = createSkillStoreModal({ openLocal: true });
+    try {
+      const { rerender } = render(modal.create.mock.lastCall?.[0].children);
+      const finishSetup = createSkillStoreModal({ openLocal: true, setup: { onClose: vi.fn() } });
+      expect(finishSetup).toBeDefined();
+      rerender(modal.update.mock.lastCall?.[0].children);
+      expect(screen.getByLabelText('local setup')).toBeVisible();
+      finishSetup?.();
+    } finally {
+      close?.();
+    }
   });
 });

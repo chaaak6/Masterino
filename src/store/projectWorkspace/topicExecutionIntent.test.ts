@@ -76,6 +76,26 @@ describe('resolvePendingTopicExecutionIntent', () => {
     );
   });
 
+  it('blocks a foreign scratch snapshot before sending and allows it on the owner device', async () => {
+    const input = {
+      isNewTopic: false,
+      topicId: 'scratch-topic',
+      topicSnapshot: {
+        boundDeviceId: 'owner',
+        target: 'local' as const,
+        targetCapturedAt: '',
+        version: 1 as const,
+        workspaceId: 'scratch-workspace',
+        workspaceKind: 'scratch' as const,
+      },
+    };
+    mocks.workspaceState.topicStatesById[input.topicId] = { snapshot: input.topicSnapshot };
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'other' });
+    await expect(checkDesktopProjectSend(input)).rejects.toBeInstanceOf(ProjectDeviceMismatchError);
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'owner' });
+    await expect(checkDesktopProjectSend(input)).resolves.toBeUndefined();
+  });
+
   it('freezes desktop chat-only topics as local instead of rewriting target to none', async () => {
     mocks.agentConfig = { chatConfig: { toolMode: 'chat' } };
     mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'desktop-device' });

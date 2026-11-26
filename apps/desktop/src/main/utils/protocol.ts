@@ -2,10 +2,12 @@ import { app } from 'electron';
 
 import type { McpSchema, ProtocolUrlParsed } from '../types/protocol';
 
-export type AppChannel = 'stable' | 'beta' | 'nightly';
+export type AppChannel = 'stable' | 'beta' | 'canary' | 'nightly';
 
 export const getProtocolScheme = (): string => {
   if (process.env.DESKTOP_BUILD_FLAVOR === 'test') return 'masterino-test';
+  if (process.env.UPDATE_CHANNEL === 'canary') return 'lobehub-canary';
+  if (process.env.UPDATE_CHANNEL === 'nightly') return 'lobehub-nightly';
   // In Electron environment, version can be determined in multiple ways
   const bundleId = app.name;
   const appPath = app.getPath('exe');
@@ -29,6 +31,8 @@ export const getVersionInfo = (): { channel: AppChannel; protocolScheme: string 
   let appChannel: AppChannel = 'stable';
   if (protocolScheme.includes('nightly')) {
     appChannel = 'nightly';
+  } else if (protocolScheme === 'lobehub-canary') {
+    appChannel = 'canary';
   } else if (protocolScheme.includes('beta')) {
     appChannel = 'beta';
   }
@@ -103,6 +107,7 @@ export const parseProtocolUrl = (url: string): ProtocolUrlParsed | null => {
       'lobehub:',
       'lobehub-dev:',
       'lobehub-nightly:',
+      'lobehub-canary:',
       'lobehub-beta:',
       'masterino-test:',
     ];

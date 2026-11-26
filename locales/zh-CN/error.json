@@ -200,5 +200,13 @@
   "upload.storageLimitExceeded": "文件存储空间已达到当前套餐上限，请升级套餐或删除不需要的文件以释放空间。",
   "upload.title": "上传未能完成",
   "upload.unknownError": "原因：{{reason}}",
-  "upload.uploadFailed": "上传未能完成"
+  "upload.uploadFailed": "上传未能完成",
+  "workspaceScan.WORKSPACE_ACCESS_DENIED": "无法读取工作区。请检查文件夹权限后重试。",
+  "workspaceScan.WORKSPACE_DEVICE_OFFLINE": "此工作区绑定的设备已离线。",
+  "workspaceScan.WORKSPACE_MACOS_FOLDER_ACCESS_DENIED": "macOS 拒绝了对此工作区文件夹的访问。",
+  "workspaceScan.WORKSPACE_ROOT_MISSING": "工作区文件夹不存在或已不再是目录。",
+  "workspaceScan.WORKSPACE_SCAN_TIMEOUT": "工作区扫描超时。",
+  "workspaceScan.macOSSettingsDescription": "前往「隐私与安全性 → 文件与文件夹」，允许 Masterino 访问对应文件夹，然后回到这里重试。",
+  "workspaceScan.openSettings": "打开系统设置",
+  "workspaceScan.retry": "重试"
 }

@@ -120,9 +120,14 @@ export class MCPClient {
     return false;
   }
 
-  async initialize(options: { onProgress?: (progress: Progress) => void } = {}) {
+  async initialize(
+    options: { onProgress?: (progress: Progress) => void; signal?: AbortSignal } = {},
+  ) {
     try {
-      await this.mcp.connect(this.transport, { onprogress: options.onProgress });
+      await this.mcp.connect(this.transport, {
+        onprogress: options.onProgress,
+        signal: options.signal,
+      });
     } catch (error) {
       // If this is a STDIO connection and we have stderr logs, enhance the error
       if (this.isStdio && this.stderrLogs.length > 0) {
@@ -131,6 +136,10 @@ export class MCPClient {
       }
       throw error;
     }
+  }
+
+  onClose(callback: () => void) {
+    this.mcp.onclose = callback;
   }
 
   disconnect(): Promise<void> {
@@ -186,8 +195,9 @@ export class MCPClient {
     };
   }
 
-  async callTool(toolName: string, args: any): Promise<ToolCallResult> {
+  async callTool(toolName: string, args: any, signal?: AbortSignal): Promise<ToolCallResult> {
     const result = await this.mcp.callTool({ arguments: args, name: toolName }, undefined, {
+      signal,
       timeout: getDesktopEnv().MCP_TOOL_TIMEOUT,
     });
     return result as ToolCallResult;

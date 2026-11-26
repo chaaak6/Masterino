@@ -15,7 +15,7 @@ import { resolveDefaultApp } from './apps';
 export interface UseOpenInAppResult {
   defaultApp: OpenInAppId;
   installedApps: DetectedApp[];
-  launch: (appId: OpenInAppId) => Promise<void>;
+  launch: (appId: OpenInAppId, path?: string) => Promise<void>;
   ready: boolean;
 }
 
@@ -45,11 +45,11 @@ export const useOpenInApp = (workingDirectory: string): UseOpenInAppResult => {
   );
 
   const launch = useCallback(
-    async (appId: OpenInAppId): Promise<void> => {
+    async (appId: OpenInAppId, path = workingDirectory): Promise<void> => {
       const appName = displayNameMap.get(appId) ?? appId;
       const result = await electronOpenInAppService.openInApp({
         appId,
-        path: workingDirectory,
+        path,
       });
 
       if (result.success) {
@@ -61,7 +61,7 @@ export const useOpenInApp = (workingDirectory: string): UseOpenInAppResult => {
 
       const err = result.error ?? '';
       if (err.startsWith('Path not found')) {
-        message.error(t('errors.pathNotFound', { path: workingDirectory }));
+        message.error(t('errors.pathNotFound', { path }));
       } else if (err.includes('is not installed')) {
         message.error(t('errors.appNotInstalled', { appName }));
       } else {

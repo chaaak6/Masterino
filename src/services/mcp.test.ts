@@ -1,22 +1,33 @@
-import { type ChatToolPayload, type ToolManifest } from '@lobechat/types';
+import { type ChatToolPayload, type ExecutionContext, type ToolManifest } from '@lobechat/types';
 import superjson from 'superjson';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mcpService } from './mcp';
 
+const desktop = vi.hoisted(() => ({ enabled: false }));
+
 const mockElectronIpc = {
   mcp: {
     callTool: vi.fn(),
+    cancelStdioToolCall: vi.fn().mockResolvedValue(undefined),
     getStreamableMcpServerManifest: vi.fn(),
     getStdioMcpServerManifest: vi.fn(),
     validMcpServerInstallable: vi.fn(),
   },
 };
+const localMcpSetup = vi.hoisted(() => ({ request: vi.fn() }));
 
 // Mock dependencies
 vi.mock('@lobechat/const', () => ({
   CURRENT_VERSION: '1.0.0',
-  isDesktop: false,
+  get isDesktop() {
+    return desktop.enabled;
+  },
+}));
+
+vi.mock('./deviceLocalMcpSetup', () => ({ requestDeviceLocalMcpSetup: localMcpSetup.request }));
+vi.mock('@/store/user/store', () => ({
+  getUserStoreState: () => ({ isSignedIn: true, user: { id: 'local-user' } }),
 }));
 
 vi.mock('@lobechat/utils', () => ({
@@ -33,6 +44,7 @@ vi.mock('@lobechat/utils', () => ({
 }));
 
 vi.mock('@/libs/trpc/client', () => ({
+  lambdaClient: { connector: { callTool: { mutate: vi.fn() } } },
   toolsClient: {
     market: {
       callCloudMcpEndpoint: {
@@ -78,12 +90,267 @@ vi.mock('@/store/tool/selectors', () => ({
 
 describe('MCPService', () => {
   beforeEach(() => {
+    desktop.enabled = false;
     vi.clearAllMocks();
     vi.resetModules();
     mockGetToolStoreState.mockReturnValue({});
   });
 
   describe('invokeMcpToolCall', () => {
+    it('cancels the in-flight IPC call when the local run stops', async () => {
+      desktop.enabled = true;
+      mockGetToolStoreState.mockReturnValue({
+        connectors: [
+          {
+            identifier: 'cad',
+            isEnabled: true,
+            mcpConnectionType: 'stdio',
+            mcpStdioConfig: { command: 'ocs' },
+            tools: [{ permission: 'auto', toolName: 'inspect' }],
+          },
+        ],
+      });
+      const pending = Promise.withResolvers<unknown>();
+      mockElectronIpc.mcp.callTool.mockReturnValueOnce(pending.promise);
+      const controller = new AbortController();
+      const call = mcpService.invokeMcpToolCall(
+        { apiName: 'inspect', arguments: '{}', id: 'call', identifier: 'cad', type: 'default' },
+        {
+          executionContext: {
+            plan: { deviceId: 'this-desktop', kind: 'device', target: 'local' },
+            version: 1,
+          },
+          signal: controller.signal,
+        },
+      );
+      const rejected = expect(call).rejects.toMatchObject({ name: 'AbortError' });
+      await vi.waitFor(() => expect(mockElectronIpc.mcp.callTool).toHaveBeenCalled());
+      controller.abort();
+      await rejected;
+      expect(mockElectronIpc.mcp.cancelStdioToolCall).toHaveBeenCalledWith(
+        mockElectronIpc.mcp.callTool.mock.lastCall?.[1],
+      );
+      pending.resolve(superjson.serialize({ content: 'late response', success: true }));
+    });
+
+    it('runs a synced STDIO connector tool through desktop IPC', async () => {
+      const { lambdaClient } = await import('@/libs/trpc/client');
+      desktop.enabled = true;
+      const command = '/Applications/OpenCADStudio.app/Contents/MacOS/OpenCADStudio';
+      mockGetToolStoreState.mockReturnValue({
+        connectors: [
+          {
+            identifier: 'opencadstudio-local',
+            isEnabled: true,
+            mcpConnectionType: 'stdio',
+            mcpStdioConfig: { args: ['--mcp'], command, env: { DEMO_MODE: '1' } },
+            tools: [{ permission: 'auto', toolName: 'ocs_inspect' }],
+          },
+        ],
+      });
+      const response = { content: 'Drawing is open', success: true };
+      mockElectronIpc.mcp.callTool.mockResolvedValue(superjson.serialize(response));
+
+      const result = await mcpService.invokeMcpToolCall(
+        {
+          apiName: 'ocs_inspect',
+          arguments: '{}',
+          id: 'call',
+          identifier: 'opencadstudio-local',
+          type: 'default',
+        },
+        {
+          executionContext: {
+            plan: { kind: 'device', deviceId: 'this-desktop', target: 'local' },
+            version: 1,
+          },
+        },
+      );
+
+      expect(result).toEqual(response);
+      expect(mockElectronIpc.mcp.callTool).toHaveBeenCalledWith(
+        superjson.serialize({
+          args: {},
+          env: { DEMO_MODE: '1' },
+          params: { args: ['--mcp'], command, name: 'opencadstudio-local', type: 'stdio' },
+          toolName: 'ocs_inspect',
+        }),
+      );
+      expect(lambdaClient.connector.callTool.mutate).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      undefined,
+      { plan: { kind: 'sandbox', target: 'sandbox' }, version: 1 },
+      { plan: { deviceId: 'another-desktop', kind: 'device', target: 'device' }, version: 1 },
+    ] satisfies (ExecutionContext | undefined)[])(
+      'does not spawn a synced STDIO tool outside a confirmed local run (%j)',
+      async (executionContext) => {
+        desktop.enabled = true;
+        mockGetToolStoreState.mockReturnValue({
+          connectors: [
+            {
+              identifier: 'opencadstudio-local',
+              isEnabled: true,
+              mcpConnectionType: 'stdio',
+              mcpStdioConfig: { command: 'ocs' },
+              tools: [{ permission: 'auto', toolName: 'ocs_inspect' }],
+            },
+          ],
+        });
+
+        await expect(
+          mcpService.invokeMcpToolCall(
+            {
+              apiName: 'ocs_inspect',
+              arguments: '{}',
+              id: 'call',
+              identifier: 'opencadstudio-local',
+              type: 'default',
+            },
+            { executionContext },
+          ),
+        ).rejects.toThrow('Start a run on this desktop');
+        expect(mockElectronIpc.mcp.callTool).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      { isEnabled: false, tools: [{ permission: 'auto', toolName: 'inspect' }] },
+      { isEnabled: true, tools: [] },
+    ])(
+      'uses an installed plugin when a STDIO connector has no active manifest (%j)',
+      async (state) => {
+        const { lambdaClient, toolsClient } = await import('@/libs/trpc/client');
+        desktop.enabled = true;
+        const identifier = 'cad';
+        mockGetToolStoreState.mockReturnValue({
+          connectors: [{ identifier, mcpConnectionType: 'stdio', ...state }],
+        });
+        mockPluginSelectors.getInstalledPluginById.mockReturnValue(() => ({
+          customParams: { mcp: { type: 'sse' } },
+        }));
+        mockPluginSelectors.getCustomPluginById.mockReturnValue(() => null);
+        const response = { content: 'installed plugin result', success: true };
+        vi.mocked(toolsClient.mcp.callTool.mutate).mockResolvedValue(response);
+
+        await expect(
+          mcpService.invokeMcpToolCall(
+            { apiName: 'inspect', arguments: '{}', id: 'call', identifier, type: 'default' },
+            {},
+          ),
+        ).resolves.toEqual(response);
+        expect(toolsClient.mcp.callTool.mutate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: { name: identifier, type: 'sse' },
+            toolName: 'inspect',
+          }),
+          { signal: undefined },
+        );
+        expect(mockElectronIpc.mcp.callTool).not.toHaveBeenCalled();
+        expect(lambdaClient.connector.callTool.mutate).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      { isEnabled: false, tools: [{ permission: 'disabled', toolName: 'inspect' }] },
+      { isEnabled: true, tools: [{ permission: 'disabled', toolName: 'inspect' }] },
+      { isEnabled: true, tools: [{ permission: 'auto', toolName: 'another-tool' }] },
+    ])('blocks revoked or unsynced tools under a STDIO connector (%j)', async (state) => {
+      const { toolsClient } = await import('@/libs/trpc/client');
+      desktop.enabled = true;
+      const identifier = 'cad';
+      mockGetToolStoreState.mockReturnValue({
+        connectors: [{ identifier, mcpConnectionType: 'stdio', ...state }],
+      });
+      mockPluginSelectors.getInstalledPluginById.mockReturnValue(() => ({
+        customParams: { mcp: { type: 'sse' } },
+      }));
+      mockPluginSelectors.getCustomPluginById.mockReturnValue(() => null);
+
+      await expect(
+        mcpService.invokeMcpToolCall(
+          { apiName: 'inspect', arguments: '{}', id: 'call', identifier, type: 'default' },
+          {},
+        ),
+      ).rejects.toThrow('unavailable for this connector');
+      expect(mockElectronIpc.mcp.callTool).not.toHaveBeenCalled();
+      expect(toolsClient.mcp.callTool.mutate).not.toHaveBeenCalled();
+    });
+
+    it('recovers a saved local setup call without source metadata only in a local desktop run', async () => {
+      desktop.enabled = true;
+      mockPluginSelectors.getInstalledPluginById.mockReturnValue(() => null);
+      mockPluginSelectors.getCustomPluginById.mockReturnValue(() => null);
+      const receipt = { content: 'setup complete', success: true };
+      localMcpSetup.request.mockResolvedValue(receipt);
+      const payload: ChatToolPayload = {
+        apiName: 'configure',
+        arguments: '{"preset":"custom"}',
+        id: 'setup-call',
+        identifier: 'local-mcp-setup',
+        type: 'default',
+      };
+      const local: ExecutionContext = {
+        plan: { kind: 'device-unrouted', reason: 'no-online-device', target: 'local' },
+        version: 1,
+      };
+      const sandbox: ExecutionContext = {
+        plan: { kind: 'sandbox', target: 'sandbox' },
+        version: 1,
+      };
+      const signal = new AbortController().signal;
+
+      await expect(
+        mcpService.invokeMcpToolCall(payload, { executionContext: sandbox, signal }),
+      ).resolves.toBeUndefined();
+      expect(localMcpSetup.request).not.toHaveBeenCalled();
+      await expect(
+        mcpService.invokeMcpToolCall(payload, { executionContext: local, signal }),
+      ).resolves.toEqual(receipt);
+      expect(localMcpSetup.request).toHaveBeenCalledWith(
+        payload.arguments,
+        local,
+        'local-user',
+        signal,
+      );
+    });
+
+    it('keeps server-side HTTP MCP routing for a local-looking identifier', async () => {
+      const { lambdaClient } = await import('@/libs/trpc/client');
+      const identifier = 'local-mcp-0123456789abcdef01234567';
+      mockGetToolStoreState.mockReturnValue({
+        connectors: [
+          {
+            identifier,
+            isEnabled: true,
+            mcpConnectionType: 'http',
+            mcpServerUrl: 'https://mcp.example.com/mcp',
+          },
+        ],
+      });
+      const response = { content: 'server result', success: true } as const;
+      vi.mocked(lambdaClient.connector.callTool.mutate).mockResolvedValue(response as never);
+      const signal = new AbortController().signal;
+      await expect(
+        mcpService.invokeMcpToolCall(
+          {
+            apiName: 'inspect',
+            arguments: '{}',
+            id: 'server-call',
+            identifier,
+            source: 'mcp',
+            type: 'mcp',
+          } as ChatToolPayload,
+          { signal },
+        ),
+      ).resolves.toEqual(response);
+      expect(lambdaClient.connector.callTool.mutate).toHaveBeenCalledWith(
+        { args: '{}', identifier, toolName: 'inspect' },
+        { signal },
+      );
+    });
+
     it('should invoke tool call with installed plugin', async () => {
       const { toolsClient } = await import('@/libs/trpc/client');
       const { discoverService } = await import('./discover');

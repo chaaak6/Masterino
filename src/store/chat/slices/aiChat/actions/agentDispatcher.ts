@@ -63,6 +63,8 @@ export interface RuntimeSelectionContext {
    *     boundDeviceId is available, in which case the server dispatches to it.
    */
   executionTarget?: DeviceExecutionTarget;
+  /** The user explicitly picked a tool registered in this desktop's local MCP store. */
+  hasSelectedLocalMcp?: boolean;
   /** Per-agent heterogeneous provider config (desktop only — takes priority over gateway). */
   heterogeneousProvider?: HeterogeneousProviderConfig;
   /** Result of `chatStore.isGatewayModeEnabled()`. */
@@ -129,6 +131,7 @@ export const selectRuntimeType = (
   ) {
     return 'gateway';
   }
+  if (isDesktop && ctx.executionTarget === 'local' && ctx.hasSelectedLocalMcp) return 'client';
   if (ctx.isGatewayMode) return 'gateway';
   return 'client';
 };

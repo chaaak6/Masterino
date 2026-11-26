@@ -1832,12 +1832,12 @@ describe('ConversationLifecycle actions', () => {
         );
       });
 
-      it('should NOT optimistically update topic updatedAt when server returns topics (new topic)', async () => {
+      it('creates a plain-text topic title and skips touching updatedAt when topics are returned', async () => {
         const { result } = renderHook(() => useChatStore());
 
         const dispatchTopicSpy = vi.spyOn(result.current, 'internal_dispatchTopic');
 
-        vi.spyOn(aiChatService, 'sendMessageInServer').mockResolvedValue({
+        const sendMessage = vi.spyOn(aiChatService, 'sendMessageInServer').mockResolvedValue({
           messages: [
             createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
             createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
@@ -1851,11 +1851,17 @@ describe('ConversationLifecycle actions', () => {
 
         await act(async () => {
           await result.current.sendMessage({
-            message: TEST_CONTENT.USER_MESSAGE,
+            message: '<tool name="local-mcp-example" label="Local CAD" />Inspect the fixture',
             context: createTestContext(),
           });
         });
 
+        expect(sendMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            newTopic: expect.objectContaining({ title: 'Inspect the fixture' }),
+          }),
+          expect.any(AbortController),
+        );
         // Should NOT call internal_dispatchTopic with updateTopic for updatedAt
         const updateTopicCalls = dispatchTopicSpy.mock.calls.filter(
           ([payload]) => payload.type === 'updateTopic' && 'updatedAt' in (payload.value || {}),
