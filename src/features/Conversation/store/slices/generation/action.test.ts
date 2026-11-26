@@ -9,6 +9,7 @@ import { agentSelectors } from '@/store/agent/selectors';
 import * as agentDispatcher from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import * as heterogeneousAgentExecutor from '@/store/chat/slices/aiChat/actions/heterogeneousAgentExecutor';
 import { INPUT_LOADING_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
 
@@ -524,6 +525,7 @@ describe('Generation Actions', () => {
     beforeEach(async () => {
       const { useChatStore } = await import('@/store/chat');
       vi.mocked(useChatStore.getState).mockReturnValue({
+        dbMessagesMap: {},
         operations: {},
         operationsByMessage: {},
         completeOperation: mockCompleteOperation,
@@ -882,6 +884,7 @@ describe('Generation Actions', () => {
       // Re-setup mock with all required properties
       const { useChatStore } = await import('@/store/chat');
       vi.mocked(useChatStore.getState).mockReturnValue({
+        dbMessagesMap: {},
         messagesMap: {},
         operations: {},
         operationsByMessage: {},
@@ -1120,39 +1123,61 @@ describe('Generation Actions', () => {
       expect(mockCompleteOperation).toHaveBeenCalledWith('test-op-id');
     });
 
-    it('restores the previous reply when the gateway rejects regeneration', async () => {
-      const { useChatStore } = await import('@/store/chat');
-      vi.mocked(useChatStore.getState).mockReturnValue({
-        operations: {},
-        operationsByMessage: {},
-        executeGatewayAgent: mockExecuteGatewayAgent,
-        failOperation: mockFailOperation,
-        isGatewayModeEnabled: () => true,
-        startOperation: mockStartOperation,
-        switchMessageBranch: mockSwitchMessageBranch,
-      } as any);
-      mockExecuteGatewayAgent.mockResolvedValueOnce({
-        error: 'Gateway did not accept the request',
-        success: false,
-      });
-      const store = createStore({ context: { agentId: 'session-1', topicId: 'topic-1' } });
-      const prompt = { id: 'msg-1', role: 'user', content: 'Hello' };
-      const reply = { id: 'msg-2', role: 'assistant', content: 'Old reply', parentId: prompt.id };
-      store.setState({ dbMessages: [prompt, reply], displayMessages: [prompt, reply] } as any);
+    it.each([false, true])(
+      'restores the previous reply after gateway rejection unless another branch was selected (%s)',
+      async (switchedBranch) => {
+        const { useChatStore } = await import('@/store/chat');
+        const context = { agentId: 'session-1', topicId: 'topic-1' };
+        const prompt = {
+          content: 'Hello',
+          id: 'msg-1',
+          metadata: { activeBranchIndex: 0 },
+          role: 'user',
+        };
+        const reply = { id: 'msg-2', role: 'assistant', content: 'Old reply', parentId: prompt.id };
+        const anotherReply = { ...reply, id: 'msg-3', content: 'Another reply' };
+        const livePrompt = { ...prompt, metadata: { ...prompt.metadata } };
+        const key = messageMapKey(context);
+        vi.mocked(useChatStore.getState).mockReturnValue({
+          dbMessagesMap: { [key]: [livePrompt, reply, anotherReply] },
+          operations: {},
+          operationsByMessage: {},
+          executeGatewayAgent: mockExecuteGatewayAgent,
+          failOperation: mockFailOperation,
+          isGatewayModeEnabled: () => true,
+          startOperation: mockStartOperation,
+          switchMessageBranch: mockSwitchMessageBranch,
+        } as any);
+        mockSwitchMessageBranch.mockImplementationOnce(async (_id, index) => {
+          livePrompt.metadata.activeBranchIndex = index;
+        });
+        mockExecuteGatewayAgent.mockImplementationOnce(async () => {
+          if (switchedBranch) livePrompt.metadata.activeBranchIndex = 1;
+          return { error: 'Gateway did not accept the request', success: false };
+        });
+        const store = createStore({ context });
+        store.setState({
+          dbMessages: [prompt, reply, anotherReply],
+          displayMessages: [prompt, reply],
+        } as any);
 
-      await expect(store.getState().regenerateUserMessage(prompt.id)).resolves.toBeUndefined();
+        await expect(store.getState().regenerateUserMessage(prompt.id)).resolves.toBeUndefined();
 
-      expect(mockSwitchMessageBranch).toHaveBeenNthCalledWith(1, prompt.id, 1, {
-        operationId: 'test-op-id',
-      });
-      expect(mockSwitchMessageBranch).toHaveBeenNthCalledWith(2, prompt.id, 0, {
-        operationId: 'test-op-id',
-      });
-      expect(mockFailOperation).toHaveBeenCalledWith('test-op-id', {
-        message: 'Gateway did not accept the request',
-        type: 'RegenerateError',
-      });
-    });
+        expect(mockSwitchMessageBranch).toHaveBeenNthCalledWith(1, prompt.id, 2, {
+          operationId: 'test-op-id',
+        });
+        expect(mockSwitchMessageBranch).toHaveBeenCalledTimes(switchedBranch ? 1 : 2);
+        if (!switchedBranch) {
+          expect(mockSwitchMessageBranch).toHaveBeenLastCalledWith(prompt.id, 0, {
+            operationId: 'test-op-id',
+          });
+        }
+        expect(mockFailOperation).toHaveBeenCalledWith('test-op-id', {
+          message: 'Gateway did not accept the request',
+          type: 'RegenerateError',
+        });
+      },
+    );
 
     it('should call onRegenerateComplete hook after gateway regeneration', async () => {
       const { useChatStore } = await import('@/store/chat');

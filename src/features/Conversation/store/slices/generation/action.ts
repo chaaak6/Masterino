@@ -33,6 +33,7 @@ import {
   mergeAgentRuntimeInitialContexts,
   resolveActiveTopicDocumentInitialContext,
 } from '@/store/chat/utils/activeTopicDocumentContext';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { getElectronStoreState } from '@/store/electron';
 import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
@@ -651,7 +652,8 @@ export const generationSlice: StateCreator<
             branches.findIndex(({ id }) => id === visibleReply?.id),
           );
         restorePreviousBranch = async () => {
-          const selectedBranch = get().dbMessages.find(({ id }) => id === messageId)?.metadata
+          const currentMessages = useChatStore.getState().dbMessagesMap[messageMapKey(context)];
+          const selectedBranch = currentMessages?.find(({ id }) => id === messageId)?.metadata
             ?.activeBranchIndex;
           if (selectedBranch !== undefined && selectedBranch !== nextBranchIndex) return;
           await chatStore.switchMessageBranch(messageId, previousBranchIndex, { operationId });
