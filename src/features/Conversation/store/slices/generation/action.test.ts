@@ -29,7 +29,7 @@ const mockCompleteOperation = vi.fn();
 const mockFailOperation = vi.fn();
 const mockExecuteClientAgent = vi.fn();
 const mockIsGatewayModeEnabled = vi.fn(() => false);
-const mockExecuteGatewayAgent = vi.fn();
+const mockExecuteGatewayAgent = vi.fn().mockResolvedValue({ success: true });
 const mockConstEnv = vi.hoisted(() => ({ isDesktop: false }));
 
 vi.mock('@/components/AntdStaticMethods', async (importOriginal) => ({
@@ -536,7 +536,7 @@ describe('Generation Actions', () => {
         startOperation: mockStartOperation,
         completeOperation: mockCompleteOperation,
         failOperation: mockFailOperation,
-        executeClientAgent: mockExecuteClientAgent,
+        executeClientAgent: mockExecuteClientAgent.mockResolvedValueOnce({ status: 'done' }),
         isGatewayModeEnabled: mockIsGatewayModeEnabled,
       } as any);
 
@@ -570,21 +570,17 @@ describe('Generation Actions', () => {
       });
 
       // Should pass operationId to deleteMessage for correct context isolation
-      expect(mockDeleteMessage).toHaveBeenCalledWith('msg-2', { operationId: 'test-op-id' });
+      expect(mockDeleteMessage).toHaveBeenCalledWith(
+        'msg-2',
+        { operationId: 'test-op-id' },
+        expect.objectContaining({ id: 'msg-2' }),
+      );
 
       // Should complete operation
       expect(mockCompleteOperation).toHaveBeenCalledWith('test-op-id');
     });
 
-    it('should delete message BEFORE regeneration to prevent message not found issue ()', async () => {
-      // This test verifies the fix:
-      // When "delete and regenerate" is called, if regeneration happens first,
-      // it switches to a new branch, causing the original message to no longer
-      // appear in displayMessages. Then deleteMessage cannot find the message
-      // and fails silently.
-      //
-      // The fix: delete first, then regenerate.
-
+    it('keeps the original reply until the replacement executes', async () => {
       const callOrder: string[] = [];
 
       // Re-setup mock to track call order
@@ -609,7 +605,7 @@ describe('Generation Actions', () => {
         failOperation: mockFailOperation,
         executeClientAgent: vi.fn().mockImplementation(() => {
           callOrder.push('executeClientAgent');
-          return Promise.resolve();
+          return Promise.resolve({ status: 'done' });
         }),
         isGatewayModeEnabled: mockIsGatewayModeEnabled,
       } as any);
@@ -641,20 +637,15 @@ describe('Generation Actions', () => {
         await store.getState().delAndRegenerateMessage('msg-2');
       });
 
-      // CRITICAL: deleteMessage must be called BEFORE switchMessageBranch and executeClientAgent
-      // If regeneration (which calls switchMessageBranch) happens first, the message
-      // won't be found in displayMessages and deletion will fail silently.
-      expect(callOrder[0]).toBe('deleteMessage');
-      expect(callOrder).toContain('switchMessageBranch');
-      expect(callOrder).toContain('executeClientAgent');
-
-      // Verify deleteMessage is called before any regeneration-related calls
-      const deleteIndex = callOrder.indexOf('deleteMessage');
-      const switchIndex = callOrder.indexOf('switchMessageBranch');
-      const execIndex = callOrder.indexOf('executeClientAgent');
-
-      expect(deleteIndex).toBeLessThan(switchIndex);
-      expect(deleteIndex).toBeLessThan(execIndex);
+      expect(callOrder).toEqual([
+        'switchMessageBranch',
+        'executeClientAgent',
+        'deleteMessage',
+        'switchMessageBranch',
+      ]);
+      expect(useChatStore.getState().switchMessageBranch).toHaveBeenLastCalledWith('msg-1', 0, {
+        operationId: 'test-op-id',
+      });
     });
 
     it('should not proceed if assistant message has no parentId', async () => {
@@ -697,6 +688,25 @@ describe('Generation Actions', () => {
   });
 
   describe('delAndResendThreadMessage', () => {
+    it('retains the original message if regeneration is blocked before starting', async () => {
+      const workspace = vi
+        .spyOn(topicExecutionIntent, 'checkDesktopProjectSend')
+        .mockRejectedValueOnce(new Error('Workspace service unavailable'));
+      try {
+        const store = createStore({
+          context: { agentId: 'session-1', topicId: 'topic-1', threadId: 'thread-1' },
+        });
+        store.setState({
+          displayMessages: [{ content: 'Hello', id: 'msg-1', role: 'user' }],
+        } as any);
+        await store.getState().delAndResendThreadMessage('msg-1');
+        expect(workspace).toHaveBeenCalledOnce();
+        expect(mockDeleteMessage).not.toHaveBeenCalled();
+      } finally {
+        workspace.mockRestore();
+      }
+    });
+
     it('should create operation with context and pass operationId to deleteMessage', async () => {
       // Re-setup mock to ensure startOperation is available
       const { useChatStore } = await import('@/store/chat');
@@ -711,7 +721,7 @@ describe('Generation Actions', () => {
         switchMessageBranch: mockSwitchMessageBranch,
         startOperation: mockStartOperation,
         completeOperation: mockCompleteOperation,
-        executeClientAgent: mockExecuteClientAgent,
+        executeClientAgent: mockExecuteClientAgent.mockResolvedValueOnce({ status: 'done' }),
         isGatewayModeEnabled: mockIsGatewayModeEnabled,
       } as any);
 
@@ -742,7 +752,11 @@ describe('Generation Actions', () => {
       });
 
       // Should pass operationId to deleteMessage
-      expect(mockDeleteMessage).toHaveBeenCalledWith('msg-1', { operationId: 'test-op-id' });
+      expect(mockDeleteMessage).toHaveBeenCalledWith(
+        'msg-1',
+        { operationId: 'test-op-id' },
+        expect.objectContaining({ id: 'msg-1' }),
+      );
 
       // Should complete operation
       expect(mockCompleteOperation).toHaveBeenCalledWith('test-op-id');

@@ -99,6 +99,22 @@ describe('resolvePendingTopicExecutionIntent', () => {
     await expect(checkDesktopProjectSend(draft)).resolves.toBeUndefined();
   });
 
+  it('keeps a new local group draft until the device identity is available', async () => {
+    const draft = { groupId: 'group', isNewTopic: true };
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'unknown' });
+    await expect(checkDesktopProjectSend(draft)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+    await expect(resolvePendingTopicExecutionIntent(draft)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'current-device' });
+    await expect(resolvePendingTopicExecutionIntent(draft)).resolves.toMatchObject({
+      intent: { target: 'local', targetDeviceId: 'current-device' },
+    });
+  });
+
   it('blocks a foreign scratch snapshot before sending and allows it on the owner device', async () => {
     const input = {
       isNewTopic: false,

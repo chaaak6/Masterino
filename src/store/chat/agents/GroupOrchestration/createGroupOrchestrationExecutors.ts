@@ -769,6 +769,7 @@ export const createGroupOrchestrationExecutors = (
           messages: threadMessages,
           parentMessageId: userMessageId, // Use server-returned userMessageId
           parentMessageType: 'user',
+          // Task cancellation cascades to this runtime and its resumed children.
           parentOperationId: taskOperationId,
           isSubAgent: true, // Disable lobe-agent tool to prevent nested sub-agents
         });

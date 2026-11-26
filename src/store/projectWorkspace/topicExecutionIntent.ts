@@ -121,9 +121,15 @@ export const resolvePendingTopicExecutionIntent = async (params: {
 
   targetDeviceId ??= params.topicMetadata?.boundDeviceId;
 
-  if (target === 'local' && isDesktop && !targetDeviceId) {
-    // Without a verified device the local target stays unrouted.
-    targetDeviceId = await resolveDesktopDeviceId();
+  if (target === 'local' && isDesktop) {
+    // Freeze new local group topics to this device. Legacy unbound topics can
+    // still run on the current desktop without rewriting their saved target.
+    const needsIdentity = groupId && (isNewTopic || targetDeviceId);
+    if (needsIdentity || !targetDeviceId) {
+      const currentDeviceId = await resolveDesktopDeviceId();
+      if (needsIdentity && !currentDeviceId) throw new DesktopDeviceIdentityUnavailableError();
+      targetDeviceId ??= currentDeviceId;
+    }
   }
 
   return {
@@ -167,13 +173,5 @@ export const checkDesktopProjectSend = async (
     // Do not partially hydrate the store here: sendMessage still loads workspace details/env.
     params = { ...params, topicSnapshot: params.topicSnapshot ?? topicState?.snapshot };
   }
-  const execution = (await resolvePendingTopicExecutionIntent(params))?.intent;
-  if (
-    params.groupId &&
-    execution?.target === 'local' &&
-    execution.targetDeviceId &&
-    !(await resolveDesktopDeviceId())
-  ) {
-    throw new DesktopDeviceIdentityUnavailableError();
-  }
+  await resolvePendingTopicExecutionIntent(params);
 };

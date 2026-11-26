@@ -4,6 +4,8 @@ export default {
   'streamInterrupted': 'The connection ended before generation completed. Please retry.',
   'streamRecoveryExpired':
     'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
+  'streamRecoveryUnavailable':
+    'The live run is no longer available. You can still view its saved messages.',
 
   'contextBudget.action.detachAttachments': 'Remove attachments',
   'contextBudget.action.forkTopic': 'New branch topic',

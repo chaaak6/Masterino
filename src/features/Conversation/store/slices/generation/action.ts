@@ -6,6 +6,7 @@ import type {
   ConversationContext,
   HeterogeneousProviderConfig,
   RuntimeSelectedTool,
+  UIChatMessage,
 } from '@lobechat/types';
 import { t } from 'i18next';
 import { type StateCreator } from 'zustand';
@@ -228,6 +229,29 @@ const checkRegenerationWorkspace = async (
   }
 };
 
+const deleteReplacedMessage = async (
+  chatStore: ReturnType<typeof useChatStore.getState>,
+  context: ConversationContext,
+  message: UIChatMessage,
+  branchIndex: number,
+) => {
+  const { operationId } = chatStore.startOperation({
+    context: { ...context, messageId: message.id },
+    type: 'regenerate',
+  });
+  try {
+    await chatStore.deleteMessage(message.id, { operationId }, message);
+    if (message.role !== 'user' && message.parentId) {
+      // Removing the old reply shifts the newest branch one place to the left.
+      await chatStore.switchMessageBranch(message.parentId, Math.max(0, branchIndex - 1), {
+        operationId,
+      });
+    }
+  } finally {
+    chatStore.completeOperation(operationId);
+  }
+};
+
 export interface GenerationAction {
   /**
    * Cancel a specific operation
@@ -285,7 +309,7 @@ export interface GenerationAction {
   /**
    * Regenerate a user message
    */
-  regenerateUserMessage: (messageId: string) => Promise<void>;
+  regenerateUserMessage: (messageId: string) => Promise<{ branchIndex: number } | void>;
 
   /**
    * Re-invoke a tool message
@@ -485,32 +509,18 @@ export const generationSlice: StateCreator<
 
   delAndRegenerateMessage: async (messageId: string) => {
     const { context, displayMessages } = get();
-    const chatStore = useChatStore.getState();
+    // Capture the original branch before retrying, since the replacement may hide it.
+    const original = displayMessages.find((message) => message.id === messageId);
+    if (!original?.parentId) return;
+    const replacement = await get().regenerateUserMessage(original.parentId);
+    if (!replacement) return;
 
-    // Find the assistant message and get parent user message ID before deletion
-    // This is needed because after deletion, we can't find the parent anymore
-    const currentMessage = displayMessages.find((c) => c.id === messageId);
-    if (!currentMessage) return;
-
-    const userId = currentMessage.parentId;
-    if (!userId) return;
-    const userMessage = displayMessages.find((item) => item.id === userId);
-    if (!userMessage || !validateMessageImages(userMessage)) return;
-    if (!(await checkRegenerationWorkspace(context, chatStore))) return;
-
-    // Create operation to track context (use 'regenerate' type since this is a regenerate action)
-    const { operationId } = chatStore.startOperation({
-      context: { ...context, messageId },
-      type: 'regenerate',
-    });
-
-    // IMPORTANT: Delete first, then regenerate
-    // If we regenerate first, it switches to a new branch, causing the original
-    // message to no longer appear in displayMessages. Then deleteMessage cannot
-    // find the message and fails silently.
-    await chatStore.deleteMessage(messageId, { operationId });
-    await get().regenerateUserMessage(userId);
-    chatStore.completeOperation(operationId);
+    await deleteReplacedMessage(
+      useChatStore.getState(),
+      context,
+      original,
+      replacement.branchIndex,
+    );
   },
 
   delAndResendThreadMessage: async (messageId: string) => {
@@ -520,20 +530,10 @@ export const generationSlice: StateCreator<
       current?.role === 'user'
         ? current
         : displayMessages.find((item) => item.id === current?.parentId);
-    if (!userMessage || !validateMessageImages(userMessage)) return;
-    const chatStore = useChatStore.getState();
-    if (!(await checkRegenerationWorkspace(context, chatStore))) return;
-
-    // Create operation to track context (use 'regenerate' type since resend is essentially regenerate)
-    const { operationId } = chatStore.startOperation({
-      context: { ...context, messageId },
-      type: 'regenerate',
-    });
-
-    // Resend then delete
-    await get().resendThreadMessage(userMessage.id);
-    await chatStore.deleteMessage(messageId, { operationId });
-    chatStore.completeOperation(operationId);
+    if (!current || !userMessage) return;
+    const replacement = await get().regenerateUserMessage(userMessage.id);
+    if (!replacement) return;
+    await deleteReplacedMessage(useChatStore.getState(), context, current, replacement.branchIndex);
   },
 
   openThreadCreator: (messageId: string) => {
@@ -644,7 +644,7 @@ export const generationSlice: StateCreator<
       if (runtimeType === 'gateway') {
         // Keep the regenerate operation running until the gateway session completes,
         // so isMessageRegenerating stays true and duplicate clicks are blocked.
-        await chatStore.executeGatewayAgent({
+        const result = await chatStore.executeGatewayAgent({
           context,
           message: item.content,
           onComplete: () => {
@@ -656,7 +656,7 @@ export const generationSlice: StateCreator<
           parentMessageId: messageId,
         });
 
-        return;
+        return result.success ? { branchIndex: nextBranchIndex } : undefined;
       }
 
       // ── Hetero mode: re-run the local CLI against the original user prompt ──
@@ -679,12 +679,12 @@ export const generationSlice: StateCreator<
         });
         chatStore.completeOperation(operationId);
         if (hooks.onRegenerateComplete) hooks.onRegenerateComplete(messageId);
-        return;
+        return { branchIndex: nextBranchIndex };
       }
 
       // ── Client mode: run agent locally ──
       // Execute agent runtime with full context from ConversationStore
-      await chatStore.executeClientAgent({
+      const result = await chatStore.executeClientAgent({
         context,
         initialContext,
         messages: contextMessages,
@@ -698,6 +698,9 @@ export const generationSlice: StateCreator<
       // ===== Hook: onRegenerateComplete =====
       if (hooks.onRegenerateComplete) {
         hooks.onRegenerateComplete(messageId);
+      }
+      if (result?.status === 'done' || result?.status === 'waiting_for_human') {
+        return { branchIndex: nextBranchIndex };
       }
     } catch (error) {
       chatStore.failOperation(operationId, {

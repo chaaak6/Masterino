@@ -4,10 +4,12 @@ import {
   type AgentStreamEvent,
   type ConnectionStatus,
 } from '@lobechat/agent-gateway-client';
+import { LOADING_FLAT } from '@lobechat/const';
 import type { ConversationContext, ExecAgentResult, MessageMetadata } from '@lobechat/types';
 import { TRPCClientError } from '@trpc/client';
 import { t } from 'i18next';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import { SameOriginAgentStreamClient } from '@/services/agentRuntime/SameOriginAgentStreamClient';
 import {
   aiAgentService,
@@ -21,6 +23,7 @@ import { chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { consumePendingTopicRepos, getPendingTopicRepos } from '@/store/chat/pendingTopicRepos';
 import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import type { ChatStore } from '@/store/chat/store';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
 import {
   getProjectWorkspaceStoreState,
@@ -34,9 +37,11 @@ import { createGatewayEventHandler } from './gatewayEventHandler';
 
 type Setter = StoreSetter<ChatStore>;
 
-const isTerminalTokenRefreshError = (error: unknown) =>
-  error instanceof TRPCClientError &&
-  ['NOT_FOUND', 'FORBIDDEN', 'UNAUTHORIZED'].includes(error.data?.code);
+const getTerminalTokenRefreshErrorCode = (error: unknown) => {
+  if (!(error instanceof TRPCClientError)) return;
+  const code = error.data?.code;
+  if (code === 'NOT_FOUND' || code === 'FORBIDDEN' || code === 'UNAUTHORIZED') return code;
+};
 
 // ─── Types ───
 
@@ -256,7 +261,7 @@ export class GatewayActionImpl {
       } catch (error) {
         if (!isCurrentConnection()) return;
         console.error(`[Gateway] Token refresh failed for operation ${operationId}:`, error);
-        if (isTerminalTokenRefreshError(error)) {
+        if (getTerminalTokenRefreshErrorCode(error)) {
           this.disconnectFromGateway(operationId);
           fireSessionComplete(new Error('Agent connection unavailable'));
           return;
@@ -706,9 +711,39 @@ export class GatewayActionImpl {
       try {
         ({ token } = await aiAgentService.refreshGatewayToken(topicId));
       } catch (error) {
-        if (!isTerminalTokenRefreshError(error)) throw error;
+        const code = getTerminalTokenRefreshErrorCode(error);
+        if (!code) throw error;
+        if (isReconnectStale(this.#get())) return;
+
+        // NOT_FOUND also means a completed run cleared its server pointer
+        // before this reconnect. Refresh its saved messages before showing feedback.
+        const savedMessages =
+          code === 'NOT_FOUND'
+            ? await messageService.getMessages(scopeContext).catch(() => undefined)
+            : undefined;
         const state = this.#get();
         if (isReconnectStale(state)) return;
+
+        const messages = savedMessages ?? state.dbMessagesMap[messageMapKey(scopeContext)];
+        const assistant = messages?.find(({ id }) => id === assistantMessageId);
+        const notice = t('streamRecoveryUnavailable', { ns: 'error' });
+        const hasSavedOutput =
+          savedMessages &&
+          ((assistant?.content && assistant.content !== LOADING_FLAT) || assistant?.tools?.length);
+        if (messages && assistant && !assistant.error && !hasSavedOutput) {
+          state.replaceMessages(
+            messages.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, error: { message: notice, type: 'AgentRuntimeError' } }
+                : message,
+            ),
+            { context: scopeContext },
+          );
+        } else {
+          if (savedMessages) state.replaceMessages(savedMessages, { context: scopeContext });
+          if (!assistant?.error && state.activeTopicId === topicId) antdMessage.warning(notice);
+        }
+
         const topic = getTopic(state);
         if (topic?.metadata?.runningOperation?.operationId === operationId) {
           state.internal_dispatchTopic({

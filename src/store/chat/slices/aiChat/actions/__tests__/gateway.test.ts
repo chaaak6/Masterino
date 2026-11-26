@@ -1,10 +1,12 @@
 import type { AgentStreamEvent } from '@lobechat/agent-gateway-client';
+import { LOADING_FLAT } from '@lobechat/const';
 import { RequestTrigger } from '@lobechat/types';
 import { TRPCClientError } from '@trpc/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as ConstVersion from '@/const/version';
 import { aiAgentService } from '@/services/aiAgent';
+import { messageService } from '@/services/message';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { buildDraftConversationKey } from '@/store/projectWorkspace/draftKey';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace/store';
@@ -1276,9 +1278,11 @@ describe('GatewayActionImpl', () => {
       const state: Record<string, any> = {
         activeAgentId: 'agent-1',
         gatewayConnections: {},
+        dbMessagesMap: {},
         messagesMap: { 'agent-1_topic-1': assistantMessage ? [assistantMessage] : [] },
         operations: {},
         operationsByContext: {},
+        replaceMessages: vi.fn(),
         // getTopicById reads here; an empty map yields no running op so the
         // reconnect guards fall through to startOperation.
         topicDataMap: {},
@@ -1343,6 +1347,46 @@ describe('GatewayActionImpl', () => {
 
       expect(startOperation).not.toHaveBeenCalled();
     });
+
+    it.each([
+      { content: 'Saved final result', showError: false },
+      { content: LOADING_FLAT, showError: true },
+    ])(
+      'reloads saved content when the run is unavailable: $content',
+      async ({ content, showError }) => {
+        const { action, startOperation, state } = createReconnectTestAction({ id: 'ast-1' });
+        const context = {
+          agentId: 'agent-1',
+          groupId: 'group-1',
+          scope: 'group' as const,
+          topicId: 'topic-1',
+        };
+        const savedMessage = {
+          content,
+          createdAt: 0,
+          id: 'ast-1',
+          role: 'assistant' as const,
+          updatedAt: 0,
+        };
+        vi.mocked(messageService.getMessages).mockResolvedValueOnce([savedMessage]);
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+          Object.assign(new TRPCClientError('No running operation found on this topic'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+        );
+        await action.reconnectToGatewayOperation({
+          ...context,
+          assistantMessageId: 'ast-1',
+          operationId: 'server-op-1',
+        });
+
+        expect(startOperation).not.toHaveBeenCalled();
+        const expected = showError
+          ? { ...savedMessage, error: expect.objectContaining({ type: 'AgentRuntimeError' }) }
+          : savedMessage;
+        expect(state.replaceMessages).toHaveBeenCalledWith([expected], { context });
+      },
+    );
 
     it('reconnects a saved run to its own agent instead of the foreground agent', async () => {
       const { action, startOperation } = createReconnectTestAction({
