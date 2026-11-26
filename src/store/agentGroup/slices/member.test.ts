@@ -68,6 +68,49 @@ describe('ChatGroupMemberSlice', () => {
   });
 
   describe('removeAgentFromGroup', () => {
+    it.each([0, 1])(
+      'reports whether the tool removed a membership (%s)',
+      async (removedFromGroup) => {
+        const now = new Date();
+        useAgentGroupStore.setState({
+          groupMap: {
+            'group-1': {
+              agents: [
+                {
+                  createdAt: now,
+                  id: 'agent-1',
+                  isSupervisor: false,
+                  title: 'Agent 1',
+                  updatedAt: now,
+                  userId: 'user-1',
+                },
+              ],
+              createdAt: now,
+              id: 'group-1',
+              supervisorAgentId: 'supervisor-1',
+              title: 'Test Group',
+              updatedAt: now,
+              userId: 'user-1',
+            },
+          },
+        });
+        vi.mocked(chatGroupService.removeAgentsFromGroup).mockResolvedValue({
+          deletedVirtualAgentIds: [],
+          removedFromGroup,
+        });
+        const { GroupAgentBuilderExecutionRuntime } =
+          await import('@lobechat/builtin-tool-group-agent-builder/executionRuntime');
+        const runtime = new GroupAgentBuilderExecutionRuntime();
+
+        await expect(runtime.removeAgent('group-1', { agentId: 'agent-1' })).resolves.toMatchObject(
+          {
+            state: { agentId: 'agent-1', success: removedFromGroup > 0 },
+            success: removedFromGroup > 0,
+          },
+        );
+      },
+    );
+
     it('should remove an agent from a group', async () => {
       vi.mocked(chatGroupService.removeAgentsFromGroup).mockResolvedValue({
         deletedVirtualAgentIds: [],

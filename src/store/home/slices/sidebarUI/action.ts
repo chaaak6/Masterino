@@ -1,3 +1,4 @@
+import { TRPCClientError } from '@trpc/client';
 import { t } from 'i18next';
 
 import { message } from '@/components/AntdStaticMethods';
@@ -95,8 +96,11 @@ export class SidebarUIActionImpl {
   };
 
   removeAgentGroup = async (groupId: string): Promise<void> => {
-    // Delete the group
-    await chatGroupService.deleteGroup(groupId);
+    try {
+      await chatGroupService.deleteGroup(groupId);
+    } catch (error) {
+      if (!(error instanceof TRPCClientError) || error.data?.code !== 'NOT_FOUND') throw error;
+    }
     await this.#get().refreshAgentList();
   };
 
