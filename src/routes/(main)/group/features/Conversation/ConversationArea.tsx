@@ -1,7 +1,7 @@
 'use client';
 
 import { Flexbox } from '@lobehub/ui';
-import { memo, Suspense, useMemo } from 'react';
+import { memo, Suspense } from 'react';
 
 import ChatMiniMap from '@/features/ChatMiniMap';
 import { ChatList, ConversationProvider } from '@/features/Conversation';
@@ -34,10 +34,7 @@ const Conversation = memo<ConversationAreaProps>(({ mobile = false }) => {
 
   // Get raw dbMessages from ChatStore for this context
   // ConversationStore will parse them internally to generate displayMessages
-  const chatKey = useMemo(
-    () => messageMapKey(context),
-    [context.agentId, context.topicId, context.threadId],
-  );
+  const chatKey = messageMapKey(context);
   const replaceMessages = useChatStore((s) => s.replaceMessages);
   const messages = useChatStore((s) => s.dbMessagesMap[chatKey]);
 
@@ -45,7 +42,8 @@ const Conversation = memo<ConversationAreaProps>(({ mobile = false }) => {
   const operationState = useOperationState(context);
   const runningOperation = useChatStore((state) =>
     context.topicId
-      ? topicSelectors.getTopicById(context.topicId)(state)?.metadata?.runningOperation
+      ? topicSelectors.getTopicById(context.topicId, context.groupId)(state)?.metadata
+          ?.runningOperation
       : undefined,
   );
   useGatewayReconnect(context.agentId, context.topicId, runningOperation, context.groupId);

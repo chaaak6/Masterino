@@ -24,7 +24,6 @@ import { consumePendingTopicRepos, getPendingTopicRepos } from '@/store/chat/pen
 import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import type { ChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
-import { topicMapKey } from '@/store/chat/utils/topicMapKey';
 import {
   getProjectWorkspaceStoreState,
   resolvePendingTopicExecutionIntent,
@@ -661,12 +660,7 @@ export class GatewayActionImpl {
   }): Promise<void> => {
     const { assistantMessageId, operationId, topicId, scope, threadId } = params;
     const fallbackAgentId = params.agentId ?? this.#get().activeAgentId;
-    const getTopic = (state: ChatStore) =>
-      params.groupId
-        ? state.topicDataMap[topicMapKey({ groupId: params.groupId })]?.items?.find(
-            ({ id }) => id === topicId,
-          )
-        : topicSelectors.getTopicById(topicId)(state);
+    const getTopic = topicSelectors.getTopicById(topicId, params.groupId);
     const scopeContext = {
       agentId: fallbackAgentId,
       groupId: params.groupId,

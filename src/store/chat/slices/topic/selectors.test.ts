@@ -171,6 +171,28 @@ describe('topicSelectors', () => {
       const topic = topicSelectors.getTopicById('topic1')(state);
       expect(topic).toEqual(topicItems[0]);
     });
+
+    it('uses the requested group topic bucket when an agent is also active', () => {
+      const groupTopic = {
+        id: 'group-topic',
+        metadata: {
+          runningOperation: { assistantMessageId: 'assistant', operationId: 'server-op' },
+        },
+      };
+      const state = merge(initialStore, {
+        activeAgentId: 'test',
+        activeGroupId: 'group-1',
+        topicDataMap: {
+          ...createTopicDataMap('test', 'group-1'),
+          [topicMapKey({ groupId: 'group-1' })]: {
+            items: [groupTopic],
+            total: 1,
+          },
+        },
+      });
+
+      expect(topicSelectors.getTopicById('group-topic', 'group-1')(state)).toEqual(groupTopic);
+    });
   });
 
   describe('groupedTopicsSelector', () => {
