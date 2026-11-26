@@ -254,7 +254,7 @@ const findLastMessageIdRecursive = (node: UIChatMessage | undefined): string | u
   // Priority 2: Check tools for result message ID
   if (node.tools && node.tools.length > 0) {
     const lastTool = node.tools.at(-1);
-    return lastTool?.result_msg_id;
+    return lastTool?.result_msg_id ?? node.id;
   }
 
   // Priority 3: For compressedGroup, return lastMessageId instead of group ID

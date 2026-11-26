@@ -3,6 +3,9 @@ import { createStaticStyles, cssVar, cx } from 'antd-style';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { memo, useState } from 'react';
 
+import { useChatStore } from '@/store/chat';
+import { operationSelectors } from '@/store/chat/selectors';
+
 import { useConversationStore } from '../../store';
 
 const prefixCls = 'ant';
@@ -66,7 +69,15 @@ interface MessageBranchProps {
 
 const MessageBranch = memo<MessageBranchProps>(({ activeBranchIndex, count, messageId }) => {
   const switchMessageBranch = useConversationStore((s) => s.switchMessageBranch);
+  const context = useConversationStore((s) => s.context);
+  const running = useChatStore(operationSelectors.isAgentRuntimeRunningByContext(context));
+  const pagedHistory =
+    !!context.topicId &&
+    !context.groupId &&
+    !context.threadId &&
+    (!context.scope || context.scope === 'main');
   const [switching, setSwitching] = useState(false);
+  const switchDisabled = switching || (pagedHistory && running);
 
   const select = async (index: number) => {
     setSwitching(true);
@@ -79,8 +90,8 @@ const MessageBranch = memo<MessageBranchProps>(({ activeBranchIndex, count, mess
     }
   };
 
-  const canGoPrevious = !switching && activeBranchIndex > 0;
-  const canGoNext = !switching && activeBranchIndex < count - 1;
+  const canGoPrevious = !switchDisabled && activeBranchIndex > 0;
+  const canGoNext = !switchDisabled && activeBranchIndex < count - 1;
 
   return (
     <Flexbox horizontal className={styles.container}>

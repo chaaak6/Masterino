@@ -770,7 +770,7 @@ describe('Generation Actions', () => {
       }
     });
 
-    it('regenerates a paged reply with all sibling indices and the saved context at the old question', async () => {
+    it('regenerates from the saved question and selects only the persisted reply', async () => {
       const { useChatStore } = await import('@/store/chat');
       const internal_dispatchMessage = vi.fn();
       vi.mocked(useChatStore.getState).mockReturnValueOnce({
@@ -815,14 +815,12 @@ describe('Generation Actions', () => {
           displayMessages: [question],
         });
         await store.getState().regenerateUserMessage(question.id);
-        expect(update).toHaveBeenCalledWith(question.id, { activeBranchIndex: 2 });
-        expect(internal_dispatchMessage).toHaveBeenCalledWith(
-          { id: question.id, type: 'updateMessageMetadata', value: { activeBranchIndex: 1 } },
-          { operationId: 'test-op-id' },
-        );
+        expect(update).not.toHaveBeenCalled();
+        expect(internal_dispatchMessage).not.toHaveBeenCalled();
         expect(history).toHaveBeenCalledWith({ historyHeadId: question.id, topicId: 'topic-1' });
         expect(mockExecuteClientAgent).toHaveBeenCalledWith(
           expect.objectContaining({
+            selectReply: true,
             messages: expect.arrayContaining([
               expect.objectContaining({ id: 'prior' }),
               expect.objectContaining({ id: question.id }),

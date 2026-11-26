@@ -1,5 +1,6 @@
 'use client';
 
+import type { ChatToolPayloadWithResult } from '@lobechat/types';
 import { cssVar } from 'antd-style';
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
@@ -129,7 +130,15 @@ const ChatList = memo<ChatListProps>(
       );
       return new Set(
         displayMessages.flatMap((row) =>
-          boundaries.has(row.id) || row.children?.some(({ id }) => boundaries.has(id))
+          boundaries.has(row.id) ||
+          (!!row.lastMessageId && boundaries.has(row.lastMessageId)) ||
+          [row, ...(row.children ?? [])].some(
+            (block) =>
+              boundaries.has(block.id) ||
+              block.tools?.some((tool: ChatToolPayloadWithResult) =>
+                boundaries.has(tool.result_msg_id ?? tool.result?.id ?? ''),
+              ),
+          )
             ? [row.id]
             : [],
         ),
@@ -188,8 +197,8 @@ const ChatList = memo<ChatListProps>(
             />
             {compressionMarkers.has(id) && (
               <div
-                role="separator"
                 aria-label={t('compression.marker', { ns: 'chat' })}
+                role="separator"
                 style={{
                   color: cssVar.colorTextDescription,
                   fontSize: 12,
@@ -271,6 +280,7 @@ const ChatList = memo<ChatListProps>(
         <VirtualizedList
           dataSource={displayMessageIds}
           footerSlot={mergedFooterSlot}
+          itemContent={itemContent ?? defaultItemContent}
           headerSlot={
             paginate && (history.loadError || history.hasOlder) ? (
               <>
@@ -288,7 +298,6 @@ const ChatList = memo<ChatListProps>(
               headerSlot
             )
           }
-          itemContent={itemContent ?? defaultItemContent}
           onReachTop={paginate ? history.loadOlder : undefined}
         />
       </MessageActionProvider>

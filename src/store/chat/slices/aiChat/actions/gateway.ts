@@ -330,6 +330,7 @@ export class GatewayActionImpl {
     resumeInteraction?: ResumeInteractionParam;
     /** Optimistic turn rows awaiting their matching persisted messages. */
     optimisticMessageIds?: { assistant: string; user: string };
+    selectReply?: boolean;
   }): Promise<ExecAgentResult> => {
     const {
       context,
@@ -343,6 +344,7 @@ export class GatewayActionImpl {
       resumeApproval,
       resumeInteraction,
       optimisticMessageIds,
+      selectReply,
     } = params;
 
     const agentGatewayUrl =
@@ -401,6 +403,7 @@ export class GatewayActionImpl {
           ...(historyHeadId && { historyHeadId }),
           ...(initialTopicMetadata && { initialTopicMetadata }),
           scope: context.scope,
+          ...(selectReply && { selectReply }),
           ...(usesPagedGatewayHistory(context) && { syncGatewayMessagesById: true }),
           taskId,
           threadId: context.threadId,

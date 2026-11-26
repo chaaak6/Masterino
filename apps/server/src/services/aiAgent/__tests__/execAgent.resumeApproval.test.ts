@@ -273,6 +273,25 @@ describe('AiAgentService.execAgent - resumeApproval', () => {
   });
 
   describe('decision=approved', () => {
+    it('keeps the decision pending and creates no assistant when history cannot be loaded', async () => {
+      mockMessageQuery.mockRejectedValueOnce(new Error('History unavailable'));
+
+      await expect(
+        service.execAgent({
+          ...baseParams,
+          resumeApproval: {
+            decision: 'approved',
+            parentMessageId: 'tool-msg-1',
+            toolCallId: 'call_xyz',
+          },
+        }),
+      ).rejects.toThrow('History unavailable');
+
+      expect(mockUpdateMessagePlugin).not.toHaveBeenCalled();
+      expect(mockMessageCreate).not.toHaveBeenCalled();
+      expect(mockCreateOperation).not.toHaveBeenCalled();
+    });
+
     it('persists intervention=approved and seeds initialContext for human_approved_tool', async () => {
       await service.execAgent({
         ...baseParams,

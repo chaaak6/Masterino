@@ -409,18 +409,25 @@ export const messageCRUDSlice: StateCreator<
       search: extra?.search,
       tools: extra?.tools,
     };
+    const previous = dataSelectors.getDbMessageById(id)(get());
     internal_dispatchMessage({ id, type: 'updateMessage', value });
     const expected = dataSelectors.getDbMessageById(id)(get());
-    const result = await messageService.updateMessage(id, value, context, {
-      returnUpdatedMessage: true,
-    });
-    if (!result?.success) throw new Error('Message update was not committed');
-    if (result.message) {
-      get().internal_dispatchMessage({
-        expected,
-        type: 'acknowledgeMessage',
-        value: result.message,
+    try {
+      const result = await messageService.updateMessage(id, value, context, {
+        returnUpdatedMessage: true,
       });
+      if (!result?.success) throw new Error('Message update was not committed');
+      if (result.message) {
+        get().internal_dispatchMessage({
+          expected,
+          type: 'acknowledgeMessage',
+          value: result.message,
+        });
+      }
+    } catch (error) {
+      if (previous)
+        get().internal_dispatchMessage({ expected, type: 'acknowledgeMessage', value: previous });
+      throw error;
     }
   },
 

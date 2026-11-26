@@ -1592,10 +1592,14 @@ export class ConversationLifecycleActionImpl {
     const lastVisible = displayMessageSelectors
       .getDisplayMessagesByKey(contextKey)(this.#get())
       .at(-1);
-    const historyHeadId =
+    const visibleHeadId =
       lastVisible?.lastMessageId ??
-      (lastVisible && displayMessageSelectors.findLastMessageId(lastVisible.id)(this.#get()));
-    if (messageIds.length === 0) {
+      (lastVisible && displayMessageSelectors.findLastMessageId(lastVisible.id)(this.#get())) ??
+      lastVisible?.id;
+    const historyHeadId = dbMessages.find(
+      ({ id }) => id === visibleHeadId && !id.startsWith('tmp_'),
+    )?.id;
+    if (messageIds.length === 0 || (usesPagedHistory && !historyHeadId)) {
       antdMessage.info(
         t('contextBudget.title.NO_CANDIDATES', {
           defaultValue: 'Nothing left to compress',

@@ -639,6 +639,43 @@ describe('ConversationControl actions', () => {
       expect(useChatStore.getState().dbMessagesMap[key]).toEqual([assistantMessage, toolMessage]);
     });
 
+    it('leaves an approval pending when the selected history cannot be read', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const agentId = 'test-agent';
+      const topicId = 'unavailable-history';
+      const key = messageMapKey({ agentId, topicId });
+      const tool = createMockMessage({
+        id: 'pending-tool',
+        plugin: {
+          apiName: 'readFile',
+          arguments: '{}',
+          identifier: 'local-system',
+          type: 'default',
+        },
+        role: 'tool',
+        tool_call_id: 'pending-call',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeTopicId: topicId,
+          dbMessagesMap: { [key]: [tool] },
+          messagesMap: { [key]: [tool] },
+        });
+      });
+      vi.mocked(messageService.getAgentHistory).mockRejectedValueOnce(
+        new Error('read unavailable'),
+      );
+      const approve = vi.spyOn(result.current, 'optimisticUpdateMessagePlugin');
+      const execute = vi.spyOn(result.current, 'executeClientAgent');
+
+      await act(() => result.current.approveToolCalling(tool.id, 'assistant-group'));
+
+      expect(approve).not.toHaveBeenCalled();
+      expect(execute).not.toHaveBeenCalled();
+      expect(useChatStore.getState().dbMessagesMap[key]).toEqual([tool]);
+    });
+
     it('should use provided context instead of global state', async () => {
       const { result } = renderHook(() => useChatStore());
 

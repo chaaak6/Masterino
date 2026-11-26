@@ -124,6 +124,7 @@ const runHeterogeneousFromExistingMessage = async (
     parentMessageId: string;
     parentOperationId: string;
     prompt: string;
+    selectReply?: boolean;
   },
 ): Promise<string> => {
   const { context, heterogeneousProvider, imageList, parentMessageId, parentOperationId, prompt } =
@@ -157,6 +158,7 @@ const runHeterogeneousFromExistingMessage = async (
     // front. The adapter backfills the actual model later if the CLI reports it.
     provider: heterogeneousProvider.type,
     role: 'assistant',
+    ...(params.selectReply && { selectReply: true }),
     threadId: context.threadId ?? undefined,
     topicId: context.topicId ?? undefined,
   });
@@ -579,30 +581,10 @@ export const generationSlice: StateCreator<
     });
 
     try {
-      const children = get().dbMessages.filter(
-        (m) => m.parentId === messageId && m.role !== 'tool',
-      );
-      if (usesPagedHistory) {
-        // The page contains the selected child and its total sibling count.
-        // The optimistic index is relative to the rows in memory; PostgreSQL
-        // keeps the index relative to all siblings.
-        const branchIndex = Math.max(
-          children.length,
-          ...children.map((child) => child.branch?.count ?? 0),
+      if (!usesPagedHistory) {
+        const children = get().dbMessages.filter(
+          (message) => message.parentId === messageId && message.role !== 'tool',
         );
-        const selected = await messageService.updateMessageMetadata(messageId, {
-          activeBranchIndex: branchIndex,
-        });
-        if (!selected?.success) throw new Error('Reply branch selection was not committed');
-        chatStore.internal_dispatchMessage(
-          {
-            id: messageId,
-            type: 'updateMessageMetadata',
-            value: { activeBranchIndex: children.length },
-          },
-          { operationId },
-        );
-      } else {
         await chatStore.switchMessageBranch(messageId, children.length, { operationId });
       }
 
@@ -642,6 +624,7 @@ export const generationSlice: StateCreator<
             }
           },
           parentMessageId: messageId,
+          ...(usesPagedHistory && { selectReply: true }),
         });
 
         return;
@@ -664,6 +647,7 @@ export const generationSlice: StateCreator<
           parentMessageId: messageId,
           parentOperationId: operationId,
           prompt: item.content,
+          ...(usesPagedHistory && { selectReply: true }),
         });
         chatStore.completeOperation(operationId);
         if (hooks.onRegenerateComplete) hooks.onRegenerateComplete(messageId);
@@ -686,6 +670,7 @@ export const generationSlice: StateCreator<
         parentMessageId: messageId,
         parentMessageType: 'user',
         parentOperationId: operationId,
+        ...(usesPagedHistory && { selectReply: true }),
       });
 
       chatStore.completeOperation(operationId);

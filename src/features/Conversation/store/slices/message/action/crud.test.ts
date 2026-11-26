@@ -472,6 +472,26 @@ describe('Message CRUD Actions', () => {
   });
 
   describe('updateMessageContent', () => {
+    it('restores the saved text when the edit is rejected', async () => {
+      vi.spyOn(messageServiceModule.messageService, 'updateMessage').mockRejectedValueOnce(
+        new Error('write unavailable'),
+      );
+      const store = createTestStore();
+      store.getState().internal_dispatchMessage({
+        id: 'msg-1',
+        type: 'createMessage',
+        value: { content: 'Saved text', role: 'user', sessionId: 'test-session' },
+      });
+
+      await expect(
+        store.getState().updateMessageContent('msg-1', 'Uncommitted edit'),
+      ).rejects.toThrow('write unavailable');
+
+      expect(store.getState().displayMessages.find(({ id }) => id === 'msg-1')?.content).toBe(
+        'Saved text',
+      );
+    });
+
     it('should update message content', async () => {
       const updateMessageSpy = vi
         .spyOn(messageServiceModule.messageService, 'updateMessage')

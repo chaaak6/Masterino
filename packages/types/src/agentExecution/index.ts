@@ -92,8 +92,9 @@ export interface ExecAgentAppContext {
    * recursive sub-agent dispatch.
    */
   isSubAgent?: boolean;
-  /** Scope identifier */
   scope?: string | null;
+  /** Scope identifier */
+  selectReply?: boolean;
   /** Session ID */
   sessionId?: string;
   /** Optional assistant message id that anchors the run (e.g. parent for an isolated thread). */

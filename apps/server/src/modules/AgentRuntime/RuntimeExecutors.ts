@@ -70,6 +70,7 @@ import {
 import { chainCompressContext } from '@lobechat/prompts';
 import {
   type ChatToolPayload,
+  type ChatToolPayloadWithResult,
   type ExecSubAgentParams,
   type ExecVirtualSubAgentParams,
   type MessageToolCall,
@@ -555,6 +556,21 @@ export const resolveCompressionSummaryBudgetTokens = (params: {
   // A fixed 2k floor could make the request budget larger than the model's
   // actual prompt capacity and recreate the context error during recovery.
   return Math.max(1, (matchingSnapshot?.entry.contextWindowTokens ?? 32_000) - 1024);
+};
+
+const compressionSourceIds = (message: UIChatMessage): string[] => {
+  const members =
+    (message.role === 'assistantGroup' || message.role === 'supervisor') && message.children?.length
+      ? message.children
+      : [message];
+  return members.flatMap((member) =>
+    [
+      member.id,
+      ...(member.tools ?? []).map(
+        (tool: ChatToolPayloadWithResult) => tool.result_msg_id ?? tool.result?.id,
+      ),
+    ].filter((id): id is string => Boolean(id)),
+  );
 };
 
 const precedingCheckpoints = (messages: UIChatMessage[], firstCandidateId: string) => {
@@ -2321,18 +2337,18 @@ export const createRuntimeExecutors = (
         if (!topicId || !ctx.userId) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
 
         const budgetCandidateIds = new Set(evaluation.partition.candidateIds);
-        const rawCandidateIds = state.messages.flatMap(({ id, role }) =>
-          id && role !== 'compressedGroup' && budgetCandidateIds.has(id) ? [id] : [],
-        );
-        if (rawCandidateIds.length === 0) {
-          throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
-        }
+        const sourceMessages = (state.messages as UIChatMessage[]).filter((message) => {
+          if (message.role === 'compressedGroup') return false;
+          const ids = compressionSourceIds(message);
+          return ids.length > 0 && ids.every((id) => budgetCandidateIds.has(id));
+        });
+        const rawCandidateIds = [...new Set(sourceMessages.flatMap(compressionSourceIds))];
+        if (!rawCandidateIds.length) throw new Error('SUMMARY_PERSISTENCE_REQUIRED');
+
         const providerIds = new Set((payload.messages as UIChatMessage[]).map(({ id }) => id));
-        const preceding = precedingCheckpoints(state.messages, rawCandidateIds[0]);
-        const persistedCandidateIds = [
-          ...(preceding.every((id) => providerIds.has(id)) ? preceding : []),
-          ...rawCandidateIds,
-        ];
+        const preceding = precedingCheckpoints(state.messages, sourceMessages[0].id);
+        const includedCheckpoints = preceding.every((id) => providerIds.has(id)) ? preceding : [];
+        const persistedCandidateIds = [...includedCheckpoints, ...rawCandidateIds];
 
         const messageService = new MessageService(
           ctx.serverDB,
@@ -2478,9 +2494,10 @@ export const createRuntimeExecutors = (
 
           const stateMessages = replaceRuntimeHistoryWithSummary(
             state.messages.filter((message) => message.id !== assistantMessageItem.id),
-            persistedCandidateIds,
+            [...includedCheckpoints, ...sourceMessages.map(({ id }) => id), ...rawCandidateIds],
             compressionGroup.messageGroupId,
             finalSummary,
+            rawCandidateIds.at(-1),
           );
           persistedAutoCompression = {
             inputFingerprint: evaluation.payloadFingerprint,
@@ -3449,21 +3466,7 @@ export const createRuntimeExecutors = (
     }
 
     try {
-      const messageIds = [
-        ...new Set(
-          messagesToCompress.flatMap((message) => {
-            const members: UIChatMessage[] =
-              message.role === 'assistantGroup' && message.children?.length
-                ? message.children
-                : [message];
-            return members.flatMap((member) =>
-              [member.id, ...(member.tools ?? []).map((tool) => tool.result_msg_id)].filter(
-                (id): id is string => Boolean(id),
-              ),
-            );
-          }),
-        ),
-      ];
+      const messageIds = [...new Set(messagesToCompress.flatMap(compressionSourceIds))];
       if (messageIds.length === 0 || messagesToCompress.length === 0) {
         return {
           events,

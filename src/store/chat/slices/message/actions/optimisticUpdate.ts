@@ -234,7 +234,9 @@ export class MessageOptimisticUpdateActionImpl {
       this.#get();
     const ctx = internal_getConversationContext(context);
     const key = messageMapKey(ctx);
-    const toolMessage = dbMessageSelectors.getDbMessageById(id)(this.#get());
+    const current = this.#get().dbMessagesMap[key] ?? [];
+    const toolMessage = current.find((message) => message.id === id);
+    const parent = current.find((message) => message.id === toolMessage?.parentId);
 
     internal_dispatchMessage({ id, type: 'updateMessagePlugin', value }, context);
 
@@ -250,24 +252,42 @@ export class MessageOptimisticUpdateActionImpl {
       );
     }
 
-    if (options?.returnUpdatedMessage) {
-      const expected = this.#get().dbMessagesMap[key]?.find((message) => message.id === id);
-      const result = await messageService.updateMessagePlugin(id, value, ctx, options);
+    const committed = this.#get().dbMessagesMap[key] ?? [];
+    try {
+      const result = options
+        ? await messageService.updateMessagePlugin(id, value, ctx, options)
+        : await messageService.updateMessagePlugin(id, value, ctx);
       if (!result?.success) throw new Error('Tool approval was not committed');
-      const confirmed = result.message ?? result.messages?.find((message) => message.id === id);
-      if (confirmed && messageMapKey(internal_getConversationContext(context)) === key) {
-        internal_dispatchMessage(
-          { expected, type: 'acknowledgeMessage', value: confirmed },
-          context,
-        );
+      if (options?.returnUpdatedMessage) {
+        const confirmed = result.message ?? result.messages?.find((message) => message.id === id);
+        if (confirmed && messageMapKey(internal_getConversationContext(context)) === key) {
+          internal_dispatchMessage(
+            {
+              expected: committed.find((message) => message.id === id),
+              type: 'acknowledgeMessage',
+              value: confirmed,
+            },
+            context,
+          );
+        }
+      } else if (result.messages) {
+        replaceMessages(result.messages, { context: ctx });
       }
-      return;
-    }
-
-    const result = await messageService.updateMessagePlugin(id, value, ctx);
-
-    if (result?.success && result.messages) {
-      replaceMessages(result.messages, { context: ctx });
+    } catch (error) {
+      if (messageMapKey(internal_getConversationContext(context)) === key) {
+        for (const previous of [toolMessage, parent]) {
+          if (!previous) continue;
+          internal_dispatchMessage(
+            {
+              expected: committed.find((message) => message.id === previous.id),
+              type: 'acknowledgeMessage',
+              value: previous,
+            },
+            context,
+          );
+        }
+      }
+      throw error;
     }
   };
 

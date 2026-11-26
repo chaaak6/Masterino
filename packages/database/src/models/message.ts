@@ -579,7 +579,9 @@ export class MessageModel {
               parentId: messages.parentId,
             })
             .from(messages)
-            .where(and(scope, inArray(messages.parentId, forkParents)))
+            .where(
+              and(scope, inArray(messages.parentId, forkParents), sql`${messages.role} <> 'tool'`),
+            )
             .orderBy(asc(messages.createdAt), asc(messages.id));
           const childrenByParent = new Map<string | null, typeof children>();
           for (const child of children) {
@@ -592,7 +594,10 @@ export class MessageModel {
             const siblings = childrenByParent.get(parent.id)!;
             const index = parent.metadata?.activeBranchIndex;
             const active =
-              typeof index === 'number' && index >= 0 && index <= siblings.length
+              typeof index === 'number' &&
+              Number.isInteger(index) &&
+              index >= 0 &&
+              index < siblings.length
                 ? index
                 : Math.max(
                     0,
@@ -647,11 +652,25 @@ export class MessageModel {
             .leftJoin(messagePlugins, eq(messagePlugins.id, messages.id))
             .where(scope)
             .orderBy(asc(messages.createdAt), asc(messages.id));
+          const childCounts = new Map<string, number>();
+          for (const row of graph) {
+            if (row.parentId && row.role !== 'tool')
+              childCounts.set(row.parentId, (childCounts.get(row.parentId) ?? 0) + 1);
+          }
           const projection = projectConversationHistory(
             graph.map(
               (row) =>
                 ({
                   ...row,
+                  metadata: {
+                    ...row.metadata,
+                    activeBranchIndex:
+                      Number.isInteger(row.metadata?.activeBranchIndex) &&
+                      row.metadata!.activeBranchIndex! >= 0 &&
+                      row.metadata!.activeBranchIndex! < (childCounts.get(row.id) ?? 0)
+                        ? row.metadata!.activeBranchIndex
+                        : undefined,
+                  },
                   content: '',
                   createdAt: +row.createdAt,
                   updatedAt: +row.createdAt,
@@ -2673,8 +2692,55 @@ export class MessageModel {
       'db.message.create.transaction',
       () =>
         this.db.transaction(async (trx) => {
-          const item = await this.createInTransaction(trx, params, id, timing);
+          const { selectReply, ...message } = params;
+          if (!selectReply) return this.createInTransaction(trx, message, id, timing);
 
+          const { parentId, topicId } = message;
+          if (!parentId || !topicId || message.role !== 'assistant') {
+            throw new Error('Reply selection requires a topic assistant and its user parent');
+          }
+          if (message.groupId || message.threadId) {
+            throw new Error('Reply selection requires a main conversation');
+          }
+          const parentScope = and(
+            this.ownership(),
+            eq(messages.id, parentId),
+            eq(messages.topicId, topicId),
+            eq(messages.role, 'user'),
+            isNull(messages.groupId),
+            isNull(messages.threadId),
+          );
+          const [parent] = await trx
+            .select({ id: messages.id })
+            .from(messages)
+            .where(parentScope)
+            .for('update');
+          if (!parent) throw new Error('Reply selection parent was not found in this conversation');
+
+          const item = await this.createInTransaction(trx, message, id, timing);
+          const children = await trx
+            .select({ id: messages.id })
+            .from(messages)
+            .where(
+              and(
+                this.ownership(),
+                eq(messages.parentId, parentId),
+                eq(messages.topicId, topicId),
+                isNull(messages.groupId),
+                isNull(messages.threadId),
+                sql`${messages.role} <> 'tool'`,
+              ),
+            )
+            .orderBy(asc(messages.createdAt), asc(messages.id));
+          const activeBranchIndex = children.findIndex((child) => child.id === item.id);
+          if (activeBranchIndex < 0) throw new Error('Created reply was not found');
+          await trx
+            .update(messages)
+            .set({
+              metadata: sql`coalesce(${messages.metadata}, '{}'::jsonb) || jsonb_build_object('activeBranchIndex', ${activeBranchIndex}::int)`,
+              updatedAt: sql`${messages.updatedAt}`,
+            })
+            .where(parentScope);
           return item;
         }),
       {

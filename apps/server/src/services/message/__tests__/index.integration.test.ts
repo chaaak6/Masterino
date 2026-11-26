@@ -184,6 +184,67 @@ describe('MessageService Integration Tests', () => {
     expect(oldest.messages[1].branch).toMatchObject({ activeBranchIndex: 1, count: 2 });
   });
 
+  it.each([false, true])(
+    'keeps a visible reply for a persisted optimistic index (tool path: %s)',
+    async (includeTools) => {
+      const topicId = 'pending-regeneration';
+      const service = new MessageService(serverDB, userId);
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values([
+        {
+          id: 'fork-user',
+          role: 'user',
+          createdAt: new Date(0),
+          metadata: { activeBranchIndex: 2 },
+          topicId,
+          userId,
+        },
+        {
+          id: 'fork-a',
+          createdAt: new Date(1000),
+          parentId: 'fork-user',
+          role: 'assistant',
+          ...(includeTools && { tools: [{ id: 'call-1' }] }),
+          topicId,
+          userId,
+        },
+        {
+          id: 'fork-b',
+          parentId: 'fork-user',
+          createdAt: new Date(2000),
+          role: 'assistant',
+          topicId,
+          userId,
+        },
+      ]);
+      const before = await service.queryHistoryPage({ topicId });
+      expect(before.messages.map(({ id }) => id)).toEqual(['fork-user', 'fork-a']);
+
+      await expect(
+        service.createMessage({
+          content: 'Rejected',
+          parentId: 'missing',
+          role: 'assistant',
+          selectReply: true,
+          topicId,
+        }),
+      ).rejects.toThrow();
+      const stillVisible = await service.queryHistoryPage({ topicId });
+      expect(stillVisible.branchSelections).toEqual({ 'fork-user': 'fork-a' });
+
+      const created = await service.createMessage({
+        content: 'Regenerated',
+        parentId: 'fork-user',
+        role: 'assistant',
+        selectReply: true,
+        topicId,
+      });
+      const after = await service.queryHistoryPage({ topicId });
+      expect(after.messages.map(({ id }) => id)).toEqual(['fork-user', created.id]);
+      expect(after.branchSelections).toEqual({ 'fork-user': created.id });
+    },
+  );
+
   it('pages Gateway writes within one run and resumes by the last changed row', async () => {
     const topicId = 'gateway-history';
     const at = (value: number) => new Date(Date.UTC(2026, 0, 1) + value * 1000);

@@ -43,7 +43,7 @@ describe('chat history pages', () => {
     expect(
       mergeHistoryPage([older, recent, unselected], page, new Set([unselected.id]), true),
     ).toEqual([older, recent, selected]);
-    expect(sharesOlderHistory({ [recent.id]: unselected.id }, page)).toBe(false);
+    expect(sharesOlderHistory({ [recent.id]: unselected.id }, page)).toBe(true);
     expect(sharesOlderHistory({}, { ...page, branchSelections: { [older.id]: selected.id } })).toBe(
       false,
     );

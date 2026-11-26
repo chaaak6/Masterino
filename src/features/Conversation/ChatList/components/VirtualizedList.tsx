@@ -32,6 +32,26 @@ import BackBottom from './BackBottom';
 const CONVERSATION_FOOTER_ID = '__conversation_footer__';
 const CONVERSATION_HEADER_ID = '__conversation_header__';
 const HISTORY_TOP_THRESHOLD = 160;
+
+const isLocalListGesture = (target: EventTarget | null, wrapper: HTMLElement) => {
+  const viewport = wrapper.querySelector('.conversation-history-viewport');
+  if (!(target instanceof Element) || !viewport?.contains(target)) return false;
+  if (target.closest('input, textarea, select, [role="textbox"], [contenteditable="true"]'))
+    return false;
+  for (
+    let element: Element | null = target;
+    element && element !== viewport;
+    element = element.parentElement
+  ) {
+    if (
+      /auto|scroll|overlay/.test(getComputedStyle(element).overflowY) &&
+      element.scrollHeight > element.clientHeight
+    )
+      return false;
+  }
+  return true;
+};
+
 const USER_SCROLL_INTENT_TTL_MS = 500;
 const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' ']);
 
@@ -117,6 +137,7 @@ const VirtualizedList = memo<VirtualizedListProps>(
         }
         if (
           (event.key === 'Home' || event.key === 'ArrowUp' || event.key === 'PageUp') &&
+          isLocalListGesture(event.target, event.currentTarget) &&
           (virtuaRef.current?.scrollOffset ?? Infinity) < HISTORY_TOP_THRESHOLD
         ) {
           onReachTop?.();
@@ -130,6 +151,7 @@ const VirtualizedList = memo<VirtualizedListProps>(
         markUserScrollIntent();
         if (
           event.deltaY < 0 &&
+          isLocalListGesture(event.target, event.currentTarget) &&
           (virtuaRef.current?.scrollOffset ?? Infinity) < HISTORY_TOP_THRESHOLD
         ) {
           onReachTop?.();
@@ -315,6 +337,7 @@ const VirtualizedList = memo<VirtualizedListProps>(
         {OPEN_DEV_INSPECTOR && <DebugInspector />}
         <VList
           bufferSize={typeof window !== 'undefined' ? window.innerHeight : 0}
+          className="conversation-history-viewport"
           data={dataWithSlots}
           keepMounted={keepMountedIndicesWithSlots}
           ref={virtuaRef}

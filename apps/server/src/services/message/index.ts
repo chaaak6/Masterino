@@ -419,23 +419,33 @@ export class MessageService {
     const previousSummaries: NonNullable<CompressionGroupMetadata['previousSummaries']> = [];
     const stagedSources: NonNullable<CompressionGroupMetadata['stagedSources']> = [];
     let previousEnd: string | undefined;
-    const messagesToSummarize = candidates.map((id) => {
+    const messagesToSummarize: UIChatMessage[] = [];
+    for (const id of candidates) {
       const checkpoint = checkpoints.get(id);
       if (checkpoint) {
-        const coverage: CompressionGroupMetadata = JSON.parse(checkpoint.description ?? '{}');
-        const end = coverage.coverage?.ids.at(-1);
+        let coverage: CompressionGroupMetadata | undefined;
+        try {
+          coverage = JSON.parse(checkpoint.description ?? '{}');
+        } catch {
+          // Invalid legacy metadata cannot establish a coverage boundary.
+        }
+        const end = Array.isArray(coverage?.coverage?.ids)
+          ? coverage.coverage.ids.at(-1)
+          : undefined;
+        const boundary = end ? await this.messageModel.findById(end) : undefined;
         if (
           !end ||
-          coverage.compressionStatus !== 'completed' ||
+          coverage?.compressionStatus !== 'completed' ||
           !checkpoint.content ||
-          options?.threadId ||
-          stagedSources.length
+          stagedSources.length ||
+          boundary?.topicId !== topicId ||
+          (boundary.threadId ?? null) !== (options?.threadId ?? null)
         ) {
           throw new Error('Previous summary is not a verified prefix of the compression source');
         }
         previousEnd = end;
         previousSummaries.push({ id, updatedAt: checkpoint.updatedAt.toISOString() });
-        return {
+        messagesToSummarize.push({
           content: checkpoint.content,
           createdAt: checkpoint.createdAt.getTime(),
           id,
@@ -443,7 +453,8 @@ export class MessageService {
           role: 'compressedGroup' as const,
           topicId,
           updatedAt: checkpoint.updatedAt.getTime(),
-        } satisfies UIChatMessage;
+        });
+        continue;
       }
       const source = byId.get(id);
       if (
@@ -461,8 +472,8 @@ export class MessageService {
       )
         throw new Error('Previous summary does not precede the compression source');
       stagedSources.push({ id, updatedAt: new Date(source.updatedAt).toISOString() });
-      return source;
-    });
+      messagesToSummarize.push(source);
+    }
     if (!stagedSources.length) throw new Error('Compression requires new source messages');
 
     // 2. Create compression group with placeholder content

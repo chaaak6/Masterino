@@ -55,13 +55,9 @@ export const sharesOlderHistory = (
   const next = page.branchSelections;
   if (!previous || !next || !page.nextCursor) return false;
 
-  // Existing choices are still selected, and every new fork starts in
-  // the freshly fetched window. The already loaded prefix is still valid.
   const pageIds = new Set(page.messages.map(({ id }) => id));
-  return (
-    Object.entries(previous).every(([parent, selected]) => next[parent] === selected) &&
-    Object.keys(next).every((parent) => Object.hasOwn(previous, parent) || pageIds.has(parent))
-  );
+  const forks = new Set([...Object.keys(previous), ...Object.keys(next)]);
+  return [...forks].every((parent) => previous[parent] === next[parent] || pageIds.has(parent));
 };
 
 export const useMessageHistory = (context: ConversationContext, enabled: boolean) => {
@@ -111,7 +107,8 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
           !!page.branchKey &&
           page.branchKey !== branchKey.current &&
           (branchKey.current !== undefined || page.branchKey !== 'linear');
-        const keepOlderHistory = pathChanged && sharesOlderHistory(branchSelections.current, page);
+        const previousSelections = branchSelections.current;
+        const keepOlderHistory = pathChanged && sharesOlderHistory(previousSelections, page);
         branchKey.current = page.branchKey;
         branchSelections.current = page.branchSelections;
         if (pathChanged && !keepOlderHistory) {
@@ -142,7 +139,29 @@ export const useMessageHistory = (context: ConversationContext, enabled: boolean
                 .map(({ id }) => id),
             )
           : oldHead;
-        state.replaceMessages(mergeHistoryPage(state.dbMessages, page, refreshedIds, true));
+        const stale = new Set<string>();
+        if (keepOlderHistory && previousSelections && page.branchSelections) {
+          const children = new Map<string, string[]>();
+          for (const message of state.dbMessages) {
+            if (!message.parentId) continue;
+            const siblings = children.get(message.parentId) ?? [];
+            siblings.push(message.id);
+            children.set(message.parentId, siblings);
+          }
+          const queue = Object.entries(previousSelections)
+            .filter(([parent, selected]) => selected !== page.branchSelections![parent])
+            .map(([, selected]) => selected);
+          while (queue.length) {
+            const id = queue.pop()!;
+            if (stale.has(id)) continue;
+            stale.add(id);
+            for (const child of children.get(id) ?? []) queue.push(child);
+          }
+        }
+        const retained = stale.size
+          ? state.dbMessages.filter(({ id }) => !stale.has(id))
+          : state.dbMessages;
+        state.replaceMessages(mergeHistoryPage(retained, page, refreshedIds, true));
         store.setState({ messagesInit: true });
         previousHead.current = new Set(page.messages.map(({ id }) => id));
       },

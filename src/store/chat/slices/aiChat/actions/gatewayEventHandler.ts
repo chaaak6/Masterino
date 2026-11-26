@@ -410,12 +410,10 @@ export const createGatewayEventHandler = (
             (pagedHistory &&
               !get().dbMessagesMap[storeKey]?.some(({ id }) => id === newAssistantMessageId))
           ) {
-            const messages = await refreshPersistedMessages(false, !newAssistantMessageId).catch(
-              (error) => {
-                console.error(error);
-                return undefined;
-              },
-            );
+            const messages = await refreshPersistedMessages().catch((error) => {
+              console.error(error);
+              return undefined;
+            });
 
             if (!newAssistantMessageId && data?.newStep) {
               const resolvedAssistantMessageId = findNextAssistantMessageId(
