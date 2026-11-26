@@ -9,6 +9,7 @@ import type * as ConstVersion from '@/const/version';
 import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { trackLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { initialState as projectWorkspaceInitialState } from '@/store/projectWorkspace/initialState';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace/store';
 import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
@@ -172,22 +173,28 @@ const setupPausedAuthorityResume = (kind: 'scratch' | 'device', mode: 'approve' 
 };
 
 describe('ConversationControl actions', () => {
-  it('shows a routing failure without saving or consuming the pending approval', async () => {
-    const context: ConversationContext = { agentId: 'agent', topicId: 'routing-failure' };
-    const toolMessage = createMockMessage({ id: 'routing-failure-tool', role: 'tool' });
-    useChatStore.setState({ dbMessagesMap: { [messageMapKey(context)]: [toolMessage] } });
-    const state = useChatStore.getState();
-    const saveDecision = vi.spyOn(state, 'optimisticUpdateMessagePlugin');
-    vi.spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent').mockRejectedValueOnce(
-      new Error('Workspace lookup unavailable'),
-    );
+  it.each([new Error('Workspace lookup unavailable'), new DesktopDeviceIdentityUnavailableError()])(
+    'shows a %s without saving or consuming the pending approval',
+    async (error) => {
+      const context: ConversationContext = { agentId: 'agent', topicId: 'routing-failure' };
+      const toolMessage = createMockMessage({ id: 'routing-failure-tool', role: 'tool' });
+      useChatStore.setState({ dbMessagesMap: { [messageMapKey(context)]: [toolMessage] } });
+      const state = useChatStore.getState();
+      const saveDecision = vi.spyOn(state, 'optimisticUpdateMessagePlugin');
+      vi.spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent').mockRejectedValueOnce(
+        error,
+      );
 
-    await expect(
-      state.approveToolCalling(toolMessage.id, 'assistant-group', context),
-    ).resolves.toBeUndefined();
-    expect(antdMessage.error).toHaveBeenCalledOnce();
-    expect(saveDecision).not.toHaveBeenCalled();
-  });
+      await expect(
+        state.approveToolCalling(toolMessage.id, 'assistant-group', context),
+      ).resolves.toBeUndefined();
+      expect(antdMessage.error).toHaveBeenCalledOnce();
+      if (error instanceof DesktopDeviceIdentityUnavailableError) {
+        expect(antdMessage.error).toHaveBeenCalledWith(error.message);
+      }
+      expect(saveDecision).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(['approve', 'submit', 'skip', 'cancel', 'reject', 'rejectAndContinue'] as const)(
     'settles a local group task on %s even if persistence fails',

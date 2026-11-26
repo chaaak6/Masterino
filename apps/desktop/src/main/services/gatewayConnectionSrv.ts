@@ -308,21 +308,20 @@ export default class GatewayConnectionService extends ServiceModule {
     // The provider reads the local credential store and does not refresh the token.
     const token = await this.tokenProvider?.();
     const identity = this.authenticatedGatewayIdentity;
-    const gatewayUserId =
-      identity &&
-      identity.token === token &&
-      identity.client === this.client &&
-      this.status === 'connected'
-        ? identity.userId
-        : undefined;
+    const socketUserId = identity?.client === this.client ? identity?.userId : undefined;
+    const gatewayUserId = identity?.token === token ? socketUserId : undefined;
     const userId = token && (this.extractUserIdFromToken(token) ?? gatewayUserId);
-    if (userId && this.identityUserId !== userId) this.resolveDeviceIdentity(userId);
+    const verifiedUserId = socketUserId && socketUserId !== userId ? undefined : userId;
+    if (verifiedUserId && this.identityUserId !== verifiedUserId) {
+      this.resolveDeviceIdentity(verifiedUserId);
+    }
 
     return {
       description: this.getDeviceDescription(),
-      deviceId: !userId && this.identityUserId ? this.getConnectionId() : this.getDeviceId(),
+      deviceId:
+        !verifiedUserId && this.identityUserId ? this.getConnectionId() : this.getDeviceId(),
       hostname: os.hostname(),
-      identityVerified: Boolean(userId),
+      identityVerified: Boolean(verifiedUserId),
       name: this.getDeviceName(),
       platform: process.platform,
     };
@@ -350,7 +349,16 @@ export default class GatewayConnectionService extends ServiceModule {
 
   async connect(): Promise<{ error?: string; success: boolean }> {
     if (this.status === 'connected' || this.status === 'connecting') {
-      return { success: true };
+      const identity = this.authenticatedGatewayIdentity;
+      if (!identity) return { success: true };
+      const token = await this.tokenProvider?.();
+      if (
+        token === identity.token ||
+        (token && this.extractUserIdFromToken(token) === identity.userId)
+      ) {
+        return { success: true };
+      }
+      // A fresh sign-in can replace credentials while the old socket is live.
     }
     this.authRefreshAttempted = false;
     this.setConnectionError(undefined);
@@ -590,6 +598,8 @@ export default class GatewayConnectionService extends ServiceModule {
     });
 
     client.on('auth_expired', () => {
+      if (client !== this.client) return;
+      this.authenticatedGatewayIdentity = undefined;
       logger.warn('Received auth_expired, will reconnect with refreshed token');
       this.handleAuthExpired();
     });
@@ -606,6 +616,7 @@ export default class GatewayConnectionService extends ServiceModule {
 
   private recoverAuthentication(client: GatewayClient, reason: string) {
     if (client !== this.client || this.authRecoveryPromise) return;
+    this.authenticatedGatewayIdentity = undefined;
 
     this.authRecoveryPromise = (async () => {
       if (this.authRefreshAttempted || !this.tokenRefresher) {

@@ -220,11 +220,13 @@ const checkRegenerationWorkspace = async (
     });
     return true;
   } catch (error) {
-    antdMessage.error(
-      error instanceof ProjectDeviceMismatchError
-        ? t('workspaceRuntime.otherDeviceProject', { ns: 'chat' })
-        : t('workspaceRuntime.picker.loadError', { ns: 'chat' }),
-    );
+    if (error instanceof DesktopDeviceIdentityUnavailableError) {
+      antdMessage.error(error.message);
+    } else if (error instanceof ProjectDeviceMismatchError) {
+      antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+    } else {
+      antdMessage.error(t('unknownError', { ns: 'common' }));
+    }
     return false;
   }
 };
@@ -454,7 +456,7 @@ export const generationSlice: StateCreator<
       );
     } catch (error) {
       if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
-      antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+      antdMessage.error(error.message);
       return;
     }
 
@@ -734,7 +736,7 @@ export const generationSlice: StateCreator<
         type: 'RegenerateError',
       });
       if (error instanceof DesktopDeviceIdentityUnavailableError) {
-        antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+        antdMessage.error(error.message);
         return;
       }
       throw error;

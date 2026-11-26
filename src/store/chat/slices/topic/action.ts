@@ -1118,7 +1118,7 @@ export class ChatTopicActionImpl {
         });
       } catch (error) {
         if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
-        message.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+        message.error(error.message);
         return;
       }
     }

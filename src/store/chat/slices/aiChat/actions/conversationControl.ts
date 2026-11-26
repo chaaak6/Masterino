@@ -21,6 +21,7 @@ import { routeDesktopWorkspaceRuntime } from '@/store/chat/slices/aiChat/actions
 import { operationSelectors } from '@/store/chat/slices/operation/selectors';
 import { AI_RUNTIME_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
 import { type ChatStore } from '@/store/chat/store';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
 import {
   ProjectDeviceMismatchError,
@@ -132,11 +133,13 @@ export class ConversationControlActionImpl {
       return await this.#shouldUseGatewayResume(context, executionContext, toolIdentifier);
     } catch (error) {
       // Routing happens before saving the decision, so the same card can be retried.
-      const messageKey =
-        error instanceof ProjectDeviceMismatchError
-          ? 'workspaceRuntime.otherDeviceProject'
-          : 'workspaceRuntime.picker.loadError';
-      antdMessage.error(t(messageKey, { ns: 'chat' }));
+      if (error instanceof DesktopDeviceIdentityUnavailableError) {
+        antdMessage.error(error.message);
+      } else if (error instanceof ProjectDeviceMismatchError) {
+        antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+      } else {
+        antdMessage.error(t('unknownError', { ns: 'common' }));
+      }
       return undefined;
     }
   };
@@ -1196,6 +1199,7 @@ export class ConversationControlActionImpl {
     const toolMessage = dbMessageSelectors.getDbMessageById(messageId)(this.#get());
     if (!toolMessage) {
       localTask?.report({ status: 'error' });
+      this.#get().clearPausedExecutionContext(messageId);
       return;
     }
     const executionContext = this.#get().pausedExecutionContextByMessage[messageId];

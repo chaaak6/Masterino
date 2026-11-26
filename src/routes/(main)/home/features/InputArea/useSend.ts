@@ -116,7 +116,7 @@ export const useSend = () => {
           if (error instanceof ProjectDeviceMismatchError) {
             antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
           } else if (error instanceof DesktopDeviceIdentityUnavailableError) {
-            antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+            antdMessage.error(error.message);
           } else {
             throw error;
           }

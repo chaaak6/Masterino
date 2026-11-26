@@ -325,7 +325,7 @@ const ChatInput = memo<ChatInputProps>(
           if (error instanceof ProjectDeviceMismatchError) {
             antdMessage.error(t('workspaceRuntime.otherDeviceProject'));
           } else if (error instanceof DesktopDeviceIdentityUnavailableError) {
-            antdMessage.error(t('workspaceRuntime.picker.loadError'));
+            antdMessage.error(error.message);
           } else {
             throw error;
           }

@@ -1519,11 +1519,48 @@ describe('GatewayConnectionCtr', () => {
         deviceId: MockGatewayClient.lastOptions.deviceId,
         identityVerified: true,
       });
+      MockGatewayClient.lastInstance!.simulateStatusChanged('reconnecting');
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: MockGatewayClient.lastOptions.deviceId,
+        identityVerified: true,
+      });
 
       getAccessToken.mockResolvedValue('opaque-token-second-account');
       expect(await ctr.getDeviceInfo()).toMatchObject({
         deviceId: 'stored-connection-id',
         identityVerified: false,
+      });
+    });
+
+    it('keeps the live socket identity until the new sign-in reconnects', async () => {
+      const tokenFor = (sub: string) =>
+        `header.${Buffer.from(JSON.stringify({ sub })).toString('base64url')}.sig`;
+      const getAccessToken = vi.mocked(mockRemoteServerConfigCtr.getAccessToken);
+      getAccessToken.mockResolvedValue(tokenFor('first-user'));
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      mockStoreGet.mockImplementation((key: string) => {
+        if (key === 'gatewayDeviceId') return 'stored-connection-id';
+      });
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+      await ctr.connect();
+      const oldClient = MockGatewayClient.lastInstance!;
+      oldClient.simulateConnected('first-user');
+      await vi.advanceTimersByTimeAsync(0);
+
+      getAccessToken.mockResolvedValue(tokenFor('second-user'));
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: 'stored-connection-id',
+        identityVerified: false,
+      });
+      expect(mockGatewayConnectionSrv.getDeviceId()).toBe(oldClient.currentDeviceId);
+
+      await ctr.connect();
+      expect(oldClient.disconnect).toHaveBeenCalledOnce();
+      expect(MockGatewayClient.lastOptions.userId).toBe('second-user');
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: MockGatewayClient.lastOptions.deviceId,
+        identityVerified: true,
       });
     });
 
