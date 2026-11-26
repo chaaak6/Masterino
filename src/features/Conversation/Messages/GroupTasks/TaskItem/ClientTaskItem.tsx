@@ -11,6 +11,7 @@ import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { type UIChatMessage } from '@/types/index';
 import { ThreadStatus } from '@/types/index';
 
+import { resolveAssistantGroupFromMessages } from '../../AssistantGroup/utils/resolveAssistantGroupFromMessages';
 import ClientTaskDetail from '../../Task/ClientTaskDetail';
 import { InitializingState, isProcessingStatus } from '../../Tasks/shared';
 import { type TaskMetrics } from './TaskTitle';
@@ -84,16 +85,15 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
       : undefined,
   );
 
-  // Find the assistantGroup message which contains the children blocks
-  const assistantGroupMessage = threadMessages?.find((item) => item.role === 'assistantGroup');
-  const blocks = assistantGroupMessage?.children;
   // Build metrics for TaskTitle based on blocks data
   const metrics: TaskMetrics | undefined = useMemo(() => {
-    if (isProcessing && blocks) {
+    if (isProcessing) {
+      const { assistantId, blocks } = resolveAssistantGroupFromMessages(threadMessages);
+      if (!blocks.length) return;
       const toolCalls = blocks.reduce((sum, block) => sum + (block.tools?.length || 0), 0);
       return {
         isLoading: false,
-        startTime: assistantGroupMessage?.createdAt,
+        startTime: threadMessages?.find(({ id }) => id === assistantId)?.createdAt,
         steps: blocks.length,
         toolCalls,
       };
@@ -110,8 +110,7 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
     isProcessing,
     isCompleted,
     isError,
-    blocks,
-    assistantGroupMessage?.createdAt,
+    threadMessages,
     taskDetail?.duration,
     taskDetail?.totalSteps,
     taskDetail?.totalToolCalls,

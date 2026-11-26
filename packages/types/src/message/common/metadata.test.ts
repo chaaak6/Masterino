@@ -12,4 +12,10 @@ describe('MessageMetadataSchema', () => {
 
     expect(parsed).toEqual({ trigger: RequestTrigger.Onboarding });
   });
+
+  it('preserves a task creation failure on message updates', () => {
+    expect(MessageMetadataSchema.parse({ taskCreationFailed: true })).toEqual({
+      taskCreationFailed: true,
+    });
+  });
 });

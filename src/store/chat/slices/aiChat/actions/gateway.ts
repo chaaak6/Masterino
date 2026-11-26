@@ -19,7 +19,7 @@ import { topicService } from '@/services/topic';
 import { getAgentStoreState } from '@/store/agent';
 import { chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { consumePendingTopicRepos, getPendingTopicRepos } from '@/store/chat/pendingTopicRepos';
-import { topicSelectors } from '@/store/chat/selectors';
+import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import type { ChatStore } from '@/store/chat/store';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
 import {
@@ -662,6 +662,30 @@ export class GatewayActionImpl {
             ({ id }) => id === topicId,
           )
         : topicSelectors.getTopicById(topicId)(state);
+    const scopeContext = {
+      agentId: fallbackAgentId,
+      groupId: params.groupId,
+      scope: (scope ?? (params.groupId ? 'group' : 'main')) as ConversationContext['scope'],
+      threadId,
+      topicId,
+    };
+    const isReconnectStale = (state: ChatStore) => {
+      const existingStatus = state.gatewayConnections[operationId]?.status;
+      if (existingStatus && existingStatus !== 'disconnected') return true;
+      const topicOpId = getTopic(state)?.metadata?.runningOperation?.operationId;
+      if (topicOpId && topicOpId !== operationId) return true;
+      // A new send owns the conversation as soon as it starts its gateway runtime.
+      // The topic may be open in a drawer or still missing from the list cache.
+      return operationSelectors
+        .getOperationsByContext(scopeContext)(state)
+        .some(
+          (op) =>
+            op.type === 'execServerAgentRuntime' &&
+            (op.status === 'running' || op.status === 'paused') &&
+            op.metadata.serverOperationId &&
+            op.metadata.serverOperationId !== operationId,
+        );
+    };
 
     const agentGatewayUrl =
       window.global_serverConfigStore?.getState()?.serverConfig?.agentGatewayUrl;
@@ -674,15 +698,7 @@ export class GatewayActionImpl {
     // Any status other than 'disconnected' means the gateway action already owns this
     // connection (connecting / authenticating / reconnecting / connected). Skip to avoid
     // overwriting the fresh non-resume connect with resumeOnConnect:true.
-    const existingStatus = this.#get().gatewayConnections[operationId]?.status;
-    if (existingStatus && existingStatus !== 'disconnected') return;
-
-    // Skip reconnect if the topic already has a newer running operation. This
-    // happens when executeGatewayAgent was called (creating a new op) while this
-    // stale reconnect was still queued — connecting to the old op would produce
-    // duplicate streaming events alongside the new connection.
-    const topicCurrentOpId = getTopic(this.#get())?.metadata?.runningOperation?.operationId;
-    if (topicCurrentOpId && topicCurrentOpId !== operationId) return;
+    if (isReconnectStale(this.#get())) return;
 
     // Get a fresh JWT token (original expired after 5 min).
     let token = '';
@@ -692,6 +708,7 @@ export class GatewayActionImpl {
       } catch (error) {
         if (!isTerminalTokenRefreshError(error)) throw error;
         const state = this.#get();
+        if (isReconnectStale(state)) return;
         const topic = getTopic(state);
         if (topic?.metadata?.runningOperation?.operationId === operationId) {
           state.internal_dispatchTopic({
@@ -715,8 +732,7 @@ export class GatewayActionImpl {
     // Re-check after the async token refresh: a newer executeGatewayAgent call may have
     // taken over for this topic while we were waiting. If so, bail to avoid a duplicate stream.
     // (disconnectFromGateway on the stale op is a no-op here because we haven't connected yet.)
-    const topicOpIdAfterRefresh = getTopic(this.#get())?.metadata?.runningOperation?.operationId;
-    if (topicOpIdAfterRefresh && topicOpIdAfterRefresh !== operationId) return;
+    if (isReconnectStale(this.#get())) return;
 
     // Anchor the operation to the run's real start: the assistant message was
     // created when the run began. Defaulting to Date.now() here would reset

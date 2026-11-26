@@ -6,7 +6,6 @@ import type {
 import { isDesktop } from '@/const/version';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
 import { normalizeNewTopicIntent } from '@/helpers/workspacePlatform';
-import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { projectWorkspaceService } from '@/services/projectWorkspace';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
@@ -103,7 +102,7 @@ export const resolvePendingTopicExecutionIntent = async (params: {
   const isScratch =
     topicSnapshot?.workspaceKind === 'scratch' || metadata.workspaceKind === 'scratch';
   if (isDesktop && (projectId || isScratch) && (target === 'local' || target === 'device')) {
-    const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
+    const currentDeviceId = await resolveDesktopDeviceId();
     if (
       !isTopicVisibleOnDevice(
         { id: topicId ?? '', metadata },
@@ -152,7 +151,7 @@ export const checkDesktopProjectSend = async (
   if (params.topicId && !state.topicStatesById[params.topicId]) {
     // A direct URL may not have loaded the topic list yet. Do not swallow lookup failures.
     const topicState = await projectWorkspaceService.getTopicState(params.topicId);
-    const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
+    const currentDeviceId = await resolveDesktopDeviceId();
     if (
       !isTopicVisibleOnDevice(
         { id: params.topicId, metadata: params.topicMetadata },

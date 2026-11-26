@@ -95,6 +95,8 @@ describe('resolvePendingTopicExecutionIntent', () => {
     );
     mocks.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'owner' });
     await expect(checkDesktopProjectSend(draft)).resolves.toBeUndefined();
+    mocks.getDeviceInfo.mockRejectedValueOnce(new Error('IPC temporarily unavailable'));
+    await expect(checkDesktopProjectSend(draft)).resolves.toBeUndefined();
   });
 
   it('blocks a foreign scratch snapshot before sending and allows it on the owner device', async () => {

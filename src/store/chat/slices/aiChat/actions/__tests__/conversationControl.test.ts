@@ -1507,7 +1507,15 @@ describe('ConversationControl actions', () => {
 
       const agentId = 'server-agent';
       const topicId = 'server-topic';
-      const chatKey = messageMapKey({ agentId, topicId });
+      const context = {
+        agentId,
+        groupId: 'group-1',
+        scope: 'group_agent' as const,
+        subAgentId: 'member-1',
+        threadId: null,
+        topicId,
+      };
+      const chatKey = messageMapKey(context);
 
       const toolMessage = createMockMessage({
         id: 'tool-msg-1',
@@ -1524,7 +1532,7 @@ describe('ConversationControl actions', () => {
         });
 
         result.current.startOperation({
-          context: { agentId, topicId, threadId: null },
+          context,
           metadata: { serverOperationId: 'server-op-xyz' },
           type: 'execServerAgentRuntime',
         });
@@ -1545,11 +1553,18 @@ describe('ConversationControl actions', () => {
       const rejectToolCallingSpy = vi
         .spyOn(result.current, 'rejectToolCalling')
         .mockResolvedValue(undefined);
+      const startOperation = vi.spyOn(result.current, 'startOperation');
 
       await act(async () => {
-        await result.current.rejectAndContinueToolCalling('tool-msg-1', 'too risky');
+        await result.current.rejectAndContinueToolCalling('tool-msg-1', 'too risky', context);
       });
 
+      expect(startOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: { ...context, messageId: 'tool-msg-1' },
+          type: 'rejectToolCalling',
+        }),
+      );
       expect(executeGatewayAgentSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           message: '',

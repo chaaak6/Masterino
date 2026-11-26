@@ -1,7 +1,7 @@
 import { BUILTIN_AGENT_SLUGS } from '@lobechat/builtin-agents';
 import type { AgentGroupDetail, AgentGroupMember } from '@lobechat/types';
 import { cleanObject } from '@lobechat/utils';
-import { and, eq, inArray, isNull, ne, not, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, not, notExists, or } from 'drizzle-orm';
 
 import type {
   AgentItem,
@@ -476,6 +476,69 @@ export class AgentGroupRepository {
         group,
         supervisorAgentId: supervisorAgent.id,
       };
+    });
+  }
+
+  /**
+   * Delete a group and only the virtual agents that have no remaining references.
+   * Lock the candidates before deleting the group so an in-flight membership or
+   * conversation write cannot be silently removed by the agent's foreign keys.
+   */
+  async deleteGroup(
+    groupId: string,
+  ): Promise<{ deletedVirtualAgentIds: string[]; group: ChatGroupItem }> {
+    return this.db.transaction(async (tx) => {
+      const candidates = await tx
+        .select({ id: agents.id })
+        .from(agents)
+        .innerJoin(chatGroupsAgents, eq(chatGroupsAgents.agentId, agents.id))
+        .where(
+          and(
+            this.agentOwnership(),
+            this.relationOwnership(),
+            eq(chatGroupsAgents.chatGroupId, groupId),
+            eq(agents.virtual, true),
+          ),
+        )
+        .orderBy(agents.id)
+        .for('update', { of: agents });
+
+      const [group] = await tx
+        .delete(chatGroups)
+        .where(and(this.groupOwnership(), eq(chatGroups.id, groupId)))
+        .returning();
+      if (!group) throw new Error('Chat group not found or access denied');
+
+      if (!candidates.length) return { deletedVirtualAgentIds: [], group };
+
+      const deleted = await tx
+        .delete(agents)
+        .where(
+          and(
+            inArray(
+              agents.id,
+              candidates.map(({ id }) => id),
+            ),
+            notExists(
+              tx
+                .select({ id: chatGroupsAgents.agentId })
+                .from(chatGroupsAgents)
+                .where(eq(chatGroupsAgents.agentId, agents.id)),
+            ),
+            notExists(
+              tx.select({ id: topics.id }).from(topics).where(eq(topics.agentId, agents.id)),
+            ),
+            notExists(
+              tx.select({ id: threads.id }).from(threads).where(eq(threads.agentId, agents.id)),
+            ),
+            notExists(
+              tx.select({ id: messages.id }).from(messages).where(eq(messages.agentId, agents.id)),
+            ),
+          ),
+        )
+        .returning({ id: agents.id });
+
+      return { deletedVirtualAgentIds: deleted.map(({ id }) => id), group };
     });
   }
 

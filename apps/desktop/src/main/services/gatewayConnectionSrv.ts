@@ -153,6 +153,7 @@ export default class GatewayConnectionService extends ServiceModule {
   private authRecoveryPromise: Promise<void> | null = null;
 
   private identitySource: IdentitySource | null = null;
+  private identityUserId: string | null = null;
 
   private tokenProvider: (() => Promise<string | null>) | null = null;
   private serverUrlProvider: (() => Promise<string | null | undefined>) | null = null;
@@ -258,6 +259,7 @@ export default class GatewayConnectionService extends ServiceModule {
     const identity = deriveDeviceId(userId, { fallbackId });
     this.deviceId = identity.deviceId;
     this.identitySource = identity.identitySource;
+    this.identityUserId = userId;
     return identity;
   }
 
@@ -297,7 +299,13 @@ export default class GatewayConnectionService extends ServiceModule {
     };
   }
 
-  getDeviceInfo() {
+  async getDeviceInfo() {
+    // Routing needs the same user-scoped identity even before the socket connects.
+    // The provider reads the local credential store and does not refresh the token.
+    const token = await this.tokenProvider?.();
+    const userId = token && this.extractUserIdFromToken(token);
+    if (userId && this.identityUserId !== userId) this.resolveDeviceIdentity(userId);
+
     return {
       description: this.getDeviceDescription(),
       deviceId: this.getDeviceId(),

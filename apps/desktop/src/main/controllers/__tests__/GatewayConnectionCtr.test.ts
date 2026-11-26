@@ -1480,6 +1480,26 @@ describe('GatewayConnectionCtr', () => {
   });
 
   describe('getDeviceInfo', () => {
+    it('returns the signed-in device identity before the gateway connects', async () => {
+      const userId = 'signed-in-user';
+      const payload = Buffer.from(JSON.stringify({ sub: userId })).toString('base64url');
+      vi.mocked(mockRemoteServerConfigCtr.getAccessToken).mockResolvedValue(
+        `header.${payload}.sig`,
+      );
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      mockStoreGet.mockImplementation((key: string) => {
+        if (key === 'gatewayDeviceId') return 'stored-connection-id';
+      });
+      const resolveIdentity = vi.spyOn(mockGatewayConnectionSrv, 'resolveDeviceIdentity');
+      ctr.afterAppReady();
+
+      const info = await ctr.getDeviceInfo();
+
+      expect(resolveIdentity).toHaveBeenCalledWith(userId);
+      expect(info.deviceId).toBe(mockGatewayConnectionSrv.getDeviceId());
+      expect(MockGatewayClient.lastInstance).toBeNull();
+    });
+
     it('should return device information', async () => {
       mockStoreGet.mockImplementation((key: string) => {
         if (key === 'gatewayEnabled') return true;

@@ -1183,7 +1183,7 @@ export class ConversationControlActionImpl {
       threadId: this.#get().activeThreadId,
     };
 
-    const { agentId, topicId, threadId, scope } = effectiveContext;
+    const { agentId, topicId, threadId } = effectiveContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[messageId];
 
     // Server-mode: start a **new** Gateway op with `decision='rejected_continue'`.
@@ -1211,13 +1211,7 @@ export class ConversationControlActionImpl {
 
       const { operationId } = startOperation({
         type: 'rejectToolCalling',
-        context: {
-          agentId,
-          topicId: topicId ?? undefined,
-          threadId: threadId ?? undefined,
-          scope,
-          messageId,
-        },
+        context: { ...effectiveContext, messageId },
         metadata: { executionContext },
       });
 

@@ -6,7 +6,7 @@ import { memo, useMemo, useState } from 'react';
 import { type UIChatMessage } from '@/types/index';
 import { ThreadStatus } from '@/types/index';
 
-import { ErrorState, TaskContent } from '../shared';
+import { resolveTaskDetail, TaskContent } from '../shared';
 import { type TaskMetrics } from './TaskTitle';
 import TaskTitle from './TaskTitle';
 
@@ -15,13 +15,12 @@ interface ServerTaskItemProps {
 }
 
 const ServerTaskItem = memo<ServerTaskItemProps>(({ item }) => {
-  const { content, id, metadata, taskDetail, tasks } = item;
+  const { id, metadata, tasks } = item;
+  const taskDetail = resolveTaskDetail(item);
   const [expanded, setExpanded] = useState(false);
 
   const title = taskDetail?.title || metadata?.taskTitle;
-  const threadlessError =
-    !taskDetail && metadata?.taskCreationFailed ? { message: content } : undefined;
-  const status = taskDetail?.status ?? (threadlessError ? ThreadStatus.Failed : undefined);
+  const status = taskDetail?.status;
   const threadId = taskDetail?.threadId;
 
   const isCompleted = status === ThreadStatus.Completed;
@@ -55,19 +54,16 @@ const ServerTaskItem = memo<ServerTaskItemProps>(({ item }) => {
       onExpandChange={setExpanded}
     >
       <Block gap={16} padding={12} style={{ marginBlock: 8 }} variant={'outlined'}>
-        {expanded &&
-          (threadlessError ? (
-            <ErrorState taskDetail={{ error: threadlessError, status: ThreadStatus.Failed }} />
-          ) : (
-            <TaskContent
-              id={id}
-              isError={isError}
-              messages={tasks}
-              status={status}
-              taskDetail={taskDetail}
-              threadId={threadId}
-            />
-          ))}
+        {expanded && (
+          <TaskContent
+            id={id}
+            isError={isError}
+            messages={tasks}
+            status={status}
+            taskDetail={taskDetail}
+            threadId={threadId}
+          />
+        )}
       </Block>
     </AccordionItem>
   );

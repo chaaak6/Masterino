@@ -97,6 +97,25 @@ export const createGroupOrchestrationExecutors = (
    * Helper to get current messages for the group conversation
    */
   const getMessages = () => dbMessageSelectors.getDbMessagesByKey(chatKey)(get());
+  const saveTaskCreationFailure = (
+    taskMessageId: string,
+    task: { error?: string; instruction: string; title?: string },
+    operationId: string,
+  ) =>
+    get()
+      .optimisticUpdateMessageContent(
+        taskMessageId,
+        `Task creation failed: ${task.error ?? 'Unknown error'}`,
+        {
+          metadata: {
+            instruction: task.instruction,
+            taskCreationFailed: true,
+            taskTitle: task.title,
+          },
+        },
+        { operationId },
+      )
+      .catch((error) => log('Failed to save task creation error: %O', error));
 
   const executors: Partial<Record<SupervisorInstruction['type'], GroupOrchestrationExecutor>> = {
     /**
@@ -435,24 +454,27 @@ export const createGroupOrchestrationExecutors = (
         log(`[${sessionLogId}] Created task message: ${taskMessageId}`);
 
         // 2. Create task via backend API (backend creates thread with sourceMessageId)
-        const createResult = await aiAgentService.execSubAgentTask({
-          agentId,
-          groupId,
-          instruction,
-          parentMessageId: taskMessageId,
-          title,
-          timeout,
-          topicId,
-        });
+        const createResult = await aiAgentService
+          .execSubAgentTask({
+            agentId,
+            groupId,
+            instruction,
+            parentMessageId: taskMessageId,
+            title,
+            timeout,
+            topicId,
+          })
+          .catch((error: unknown) => ({
+            error: error instanceof Error ? error.message : 'Failed to create task',
+            success: false as const,
+          }));
 
         if (!createResult.success) {
           log(`[${sessionLogId}] Failed to create task: ${createResult.error}`);
-          // Update task message with error
-          await get().optimisticUpdateMessageContent(
+          await saveTaskCreationFailure(
             taskMessageId,
-            `Task creation failed: ${createResult.error}`,
-            undefined,
-            { operationId: state.operationId },
+            { error: createResult.error, instruction, title },
+            state.operationId,
           );
           return {
             events: [] as GroupOrchestrationEvent[],
@@ -1074,18 +1096,14 @@ export const createGroupOrchestrationExecutors = (
               tracker.status = 'failed';
               tracker.error = createResult.error;
               log(`[${taskLogId}] Failed to start task: ${createResult.error}`);
-              // Update task message with error
-              await get().optimisticUpdateMessageContent(
-                tracker.taskMessageId,
-                `Task creation failed: ${createResult.error}`,
-                undefined,
-                { operationId: state.operationId },
-              );
             }
           } catch (error) {
             tracker.status = 'failed';
             tracker.error = error instanceof Error ? error.message : 'Unknown error';
             console.error(`[${taskLogId}] Error starting task: ${error}`);
+          }
+          if (tracker.status === 'failed') {
+            await saveTaskCreationFailure(tracker.taskMessageId, tracker, state.operationId);
           }
         }),
       );

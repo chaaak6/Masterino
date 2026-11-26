@@ -182,6 +182,7 @@ export class PluginTypesActionImpl {
       const topicId = operation?.context?.topicId ?? rootRuntimeOperationContext?.topicId;
       const executionContext: ExecutionContext | undefined =
         rootRuntimeOperation?.metadata?.executionContext;
+      const target = executionContext?.plan?.target;
       const operationSkills = rootRuntimeOperation?.metadata?.operationSkills;
       const isSubAgent =
         operation?.context?.isSubAgent ?? rootRuntimeOperationContext?.isSubAgent ?? false;
@@ -217,7 +218,7 @@ export class PluginTypesActionImpl {
           ? this.#get().getGroupOrchestrationCallbacks({
               executionContext,
               groupId,
-              preferLocal: isDesktop,
+              preferLocal: isDesktop && (target === undefined || target === 'local'),
               topicId: groupTopicId ?? undefined,
             })
           : undefined;

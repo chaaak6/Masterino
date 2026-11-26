@@ -3,6 +3,7 @@ import { ToolNameResolver } from '@lobechat/context-engine';
 import type {
   BuiltinToolContext,
   ChatToolPayload,
+  ExecutionContext,
   MessageToolCall,
   ToolManifest,
   UIChatMessage,
@@ -11,10 +12,23 @@ import { act, renderHook } from '@testing-library/react';
 import { type Mock } from 'vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type * as ConstVersion from '@/const/version';
 import { messageService } from '@/services/message';
 import { useChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { useToolStore } from '@/store/tool';
+
+const platform = vi.hoisted(() => ({ isDesktop: undefined as boolean | undefined }));
+
+vi.mock('@/const/version', async (importOriginal) => {
+  const actual = await importOriginal<typeof ConstVersion>();
+  return {
+    ...actual,
+    get isDesktop() {
+      return platform.isDesktop ?? actual.isDesktop;
+    },
+  };
+});
 
 vi.mock('@/utils/localStorage', () => {
   class AsyncLocalStorage<State> {
@@ -45,6 +59,7 @@ vi.mock('@/services/message', () => ({
 }));
 
 afterEach(() => {
+  platform.isDesktop = undefined;
   vi.clearAllMocks();
 });
 
@@ -169,9 +184,22 @@ describe('ChatPluginAction', () => {
   });
 
   describe('invokeBuiltinTool', () => {
-    it.each(['lobe-agent-management', 'lobe-group-management'])(
-      'binds %s to the saved group topic when the operation did not record it',
-      async (identifier) => {
+    it.each([
+      { identifier: 'lobe-agent-management', plan: undefined, preferLocal: true },
+      {
+        identifier: 'lobe-group-management',
+        plan: { kind: 'sandbox', target: 'sandbox' },
+        preferLocal: false,
+      },
+      {
+        identifier: 'lobe-group-management',
+        plan: { deviceId: 'remote', kind: 'device', target: 'device' },
+        preferLocal: false,
+      },
+    ] satisfies { identifier: string; plan?: ExecutionContext['plan']; preferLocal: boolean }[])(
+      'binds $identifier to the saved group topic and respects $plan',
+      async ({ identifier, plan, preferLocal }) => {
+        platform.isDesktop = true;
         const executorModule = await import('@/store/tool/slices/builtin/executors');
         vi.spyOn(executorModule, 'hasExecutor').mockReturnValue(true);
         const invoke = vi
@@ -206,6 +234,7 @@ describe('ChatPluginAction', () => {
           });
           const { operationId } = result.current.startOperation({
             context: { agentId: 'supervisor', groupId, scope: 'group' },
+            metadata: { executionContext: plan && { plan } },
             type: 'execAgentRuntime',
           });
           result.current.associateMessageWithOperation(messageId, operationId);
@@ -218,7 +247,9 @@ describe('ChatPluginAction', () => {
           });
         });
 
-        expect(bind).toHaveBeenCalledWith(expect.objectContaining({ groupId, topicId }));
+        expect(bind).toHaveBeenCalledWith(
+          expect.objectContaining({ groupId, preferLocal, topicId }),
+        );
         expect(invoke).toHaveBeenCalledWith(
           identifier,
           'callAgent',

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as ConstVersion from '@/const/version';
 import { aiAgentService } from '@/services/aiAgent';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { buildDraftConversationKey } from '@/store/projectWorkspace/draftKey';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace/store';
 
@@ -1276,6 +1277,8 @@ describe('GatewayActionImpl', () => {
         activeAgentId: 'agent-1',
         gatewayConnections: {},
         messagesMap: { 'agent-1_topic-1': assistantMessage ? [assistantMessage] : [] },
+        operations: {},
+        operationsByContext: {},
         // getTopicById reads here; an empty map yields no running op so the
         // reconnect guards fall through to startOperation.
         topicDataMap: {},
@@ -1306,11 +1309,39 @@ describe('GatewayActionImpl', () => {
       const action = new GatewayActionImpl(set as any, get, undefined);
       action.createClient = vi.fn(() => mockClient);
 
-      return { action, startOperation };
+      return { action, startOperation, state };
     }
 
     afterEach(() => {
       delete (globalThis as any).window;
+    });
+
+    it('skips a stale group reconnect when a new run starts during token refresh and the topic list is empty', async () => {
+      const { action, startOperation, state } = createReconnectTestAction({ id: 'ast-1' });
+      const context = {
+        agentId: 'agent-1',
+        groupId: 'group-1',
+        scope: 'group' as const,
+        topicId: 'topic-1',
+      };
+      vi.mocked(aiAgentService.refreshGatewayToken).mockImplementationOnce(async () => {
+        state.operationsByContext[messageMapKey(context)] = ['new-local-op'];
+        state.operations['new-local-op'] = {
+          context,
+          metadata: { serverOperationId: 'new-server-op' },
+          status: 'running',
+          type: 'execServerAgentRuntime',
+        };
+        return { token: 'fresh-token' };
+      });
+
+      await action.reconnectToGatewayOperation({
+        ...context,
+        assistantMessageId: 'ast-1',
+        operationId: 'old-server-op',
+      });
+
+      expect(startOperation).not.toHaveBeenCalled();
     });
 
     it('reconnects a saved run to its own agent instead of the foreground agent', async () => {

@@ -183,6 +183,7 @@ export const MessageMetadataSchema = ModelUsageSchema.merge(ModelPerformanceSche
   // External-signal lineage for Monitor-style callback turns ().
   signal: MessageSignalSchema.optional(),
   subAgentId: z.string().optional(),
+  taskCreationFailed: z.boolean().optional(),
   toolExecutionTimeMs: z.number().optional(),
   trigger: z.nativeEnum(RequestTrigger).optional(),
   // role='verify' card: which Agent Run (agent_operations.id) it renders.

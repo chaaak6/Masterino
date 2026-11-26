@@ -815,64 +815,82 @@ describe('createGroupOrchestrationExecutors', () => {
       });
     });
 
-    it('should handle execSubAgentTask failure', async () => {
-      const mockStore = createMockStore();
+    it.each(['rejected', 'failed'])(
+      'retains a failed task card when the dispatch is %s',
+      async (failure) => {
+        const mockStore = createMockStore();
+        vi.mocked(mockStore.optimisticCreateMessage).mockResolvedValueOnce({
+          id: 'failed-task-message',
+          messages: [],
+        });
 
-      vi.mocked(aiAgentService.execSubAgentTask)
-        .mockResolvedValueOnce(
-          createMockExecResult({
-            error: 'Backend error',
-            success: false,
-          }),
-        )
-        .mockResolvedValueOnce(createMockExecResult({ threadId: 'thread-2' }));
+        const dispatch = vi.mocked(aiAgentService.execSubAgentTask);
+        if (failure === 'rejected') dispatch.mockRejectedValueOnce(new Error('Backend error'));
+        else
+          dispatch.mockResolvedValueOnce(
+            createMockExecResult({ error: 'Backend error', success: false }),
+          );
+        dispatch.mockResolvedValueOnce(createMockExecResult({ threadId: 'thread-2' }));
 
-      vi.mocked(aiAgentService.getSubAgentTaskStatus).mockResolvedValue({
-        result: 'Task completed',
-        status: 'completed',
-      });
+        vi.mocked(aiAgentService.getSubAgentTaskStatus).mockResolvedValue({
+          result: 'Task completed',
+          status: 'completed',
+        });
 
-      const executors = createGroupOrchestrationExecutors({
-        get: () => mockStore,
-        messageContext: {
-          agentId: TEST_IDS.GROUP_ID,
-          groupId: TEST_IDS.GROUP_ID,
-          scope: 'group',
-          topicId: TEST_IDS.TOPIC_ID,
-        },
-        orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
-        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
-      });
-
-      const batchExecTasksExecutor = executors.batch_exec_async_tasks!;
-
-      const result = await batchExecTasksExecutor(
-        {
-          payload: {
-            tasks: [
-              { agentId: TEST_IDS.AGENT_1_ID, instruction: 'Task 1', title: 'Task 1 Title' },
-              { agentId: TEST_IDS.AGENT_2_ID, instruction: 'Task 2', title: 'Task 2 Title' },
-            ],
-            toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+        const executors = createGroupOrchestrationExecutors({
+          get: () => mockStore,
+          messageContext: {
+            agentId: TEST_IDS.GROUP_ID,
+            groupId: TEST_IDS.GROUP_ID,
+            scope: 'group',
+            topicId: TEST_IDS.TOPIC_ID,
           },
-          type: 'batch_exec_async_tasks',
-        },
-        createInitialState(),
-      );
+          orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+          supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        });
 
-      expect(result.result?.type).toBe('tasks_completed');
-      // First task should fail
-      expect((result.result?.payload as any).results[0]).toMatchObject({
-        agentId: TEST_IDS.AGENT_1_ID,
-        error: 'Backend error',
-        success: false,
-      });
-      // Second task should succeed
-      expect((result.result?.payload as any).results[1]).toMatchObject({
-        agentId: TEST_IDS.AGENT_2_ID,
-        success: true,
-      });
-    });
+        const batchExecTasksExecutor = executors.batch_exec_async_tasks!;
+
+        const result = await batchExecTasksExecutor(
+          {
+            payload: {
+              tasks: [
+                { agentId: TEST_IDS.AGENT_1_ID, instruction: 'Task 1', title: 'Task 1 Title' },
+                { agentId: TEST_IDS.AGENT_2_ID, instruction: 'Task 2', title: 'Task 2 Title' },
+              ],
+              toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+            },
+            type: 'batch_exec_async_tasks',
+          },
+          createInitialState(),
+        );
+
+        expect(result.result?.type).toBe('tasks_completed');
+        expect(mockStore.optimisticUpdateMessageContent).toHaveBeenCalledWith(
+          'failed-task-message',
+          'Task creation failed: Backend error',
+          {
+            metadata: {
+              instruction: 'Task 1',
+              taskCreationFailed: true,
+              taskTitle: 'Task 1 Title',
+            },
+          },
+          { operationId: TEST_IDS.OPERATION_ID },
+        );
+        // First task should fail
+        expect((result.result?.payload as any).results[0]).toMatchObject({
+          agentId: TEST_IDS.AGENT_1_ID,
+          error: 'Backend error',
+          success: false,
+        });
+        // Second task should succeed
+        expect((result.result?.payload as any).results[1]).toMatchObject({
+          agentId: TEST_IDS.AGENT_2_ID,
+          success: true,
+        });
+      },
+    );
 
     it('should handle task failure status', async () => {
       const mockStore = createMockStore();
