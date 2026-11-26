@@ -6,7 +6,7 @@ import { memo, useMemo, useState } from 'react';
 import { useAgentGroupStore } from '@/store/agentGroup';
 import { agentGroupSelectors } from '@/store/agentGroup/selectors';
 import { useChatStore } from '@/store/chat';
-import { displayMessageSelectors } from '@/store/chat/selectors';
+import { displayMessageSelectors, operationSelectors } from '@/store/chat/selectors';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { type UIChatMessage } from '@/types/index';
 import { ThreadStatus } from '@/types/index';
@@ -36,7 +36,11 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
   // Fetch thread messages for client mode
   // Use item's agentId (from task message) to query with the correct SubAgent ID that created the thread
   // Fall back to activeAgentId if task message doesn't have agentId (shouldn't happen normally)
-  const [activeAgentId, activeTopicId] = useChatStore((s) => [s.activeAgentId, s.activeTopicId]);
+  const [activeAgentId, activeTopicId, useFetchMessages] = useChatStore((s) => [
+    s.activeAgentId,
+    s.activeTopicId,
+    s.useFetchMessages,
+  ]);
 
   // Use task message's agentId (skip 'supervisor' as it's not a valid agent ID for queries)
   // Fall back to activeAgentId if not available
@@ -60,6 +64,13 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
     }),
     [agentId, itemGroupId, activeTopicId, threadId, topicId],
   );
+
+  const hasLocalOwner = useChatStore(
+    operationSelectors.hasRunningOperationByContext(threadContext),
+  );
+  useFetchMessages(threadContext, {
+    skipFetch: !threadId || !isProcessing || expanded || hasLocalOwner,
+  });
 
   const threadMessageKey = useMemo(
     () => (threadId ? messageMapKey(threadContext) : null),

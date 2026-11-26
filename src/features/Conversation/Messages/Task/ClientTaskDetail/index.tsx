@@ -12,6 +12,7 @@ import { useChatStore } from '@/store/chat';
 import { displayMessageSelectors, operationSelectors } from '@/store/chat/selectors';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
+import { resolveAssistantGroupFromMessages } from '../../AssistantGroup/utils/resolveAssistantGroupFromMessages';
 import { ErrorState, isProcessingStatus, TaskMessages } from '../../Tasks/shared';
 import InitializingState from './InitializingState';
 
@@ -85,11 +86,8 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
 
     if (!threadMessages) return isLoading ? <BubblesLoading /> : <InitializingState />;
 
-    const assistant = threadMessages.find(
-      (message) =>
-        (message.role === 'assistantGroup' && !!message.children?.length) ||
-        message.role === 'assistant',
-    );
+    const { assistantId } = resolveAssistantGroupFromMessages(threadMessages);
+    const assistant = threadMessages.find(({ id }) => id === assistantId);
 
     if (!assistant && pendingInterventions.length === 0) return <InitializingState />;
 

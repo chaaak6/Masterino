@@ -583,7 +583,11 @@ describe('GatewayActionImpl', () => {
       });
 
       expect(firstMock.disconnect).toHaveBeenCalled();
+      firstMock.emitEvent('auth_failed', 'old connection');
+      firstMock.emitEvent('session_complete');
+      firstMock.emitEvent('recovery_exhausted');
       expect(state.gatewayConnections['op-1'].client).toBe(secondMock);
+      expect(secondMock.disconnect).not.toHaveBeenCalled();
     });
   });
 

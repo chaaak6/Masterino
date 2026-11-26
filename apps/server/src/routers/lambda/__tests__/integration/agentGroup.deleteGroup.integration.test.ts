@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { type LobeChatDatabase } from '@lobechat/database';
-import { agents } from '@lobechat/database/schemas';
+import { agents, topics } from '@lobechat/database/schemas';
 import { closeTestDB, getTestDB } from '@lobechat/database/test-utils';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 
 import { agentGroupRouter } from '../../agentGroup';
@@ -28,12 +28,22 @@ it('deleting a group removes its virtual supervisor and retains an unlinked virt
       members: [{ title: 'Member' }],
     });
     const [memberAgentId] = agentIds;
+    const [topic] = await testDB
+      .insert(topics)
+      .values({ groupId, userId })
+      .returning({ id: topics.id });
 
+    await expect(
+      caller.checkAgentsBeforeRemoval({ agentIds: [memberAgentId], groupId }),
+    ).resolves.toEqual({ nonVirtualAgentIds: [memberAgentId], virtualAgents: [] });
     await expect(
       caller.removeAgentsFromGroup({ agentIds: [memberAgentId], groupId }),
     ).resolves.toEqual({ deletedVirtualAgentIds: [], removedFromGroup: 1 });
+    const findGroupTopic = () => testDB.query.topics.findFirst({ where: eq(topics.id, topic.id) });
+    await expect(findGroupTopic()).resolves.toMatchObject({ groupId });
     const deleted = await caller.deleteGroup({ id: groupId });
     expect(deleted.deletedVirtualAgentIds).toEqual([supervisorAgentId]);
+    await expect(findGroupTopic()).resolves.toBeUndefined();
 
     const identities = await testDB.query.agents.findMany({
       columns: { id: true },

@@ -237,6 +237,79 @@ describe('createGroupOrchestrationExecutors', () => {
     );
   });
 
+  it('persists a timed-out worker as failed with a visible summary', async () => {
+    vi.useFakeTimers();
+    const store = createMockStore({ replaceMessages: vi.fn() });
+    store.cancelOperation = vi.fn((id, reason) =>
+      store.operations[id].abortController.abort(reason),
+    );
+    store.executeClientAgent = vi.fn(({ parentOperationId }) => {
+      const signal = store.operations[parentOperationId!].abortController.signal;
+      return new Promise((resolve) => {
+        signal.addEventListener('abort', () => resolve({ status: 'interrupted' }), { once: true });
+      });
+    });
+    vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockResolvedValueOnce({
+      messages: [],
+      startedAt: new Date().toISOString(),
+      success: true,
+      threadId: 'timed-out-thread',
+      threadMessages: [],
+      userMessageId: 'local-user',
+    });
+    vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockResolvedValueOnce({
+      status: ThreadStatus.Failed,
+      success: true,
+      threadId: 'timed-out-thread',
+    });
+    const executors = createGroupOrchestrationExecutors({
+      get: () => store,
+      messageContext: {
+        agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'group',
+        topicId: TEST_IDS.TOPIC_ID,
+      },
+      orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+    });
+
+    try {
+      const task = executors.exec_client_async_task!(
+        {
+          payload: {
+            agentId: TEST_IDS.AGENT_1_ID,
+            instruction: 'Run',
+            timeout: 10,
+            toolMessageId: 'tool',
+          },
+          type: 'exec_client_async_task',
+        },
+        createInitialState(),
+      );
+      await vi.advanceTimersByTimeAsync(10);
+      expect((await task).result?.payload).toMatchObject({ status: 'timed_out', success: false });
+      expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          completionReason: 'error',
+          resultContent: 'Group task timed out',
+          threadId: 'timed-out-thread',
+        }),
+      );
+      expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          value: expect.objectContaining({
+            content: 'Group task timed out',
+            taskDetail: expect.objectContaining({ status: ThreadStatus.Failed }),
+          }),
+        }),
+        { operationId: TEST_IDS.OPERATION_ID },
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('runs the second local member while the first waits for tool approval', async () => {
     vi.clearAllMocks();
     const store = createMockStore({

@@ -13,7 +13,7 @@ import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { getLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
-import { selectRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
+import { selectConversationRuntime } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import { routeDesktopWorkspaceRuntime } from '@/store/chat/slices/aiChat/actions/managedEnvRuntime';
 import { operationSelectors } from '@/store/chat/slices/operation/selectors';
 import { AI_RUNTIME_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
@@ -50,7 +50,7 @@ export class ConversationControlActionImpl {
    * local `executeClientAgent` path. Mirrors the "interrupt + new op"
    * pattern from .
    *
-   * Routes via `selectRuntimeType` so approve/reject align with how the
+   * Routes via `selectConversationRuntime` so approve/reject align with how the
    * conversation was dispatched at sendMessage time. Hetero resume is not yet
    * implemented and falls through to client local resume — see .
    *
@@ -91,22 +91,16 @@ export class ConversationControlActionImpl {
         ? topicSelectors.getTopicById(topicId)(this.#get())?.metadata
         : undefined,
     });
-    return (
-      (await routeDesktopWorkspaceRuntime(
-        selectRuntimeType({
-          boundDeviceId:
-            pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-          executionTarget:
-            pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget,
-          heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
-          isGatewayMode: this.#get().isGatewayModeEnabled(context.agentId),
-        }),
-        {
-          topicId,
-          workspaceId,
-        },
-      )) === 'gateway'
-    );
+    const runtime = await selectConversationRuntime({
+      boundDeviceId:
+        pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
+      executionTarget:
+        pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget,
+      groupId: context.groupId,
+      heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
+      isGatewayMode: this.#get().isGatewayModeEnabled(context.agentId),
+    });
+    return (await routeDesktopWorkspaceRuntime(runtime, { topicId, workspaceId })) === 'gateway';
   };
 
   /**
@@ -867,24 +861,32 @@ export class ConversationControlActionImpl {
 
     const optimisticContext = { operationId };
 
-    await this.#get().optimisticUpdateMessagePlugin(
-      toolMessageId,
-      { intervention: { rejectedReason: 'User cancelled interaction', status: 'rejected' } },
-      optimisticContext,
-    );
-
     const toolContent = 'User cancelled this interaction.';
-    await this.#get().optimisticUpdateMessageContent(
-      toolMessageId,
-      toolContent,
-      undefined,
-      optimisticContext,
-    );
-
-    completeOperation(operationId);
-    this.#get().clearPausedExecutionContext(toolMessageId);
     const localTask = getLocalTaskApproval(effectiveContext);
-    if (localTask) this.#get().cancelOperation(localTask.operationId, 'User cancelled interaction');
+    try {
+      await this.#get().optimisticUpdateMessagePlugin(
+        toolMessageId,
+        { intervention: { rejectedReason: 'User cancelled interaction', status: 'rejected' } },
+        optimisticContext,
+      );
+      await this.#get().optimisticUpdateMessageContent(
+        toolMessageId,
+        toolContent,
+        undefined,
+        optimisticContext,
+      );
+      completeOperation(operationId);
+    } catch (error) {
+      this.#get().failOperation(operationId, {
+        message: (error as Error).message,
+        type: 'cancelToolInteraction',
+      });
+      throw error;
+    } finally {
+      this.#get().clearPausedExecutionContext(toolMessageId);
+      if (localTask)
+        this.#get().cancelOperation(localTask.operationId, 'User cancelled interaction');
+    }
   };
 
   /**
@@ -1102,8 +1104,21 @@ export class ConversationControlActionImpl {
 
     const { topicId, threadId } = effectiveContext;
 
+    const localTask = getLocalTaskApproval(effectiveContext);
+    const stopLocalTask = () => {
+      if (localTask && !continueLocalRun) {
+        this.#get().clearPausedExecutionContext(messageId);
+        this.#get().cancelOperation(
+          localTask.operationId,
+          reason || 'Group task tool was rejected',
+        );
+      }
+    };
     const toolMessage = dbMessageSelectors.getDbMessageById(messageId)(this.#get());
-    if (!toolMessage) return;
+    if (!toolMessage) {
+      stopLocalTask();
+      return;
+    }
     const executionContext = this.#get().pausedExecutionContextByMessage[messageId];
 
     // Create an operation to carry the context for optimistic updates
@@ -1125,22 +1140,32 @@ export class ConversationControlActionImpl {
       rejectedReason: reason,
       status: 'rejected',
     } as const;
-    await this.#get().optimisticUpdateMessagePlugin(
-      toolMessage.id,
-      { intervention },
-      optimisticContext,
-    );
-
     const toolContent = !!reason
       ? `User reject this tool calling with reason: ${reason}`
       : 'User reject this tool calling without reason';
 
-    await this.#get().optimisticUpdateMessageContent(
-      messageId,
-      toolContent,
-      undefined,
-      optimisticContext,
-    );
+    try {
+      await this.#get().optimisticUpdateMessagePlugin(
+        toolMessage.id,
+        { intervention },
+        optimisticContext,
+      );
+      await this.#get().optimisticUpdateMessageContent(
+        messageId,
+        toolContent,
+        undefined,
+        optimisticContext,
+      );
+    } catch (error) {
+      this.#get().failOperation(operationId, {
+        message: (error as Error).message,
+        type: 'rejectToolCalling',
+      });
+      if (continueLocalRun) localTask?.report({ status: 'error' });
+      throw error;
+    } finally {
+      stopLocalTask();
+    }
     const requestMetadata = this.#getResumeContextFromMessageChain(messageId).requestMetadata;
 
     // Server-mode: start a **new** Gateway op carrying the rejection.
@@ -1148,7 +1173,7 @@ export class ConversationControlActionImpl {
     // `rejected_continue` share the same code path (both surface the
     // rejection to the LLM as user feedback), so a separate `rejected`
     // decision adds complexity without behavioural difference.
-    if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
+    if (!localTask && (await this.#shouldUseGatewayResume(effectiveContext, executionContext))) {
       const toolCallId = toolMessage.tool_call_id;
       if (!toolCallId) {
         console.warn(
@@ -1178,10 +1203,6 @@ export class ConversationControlActionImpl {
     }
 
     completeOperation(operationId);
-    const localTask = getLocalTaskApproval(effectiveContext);
-    if (localTask && !continueLocalRun) {
-      this.#get().cancelOperation(localTask.operationId, reason || 'Group task tool was rejected');
-    }
   };
 
   rejectAndContinueToolCalling = async (

@@ -891,6 +891,8 @@ export class StreamingExecutorActionImpl {
 
       const directUserMessageId =
         params.directUserMessageId ?? (parentMessageType === 'user' ? parentMessageId : undefined);
+      // A form response can contain arbitrary text. Only a direct request to
+      // the agent can grant path access, while task resumes reuse explicit grants.
       const directMessage =
         !isSubAgent && directUserMessageId
           ? originalMessages.find((item) => item.id === directUserMessageId && item.role === 'user')
@@ -1241,6 +1243,8 @@ export class StreamingExecutorActionImpl {
         ...(taskMessages && { taskMessages }),
         usage: state.usage,
       };
+      // Queued user input starts a separate turn after this assignment. Report
+      // the completed member run even when the conversation has queued input.
       taskResume?.report(result);
       // A queued follow-up sendMessage was scheduled — skip the post-run notification.
       if (requeued) return;

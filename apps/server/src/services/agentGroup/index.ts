@@ -45,7 +45,8 @@ export class AgentGroupService {
   }
 
   /**
-   * Delete a group and its associated virtual agents.
+   * Delete the entire group, including its topics and group-owned virtual agents.
+   * Member unlinking is the operation that preserves group history.
    *
    * This method:
    * 1. Gets all agents in the group to identify virtual ones
@@ -70,7 +71,7 @@ export class AgentGroupService {
     );
     const virtualAgentIds = virtualAgents.map((a) => a.id);
 
-    // 3. Delete the group (CASCADE will delete chatGroupsAgents entries)
+    // 3. Delete the group. Its topic and membership foreign keys cascade.
     const deletedGroup = await this.chatGroupModel.delete(groupId);
 
     // 4. Delete virtual agents

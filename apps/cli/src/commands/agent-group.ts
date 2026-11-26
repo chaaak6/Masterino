@@ -202,6 +202,11 @@ export function registerAgentGroupCommand(program: Command) {
         agentIds,
         groupId,
       });
+      if (removedFromGroup === 0) {
+        log.error(`None of the specified agents could be unlinked from group ${groupId}.`);
+        process.exitCode = 1;
+        return;
+      }
       console.log(
         `${pc.green('✓')} Removed ${removedFromGroup} agent(s) from group ${pc.bold(groupId)}`,
       );

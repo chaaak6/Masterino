@@ -1331,6 +1331,44 @@ describe('ConversationLifecycle actions', () => {
         );
       });
 
+      it('uses the gateway for a desktop group topic bound to a different device', async () => {
+        mockConstEnv.isDesktop = true;
+        useProjectWorkspaceStore.setState({
+          topicStatesById: {
+            [TEST_IDS.TOPIC_ID]: {
+              snapshot: {
+                boundDeviceId: 'other-desktop',
+                target: 'local',
+                targetCapturedAt: '2026-09-04T00:00:00.000Z',
+                version: 1,
+              },
+            },
+          },
+        });
+        const executeGatewayAgent = vi.fn().mockResolvedValue({
+          assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+          operationId: 'gateway-op',
+          userMessageId: TEST_IDS.USER_MESSAGE_ID,
+        });
+        const sendMessageInServer = mockClientMessagePersistence();
+        useChatStore.setState({ executeGatewayAgent });
+
+        await useChatStore.getState().sendMessage({
+          context: { ...createTestContext(), groupId: 'remote-group', topicId: TEST_IDS.TOPIC_ID },
+          message: TEST_CONTENT.USER_MESSAGE,
+        });
+
+        expect(executeGatewayAgent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            context: expect.objectContaining({
+              groupId: 'remote-group',
+              topicId: TEST_IDS.TOPIC_ID,
+            }),
+          }),
+        );
+        expect(sendMessageInServer).not.toHaveBeenCalled();
+      });
+
       it('routes managed workspace env through the server/device transport, never direct IPC', async () => {
         mockConstEnv.isDesktop = true;
         setupMockSelectors({

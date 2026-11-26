@@ -817,16 +817,25 @@ export const createGroupOrchestrationExecutors = (
       } catch (error) {
         log(`[${sessionLogId}] Error executing client async task: ${error}`);
         const message = error instanceof Error ? error.message : 'Unknown error';
-        const cancelled =
+        const aborted =
           localTaskId && get().operations[localTaskId]?.abortController.signal.aborted;
-        if (localTaskId && !cancelled) {
+        const cancelled = aborted && !timedOut;
+        if (localTaskId && !aborted) {
           get().failOperation(localTaskId, { message, type: 'GroupTaskError' });
         }
-        publishTaskState({
-          completedAt: new Date().toISOString(),
-          error: { message },
-          status: cancelled ? ThreadStatus.Cancel : ThreadStatus.Failed,
-        });
+        const resultContent = timedOut
+          ? 'Group task timed out'
+          : cancelled
+            ? 'Task was cancelled'
+            : `Task failed: ${message}`;
+        publishTaskState(
+          {
+            completedAt: new Date().toISOString(),
+            error: { message },
+            status: cancelled ? ThreadStatus.Cancel : ThreadStatus.Failed,
+          },
+          resultContent,
+        );
         if (taskMessageId && !localThreadId) {
           get().internal_dispatchMessage(
             { id: taskMessageId, type: 'deleteMessage' },
@@ -841,6 +850,7 @@ export const createGroupOrchestrationExecutors = (
             .updateClientTaskThreadStatus({
               completionReason: cancelled ? 'interrupted' : 'error',
               error: message,
+              resultContent,
               threadId: localThreadId,
             })
             .catch((failure) => log('Failed to persist task status: %O', failure));

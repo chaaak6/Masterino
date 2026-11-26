@@ -154,7 +154,14 @@ export const agentGroupRouter = router({
       }),
     )
     .query(async ({ input, ctx }) => {
-      return ctx.agentGroupRepo.checkAgentsBeforeRemoval(input.groupId, input.agentIds);
+      const { nonVirtualAgentIds, virtualAgents } =
+        await ctx.agentGroupRepo.checkAgentsBeforeRemoval(input.groupId, input.agentIds);
+      // Older clients use virtualAgents to show a permanent deletion warning.
+      // For an unlink, all removable members now belong in the preserved list.
+      return {
+        nonVirtualAgentIds: [...nonVirtualAgentIds, ...virtualAgents.map(({ id }) => id)],
+        virtualAgents: [],
+      };
     }),
 
   /**

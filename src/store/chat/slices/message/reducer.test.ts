@@ -58,6 +58,16 @@ describe('messagesReducer', () => {
     });
   });
 
+  it('keeps dispatch order when a group task card arrives after its siblings', () => {
+    const createdAt = 1629264000001;
+    const state = messagesReducer(initialState, {
+      id: 'late-task',
+      type: 'createMessage',
+      value: { content: '', createdAt, role: 'task' },
+    });
+    expect(state.at(-1)).toMatchObject({ createdAt, id: 'late-task' });
+  });
+
   describe('unimplemented type', () => {
     it('should throw an error when an unimplemented type is provided', () => {
       // @ts-ignore

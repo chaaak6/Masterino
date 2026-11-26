@@ -153,6 +153,27 @@ describe('agent-group command', () => {
   });
 
   describe('remove-agents', () => {
+    it('reports that nothing was unlinked when the group has no matching members', async () => {
+      mockTrpcClient.group.removeAgentsFromGroup.mutate.mockResolvedValue({ removedFromGroup: 0 });
+      const originalExitCode = process.exitCode;
+      try {
+        await createProgram().parseAsync([
+          'node',
+          'test',
+          'agent-group',
+          'remove-agents',
+          'g1',
+          '--agent-ids',
+          'unknown',
+          '--yes',
+        ]);
+        expect(process.exitCode).toBe(1);
+        expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Removed 0'));
+      } finally {
+        process.exitCode = originalExitCode;
+      }
+    });
+
     it.each([{ flags: [] }, { flags: ['--keep-virtual'] }])(
       'unlinks agents with flags $flags',
       async ({ flags }) => {

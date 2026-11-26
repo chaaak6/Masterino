@@ -3,6 +3,7 @@ import { isRemoteHeterogeneousType } from '@lobechat/heterogeneous-agents';
 import { type DeviceExecutionTarget, type HeterogeneousProviderConfig } from '@lobechat/types';
 
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
+import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 
 /**
  * Which agent runtime should handle an operation.
@@ -130,4 +131,24 @@ export const selectRuntimeType = (
   }
   if (ctx.isGatewayMode) return 'gateway';
   return 'client';
+};
+
+/** Keep sends and intervention resumes on the same device for a desktop group. */
+export const selectConversationRuntime = async (
+  context: RuntimeSelectionContext & { groupId?: string | null },
+): Promise<AgentRuntimeType> => {
+  const { boundDeviceId, executionTarget, groupId, heterogeneousProvider, parentRuntime } = context;
+  if (
+    !parentRuntime &&
+    defaultIsDesktop &&
+    groupId &&
+    !heterogeneousProvider &&
+    (!executionTarget || executionTarget === 'local')
+  ) {
+    if (!boundDeviceId) return 'client';
+    const currentDevice = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
+    return currentDevice?.deviceId === boundDeviceId ? 'client' : 'gateway';
+  }
+
+  return selectRuntimeType(context);
 };

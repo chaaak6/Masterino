@@ -179,6 +179,7 @@ export class GatewayActionImpl {
 
     // Forward agent events to caller, and track terminal events
     client.on('agent_event', (event) => {
+      if (!isCurrentConnection()) return;
       if (event.type === 'agent_runtime_end' || event.type === 'error') {
         receivedTerminalEvent = true;
       }
@@ -193,12 +194,14 @@ export class GatewayActionImpl {
 
     // Handle session completion
     client.on('session_complete', () => {
+      if (!isCurrentConnection()) return;
       this.internal_cleanupGatewayConnection(operationId);
       fireSessionComplete();
     });
 
     const onConnectionLost = () => {
-      this.internal_cleanupGatewayConnection(operationId);
+      if (!isCurrentConnection()) return;
+      this.disconnectFromGateway(operationId);
       fireSessionComplete(
         new Error(
           t('streamRecoveryExpired', {
@@ -230,6 +233,7 @@ export class GatewayActionImpl {
     // never gets cleared either, so each revisit re-triggers the same broken
     // reconnect.
     client.on('auth_failed', (reason) => {
+      if (!isCurrentConnection()) return;
       console.error(`[Gateway] Auth failed for operation ${operationId}: ${reason}`);
       this.internal_cleanupGatewayConnection(operationId);
       fireSessionComplete(new Error(`Agent connection unavailable: ${reason}`));
@@ -252,7 +256,6 @@ export class GatewayActionImpl {
       } catch (error) {
         if (!isCurrentConnection()) return;
         console.error(`[Gateway] Token refresh failed for operation ${operationId}:`, error);
-        this.disconnectFromGateway(operationId);
         onConnectionLost();
       }
     });
