@@ -542,6 +542,12 @@ describe('AgentStreamClient', () => {
       await vi.advanceTimersByTimeAsync(60_000);
       expect(unavailable).toHaveBeenCalledOnce();
       expect(client.connectionStatus).toBe('disconnected');
+
+      // No background socket can restart an exhausted subscription.
+      const lastAttempt = getLatestWs();
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(getLatestWs()).toBe(lastAttempt);
+      expect(unavailable).toHaveBeenCalledOnce();
     });
 
     it('should not reconnect after session_complete', async () => {

@@ -39,4 +39,16 @@ describe('resolveDesktopDeviceId', () => {
     await expect(resolveDesktopDeviceId()).resolves.toBeUndefined();
     expect(getDeviceInfo).toHaveBeenCalledTimes(1);
   });
+
+  it('does not bind the hydrated account to an earlier response when rechecking fails', async () => {
+    useUserStore.setState({ user: undefined });
+    vi.spyOn(gatewayConnectionService, 'getDeviceInfo')
+      .mockImplementationOnce(async () => {
+        useUserStore.setState({ user: { id: 'hydrated-account' } });
+        return { deviceId: 'first-device', identityVerified: true };
+      })
+      .mockRejectedValueOnce(new Error('Device IPC temporarily unavailable'));
+
+    await expect(resolveDesktopDeviceId()).resolves.toBeUndefined();
+  });
 });
