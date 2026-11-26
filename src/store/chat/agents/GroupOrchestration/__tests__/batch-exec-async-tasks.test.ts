@@ -185,6 +185,86 @@ describe('createGroupOrchestrationExecutors', () => {
     }
   });
 
+  it.each(['before dispatch', 'during placeholder creation', 'during thread creation'] as const)(
+    'does not start a local member model after cancellation %s',
+    async (phase) => {
+      const store = createMockStore({ completeOperation: vi.fn(), replaceMessages: vi.fn() });
+      const controller = store.operations[TEST_IDS.OPERATION_ID].abortController;
+      const placeholder = vi.mocked(messageService.createMessage).mockClear();
+      const createThread = vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockClear();
+      const updateThread = vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockClear();
+      if (phase === 'before dispatch') controller.abort('User cancelled');
+      placeholder.mockImplementationOnce(async () => {
+        if (phase === 'during placeholder creation') controller.abort('User cancelled');
+        return { id: 'cancelled-placeholder', messages: [] };
+      });
+      createThread.mockImplementationOnce(async () => {
+        if (phase === 'during thread creation') controller.abort('User cancelled');
+        return {
+          messages: [],
+          startedAt: '2026-11-16T08:00:00.000Z',
+          success: true,
+          threadId: 'cancelled-thread',
+          threadMessages: [],
+          userMessageId: 'local-user',
+        };
+      });
+      updateThread.mockResolvedValue({
+        status: ThreadStatus.Cancel,
+        success: true,
+        threadId: 'cancelled-thread',
+      });
+      const executors = createGroupOrchestrationExecutors({
+        get: () => store,
+        messageContext: {
+          agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+          groupId: TEST_IDS.GROUP_ID,
+          scope: 'group',
+          topicId: TEST_IDS.TOPIC_ID,
+        },
+        orchestrationOperationId: TEST_IDS.OPERATION_ID,
+        preferLocal: true,
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+      });
+      try {
+        const output = await executors.batch_exec_async_tasks!(
+          {
+            payload: {
+              tasks: [{ agentId: TEST_IDS.AGENT_1_ID, instruction: 'Return OK' }],
+              toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+            },
+            type: 'batch_exec_async_tasks',
+          },
+          createInitialState(),
+        );
+        expect(store.startOperation).not.toHaveBeenCalled();
+        expect(store.executeClientAgent).not.toHaveBeenCalled();
+        expect(output.result?.payload).toMatchObject({
+          results: [{ agentId: TEST_IDS.AGENT_1_ID, status: 'cancelled', success: false }],
+        });
+        if (phase === 'before dispatch') expect(placeholder).not.toHaveBeenCalled();
+        if (phase === 'during placeholder creation') {
+          expect(createThread).not.toHaveBeenCalled();
+          expect(messageService.removeMessage).toHaveBeenCalledWith('cancelled-placeholder');
+        }
+        if (phase === 'during thread creation') {
+          expect(updateThread).toHaveBeenCalledWith(
+            expect.objectContaining({
+              completionReason: 'interrupted',
+              threadId: 'cancelled-thread',
+            }),
+          );
+        }
+      } finally {
+        placeholder
+          .mockReset()
+          .mockImplementation(async () => ({ id: `msg_${nanoid()}`, messages: [] }));
+        createThread.mockReset();
+        updateThread.mockReset();
+      }
+    },
+  );
+
   it('publishes a terminal task card after the local worker finishes', async () => {
     vi.mocked(messageService.updateMessageMetadata).mockRejectedValueOnce(new Error('offline'));
     const { usage } = createInitialState();

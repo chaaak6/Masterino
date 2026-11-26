@@ -887,6 +887,31 @@ describe('displayMessageSelectors', () => {
       expect(result).toBe('assistant-block-2');
     });
 
+    it.each(['groupTasks', 'tasks'] as const)(
+      'uses the last persisted task as the parent when a conversation ends with %s',
+      (role) => {
+        const taskGroup = {
+          content: '',
+          createdAt: 0,
+          id: `${role}-tool-task-one-task-two`,
+          role,
+          tasks: [
+            { content: '', createdAt: 0, id: 'task-one', role: 'task', updatedAt: 0 },
+            { content: '', createdAt: 1, id: 'task-two', role: 'task', updatedAt: 1 },
+          ],
+          updatedAt: 1,
+        } satisfies UIChatMessage;
+        const state: Partial<ChatStore> = {
+          activeAgentId: 'test-id',
+          messagesMap: { [messageMapKey({ agentId: 'test-id' })]: [taskGroup] },
+        };
+
+        expect(displayMessageSelectors.findLastMessageId(taskGroup.id)(state as ChatStore)).toBe(
+          'task-two',
+        );
+      },
+    );
+
     it('should return lastMessageId for compressedGroup instead of group id', () => {
       const compressedGroupMessage = {
         id: 'mg_123456',

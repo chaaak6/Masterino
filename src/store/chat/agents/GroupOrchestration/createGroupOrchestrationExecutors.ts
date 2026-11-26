@@ -696,12 +696,16 @@ export const createGroupOrchestrationExecutors = (
       let localTaskId: string | undefined;
       let localThreadId: string | undefined;
       let approval: ReturnType<typeof trackLocalTaskApproval> | undefined;
+      const orchestrationSignal =
+        get().operations[orchestrationOperationId]?.abortController.signal;
       let timedOut = false;
       try {
         // Update only this card. A whole-group snapshot from one member can erase
         // another member's in-progress state or recently created card.
+        orchestrationSignal?.throwIfAborted();
         const created = await messageService.createMessage(taskMessage);
         taskMessageId = created.id;
+        orchestrationSignal?.throwIfAborted();
         get().internal_dispatchMessage(
           { id: taskMessageId, type: 'createMessage', value: taskMessage },
           messageOperation,
@@ -726,6 +730,7 @@ export const createGroupOrchestrationExecutors = (
           threadId,
           title,
         };
+        orchestrationSignal?.throwIfAborted();
         publishTaskState({});
 
         // Build the isolated member conversation.
@@ -866,10 +871,15 @@ export const createGroupOrchestrationExecutors = (
         };
       } catch (error) {
         log(`[${sessionLogId}] Error executing client async task: ${error}`);
-        const message = error instanceof Error ? error.message : 'Unknown error';
         const aborted =
-          localTaskId && get().operations[localTaskId]?.abortController.signal.aborted;
+          orchestrationSignal?.aborted ||
+          (localTaskId && get().operations[localTaskId]?.abortController.signal.aborted);
         const cancelled = aborted && !timedOut;
+        const message = cancelled
+          ? 'Task was cancelled'
+          : error instanceof Error
+            ? error.message
+            : 'Unknown error';
         if (localTaskId && !aborted) {
           get().failOperation(localTaskId, { message, type: 'GroupTaskError' });
         }
@@ -915,7 +925,7 @@ export const createGroupOrchestrationExecutors = (
           result: {
             payload: {
               agentId,
-              error: error instanceof Error ? error.message : 'Unknown error',
+              error: message,
               ...(timedOut
                 ? { status: 'timed_out' as const }
                 : cancelled

@@ -605,20 +605,8 @@ export class GatewayActionImpl {
         else this.#get().completeOperation(gatewayOpId);
         if (result.topicId) {
           this.#get().internal_updateTopicLoading(result.topicId, false);
-          if (info?.serverMayBeRunning && error) {
-            this.#get().internal_dispatchMessage(
-              {
-                id: result.assistantMessageId,
-                type: 'updateMessage',
-                value: {
-                  error: {
-                    message: error.message,
-                    type: 'AgentRuntimeError',
-                  },
-                },
-              },
-              { operationId: gatewayOpId },
-            );
+          if (info?.serverMayBeRunning && error && this.#get().activeTopicId === result.topicId) {
+            antdMessage.warning(error.message);
           }
           if (!info?.serverMayBeRunning) {
             void this.#get().updateTopicStatus?.({
@@ -739,7 +727,14 @@ export class GatewayActionImpl {
         const notice = t('streamRecoveryExpired', { ns: 'error' });
         const hasSavedOutput =
           (assistant?.content && assistant.content !== LOADING_FLAT) || assistant?.tools?.length;
-        if (messages && assistant && !assistant.error && !hasSavedOutput) {
+        const canConfirmMissingOutput = code !== 'NOT_FOUND' || !!savedMessages;
+        if (
+          canConfirmMissingOutput &&
+          messages &&
+          assistant &&
+          !assistant.error &&
+          !hasSavedOutput
+        ) {
           state.replaceMessages(
             messages.map((message) =>
               message.id === assistantMessageId
@@ -850,20 +845,7 @@ export class GatewayActionImpl {
         else this.#get().completeOperation(gatewayOpId);
         this.#get().internal_updateTopicLoading(topicId, false);
         if (info?.serverMayBeRunning) {
-          if (error)
-            this.#get().internal_dispatchMessage(
-              {
-                id: assistantMessageId,
-                type: 'updateMessage',
-                value: {
-                  error: {
-                    message: error.message,
-                    type: 'AgentRuntimeError',
-                  },
-                },
-              },
-              { operationId: gatewayOpId },
-            );
+          if (error && this.#get().activeTopicId === topicId) antdMessage.warning(error.message);
           return;
         }
         void this.#get().updateTopicStatus?.({

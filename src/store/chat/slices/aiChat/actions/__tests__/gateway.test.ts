@@ -680,7 +680,13 @@ describe('GatewayActionImpl', () => {
   describe('executeGatewayAgent', () => {
     function createExecuteTestAction() {
       const mockClient = createMockClient();
-      const state: Record<string, any> = { gatewayConnections: {}, topicDataMap: {} };
+      const state: Record<string, any> = {
+        connectToGateway: vi.fn(),
+        failOperation: vi.fn(),
+        gatewayConnections: {},
+        internal_dispatchMessage: vi.fn(),
+        topicDataMap: {},
+      };
       const set = vi.fn((updater: any) => {
         if (typeof updater === 'function') {
           Object.assign(state, updater(state));
@@ -692,7 +698,6 @@ describe('GatewayActionImpl', () => {
       const get = vi.fn(() => ({
         ...state,
         associateMessageWithOperation: vi.fn(),
-        connectToGateway: vi.fn(),
         internal_dispatchTopic: vi.fn(),
         internal_updateTopicLoading: vi.fn(),
         onOperationCancel: vi.fn(),
@@ -719,6 +724,37 @@ describe('GatewayActionImpl', () => {
 
     afterEach(() => {
       delete (globalThis as any).window;
+    });
+
+    it('warns about a lost subscription without putting an error on the server reply', async () => {
+      const { action, state } = createExecuteTestAction();
+      state.activeTopicId = 'topic-1';
+      vi.mocked(aiAgentService.execAgentTask).mockResolvedValue({
+        agentId: 'agent-1',
+        assistantMessageId: 'ast-1',
+        autoStarted: true,
+        createdAt: new Date().toISOString(),
+        message: 'ok',
+        operationId: 'server-op-1',
+        status: 'created',
+        success: true,
+        timestamp: new Date().toISOString(),
+        token: 'test-token',
+        topicId: 'topic-1',
+        userMessageId: 'usr-1',
+      });
+      await action.executeGatewayAgent({
+        context: { agentId: 'agent-1', scope: 'main', topicId: 'topic-1' },
+        message: 'Start',
+      });
+      const [{ onSessionComplete }] = state.connectToGateway.mock.calls[0] as [
+        Parameters<GatewayActionImpl['connectToGateway']>[0],
+      ];
+      onSessionComplete?.(new Error('Connection interrupted'), { serverMayBeRunning: true });
+
+      expect(state.failOperation).toHaveBeenCalledWith('gw-op-1', expect.anything());
+      expect(state.internal_dispatchMessage).not.toHaveBeenCalled();
+      expect(antdMessage.warning).toHaveBeenCalledWith('Connection interrupted');
     });
 
     it('should forward parentMessageId to execAgentTask for regeneration', async () => {
@@ -1394,6 +1430,31 @@ describe('GatewayActionImpl', () => {
         expect(antdMessage.warning).not.toHaveBeenCalled();
       },
     );
+
+    it('leaves cached output unchanged when saved messages cannot be read after a run ends', async () => {
+      const { action, state } = createReconnectTestAction({ id: 'ast-1' });
+      const context = {
+        agentId: 'agent-1',
+        groupId: 'group-1',
+        scope: 'group' as const,
+        topicId: 'topic-1',
+      };
+      state.activeTopicId = context.topicId;
+      state.dbMessagesMap[messageMapKey(context)] = [{ content: LOADING_FLAT, id: 'ast-1' }];
+      vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+        Object.assign(new TRPCClientError('Old operation ended'), { data: { code: 'NOT_FOUND' } }),
+      );
+      vi.mocked(messageService.getMessages).mockRejectedValueOnce(new Error('Network unavailable'));
+
+      await action.reconnectToGatewayOperation({
+        ...context,
+        assistantMessageId: 'ast-1',
+        operationId: 'old-server-op',
+      });
+
+      expect(state.replaceMessages).not.toHaveBeenCalled();
+      expect(antdMessage.warning).toHaveBeenCalledOnce();
+    });
 
     it('fills in a recovered reply without replacing messages added during the fetch', async () => {
       const { action, state } = createReconnectTestAction({ id: 'ast-1' });
