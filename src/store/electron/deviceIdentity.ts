@@ -21,6 +21,7 @@ export const resolveDesktopDeviceId = async () => {
     device = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
   }
   if (useUserStore.getState().user?.id !== userId) return;
+  // A failed IPC call can use the cache. An explicit unverified response revokes it.
   if (!device) return verifiedDevice?.userId === userId ? verifiedDevice?.deviceId : undefined;
   if (!device.deviceId || device.deviceId === 'unknown' || device.identityVerified === false) {
     verifiedDevice = undefined;

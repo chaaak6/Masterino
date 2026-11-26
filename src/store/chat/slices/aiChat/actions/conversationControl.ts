@@ -21,9 +21,11 @@ import { routeDesktopWorkspaceRuntime } from '@/store/chat/slices/aiChat/actions
 import { operationSelectors } from '@/store/chat/slices/operation/selectors';
 import { AI_RUNTIME_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
 import { type ChatStore } from '@/store/chat/store';
-import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
-import { resolvePendingTopicExecutionIntent } from '@/store/projectWorkspace/topicExecutionIntent';
+import {
+  ProjectDeviceMismatchError,
+  resolvePendingTopicExecutionIntent,
+} from '@/store/projectWorkspace/topicExecutionIntent';
 import { type StoreSetter } from '@/store/types';
 
 import { displayMessageSelectors, topicSelectors } from '../../../selectors';
@@ -129,8 +131,12 @@ export class ConversationControlActionImpl {
     try {
       return await this.#shouldUseGatewayResume(context, executionContext, toolIdentifier);
     } catch (error) {
-      if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
-      antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+      // Routing happens before saving the decision, so the same card can be retried.
+      const messageKey =
+        error instanceof ProjectDeviceMismatchError
+          ? 'workspaceRuntime.otherDeviceProject'
+          : 'workspaceRuntime.picker.loadError';
+      antdMessage.error(t(messageKey, { ns: 'chat' }));
       return undefined;
     }
   };

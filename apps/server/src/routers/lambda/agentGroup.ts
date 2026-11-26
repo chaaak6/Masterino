@@ -259,7 +259,9 @@ export const agentGroupRouter = router({
   deleteGroup: agentGroupProcedureWrite
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input, ctx }) => {
-      return ctx.agentGroupService.deleteGroup(input.id);
+      const deleted = await ctx.agentGroupService.deleteGroup(input.id);
+      if (!deleted) throw new TRPCError({ code: 'NOT_FOUND', message: 'Chat group not found' });
+      return deleted;
     }),
 
   /**

@@ -1395,6 +1395,42 @@ describe('GatewayActionImpl', () => {
       },
     );
 
+    it('fills in a recovered reply without replacing messages added during the fetch', async () => {
+      const { action, state } = createReconnectTestAction({ id: 'ast-1' });
+      const context = {
+        agentId: 'agent-1',
+        groupId: 'group-1',
+        scope: 'group' as const,
+        topicId: 'topic-1',
+      };
+      const messageKey = messageMapKey(context);
+      const loading = {
+        content: LOADING_FLAT,
+        createdAt: 0,
+        id: 'ast-1',
+        role: 'assistant' as const,
+        updatedAt: 0,
+      };
+      const saved = { ...loading, content: 'Recovered result' };
+      const newMessage = { ...loading, content: 'New user message', id: 'user-2', role: 'user' };
+      state.dbMessagesMap[messageKey] = [loading];
+      vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+        Object.assign(new TRPCClientError('Old operation ended'), { data: { code: 'NOT_FOUND' } }),
+      );
+      vi.mocked(messageService.getMessages).mockImplementationOnce(async () => {
+        state.dbMessagesMap[messageKey] = [loading, newMessage];
+        return [saved];
+      });
+
+      await action.reconnectToGatewayOperation({
+        ...context,
+        assistantMessageId: loading.id,
+        operationId: 'old-server-op',
+      });
+
+      expect(state.replaceMessages).toHaveBeenCalledWith([saved, newMessage], { context });
+    });
+
     it('reconnects a saved run to its own agent instead of the foreground agent', async () => {
       const { action, startOperation } = createReconnectTestAction({
         agentId: 'original-agent',

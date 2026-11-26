@@ -4,12 +4,14 @@ import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import type * as ConstVersion from '@/const/version';
 import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { trackLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
 import { initialState as projectWorkspaceInitialState } from '@/store/projectWorkspace/initialState';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace/store';
+import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { useChatStore } from '../../../../store';
 import { messageMapKey } from '../../../../utils/messageMapKey';
@@ -23,6 +25,10 @@ import { resetTestEnvironment } from './helpers';
 
 // Keep zustand mock as it's needed globally
 vi.mock('zustand/traditional');
+
+vi.mock('@/components/AntdStaticMethods', () => ({
+  message: { error: vi.fn() },
+}));
 
 const mockConstEnv = vi.hoisted(() => ({ isDesktop: false }));
 vi.mock('@lobechat/const', async (importOriginal) => {
@@ -166,6 +172,23 @@ const setupPausedAuthorityResume = (kind: 'scratch' | 'device', mode: 'approve' 
 };
 
 describe('ConversationControl actions', () => {
+  it('shows a routing failure without saving or consuming the pending approval', async () => {
+    const context: ConversationContext = { agentId: 'agent', topicId: 'routing-failure' };
+    const toolMessage = createMockMessage({ id: 'routing-failure-tool', role: 'tool' });
+    useChatStore.setState({ dbMessagesMap: { [messageMapKey(context)]: [toolMessage] } });
+    const state = useChatStore.getState();
+    const saveDecision = vi.spyOn(state, 'optimisticUpdateMessagePlugin');
+    vi.spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent').mockRejectedValueOnce(
+      new Error('Workspace lookup unavailable'),
+    );
+
+    await expect(
+      state.approveToolCalling(toolMessage.id, 'assistant-group', context),
+    ).resolves.toBeUndefined();
+    expect(antdMessage.error).toHaveBeenCalledOnce();
+    expect(saveDecision).not.toHaveBeenCalled();
+  });
+
   it.each(['approve', 'submit', 'skip', 'cancel', 'reject', 'rejectAndContinue'] as const)(
     'settles a local group task on %s even if persistence fails',
     async (decision) => {
@@ -189,6 +212,7 @@ describe('ConversationControl actions', () => {
         timeout: 30_000,
       });
       approval.report({ status: 'waiting_for_human' });
+      const resolveRoute = vi.spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent');
 
       try {
         const actions = {
@@ -205,6 +229,7 @@ describe('ConversationControl actions', () => {
         else await actions[decision]();
 
         expect(abortController.signal.aborted).toBe(stopsTask);
+        expect(resolveRoute).not.toHaveBeenCalled();
         await expect(approval.result).resolves.toMatchObject({
           status: stopsTask ? 'interrupted' : 'error',
         });

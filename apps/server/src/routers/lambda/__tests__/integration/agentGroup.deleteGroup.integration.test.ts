@@ -99,6 +99,9 @@ it('deleting a group removes its virtual supervisor and retains an unlinked virt
     await expect(findGroupTopic()).resolves.toMatchObject({ groupId });
     const deleted = await caller.deleteGroup({ id: groupId });
     expect(deleted.deletedVirtualAgentIds).toEqual([supervisorAgentId]);
+    await expect(caller.deleteGroup({ id: groupId })).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
     await expect(findGroupTopic()).resolves.toBeUndefined();
 
     const identities = await testDB.query.agents.findMany({

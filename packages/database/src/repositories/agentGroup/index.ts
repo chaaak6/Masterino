@@ -486,7 +486,7 @@ export class AgentGroupRepository {
    */
   async deleteGroup(
     groupId: string,
-  ): Promise<{ deletedVirtualAgentIds: string[]; group: ChatGroupItem }> {
+  ): Promise<{ deletedVirtualAgentIds: string[]; group: ChatGroupItem } | null> {
     return this.db.transaction(async (tx) => {
       const candidates = await tx
         .select({ id: agents.id })
@@ -507,7 +507,7 @@ export class AgentGroupRepository {
         .delete(chatGroups)
         .where(and(this.groupOwnership(), eq(chatGroups.id, groupId)))
         .returning();
-      if (!group) throw new Error('Chat group not found or access denied');
+      if (!group) return null;
 
       if (!candidates.length) return { deletedVirtualAgentIds: [], group };
 

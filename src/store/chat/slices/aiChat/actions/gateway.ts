@@ -717,14 +717,30 @@ export class GatewayActionImpl {
 
         // NOT_FOUND also means a completed run cleared its server pointer
         // before this reconnect. Refresh its saved messages before showing feedback.
-        const savedMessages =
+        const messageKey = messageMapKey(scopeContext);
+        const messagesBeforeFetch = this.#get().dbMessagesMap[messageKey];
+        let savedMessages =
           code === 'NOT_FOUND'
             ? await messageService.getMessages(scopeContext).catch(() => undefined)
             : undefined;
         const state = this.#get();
         if (isReconnectStale(state)) return;
 
-        const messages = savedMessages ?? state.dbMessagesMap[messageMapKey(scopeContext)];
+        const currentMessages = state.dbMessagesMap[messageKey];
+        if (savedMessages && currentMessages !== messagesBeforeFetch) {
+          // New local messages arrived during recovery. Replace only the unchanged assistant.
+          const previousAssistant = messagesBeforeFetch?.find(
+            ({ id }) => id === assistantMessageId,
+          );
+          const savedAssistant = savedMessages.find(({ id }) => id === assistantMessageId);
+          savedMessages =
+            savedAssistant && previousAssistant && currentMessages?.includes(previousAssistant)
+              ? currentMessages.map((message) =>
+                  message === previousAssistant ? savedAssistant : message,
+                )
+              : undefined;
+        }
+        const messages = savedMessages ?? currentMessages;
         const assistant = messages?.find(({ id }) => id === assistantMessageId);
         const notice = t('streamRecoveryExpired', { ns: 'error' });
         const hasSavedOutput =
