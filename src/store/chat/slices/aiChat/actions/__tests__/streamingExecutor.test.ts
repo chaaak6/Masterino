@@ -290,13 +290,19 @@ describe('StreamingExecutor actions', () => {
     });
   });
   describe('executeClientAgent', () => {
-    it.each(['scratch', 'device'] as const)(
-      'keeps the resolved %s workspace authority when a local tool turn resumes',
-      async (workspaceKind) => {
+    it.each([
+      { approvalMode: 'auto-run', frozenMode: undefined, workspaceKind: 'scratch' },
+      { approvalMode: 'auto-run', frozenMode: undefined, workspaceKind: 'device' },
+      { approvalMode: 'manual', frozenMode: 'auto-run', workspaceKind: 'device' },
+      { approvalMode: 'auto-run', frozenMode: 'manual', workspaceKind: 'scratch' },
+    ] as const)(
+      'keeps workspace authority and the stricter approval mode for $workspaceKind ($approvalMode / $frozenMode)',
+      async ({ approvalMode, frozenMode, workspaceKind }) => {
+        const expectedMode = frozenMode === 'manual' ? frozenMode : approvalMode;
         act(() => useChatStore.setState({ executeClientAgent: realExecAgentRuntime }));
         act(() =>
           useUserStore.setState({
-            settings: { tool: { humanIntervention: { approvalMode: 'auto-run' } } },
+            settings: { tool: { humanIntervention: { approvalMode } } },
           } as any),
         );
         const workspaceId = `workspace-${workspaceKind}`;
@@ -347,6 +353,18 @@ describe('StreamingExecutor actions', () => {
 
         const parent = useChatStore.getState().startOperation({
           context: { agentId: TEST_IDS.SESSION_ID, topicId: TEST_IDS.TOPIC_ID },
+          metadata: frozenMode
+            ? {
+                executionContext: {
+                  accessRoots: [],
+                  approvalMode: frozenMode,
+                  cwd: rootPath,
+                  plan: { deviceId: 'device-local', kind: 'device', target: 'local' },
+                  version: 1,
+                  workspace,
+                },
+              }
+            : undefined,
           type: 'approveToolCalling',
         });
         await act(async () => {
@@ -379,7 +397,7 @@ describe('StreamingExecutor actions', () => {
           (op) => op.type === 'execAgentRuntime' && op.parentOperationId === parent.operationId,
         );
         expect(operation?.metadata.executionContext).toMatchObject({
-          approvalMode: 'auto-run',
+          approvalMode: expectedMode,
           cwd: rootPath,
           plan: { deviceId: 'device-local', kind: 'device', target: 'local' },
           workspace: { id: workspaceId, kind: workspaceKind, rootPath },
@@ -394,7 +412,7 @@ describe('StreamingExecutor actions', () => {
         expect(chatService.createAssistantMessageStream).toHaveBeenCalledWith(
           expect.objectContaining({
             params: expect.objectContaining({
-              executionContext: expect.objectContaining({ approvalMode: 'auto-run' }),
+              executionContext: expect.objectContaining({ approvalMode: expectedMode }),
               resolvedAgentConfig: expect.objectContaining({
                 agentConfig: expect.objectContaining({
                   systemRole: expect.stringContaining(

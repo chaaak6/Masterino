@@ -163,7 +163,9 @@ export class SameOriginAgentStreamClient {
 
   private refreshIdleTimer(): void {
     clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => this.expireRecovery(), STREAM_IDLE_TIMEOUT);
+    // Let the fetch settle through the ordinary transport recovery path so
+    // the next subscription resumes from the last delivered event.
+    this.idleTimer = setTimeout(() => this.controller?.abort(), STREAM_IDLE_TIMEOUT);
   }
 
   private clearInitialConnectionTimer(): void {

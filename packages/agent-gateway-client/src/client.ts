@@ -69,6 +69,7 @@ export class AgentStreamClient extends TypedEmitter {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private recoveryTimer?: ReturnType<typeof setTimeout>;
   private recoveryExpired = false;
+  private authenticatedAt?: number;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = INITIAL_RECONNECT_DELAY;
   private missedHeartbeats = 0;
@@ -240,6 +241,7 @@ export class AgentStreamClient extends TypedEmitter {
       switch (message.type) {
         case 'auth_success': {
           this.clearConnectionTimer();
+          this.authenticatedAt = Date.now();
           this.setStatus('connected');
           this.startHeartbeat();
 
@@ -428,6 +430,16 @@ export class AgentStreamClient extends TypedEmitter {
 
   private scheduleReconnect(): void {
     this.clearReconnectTimer();
+    // A socket that remained authenticated for a heartbeat interval was not
+    // in a rapid reconnect loop. Its next close is a new interruption.
+    if (
+      this.authenticatedAt !== undefined &&
+      Date.now() - this.authenticatedAt >= HEARTBEAT_INTERVAL
+    ) {
+      this.clearRecoveryTimer();
+      this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    }
+    this.authenticatedAt = undefined;
     if (this.recoveryExpired) {
       this.expireRecovery();
       return;
@@ -560,6 +572,7 @@ export class AgentStreamClient extends TypedEmitter {
   }
 
   private cleanup(): void {
+    this.authenticatedAt = undefined;
     this.clearConnectionTimer();
     this.stopHeartbeat();
     this.clearRecoveryTimer();

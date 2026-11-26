@@ -88,6 +88,23 @@ import type { RunScope } from './runLifecycle/types';
 
 const log = debug('lobe-store:streaming-executor');
 
+const getClientInterventionConfig = (frozenMode?: ExecutionContext['approvalMode']) => {
+  const user = getUserStoreState();
+  const currentMode = toolInterventionSelectors.approvalMode(user);
+  // A setting change may tighten a paused operation. It must not silently
+  // grant the resumed turn more authority than it originally had.
+  const approvalMode =
+    currentMode === 'manual' || frozenMode === 'manual'
+      ? 'manual'
+      : currentMode === 'allow-list' || frozenMode === 'allow-list'
+        ? 'allow-list'
+        : 'auto-run';
+  return {
+    allowList: toolInterventionSelectors.allowList(user),
+    approvalMode,
+  } satisfies AgentState['userInterventionConfig'];
+};
+
 const dynamicInterventionAudits = {
   pathScopeAudit: createPathScopeAudit({
     areAllPathsAuthorized: ({ metadata, paths, resolveAgainstScope }) =>
@@ -426,12 +443,7 @@ export class StreamingExecutorActionImpl {
     );
 
     // Get user intervention config
-    const userStore = getUserStoreState();
-    const userInterventionConfig = {
-      approvalMode:
-        executionContext.approvalMode ?? toolInterventionSelectors.approvalMode(userStore),
-      allowList: toolInterventionSelectors.allowList(userStore),
-    };
+    const userInterventionConfig = getClientInterventionConfig(executionContext.approvalMode);
 
     // Build modelRuntimeConfig for compression and other runtime features
     const compressionModelId =
@@ -489,13 +501,7 @@ export class StreamingExecutorActionImpl {
             );
     const state = {
       ...stateBase,
-      ...(executionContext.approvalMode && {
-        userInterventionConfig: {
-          ...userInterventionConfig,
-          ...stateBase.userInterventionConfig,
-          approvalMode: executionContext.approvalMode,
-        },
-      }),
+      ...(executionContext.approvalMode && { userInterventionConfig }),
       metadata: {
         ...stateBase.metadata,
         executionContext,
@@ -923,14 +929,13 @@ export class StreamingExecutorActionImpl {
         topicGrants: Object.values(projectWorkspaceState.grantsByTopicDevice).flat(),
         topicId: topicId ?? undefined,
       });
-      // Freeze the user's approval choice with the operation and carry it to
-      // the final device boundary. Without this, tool approval was automatic
-      // while filesystem scope checks still behaved as manual approval.
+      const userInterventionConfig = getClientInterventionConfig(
+        frozenExecutionContext.approvalMode,
+      );
+      // The runtime and device dispatch share the same approval policy.
       frozenExecutionContext = {
         ...frozenExecutionContext,
-        approvalMode:
-          frozenExecutionContext.approvalMode ??
-          toolInterventionSelectors.approvalMode(getUserStoreState()),
+        approvalMode: userInterventionConfig.approvalMode,
       };
       // Agent state reconstruction may already have resolved the workspace authority.
       // Always publish that frozen value to the new runtime operation because builtin
@@ -1104,7 +1109,7 @@ export class StreamingExecutorActionImpl {
         operationId,
       });
 
-      let state = initialAgentState;
+      let state: AgentState = { ...initialAgentState, userInterventionConfig };
       let nextContext = initialAgentContext;
 
       log('[executeClientAgent] Agent runtime loop start, initial phase: %s', nextContext.phase);

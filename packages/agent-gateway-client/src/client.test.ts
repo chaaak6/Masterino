@@ -514,7 +514,7 @@ describe('AgentStreamClient', () => {
       expect(client.connectionStatus).toBe('disconnected');
     });
 
-    it('keeps an authenticated retry alive through a missed heartbeat', async () => {
+    it('reconnects an established socket after a missed heartbeat', async () => {
       const client = createClient();
       const unavailable = vi.fn();
       client.on('recovery_exhausted', unavailable);
@@ -526,9 +526,10 @@ describe('AgentStreamClient', () => {
       await vi.advanceTimersByTimeAsync(60_000);
       expect(client.connectionStatus).toBe('connected');
       expect(unavailable).not.toHaveBeenCalled();
-      retry.simulateMessage({ type: 'heartbeat_ack' });
       retry.simulateClose();
       expect(client.connectionStatus).toBe('reconnecting');
+      await vi.advanceTimersByTimeAsync(1001);
+      expect(getLatestWs()).not.toBe(retry);
       expect(unavailable).not.toHaveBeenCalled();
     });
 
