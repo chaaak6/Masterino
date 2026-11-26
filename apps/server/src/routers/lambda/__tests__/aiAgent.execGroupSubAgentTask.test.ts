@@ -123,6 +123,19 @@ describe('aiAgentRouter.execSubAgentTask', () => {
   });
 
   describe('successful execution', () => {
+    it('resolves group ownership from the topic when the caller omits groupId', async () => {
+      const caller = aiAgentRouter.createCaller(createTestContext());
+      await caller.execSubAgentTask({
+        agentId: testAgentId,
+        instruction: 'Test instruction',
+        parentMessageId,
+        topicId: testTopicId,
+      });
+      expect(mockExecGroupSubAgentTask).toHaveBeenCalledWith(
+        expect.objectContaining({ groupId: testGroupId }),
+      );
+    });
+
     it('should call service method with correct parameters', async () => {
       mockExecGroupSubAgentTask.mockResolvedValue({
         assistantMessageId: 'assistant-msg-1',

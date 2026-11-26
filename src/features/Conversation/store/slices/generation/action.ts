@@ -202,6 +202,32 @@ const runHeterogeneousFromExistingMessage = async (
  *
  * Handles generation control (stop, cancel, regenerate, continue)
  */
+const checkRegenerationWorkspace = async (
+  context: ConversationContext,
+  chatStore: ReturnType<typeof useChatStore.getState>,
+) => {
+  if (!context.topicId) return true;
+  try {
+    await checkDesktopProjectSend({
+      agentId: context.agentId,
+      groupId: context.groupId,
+      isNewTopic: false,
+      topicId: context.topicId,
+      topicMetadata: chatStore.topicDataMap
+        ? topicSelectors.getTopicById(context.topicId)(chatStore)?.metadata
+        : undefined,
+    });
+    return true;
+  } catch (error) {
+    antdMessage.error(
+      error instanceof ProjectDeviceMismatchError
+        ? t('workspaceRuntime.otherDeviceProject', { ns: 'chat' })
+        : t('workspaceRuntime.picker.loadError', { ns: 'chat' }),
+    );
+    return false;
+  }
+};
+
 export interface GenerationAction {
   /**
    * Cancel a specific operation
@@ -470,6 +496,7 @@ export const generationSlice: StateCreator<
     if (!userId) return;
     const userMessage = displayMessages.find((item) => item.id === userId);
     if (!userMessage || !validateMessageImages(userMessage)) return;
+    if (!(await checkRegenerationWorkspace(context, chatStore))) return;
 
     // Create operation to track context (use 'regenerate' type since this is a regenerate action)
     const { operationId } = chatStore.startOperation({
@@ -495,6 +522,7 @@ export const generationSlice: StateCreator<
         : displayMessages.find((item) => item.id === current?.parentId);
     if (!userMessage || !validateMessageImages(userMessage)) return;
     const chatStore = useChatStore.getState();
+    if (!(await checkRegenerationWorkspace(context, chatStore))) return;
 
     // Create operation to track context (use 'regenerate' type since resend is essentially regenerate)
     const { operationId } = chatStore.startOperation({
@@ -548,26 +576,7 @@ export const generationSlice: StateCreator<
     const item = displayMessages[currentIndex];
     if (!item || !validateMessageImages(item)) return;
 
-    if (context.topicId) {
-      try {
-        await checkDesktopProjectSend({
-          agentId: context.agentId,
-          groupId: context.groupId,
-          isNewTopic: false,
-          topicId: context.topicId,
-          topicMetadata: chatStore.topicDataMap
-            ? topicSelectors.getTopicById(context.topicId)(chatStore)?.metadata
-            : undefined,
-        });
-      } catch (error) {
-        antdMessage.error(
-          error instanceof ProjectDeviceMismatchError
-            ? t('workspaceRuntime.otherDeviceProject', { ns: 'chat' })
-            : t('workspaceRuntime.picker.loadError', { ns: 'chat' }),
-        );
-        return;
-      }
-    }
+    if (!(await checkRegenerationWorkspace(context, chatStore))) return;
 
     const initialContext = mergeAgentRuntimeInitialContexts(
       await resolveActiveTopicDocumentInitialContext(context),

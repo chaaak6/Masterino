@@ -220,7 +220,7 @@ export class GroupOrchestrationActionImpl {
           params: {
             agentId,
             instruction,
-            runInClient: context?.preferLocal ?? runInClient,
+            runInClient: runInClient ?? context?.preferLocal,
             timeout,
             toolMessageId,
           },
@@ -379,12 +379,14 @@ export class GroupOrchestrationActionImpl {
         const dispatch = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get())?.content;
         // Failed dispatches may have no task card. Preserve the dispatch and
         // include every outcome so the supervisor can summarize partial results.
-        await this.#get().optimisticUpdateMessageContent(
-          toolMessageId,
-          [dispatch, `Member task results:\n${report}`].filter(Boolean).join('\n\n'),
-          undefined,
-          { operationId },
-        );
+        await this.#get()
+          .optimisticUpdateMessageContent(
+            toolMessageId,
+            [dispatch, `Member task results:\n${report}`].filter(Boolean).join('\n\n'),
+            undefined,
+            { operationId },
+          )
+          .catch((error) => log('Unable to persist member task report: %O', error));
       }
 
       log(

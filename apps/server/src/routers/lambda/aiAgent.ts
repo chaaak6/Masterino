@@ -930,7 +930,7 @@ export const aiAgentRouter = router({
       const {
         agentId,
         clientPlatform,
-        groupId,
+        groupId: requestedGroupId,
         instruction,
         parentMessageId,
         title,
@@ -938,6 +938,12 @@ export const aiAgentRouter = router({
         timeout,
       } = input;
 
+      const topic = await ctx.topicModel.findById(topicId);
+      if (!topic || (requestedGroupId && requestedGroupId !== topic.groupId)) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Task topic not found' });
+      }
+
+      const groupId = topic.groupId ?? undefined;
       if (groupId)
         await assertGroupTaskContext(ctx, { agentId, groupId, parentMessageId, topicId });
       log('execSubAgentTask: agentId=%s, groupId=%s', agentId, groupId);

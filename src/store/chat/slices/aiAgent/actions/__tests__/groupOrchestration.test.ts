@@ -178,33 +178,41 @@ describe('groupOrchestration actions', () => {
     });
   });
 
-  it('starts the original group task locally on desktop even after navigation', async () => {
-    const dispatch = vi.fn().mockResolvedValue({ status: 'done' });
-    useChatStore.setState({ internal_execGroupOrchestration: dispatch });
-    const callbacks = useChatStore.getState().getGroupOrchestrationCallbacks({
-      groupId: TEST_IDS.GROUP_ID,
-      topicId: TEST_IDS.TOPIC_ID,
-      preferLocal: true,
-    });
-    useChatStore.setState({ activeGroupId: 'other-group', activeTopicId: 'other-topic' });
-    await callbacks.triggerExecuteTask({
-      agentId: 'worker',
-      instruction: 'Return the calculation result',
-      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
-      toolMessageId: 'tool-message',
-    });
-    expect(dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
+  it.each([
+    { preferLocal: true, runInClient: undefined, expected: true },
+    { preferLocal: true, runInClient: false, expected: false },
+    { preferLocal: false, runInClient: true, expected: true },
+  ])(
+    'keeps the original group and honors explicit task routing $runInClient',
+    async ({ preferLocal, runInClient, expected }) => {
+      const dispatch = vi.fn().mockResolvedValue({ status: 'done' });
+      useChatStore.setState({ internal_execGroupOrchestration: dispatch });
+      const callbacks = useChatStore.getState().getGroupOrchestrationCallbacks({
         groupId: TEST_IDS.GROUP_ID,
         topicId: TEST_IDS.TOPIC_ID,
-        initialResult: expect.objectContaining({
-          payload: expect.objectContaining({
-            params: expect.objectContaining({ runInClient: true }),
+        preferLocal,
+      });
+      useChatStore.setState({ activeGroupId: 'other-group', activeTopicId: 'other-topic' });
+      await callbacks.triggerExecuteTask({
+        agentId: 'worker',
+        instruction: 'Return the calculation result',
+        runInClient,
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        toolMessageId: 'tool-message',
+      });
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          groupId: TEST_IDS.GROUP_ID,
+          topicId: TEST_IDS.TOPIC_ID,
+          initialResult: expect.objectContaining({
+            payload: expect.objectContaining({
+              params: expect.objectContaining({ runInClient: expected }),
+            }),
           }),
         }),
-      }),
-    );
-  });
+      );
+    },
+  );
 
   describe('triggerBroadcast', () => {
     it('should call internal_execGroupOrchestration with broadcast decision', async () => {

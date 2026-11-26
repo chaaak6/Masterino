@@ -220,6 +220,7 @@ export class StreamingExecutorActionImpl {
     agentId: paramAgentId,
     deviceLocalMcpManifests,
     disableTools,
+    frozenExecutionContext,
     prepared,
     topicId: paramTopicId,
     threadId,
@@ -235,6 +236,7 @@ export class StreamingExecutorActionImpl {
     parentMessageId: string;
     agentId?: string;
     deviceLocalMcpManifests?: ToolManifest[];
+    frozenExecutionContext?: ExecutionContext;
     prepared?: { agentConfig: ResolvedAgentConfig; executionContext: ExecutionContext };
     disableTools?: boolean;
     topicId?: string | null;
@@ -365,6 +367,7 @@ export class StreamingExecutorActionImpl {
     );
 
     const executionContext =
+      frozenExecutionContext ??
       prepared?.executionContext ??
       this.resolveAgentExecutionContext({
         agentConfigData,
@@ -486,6 +489,13 @@ export class StreamingExecutorActionImpl {
             );
     const state = {
       ...stateBase,
+      ...(executionContext.approvalMode && {
+        userInterventionConfig: {
+          ...userInterventionConfig,
+          ...stateBase.userInterventionConfig,
+          approvalMode: executionContext.approvalMode,
+        },
+      }),
       metadata: {
         ...stateBase.metadata,
         executionContext,
@@ -848,6 +858,7 @@ export class StreamingExecutorActionImpl {
         deviceLocalMcpManifests,
         disableTools,
         ...(prepared && { prepared }),
+        ...(frozenExecutionContext && { frozenExecutionContext }),
         topicId,
         threadId: threadId ?? undefined,
         initialState: params.initialState,
@@ -1339,8 +1350,9 @@ export class StreamingExecutorActionImpl {
         ...(taskMessages && { taskMessages }),
         usage: state.usage,
       };
-      // Queued user input starts a separate turn after this assignment. Report
-      // the completed member run even when the conversation has queued input.
+      // A resumed member segment reports here. The initial member segment
+      // returns its result to the spawning executor, which reports it once.
+      // Queued user input is a separate turn from the assigned task.
       taskResume?.report(result);
       // A queued follow-up sendMessage was scheduled — skip the post-run notification.
       if (requeued) return initialMemberTask ? result : undefined;

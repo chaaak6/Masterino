@@ -21,6 +21,7 @@ import { chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { consumePendingTopicRepos, getPendingTopicRepos } from '@/store/chat/pendingTopicRepos';
 import { topicSelectors } from '@/store/chat/selectors';
 import type { ChatStore } from '@/store/chat/store';
+import { topicMapKey } from '@/store/chat/utils/topicMapKey';
 import {
   getProjectWorkspaceStoreState,
   resolvePendingTopicExecutionIntent,
@@ -647,6 +648,7 @@ export class GatewayActionImpl {
   reconnectToGatewayOperation = async (params: {
     agentId?: string;
     assistantMessageId: string;
+    groupId?: string;
     operationId: string;
     scope?: string;
     threadId?: string | null;
@@ -654,6 +656,12 @@ export class GatewayActionImpl {
   }): Promise<void> => {
     const { assistantMessageId, operationId, topicId, scope, threadId } = params;
     const fallbackAgentId = params.agentId ?? this.#get().activeAgentId;
+    const getTopic = (state: ChatStore) =>
+      params.groupId
+        ? state.topicDataMap[topicMapKey({ groupId: params.groupId })]?.items?.find(
+            ({ id }) => id === topicId,
+          )
+        : topicSelectors.getTopicById(topicId)(state);
 
     const agentGatewayUrl =
       window.global_serverConfigStore?.getState()?.serverConfig?.agentGatewayUrl;
@@ -673,8 +681,7 @@ export class GatewayActionImpl {
     // happens when executeGatewayAgent was called (creating a new op) while this
     // stale reconnect was still queued — connecting to the old op would produce
     // duplicate streaming events alongside the new connection.
-    const topicCurrentOpId = topicSelectors.getTopicById(topicId)(this.#get())?.metadata
-      ?.runningOperation?.operationId;
+    const topicCurrentOpId = getTopic(this.#get())?.metadata?.runningOperation?.operationId;
     if (topicCurrentOpId && topicCurrentOpId !== operationId) return;
 
     // Get a fresh JWT token (original expired after 5 min).
@@ -685,15 +692,21 @@ export class GatewayActionImpl {
       } catch (error) {
         if (!isTerminalTokenRefreshError(error)) throw error;
         const state = this.#get();
-        const topic = topicSelectors.getTopicById(topicId)(state);
+        const topic = getTopic(state);
         if (topic?.metadata?.runningOperation?.operationId === operationId) {
           state.internal_dispatchTopic({
             agentId: fallbackAgentId,
+            groupId: params.groupId,
             id: topicId,
             type: 'updateTopic',
             value: { metadata: { ...topic.metadata, runningOperation: null } },
           });
-          await state.updateTopicStatus?.({ agentId: fallbackAgentId, status: 'active', topicId });
+          await state.updateTopicStatus?.({
+            agentId: fallbackAgentId,
+            groupId: params.groupId,
+            status: 'active',
+            topicId,
+          });
         }
         return;
       }
@@ -702,8 +715,7 @@ export class GatewayActionImpl {
     // Re-check after the async token refresh: a newer executeGatewayAgent call may have
     // taken over for this topic while we were waiting. If so, bail to avoid a duplicate stream.
     // (disconnectFromGateway on the stale op is a no-op here because we haven't connected yet.)
-    const topicOpIdAfterRefresh = topicSelectors.getTopicById(topicId)(this.#get())?.metadata
-      ?.runningOperation?.operationId;
+    const topicOpIdAfterRefresh = getTopic(this.#get())?.metadata?.runningOperation?.operationId;
     if (topicOpIdAfterRefresh && topicOpIdAfterRefresh !== operationId) return;
 
     // Anchor the operation to the run's real start: the assistant message was
@@ -715,9 +727,11 @@ export class GatewayActionImpl {
 
     const context = {
       agentId: params.agentId ?? assistantMessage?.agentId ?? fallbackAgentId,
-      groupId: assistantMessage?.groupId ?? undefined,
+      groupId: params.groupId ?? assistantMessage?.groupId ?? undefined,
       scope: (scope ??
-        (assistantMessage?.groupId ? 'group' : 'main')) as ConversationContext['scope'],
+        (params.groupId || assistantMessage?.groupId
+          ? 'group'
+          : 'main')) as ConversationContext['scope'],
       threadId: threadId ?? assistantMessage?.threadId ?? null,
       topicId,
     };

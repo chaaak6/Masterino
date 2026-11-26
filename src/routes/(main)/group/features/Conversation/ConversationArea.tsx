@@ -5,8 +5,10 @@ import { memo, Suspense, useMemo } from 'react';
 
 import ChatMiniMap from '@/features/ChatMiniMap';
 import { ChatList, ConversationProvider } from '@/features/Conversation';
+import { useGatewayReconnect } from '@/hooks/useGatewayReconnect';
 import { useOperationState } from '@/hooks/useOperationState';
 import { useChatStore } from '@/store/chat';
+import { topicSelectors } from '@/store/chat/selectors';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import WelcomeChatItem from './AgentWelcome';
@@ -41,6 +43,12 @@ const Conversation = memo<ConversationAreaProps>(({ mobile = false }) => {
 
   // Get operation state from ChatStore for reactive updates
   const operationState = useOperationState(context);
+  const runningOperation = useChatStore((state) =>
+    context.topicId
+      ? topicSelectors.getTopicById(context.topicId)(state)?.metadata?.runningOperation
+      : undefined,
+  );
+  useGatewayReconnect(context.agentId, context.topicId, runningOperation, context.groupId);
 
   const actionsBarConfig = useActionsBarConfig();
 

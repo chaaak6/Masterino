@@ -27,15 +27,19 @@ export const useGatewayReconnect = (
   agentId: string,
   topicId: string | null | undefined,
   runningOperation: RunningOperation | null | undefined,
+  groupId?: string | null,
 ) => {
   useSWR(
-    runningOperation && topicId ? gatewayKeys.reconnect(runningOperation.operationId) : null,
+    runningOperation && topicId && agentId
+      ? gatewayKeys.reconnect(runningOperation.operationId)
+      : null,
     async () => {
       if (!runningOperation || !topicId) return;
 
       await useChatStore.getState().reconnectToGatewayOperation({
         agentId,
         assistantMessageId: runningOperation.assistantMessageId,
+        groupId: groupId ?? undefined,
         operationId: runningOperation.operationId,
         scope: runningOperation.scope,
         threadId: runningOperation.threadId,

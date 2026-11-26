@@ -149,6 +149,7 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
         {status ? (
           <ClientTaskDetail
             agentId={agentId}
+            content={item.content}
             groupId={itemGroupId}
             taskDetail={taskDetail}
             topicId={topicId ?? undefined}
