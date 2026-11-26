@@ -176,7 +176,6 @@ export class AgentStreamClient extends TypedEmitter {
     this.intentionalDisconnect = false;
     this.sessionEnded = false;
     this.reconnectDelay = INITIAL_RECONNECT_DELAY;
-    this.startRecoveryTimer();
     this.doConnect();
   }
 
@@ -184,6 +183,7 @@ export class AgentStreamClient extends TypedEmitter {
 
   private doConnect(): void {
     this.clearReconnectTimer();
+    this.startRecoveryTimer();
     this.setStatus('connecting');
 
     try {

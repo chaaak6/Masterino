@@ -11,12 +11,8 @@ import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { type UIChatMessage } from '@/types/index';
 import { ThreadStatus } from '@/types/index';
 
-import {
-  ErrorState,
-  InitializingState,
-  isProcessingStatus,
-  TaskMessages,
-} from '../../Tasks/shared';
+import ClientTaskDetail from '../../Task/ClientTaskDetail';
+import { InitializingState, isProcessingStatus } from '../../Tasks/shared';
 import { type TaskMetrics } from './TaskTitle';
 import TaskTitle from './TaskTitle';
 
@@ -25,7 +21,7 @@ interface ClientTaskItemProps {
 }
 
 const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
-  const { id, agentId: itemAgentId, groupId: itemGroupId, metadata, taskDetail } = item;
+  const { id, agentId: itemAgentId, groupId: itemGroupId, metadata, taskDetail, topicId } = item;
   const [expanded, setExpanded] = useState(false);
 
   const title = taskDetail?.title || metadata?.taskTitle;
@@ -36,16 +32,11 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
   const isProcessing = isProcessingStatus(status);
   const isCompleted = status === ThreadStatus.Completed;
   const isError = status === ThreadStatus.Failed || status === ThreadStatus.Cancel;
-  const isInitializing = !taskDetail || !status;
 
   // Fetch thread messages for client mode
   // Use item's agentId (from task message) to query with the correct SubAgent ID that created the thread
   // Fall back to activeAgentId if task message doesn't have agentId (shouldn't happen normally)
-  const [activeAgentId, activeTopicId, useFetchMessages] = useChatStore((s) => [
-    s.activeAgentId,
-    s.activeTopicId,
-    s.useFetchMessages,
-  ]);
+  const [activeAgentId, activeTopicId] = useChatStore((s) => [s.activeAgentId, s.activeTopicId]);
 
   // Use task message's agentId (skip 'supervisor' as it's not a valid agent ID for queries)
   // Fall back to activeAgentId if not available
@@ -65,18 +56,15 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
       groupId: itemGroupId,
       scope: 'thread' as const,
       threadId,
-      topicId: activeTopicId,
+      topicId: topicId ?? activeTopicId,
     }),
-    [agentId, itemGroupId, activeTopicId, threadId],
+    [agentId, itemGroupId, activeTopicId, threadId, topicId],
   );
 
   const threadMessageKey = useMemo(
     () => (threadId ? messageMapKey(threadContext) : null),
     [threadId, threadContext],
   );
-
-  // Fetch thread messages (skip when executing - messages come from real-time updates)
-  useFetchMessages(threadContext, { skipFetch: isProcessing });
 
   // Get thread messages from store using selector
   const threadMessages = useChatStore((s) =>
@@ -88,12 +76,6 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
   // Find the assistantGroup message which contains the children blocks
   const assistantGroupMessage = threadMessages?.find((item) => item.role === 'assistantGroup');
   const blocks = assistantGroupMessage?.children;
-  const childrenCount = blocks?.length ?? 0;
-
-  // Get model/provider from assistantGroup message
-  const model = assistantGroupMessage?.model;
-  const provider = assistantGroupMessage?.provider;
-
   // Build metrics for TaskTitle based on blocks data
   const metrics: TaskMetrics | undefined = useMemo(() => {
     if (isProcessing && blocks) {
@@ -124,9 +106,6 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
     taskDetail?.totalToolCalls,
   ]);
 
-  // Check if we have blocks to show (for Processing and Completed states)
-  const hasBlocks = blocks && childrenCount > 0;
-
   return (
     <AccordionItem
       expand={expanded}
@@ -156,24 +135,16 @@ const ClientTaskItem = memo<ClientTaskItemProps>(({ item }) => {
           </Block>
         )}
 
-        {/* Initializing State - no taskDetail yet or no blocks */}
-        {(isInitializing || (isProcessing && !hasBlocks)) && <InitializingState />}
-
-        {/* Processing or Completed State - show blocks via TaskMessages */}
-        {!isInitializing && (isProcessing || isCompleted) && hasBlocks && threadMessages && (
-          <TaskMessages
-            duration={taskDetail?.duration}
-            isProcessing={isProcessing}
-            messages={threadMessages}
-            model={model ?? undefined}
-            provider={provider ?? undefined}
-            startTime={assistantGroupMessage?.createdAt}
-            totalCost={taskDetail?.totalCost}
+        {status ? (
+          <ClientTaskDetail
+            agentId={agentId}
+            groupId={itemGroupId}
+            taskDetail={taskDetail}
+            topicId={topicId ?? undefined}
           />
+        ) : (
+          <InitializingState />
         )}
-
-        {/* Error State */}
-        {!isInitializing && isError && taskDetail && <ErrorState taskDetail={taskDetail} />}
       </Block>
     </AccordionItem>
   );

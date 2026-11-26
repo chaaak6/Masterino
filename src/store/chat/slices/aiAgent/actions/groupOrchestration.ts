@@ -356,7 +356,30 @@ export class GroupOrchestrationActionImpl {
         state.status,
       );
 
+      const toolMessageId =
+        currentResult.type === 'supervisor_decided' && currentResult.payload.params.toolMessageId;
       const output = await runtime.step(state, currentResult);
+      const result = output.result;
+      const taskResults =
+        result?.type === 'task_completed'
+          ? [result.payload]
+          : result?.type === 'tasks_completed'
+            ? result.payload.results
+            : [];
+      const failures = taskResults.filter(({ success }) => !success);
+      if (typeof toolMessageId === 'string' && failures.length > 0) {
+        const report = failures
+          .map(({ agentId, error }) => `Agent ${agentId}: ${error ?? 'Task failed'}`)
+          .join('\n');
+        // The initial tool response only records dispatch. Give the next
+        // supervisor turn the actual outcome when no result card was created.
+        await this.#get().optimisticUpdateMessageContent(
+          toolMessageId,
+          `Member task failures:\n${report}`,
+          undefined,
+          { operationId },
+        );
+      }
 
       log(
         '[internal_execGroupOrchestration] Step %d completed, events: %d, newStatus=%s, nextResult=%s',

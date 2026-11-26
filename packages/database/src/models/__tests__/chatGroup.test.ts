@@ -469,6 +469,14 @@ describe('ChatGroupModel', () => {
       supervisorAgentId,
     ]);
     expect(preview.virtualAgents.map((agent) => agent.id)).toEqual(['group-worker']);
+    const deletion = await repo.checkAgentsBeforeRemoval(
+      group.id,
+      ['group-worker', supervisorAgentId],
+      { includeSupervisor: true },
+    );
+    expect(deletion.virtualAgents.map((agent) => agent.id)).toEqual(
+      expect.arrayContaining(['group-worker', supervisorAgentId]),
+    );
     const removed = await repo.removeAgentsFromGroup(group.id, ['group-worker']);
     expect(removed).toEqual({ deletedVirtualAgentIds: [], removedFromGroup: 1 });
     expect(await chatGroupModel.getGroupAgents(group.id)).toEqual([

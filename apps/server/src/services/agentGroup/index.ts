@@ -61,7 +61,13 @@ export class AgentGroupService {
     const agentIds = groupAgents.map((ga) => ga.agentId);
 
     // 2. Check which agents are virtual
-    const { virtualAgents } = await this.agentGroupRepo.checkAgentsBeforeRemoval(groupId, agentIds);
+    const { virtualAgents } = await this.agentGroupRepo.checkAgentsBeforeRemoval(
+      groupId,
+      agentIds,
+      {
+        includeSupervisor: true,
+      },
+    );
     const virtualAgentIds = virtualAgents.map((a) => a.id);
 
     // 3. Delete the group (CASCADE will delete chatGroupsAgents entries)

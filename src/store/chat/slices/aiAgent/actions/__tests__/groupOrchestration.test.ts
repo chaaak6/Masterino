@@ -1,3 +1,4 @@
+import { GroupOrchestrationRuntime } from '@lobechat/agent-runtime';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -57,6 +58,41 @@ describe('groupOrchestration actions', () => {
   });
 
   describe('internal_execGroupOrchestration', () => {
+    it('records failed dispatch in the tool result before resuming the supervisor', async () => {
+      const updateContent = vi.fn().mockResolvedValue(undefined);
+      const step = vi.spyOn(GroupOrchestrationRuntime.prototype, 'step');
+      step.mockImplementationOnce(async (state) => ({
+        events: [],
+        newState: state,
+        result: {
+          payload: { agentId: 'worker', error: 'Group member not found', success: false },
+          type: 'task_completed',
+        },
+      }));
+      step.mockImplementationOnce(async (state) => {
+        expect(updateContent).toHaveBeenCalledWith(
+          'tool-message',
+          expect.stringContaining('Group member not found'),
+          undefined,
+          { operationId: TEST_IDS.OPERATION_ID },
+        );
+        return { events: [], newState: { ...state, status: 'done' } };
+      });
+      useChatStore.setState({ optimisticUpdateMessageContent: updateContent });
+
+      await useChatStore.getState().internal_execGroupOrchestration({
+        groupId: TEST_IDS.GROUP_ID,
+        initialResult: {
+          payload: { decision: 'execute_task', params: { toolMessageId: 'tool-message' } },
+          type: 'supervisor_decided',
+        },
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        topicId: TEST_IDS.TOPIC_ID,
+      });
+
+      expect(step).toHaveBeenCalledTimes(2);
+    });
+
     it('should create operation with scope: group in context', async () => {
       const { result } = renderHook(() => useChatStore());
 

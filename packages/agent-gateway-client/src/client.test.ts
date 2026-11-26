@@ -463,6 +463,18 @@ describe('AgentStreamClient', () => {
       expect(onReconnecting).toHaveBeenCalledWith(1000);
     });
 
+    it('releases an initial resume subscription when authentication stalls', async () => {
+      const client = createClient({ resumeOnConnect: true });
+      const unavailable = vi.fn();
+      client.on('recovery_exhausted', unavailable);
+
+      client.connect();
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(unavailable).toHaveBeenCalledOnce();
+      expect(client.connectionStatus).toBe('disconnected');
+    });
+
     it('releases an interrupted subscription when reconnect never authenticates', async () => {
       const client = createClient();
       const unavailable = vi.fn();

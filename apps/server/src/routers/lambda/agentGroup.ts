@@ -144,8 +144,7 @@ export const agentGroupRouter = router({
     }),
 
   /**
-   * Check agents before removal to identify virtual agents that will be permanently deleted.
-   * This allows the frontend to show a confirmation dialog.
+   * Preview the group membership affected by an unlink.
    */
   checkAgentsBeforeRemoval: agentGroupProcedure
     .input(

@@ -3,11 +3,14 @@ import { fetchEventSource } from '@lobechat/utils/client';
 
 import { aiAgentService } from '@/services/aiAgent';
 
+const RECOVERY_TIMEOUT = 30_000;
+
 /** Server executes tools through Device Gateway; this channel only receives events. */
 export class SameOriginAgentStreamClient {
   private listeners = new Map<keyof AgentStreamClientEvents, Set<(...args: never[]) => void>>();
   private controller?: AbortController;
   private retry?: ReturnType<typeof setTimeout>;
+  private recoveryTimer?: ReturnType<typeof setTimeout>;
   private cursor = '0';
   private stopped = true;
   private terminal = false;
@@ -44,12 +47,12 @@ export class SameOriginAgentStreamClient {
 
   private open(): void {
     if (this.stopped || this.terminal) return;
+    this.startRecoveryTimer();
     if (
       this.recoveryStartedAt !== undefined &&
       typeof navigator !== 'undefined' &&
       !navigator.onLine
     ) {
-      if (this.expireRecovery()) return;
       this.emit('status_changed', 'reconnecting');
       this.retry = setTimeout(() => this.open(), 1000);
       return;
@@ -77,6 +80,7 @@ export class SameOriginAgentStreamClient {
         if (this.stopped || this.terminal || this.controller !== controller) return;
         if ([400, 401, 403, 404].includes(response.status)) {
           this.stopped = true;
+          this.clearRecoveryTimer();
           controller.abort();
           this.emit('agent_event', {
             data: {
@@ -94,6 +98,7 @@ export class SameOriginAgentStreamClient {
         if (!response.ok || !response.headers.get('content-type')?.includes('text/event-stream')) {
           throw new Error(`Invalid stream response (${response.status})`);
         }
+        this.clearRecoveryTimer();
         openedAt = Date.now();
         this.emit('status_changed', 'connected');
         this.emit('connected');
@@ -128,7 +133,14 @@ export class SameOriginAgentStreamClient {
         resetIfHealthy();
         this.recoveryStartedAt ??= Date.now();
         this.failedConnections += 1;
-        if (this.expireRecovery()) return;
+        if (
+          this.failedConnections >= 3 ||
+          Date.now() - this.recoveryStartedAt >= RECOVERY_TIMEOUT
+        ) {
+          this.expireRecovery();
+          return;
+        }
+        this.startRecoveryTimer();
         this.emit('status_changed', 'reconnecting');
         this.emit('reconnecting', this.retryDelay);
         this.retry = setTimeout(() => this.open(), this.retryDelay);
@@ -136,17 +148,28 @@ export class SameOriginAgentStreamClient {
       });
   }
 
-  private expireRecovery(): boolean {
-    if (this.failedConnections < 3 && Date.now() - (this.recoveryStartedAt ?? Date.now()) < 30_000)
-      return false;
+  private startRecoveryTimer(): void {
+    const elapsed = this.recoveryStartedAt === undefined ? 0 : Date.now() - this.recoveryStartedAt;
+    this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), RECOVERY_TIMEOUT - elapsed);
+  }
+
+  private clearRecoveryTimer(): void {
+    clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = undefined;
+  }
+
+  private expireRecovery(): void {
     this.terminal = true;
+    this.clearRecoveryTimer();
+    clearTimeout(this.retry);
+    this.controller?.abort();
     this.emit('status_changed', 'disconnected');
     this.emit('recovery_exhausted');
-    return true;
   }
 
   disconnect(): void {
     this.stopped = true;
+    this.clearRecoveryTimer();
     clearTimeout(this.retry);
     this.controller?.abort();
     this.emit('status_changed', 'disconnected');
@@ -154,6 +177,7 @@ export class SameOriginAgentStreamClient {
   }
 
   async reconnect(): Promise<void> {
+    this.clearRecoveryTimer();
     clearTimeout(this.retry);
     this.controller?.abort();
     this.stopped = false;

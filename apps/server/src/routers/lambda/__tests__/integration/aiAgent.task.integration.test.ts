@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { type LobeChatDatabase } from '@lobechat/database';
-import { agents, chatGroups, sessions, threads, topics } from '@lobechat/database/schemas';
+import {
+  agents,
+  chatGroups,
+  chatGroupsAgents,
+  messages,
+  sessions,
+  threads,
+  topics,
+} from '@lobechat/database/schemas';
 import { getTestDB } from '@lobechat/database/test-utils';
 import { ThreadStatus, ThreadType } from '@lobechat/types';
 import { eq } from 'drizzle-orm';
@@ -101,6 +109,25 @@ describe('Agent Task Integration', () => {
       })
       .returning();
     testTopicId = topic.id;
+    await serverDB.insert(chatGroupsAgents).values(
+      [testAgentId, testAgent2Id].map((agentId, order) => ({
+        agentId,
+        chatGroupId: testGroupId,
+        order,
+        role: 'participant',
+        userId,
+      })),
+    );
+    await serverDB.insert(messages).values(
+      [1, 2, 3, 5].map((index) => ({
+        content: 'Delegate test task',
+        groupId: testGroupId,
+        id: `parent-msg-${index}`,
+        role: 'task',
+        topicId: testTopicId,
+        userId,
+      })),
+    );
 
     // Reset mocks
     mockExecGroupSubAgentTask.mockReset();

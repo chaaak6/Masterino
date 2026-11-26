@@ -20,6 +20,7 @@ import {
 import debug from 'debug';
 
 import { aiAgentService } from '@/services/aiAgent';
+import { messageService } from '@/services/message';
 import { dbMessageSelectors } from '@/store/chat/slices/message/selectors';
 import { type ChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
@@ -635,89 +636,66 @@ export const createGroupOrchestrationExecutors = (
         };
       }
 
-      let localTaskId: string | undefined;
-      let taskCard: { detail: TaskDetail; id: string } | undefined;
-      const publishTaskState = (patch: Partial<TaskDetail>) => {
-        if (!taskCard) return;
-        taskCard.detail = { ...taskCard.detail, ...patch };
+      const messageOperation = { operationId: state.operationId };
+      const taskMessage = {
+        agentId,
+        content: '',
+        groupId,
+        metadata: { instruction, taskTitle: title },
+        parentId: toolMessageId,
+        role: 'task' as const,
+        topicId,
+      };
+      let taskMessageId: string | undefined;
+      let taskDetail: TaskDetail | undefined;
+      const publishTaskState = (patch: Partial<TaskDetail>, content?: string) => {
+        if (!taskMessageId || !taskDetail) return;
+        taskDetail = { ...taskDetail, ...patch };
         get().internal_dispatchMessage(
-          { id: taskCard.id, type: 'updateMessage', value: { taskDetail: taskCard.detail } },
-          { operationId: state.operationId },
+          {
+            id: taskMessageId,
+            type: 'updateMessage',
+            value: { ...(content === undefined ? {} : { content }), taskDetail },
+          },
+          messageOperation,
         );
       };
+      let localTaskId: string | undefined;
       let localThreadId: string | undefined;
       let approval: ReturnType<typeof trackLocalTaskApproval> | undefined;
       let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        // 1. Create task message as placeholder
-        const taskMessageResult = await get().optimisticCreateMessage(
-          {
-            agentId,
-            content: '',
-            groupId,
-            metadata: { instruction, taskTitle: title },
-            parentId: toolMessageId,
-            role: 'task',
-            topicId,
-          },
-          { operationId: state.operationId },
+        // Update only this card. A whole-group snapshot from one member can erase
+        // another member's in-progress state or recently created card.
+        const created = await messageService.createMessage(taskMessage);
+        taskMessageId = created.id;
+        get().internal_dispatchMessage(
+          { id: taskMessageId, type: 'createMessage', value: taskMessage },
+          messageOperation,
         );
 
-        if (!taskMessageResult) {
-          console.error(`[${sessionLogId}] Failed to create task message`);
-          return {
-            events: [] as GroupOrchestrationEvent[],
-            newState: state,
-            result: {
-              payload: { agentId, error: 'Failed to create task message', success: false },
-              type: 'task_completed',
-            },
-          };
-        }
-
-        const taskMessageId = taskMessageResult.id;
-        log(`[${sessionLogId}] Created task message: ${taskMessageId}`);
-
-        // 2. Create Thread via API first (to get threadId for operation context)
-        // Use Group-specific API that handles different agentIds in thread context
         const threadResult = await aiAgentService.createClientGroupAgentTaskThread({
-          groupId: groupId!,
+          groupId,
           instruction,
           parentMessageId: taskMessageId,
           subAgentId: agentId,
           title,
           topicId,
         });
+        if (!threadResult.success) throw new Error('Failed to create client task thread');
 
-        if (!threadResult.success) {
-          log(`[${sessionLogId}] Failed to create client task thread`);
-          await get().optimisticUpdateMessageContent(
-            taskMessageId,
-            'Failed to create task thread',
-            undefined,
-            { operationId: state.operationId },
-          );
-          return {
-            events: [] as GroupOrchestrationEvent[],
-            newState: state,
-            result: {
-              payload: { agentId, error: 'Failed to create client task thread', success: false },
-              type: 'task_completed',
-            },
-          };
-        }
-
-        const { threadId, userMessageId, threadMessages, messages, startedAt } = threadResult;
-        taskCard = {
-          detail: { clientMode: true, startedAt, status: ThreadStatus.Processing, threadId, title },
-          id: taskMessageId,
-        };
+        const { threadId, userMessageId, threadMessages, startedAt } = threadResult;
         localThreadId = threadId;
-        log(
-          `[${sessionLogId}] Created thread: ${threadId}, userMessageId: ${userMessageId}, threadMessages: ${threadMessages.length}`,
-        );
+        taskDetail = {
+          clientMode: true,
+          startedAt,
+          status: ThreadStatus.Processing,
+          threadId,
+          title,
+        };
+        publishTaskState({});
 
-        // 3. Build sub-task ConversationContext (uses threadId for isolation)
+        // Build the isolated member conversation.
         const subContext: ConversationContext = {
           agentId,
           groupId,
@@ -747,26 +725,6 @@ export const createGroupOrchestrationExecutors = (
           deadline,
         );
 
-        // 5. Sync messages to store
-        // Update main chat messages with latest taskDetail status (use messageContext for Group)
-        const mainKey = messageMapKey(messageContext);
-        log(
-          `[${sessionLogId}] replaceMessages (main): messages=%d, key=%s, context=%O`,
-          messages.length,
-          mainKey,
-          messageContext,
-        );
-        get().replaceMessages(messages, { context: messageContext });
-        publishTaskState({});
-
-        // Update thread messages
-        const threadKey = messageMapKey(subContext);
-        log(
-          `[${sessionLogId}] replaceMessages (thread): threadMessages=%d, key=%s, subContext=%O`,
-          threadMessages.length,
-          threadKey,
-          subContext,
-        );
         get().replaceMessages(threadMessages, { context: subContext });
 
         // 6. Execute using executeClientAgent (client-side with local tools access)
@@ -813,21 +771,13 @@ export const createGroupOrchestrationExecutors = (
         // Get usage data from runtime result
         const { usage, cost } = runtimeResult || {};
 
-        // 8. Update task message with result
-        await get().optimisticUpdateMessageContent(
-          taskMessageId,
-          resultContent,
-          {
-            metadata: {
-              cost: cost?.total,
-              duration: usage?.llm?.processingTimeMs,
-              totalInputTokens: usage?.llm?.tokens?.input,
-              totalOutputTokens: usage?.llm?.tokens?.output,
-              totalTokens: usage?.llm?.tokens?.total,
-            },
-          },
-          { operationId: state.operationId },
-        );
+        await messageService.updateMessageMetadata(taskMessageId, {
+          cost: cost?.total,
+          duration: usage?.llm?.processingTimeMs,
+          totalInputTokens: usage?.llm?.tokens?.input,
+          totalOutputTokens: usage?.llm?.tokens?.output,
+          totalTokens: usage?.llm?.tokens?.total,
+        });
 
         // 9. Update Thread status via API with metadata
         const saved = await aiAgentService.updateClientTaskThreadStatus({
@@ -843,15 +793,18 @@ export const createGroupOrchestrationExecutors = (
         });
 
         if (!saved.success) throw new Error('Unable to save local task completion');
-        publishTaskState({
-          completedAt: new Date().toISOString(),
-          duration: Date.now() - new Date(startedAt).getTime(),
-          status: ThreadStatus.Completed,
-          totalCost: cost?.total,
-          totalMessages: subTaskMessages.length,
-          totalTokens: usage?.llm?.tokens?.total,
-          totalToolCalls,
-        });
+        publishTaskState(
+          {
+            completedAt: new Date().toISOString(),
+            duration: Date.now() - new Date(startedAt).getTime(),
+            status: ThreadStatus.Completed,
+            totalCost: cost?.total,
+            totalMessages: subTaskMessages.length,
+            totalTokens: usage?.llm?.tokens?.total,
+            totalToolCalls,
+          },
+          resultContent,
+        );
 
         // 10. Complete operation
         get().completeOperation(taskOperationId);
@@ -877,6 +830,15 @@ export const createGroupOrchestrationExecutors = (
           error: { message },
           status: cancelled ? ThreadStatus.Cancel : ThreadStatus.Failed,
         });
+        if (taskMessageId && !localThreadId) {
+          get().internal_dispatchMessage(
+            { id: taskMessageId, type: 'deleteMessage' },
+            messageOperation,
+          );
+          await messageService
+            .removeMessage(taskMessageId)
+            .catch((failure) => log('Failed to remove task placeholder: %O', failure));
+        }
         if (localThreadId) {
           await aiAgentService
             .updateClientTaskThreadStatus({
@@ -924,17 +886,17 @@ export const createGroupOrchestrationExecutors = (
         .payload;
 
       if (context.preferLocal) {
-        const results = [];
-        for (const task of tasks) {
-          if (get().operations[orchestrationOperationId]?.abortController.signal.aborted) break;
-          // Each task writes a group snapshot. Run locally in order so a stale
-          // response cannot replace another local member's newly saved messages.
-          const output = await executors.exec_client_async_task!(
-            { payload: { ...task, toolMessageId }, type: 'exec_client_async_task' },
-            state,
-          );
-          if (output.result?.type === 'task_completed') results.push(output.result.payload);
-        }
+        const outputs = await Promise.all(
+          tasks.map((task) =>
+            executors.exec_client_async_task!(
+              { payload: { ...task, toolMessageId }, type: 'exec_client_async_task' },
+              state,
+            ),
+          ),
+        );
+        const results = outputs.flatMap(({ result }) =>
+          result?.type === 'task_completed' ? [result.payload] : [],
+        );
         return {
           events: [],
           newState: state,

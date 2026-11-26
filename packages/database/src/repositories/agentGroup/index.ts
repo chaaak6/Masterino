@@ -485,11 +485,13 @@ export class AgentGroupRepository {
    *
    * @param groupId - The chat group ID
    * @param agentIds - Array of agent IDs to check
+   * @param options - Include the supervisor when deleting the whole group
    * @returns Object containing virtual and non-virtual agent lists
    */
   async checkAgentsBeforeRemoval(
     groupId: string,
     agentIds: string[],
+    options?: { includeSupervisor?: boolean },
   ): Promise<RemoveAgentsCheckResult> {
     if (agentIds.length === 0) {
       return { nonVirtualAgentIds: [], virtualAgents: [] };
@@ -515,7 +517,9 @@ export class AgentGroupRepository {
           this.groupOwnership(),
           eq(chatGroups.id, groupId),
           inArray(agents.id, agentIds),
-          or(isNull(chatGroupsAgents.role), ne(chatGroupsAgents.role, 'supervisor')),
+          options?.includeSupervisor
+            ? undefined
+            : or(isNull(chatGroupsAgents.role), ne(chatGroupsAgents.role, 'supervisor')),
         ),
       );
 

@@ -30,6 +30,23 @@ describe('same-origin device agent stream', () => {
     expect(complete).toHaveBeenCalledOnce();
     client.disconnect();
   });
+  it('aborts a stalled retry and releases the subscription at its deadline', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource)
+      .mockResolvedValueOnce(undefined)
+      .mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+
+    client.connect();
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(fetchEventSource).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(fetchEventSource).mock.calls[1][1].signal?.aborted).toBe(true);
+    expect(unavailable).toHaveBeenCalledOnce();
+  });
+
   it('recovers again after a healthy heartbeat-only connection outlives the old recovery window', async () => {
     vi.useFakeTimers();
     const closes: Array<() => void> = [];

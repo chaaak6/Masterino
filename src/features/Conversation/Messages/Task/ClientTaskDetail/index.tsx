@@ -12,16 +12,14 @@ import { useChatStore } from '@/store/chat';
 import { displayMessageSelectors } from '@/store/chat/selectors';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
-import { ErrorState, TaskMessages } from '../../Tasks/shared';
+import { ErrorState, isProcessingStatus, TaskMessages } from '../../Tasks/shared';
 import InitializingState from './InitializingState';
 
 interface ClientTaskDetailProps {
   /** Agent ID from the task message (use task's agentId, not activeAgentId) */
   agentId?: string;
-  content?: string;
   /** Group ID from the task message (use task's groupId, not activeGroupId) */
   groupId?: string;
-  messageId: string;
   taskDetail?: TaskDetail;
   topicId?: string;
 }
@@ -29,8 +27,7 @@ interface ClientTaskDetailProps {
 const ClientTaskDetail = memo<ClientTaskDetailProps>(
   ({ agentId: propAgentId, groupId, taskDetail, topicId }) => {
     const threadId = taskDetail?.threadId;
-    const isExecuting = taskDetail?.status === ThreadStatus.Processing;
-    const isAwaitingApproval = taskDetail?.status === ThreadStatus.InReview;
+    const isProcessing = isProcessingStatus(taskDetail?.status);
 
     // Use task message's agentId to query with the correct SubAgent ID that created the thread
     // Fall back to activeAgentId if task message doesn't have agentId (shouldn't happen normally)
@@ -59,7 +56,7 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
     );
 
     // Fetch thread messages (skip when executing - messages come from real-time updates)
-    useFetchMessages(threadContext, { skipFetch: isExecuting || isAwaitingApproval });
+    useFetchMessages(threadContext, { skipFetch: isProcessing || !threadId });
 
     // Get thread messages from store using selector
     const threadMessages = useChatStore((s) =>
@@ -68,39 +65,34 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
         : undefined,
     );
 
+    const rawThreadMessages = useChatStore((s) =>
+      threadMessageKey ? s.dbMessagesMap[threadMessageKey] : undefined,
+    );
     const pendingInterventions = useMemo(
-      () => (isAwaitingApproval && threadMessages ? getPendingInterventions(threadMessages) : []),
-      [isAwaitingApproval, threadMessages],
+      () => (isProcessing && threadMessages ? getPendingInterventions(threadMessages) : []),
+      [isProcessing, threadMessages],
     );
 
     if (taskDetail?.status === ThreadStatus.Failed || taskDetail?.status === ThreadStatus.Cancel) {
       return <ErrorState taskDetail={taskDetail} />;
     }
 
-    if (!threadMessages) return isExecuting ? <BubblesLoading /> : null;
+    if (!threadMessages) return isProcessing ? <BubblesLoading /> : null;
 
-    // Find the assistantGroup message which contains the children blocks
-    const assistantGroupMessage = threadMessages.find((item) => item.role === 'assistantGroup');
-    const childrenCount = assistantGroupMessage?.children?.length ?? 0;
+    const assistantGroup = threadMessages.find(({ role }) => role === 'assistantGroup');
+    const assistant = assistantGroup ?? threadMessages.find(({ role }) => role === 'assistant');
 
-    // Get model/provider from assistantGroup message
-    const model = assistantGroupMessage?.model;
-    const provider = assistantGroupMessage?.provider;
-
-    // Initializing state: no status yet (task just created, waiting for client execution)
-    if (threadMessages.length === 0 || !assistantGroupMessage?.children || childrenCount === 0) {
-      return isExecuting ? <InitializingState /> : null;
-    }
+    if (!assistant) return isProcessing ? <InitializingState /> : null;
 
     return (
-      <ConversationProvider skipFetch context={threadContext} messages={threadMessages}>
+      <ConversationProvider skipFetch context={threadContext} messages={rawThreadMessages}>
         <TaskMessages
           duration={taskDetail?.duration}
-          isProcessing={isExecuting || isAwaitingApproval}
+          isProcessing={isProcessing}
           messages={threadMessages}
-          model={model ?? undefined}
-          provider={provider ?? undefined}
-          startTime={assistantGroupMessage.createdAt}
+          model={assistant.model ?? undefined}
+          provider={assistant.provider ?? undefined}
+          startTime={assistant.createdAt}
           totalCost={taskDetail?.totalCost}
         />
         {pendingInterventions.length > 0 && (
