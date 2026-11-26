@@ -238,7 +238,7 @@ describe('ConversationControl actions', () => {
         expect(abortController.signal.aborted).toBe(stopsTask);
         expect(resolveRoute).not.toHaveBeenCalled();
         await expect(approval.result).resolves.toMatchObject({
-          ...((decision === 'approve' || decision === 'rejectAndContinue') && { error: 'offline' }),
+          ...(!stopsTask && { error: 'offline' }),
           status: stopsTask ? 'interrupted' : 'error',
         });
       } finally {

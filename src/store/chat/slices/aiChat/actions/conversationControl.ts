@@ -635,7 +635,7 @@ export class ConversationControlActionImpl {
       console.error('[submitToolInteraction] Unable to resume the interaction:', err);
       if (localTask) {
         this.#get().clearPausedExecutionContext(toolMessageId);
-        localTask.report({ status: 'error' });
+        localTask.report({ error: err.message, status: 'error' });
       }
       this.#get().failOperation(operationId, {
         type: 'submitToolInteraction',
@@ -785,7 +785,7 @@ export class ConversationControlActionImpl {
       console.error('[skipToolInteraction] Unable to resume the interaction:', err);
       if (localTask) {
         this.#get().clearPausedExecutionContext(toolMessageId);
-        localTask.report({ status: 'error' });
+        localTask.report({ error: err.message, status: 'error' });
       }
       this.#get().failOperation(operationId, {
         type: 'skipToolInteraction',

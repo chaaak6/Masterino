@@ -1452,29 +1452,74 @@ describe('GatewayActionImpl', () => {
       },
     );
 
-    it('leaves cached output unchanged when saved messages cannot be read after a run ends', async () => {
-      const { action, state } = createReconnectTestAction({ id: 'ast-1' });
+    it.each(['empty result', 'network error'])(
+      'keeps existing messages when recovery returns %s',
+      async (outcome) => {
+        const { action, state } = createReconnectTestAction({ id: 'ast-1' });
+        const context = {
+          agentId: 'agent-1',
+          groupId: 'group-1',
+          scope: 'group' as const,
+          topicId: 'topic-1',
+        };
+        state.activeTopicId = context.topicId;
+        state.dbMessagesMap[messageMapKey(context)] = [{ content: LOADING_FLAT, id: 'ast-1' }];
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+          Object.assign(new TRPCClientError('Old operation ended'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+        );
+        if (outcome === 'empty result')
+          vi.mocked(messageService.getMessages).mockResolvedValueOnce([]);
+        else
+          vi.mocked(messageService.getMessages).mockRejectedValueOnce(
+            new Error('Network unavailable'),
+          );
+
+        await action.reconnectToGatewayOperation({
+          ...context,
+          assistantMessageId: 'ast-1',
+          operationId: 'old-server-op',
+        });
+
+        expect(state.replaceMessages).not.toHaveBeenCalled();
+        expect(antdMessage.warning).toHaveBeenCalledOnce();
+      },
+    );
+
+    it('reloads a completed thread in the saved assistant context', async () => {
       const context = {
-        agentId: 'agent-1',
+        agentId: 'original-agent',
         groupId: 'group-1',
-        scope: 'group' as const,
+        scope: 'thread' as const,
+        threadId: 'member-thread',
         topicId: 'topic-1',
       };
-      state.activeTopicId = context.topicId;
-      state.dbMessagesMap[messageMapKey(context)] = [{ content: LOADING_FLAT, id: 'ast-1' }];
+      const loading = {
+        ...context,
+        content: LOADING_FLAT,
+        createdAt: 0,
+        id: 'ast-1',
+        role: 'assistant' as const,
+        updatedAt: 0,
+      };
+      const saved = { ...loading, content: 'Saved member result' };
+      const { action, state } = createReconnectTestAction(undefined);
+      state.dbMessagesMap[messageMapKey(context)] = [loading];
       vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
         Object.assign(new TRPCClientError('Old operation ended'), { data: { code: 'NOT_FOUND' } }),
       );
-      vi.mocked(messageService.getMessages).mockRejectedValueOnce(new Error('Network unavailable'));
+      vi.mocked(messageService.getMessages).mockResolvedValueOnce([saved]);
 
       await action.reconnectToGatewayOperation({
-        ...context,
-        assistantMessageId: 'ast-1',
+        agentId: 'foreground-agent',
+        assistantMessageId: loading.id,
         operationId: 'old-server-op',
+        topicId: context.topicId,
       });
 
-      expect(state.replaceMessages).not.toHaveBeenCalled();
-      expect(antdMessage.warning).toHaveBeenCalledOnce();
+      expect(messageService.getMessages).toHaveBeenCalledWith(context);
+      expect(state.replaceMessages).toHaveBeenCalledWith([saved], { context });
     });
 
     it.each([false, true])(

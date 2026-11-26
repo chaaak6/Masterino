@@ -22,7 +22,7 @@ import { topicService } from '@/services/topic';
 import { getAgentStoreState } from '@/store/agent';
 import { chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { consumePendingTopicRepos, getPendingTopicRepos } from '@/store/chat/pendingTopicRepos';
-import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
+import { dbMessageSelectors, operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import type { ChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
@@ -652,24 +652,38 @@ export class GatewayActionImpl {
     topicId: string;
   }): Promise<void> => {
     const { assistantMessageId, operationId, topicId, scope, threadId } = params;
-    const fallbackAgentId = params.agentId ?? this.#get().activeAgentId;
-    const getTopic = topicSelectors.getTopicById(topicId, params.groupId);
-    const scopeContext = {
-      agentId: fallbackAgentId,
-      groupId: params.groupId,
-      scope: (scope ?? (params.groupId ? 'group' : 'main')) as ConversationContext['scope'],
-      threadId,
-      topicId,
+    const resolveConversation = (state: ChatStore) => {
+      const assistantMessage =
+        dbMessageSelectors.getDbMessageById(assistantMessageId)(state) ??
+        Object.values(state.messagesMap)
+          .flat()
+          .find(({ id }) => id === assistantMessageId);
+      const groupId = params.groupId ?? assistantMessage?.groupId;
+      const resolvedThreadId = threadId ?? assistantMessage?.threadId ?? undefined;
+      const context: ConversationContext = {
+        agentId: assistantMessage?.agentId ?? params.agentId ?? state.activeAgentId,
+        groupId,
+        scope: (scope ??
+          (resolvedThreadId
+            ? 'thread'
+            : groupId
+              ? 'group'
+              : 'main')) as ConversationContext['scope'],
+        threadId: resolvedThreadId,
+        topicId,
+      };
+      return { assistantMessage, context };
     };
-    const isReconnectStale = (state: ChatStore) => {
+    const isReconnectStale = (state: ChatStore, context: ConversationContext) => {
       const existingStatus = state.gatewayConnections[operationId]?.status;
       if (existingStatus && existingStatus !== 'disconnected') return true;
-      const topicOpId = getTopic(state)?.metadata?.runningOperation?.operationId;
+      const topicOpId = topicSelectors.getTopicById(topicId, context.groupId)(state)?.metadata
+        ?.runningOperation?.operationId;
       if (topicOpId && topicOpId !== operationId) return true;
       // A new send owns the conversation as soon as it starts its gateway runtime.
       // The topic may be open in a drawer or still missing from the list cache.
       return operationSelectors
-        .getOperationsByContext(scopeContext)(state)
+        .getOperationsByContext(context)(state)
         .some(
           (op) =>
             op.type === 'execServerAgentRuntime' &&
@@ -690,7 +704,8 @@ export class GatewayActionImpl {
     // Any status other than 'disconnected' means the gateway action already owns this
     // connection (connecting / authenticating / reconnecting / connected). Skip to avoid
     // overwriting the fresh non-resume connect with resumeOnConnect:true.
-    if (isReconnectStale(this.#get())) return;
+    const initialState = this.#get();
+    if (isReconnectStale(initialState, resolveConversation(initialState).context)) return;
 
     // Get a fresh JWT token (original expired after 5 min).
     let token = '';
@@ -700,18 +715,21 @@ export class GatewayActionImpl {
       } catch (error) {
         const code = getTerminalTokenRefreshErrorCode(error);
         if (!code) throw error;
-        if (isReconnectStale(this.#get())) return;
+        const currentState = this.#get();
+        const { context } = resolveConversation(currentState);
+        if (isReconnectStale(currentState, context)) return;
 
         // NOT_FOUND also means a completed run cleared its server pointer
         // before this reconnect. Refresh its saved messages before showing feedback.
-        const messageKey = messageMapKey(scopeContext);
-        const messagesBeforeFetch = this.#get().dbMessagesMap[messageKey];
+        const messageKey = messageMapKey(context);
+        const messagesBeforeFetch = currentState.dbMessagesMap[messageKey];
         let savedMessages =
           code === 'NOT_FOUND'
-            ? await messageService.getMessages(scopeContext).catch(() => undefined)
+            ? await messageService.getMessages(context).catch(() => undefined)
             : undefined;
+        if (savedMessages?.length === 0) savedMessages = undefined;
         const state = this.#get();
-        if (isReconnectStale(state)) return;
+        if (isReconnectStale(state, context)) return;
 
         const currentMessages = state.dbMessagesMap[messageKey];
         if (savedMessages && currentMessages !== messagesBeforeFetch) {
@@ -747,27 +765,27 @@ export class GatewayActionImpl {
                 ? { ...message, error: { message: notice, type: 'AgentRuntimeError' } }
                 : message,
             ),
-            { context: scopeContext },
+            { context },
           );
         } else {
-          if (savedMessages) state.replaceMessages(savedMessages, { context: scopeContext });
+          if (savedMessages) state.replaceMessages(savedMessages, { context });
           if (!savedMessages && !assistant?.error && state.activeTopicId === topicId) {
             antdMessage.warning(notice);
           }
         }
 
-        const topic = getTopic(state);
+        const topic = topicSelectors.getTopicById(topicId, context.groupId)(state);
         if (topic?.metadata?.runningOperation?.operationId === operationId) {
           state.internal_dispatchTopic({
-            agentId: fallbackAgentId,
-            groupId: params.groupId,
+            agentId: context.agentId,
+            groupId: context.groupId,
             id: topicId,
             type: 'updateTopic',
             value: { metadata: { ...topic.metadata, runningOperation: null } },
           });
           await state.updateTopicStatus?.({
-            agentId: fallbackAgentId,
-            groupId: params.groupId,
+            agentId: context.agentId,
+            groupId: context.groupId,
             status: 'active',
             topicId,
           });
@@ -779,26 +797,13 @@ export class GatewayActionImpl {
     // Re-check after the async token refresh: a newer executeGatewayAgent call may have
     // taken over for this topic while we were waiting. If so, bail to avoid a duplicate stream.
     // (disconnectFromGateway on the stale op is a no-op here because we haven't connected yet.)
-    if (isReconnectStale(this.#get())) return;
+    const state = this.#get();
+    const { assistantMessage, context } = resolveConversation(state);
+    if (isReconnectStale(state, context)) return;
 
     // Anchor the operation to the run's real start: the assistant message was
     // created when the run began. Defaulting to Date.now() here would reset
     // elapsed-time displays (OpStatusTray) to zero on every page refresh.
-    const assistantMessage = Object.values(this.#get().messagesMap)
-      .flat()
-      .find((m) => m.id === assistantMessageId);
-
-    const context = {
-      agentId: params.agentId ?? assistantMessage?.agentId ?? fallbackAgentId,
-      groupId: params.groupId ?? assistantMessage?.groupId ?? undefined,
-      scope: (scope ??
-        (params.groupId || assistantMessage?.groupId
-          ? 'group'
-          : 'main')) as ConversationContext['scope'],
-      threadId: threadId ?? assistantMessage?.threadId ?? null,
-      topicId,
-    };
-
     // `createdAt` is typed as a number but, after a DB rehydrate, it can arrive
     // as a Date / ISO string (the message service casts rows `as unknown` without
     // converting). Normalize to epoch ms here so the elapsed-time math stays a
