@@ -479,7 +479,7 @@ export class ConversationControlActionImpl {
       console.error('[approveToolCalling] Approval lifecycle failed:', err);
       if (localTask) {
         this.#get().clearPausedExecutionContext(toolMessageId);
-        localTask.report({ status: 'error' });
+        localTask.report({ error: err.message, status: 'error' });
       }
       this.#get().failOperation(operationId, {
         type: 'approveToolCalling',
@@ -1056,11 +1056,27 @@ export class ConversationControlActionImpl {
     }
   };
 
+  #persistToolRejection = async (
+    messageId: string,
+    reason: string | undefined,
+    operationId: string,
+  ): Promise<void> => {
+    const context = { operationId };
+    await this.#get().optimisticUpdateMessagePlugin(
+      messageId,
+      { intervention: { rejectedReason: reason, status: 'rejected' } },
+      context,
+    );
+    const content = reason
+      ? `User reject this tool calling with reason: ${reason}`
+      : 'User reject this tool calling without reason';
+    await this.#get().optimisticUpdateMessageContent(messageId, content, undefined, context);
+  };
+
   rejectToolCalling = async (
     messageId: string,
     reason?: string,
     context?: ConversationContext,
-    continueLocalRun = false,
   ): Promise<void> => {
     const { startOperation, completeOperation } = this.#get();
 
@@ -1075,7 +1091,7 @@ export class ConversationControlActionImpl {
 
     const localTask = getLocalTaskApproval(effectiveContext);
     const stopLocalTask = () => {
-      if (localTask && !continueLocalRun) {
+      if (localTask) {
         this.#get().clearPausedExecutionContext(messageId);
         this.#get().cancelOperation(
           localTask.operationId,
@@ -1108,29 +1124,8 @@ export class ConversationControlActionImpl {
       metadata: { executionContext },
     });
 
-    const optimisticContext = { operationId };
-
-    // Optimistic update - update status to rejected and save reason
-    const intervention = {
-      rejectedReason: reason,
-      status: 'rejected',
-    } as const;
-    const toolContent = !!reason
-      ? `User reject this tool calling with reason: ${reason}`
-      : 'User reject this tool calling without reason';
-
     try {
-      await this.#get().optimisticUpdateMessagePlugin(
-        toolMessage.id,
-        { intervention },
-        optimisticContext,
-      );
-      await this.#get().optimisticUpdateMessageContent(
-        messageId,
-        toolContent,
-        undefined,
-        optimisticContext,
-      );
+      await this.#persistToolRejection(messageId, reason, operationId);
     } catch (error) {
       this.#get().failOperation(operationId, {
         message: (error as Error).message,
@@ -1232,23 +1227,8 @@ export class ConversationControlActionImpl {
         metadata: { executionContext },
       });
 
-      const optimisticContext = { operationId };
-      await this.#get().optimisticUpdateMessagePlugin(
-        messageId,
-        { intervention: { rejectedReason: reason, status: 'rejected' } as any },
-        optimisticContext,
-      );
-      const toolContent = reason
-        ? `User reject this tool calling with reason: ${reason}`
-        : 'User reject this tool calling without reason';
-      await this.#get().optimisticUpdateMessageContent(
-        messageId,
-        toolContent,
-        undefined,
-        optimisticContext,
-      );
-
       try {
+        await this.#persistToolRejection(messageId, reason, operationId);
         await this.#get().executeGatewayAgent({
           context: effectiveContext,
           message: '',
@@ -1289,8 +1269,7 @@ export class ConversationControlActionImpl {
     });
 
     try {
-      if (localTask) await this.#get().rejectToolCalling(messageId, reason, context, true);
-      else await this.#get().rejectToolCalling(messageId, reason, context);
+      await this.#persistToolRejection(messageId, reason, operationId);
 
       const chatKey = messageMapKey(effectiveContext);
       const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());

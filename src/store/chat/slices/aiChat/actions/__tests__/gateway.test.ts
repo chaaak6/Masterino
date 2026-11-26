@@ -9,6 +9,7 @@ import type * as ConstVersion from '@/const/version';
 import { aiAgentService } from '@/services/aiAgent';
 import { messageService } from '@/services/message';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { buildDraftConversationKey } from '@/store/projectWorkspace/draftKey';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace/store';
 
@@ -36,7 +37,7 @@ vi.mock('@/services/topic', () => ({
 }));
 
 vi.mock('@/components/AntdStaticMethods', () => ({
-  message: { warning: vi.fn() },
+  message: { error: vi.fn(), warning: vi.fn() },
 }));
 
 const mockUserDefaultConfig = vi.hoisted(() => ({
@@ -757,6 +758,26 @@ describe('GatewayActionImpl', () => {
       expect(antdMessage.warning).toHaveBeenCalledWith('Connection interrupted');
     });
 
+    it('reports a device verification failure before starting a gateway run', async () => {
+      mockEnv.isDesktop = true;
+      mockGateway.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
+      const { action } = createExecuteTestAction();
+      try {
+        await expect(
+          action.executeGatewayAgent({
+            context: { agentId: 'agent-1', groupId: 'group-1', scope: 'group' },
+            message: 'Start',
+          }),
+        ).rejects.toBeInstanceOf(DesktopDeviceIdentityUnavailableError);
+        expect(antdMessage.error).toHaveBeenCalledWith(
+          new DesktopDeviceIdentityUnavailableError().message,
+        );
+        expect(aiAgentService.execAgentTask).not.toHaveBeenCalled();
+      } finally {
+        mockEnv.isDesktop = false;
+      }
+    });
+
     it('should forward parentMessageId to execAgentTask for regeneration', async () => {
       const { action } = createExecuteTestAction();
 
@@ -1456,41 +1477,46 @@ describe('GatewayActionImpl', () => {
       expect(antdMessage.warning).toHaveBeenCalledOnce();
     });
 
-    it('fills in a recovered reply without replacing messages added during the fetch', async () => {
-      const { action, state } = createReconnectTestAction({ id: 'ast-1' });
-      const context = {
-        agentId: 'agent-1',
-        groupId: 'group-1',
-        scope: 'group' as const,
-        topicId: 'topic-1',
-      };
-      const messageKey = messageMapKey(context);
-      const loading = {
-        content: LOADING_FLAT,
-        createdAt: 0,
-        id: 'ast-1',
-        role: 'assistant' as const,
-        updatedAt: 0,
-      };
-      const saved = { ...loading, content: 'Recovered result' };
-      const newMessage = { ...loading, content: 'New user message', id: 'user-2', role: 'user' };
-      state.dbMessagesMap[messageKey] = [loading];
-      vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
-        Object.assign(new TRPCClientError('Old operation ended'), { data: { code: 'NOT_FOUND' } }),
-      );
-      vi.mocked(messageService.getMessages).mockImplementationOnce(async () => {
-        state.dbMessagesMap[messageKey] = [loading, newMessage];
-        return [saved];
-      });
+    it.each([false, true])(
+      'merges a recovered reply into messages added during the fetch (rehydrated: %s)',
+      async (rehydrated) => {
+        const { action, state } = createReconnectTestAction({ id: 'ast-1' });
+        const context = {
+          agentId: 'agent-1',
+          groupId: 'group-1',
+          scope: 'group' as const,
+          topicId: 'topic-1',
+        };
+        const messageKey = messageMapKey(context);
+        const loading = {
+          content: LOADING_FLAT,
+          createdAt: 0,
+          id: 'ast-1',
+          role: 'assistant' as const,
+          updatedAt: 0,
+        };
+        const saved = { ...loading, content: 'Recovered result' };
+        const newMessage = { ...loading, content: 'New user message', id: 'user-2', role: 'user' };
+        state.dbMessagesMap[messageKey] = [loading];
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+          Object.assign(new TRPCClientError('Old operation ended'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+        );
+        vi.mocked(messageService.getMessages).mockImplementationOnce(async () => {
+          state.dbMessagesMap[messageKey] = [rehydrated ? { ...loading } : loading, newMessage];
+          return [saved];
+        });
 
-      await action.reconnectToGatewayOperation({
-        ...context,
-        assistantMessageId: loading.id,
-        operationId: 'old-server-op',
-      });
+        await action.reconnectToGatewayOperation({
+          ...context,
+          assistantMessageId: loading.id,
+          operationId: 'old-server-op',
+        });
 
-      expect(state.replaceMessages).toHaveBeenCalledWith([saved, newMessage], { context });
-    });
+        expect(state.replaceMessages).toHaveBeenCalledWith([saved, newMessage], { context });
+      },
+    );
 
     it('reconnects a saved run to its own agent instead of the foreground agent', async () => {
       const { action, startOperation } = createReconnectTestAction({

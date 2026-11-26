@@ -138,6 +138,28 @@ describe('same-origin device agent stream', () => {
     client.disconnect();
   });
 
+  it('allows a late recovery handshake to reach the first heartbeat', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource)
+      .mockResolvedValueOnce(undefined)
+      .mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const exhausted = vi.fn();
+    client.on('recovery_exhausted', exhausted);
+    client.connect();
+    await vi.advanceTimersByTimeAsync(25_000);
+    const attempt = vi.mocked(fetchEventSource).mock.calls[1][1];
+    await attempt.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(attempt.signal?.aborted).toBe(false);
+    expect(exhausted).not.toHaveBeenCalled();
+    attempt.onmessage!({ data: '', event: '', id: '' });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(exhausted).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
   it('expires recovery when the next connection delivers headers and no heartbeat or events', async () => {
     vi.useFakeTimers();
     vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {

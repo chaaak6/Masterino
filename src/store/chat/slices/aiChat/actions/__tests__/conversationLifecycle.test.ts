@@ -14,6 +14,7 @@ import { agentSelectors } from '@/store/agent/selectors';
 import * as agentGroupStore from '@/store/agentGroup';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { buildDraftConversationKey, useProjectWorkspaceStore } from '@/store/projectWorkspace';
 import { getSessionStoreState } from '@/store/session';
 import * as toolStoreModule from '@/store/tool';
@@ -27,7 +28,7 @@ import { resetTestEnvironment, setupMockSelectors, spyOnMessageService } from '.
 vi.mock('zustand/traditional');
 
 vi.mock('@/components/AntdStaticMethods', () => ({
-  message: { info: vi.fn() },
+  message: { error: vi.fn(), info: vi.fn() },
 }));
 
 const executeHeterogeneousAgentMock = vi.hoisted(() => vi.fn());
@@ -1329,6 +1330,24 @@ describe('ConversationLifecycle actions', () => {
             workingDirectory: '/Users/me/existing-project',
           }),
         );
+      });
+
+      it('reports a device verification failure before sending a desktop group message', async () => {
+        mockConstEnv.isDesktop = true;
+        mockGatewayConnectionService.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
+        const sendMessageInServer = mockClientMessagePersistence();
+
+        await expect(
+          useChatStore.getState().sendMessage({
+            context: { ...createTestContext(), groupId: 'group-1', topicId: undefined },
+            message: TEST_CONTENT.USER_MESSAGE,
+          }),
+        ).resolves.toBeUndefined();
+
+        expect(antdMessage.error).toHaveBeenCalledWith(
+          new DesktopDeviceIdentityUnavailableError().message,
+        );
+        expect(sendMessageInServer).not.toHaveBeenCalled();
       });
 
       it('uses the gateway for a desktop group topic bound to a different device', async () => {

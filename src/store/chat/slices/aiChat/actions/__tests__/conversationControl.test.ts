@@ -238,7 +238,7 @@ describe('ConversationControl actions', () => {
         expect(abortController.signal.aborted).toBe(stopsTask);
         expect(resolveRoute).not.toHaveBeenCalled();
         await expect(approval.result).resolves.toMatchObject({
-          ...(decision === 'rejectAndContinue' && { error: 'offline' }),
+          ...((decision === 'approve' || decision === 'rejectAndContinue') && { error: 'offline' }),
           status: stopsTask ? 'interrupted' : 'error',
         });
       } finally {
@@ -2745,7 +2745,7 @@ describe('ConversationControl actions', () => {
   // the code does NOW.
   // ===========================================================================
   describe('rejectAndContinueToolCalling client characterization (lifecycle refactor regression net)', () => {
-    it('runs rejectToolCalling (one op completes) then starts a NEW op and executes client agent with phase=user_input', async () => {
+    it('resolves routing once and persists the rejection before resuming the client', async () => {
       const { result } = renderHook(() => useChatStore());
 
       const agentId = 'client-agent';
@@ -2769,13 +2769,17 @@ describe('ConversationControl actions', () => {
         });
       });
 
-      // Client-mode (no Gateway resume): let the real rejectToolCalling chain
-      // run so we can observe the dual-op sequence. Only stub the persistence
-      // primitives and the runtime executor.
       vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
-      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
-      vi.spyOn(result.current, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
-      const rejectToolCallingSpy = vi.spyOn(result.current, 'rejectToolCalling');
+      const route = vi
+        .spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent')
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('Device check unavailable'));
+      const saveDecision = vi
+        .spyOn(result.current, 'optimisticUpdateMessagePlugin')
+        .mockResolvedValue(undefined);
+      const saveFeedback = vi
+        .spyOn(result.current, 'optimisticUpdateMessageContent')
+        .mockResolvedValue(undefined);
       vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
         agentConfig: createMockResolvedAgentConfig(),
         context: { phase: 'init' } as any,
@@ -2789,11 +2793,15 @@ describe('ConversationControl actions', () => {
         await result.current.rejectAndContinueToolCalling('tool-msg-1', 'not safe');
       });
 
-      // 1) The halting reject runs first (it creates + completes its own op).
-      expect(rejectToolCallingSpy).toHaveBeenCalledWith('tool-msg-1', 'not safe', undefined);
-
-      // 2) Then a SECOND op is created and the client runtime continues with
-      //    phase overridden to 'user_input', resuming from the tool message.
+      expect(route).toHaveBeenCalledOnce();
+      expect(saveDecision).toHaveBeenCalledWith(
+        'tool-msg-1',
+        { intervention: { rejectedReason: 'not safe', status: 'rejected' } },
+        expect.objectContaining({ operationId: expect.any(String) }),
+      );
+      expect(saveFeedback.mock.invocationCallOrder[0]).toBeLessThan(
+        executeClientAgentSpy.mock.invocationCallOrder[0],
+      );
       expect(executeClientAgentSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           initialContext: expect.objectContaining({ phase: 'user_input' }),
@@ -2802,12 +2810,10 @@ describe('ConversationControl actions', () => {
         }),
       );
 
-      // Two 'rejectToolCalling' ops exist (the halting reject's own op + the
-      // continue op). Both reach 'completed' on the happy path.
       const rejectOps = Object.values(result.current.operations).filter(
         (op: any) => op.type === 'rejectToolCalling',
       );
-      expect(rejectOps).toHaveLength(2);
+      expect(rejectOps).toHaveLength(1);
       expect(rejectOps.every((op: any) => op.status === 'completed')).toBe(true);
     });
   });

@@ -7,6 +7,7 @@ import {
 import { LOADING_FLAT } from '@lobechat/const';
 import type { ConversationContext, ExecAgentResult, MessageMetadata } from '@lobechat/types';
 import { TRPCClientError } from '@trpc/client';
+import isEqual from 'fast-deep-equal';
 import { t } from 'i18next';
 
 import { message as antdMessage } from '@/components/AntdStaticMethods';
@@ -24,6 +25,7 @@ import { consumePendingTopicRepos, getPendingTopicRepos } from '@/store/chat/pen
 import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import type { ChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import {
   getProjectWorkspaceStoreState,
   resolvePendingTopicExecutionIntent,
@@ -421,8 +423,11 @@ export class GatewayActionImpl {
       isNewTopic: isCreateNewTopic,
       topicId: context.topicId,
       topicMetadata: context.topicId
-        ? topicSelectors.getTopicById(context.topicId)(this.#get())?.metadata
+        ? topicSelectors.getTopicById(context.topicId, context.groupId)(this.#get())?.metadata
         : undefined,
+    }).catch((error) => {
+      if (error instanceof DesktopDeviceIdentityUnavailableError) antdMessage.error(error.message);
+      throw error;
     });
 
     const result = await aiAgentService.execAgentTask(
@@ -710,15 +715,16 @@ export class GatewayActionImpl {
 
         const currentMessages = state.dbMessagesMap[messageKey];
         if (savedMessages && currentMessages !== messagesBeforeFetch) {
-          // New local messages arrived during recovery. Replace only the unchanged assistant.
+          // Keep local changes and accept a rehydrated copy of the same assistant.
           const previousAssistant = messagesBeforeFetch?.find(
             ({ id }) => id === assistantMessageId,
           );
+          const currentAssistant = currentMessages?.find(({ id }) => id === assistantMessageId);
           const savedAssistant = savedMessages.find(({ id }) => id === assistantMessageId);
           savedMessages =
-            savedAssistant && previousAssistant && currentMessages?.includes(previousAssistant)
-              ? currentMessages.map((message) =>
-                  message === previousAssistant ? savedAssistant : message,
+            savedAssistant && currentAssistant && isEqual(currentAssistant, previousAssistant)
+              ? currentMessages?.map((message) =>
+                  message === currentAssistant ? savedAssistant : message,
                 )
               : undefined;
         }

@@ -59,6 +59,7 @@ import {
   getCompressionCandidateMessageIds,
   hasRunningCompressionOperation,
 } from '@/store/chat/utils/compression';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import {
@@ -485,14 +486,21 @@ export class ConversationLifecycleActionImpl {
     const topicWorkspaceState = context.topicId
       ? projectWorkspaceState.topicStatesById[context.topicId]
       : undefined;
-    const pendingExecution = await resolvePendingTopicExecutionIntent({
-      agentId,
-      groupId: context.groupId,
-      isNewTopic: !context.topicId,
-      topicId: context.topicId,
-      topicSnapshot: existingTopic?.metadata?.executionSnapshot ?? topicWorkspaceState?.snapshot,
-      topicMetadata: existingTopic?.metadata,
-    });
+    let pendingExecution;
+    try {
+      pendingExecution = await resolvePendingTopicExecutionIntent({
+        agentId,
+        groupId: context.groupId,
+        isNewTopic: !context.topicId,
+        topicId: context.topicId,
+        topicSnapshot: existingTopic?.metadata?.executionSnapshot ?? topicWorkspaceState?.snapshot,
+        topicMetadata: existingTopic?.metadata,
+      });
+    } catch (error) {
+      if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
+      antdMessage.error(error.message);
+      return;
+    }
     const executionTarget = pendingExecution?.intent.target;
     let runtimeType = await selectConversationRuntime({
       boundDeviceId:

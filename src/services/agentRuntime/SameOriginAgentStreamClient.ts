@@ -5,7 +5,7 @@ import { aiAgentService } from '@/services/aiAgent';
 
 const INITIAL_CONNECTION_TIMEOUT = 45_000;
 const RECOVERY_TIMEOUT = 30_000;
-const RECOVERY_ACTIVITY_TIMEOUT = 45_000;
+const RECOVERY_ACTIVITY_TIMEOUT = 35_000;
 const STREAM_IDLE_TIMEOUT = 90_000;
 
 /** Server executes tools through Device Gateway; this channel only receives events. */
@@ -104,9 +104,11 @@ export class SameOriginAgentStreamClient {
           throw new Error(`Invalid stream response (${response.status})`);
         }
         this.clearRecoveryTimer();
-        // The endpoint emits a heartbeat every 30 seconds. Give a resumed
-        // subscription time to receive one, within the same recovery window.
-        this.startRecoveryTimer(RECOVERY_ACTIVITY_TIMEOUT);
+        // Once the retry opens, allow one heartbeat interval before
+        // judging its activity. EOF still uses the original retry budget.
+        if (this.recoveryStartedAt !== undefined) {
+          this.recoveryTimer = setTimeout(() => this.expireRecovery(), RECOVERY_ACTIVITY_TIMEOUT);
+        }
         this.refreshIdleTimer();
         openedAt = Date.now();
         this.emit('status_changed', 'connected');
@@ -159,10 +161,10 @@ export class SameOriginAgentStreamClient {
       });
   }
 
-  private startRecoveryTimer(timeout = RECOVERY_TIMEOUT): void {
+  private startRecoveryTimer(): void {
     if (this.recoveryStartedAt === undefined) return;
     const elapsed = Date.now() - this.recoveryStartedAt;
-    this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), timeout - elapsed);
+    this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), RECOVERY_TIMEOUT - elapsed);
   }
 
   private refreshIdleTimer(): void {
