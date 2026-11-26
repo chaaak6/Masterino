@@ -505,14 +505,14 @@ describe('createGroupOrchestrationExecutors', () => {
             type: 'updateMessage',
             value: {
               content: 'Task failed: Group member not found',
-              metadata: expect.objectContaining({ taskCreationFailed: true }),
+              error: { message: 'Task failed: Group member not found', type: 'AgentRuntimeError' },
             },
           },
           operation,
         );
         expect(messageService.updateMessage).toHaveBeenCalledWith('rejected-task', {
           content: 'Task failed: Group member not found',
-          metadata: expect.objectContaining({ taskCreationFailed: true }),
+          error: { message: 'Task failed: Group member not found', type: 'AgentRuntimeError' },
         });
       }
       expect(store.executeClientAgent).not.toHaveBeenCalled();
@@ -866,18 +866,10 @@ describe('createGroupOrchestrationExecutors', () => {
         );
 
         expect(result.result?.type).toBe('tasks_completed');
-        expect(mockStore.optimisticUpdateMessageContent).toHaveBeenCalledWith(
-          'failed-task-message',
-          'Task creation failed: Backend error',
-          {
-            metadata: {
-              instruction: 'Task 1',
-              taskCreationFailed: true,
-              taskTitle: 'Task 1 Title',
-            },
-          },
-          { operationId: TEST_IDS.OPERATION_ID },
-        );
+        expect(messageService.updateMessage).toHaveBeenCalledWith('failed-task-message', {
+          content: 'Task creation failed: Backend error',
+          error: { message: 'Task creation failed: Backend error', type: 'AgentRuntimeError' },
+        });
         // First task should fail
         expect((result.result?.payload as any).results[0]).toMatchObject({
           agentId: TEST_IDS.AGENT_1_ID,

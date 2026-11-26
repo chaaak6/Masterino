@@ -8,14 +8,10 @@ import {
 import { ThreadStatus } from '@lobechat/types';
 
 export const resolveTaskDetail = ({
-  content,
-  metadata,
+  error,
   taskDetail,
 }: UIChatMessage): (Omit<TaskDetail, 'threadId'> & { threadId?: string }) | undefined =>
-  taskDetail ??
-  (metadata?.taskCreationFailed
-    ? { error: { message: content }, status: ThreadStatus.Failed }
-    : undefined);
+  taskDetail ?? (error ? { error, status: ThreadStatus.Failed } : undefined);
 
 /**
  * Format duration in milliseconds to human-readable string

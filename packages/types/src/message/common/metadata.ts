@@ -183,7 +183,6 @@ export const MessageMetadataSchema = ModelUsageSchema.merge(ModelPerformanceSche
   // External-signal lineage for Monitor-style callback turns ().
   signal: MessageSignalSchema.optional(),
   subAgentId: z.string().optional(),
-  taskCreationFailed: z.boolean().optional(),
   toolExecutionTimeMs: z.number().optional(),
   trigger: z.nativeEnum(RequestTrigger).optional(),
   // role='verify' card: which Agent Run (agent_operations.id) it renders.
@@ -351,8 +350,6 @@ export interface MessageMetadata {
    * Used by callAgent tool (sub_agent) and group orchestration (group modes)
    */
   subAgentId?: string;
-  /** The task row exists, but dispatch failed before it received a thread. */
-  taskCreationFailed?: boolean;
   taskTitle?: string;
   // message content is multimodal, display content in the streaming, won't save to db
   tempDisplayContent?: string;

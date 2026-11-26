@@ -97,25 +97,16 @@ export const createGroupOrchestrationExecutors = (
    * Helper to get current messages for the group conversation
    */
   const getMessages = () => dbMessageSelectors.getDbMessagesByKey(chatKey)(get());
-  const saveTaskCreationFailure = (
-    taskMessageId: string,
-    task: { error?: string; instruction: string; title?: string },
-    operationId: string,
-  ) =>
-    get()
-      .optimisticUpdateMessageContent(
-        taskMessageId,
-        `Task creation failed: ${task.error ?? 'Unknown error'}`,
-        {
-          metadata: {
-            instruction: task.instruction,
-            taskCreationFailed: true,
-            taskTitle: task.title,
-          },
-        },
-        { operationId },
-      )
+  const saveTaskCreationFailure = (taskMessageId: string, content: string, operationId: string) => {
+    const value = { content, error: { message: content, type: 'AgentRuntimeError' as const } };
+    get().internal_dispatchMessage(
+      { id: taskMessageId, type: 'updateMessage', value },
+      { operationId },
+    );
+    return messageService
+      .updateMessage(taskMessageId, value)
       .catch((error) => log('Failed to save task creation error: %O', error));
+  };
 
   const executors: Partial<Record<SupervisorInstruction['type'], GroupOrchestrationExecutor>> = {
     /**
@@ -473,7 +464,7 @@ export const createGroupOrchestrationExecutors = (
           log(`[${sessionLogId}] Failed to create task: ${createResult.error}`);
           await saveTaskCreationFailure(
             taskMessageId,
-            { error: createResult.error, instruction, title },
+            `Task creation failed: ${createResult.error ?? 'Unknown error'}`,
             state.operationId,
           );
           return {
@@ -904,17 +895,7 @@ export const createGroupOrchestrationExecutors = (
               messageOperation,
             );
           } else {
-            const value = {
-              content: resultContent,
-              metadata: { ...taskMessage.metadata, taskCreationFailed: true },
-            };
-            get().internal_dispatchMessage(
-              { id: taskMessageId, type: 'updateMessage', value },
-              messageOperation,
-            );
-            await messageService
-              .updateMessage(taskMessageId, value)
-              .catch((updateError) => log('Failed to save task creation error: %O', updateError));
+            await saveTaskCreationFailure(taskMessageId, resultContent, state.operationId);
           }
         }
         if (localThreadId) {
@@ -1103,7 +1084,11 @@ export const createGroupOrchestrationExecutors = (
             console.error(`[${taskLogId}] Error starting task: ${error}`);
           }
           if (tracker.status === 'failed') {
-            await saveTaskCreationFailure(tracker.taskMessageId, tracker, state.operationId);
+            await saveTaskCreationFailure(
+              tracker.taskMessageId,
+              `Task creation failed: ${tracker.error ?? 'Unknown error'}`,
+              state.operationId,
+            );
           }
         }),
       );
