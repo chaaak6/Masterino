@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as ConstVersion from '@/const/version';
 import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
+import { useUserStore } from '@/store/user';
 
 import { buildDraftConversationKey } from './draftKey';
 import {
@@ -49,6 +50,7 @@ vi.mock('./store', () => ({
 }));
 
 describe('resolvePendingTopicExecutionIntent', () => {
+  const initialUser = useUserStore.getState().user;
   beforeEach(() => {
     mocks.agentConfig = undefined;
     mocks.getDeviceInfo.mockReset();
@@ -61,7 +63,10 @@ describe('resolvePendingTopicExecutionIntent', () => {
     };
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    useUserStore.setState({ user: initialUser });
+    vi.clearAllMocks();
+  });
 
   it('checks old links before sending and keeps lookup errors distinct from ownership errors', async () => {
     mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'mac' });
@@ -78,6 +83,7 @@ describe('resolvePendingTopicExecutionIntent', () => {
   });
 
   it('gates the group composer before clearing a draft when its bound device cannot be verified', async () => {
+    useUserStore.setState({ user: { id: 'group-topic-owner' } });
     const topicId = 'bound-group-topic';
     mocks.workspaceState.topicStatesById[topicId] = {
       snapshot: {

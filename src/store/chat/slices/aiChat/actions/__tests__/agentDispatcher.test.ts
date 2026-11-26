@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
+import { useUserStore } from '@/store/user';
 
 import { selectConversationRuntime, selectRuntimeType } from '../agentDispatcher';
 
@@ -253,7 +254,9 @@ describe('selectConversationRuntime', () => {
       platform: 'darwin',
     };
     const lookup = vi.spyOn(gatewayConnectionService, 'getDeviceInfo');
+    const initialUser = useUserStore.getState().user;
     try {
+      useUserStore.setState({ user: { id: 'group-topic-owner' } });
       lookup.mockResolvedValueOnce(device).mockRejectedValue(new Error('IPC unavailable'));
       await expect(
         selectConversationRuntime({ ...local, boundDeviceId: 'this-device' }, opts),
@@ -270,6 +273,7 @@ describe('selectConversationRuntime', () => {
         selectConversationRuntime({ ...local, boundDeviceId: 'this-device' }, opts),
       ).rejects.toThrow('Unable to verify');
     } finally {
+      useUserStore.setState({ user: initialUser });
       lookup.mockRestore();
     }
   });

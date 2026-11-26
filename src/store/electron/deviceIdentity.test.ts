@@ -51,4 +51,14 @@ describe('resolveDesktopDeviceId', () => {
 
     await expect(resolveDesktopDeviceId()).resolves.toBeUndefined();
   });
+
+  it('does not reuse a device read made without an account when IPC later fails', async () => {
+    useUserStore.setState({ user: undefined });
+    vi.spyOn(gatewayConnectionService, 'getDeviceInfo')
+      .mockResolvedValueOnce({ deviceId: 'first-device', identityVerified: true })
+      .mockRejectedValueOnce(new Error('Device IPC temporarily unavailable'));
+
+    await expect(resolveDesktopDeviceId()).resolves.toBe('first-device');
+    await expect(resolveDesktopDeviceId()).resolves.toBeUndefined();
+  });
 });

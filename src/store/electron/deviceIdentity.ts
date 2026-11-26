@@ -9,7 +9,7 @@ export class DesktopDeviceIdentityUnavailableError extends Error {
   }
 }
 
-let verifiedDevice: { deviceId: string; userId?: string } | undefined;
+let verifiedDevice: { deviceId: string; userId: string } | undefined;
 
 export const resolveDesktopDeviceId = async () => {
   let userId = useUserStore.getState().user?.id;
@@ -22,12 +22,13 @@ export const resolveDesktopDeviceId = async () => {
     device = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
   }
   if (useUserStore.getState().user?.id !== userId) return;
-  // A failed IPC call can use the cache. An explicit unverified response revokes it.
-  if (!device) return verifiedDevice?.userId === userId ? verifiedDevice?.deviceId : undefined;
+  // A failed IPC call can use the cache for the same known account.
+  if (!device)
+    return userId && verifiedDevice?.userId === userId ? verifiedDevice.deviceId : undefined;
   if (!device.deviceId || device.deviceId === 'unknown' || device.identityVerified === false) {
     verifiedDevice = undefined;
     return;
   }
-  verifiedDevice = { deviceId: device.deviceId, userId };
+  verifiedDevice = userId ? { deviceId: device.deviceId, userId } : undefined;
   return device.deviceId;
 };
