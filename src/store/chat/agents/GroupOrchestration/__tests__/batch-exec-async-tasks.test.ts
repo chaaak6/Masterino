@@ -245,7 +245,7 @@ describe('createGroupOrchestrationExecutors', () => {
     );
     store.executeClientAgent = vi.fn(({ parentOperationId }) => {
       const signal = store.operations[parentOperationId!].abortController.signal;
-      return new Promise((resolve) => {
+      return new Promise<{ status: 'interrupted' }>((resolve) => {
         signal.addEventListener('abort', () => resolve({ status: 'interrupted' }), { once: true });
       });
     });
