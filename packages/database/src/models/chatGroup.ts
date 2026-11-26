@@ -253,7 +253,6 @@ export class ChatGroupModel {
     if (!group) throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
 
     agentIds = [...new Set(agentIds)];
-    await this.assertAgentsInScope(agentIds);
     const existingAgents = await this.getGroupAgents(groupId);
     const existingAgentIds = new Set(existingAgents.map((a) => a.agentId));
 
@@ -264,6 +263,7 @@ export class ChatGroupModel {
       return { added: [], existing: existingIds };
     }
 
+    await this.assertAgentsInScope(newAgentIds);
     const newAgents: NewChatGroupAgent[] = newAgentIds.map((agentId) => ({
       agentId,
       chatGroupId: groupId,

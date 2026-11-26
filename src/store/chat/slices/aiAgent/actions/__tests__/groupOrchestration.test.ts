@@ -180,10 +180,10 @@ describe('groupOrchestration actions', () => {
 
   it.each([
     { preferLocal: true, runInClient: undefined, expected: true },
-    { preferLocal: true, runInClient: false, expected: false },
-    { preferLocal: false, runInClient: true, expected: true },
+    { preferLocal: true, runInClient: false, expected: true },
+    { preferLocal: false, runInClient: true, expected: false },
   ])(
-    'keeps the original group and honors explicit task routing $runInClient',
+    'keeps the original group and uses its runtime $preferLocal with a legacy flag of $runInClient',
     async ({ preferLocal, runInClient, expected }) => {
       const dispatch = vi.fn().mockResolvedValue({ status: 'done' });
       useChatStore.setState({ internal_execGroupOrchestration: dispatch });

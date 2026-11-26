@@ -220,7 +220,7 @@ export class GroupOrchestrationActionImpl {
           params: {
             agentId,
             instruction,
-            runInClient: runInClient ?? context?.preferLocal,
+            runInClient: context?.preferLocal ?? runInClient,
             timeout,
             toolMessageId,
           },

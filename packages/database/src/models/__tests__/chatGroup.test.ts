@@ -565,6 +565,27 @@ describe('ChatGroupModel', () => {
       expect(groupAgents).toHaveLength(2);
     });
 
+    it('adds eligible agents when the request also includes an existing legacy member', async () => {
+      const group = await chatGroupModel.create({ title: 'Personal' });
+      await serverDB.insert(agentsTable).values([
+        { id: 'personal-agent', userId },
+        { id: 'legacy-workspace-agent', userId, workspaceId },
+      ]);
+      await serverDB.insert(chatGroupsAgents).values({
+        agentId: 'legacy-workspace-agent',
+        chatGroupId: group.id,
+        userId,
+      });
+
+      const result = await chatGroupModel.addAgentsToGroup(group.id, [
+        'legacy-workspace-agent',
+        'personal-agent',
+      ]);
+
+      expect(result.added.map((agent) => agent.agentId)).toEqual(['personal-agent']);
+      expect(result.existing).toEqual(['legacy-workspace-agent']);
+    });
+
     it('should return empty added array when all agents already exist', async () => {
       // Create test data
       await serverDB.transaction(async (trx) => {

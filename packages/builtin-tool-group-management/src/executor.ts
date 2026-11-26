@@ -146,11 +146,10 @@ class GroupManagementExecutor extends BaseExecutor<typeof GroupManagementApiName
 
     // Returns stop: true to indicate the supervisor should stop and let the task execute
     return {
-      content: `Triggered async task for agent "${agentId}"${runInClient ? ' (client-side)' : ''}.`,
+      content: `Triggered async task for agent "${agentId}".`,
       state: {
         agentId,
         instruction,
-        runInClient,
         skipCallSupervisor,
         timeout,
         type: 'executeAgentTask',
