@@ -492,8 +492,6 @@ export class ConversationControlActionImpl {
 
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
     if (!toolMessage) return;
-    const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
-    const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
     const { operationId } = startOperation({
@@ -525,6 +523,8 @@ export class ConversationControlActionImpl {
       return;
     }
 
+    const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId, history);
+    const { workingModel } = resumeContext;
     const optimisticContext: OptimisticUpdateContext = { operationId };
     const shouldCreateUserMessage = options?.createUserMessage !== false;
 
@@ -754,8 +754,6 @@ export class ConversationControlActionImpl {
 
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
     if (!toolMessage) return;
-    const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
-    const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
     const { operationId } = startOperation({
@@ -787,6 +785,8 @@ export class ConversationControlActionImpl {
       return;
     }
 
+    const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId, history);
+    const { workingModel } = resumeContext;
     const optimisticContext: OptimisticUpdateContext = { operationId };
 
     // 1. Mark intervention as rejected (skipped) with reason

@@ -350,7 +350,7 @@ export const createGatewayEventHandler = (
     processingChain = processingChain.then(runUnlessCancelled, runUnlessCancelled);
   };
 
-  const appliedEventKeys = new Set<string>();
+  let lastSourceSequence = 0;
 
   return (event: AgentStreamEvent) => {
     if (terminalState || get().operations[operationId]?.status === 'cancelled')
@@ -363,13 +363,12 @@ export const createGatewayEventHandler = (
     // them before forwarding; the gateway path doesn't. (DB is unaffected.)
     if ((event.data as { subagent?: unknown } | undefined)?.subagent) return;
 
-    const sourceEventKey = (event.data as { sourceEventKey?: string } | undefined)?.sourceEventKey;
-    if (sourceEventKey) {
-      if (appliedEventKeys.has(sourceEventKey)) return processingChain;
-      appliedEventKeys.add(sourceEventKey);
-      if (appliedEventKeys.size > 2000) {
-        appliedEventKeys.delete(appliedEventKeys.values().next().value!);
-      }
+    const sourceSequence = (event.data as { sourceSequence?: number } | undefined)?.sourceSequence;
+    // The CLI sends ordered batches and retries with their original sequence.
+    // Keep a watermark so a late replay cannot reset an earlier assistant step.
+    if (typeof sourceSequence === 'number' && Number.isSafeInteger(sourceSequence)) {
+      if (sourceSequence <= lastSourceSequence) return processingChain;
+      lastSourceSequence = sourceSequence;
     }
 
     if (event.type === 'agent_runtime_end' || event.type === 'error') {

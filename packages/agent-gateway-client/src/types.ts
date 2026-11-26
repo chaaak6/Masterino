@@ -50,6 +50,8 @@ export interface AgentStreamEvent {
   data: any;
   id?: string;
   operationId: string;
+  /** Stable event order assigned by the heterogeneous producer before transport retries. */
+  sourceSequence?: number;
   stepIndex: number;
   timestamp: number;
   type: AgentStreamEventType;

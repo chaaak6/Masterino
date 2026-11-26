@@ -66,6 +66,8 @@ const fnv1a = (input: string): string => {
  * bounded.
  */
 const eventKey = (event: AgentStreamEvent): string => {
+  if (event.sourceSequence !== undefined) return `sequence:${event.sourceSequence}`;
+  // Compatibility for CLI builds that predate transport sequence numbers.
   // Fingerprint the data via stable JSON. Order is irrelevant — adapters
   // produce events with consistent key order, and even if they didn't, the
   // important property is "same event input → same output", which holds.
@@ -246,14 +248,18 @@ export class HeterogeneousPersistenceHandler {
         state.lastStepIndex = Math.max(state.lastStepIndex, event.stepIndex);
       }
       const assistantId = state.processedKeys.get(key);
-      persistedEvents.push({
-        ...event,
-        data: {
-          ...event.data,
-          ...(assistantId && { assistantMessage: { id: assistantId } }),
-          sourceEventKey: key,
-        },
-      });
+      persistedEvents.push(
+        assistantId || event.sourceSequence !== undefined
+          ? {
+              ...event,
+              data: {
+                ...event.data,
+                ...(assistantId && { assistantMessage: { id: assistantId } }),
+                sourceSequence: event.sourceSequence,
+              },
+            }
+          : event,
+      );
     }
 
     // Flush accumulated content after every batch so a subsequent replica

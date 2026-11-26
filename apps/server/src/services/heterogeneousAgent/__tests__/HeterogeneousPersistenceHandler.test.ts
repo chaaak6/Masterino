@@ -425,6 +425,26 @@ describe('HeterogeneousPersistenceHandler', () => {
       expect(asst.content).toBe('one two three');
     });
 
+    it('persists two identical chunks emitted in one millisecond and reuses their sequence on retry', async () => {
+      const h = createHarness({
+        assistantMessageId: 'asst-1',
+        operationId: 'op-1',
+        topicId: 'topic-1',
+      });
+      const event = buildEvent('stream_chunk', 0, { chunkType: 'text', content: 'a' });
+      const events = [
+        { ...event, sourceSequence: 1 },
+        { ...event, sourceSequence: 2 },
+      ];
+      const params = { events, operationId: 'op-1', topicId: 'topic-1' };
+      const first = await h.handler.ingest(params);
+      const retry = await h.handler.ingest(params);
+
+      expect(first.map(({ data }) => data.sourceSequence)).toEqual([1, 2]);
+      expect(retry).toEqual(first);
+      expect(h.messages.get('asst-1')?.content).toBe('aa');
+    });
+
     it('mark-processed-AFTER-success contract: a thrown handler leaves the event un-marked so retry replays it', async () => {
       const h = createHarness({
         assistantMessageId: 'asst-1',

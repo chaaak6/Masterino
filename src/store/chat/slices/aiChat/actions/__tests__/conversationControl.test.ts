@@ -1590,12 +1590,16 @@ describe('ConversationControl actions', () => {
         parentId: assistantMessage.id,
         role: 'tool',
       });
+      vi.mocked(messageService.getAgentHistory).mockResolvedValueOnce([
+        assistantMessage,
+        toolMessage,
+      ]);
       act(() => {
         useChatStore.setState({
           activeAgentId: agentId,
           activeTopicId: topicId,
-          dbMessagesMap: { [chatKey]: [assistantMessage, toolMessage] },
-          messagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+          dbMessagesMap: { [chatKey]: [toolMessage] },
+          messagesMap: { [chatKey]: [toolMessage] },
         });
       });
       vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
@@ -2059,12 +2063,16 @@ describe('ConversationControl actions', () => {
         parentId: assistantMessage.id,
         role: 'tool',
       });
+      vi.mocked(messageService.getAgentHistory).mockResolvedValueOnce([
+        assistantMessage,
+        toolMessage,
+      ]);
       act(() => {
         useChatStore.setState({
           activeAgentId: agentId,
           activeTopicId: topicId,
-          dbMessagesMap: { [chatKey]: [assistantMessage, toolMessage] },
-          messagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+          dbMessagesMap: { [chatKey]: [toolMessage] },
+          messagesMap: { [chatKey]: [toolMessage] },
         });
       });
       vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);

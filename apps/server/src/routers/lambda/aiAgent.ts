@@ -386,6 +386,7 @@ const InterruptTaskSchema = z
 const AgentStreamEventSchema = z.object({
   data: z.any(),
   operationId: z.string(),
+  sourceSequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
   stepIndex: z.number().int().nonnegative(),
   timestamp: z.number().int().nonnegative(),
   type: z.enum([

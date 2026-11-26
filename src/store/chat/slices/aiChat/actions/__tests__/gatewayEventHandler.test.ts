@@ -1171,29 +1171,30 @@ describe('createGatewayEventHandler', () => {
       expect(messageService.getMessages).not.toHaveBeenCalled();
     });
 
-    it('keeps streamed content when a persisted heterogeneous batch is retried', async () => {
+    it('keeps identical sequenced chunks and ignores a replay after a long heterogeneous stream', async () => {
       const store = createMockStore();
       const handler = createHandler(store);
-      const start = { assistantMessage: { id: 'msg-new' }, sourceEventKey: 'start' };
-      const firstChunk = { chunkType: 'text', content: 'First', sourceEventKey: 'first' };
+      const start = { assistantMessage: { id: 'msg-new' }, sourceSequence: 1 };
       handler(makeEvent('stream_start', start));
-      handler(makeEvent('stream_chunk', firstChunk));
-      await flush();
+      for (let sequence = 2; sequence <= 2002; sequence++) {
+        handler(
+          makeEvent('stream_chunk', {
+            chunkType: 'text',
+            content: 'a',
+            sourceSequence: sequence,
+          }),
+        );
+      }
 
       handler(makeEvent('stream_start', start));
-      handler(makeEvent('stream_chunk', firstChunk));
-      handler(
-        makeEvent('stream_chunk', {
-          chunkType: 'text',
-          content: ' second',
-          sourceEventKey: 'second',
-        }),
+      handler(makeEvent('stream_chunk', { chunkType: 'text', content: 'a', sourceSequence: 2 }));
+      await handler(
+        makeEvent('stream_chunk', { chunkType: 'text', content: 'b', sourceSequence: 2003 }),
       );
-      await flush();
 
       expect(store.associateMessageWithOperation).toHaveBeenCalledTimes(1);
       expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
-        expect.objectContaining({ id: 'msg-new', value: { content: 'First second' } }),
+        expect.objectContaining({ id: 'msg-new', value: { content: `${'a'.repeat(2001)}b` } }),
         { operationId: 'op-1' },
       );
     });
