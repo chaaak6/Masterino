@@ -171,6 +171,7 @@
   "compression.inProgress": "Compressing context…",
   "compression.inProgressHint": "Earlier messages are being summarized so the conversation can continue.",
   "compression.summary": "Summary",
+  "compression.marker": "Messages compressed",
   "confirmClearCurrentMessages": "You are about to clear the current conversation messages. Once cleared, they cannot be retrieved. Please confirm your action.",
   "confirmRemoveChatGroupItemAlert": "This Group will be deleted. Group-specific assistants will also be deleted, while external assistants will not be affected.",
   "confirmRemoveGroupItemAlert": "You are about to delete this category. After deletion, its agents will be moved to the default list. Please confirm your action.",

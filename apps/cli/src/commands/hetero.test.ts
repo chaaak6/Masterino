@@ -276,7 +276,7 @@ describe('hetero exec command', () => {
   it('parses a data: URL --image into a base64 source', async () => {
     mockSpawnAgent.mockReturnValue(createFakeHandle());
 
-    const dataUrl = `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64')}`;
+    const dataUrl = `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4E, 0x47]).toString('base64')}`;
     await runCmd([
       'hetero',
       'exec',
@@ -291,7 +291,7 @@ describe('hetero exec command', () => {
     const call = mockSpawnAgent.mock.calls[0][0];
     expect(call.prompt[1]).toEqual({
       source: {
-        data: Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64'),
+        data: Buffer.from([0x89, 0x50, 0x4E, 0x47]).toString('base64'),
         mediaType: 'image/png',
         type: 'base64',
       },
@@ -635,6 +635,9 @@ describe('hetero exec command', () => {
     ]);
 
     expect(mockHeteroIngestMutate).toHaveBeenCalledTimes(3);
+    expect(
+      mockHeteroIngestMutate.mock.calls.map(([request]) => request.events[0].sourceSequence),
+    ).toEqual([1, 2, 3]);
     expect(mockHeteroIngestMutate.mock.calls[0][0].events[0].data).toMatchObject({
       chunkType: 'text',
       content: 'hello world',

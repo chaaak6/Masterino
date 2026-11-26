@@ -77,6 +77,8 @@ export interface ExecAgentAppContext {
   editingAgentId?: string;
   /** Group ID for group chat */
   groupId?: string | null;
+  /** Last persisted message on the selected path before this user turn. */
+  historyHeadId?: string;
   /**
    * Initial metadata to merge into the topic when a new topic is created for
    * this execution. Ignored when a topicId is already provided (existing topic).
@@ -90,8 +92,9 @@ export interface ExecAgentAppContext {
    * recursive sub-agent dispatch.
    */
   isSubAgent?: boolean;
-  /** Scope identifier */
   scope?: string | null;
+  /** Scope identifier */
+  selectReply?: boolean;
   /** Session ID */
   sessionId?: string;
   /** Optional assistant message id that anchors the run (e.g. parent for an isolated thread). */
@@ -102,6 +105,8 @@ export interface ExecAgentAppContext {
    * avoid recursion into the analyzeIntent pipeline.
    */
   suppressSignal?: boolean;
+  /** Client synchronizes the run by message ID and can omit Gateway timeline snapshots. */
+  syncGatewayMessagesById?: boolean;
   /** Current task identifier when executing from a task detail surface */
   taskId?: string | null;
   /** Thread ID for threaded conversations */

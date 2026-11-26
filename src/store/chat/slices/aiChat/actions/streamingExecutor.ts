@@ -626,6 +626,7 @@ export class StreamingExecutorActionImpl {
     parentMessageType: 'user' | 'assistant' | 'tool';
     parentOperationId?: string;
     skipCreateFirstMessage?: boolean;
+    selectReply?: boolean;
     skillContext?: SkillProviderContext;
     isSubAgent?: boolean;
     /** Model binding captured by the submitting conversation. */
@@ -1058,6 +1059,7 @@ export class StreamingExecutorActionImpl {
           operationSkills,
           parentId: params.parentMessageId,
           skipCreateFirstMessage: params.skipCreateFirstMessage,
+          selectReply: params.selectReply,
           toolsEngine, // Pass toolsEngine for dynamic tool injection via activateTools
         }),
         getOperation: (opId: string) => {

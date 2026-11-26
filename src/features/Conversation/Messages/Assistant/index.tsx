@@ -130,7 +130,7 @@ const AssistantMessage = memo<AssistantMessageProps>(
         time={createdAt}
         actions={
           <>
-            {isDevMode && branch && (
+            {branch && (isDevMode || branch.parentMessageId) && (
               <MessageBranch
                 activeBranchIndex={branch.activeBranchIndex}
                 count={branch.count}

@@ -54,11 +54,23 @@ export class MessageService {
     return lambdaClient.message.commitToolResult.mutate(input, options);
   };
 
+  getMessageById = (id: string) => lambdaClient.message.getMessageById.query({ id });
+
   getMessages = async (params: MessageQueryContext): Promise<UIChatMessage[]> => {
     const data = await lambdaClient.message.getMessages.query(params);
 
     return data as unknown as UIChatMessage[];
   };
+
+  getGatewayHistory = (
+    params: Parameters<typeof lambdaClient.message.getGatewayHistory.query>[0],
+  ) => lambdaClient.message.getGatewayHistory.query(params);
+
+  getHistoryPage = (params: Parameters<typeof lambdaClient.message.getHistoryPage.query>[0]) =>
+    lambdaClient.message.getHistoryPage.query(params);
+
+  getAgentHistory = (params: Parameters<typeof lambdaClient.message.getAgentHistory.query>[0]) =>
+    lambdaClient.message.getAgentHistory.query(params);
 
   countMessages = async (params?: {
     endDate?: string;
@@ -125,9 +137,11 @@ export class MessageService {
     id: string,
     value: Partial<UpdateMessageParams>,
     ctx?: MessageQueryContext,
+    response?: { returnUpdatedMessage: true },
   ): Promise<UpdateMessageResult> => {
     return lambdaClient.message.update.mutate({
       ...ctx,
+      ...response,
       id,
       value,
     });
@@ -171,8 +185,9 @@ export class MessageService {
     id: string,
     value: Partial<Omit<MessagePluginItem, 'id'>>,
     ctx?: MessageQueryContext,
+    options?: { returnUpdatedMessage?: boolean },
   ): Promise<UpdateMessageResult> => {
-    return lambdaClient.message.updateMessagePlugin.mutate({ ...ctx, id, value });
+    return lambdaClient.message.updateMessagePlugin.mutate({ ...ctx, ...options, id, value });
   };
 
   updateMessageRAG = async (
@@ -197,9 +212,10 @@ export class MessageService {
       pluginState?: Record<string, any>;
     },
     ctx?: MessageQueryContext,
+    options?: { returnUpdatedMessage?: boolean },
   ): Promise<UpdateMessageResult> => {
     return abortableRequest.execute(`tool-message-${id}`, (signal) =>
-      lambdaClient.message.updateToolMessage.mutate({ ...ctx, id, value }, { signal }),
+      lambdaClient.message.updateToolMessage.mutate({ ...ctx, ...options, id, value }, { signal }),
     );
   };
 
@@ -255,7 +271,10 @@ export class MessageService {
     messages: UIChatMessage[];
     messagesToSummarize: UIChatMessage[];
   }> => {
-    const result = await lambdaClient.message.createCompressionGroup.mutate(params);
+    const result = await lambdaClient.message.createCompressionGroup.mutate({
+      ...params,
+      includeTimelineSnapshot: false,
+    });
     return {
       messageGroupId: result.messageGroupId,
       messages: (result.messages || []) as unknown as UIChatMessage[],
@@ -270,13 +289,15 @@ export class MessageService {
     agentId: string;
     content: string;
     groupId?: string | null;
+    includeTimelineSnapshot?: boolean;
     messageGroupId: string;
     threadId?: string | null;
     topicId: string;
-  }): Promise<{ messages?: UIChatMessage[] }> => {
+  }): Promise<{ boundaryMessageId?: string; messages?: UIChatMessage[] }> => {
     const result = await lambdaClient.message.finalizeCompression.mutate(params);
     return {
-      messages: (result.messages || []) as unknown as UIChatMessage[],
+      boundaryMessageId: result.boundaryMessageId,
+      messages: result.messages as unknown as UIChatMessage[] | undefined,
     };
   };
 

@@ -143,6 +143,7 @@ const ExecAgentSchema = z
         /** The agent being edited when scope is 'agent_builder' (not the builder builtin itself). */
         editingAgentId: z.string().optional(),
         groupId: z.string().optional().nullable(),
+        historyHeadId: z.string().min(1).max(255).optional(),
         initialTopicMetadata: z
           .object({
             repos: z.array(z.string()).optional(),
@@ -159,7 +160,9 @@ const ExecAgentSchema = z
           .strict()
           .optional(),
         scope: z.string().optional().nullable(),
+        selectReply: z.boolean().optional(),
         sessionId: z.string().optional(),
+        syncGatewayMessagesById: z.boolean().optional(),
         taskId: z.string().optional().nullable(),
         threadId: z.string().optional().nullable(),
         topicId: z.string().optional().nullable(),
@@ -383,6 +386,7 @@ const InterruptTaskSchema = z
 const AgentStreamEventSchema = z.object({
   data: z.any(),
   operationId: z.string(),
+  sourceSequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional(),
   stepIndex: z.number().int().nonnegative(),
   timestamp: z.number().int().nonnegative(),
   type: z.enum([

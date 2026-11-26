@@ -170,6 +170,7 @@
   "compression.history": "Lịch sử",
   "compression.inProgress": "Đang nén ngữ cảnh…",
   "compression.inProgressHint": "Các tin nhắn trước đang được tóm tắt để cuộc trò chuyện có thể tiếp tục.",
+  "compression.marker": "Tin nhắn đã được nén",
   "compression.summary": "Tóm tắt",
   "confirmClearCurrentMessages": "Bạn sắp xóa tất cả tin nhắn trong phiên hiện tại. Sau khi xóa sẽ không thể khôi phục. Vui lòng xác nhận hành động.",
   "confirmRemoveChatGroupItemAlert": "Nhóm này sẽ bị xóa. Các trợ lý riêng của nhóm cũng sẽ bị xóa, nhưng các trợ lý bên ngoài sẽ không bị ảnh hưởng.",

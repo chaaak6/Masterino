@@ -117,8 +117,14 @@ export class HeterogeneousAgentService {
     // Persistence failures throw so the CLI BatchIngester retries the batch;
     // events that already landed are skipped via the handler's idempotency
     // map keyed on (stepIndex, type, timestamp).
+    let persistedEvents: AgentStreamEvent[];
     try {
-      await this.persistenceHandler.ingest({ assistantMessageId, events, operationId, topicId });
+      persistedEvents = await this.persistenceHandler.ingest({
+        assistantMessageId,
+        events,
+        operationId,
+        topicId,
+      });
     } catch (err) {
       if (err instanceof StaleHeteroOperationError) {
         log(
@@ -135,9 +141,8 @@ export class HeterogeneousAgentService {
     // Sequential publish preserves stepIndex ordering — Redis XADD itself is
     // serialized but awaiting in-order avoids interleaving with concurrent
     // ingest batches sharing the same operationId.
-    for (const event of events) {
-      // Each event already carries operationId; pass through unchanged so the
-      // wire shape on the WS side is identical to gateway-driven runs.
+    for (const event of persistedEvents) {
+      // The persistence handler attaches the exact assistant row to stream_start.
       await this.streamEventManager.publishStreamEvent(operationId, {
         data: event.data,
         stepIndex: event.stepIndex,

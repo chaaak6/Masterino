@@ -770,6 +770,69 @@ describe('Generation Actions', () => {
       }
     });
 
+    it('regenerates from the saved question and selects only the persisted reply', async () => {
+      const { useChatStore } = await import('@/store/chat');
+      const internal_dispatchMessage = vi.fn();
+      vi.mocked(useChatStore.getState).mockReturnValueOnce({
+        ...useChatStore.getState(),
+        internal_dispatchMessage,
+      });
+      const question = {
+        content: 'Original question',
+        createdAt: 2,
+        id: 'msg-1',
+        role: 'user' as const,
+        updatedAt: 2,
+      };
+      const prior = {
+        content: 'Earlier turn outside the display page',
+        createdAt: 1,
+        id: 'prior',
+        role: 'assistant' as const,
+        updatedAt: 1,
+      };
+      const update = vi
+        .spyOn(messageService, 'updateMessageMetadata')
+        .mockResolvedValue({ success: true });
+      const history = vi
+        .spyOn(messageService, 'getAgentHistory')
+        .mockResolvedValue([prior, question]);
+      try {
+        const store = createStore({
+          context: { agentId: 'session-1', scope: 'main', topicId: 'topic-1' },
+        });
+        store.setState({
+          dbMessages: [
+            question,
+            {
+              ...question,
+              branch: { activeBranchIndex: 0, count: 2, parentMessageId: question.id },
+              id: 'chosen',
+              parentId: question.id,
+              role: 'assistant',
+            },
+          ],
+          displayMessages: [question],
+        });
+        await store.getState().regenerateUserMessage(question.id);
+        expect(update).not.toHaveBeenCalled();
+        expect(internal_dispatchMessage).not.toHaveBeenCalled();
+        expect(history).toHaveBeenCalledWith({ historyHeadId: question.id, topicId: 'topic-1' });
+        expect(mockExecuteClientAgent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            selectReply: true,
+            messages: expect.arrayContaining([
+              expect.objectContaining({ id: 'prior' }),
+              expect.objectContaining({ id: question.id }),
+            ]),
+          }),
+        );
+      } finally {
+        history.mockRestore();
+        update.mockRestore();
+      }
+    });
+
     it('should pass operationId to switchMessageBranch for correct context', async () => {
       // Re-setup mock with all required properties
       const { useChatStore } = await import('@/store/chat');

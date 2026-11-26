@@ -140,6 +140,34 @@ describe('context partition and preflight', () => {
     });
   });
 
+  it('keeps a recent tool-ending turn and the complete turn preceding it together', () => {
+    const evaluation = evaluateContextBudget({
+      ...baseInput,
+      catalogSnapshot: catalogSnapshot(128_000),
+      messages: [
+        message('old-question', 'user', 0, 'old question'),
+        message('old-answer', 'assistant', 40_000),
+        message('recent-question', 'user', 0, 'recent question'),
+        message('recent-answer', 'assistant', 100),
+        message('tool-question', 'user', 0, 'read the file'),
+        message('tool-call', 'assistant', 0, 'reading'),
+        message('tool-result', 'tool', 0, 'file read'),
+        message('current-question', 'user', 0, 'continue'),
+      ],
+      trigger: 'final-preflight',
+    });
+
+    expect(evaluation.partition.candidateIds).toEqual(['old-question', 'old-answer']);
+    expect(evaluation.partition.preservedIds).toEqual([
+      'recent-question',
+      'recent-answer',
+      'tool-question',
+      'tool-call',
+      'tool-result',
+      'current-question',
+    ]);
+  });
+
   it('returns TAIL_TOO_LARGE for a 200k latest attachment before compression', () => {
     const evaluation = evaluateContextBudget({
       ...baseInput,

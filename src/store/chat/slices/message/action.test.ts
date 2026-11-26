@@ -683,6 +683,7 @@ describe('chatMessage actions', () => {
         messageId,
         expect.objectContaining({ content: newContent }),
         { agentId: 'session-id', topicId: 'topic-id' },
+        { returnUpdatedMessage: true },
       );
     });
 
@@ -706,20 +707,39 @@ describe('chatMessage actions', () => {
       );
     });
 
-    it('should replace messages after updating content', async () => {
+    it('retains the later tool result when an assistant write is acknowledged', async () => {
       const { result } = renderHook(() => useChatStore());
-      const messageId = 'message-id';
-      const newContent = 'Updated content';
-      const replaceMessagesSpy = vi.spyOn(result.current, 'replaceMessages');
+      const context = { agentId: 'session-id', topicId: 'topic-id' };
+      const key = messageMapKey(context);
+      const assistant: UIChatMessage = {
+        content: '',
+        createdAt: 1001,
+        id: 'late-assistant',
+        role: 'assistant',
+        updatedAt: 1001,
+      };
+      const tool: UIChatMessage = {
+        content: 'QA tool result',
+        createdAt: 1002,
+        id: 'late-result',
+        parentId: assistant.id,
+        role: 'tool',
+        updatedAt: 1002,
+      };
+      useChatStore.setState({ dbMessagesMap: { [key]: [assistant, tool] } });
+      vi.spyOn(messageService, 'updateMessage').mockResolvedValueOnce({
+        message: { ...assistant, content: 'Saved assistant', updatedAt: 1003 },
+        success: true,
+      });
 
       await act(async () => {
-        await result.current.optimisticUpdateMessageContent(messageId, newContent);
+        await result.current.optimisticUpdateMessageContent(assistant.id, 'Saved assistant');
       });
 
-      expect(replaceMessagesSpy).toHaveBeenCalledWith([], {
-        action: 'optimisticUpdateMessageContent',
-        context: { agentId: 'session-id', topicId: 'topic-id', threadId: undefined },
-      });
+      expect(useChatStore.getState().dbMessagesMap[key]).toEqual([
+        { ...assistant, content: 'Saved assistant', updatedAt: 1003 },
+        tool,
+      ]);
     });
   });
 
@@ -847,6 +867,7 @@ describe('chatMessage actions', () => {
         messageId,
         expect.objectContaining({ content, tools: undefined }),
         { agentId: contextSessionId, topicId: contextTopicId },
+        { returnUpdatedMessage: true },
       );
     });
 
@@ -877,6 +898,7 @@ describe('chatMessage actions', () => {
         messageId,
         { error },
         { agentId: contextSessionId, topicId: contextTopicId },
+        { returnUpdatedMessage: true },
       );
     });
 
@@ -987,6 +1009,41 @@ describe('chatMessage actions', () => {
       expect(replaceMessagesSpy).toHaveBeenCalledWith([], {
         context: { agentId: 'session-id', topicId: 'topic-id', threadId: undefined },
       });
+    });
+
+    it('merges only the approved tool when an older server sends a whole snapshot', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const replaceMessagesSpy = vi.spyOn(result.current, 'replaceMessages');
+      const approval = { intervention: { status: 'approved' as const } };
+      const tool: UIChatMessage = {
+        content: '',
+        createdAt: 1,
+        id: 'tool-message',
+        role: 'tool',
+        updatedAt: 1,
+      };
+      const confirmed = { ...tool, pluginIntervention: approval.intervention, updatedAt: 2 };
+      const earlier = { ...tool, id: 'user-message', role: 'user' as const };
+      const unseen = { ...earlier, id: 'previous-page' };
+      const key = messageMapKey({ agentId: 'session-id', topicId: 'topic-id' });
+      useChatStore.setState({ dbMessagesMap: { [key]: [earlier, tool] } });
+      const updatePluginSpy = vi
+        .spyOn(messageService, 'updateMessagePlugin')
+        .mockResolvedValue({ messages: [unseen, earlier, confirmed], success: true });
+      await act(async () => {
+        await result.current.optimisticUpdateMessagePlugin('tool-message', approval, undefined, {
+          returnUpdatedMessage: true,
+        });
+      });
+
+      expect(updatePluginSpy).toHaveBeenCalledWith(
+        'tool-message',
+        approval,
+        expect.objectContaining({ topicId: 'topic-id' }),
+        { returnUpdatedMessage: true },
+      );
+      expect(replaceMessagesSpy).not.toHaveBeenCalled();
+      expect(useChatStore.getState().dbMessagesMap[key]).toEqual([earlier, confirmed]);
     });
 
     it('should sync mirrored tool state into the parent assistant tools array', async () => {
@@ -1346,6 +1403,7 @@ describe('chatMessage actions', () => {
           messageId,
           expect.objectContaining({ content: newContent }),
           expect.anything(),
+          { returnUpdatedMessage: true },
         );
 
         // Verify: global messages should remain untouched
@@ -1495,6 +1553,7 @@ describe('chatMessage actions', () => {
             groupId: groupContext.groupId,
             topicId: groupContext.topicId,
           }),
+          { returnUpdatedMessage: true },
         );
       });
 
@@ -1560,6 +1619,7 @@ describe('chatMessage actions', () => {
             groupId: groupContext.groupId,
             topicId: groupContext.topicId,
           }),
+          { returnUpdatedMessage: true },
         );
       });
 

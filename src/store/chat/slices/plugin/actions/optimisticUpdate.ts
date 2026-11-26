@@ -13,6 +13,7 @@ import { type StoreSetter } from '@/store/types';
 import { merge } from '@/utils/merge';
 import { safeParseJSON } from '@/utils/safeParseJSON';
 
+import { messageMapKey } from '../../../utils/messageMapKey';
 import { dbMessageSelectors, displayMessageSelectors } from '../../message/selectors';
 
 /**
@@ -225,6 +226,7 @@ export class PluginOptimisticUpdateActionImpl {
     id: string,
     params: UpdateToolMessageParams,
     context?: OptimisticUpdateContext,
+    options?: { returnUpdatedMessage?: boolean },
   ): Promise<void> => {
     const { replaceMessages, internal_getConversationContext, internal_dispatchMessage } =
       this.#get();
@@ -245,6 +247,8 @@ export class PluginOptimisticUpdateActionImpl {
     }
 
     const ctx = internal_getConversationContext(context);
+    const key = messageMapKey(ctx);
+    const expected = this.#get().dbMessagesMap[key]?.find((message) => message.id === id);
 
     // Use single API call to update all fields in one transaction
     // This prevents race conditions that occurred with multiple parallel requests
@@ -252,7 +256,20 @@ export class PluginOptimisticUpdateActionImpl {
       id,
       { content, metadata, pluginError, pluginState },
       ctx,
+      options,
     );
+
+    if (options?.returnUpdatedMessage) {
+      if (!result?.success) throw new Error('Tool message update was not committed');
+      const confirmed = result.message ?? result.messages?.find((message) => message.id === id);
+      if (confirmed && messageMapKey(internal_getConversationContext(context)) === key) {
+        internal_dispatchMessage(
+          { expected, type: 'acknowledgeMessage', value: confirmed },
+          context,
+        );
+      }
+      return;
+    }
 
     if (result?.success && result.messages) {
       replaceMessages(result.messages, { context: ctx });

@@ -38,7 +38,7 @@ const generateThreadId = () => `thd_${createNanoId(16)()}`;
  * output is short enough to keep the per-operation `processedKeys` set small.
  */
 const fnv1a = (input: string): string => {
-  let hash = 0x81_1c_9d_c5;
+  let hash = 0x81_1C_9D_C5;
   for (let i = 0; i < input.length; i += 1) {
     hash ^= input.charCodeAt(i);
     // FNV prime 0x01000193, applied via bit shifts to stay in 32-bit math.
@@ -66,6 +66,8 @@ const fnv1a = (input: string): string => {
  * bounded.
  */
 const eventKey = (event: AgentStreamEvent): string => {
+  if (event.sourceSequence !== undefined) return `sequence:${event.sourceSequence}`;
+  // Compatibility for CLI builds that predate transport sequence numbers.
   // Fingerprint the data via stable JSON. Order is irrelevant — adapters
   // produce events with consistent key order, and even if they didn't, the
   // important property is "same event input → same output", which holds.
@@ -114,7 +116,7 @@ interface OperationState {
   lastStepIndex: number;
   main: MainAgentRunState;
   operationId: string;
-  processedKeys: Set<string>;
+  processedKeys: Map<string, string | undefined>;
   /**
    * The operation's seeded placeholder assistant (the row `execAgent` creates
    * before the first ingest). Immutable for the run's lifetime. Used as the
@@ -213,7 +215,7 @@ export class HeterogeneousPersistenceHandler {
     events: AgentStreamEvent[];
     operationId: string;
     topicId: string;
-  }): Promise<void> {
+  }): Promise<AgentStreamEvent[]> {
     const state = await this.loadOrCreateState(
       params.operationId,
       params.topicId,
@@ -234,26 +236,37 @@ export class HeterogeneousPersistenceHandler {
     await this.refreshMainStateFromDb(state);
     await this.refreshSubagentRunsFromDb(state);
 
+    const persistedEvents: AgentStreamEvent[] = [];
     for (const event of params.events) {
       const key = eventKey(event);
-      if (state.processedKeys.has(key)) {
-        log('skip duplicate event %s op=%s', key, state.operationId);
-        continue;
+      if (!state.processedKeys.has(key)) {
+        await this.handleEvent(state, event);
+        state.processedKeys.set(
+          key,
+          event.type === 'stream_start' ? state.main.currentAssistantId : undefined,
+        );
+        state.lastStepIndex = Math.max(state.lastStepIndex, event.stepIndex);
       }
-
-      // NOTE: do NOT mark `processed` before the handler runs. Marking up
-      // front would silently swallow event-level failures — the BatchIngester
-      // would ack OK while DB state diverges from the renderer's view. Mark
-      // only on success so a retry can complete the lost write.
-      await this.handleEvent(state, event);
-      state.processedKeys.add(key);
-      state.lastStepIndex = Math.max(state.lastStepIndex, event.stepIndex);
+      const assistantId = state.processedKeys.get(key);
+      persistedEvents.push(
+        assistantId || event.sourceSequence !== undefined
+          ? {
+              ...event,
+              data: {
+                ...event.data,
+                ...(assistantId && { assistantMessage: { id: assistantId } }),
+                sourceSequence: event.sourceSequence,
+              },
+            }
+          : event,
+      );
     }
 
     // Flush accumulated content after every batch so a subsequent replica
     // picking up this operation always sees the latest content in the DB,
     // even if it never processes a step boundary or terminal event.
     await this.flushBatchContent(state);
+    return persistedEvents;
   }
 
   /**
@@ -403,7 +416,7 @@ export class HeterogeneousPersistenceHandler {
       lastStepIndex: 0,
       main: createMainAgentRunState(currentAssistantMessageId),
       operationId,
-      processedKeys: new Set(),
+      processedKeys: new Map(),
       seedAssistantMessageId: baseAssistantMessageId,
       toolMsgIdByCallId: new Map(),
       topicId,

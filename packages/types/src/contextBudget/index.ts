@@ -1,5 +1,6 @@
 export type ContextBudgetFailCode =
   | 'NO_CANDIDATES'
+  | 'DUPLICATE_REQUEST'
   | 'RETRY_EXHAUSTED'
   | 'SUMMARY_FAILED'
   | 'TAIL_TOO_LARGE';
@@ -104,6 +105,9 @@ export interface ContextBudgetTrace {
 
 const actionsForFailure = (code: ContextBudgetFailCode): ContextBudgetAction[] => {
   switch (code) {
+    case 'DUPLICATE_REQUEST': {
+      return [];
+    }
     case 'TAIL_TOO_LARGE': {
       return ['truncate_tool_results', 'detach_attachments', 'switch_model', 'fork_topic'];
     }
@@ -153,7 +157,7 @@ export const decideContextBudget = (input: DecideContextBudgetInput): ContextBud
 
   if (input.trigger !== 'manual' && input.promptTokens <= input.budgetTokens) {
     if (input.sentPayloadFingerprints?.includes(input.payloadFingerprint)) {
-      return fail('RETRY_EXHAUSTED', input.offending);
+      return fail('DUPLICATE_REQUEST', input.offending);
     }
     return {
       kind: 'send',

@@ -79,4 +79,8 @@ export class Transformer {
   flatten(messages: Message[]): Message[] {
     return this.flatListBuilder.flatten(messages);
   }
+
+  project(messages: Message[]) {
+    return this.flatListBuilder.project(messages);
+  }
 }

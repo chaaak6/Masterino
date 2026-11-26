@@ -11,6 +11,9 @@ import type { IngestSink } from './BatchIngester';
  * injected by the server before spawning the sandbox / desktop process).
  */
 export class TrpcIngestSink implements IngestSink {
+  private nextSequence = 0;
+  private readonly eventSequences = new WeakMap<AgentStreamEvent, number>();
+
   constructor(
     private readonly client: TrpcClient,
     private readonly agentType: 'claude-code' | 'codex',
@@ -32,7 +35,14 @@ export class TrpcIngestSink implements IngestSink {
     await this.client.aiAgent.heteroIngest.mutate({
       agentType: this.agentType,
       assistantMessageId: this.assistantMessageId,
-      events: events as any,
+      events: events.map((event) => {
+        let sourceSequence = this.eventSequences.get(event);
+        if (sourceSequence === undefined) {
+          sourceSequence = ++this.nextSequence;
+          this.eventSequences.set(event, sourceSequence);
+        }
+        return { ...event, sourceSequence };
+      }),
       operationId: this.operationId,
       topicId: this.topicId,
     });

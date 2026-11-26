@@ -31,6 +31,7 @@ import {
   type ToolExecutor,
   type ToolSource,
 } from '@lobechat/context-engine';
+import { parse } from '@lobechat/conversation-flow';
 import type { LobeChatDatabase } from '@lobechat/database';
 import { isRemoteHeterogeneousType } from '@lobechat/heterogeneous-agents';
 import { appendWorkspaceInstructions, buildTaskManagerDefaultsPrompt } from '@lobechat/prompts';
@@ -47,6 +48,7 @@ import type {
   ExecVirtualSubAgentParams,
   LobeAgentAgencyConfig,
   MessagePluginItem,
+  UIChatMessage,
   UserInterventionConfig,
   WorkspaceInitResult,
 } from '@lobechat/types';
@@ -133,6 +135,7 @@ import { resolveAttachmentsByFileIds } from '@/server/services/file/resolveAttac
 import { HeterogeneousAgentService } from '@/server/services/heterogeneousAgent';
 import type { ConversationHistoryEntry } from '@/server/services/heterogeneousAgent/cloudHeteroContext';
 import { MarketService } from '@/server/services/market';
+import { MessageService } from '@/server/services/message';
 import { createEffectiveModelCatalog } from '@/server/services/modelCatalog';
 import { ProjectWorkspaceService } from '@/server/services/projectWorkspace';
 import {
@@ -1439,16 +1442,8 @@ export class AiAgentService {
       }
     }
 
-    // 2.6. Human-approval resume: write the user's decision to the target tool
-    // message in the DB so the history fetched below (step 11) + the runtime
-    // state both reflect the decision before the first step runs. Validates
-    // the parent is actually a pending tool message tied to the tool call we
-    // were asked about — guards against stale / double-clicks.
-    //
-    // Note: `messages` and `message_plugins` live in separate tables. The
-    // `messageModel.findById` query returns the `messages` row only — the
-    // tool_call_id / apiName / identifier / arguments / type fields live on
-    // the plugin row and must be fetched separately.
+    // Resolve and validate the paused tool before loading its selected history.
+    // The intervention is persisted only after the history and execution plan are ready.
     let resumeApprovalPlugin: MessagePluginItem | undefined;
     let pendingOperationPathConsent:
       | {
@@ -1485,50 +1480,20 @@ export class AiAgentService {
         );
       }
 
-      const { decision, rejectionReason } = resumeApproval;
-      if (decision === 'approved') {
-        if (resumeApproval.pathConsent) {
-          const request = getRuntimePathConsentRequest(resumeApprovalPlugin);
-          // Validate the entire old-operation tuple before performing any DB
-          // write. The current device is checked again against the newly
-          // resolved operation below.
-          validateOperationPathConsent({
-            approval: resumeApproval.pathConsent,
-            currentDeviceId: resumeApproval.pathConsent.deviceId,
-            currentOperationId: '__pending_operation__',
-            currentTopicId: appContext!.topicId!,
-            request,
-          });
-          pendingOperationPathConsent = { approval: resumeApproval.pathConsent, request: request! };
-        } else {
-          await this.messageModel.updateMessagePlugin(resumeApproval.parentMessageId, {
-            intervention: { status: 'approved' },
-          });
-        }
-      } else {
-        if (resumeApproval.pathConsent) {
+      if (resumeApproval.pathConsent) {
+        if (resumeApproval.decision !== 'approved') {
           throw new Error('Path consent is only valid for an approved tool resume');
         }
-        // rejected / rejected_continue both write the same rejection content
-        // + intervention state. The difference surfaces later in how the new
-        // op's initial state/context are configured (halt vs. continue LLM).
-        const rejectionContent = rejectionReason
-          ? `User reject this tool calling with reason: ${rejectionReason}`
-          : 'User reject this tool calling without reason';
-        await this.messageModel.updateToolMessage(resumeApproval.parentMessageId, {
-          content: rejectionContent,
+        const request = getRuntimePathConsentRequest(resumeApprovalPlugin);
+        validateOperationPathConsent({
+          approval: resumeApproval.pathConsent,
+          currentDeviceId: resumeApproval.pathConsent.deviceId,
+          currentOperationId: '__pending_operation__',
+          currentTopicId: appContext!.topicId!,
+          request,
         });
-        await this.messageModel.updateMessagePlugin(resumeApproval.parentMessageId, {
-          intervention: { rejectedReason: rejectionReason, status: 'rejected' },
-        });
+        pendingOperationPathConsent = { approval: resumeApproval.pathConsent, request: request! };
       }
-
-      log(
-        'execAgent: resumeApproval decision=%s applied to tool message %s (toolCallId=%s)',
-        decision,
-        resumeApproval.parentMessageId,
-        resumeApproval.toolCallId,
-      );
     }
 
     // 3. Handle topic creation: if no topicId provided, create a new topic; otherwise reuse existing
@@ -1660,10 +1625,100 @@ export class AiAgentService {
 
     await throwIfExecutionAborted('message creation');
 
+    const historyHeadId =
+      appContext?.topicId && !appContext.groupId && !appContext.threadId
+        ? ((effectiveResume ? parentMessageId : appContext.historyHeadId) ?? undefined)
+        : undefined;
+    if (historyHeadId && !effectiveResume) {
+      const historyHead = await this.messageModel.findById(historyHeadId);
+      if (
+        !historyHead ||
+        historyHead.topicId !== topicId ||
+        historyHead.threadId ||
+        historyHead.groupId
+      )
+        throw new Error('History head is not in the requested conversation');
+    }
+
     // Persist the user turn. `selfMessageIds` lets the normal-path history loader
     // exclude this freshly-created turn — history must be the PRIOR turns only,
     // otherwise the new prompt is double-counted in the LLM context.
     const selfMessageIds = new Set<string>();
+    // Resolve file URLs before visual tool activation checks and context build.
+    const fileService = new FileService(this.db, this.userId, this.workspaceId);
+    const postProcessUrl = (path: string | null, file: { id?: string | null }) =>
+      fileService.getFileAccessUrl({ id: file.id, url: path });
+    const approvalIntervention = resumeApproval
+      ? resumeApproval.decision === 'approved'
+        ? { status: 'approved' as const }
+        : { rejectedReason: resumeApproval.rejectionReason, status: 'rejected' as const }
+      : undefined;
+    const rejectionContent =
+      approvalIntervention?.status === 'rejected'
+        ? approvalIntervention.rejectedReason
+          ? `User reject this tool calling with reason: ${approvalIntervention.rejectedReason}`
+          : 'User reject this tool calling without reason'
+        : undefined;
+    const applyApproval = (message: UIChatMessage) => {
+      if (
+        message.id !== resumeApproval?.parentMessageId ||
+        !message.plugin ||
+        !approvalIntervention
+      ) {
+        return message;
+      }
+      return {
+        ...message,
+        content: rejectionContent ?? message.content,
+        plugin: { ...message.plugin, intervention: approvalIntervention },
+        pluginIntervention: approvalIntervention,
+      };
+    };
+    let historyMessagesCache: UIChatMessage[] | undefined;
+    const loadHistoryMessages = async () => {
+      if (historyMessagesCache) return historyMessagesCache;
+
+      if (existingMessageIds.length > 0) {
+        const messages = await this.messageModel.query(
+          {
+            sessionId: appContext?.sessionId,
+            threadId: appContext?.threadId,
+            topicId: appContext?.topicId ?? undefined,
+          },
+          { complete: true, postProcessUrl },
+        );
+        const idSet = new Set(existingMessageIds);
+        historyMessagesCache = messages.filter((msg) => idSet.has(msg.id)).map(applyApproval);
+      } else if (appContext?.topicId) {
+        // Follow-up message in existing topic: load all history for context.
+        // Exclude the turn we just persisted above (`selfMessageIds`) — history
+        // must be the PRIOR turns only; the current prompt is appended separately
+        // as the in-memory `userMessage`, so leaving it in would double-count it.
+        const messages = await new MessageService(
+          this.db,
+          this.userId,
+          this.workspaceId,
+        ).queryAgentMessages(
+          {
+            historyHeadId,
+            sessionId: appContext?.sessionId,
+            threadId: appContext?.threadId,
+            topicId: appContext?.topicId,
+          },
+          postProcessUrl,
+        );
+        const prior = messages.filter((msg) => !selfMessageIds.has(msg.id)).map(applyApproval);
+        historyMessagesCache = appContext.groupId ? prior : parse(prior).flatList;
+      } else {
+        historyMessagesCache = [];
+      }
+
+      return historyMessagesCache;
+    };
+
+    if (!isHeteroAgent && (resumeApproval || appContext?.selectReply)) {
+      await loadHistoryMessages();
+    }
     const userMessageRecord = runFromHistory
       ? undefined
       : await this.messageModel.create({
@@ -1671,6 +1726,7 @@ export class AiAgentService {
           content: prompt,
           files: runAttachments.fileIds,
           metadata: requestTriggerMetadata,
+          parentId: historyHeadId,
           role: 'user',
           threadId: appContext?.threadId ?? undefined,
           topicId,
@@ -1692,6 +1748,7 @@ export class AiAgentService {
       parentId: parentMessageId ?? userMessageRecord?.id,
       provider: isHeteroAgent ? heteroType : provider,
       role: 'assistant',
+      ...(appContext?.selectReply && { selectReply: true }),
       threadId: appContext?.threadId ?? undefined,
       topicId,
     });
@@ -1789,9 +1846,6 @@ export class AiAgentService {
         currentTopicId: topicId,
       });
       accessRoots.push(operationRoot);
-      await this.messageModel.updateMessagePlugin(resumeApproval!.parentMessageId, {
-        intervention: { status: 'approved' },
-      });
     }
     const executionContext: ExecutionContext = resolveExecutionContext({
       ...frozen.input,
@@ -2408,46 +2462,6 @@ export class AiAgentService {
     let composioManifests: LobeToolManifest[] = [];
     let connectorManifests: ReturnType<typeof buildConnectorManifests> = [];
     // Model metadata and initial plugins were frozen before the execution-mode fork.
-    // Resolve file URLs before visual tool activation checks and context build.
-    const fileService = new FileService(this.db, this.userId, this.workspaceId);
-    const postProcessUrl = (path: string | null, file: { id?: string | null }) =>
-      fileService.getFileAccessUrl({ id: file.id, url: path });
-    let historyMessagesCache: any[] | undefined;
-    const loadHistoryMessages = async () => {
-      if (historyMessagesCache) return historyMessagesCache;
-
-      if (existingMessageIds.length > 0) {
-        const messages = await this.messageModel.query(
-          {
-            sessionId: appContext?.sessionId,
-            threadId: appContext?.threadId,
-            topicId: appContext?.topicId ?? undefined,
-          },
-          { postProcessUrl },
-        );
-        const idSet = new Set(existingMessageIds);
-        historyMessagesCache = messages.filter((msg) => idSet.has(msg.id));
-      } else if (appContext?.topicId) {
-        // Follow-up message in existing topic: load all history for context.
-        // Exclude the turn we just persisted above (`selfMessageIds`) — history
-        // must be the PRIOR turns only; the current prompt is appended separately
-        // as the in-memory `userMessage`, so leaving it in would double-count it.
-        const messages = await this.messageModel.query(
-          {
-            sessionId: appContext?.sessionId,
-            threadId: appContext?.threadId,
-            topicId: appContext?.topicId,
-          },
-          { postProcessUrl },
-        );
-        historyMessagesCache = messages.filter((msg) => !selfMessageIds.has(msg.id));
-      } else {
-        historyMessagesCache = [];
-      }
-
-      return historyMessagesCache;
-    };
-
     if (params.disableTools) {
       log('execAgent: tools disabled by disableTools flag, skipping all tool discovery');
     } else {
@@ -3304,18 +3318,7 @@ export class AiAgentService {
       };
     }
 
-    // 16b. Human-approval resume — override initialContext based on the
-    // user's decision. The DB write above has already persisted the
-    // intervention status, so `allMessages` reflects the decision for the
-    // LLM / runner on the first step.
-    //
-    // `rejected` and `rejected_continue` share the same server-side path:
-    // both surface the rejection to the LLM as user feedback via
-    // `phase: 'user_input'`. The client-side split (halt vs. continue) is
-    // only about the UX of the button and the optimistic writes — once the
-    // decision is persisted, there's nothing meaningful to do differently
-    // server-side, and letting the LLM produce a brief acknowledgement keeps
-    // the conversation cleanly terminated either way.
+    // Resume the same tool or surface rejection as user feedback to the model.
     if (resumeApproval && resumeApprovalPlugin) {
       if (resumeApproval.decision === 'approved') {
         // Ask the runtime to execute the approved tool directly. Matches the
@@ -3410,6 +3413,22 @@ export class AiAgentService {
     // Wrap in try-catch to handle operation startup failures (e.g., QStash unavailable)
     // If createOperation fails, we still have valid messages that need error info
     try {
+      if (resumeApproval && approvalIntervention) {
+        if (rejectionContent !== undefined) {
+          const updated = await this.messageModel.updateToolMessage(
+            resumeApproval.parentMessageId,
+            {
+              content: rejectionContent,
+              intervention: approvalIntervention,
+            },
+          );
+          if (!updated.success) throw new Error('Tool rejection was not committed');
+        } else {
+          await this.messageModel.updateMessagePlugin(resumeApproval.parentMessageId, {
+            intervention: approvalIntervention,
+          });
+        }
+      }
       const result = await this.agentRuntimeService.createOperation({
         activeDeviceId,
         agentConfig,
@@ -3444,6 +3463,7 @@ export class AiAgentService {
           isSubAgent: appContext?.isSubAgent,
           scope: appContext?.scope,
           sourceMessageId: userMessageRecord?.id ?? parentMessageId ?? undefined,
+          syncGatewayMessagesById: appContext?.syncGatewayMessagesById,
           taskId: operationTaskId,
           threadId: appContext?.threadId,
           topicId,

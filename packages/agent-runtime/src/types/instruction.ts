@@ -121,6 +121,7 @@ export interface Agent {
 // ── Payloads ──────────────────────────────────────────────
 
 export interface CallLLMPayload {
+  assistantMessageId?: string;
   isFirstMessage?: boolean;
   messages: any[];
   model: string;
@@ -246,6 +247,7 @@ export interface AgentInstructionCallLlm extends AgentInstructionBase {
 
 export interface AgentInstructionCallTool extends AgentInstructionBase {
   payload: {
+    assistantMessageId?: string;
     parentMessageId: string;
     /**
      * When true, the runtime is resuming execution for a previously pending
@@ -360,6 +362,7 @@ export interface AgentInstructionRequestHumanApprove extends AgentInstructionBas
 
 export interface AgentInstructionCompressContext extends AgentInstructionBase {
   payload: {
+    assistantMessageId?: string;
     /** Current token count before compression */
     currentTokenCount: number;
     /** Existing summary to incorporate (for incremental compression) */

@@ -472,6 +472,54 @@ describe('Message CRUD Actions', () => {
   });
 
   describe('updateMessageContent', () => {
+    it('keeps the confirmed edit when the server response is lost', async () => {
+      const store = createTestStore();
+      store.getState().internal_dispatchMessage({
+        id: 'msg-1',
+        type: 'createMessage',
+        value: { content: 'Original text', role: 'user', sessionId: 'test-session' },
+      });
+      const original = store.getState().displayMessages.find(({ id }) => id === 'msg-1')!;
+      vi.spyOn(messageServiceModule.messageService, 'updateMessage').mockRejectedValueOnce(
+        new Error('response lost'),
+      );
+      const reconcile = vi
+        .spyOn(messageServiceModule.messageService, 'getMessageById')
+        .mockResolvedValueOnce({ ...original, content: 'Committed edit' });
+
+      await expect(
+        store.getState().updateMessageContent('msg-1', 'Committed edit'),
+      ).resolves.toBeUndefined();
+
+      expect(reconcile).toHaveBeenCalledWith('msg-1');
+      expect(store.getState().displayMessages.find(({ id }) => id === 'msg-1')?.content).toBe(
+        'Committed edit',
+      );
+    });
+
+    it('restores the saved text when the edit is rejected', async () => {
+      vi.spyOn(messageServiceModule.messageService, 'updateMessage').mockRejectedValueOnce(
+        new Error('write unavailable'),
+      );
+      vi.spyOn(messageServiceModule.messageService, 'getMessageById').mockRejectedValueOnce(
+        new Error('read unavailable'),
+      );
+      const store = createTestStore();
+      store.getState().internal_dispatchMessage({
+        id: 'msg-1',
+        type: 'createMessage',
+        value: { content: 'Saved text', role: 'user', sessionId: 'test-session' },
+      });
+
+      await expect(
+        store.getState().updateMessageContent('msg-1', 'Uncommitted edit'),
+      ).rejects.toThrow('write unavailable');
+
+      expect(store.getState().displayMessages.find(({ id }) => id === 'msg-1')?.content).toBe(
+        'Saved text',
+      );
+    });
+
     it('should update message content', async () => {
       const updateMessageSpy = vi
         .spyOn(messageServiceModule.messageService, 'updateMessage')
@@ -506,6 +554,7 @@ describe('Message CRUD Actions', () => {
         'msg-1',
         expect.objectContaining({ content: 'Updated content' }),
         expect.any(Object),
+        { returnUpdatedMessage: true },
       );
     });
   });

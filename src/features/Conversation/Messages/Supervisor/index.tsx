@@ -113,7 +113,7 @@ const GroupMessage = memo<GroupMessageProps>(({ id, index, disableEditing }) => 
       titleAddon={<Tag>{t('supervisor.label')}</Tag>}
       actions={
         <>
-          {isDevMode && branch && (
+          {branch && (isDevMode || branch.parentMessageId) && (
             <MessageBranch
               activeBranchIndex={branch.activeBranchIndex}
               count={branch.count}

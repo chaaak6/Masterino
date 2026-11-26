@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { messageService } from '@/services/message';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
 import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNotification';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 import { createGatewayEventHandler } from '../gatewayEventHandler';
 
 vi.mock('@/services/message', () => ({
   messageService: {
+    getGatewayHistory: vi.fn().mockResolvedValue({ messages: [] }),
     getMessages: vi.fn().mockResolvedValue([]),
     updateMessageError: vi.fn().mockResolvedValue({ success: true }),
   },
@@ -32,6 +34,7 @@ function createMockStore() {
   return {
     associateMessageWithOperation: vi.fn(),
     completeOperation: vi.fn(),
+    dbMessagesMap: {} as Record<string, any[]>,
     failOperation: vi.fn(),
     internal_dispatchMessage: vi.fn(),
     internal_executeClientTool: vi.fn().mockResolvedValue(undefined),
@@ -57,14 +60,24 @@ function createMockStore() {
 
 function createHandler(
   store: ReturnType<typeof createMockStore>,
-  overrides?: { assistantMessageId?: string; gatewayOperationId?: string },
+  overrides?: {
+    assistantMessageId?: string;
+    gatewayOperationId?: string;
+    main?: boolean;
+    optimisticMessageIds?: Record<string, string>;
+  },
 ) {
   const get = vi.fn(() => store) as any;
   return createGatewayEventHandler(get, {
     assistantMessageId: overrides?.assistantMessageId ?? 'msg-initial',
-    context: { agentId: 'agent-1', scope: 'session', topicId: 'topic-1' } as any,
+    context: {
+      agentId: 'agent-1',
+      scope: overrides?.main ? 'main' : 'session',
+      topicId: 'topic-1',
+    } as any,
     gatewayOperationId: overrides?.gatewayOperationId,
     operationId: 'op-1',
+    optimisticMessageIds: overrides?.optimisticMessageIds,
   });
 }
 
@@ -84,6 +97,38 @@ const flush = async () => {
 describe('createGatewayEventHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('merges a Gateway completion into previously loaded history by ID', async () => {
+    const store = createMockStore();
+    const context = { agentId: 'agent-1', scope: 'main' as const, topicId: 'topic-1' };
+    const older = { content: 'older page', createdAt: 1, id: 'older', updatedAt: 1 };
+    const assistant = {
+      content: 'done',
+      createdAt: 3,
+      id: 'msg-initial',
+      role: 'assistant',
+      updatedAt: 3,
+    };
+    const user = { content: 'prompt', createdAt: 2, id: 'msg-user', role: 'user', updatedAt: 2 };
+    const otherTemp = { ...user, createdAt: 4, id: 'temp-other' };
+    store.dbMessagesMap[messageMapKey(context)] = [
+      older,
+      { ...user, id: 'temp-user' },
+      { ...assistant, id: 'temp-assistant' },
+      otherTemp,
+    ];
+
+    await createHandler(store, {
+      main: true,
+      optimisticMessageIds: { 'msg-initial': 'temp-assistant', 'msg-user': 'temp-user' },
+    })(makeEvent('agent_runtime_end', { uiMessages: [user, assistant] }));
+
+    expect(store.replaceMessages).toHaveBeenCalledWith(
+      [older, user, assistant, otherTemp],
+      expect.objectContaining({ context }),
+    );
+    expect(messageService.getMessages).not.toHaveBeenCalled();
   });
 
   it('waits for the final message snapshot before completing', async () => {
@@ -120,8 +165,15 @@ describe('createGatewayEventHandler', () => {
     try {
       const store = createMockStore();
       let release!: (messages: any[]) => void;
-      store.completeOperation.mockImplementation((id) => { store.operations[id].status = 'completed'; });
-      vi.mocked(messageService.getMessages).mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+      store.completeOperation.mockImplementation((id) => {
+        store.operations[id].status = 'completed';
+      });
+      vi.mocked(messageService.getMessages).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
       const pending = createHandler(store)(makeEvent('agent_runtime_end'));
       await vi.advanceTimersByTimeAsync(5000);
       expect(store.completeOperation).toHaveBeenCalledWith('op-1');
@@ -130,7 +182,9 @@ describe('createGatewayEventHandler', () => {
       release([{ id: 'msg-initial', content: 'late snapshot' }]);
       await Promise.resolve();
       expect(store.replaceMessages).not.toHaveBeenCalled();
-    } finally { vi.useRealTimers(); }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not replace stopped content when an already-started snapshot arrives late', async () => {
@@ -1115,6 +1169,34 @@ describe('createGatewayEventHandler', () => {
       );
       // And no DB refetch was issued for the native stream
       expect(messageService.getMessages).not.toHaveBeenCalled();
+    });
+
+    it('keeps identical sequenced chunks and ignores a replay after a long heterogeneous stream', async () => {
+      const store = createMockStore();
+      const handler = createHandler(store);
+      const start = { assistantMessage: { id: 'msg-new' }, sourceSequence: 1 };
+      handler(makeEvent('stream_start', start));
+      for (let sequence = 2; sequence <= 2002; sequence++) {
+        handler(
+          makeEvent('stream_chunk', {
+            chunkType: 'text',
+            content: 'a',
+            sourceSequence: sequence,
+          }),
+        );
+      }
+
+      handler(makeEvent('stream_start', start));
+      handler(makeEvent('stream_chunk', { chunkType: 'text', content: 'a', sourceSequence: 2 }));
+      await handler(
+        makeEvent('stream_chunk', { chunkType: 'text', content: 'b', sourceSequence: 2003 }),
+      );
+
+      expect(store.associateMessageWithOperation).toHaveBeenCalledTimes(1);
+      expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: 'msg-new', value: { content: `${'a'.repeat(2001)}b` } }),
+        { operationId: 'op-1' },
+      );
     });
 
     it('should still fetch from DB on stream_start when assistantMessage id is absent (hetero CLI)', async () => {

@@ -331,6 +331,7 @@ export interface OperationCreationParams {
     scope?: string | null;
     /** Source user message ID used for same-turn Agent Signal procedure suppression. */
     sourceMessageId?: string;
+    syncGatewayMessagesById?: boolean;
     taskId?: string;
     threadId?: string | null;
     topicId?: string | null;

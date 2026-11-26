@@ -147,20 +147,26 @@ export const messageRouter = router({
       z.object({
         agentId: z.string(),
         groupId: z.string().nullable().optional(),
+        includeTimelineSnapshot: z.boolean().default(true),
         messageIds: z.array(z.string()),
         threadId: z.string().nullable().optional(),
         topicId: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { topicId, messageIds, agentId, groupId, threadId } = input;
+      const { topicId, messageIds, agentId, groupId, threadId, includeTimelineSnapshot } = input;
 
-      return ctx.messageService.createCompressionGroup(topicId, messageIds, {
-        agentId,
-        groupId,
-        threadId,
+      return ctx.messageService.createCompressionGroup(
         topicId,
-      });
+        messageIds,
+        {
+          agentId,
+          groupId,
+          threadId,
+          topicId,
+        },
+        includeTimelineSnapshot,
+      );
     }),
 
   createMessage: messageProcedure
@@ -266,15 +272,21 @@ export const messageRouter = router({
         agentId: z.string(),
         content: z.string(),
         groupId: z.string().nullable().optional(),
+        includeTimelineSnapshot: z.boolean().default(true),
         messageGroupId: z.string(),
         threadId: z.string().nullable().optional(),
         topicId: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { messageGroupId, content, ...params } = input;
+      const { messageGroupId, content, includeTimelineSnapshot, ...params } = input;
 
-      return ctx.messageService.finalizeCompression(messageGroupId, content, params);
+      return ctx.messageService.finalizeCompression(
+        messageGroupId,
+        content,
+        params,
+        includeTimelineSnapshot,
+      );
     }),
 
   getHeatmaps: messageProcedure.query(async ({ ctx }) => {
@@ -284,6 +296,47 @@ export const messageRouter = router({
   getTokenHeatmaps: messageProcedure.query(async ({ ctx }) => {
     return ctx.messageModel.getTokenHeatmaps();
   }),
+
+  getAgentHistory: messageProcedure
+    .input(
+      z.object({
+        historyHeadId: z.string().min(1).max(255).optional(),
+        topicId: z.string().min(1),
+      }),
+    )
+    .query(({ input, ctx }) => ctx.messageService.queryAgentMessages(input)),
+
+  getGatewayHistory: messageProcedure
+    .input(
+      z.object({
+        assistantMessageId: z.string().min(1).max(255),
+        cursor: z
+          .object({ createdAt: z.string().datetime(), id: z.string().min(1).max(255) })
+          .optional(),
+        topicId: z.string().min(1),
+      }),
+    )
+    .query(({ input, ctx }) => ctx.messageService.queryGatewayHistory(input)),
+
+  getHistoryPage: messageProcedure
+    .input(
+      z.object({
+        cursor: z
+          .object({
+            branchKey: z.string().max(64).optional(),
+            createdAt: z.string().datetime(),
+            id: z.string().min(1).max(255),
+          })
+          .optional(),
+        groupId: z.string().nullable().optional(),
+        topicId: z.string().min(1),
+      }),
+    )
+    .query(({ input, ctx }) => ctx.messageService.queryHistoryPage(input)),
+
+  getMessageById: messageProcedure
+    .input(z.object({ id: z.string().min(1).max(255) }))
+    .query(({ input, ctx }) => ctx.messageService.getMessageById(input.id)),
 
   getMessages: publicProcedure
     .use(cloudWorkspaceAuth)
@@ -333,6 +386,7 @@ export const messageRouter = router({
       const fileService = new FileService(ctx.serverDB, ctx.userId, wsId);
 
       return messageModel.query(queryParams, {
+        complete: Boolean(queryParams.topicId),
         postProcessUrl: (path, file) => fileService.getFileAccessUrl({ id: file.id, url: path }),
       });
     }),
@@ -445,12 +499,13 @@ export const messageRouter = router({
       z
         .object({
           id: z.string(),
+          returnUpdatedMessage: z.boolean().optional(),
           value: UpdateMessageParamsSchema,
         })
         .extend(basicContextSchema.shape),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, value, agentId, ...options } = input;
+      const { id, value, agentId, returnUpdatedMessage, ...options } = input;
       const timingContext = { requestId: createTimingRequestId(), startedAt: Date.now() };
       logTiming(timingContext, 'lambda.message.update:start', {
         hasAgentId: !!agentId,
@@ -475,11 +530,16 @@ export const messageRouter = router({
         timingContext,
         'lambda.message.update.service',
         () =>
-          ctx.messageService.updateMessage(id, value as any, {
-            ...resolved,
-            timingRequestId: timingContext.requestId,
-            timingStartedAt: timingContext.startedAt,
-          }),
+          ctx.messageService.updateMessage(
+            id,
+            value as any,
+            {
+              ...resolved,
+              timingRequestId: timingContext.requestId,
+              timingStartedAt: timingContext.startedAt,
+            },
+            { returnUpdatedMessage },
+          ),
         { hasResolvedTopicId: !!resolved.topicId },
       );
 
@@ -519,12 +579,13 @@ export const messageRouter = router({
       z
         .object({
           id: z.string(),
+          returnUpdatedMessage: z.boolean().optional(),
           value: UpdateMessagePluginSchema.partial(),
         })
         .extend(basicContextSchema.shape),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, value, agentId, ...options } = input;
+      const { id, value, agentId, returnUpdatedMessage, ...options } = input;
       const resolved = await resolveContext(
         { agentId, ...options },
         ctx.serverDB,
@@ -532,7 +593,7 @@ export const messageRouter = router({
         ctx.workspaceId ?? undefined,
       );
 
-      return ctx.messageService.updateMessagePlugin(id, value, resolved);
+      return ctx.messageService.updateMessagePlugin(id, value, resolved, { returnUpdatedMessage });
     }),
 
   updateMessageRAG: messageProcedure
@@ -670,6 +731,7 @@ export const messageRouter = router({
       z
         .object({
           id: z.string(),
+          returnUpdatedMessage: z.boolean().optional(),
           value: z.object({
             content: z.string().optional(),
             metadata: z.object({}).passthrough().optional(),
@@ -680,7 +742,7 @@ export const messageRouter = router({
         .extend(basicContextSchema.shape),
     )
     .mutation(async ({ input, ctx }) => {
-      const { id, value, agentId, ...options } = input;
+      const { id, value, agentId, returnUpdatedMessage, ...options } = input;
       const resolved = await resolveContext(
         { agentId, ...options },
         ctx.serverDB,
@@ -688,7 +750,7 @@ export const messageRouter = router({
         ctx.workspaceId ?? undefined,
       );
 
-      return ctx.messageService.updateToolMessage(id, value, resolved);
+      return ctx.messageService.updateToolMessage(id, value, resolved, { returnUpdatedMessage });
     }),
   updateTranslate: messageProcedure
     .use(withScopedPermission('message:update'))

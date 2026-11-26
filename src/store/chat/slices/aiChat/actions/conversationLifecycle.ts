@@ -1,4 +1,5 @@
 // Disable the auto sort key eslint rule to make the code more logic and readable
+import { partitionContextMessages } from '@lobechat/agent-runtime';
 import type { CallAgentParams, CallAgentState } from '@lobechat/builtin-tool-agent-management';
 import {
   AgentManagementApiName,
@@ -12,6 +13,7 @@ import {
   formatSelectedSkillsContext,
   formatSelectedToolsContext,
 } from '@lobechat/context-engine';
+import { parse } from '@lobechat/conversation-flow';
 import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import { chainCompressContext } from '@lobechat/prompts';
 import type {
@@ -497,7 +499,9 @@ export class ConversationLifecycleActionImpl {
       boundDeviceId:
         pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
       executionTarget: pendingExecution?.intent.target,
-      hasSelectedLocalMcp: selectedTools.some((tool) => isDeviceLocalMcpIdentifier(tool.identifier)),
+      hasSelectedLocalMcp: selectedTools.some((tool) =>
+        isDeviceLocalMcpIdentifier(tool.identifier),
+      ),
       heterogeneousProvider,
       isGatewayMode: this.#get().isGatewayModeEnabled(agentId),
       // Callers that need to pin the runtime (e.g. task topics that were
@@ -926,13 +930,13 @@ export class ConversationLifecycleActionImpl {
         const result = await this.#get().executeGatewayAgent({
           context: operationContext,
           fileIds: fileIdList,
+          ...(context.topicId && parentId && !context.groupId && !context.threadId
+            ? { historyHeadId: parentId }
+            : {}),
           message,
           metadata: requestMetadata,
           parentOperationId: operationId,
-          // Pass temp message IDs so the UI doesn't show a blank loading
-          // state while waiting for the first step_start event to replace
-          // messages with the server's real IDs.
-          tempMessageIds: [tempAssistantId],
+          optimisticMessageIds: { assistant: tempAssistantId, user: tempId },
         });
 
         return {
@@ -1004,6 +1008,12 @@ export class ConversationLifecycleActionImpl {
             parentId,
           },
           preloadMessages: undefined,
+          ...(topicId &&
+            context.scope === 'main' &&
+            !context.groupId &&
+            !context.threadId && {
+              returnMessagePair: true,
+            }),
           // if there is topicId, then add topicId to message
           topicId: topicId ?? undefined,
           topicFilter: this.#getTopicFilter(
@@ -1131,7 +1141,7 @@ export class ConversationLifecycleActionImpl {
         ...data,
         messages: responseMeta.__isPartialMessages
           ? mergePartialPersistedMessages(
-              this.#get().messagesMap[finalMessageKey] || [],
+              this.#get().dbMessagesMap[finalMessageKey] || [],
               persistedMessages,
               [tempId, tempAssistantId],
             )
@@ -1308,9 +1318,23 @@ export class ConversationLifecycleActionImpl {
             parentOperationId: operationId,
           });
         } else {
-          const displayMessages = displayMessageSelectors.getDisplayMessagesByKey(
+          let displayMessages = displayMessageSelectors.getDisplayMessagesByKey(
             messageMapKey(execContext),
           )(this.#get());
+          if (
+            execContext.topicId &&
+            !execContext.groupId &&
+            !execContext.threadId &&
+            (data.__isPartialMessages ||
+              displayMessages.some(({ role }) => role === 'compressedGroup'))
+          ) {
+            const history = await messageService.getAgentHistory({
+              historyHeadId: data.userMessageId,
+              topicId: execContext.topicId,
+            });
+            const assistant = displayMessages.find(({ id }) => id === data.assistantMessageId);
+            displayMessages = parse(assistant ? [...history, assistant] : history).flatList;
+          }
 
           // When agents are @mentioned, inject a slim callAgent-only manifest
           // so the AI can delegate directly without activating the full agent-management tool
@@ -1560,11 +1584,22 @@ export class ConversationLifecycleActionImpl {
     const { agentId, topicId } = context;
     if (!topicId) return;
 
+    const usesPagedHistory =
+      !context.groupId && !context.threadId && (!context.scope || context.scope === 'main');
     const contextKey = messageMapKey(context as any);
     const dbMessages = dbMessageSelectors.getDbMessagesByKey(contextKey)(this.#get()) || [];
-    const messageIds = getCompressionCandidateMessageIds(dbMessages);
-
-    if (messageIds.length === 0) {
+    let messageIds = getCompressionCandidateMessageIds(dbMessages);
+    const lastVisible = displayMessageSelectors
+      .getDisplayMessagesByKey(contextKey)(this.#get())
+      .at(-1);
+    const visibleHeadId =
+      lastVisible?.lastMessageId ??
+      (lastVisible && displayMessageSelectors.findLastMessageId(lastVisible.id)(this.#get())) ??
+      lastVisible?.id;
+    const historyHeadId = dbMessages.find(
+      ({ id }) => id === visibleHeadId && !id.startsWith('tmp_'),
+    )?.id;
+    if (messageIds.length === 0 || (usesPagedHistory && !historyHeadId)) {
       antdMessage.info(
         t('contextBudget.title.NO_CANDIDATES', {
           defaultValue: 'Nothing left to compress',
@@ -1600,18 +1635,35 @@ export class ConversationLifecycleActionImpl {
     let persistedCompressionGroupId: string | undefined;
 
     try {
+      if (usesPagedHistory && historyHeadId) {
+        const history = await messageService.getAgentHistory({ historyHeadId, topicId });
+        const candidates = partitionContextMessages(history).candidateMessages;
+        if (!candidates.some(({ role }) => role !== 'compressedGroup')) {
+          this.#get().internal_dispatchMessage(
+            { type: 'deleteMessages', ids: [tempId] },
+            { operationId },
+          );
+          this.#get().completeOperation(operationId);
+          antdMessage.info(
+            t('contextBudget.title.NO_CANDIDATES', {
+              defaultValue: 'Nothing left to compress',
+              ns: 'error',
+            }),
+          );
+          return;
+        }
+        messageIds = candidates.map(({ id }) => id);
+      }
+      if (abortController.signal.aborted) throw createAbortError();
+
       // 1. Create compression group on server
       const result = await messageService.createCompressionGroup({
         agentId,
         messageIds,
         topicId,
       });
-      const { messageGroupId, messages: serverMessages, messagesToSummarize } = result;
+      const { messageGroupId, messagesToSummarize } = result;
       persistedCompressionGroupId = messageGroupId;
-
-      // Replace local pending group with server compression group
-      this.#get().replaceMessages(serverMessages, { context: context as any });
-      this.#get().associateMessageWithOperation(messageGroupId, operationId);
 
       // 2. Generate summary via LLM
       const agentConfig = agentSelectors.getAgentConfigById(agentId)(getAgentStoreState());
@@ -1625,10 +1677,12 @@ export class ConversationLifecycleActionImpl {
         onMessageHandle: (chunk) => {
           if (chunk.type === 'text') {
             summaryContent += chunk.text || '';
-            this.#get().internal_dispatchMessage(
-              { id: messageGroupId, type: 'updateMessage', value: { content: summaryContent } },
-              { operationId },
-            );
+            if (!usesPagedHistory) {
+              this.#get().internal_dispatchMessage(
+                { id: tempId, type: 'updateMessage', value: { content: summaryContent } },
+                { operationId },
+              );
+            }
           }
         },
         params: { ...compressionPayload, model, provider },
@@ -1640,11 +1694,25 @@ export class ConversationLifecycleActionImpl {
       const finalResult = await messageService.finalizeCompression({
         agentId,
         content: summaryContent,
+        ...(usesPagedHistory && { includeTimelineSnapshot: false }),
         messageGroupId,
         topicId,
       });
 
-      if (finalResult.messages) {
+      if (usesPagedHistory) {
+        const currentRows = this.#get().dbMessagesMap[contextKey] ?? [];
+        this.#get().replaceMessages(
+          currentRows.flatMap((row) => {
+            if (row.id === tempId) return [];
+            return [
+              row.id === finalResult.boundaryMessageId
+                ? { ...row, compressionBoundary: true }
+                : row,
+            ];
+          }),
+          { context: context as any },
+        );
+      } else if (finalResult.messages) {
         this.#get().replaceMessages(finalResult.messages, { context: context as any });
       }
 
@@ -1657,7 +1725,7 @@ export class ConversationLifecycleActionImpl {
             messageGroupId: persistedCompressionGroupId,
             topicId,
           });
-          this.#get().replaceMessages(messages, { context: context as any });
+          if (!usesPagedHistory) this.#get().replaceMessages(messages, { context: context as any });
         }
         this.#get().internal_dispatchMessage(
           { type: 'deleteMessages', ids: [tempId] },
@@ -1674,7 +1742,7 @@ export class ConversationLifecycleActionImpl {
             messageGroupId: persistedCompressionGroupId,
             topicId,
           });
-          this.#get().replaceMessages(messages, { context: context as any });
+          if (!usesPagedHistory) this.#get().replaceMessages(messages, { context: context as any });
         } catch (persistenceError) {
           console.error('[/compact] Failed to retain compression audit record:', persistenceError);
         }

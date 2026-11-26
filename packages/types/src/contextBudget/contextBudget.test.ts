@@ -87,7 +87,7 @@ describe('decideContextBudget', () => {
 
   it('rejects an identical payload fingerprint even if token accounting says it fits', () => {
     expect(decideContextBudget(input({ sentPayloadFingerprints: ['payload-a'] }))).toMatchObject({
-      code: 'RETRY_EXHAUSTED',
+      code: 'DUPLICATE_REQUEST',
       kind: 'fail',
     });
     expect(hasPayloadBeenSent('payload-a', ['payload-a'])).toBe(true);

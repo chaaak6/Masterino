@@ -2,9 +2,11 @@ import type * as LobechatConstModule from '@lobechat/const';
 import { type ConversationContext, RequestTrigger } from '@lobechat/types';
 import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { act, renderHook } from '@testing-library/react';
+import { TRPCClientError } from '@trpc/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgent';
+import { messageService } from '@/services/message';
 import { initialState as projectWorkspaceInitialState } from '@/store/projectWorkspace/initialState';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace/store';
 
@@ -61,6 +63,11 @@ beforeEach(() => {
   resetTestEnvironment();
   mockConstEnv.isDesktop = false;
   useProjectWorkspaceStore.setState(projectWorkspaceInitialState);
+  vi.spyOn(messageService, 'getAgentHistory').mockRejectedValue(
+    Object.assign(new TRPCClientError('History endpoint unavailable'), {
+      data: { code: 'NOT_FOUND' },
+    }),
+  );
 });
 
 afterEach(() => {
@@ -567,7 +574,7 @@ describe('ConversationControl actions', () => {
       },
     );
 
-    it('continues an approved assistant turn with the model persisted on that turn', async () => {
+    it('restores history beyond the loaded page and keeps the model of the approved turn', async () => {
       const { result } = renderHook(() => useChatStore());
       const agentId = 'model-resume-agent';
       const topicId = 'model-resume-topic';
@@ -575,6 +582,7 @@ describe('ConversationControl actions', () => {
       const assistantMessage = createMockMessage({
         id: 'assistant-original-model',
         model: 'glm-original',
+        parentId: 'earlier-user',
         provider: 'newapi',
         role: 'assistant',
       });
@@ -590,6 +598,12 @@ describe('ConversationControl actions', () => {
         role: 'tool',
         tool_call_id: 'call-model-resume',
       });
+      const earlierUser = createMockMessage({ id: 'earlier-user', role: 'user' });
+      vi.mocked(messageService.getAgentHistory).mockResolvedValueOnce([
+        earlierUser,
+        assistantMessage,
+        toolMessage,
+      ]);
       act(() => {
         useChatStore.setState({
           activeAgentId: agentId,
@@ -614,9 +628,52 @@ describe('ConversationControl actions', () => {
 
       expect(executeClientAgent).toHaveBeenCalledWith(
         expect.objectContaining({
+          messages: expect.arrayContaining([expect.objectContaining({ id: earlierUser.id })]),
           workingModel: { model: 'glm-original', provider: 'newapi' },
         }),
       );
+      expect(messageService.getAgentHistory).toHaveBeenCalledWith({
+        historyHeadId: toolMessage.id,
+        topicId,
+      });
+      expect(useChatStore.getState().dbMessagesMap[key]).toEqual([assistantMessage, toolMessage]);
+    });
+
+    it('leaves an approval pending when the selected history cannot be read', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const agentId = 'test-agent';
+      const topicId = 'unavailable-history';
+      const key = messageMapKey({ agentId, topicId });
+      const tool = createMockMessage({
+        id: 'pending-tool',
+        plugin: {
+          apiName: 'readFile',
+          arguments: '{}',
+          identifier: 'local-system',
+          type: 'default',
+        },
+        role: 'tool',
+        tool_call_id: 'pending-call',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeTopicId: topicId,
+          dbMessagesMap: { [key]: [tool] },
+          messagesMap: { [key]: [tool] },
+        });
+      });
+      vi.mocked(messageService.getAgentHistory).mockRejectedValueOnce(
+        new Error('read unavailable'),
+      );
+      const approve = vi.spyOn(result.current, 'optimisticUpdateMessagePlugin');
+      const execute = vi.spyOn(result.current, 'executeClientAgent');
+
+      await act(() => result.current.approveToolCalling(tool.id, 'assistant-group'));
+
+      expect(approve).not.toHaveBeenCalled();
+      expect(execute).not.toHaveBeenCalled();
+      expect(useChatStore.getState().dbMessagesMap[key]).toEqual([tool]);
     });
 
     it('should use provided context instead of global state', async () => {
@@ -1115,6 +1172,59 @@ describe('ConversationControl actions', () => {
         executeGatewayAgentSpy.mockRestore();
       });
 
+      it('resumes a stored server tool approval over Gateway without a WebSocket or a running operation', async () => {
+        const { result } = renderHook(() => useChatStore());
+
+        const agentId = 'server-agent';
+        const topicId = 'server-topic';
+        const chatKey = messageMapKey({ agentId, topicId });
+        const toolMessage = createMockMessage({
+          id: 'tool-msg-1',
+          metadata: { toolExecutionRuntime: 'server' },
+          plugin: {
+            apiName: 'readFile',
+            arguments: '{}',
+            identifier: 'lobe-local-system',
+            type: 'default',
+          },
+          role: 'tool',
+          tool_call_id: 'call_xyz',
+        });
+
+        act(() => {
+          useChatStore.setState({
+            activeAgentId: agentId,
+            activeTopicId: topicId,
+            dbMessagesMap: { [chatKey]: [toolMessage] },
+            messagesMap: { [chatKey]: [toolMessage] },
+          });
+        });
+
+        vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
+        vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+        const executeGatewayAgent = vi
+          .spyOn(result.current, 'executeGatewayAgent')
+          .mockResolvedValue({} as any);
+        const executeClientAgent = vi
+          .spyOn(result.current, 'executeClientAgent')
+          .mockResolvedValue(undefined);
+
+        await act(async () => {
+          await result.current.approveToolCalling('tool-msg-1', 'group-1');
+        });
+
+        expect(executeGatewayAgent).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            resumeApproval: expect.objectContaining({
+              decision: 'approved',
+              parentMessageId: 'tool-msg-1',
+              toolCallId: 'call_xyz',
+            }),
+          }),
+        );
+        expect(executeClientAgent).not.toHaveBeenCalled();
+      });
+
       it('should leave the paused server op running when the Gateway resume call fails so retries stay on the server-mode path', async () => {
         const { result } = renderHook(() => useChatStore());
 
@@ -1480,12 +1590,16 @@ describe('ConversationControl actions', () => {
         parentId: assistantMessage.id,
         role: 'tool',
       });
+      vi.mocked(messageService.getAgentHistory).mockResolvedValueOnce([
+        assistantMessage,
+        toolMessage,
+      ]);
       act(() => {
         useChatStore.setState({
           activeAgentId: agentId,
           activeTopicId: topicId,
-          dbMessagesMap: { [chatKey]: [assistantMessage, toolMessage] },
-          messagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+          dbMessagesMap: { [chatKey]: [toolMessage] },
+          messagesMap: { [chatKey]: [toolMessage] },
         });
       });
       vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
@@ -1949,12 +2063,16 @@ describe('ConversationControl actions', () => {
         parentId: assistantMessage.id,
         role: 'tool',
       });
+      vi.mocked(messageService.getAgentHistory).mockResolvedValueOnce([
+        assistantMessage,
+        toolMessage,
+      ]);
       act(() => {
         useChatStore.setState({
           activeAgentId: agentId,
           activeTopicId: topicId,
-          dbMessagesMap: { [chatKey]: [assistantMessage, toolMessage] },
-          messagesMap: { [chatKey]: [assistantMessage, toolMessage] },
+          dbMessagesMap: { [chatKey]: [toolMessage] },
+          messagesMap: { [chatKey]: [toolMessage] },
         });
       });
       vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);

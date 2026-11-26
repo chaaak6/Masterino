@@ -1,5 +1,5 @@
 // Main parse function
-export { parse } from './parse';
+export { parse, projectConversationHistory } from './parse';
 
 // Context Tree Types - for navigation and context understanding
 export type {

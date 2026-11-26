@@ -192,6 +192,7 @@ export const createAgentExecutors = (context: {
   operationSkills?: OperationSkillSet['skills'];
   parentId: string;
   skipCreateFirstMessage?: boolean;
+  selectReply?: boolean;
   /** ToolsEngine for expanding dynamically activated tools */
   toolsEngine?: ToolsEngine;
 }) => {
@@ -306,6 +307,8 @@ export const createAgentExecutors = (context: {
             parentId: llmPayload.parentMessageId,
             provider: llmPayload.provider,
             role: 'assistant',
+            ...(context.selectReply &&
+              llmPayload.parentMessageId === context.parentId && { selectReply: true }),
             agentId: effectiveAgentId!,
             threadId: opContext.threadId,
             topicId: opContext.topicId ?? undefined,
@@ -1112,6 +1115,7 @@ export const createAgentExecutors = (context: {
               pluginState: result.state,
             },
             updateContext,
+            { returnUpdatedMessage: true },
           );
           await context.get().optimisticUpdateMessagePlugin(
             toolMessageId,
@@ -1119,6 +1123,7 @@ export const createAgentExecutors = (context: {
               intervention: { status: 'pending' },
             },
             updateContext,
+            { returnUpdatedMessage: true },
           );
           return {
             events: [

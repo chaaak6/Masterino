@@ -28,10 +28,25 @@ export interface QueryMessageParams {
   agentId?: string | null;
   current?: number;
   groupId?: string | null;
+  historyHeadId?: string;
   pageSize?: number;
   sessionId?: string | null;
   threadId?: string | null;
   topicId?: string | null;
+}
+
+export interface MessageHistoryCursor {
+  branchKey?: string;
+  createdAt: string;
+  id: string;
+}
+
+export interface MessageHistoryPage {
+  branchKey?: string;
+  /** Selected child IDs keyed by the parent at each visible fork. */
+  branchSelections?: Record<string, string>;
+  messages: UIChatMessage[];
+  nextCursor?: MessageHistoryCursor;
 }
 
 /**
@@ -56,6 +71,8 @@ export interface CreateMessageResult {
  * Contains success status and optional message list
  */
 export interface UpdateMessageResult {
+  /** Single persisted record returned to callers that request an acknowledgement. */
+  message?: UIChatMessage;
   /**
    * Updated message list (only present when success is true and sessionId/topicId provided)
    */

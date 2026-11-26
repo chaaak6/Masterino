@@ -33,6 +33,7 @@ export interface CreateMessageParams extends Partial<
   model?: string;
   provider?: string;
   role: CreateMessageRoleType;
+  selectReply?: boolean;
   /**
    * @deprecated Use agentId instead
    */
@@ -71,6 +72,7 @@ export interface CreateNewMessageParams {
 
   // ========== Required fields ==========
   role: CreateMessageRoleType;
+  selectReply?: boolean;
   targetId?: string | null;
 
   threadId?: string;
@@ -205,6 +207,7 @@ export const CreateNewMessageParamsSchema = z
     plugin: ChatPluginPayloadSchema.optional(),
     // Grouping
     parentId: z.string().optional(),
+    selectReply: z.boolean().optional(),
     groupId: z.string().nullable().optional(),
     // Context
     topicId: z.string().nullable().optional(),

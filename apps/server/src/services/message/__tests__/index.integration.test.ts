@@ -5,6 +5,7 @@ import {
   agentsToSessions,
   files,
   messageGroups,
+  messagePlugins,
   messages,
   sessions,
   topics,
@@ -16,6 +17,8 @@ import { AgentRuntimeErrorType } from '@lobechat/model-runtime';
 import { MessageGroupType } from '@lobechat/types';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { MessageModel } from '@/database/models/message';
 
 import { MessageService } from '../index';
 
@@ -54,6 +57,363 @@ afterEach(async () => {
 });
 
 describe('MessageService Integration Tests', () => {
+  it('acknowledges an approved tool message without fetching its conversation', async () => {
+    const topicId = 'approval-history';
+    const id = 'approval-history-tool';
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values({ content: '', id, role: 'tool', topicId, userId });
+    await serverDB.insert(messagePlugins).values({
+      apiName: 'readFile',
+      id,
+      identifier: 'local-system',
+      intervention: { status: 'pending' },
+      toolCallId: 'approval-history-call',
+      userId,
+    });
+
+    const service = new MessageService(serverDB, userId);
+    await expect(
+      service.updateToolMessage(
+        id,
+        { pluginState: { path: '/test/log' } },
+        { topicId },
+        {
+          returnUpdatedMessage: true,
+        },
+      ),
+    ).resolves.toMatchObject({
+      message: { id, pluginState: { path: '/test/log' } },
+      success: true,
+    });
+    const result = await service.updateMessagePlugin(
+      id,
+      { intervention: { status: 'approved' } },
+      { topicId },
+      { returnUpdatedMessage: true },
+    );
+
+    expect(result).toMatchObject({
+      message: { id, pluginIntervention: { status: 'approved' } },
+      success: true,
+    });
+    expect(result.messages).toBeUndefined();
+  });
+
+  it('reconciles one owned row and rolls back rejection content when its tool plugin is missing', async () => {
+    const id = 'rejection-atomic-tool';
+    const content = 'Read pending';
+    await serverDB.insert(messages).values({ content, id, role: 'tool', userId });
+    const model = new MessageModel(serverDB, userId);
+    const service = new MessageService(serverDB, userId);
+    const intervention = { status: 'rejected' as const };
+
+    await expect(
+      model.updateToolMessage(id, { content: 'User rejected', intervention }),
+    ).resolves.toEqual({ success: false });
+    await expect(service.getMessageById(id)).resolves.toMatchObject({ content, id });
+    await expect(new MessageService(serverDB, otherUserId).getMessageById(id)).resolves.toBeNull();
+
+    await serverDB
+      .insert(messagePlugins)
+      .values({ id, intervention: { status: 'pending' }, userId });
+    await expect(
+      model.updateToolMessage(id, { content: 'User rejected', intervention }),
+    ).resolves.toEqual({ success: true });
+    await expect(service.getMessageById(id)).resolves.toMatchObject({
+      content: 'User rejected',
+      id,
+      pluginIntervention: intervention,
+    });
+  });
+
+  it('pages the newest 50 rows first and keeps the cursor usable after anchor deletion', async () => {
+    const topicId = 'history-page';
+    const rowCount = 3001;
+    const id = (index: number) => `page-row-${String(index).padStart(4, '0')}`;
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values(
+      Array.from({ length: rowCount }, (_, index) => ({
+        content: String(index),
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        id: id(index),
+        role: 'user' as const,
+        topicId,
+        userId,
+      })),
+    );
+    const service = new MessageService(serverDB, userId);
+
+    const first = await service.queryHistoryPage({ topicId });
+    expect(first.messages.map((entry) => entry.id)).toEqual(
+      Array.from({ length: 50 }, (_, i) => id(i + rowCount - 50)),
+    );
+    expect(first.nextCursor).toBeDefined();
+    await serverDB.delete(messages).where(eq(messages.id, first.nextCursor!.id));
+
+    const loaded = first.messages.map(({ id }) => id).reverse();
+    let cursor = first.nextCursor;
+    for (let batch = 1; batch < Math.ceil(rowCount / 50); batch++) {
+      expect(cursor).toBeDefined();
+      const page = await service.queryHistoryPage({ cursor, topicId });
+      expect(page.messages.length).toBeLessThanOrEqual(50);
+      loaded.push(...page.messages.map(({ id }) => id).reverse());
+      cursor = page.nextCursor;
+    }
+    expect(cursor).toBeUndefined();
+    expect(loaded).toEqual(Array.from({ length: rowCount }, (_, i) => id(rowCount - 1 - i)));
+  }, 15_000);
+
+  it('preserves an older selected answer when the newer branch fills the first page', async () => {
+    const topicId = 'fork-before-window';
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values([
+      {
+        id: 'fork-root',
+        content: 'question',
+        role: 'user',
+        metadata: { activeBranchIndex: 0 },
+        createdAt: new Date(0),
+        topicId,
+        userId,
+      },
+      {
+        id: 'chosen-answer',
+        content: 'selected',
+        role: 'assistant',
+        parentId: 'fork-root',
+        createdAt: new Date(1000),
+        topicId,
+        userId,
+      },
+      ...Array.from({ length: 51 }, (_, index) => ({
+        content: 'inactive',
+        createdAt: new Date(2000 + index * 1000),
+        id: `inactive-${index}`,
+        parentId: index ? `inactive-${index - 1}` : 'fork-root',
+        role: index % 2 ? ('user' as const) : ('assistant' as const),
+        topicId,
+        userId,
+      })),
+    ]);
+    const service = new MessageService(serverDB, userId);
+    const page = await service.queryHistoryPage({ topicId });
+    expect(page.messages.map(({ id }) => id)).toEqual(['fork-root', 'chosen-answer']);
+    expect(page.branchSelections).toEqual({ 'fork-root': 'chosen-answer' });
+    expect(page.messages[1].branch).toMatchObject({ activeBranchIndex: 0, count: 2 });
+    expect(page.nextCursor).toBeUndefined();
+
+    await service.updateMetadata('fork-root', { activeBranchIndex: 1 }, { topicId });
+    const newer = await service.queryHistoryPage({ topicId });
+    expect(newer.messages).toHaveLength(50);
+    expect(newer.branchSelections).toEqual({ 'fork-root': 'inactive-0' });
+    expect(newer.messages.map(({ id }) => id)).not.toContain('chosen-answer');
+    expect(newer.nextCursor).toBeDefined();
+    const oldest = await service.queryHistoryPage({ cursor: newer.nextCursor, topicId });
+    expect(oldest.messages.map(({ id }) => id)).toEqual(['fork-root', 'inactive-0']);
+    expect(oldest.messages[1].branch).toMatchObject({ activeBranchIndex: 1, count: 2 });
+  });
+
+  it.each([false, true])(
+    'keeps a visible reply for a persisted optimistic index (tool path: %s)',
+    async (includeTools) => {
+      const topicId = 'pending-regeneration';
+      const service = new MessageService(serverDB, userId);
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values([
+        {
+          id: 'fork-user',
+          role: 'user',
+          createdAt: new Date(0),
+          metadata: { activeBranchIndex: 2 },
+          topicId,
+          userId,
+        },
+        {
+          id: 'fork-a',
+          createdAt: new Date(1000),
+          parentId: 'fork-user',
+          role: 'assistant',
+          ...(includeTools && { tools: [{ id: 'call-1' }] }),
+          topicId,
+          userId,
+        },
+        {
+          id: 'fork-b',
+          parentId: 'fork-user',
+          createdAt: new Date(2000),
+          role: 'assistant',
+          topicId,
+          userId,
+        },
+      ]);
+      const before = await service.queryHistoryPage({ topicId });
+      expect(before.messages.map(({ id }) => id)).toEqual(['fork-user', 'fork-a']);
+
+      await expect(
+        service.createMessage({
+          content: 'Rejected',
+          parentId: 'missing',
+          role: 'assistant',
+          selectReply: true,
+          topicId,
+        }),
+      ).rejects.toThrow();
+      const stillVisible = await service.queryHistoryPage({ topicId });
+      expect(stillVisible.branchSelections).toEqual({ 'fork-user': 'fork-a' });
+
+      const created = await service.createMessage({
+        content: 'Regenerated',
+        parentId: 'fork-user',
+        role: 'assistant',
+        selectReply: true,
+        topicId,
+      });
+      const after = await service.queryHistoryPage({ topicId });
+      expect(after.messages.map(({ id }) => id)).toEqual(['fork-user', created.id]);
+      expect(after.branchSelections).toEqual({ 'fork-user': created.id });
+    },
+  );
+
+  it('pages Gateway writes within one run and resumes by the last changed row', async () => {
+    const topicId = 'gateway-history';
+    const at = (value: number) => new Date(Date.UTC(2026, 0, 1) + value * 1000);
+    const service = new MessageService(serverDB, userId);
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values([
+      { id: 'history', role: 'assistant', createdAt: at(0), updatedAt: at(0), topicId, userId },
+      {
+        id: 'question',
+        parentId: 'history',
+        role: 'user',
+        createdAt: at(1),
+        updatedAt: at(1),
+        topicId,
+        userId,
+      },
+      {
+        id: 'run',
+        parentId: 'question',
+        role: 'assistant',
+        createdAt: at(2),
+        updatedAt: at(2),
+        topicId,
+        userId,
+      },
+      {
+        id: 'other-answer',
+        parentId: 'question',
+        role: 'assistant',
+        createdAt: at(3),
+        updatedAt: at(3),
+        topicId,
+        userId,
+      },
+      ...Array.from({ length: 51 }, (_, index) => ({
+        id: `result-${index}`,
+        parentId: 'run',
+        role: 'tool' as const,
+        createdAt: at(4 + index),
+        updatedAt: at(4 + index),
+        topicId,
+        userId,
+      })),
+      {
+        id: 'final',
+        parentId: 'result-50',
+        role: 'assistant',
+        createdAt: at(55),
+        updatedAt: at(55),
+        topicId,
+        userId,
+      },
+      {
+        id: 'next-question',
+        parentId: 'final',
+        role: 'user',
+        createdAt: at(56),
+        updatedAt: at(56),
+        topicId,
+        userId,
+      },
+    ]);
+    const params = { assistantMessageId: 'run', topicId };
+    const first = await service.queryGatewayHistory(params);
+    expect(first.messages).toHaveLength(50);
+    expect(first.nextCursor).toBeDefined();
+    const second = await service.queryGatewayHistory({ ...params, cursor: first.nextCursor });
+    expect(second.messages.map(({ id }) => id)).toEqual([
+      'result-48',
+      'result-49',
+      'result-50',
+      'final',
+    ]);
+    expect(second.nextCursor).toBeUndefined();
+    const seen = [...first.messages, ...second.messages].map(({ id }) => id);
+    expect(seen).toContain('question');
+    expect(seen).not.toContain('other-answer');
+    expect(seen).not.toContain('history');
+    expect(seen).not.toContain('next-question');
+
+    await service.updateMessage(
+      'result-0',
+      { content: 'persisted result' },
+      {},
+      { returnUpdatedMessage: true },
+    );
+    const delta = await service.queryGatewayHistory({ ...params, cursor: second.cursor });
+    expect(delta.messages).toMatchObject([{ id: 'result-0', content: 'persisted result' }]);
+    const unauthorized = new MessageService(serverDB, otherUserId);
+    expect((await unauthorized.queryGatewayHistory(params)).messages).toEqual([]);
+  });
+
+  it('acknowledges a saved assistant tool call beyond the legacy history page', async () => {
+    const topicId = 'long-conversation';
+    await serverDB.insert(topics).values({ id: topicId, userId });
+    await serverDB.insert(messages).values(
+      Array.from({ length: 1002 }, (_, index) => ({
+        content: index < 1000 ? 'Earlier turn' : '',
+        createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+        id: `long-message-${index}`,
+        parentId: index ? `long-message-${index - 1}` : null,
+        role: index % 2 === 0 ? 'user' : 'assistant',
+        topicId,
+        userId,
+      })),
+    );
+    const service = new MessageService(serverDB, userId);
+    const tools = [
+      {
+        apiName: 'read',
+        arguments: '{}',
+        id: 'late-call',
+        identifier: 'qa',
+        type: 'builtin' as const,
+      },
+    ];
+
+    const result = await service.updateMessage(
+      'long-message-1001',
+      { tools },
+      { topicId },
+      { returnUpdatedMessage: true },
+    );
+
+    expect(Object.keys(result).sort()).toEqual(['message', 'success']);
+    expect(result).toMatchObject({
+      message: expect.objectContaining({
+        id: 'long-message-1001',
+        parentId: 'long-message-1000',
+        tools,
+      }),
+      success: true,
+    });
+
+    const history = await service.queryMessages({ topicId });
+    expect(history).toHaveLength(1002);
+    expect(history.at(0)?.id).toBe('long-message-0');
+    expect(history.at(-1)?.id).toBe('long-message-1001');
+  });
+
   describe('createMessage', () => {
     it('should create message with agentId and return message list', async () => {
       const messageService = new MessageService(serverDB, userId);
@@ -373,6 +733,248 @@ describe('MessageService Integration Tests', () => {
   });
 
   describe('finalizeCompression', () => {
+    it('rolls a prior summary forward and restores originals if the prior coverage changes', async () => {
+      const topicId = 'rolling-history';
+      const id = (i: number) => `rolling-${i}`;
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values(
+        Array.from({ length: 5 }, (_, index) => ({
+          content: `Original ${index}`,
+          createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+          id: id(index),
+          parentId: index ? id(index - 1) : null,
+          role: index % 2 === 0 ? 'user' : 'assistant',
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const old = await service.createCompressionGroup(topicId, [id(0), id(1)]);
+      await service.finalizeCompression(old.messageGroupId, 'Older decision', {
+        agentId: 'unused',
+        topicId,
+      });
+      const updated = await service.createCompressionGroup(topicId, [
+        old.messageGroupId,
+        id(2),
+        id(3),
+      ]);
+      expect(updated.messagesToSummarize.map(({ content }) => content)).toEqual([
+        'Older decision',
+        'Original 2',
+        'Original 3',
+      ]);
+      await service.finalizeCompression(updated.messageGroupId, 'Merged decisions', {
+        agentId: 'unused',
+        topicId,
+      });
+      const context = await service.queryAgentMessages({ historyHeadId: id(4), topicId });
+      expect(context.map(({ content }) => content)).toEqual(['Merged decisions', 'Original 4']);
+      expect(context[0].lastMessageId).toBe(id(3));
+      const timeline = await service.queryHistoryPage({ topicId });
+      expect(timeline.messages.map(({ content }) => content)).toEqual(
+        Array.from({ length: 5 }, (_, index) => `Original ${index}`),
+      );
+      expect(
+        timeline.messages
+          .filter(({ compressionBoundary }) => compressionBoundary)
+          .map(({ id }) => id),
+      ).toEqual([id(1), id(3)]);
+
+      await service.updateMessage(id(0), { content: 'Edited decision' }, {});
+      const recovered = await service.queryAgentMessages({ historyHeadId: id(4), topicId });
+      expect(recovered.map(({ content }) => content)).toEqual([
+        'Edited decision',
+        'Original 1',
+        'Original 2',
+        'Original 3',
+        'Original 4',
+      ]);
+      const rebuilt = await service.createCompressionGroup(topicId, [id(0), id(1), id(2), id(3)]);
+      await service.finalizeCompression(rebuilt.messageGroupId, 'Rebuilt from edited originals', {
+        agentId: 'unused',
+        topicId,
+      });
+      const afterRebuild = await service.queryAgentMessages({ historyHeadId: id(4), topicId });
+      expect(afterRebuild.map(({ content }) => content)).toEqual([
+        'Rebuilt from edited originals',
+        'Original 4',
+      ]);
+    });
+
+    it('reuses a checkpoint covering completed turns from a legacy Gateway forest', async () => {
+      const topicId = 'legacy-gateway-checkpoint';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      const id = (index: number) => `legacy-root-${index}`;
+      await serverDB.insert(messages).values(
+        Array.from({ length: 6 }, (_, index) => ({
+          content: id(index),
+          createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+          id: id(index),
+          parentId: index % 2 ? id(index - 1) : null,
+          role: index % 2 ? 'assistant' : 'user',
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const summary = await service.createCompressionGroup(topicId, [id(0), id(1), id(2), id(3)]);
+      await service.finalizeCompression(summary.messageGroupId, 'Shared chronological decisions', {
+        agentId: 'unused',
+        topicId,
+      });
+      const context = await service.queryAgentMessages({ historyHeadId: id(5), topicId });
+      expect(context.map(({ content }) => content)).toEqual([
+        'Shared chronological decisions',
+        id(4),
+        id(5),
+      ]);
+    });
+
+    it('reuses only the summary covered by the explicitly selected answer', async () => {
+      const topicId = 'history-branch';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      const rows = [
+        { id: 'branch-root', parentId: null, role: 'user' as const },
+        { id: 'branch-a', parentId: 'branch-root', role: 'assistant' as const },
+        { id: 'branch-b', parentId: 'branch-root', role: 'assistant' as const },
+        { id: 'branch-next-a', parentId: 'branch-a', role: 'user' as const },
+        { id: 'branch-next-b', parentId: 'branch-b', role: 'user' as const },
+      ];
+      await serverDB.insert(messages).values(
+        rows.map((row, index) => ({
+          ...row,
+          content: row.id,
+          createdAt: new Date(Date.UTC(2026, 0, 1) + index * 1000),
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const summary = await service.createCompressionGroup(topicId, ['branch-root', 'branch-a']);
+      await expect(
+        service.finalizeCompression(
+          summary.messageGroupId,
+          'Decision A',
+          { agentId: 'unused', topicId },
+          false,
+        ),
+      ).resolves.toEqual({ boundaryMessageId: 'branch-a', success: true });
+
+      const branchA = await service.queryAgentMessages({ historyHeadId: 'branch-next-a', topicId });
+      expect(branchA.map(({ content }) => content)).toEqual(['Decision A', 'branch-next-a']);
+
+      const branchB = await service.queryAgentMessages({ historyHeadId: 'branch-next-b', topicId });
+      expect(branchB.map(({ content }) => content)).toEqual([
+        'branch-root',
+        'branch-b',
+        'branch-next-b',
+      ]);
+      await service.updateMetadata('branch-root', { activeBranchIndex: 1 }, { topicId });
+      await service.updateMetadata('branch-root', { activeBranchIndex: 0 }, { topicId });
+      const afterSwitching = await service.queryAgentMessages({
+        historyHeadId: 'branch-next-a',
+        topicId,
+      });
+      expect(afterSwitching.map(({ content }) => content)).toEqual(['Decision A', 'branch-next-a']);
+    });
+
+    it('keeps the source messages when cancellation and publication overlap', async () => {
+      const topicId = 'compression-cancel';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values({
+        content: 'Original text',
+        id: 'compression-cancel-source',
+        role: 'user',
+        topicId,
+        userId,
+      });
+      const service = new MessageService(serverDB, userId);
+      const staged = await service.createCompressionGroup(topicId, ['compression-cancel-source']);
+      await Promise.allSettled([
+        service.finalizeCompression(staged.messageGroupId, 'Summary', {
+          agentId: 'unused',
+          topicId,
+        }),
+        service.cancelCompression(staged.messageGroupId, { topicId }),
+      ]);
+      expect(await service.queryMessages({ topicId })).toEqual([
+        expect.objectContaining({ content: 'Original text', id: 'compression-cancel-source' }),
+      ]);
+    });
+
+    it('uses a verified prefix with the latest 80 originals and falls back after an edit', async () => {
+      const topicId = 'compressed-long-conversation';
+      const id = (index: number) => `long-prefix-${String(index).padStart(4, '0')}`;
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values(
+        Array.from({ length: 3000 }, (_, index) => ({
+          content: index === 2999 ? 'Latest original' : 'Earlier turn',
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+          id: id(index),
+          parentId: index ? id(index - 1) : null,
+          role: index % 2 === 0 ? 'user' : 'assistant',
+          topicId,
+          userId,
+        })),
+      );
+      const service = new MessageService(serverDB, userId);
+      const ids = Array.from({ length: 2920 }, (_, index) => id(index));
+      const staged = await service.createCompressionGroup(topicId, ids);
+      await service.finalizeCompression(staged.messageGroupId, 'Confirmed earlier decision', {
+        agentId: 'unused',
+        topicId,
+      });
+
+      const context = await service.queryAgentMessages({ topicId });
+      expect(context).toHaveLength(81);
+      expect(context.find((entry) => entry.role === 'compressedGroup')).toMatchObject({
+        compressedMessages: [],
+        content: 'Confirmed earlier decision',
+        lastMessageId: id(2919),
+      });
+      expect(
+        context.filter((entry) => entry.role !== 'compressedGroup').map((entry) => entry.id),
+      ).toEqual(Array.from({ length: 80 }, (_, index) => id(2920 + index)));
+
+      await service.updateMessage(id(10), { content: 'Edited earlier decision' }, {});
+      const recovered = await service.queryAgentMessages({ topicId });
+      expect(recovered).toHaveLength(3000);
+      expect(recovered.find((entry) => entry.id === id(10))?.content).toBe(
+        'Edited earlier decision',
+      );
+      expect(recovered.some((entry) => entry.role === 'compressedGroup')).toBe(false);
+    });
+
+    it('leaves originals visible while summarizing and rejects publication after a source edit', async () => {
+      const topicId = 'compression-edit';
+      await serverDB.insert(topics).values({ id: topicId, userId });
+      await serverDB.insert(messages).values({
+        content: 'Original text',
+        id: 'compression-source',
+        role: 'user',
+        topicId,
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+        userId,
+      });
+      const service = new MessageService(serverDB, userId);
+      const staged = await service.createCompressionGroup(topicId, ['compression-source']);
+      expect((await service.queryMessages({ topicId })).map(({ id }) => id)).toEqual([
+        'compression-source',
+      ]);
+
+      await service.updateMessage('compression-source', { content: 'Edited text' }, {});
+      await expect(
+        service.finalizeCompression(staged.messageGroupId, 'Old summary', {
+          agentId: 'unused',
+          topicId,
+        }),
+      ).rejects.toThrow('Compression source changed before publication');
+      expect(await service.queryMessages({ topicId })).toEqual([
+        expect.objectContaining({ content: 'Edited text' }),
+      ]);
+    });
+
     it('should create assistant message with correct parentId (last compressed message ID, not messageGroupId)', async () => {
       const messageService = new MessageService(serverDB, userId);
 

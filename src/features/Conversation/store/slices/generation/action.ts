@@ -1,5 +1,6 @@
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
 import { LOADING_FLAT } from '@lobechat/const';
+import { parse } from '@lobechat/conversation-flow';
 import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import type {
   ChatImageItem,
@@ -123,6 +124,7 @@ const runHeterogeneousFromExistingMessage = async (
     parentMessageId: string;
     parentOperationId: string;
     prompt: string;
+    selectReply?: boolean;
   },
 ): Promise<string> => {
   const { context, heterogeneousProvider, imageList, parentMessageId, parentOperationId, prompt } =
@@ -156,6 +158,7 @@ const runHeterogeneousFromExistingMessage = async (
     // front. The adapter backfills the actual model later if the CLI reports it.
     provider: heterogeneousProvider.type,
     role: 'assistant',
+    ...(params.selectReply && { selectReply: true }),
     threadId: context.threadId ?? undefined,
     topicId: context.topicId ?? undefined,
   });
@@ -560,7 +563,8 @@ export const generationSlice: StateCreator<
       buildRetryInitialContext(item.editorData),
     );
 
-    // Get context messages up to and including the target message
+    const usesPagedHistory =
+      !!context.topicId && !context.groupId && !context.threadId && context.scope === 'main';
     const contextMessages = displayMessages.slice(0, currentIndex + 1);
     if (contextMessages.length <= 0) return;
 
@@ -577,17 +581,12 @@ export const generationSlice: StateCreator<
     });
 
     try {
-      // Calculate next branch index by counting children of this user message
-      // We need to count how many assistant messages have this user message as parent
-      const { dbMessages } = get();
-      const childrenCount = dbMessages.filter((m) => m.parentId === messageId).length;
-      // New branch index = current children count (since index is 0-based)
-      const nextBranchIndex = childrenCount;
-
-      // Switch to the new branch so the UI shows the incoming response immediately
-      await chatStore.switchMessageBranch(messageId, nextBranchIndex, {
-        operationId,
-      });
+      if (!usesPagedHistory) {
+        const children = get().dbMessages.filter(
+          (message) => message.parentId === messageId && message.role !== 'tool',
+        );
+        await chatStore.switchMessageBranch(messageId, children.length, { operationId });
+      }
 
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
@@ -625,6 +624,7 @@ export const generationSlice: StateCreator<
             }
           },
           parentMessageId: messageId,
+          ...(usesPagedHistory && { selectReply: true }),
         });
 
         return;
@@ -647,6 +647,7 @@ export const generationSlice: StateCreator<
           parentMessageId: messageId,
           parentOperationId: operationId,
           prompt: item.content,
+          ...(usesPagedHistory && { selectReply: true }),
         });
         chatStore.completeOperation(operationId);
         if (hooks.onRegenerateComplete) hooks.onRegenerateComplete(messageId);
@@ -654,14 +655,22 @@ export const generationSlice: StateCreator<
       }
 
       // ── Client mode: run agent locally ──
-      // Execute agent runtime with full context from ConversationStore
+      const messages = usesPagedHistory
+        ? parse(
+            await messageService.getAgentHistory({
+              historyHeadId: messageId,
+              topicId: context.topicId!,
+            }),
+          ).flatList
+        : contextMessages;
       await chatStore.executeClientAgent({
         context,
         initialContext,
-        messages: contextMessages,
+        messages,
         parentMessageId: messageId,
         parentMessageType: 'user',
         parentOperationId: operationId,
+        ...(usesPagedHistory && { selectReply: true }),
       });
 
       chatStore.completeOperation(operationId);

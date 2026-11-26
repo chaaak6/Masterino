@@ -229,7 +229,7 @@ describe('ConversationLifecycle actions', () => {
     });
 
     describe('message creation', () => {
-      it('should render pending compressedGroup immediately for /compact', async () => {
+      it('marks the published boundary and keeps loaded history and the latest turn after /compact', async () => {
         setupMockSelectors({
           agentConfig: {
             chatConfig: { compressionModelId: 'summary-model' },
@@ -244,6 +244,8 @@ describe('ConversationLifecycle actions', () => {
         const existingMessages = [
           createMockMessage({ id: 'user-1', role: 'user', topicId }),
           createMockMessage({ id: 'assistant-1', role: 'assistant', topicId }),
+          createMockMessage({ id: 'user-2', role: 'user', topicId }),
+          createMockMessage({ id: 'assistant-2', role: 'assistant', topicId }),
         ];
 
         await act(async () => {
@@ -255,6 +257,7 @@ describe('ConversationLifecycle actions', () => {
           });
         });
 
+        vi.spyOn(messageService, 'getAgentHistory').mockResolvedValue(existingMessages);
         const createCompressionGroupSpy = vi
           .spyOn(messageService, 'createCompressionGroup')
           .mockResolvedValue({
@@ -272,18 +275,20 @@ describe('ConversationLifecycle actions', () => {
           });
         const fetchSummarySpy = vi
           .spyOn(chatService, 'fetchPresetTaskResult')
-          .mockResolvedValue(undefined);
-        vi.spyOn(messageService, 'finalizeCompression').mockResolvedValue({
-          messages: [
-            {
-              id: 'group-1',
-              content: 'summary',
-              role: 'compressedGroup',
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            } as any,
-          ],
-        });
+          .mockImplementation(async () => {
+            expect(useChatStore.getState().dbMessagesMap[key].map(({ id }) => id)).toEqual([
+              'user-1',
+              'assistant-1',
+              'user-2',
+              'assistant-2',
+              expect.stringMatching(/^tmp_compress_/),
+            ]);
+          });
+        const finalizeCompressionSpy = vi
+          .spyOn(messageService, 'finalizeCompression')
+          .mockResolvedValue({
+            boundaryMessageId: 'assistant-1',
+          });
 
         const optimisticCreateTmpMessageSpy = vi.spyOn(
           result.current,
@@ -338,6 +343,14 @@ describe('ConversationLifecycle actions', () => {
           expect.objectContaining({
             params: expect.objectContaining({ model: 'summary-model', provider: 'aihub' }),
           }),
+        );
+        expect(finalizeCompressionSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ includeTimelineSnapshot: false }),
+        );
+        expect(useChatStore.getState().dbMessagesMap[key]).toEqual(
+          existingMessages.map((message) =>
+            message.id === 'assistant-1' ? { ...message, compressionBoundary: true } : message,
+          ),
         );
       });
 
@@ -1915,7 +1928,8 @@ describe('ConversationLifecycle actions', () => {
         vi.spyOn(aiChatService, 'sendMessageInServer').mockResolvedValue({
           createdThreadId,
           messages: [userMessage, assistantMessage],
-          topics: [],
+          topics: { items: [], total: 0 },
+          topicId: TEST_IDS.TOPIC_ID,
           assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
           userMessageId: TEST_IDS.USER_MESSAGE_ID,
         } as any);
@@ -1923,7 +1937,7 @@ describe('ConversationLifecycle actions', () => {
         (messageService.updateMessage as any).mockImplementation(
           async (_id: string, value: any) => {
             assistantMessage = { ...assistantMessage, ...value };
-            return { messages: [userMessage, assistantMessage], success: true };
+            return { message: assistantMessage, success: true };
           },
         );
         (messageService.createMessage as any).mockImplementation(async (params: any) => {
@@ -1977,6 +1991,7 @@ describe('ConversationLifecycle actions', () => {
             ],
           }),
           expect.objectContaining({ agentId: TEST_IDS.SESSION_ID }),
+          { returnUpdatedMessage: true },
         );
         expect(messageService.createMessage).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -2616,8 +2631,16 @@ describe('ConversationLifecycle actions', () => {
         });
       });
 
-      // gateway routing was actually taken (precondition for the assertion below)
-      expect(executeGatewayAgentSpy).toHaveBeenCalled();
+      expect(executeGatewayAgentSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          optimisticMessageIds: {
+            assistant: expect.any(String),
+            user: expect.any(String),
+          },
+        }),
+      );
+      const { assistant, user } = executeGatewayAgentSpy.mock.calls[0][0].optimisticMessageIds;
+      expect(assistant).not.toBe(user);
       // and the client-side post-persist title hook was NOT reached
       expect(summaryTopicTitleSpy).not.toHaveBeenCalled();
     });

@@ -1,6 +1,6 @@
 import type { CompressionGroupMetadata } from '@lobechat/types';
 import { MessageGroupType } from '@lobechat/types';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { MessageGroupItem } from '../../schemas';
 import { messageGroups, messages } from '../../schemas';
@@ -72,7 +72,7 @@ export class CompressionRepository {
     const group = result[0];
 
     // 2. Mark messages as compressed
-    if (messageIds.length > 0) {
+    if (!metadata.stagedSources && messageIds.length > 0) {
       await this.markMessagesAsCompressed(messageIds, group.id);
     }
 
@@ -110,6 +110,21 @@ export class CompressionRepository {
     return groups.length > 0 ? groups.at(-1)! : null;
   }
 
+  async queryCheckpoints(topicId: string, ids: string[]) {
+    if (!ids.length) return [];
+    return this.db
+      .select()
+      .from(messageGroups)
+      .where(
+        and(
+          this.groupsOwnership(),
+          eq(messageGroups.topicId, topicId),
+          eq(messageGroups.type, MessageGroupType.Compression),
+          inArray(messageGroups.id, ids),
+        ),
+      );
+  }
+
   /**
    * Update compression group content
    */
@@ -140,6 +155,93 @@ export class CompressionRepository {
       .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
   }
 
+  async completeCompression(groupId: string, topicId: string, content: string) {
+    return this.db.transaction(async (tx) => {
+      const [group] = await tx
+        .select({ description: messageGroups.description, topicId: messageGroups.topicId })
+        .from(messageGroups)
+        .where(
+          and(
+            eq(messageGroups.id, groupId),
+            this.groupsOwnership(),
+            eq(messageGroups.topicId, topicId),
+            eq(messageGroups.type, MessageGroupType.Compression),
+          ),
+        )
+        .for('update');
+
+      if (!group) throw new Error('Compression group not found');
+      const metadata: CompressionGroupMetadata = group.description
+        ? JSON.parse(group.description)
+        : {};
+      if (metadata.compressionStatus === 'completed') return metadata.endMessageId;
+      if (metadata.compressionStatus === 'failed' || !content.trim()) {
+        throw new Error('Compression cannot be completed');
+      }
+
+      const { stagedSources, ...publishedMetadata } = metadata;
+      if (metadata.previousSummaries?.length) {
+        const predecessors = await tx
+          .select({ id: messageGroups.id, updatedAt: messageGroups.updatedAt })
+          .from(messageGroups)
+          .where(
+            and(
+              this.groupsOwnership(),
+              eq(messageGroups.topicId, topicId),
+              inArray(
+                messageGroups.id,
+                metadata.previousSummaries.map(({ id }) => id),
+              ),
+            ),
+          )
+          .orderBy(messageGroups.id)
+          .for('share');
+        const versions = new Map(
+          predecessors.map(({ id, updatedAt }) => [id, updatedAt.toISOString()]),
+        );
+        if (metadata.previousSummaries.some(({ id, updatedAt }) => versions.get(id) !== updatedAt))
+          throw new Error('Previous summary changed before publication');
+      }
+      const completedAt = new Date();
+      if (stagedSources) {
+        const ids = stagedSources.map(({ id }) => id);
+        const scope = and(
+          this.messagesOwnership(),
+          eq(messages.topicId, topicId),
+          inArray(messages.id, ids),
+        );
+        const rows = await tx
+          .select({ id: messages.id, updatedAt: messages.updatedAt })
+          .from(messages)
+          .where(scope)
+          .orderBy(messages.id)
+          .for('update');
+        const byId = new Map(rows.map((row) => [row.id, row.updatedAt.toISOString()]));
+        if (stagedSources.some(({ id, updatedAt }) => byId.get(id) !== updatedAt)) {
+          throw new Error('Compression source changed before publication');
+        }
+        await tx
+          .update(messages)
+          .set({ messageGroupId: groupId, updatedAt: completedAt })
+          .where(scope);
+        publishedMetadata.coverage = { ids, updatedAt: completedAt.toISOString() };
+      }
+
+      await tx
+        .update(messageGroups)
+        .set({
+          content,
+          description: JSON.stringify({
+            ...publishedMetadata,
+            compressedAt: completedAt.toISOString(),
+            compressionStatus: 'completed',
+          } satisfies CompressionGroupMetadata),
+        })
+        .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
+      return publishedMetadata.endMessageId;
+    });
+  }
+
   /**
    * Restore the original messages while retaining a sanitized, queryable record of the failed
    * compression attempt. This is deliberately distinct from `deleteCompressionGroup`, which is
@@ -153,7 +255,8 @@ export class CompressionRepository {
       const [existing] = await tx
         .select({ description: messageGroups.description })
         .from(messageGroups)
-        .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
+        .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()))
+        .for('update');
 
       if (!existing) return;
 
@@ -165,6 +268,8 @@ export class CompressionRepository {
           // A legacy malformed description must not prevent restoring the original messages.
         }
       }
+
+      if (existingMetadata.compressionStatus === 'completed') return;
 
       await tx
         .update(messages)
@@ -205,7 +310,12 @@ export class CompressionRepository {
 
     await this.db
       .update(messageGroups)
-      .set({ metadata: newMetadata, updatedAt: new Date() })
+      .set({
+        metadata: newMetadata,
+        updatedAt: Object.keys(metadata).every((key) => key === 'expanded')
+          ? sql`${messageGroups.updatedAt}`
+          : new Date(),
+      })
       .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
   }
 
@@ -286,15 +396,22 @@ export class CompressionRepository {
    * Delete a compression group and unmark all associated messages
    */
   async deleteCompressionGroup(groupId: string): Promise<void> {
-    // 1. Unmark all messages
-    await this.db
-      .update(messages)
-      .set({ messageGroupId: null })
-      .where(and(this.messagesOwnership(), eq(messages.messageGroupId, groupId)));
+    await this.db.transaction(async (tx) => {
+      const scope = and(eq(messageGroups.id, groupId), this.groupsOwnership());
+      const [group] = await tx
+        .select({ id: messageGroups.id })
+        .from(messageGroups)
+        .where(scope)
+        .for('update');
+      if (!group) return;
 
-    // 2. Delete the group
-    await this.db
-      .delete(messageGroups)
-      .where(and(eq(messageGroups.id, groupId), this.groupsOwnership()));
+      // Publication takes the same lock before associating the source rows.
+      // Detach them before deleting the group, whose foreign key cascades.
+      await tx
+        .update(messages)
+        .set({ messageGroupId: null })
+        .where(and(this.messagesOwnership(), eq(messages.messageGroupId, groupId)));
+      await tx.delete(messageGroups).where(scope);
+    });
   }
 }

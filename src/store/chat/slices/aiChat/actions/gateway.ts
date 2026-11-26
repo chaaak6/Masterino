@@ -27,7 +27,7 @@ import type { StoreSetter } from '@/store/types';
 import { useUserStore } from '@/store/user';
 import { settingsSelectors, toolInterventionSelectors } from '@/store/user/selectors';
 
-import { createGatewayEventHandler } from './gatewayEventHandler';
+import { createGatewayEventHandler, usesPagedGatewayHistory } from './gatewayEventHandler';
 
 type Setter = StoreSetter<ChatStore>;
 
@@ -302,6 +302,7 @@ export class GatewayActionImpl {
     context: ConversationContext;
     /** File IDs of already-uploaded attachments to attach to the new user message */
     fileIds?: string[];
+    historyHeadId?: string;
     message: string;
     /** Request metadata carried from the originating user message. */
     metadata?: Pick<MessageMetadata, 'trigger'>;
@@ -327,17 +328,14 @@ export class GatewayActionImpl {
     resumeApproval?: ResumeApprovalParam;
     /** Resume a persisted interaction result under a new server-owned operation. */
     resumeInteraction?: ResumeInteractionParam;
-    /**
-     * Temporary message IDs created during the initial sendMessage phase.
-     * These are associated with the new gateway operation so the UI doesn't
-     * show a blank loading state while waiting for the first `step_start`
-     * event to call `replaceMessages` with the server's real message IDs.
-     */
-    tempMessageIds?: string[];
+    /** Optimistic turn rows awaiting their matching persisted messages. */
+    optimisticMessageIds?: { assistant: string; user: string };
+    selectReply?: boolean;
   }): Promise<ExecAgentResult> => {
     const {
       context,
       fileIds,
+      historyHeadId,
       message,
       metadata,
       onComplete,
@@ -345,7 +343,8 @@ export class GatewayActionImpl {
       parentOperationId,
       resumeApproval,
       resumeInteraction,
-      tempMessageIds,
+      optimisticMessageIds,
+      selectReply,
     } = params;
 
     const agentGatewayUrl =
@@ -401,8 +400,11 @@ export class GatewayActionImpl {
             editingAgentId: this.#get().activeAgentId ?? undefined,
           }),
           groupId: context.groupId,
+          ...(historyHeadId && { historyHeadId }),
           ...(initialTopicMetadata && { initialTopicMetadata }),
           scope: context.scope,
+          ...(selectReply && { selectReply }),
+          ...(usesPagedGatewayHistory(context) && { syncGatewayMessagesById: true }),
           taskId,
           threadId: context.threadId,
           topicId: context.topicId,
@@ -441,7 +443,9 @@ export class GatewayActionImpl {
       }
       try {
         const newContext = { ...context, topicId: result.topicId };
-        const messages = await messageService.getMessages(newContext);
+        const messages = usesPagedGatewayHistory(newContext)
+          ? (await messageService.getHistoryPage({ topicId: result.topicId })).messages
+          : await messageService.getMessages(newContext);
         this.#get().replaceMessages(messages, { context: newContext });
       } catch {
         /* non-critical */
@@ -495,13 +499,8 @@ export class GatewayActionImpl {
     // Associate the server-created assistant message with the gateway operation
     this.#get().associateMessageWithOperation(result.assistantMessageId, gatewayOpId);
 
-    // Also associate temp message IDs so the UI doesn't show a blank loading
-    // state while waiting for the first `step_start` event to call
-    // `replaceMessages` with the server's real message IDs.
-    if (tempMessageIds?.length) {
-      for (const tempId of tempMessageIds) {
-        this.#get().associateMessageWithOperation(tempId, gatewayOpId);
-      }
+    if (optimisticMessageIds) {
+      this.#get().associateMessageWithOperation(optimisticMessageIds.assistant, gatewayOpId);
     }
 
     // Phase-1 init done: child op is running. Hand off loading state from
@@ -551,6 +550,10 @@ export class GatewayActionImpl {
       // the same WS that gatewayConnections is keyed on.
       gatewayOperationId: result.operationId,
       operationId: gatewayOpId,
+      optimisticMessageIds: optimisticMessageIds && {
+        [result.assistantMessageId]: optimisticMessageIds.assistant,
+        [result.userMessageId]: optimisticMessageIds.user,
+      },
     });
 
     this.#get().connectToGateway({

@@ -61,7 +61,7 @@ describe('context-engine to persisted compression candidates', () => {
       expect(message).not.toHaveProperty('metadata');
     }
   });
-  it('keeps pinned history out of compression and out of provider metadata', async () => {
+  it('keeps the recent complete turn intact, including its pinned reply', async () => {
     const messages: UIChatMessage[] = [
       { id: 'old', role: 'user', content: 'Previous question', createdAt: 0, updatedAt: 0 },
       {
@@ -89,8 +89,8 @@ describe('context-engine to persisted compression candidates', () => {
       providerId: 'openai',
       trigger: 'final-preflight',
     });
-    expect(budget.partition.candidateIds).toEqual(['old']);
-    expect(budget.partition.preservedIds).toEqual(['pinned', 'latest']);
+    expect(budget.partition.candidateIds).toEqual([]);
+    expect(budget.partition.preservedIds).toEqual(['old', 'pinned', 'latest']);
     expect(stripContextMessageIdentity(result.messages)[1]).not.toHaveProperty('metadata');
   });
 

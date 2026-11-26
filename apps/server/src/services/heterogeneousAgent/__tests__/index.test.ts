@@ -21,7 +21,7 @@ const createFakeStreamManager = () => {
 const createFakePersistenceHandler = () => {
   const handler = {
     finish: vi.fn(async () => {}),
-    ingest: vi.fn(async () => {}),
+    ingest: vi.fn(async ({ events }: { events: AgentStreamEvent[] }) => events),
   };
   return handler as unknown as HeterogeneousPersistenceHandler & typeof handler;
 };
@@ -79,6 +79,26 @@ describe('HeterogeneousAgentService', () => {
       });
     });
 
+    it('publishes the identified assistant row for a new tool step', async () => {
+      const { persistenceHandler, published, service } = createService();
+      const event = buildEvent('stream_start', 4, { newStep: true });
+      persistenceHandler.ingest.mockResolvedValueOnce([
+        { ...event, data: { ...event.data, assistantMessage: { id: 'persisted-next' } } },
+      ]);
+
+      await service.heteroIngest({
+        agentType: 'claude-code',
+        events: [event],
+        operationId: 'op-1',
+        topicId: 'topic-1',
+      });
+
+      expect(published[0].event.data).toEqual({
+        assistantMessage: { id: 'persisted-next' },
+        newStep: true,
+      });
+    });
+
     it('uses the operationId from the request, not from the event itself', async () => {
       const { manager, service } = createService();
 
@@ -133,8 +153,9 @@ describe('HeterogeneousAgentService', () => {
       };
       const persistenceHandler = {
         finish: vi.fn(async () => {}),
-        ingest: vi.fn(async () => {
+        ingest: vi.fn(async ({ events }: { events: AgentStreamEvent[] }) => {
           callOrder.push('persist');
+          return events;
         }),
       } as unknown as HeterogeneousPersistenceHandler;
       const service = new HeterogeneousAgentService({} as any, 'user-test', {

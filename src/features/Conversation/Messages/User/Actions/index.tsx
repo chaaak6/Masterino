@@ -67,7 +67,7 @@ const Actions = memo<ActionsProps>(({ id, data, disableEditing }) => {
           {actionBarHolder}
         </Flexbox>
       )}
-      {isDevMode && branch && (
+      {branch && (isDevMode || branch.parentMessageId) && (
         <MessageBranch
           activeBranchIndex={branch.activeBranchIndex}
           count={branch.count}

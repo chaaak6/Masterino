@@ -869,5 +869,22 @@ describe('parse', () => {
       expect(result.flatList.length).toBeGreaterThan(0);
       expect(executionTime).toBeLessThan(100);
     });
+
+    it('preserves every message in a 10,000-message chain', () => {
+      const messages: Message[] = Array.from({ length: 10_000 }, (_, index) => ({
+        content: `Message ${index}`,
+        createdAt: index,
+        id: `msg-${index}`,
+        parentId: index ? `msg-${index - 1}` : undefined,
+        role: index % 2 === 0 ? 'user' : 'assistant',
+        updatedAt: index,
+      }));
+
+      const { contextTree, flatList } = parse(messages);
+      const ids = messages.map(({ id }) => id);
+
+      expect(flatList.map(({ id }) => id)).toEqual(ids);
+      expect(contextTree.map(({ id }) => id)).toEqual(ids);
+    });
   });
 });

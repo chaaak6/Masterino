@@ -22,6 +22,7 @@ import { messageService } from '@/services/message';
 import { type ChatStore } from '@/store/chat/store';
 import { type StoreSetter } from '@/store/types';
 
+import { messageMapKey } from '../../../utils/messageMapKey';
 import { dbMessageSelectors } from '../selectors';
 
 /**
@@ -157,34 +158,7 @@ export class MessageOptimisticUpdateActionImpl {
     },
     context?: OptimisticUpdateContext,
   ): Promise<void> => {
-    const { internal_dispatchMessage, refreshMessages, replaceMessages } = this.#get();
-
-    // Due to the async update method and refresh need about 100ms
-    // we need to update the message content at the frontend to avoid the update flick
-    // refs: https://medium.com/@kyledeguzmanx/what-are-optimistic-updates-483662c3e171
-    if (extra?.tools) {
-      internal_dispatchMessage(
-        {
-          id,
-          type: 'updateMessage',
-          value: { tools: extra?.tools },
-        },
-        context,
-      );
-    } else {
-      internal_dispatchMessage(
-        {
-          id,
-          type: 'updateMessage',
-          value: { content, metadata: extra?.metadata },
-        },
-        context,
-      );
-    }
-
-    const ctx = this.#get().internal_getConversationContext(context);
-
-    const result = await messageService.updateMessage(
+    await this.#updateMessageById(
       id,
       {
         content,
@@ -196,14 +170,8 @@ export class MessageOptimisticUpdateActionImpl {
         search: extra?.search,
         tools: extra?.tools,
       },
-      ctx,
+      context,
     );
-
-    if (result && result.success && result.messages) {
-      replaceMessages(result.messages, { action: 'optimisticUpdateMessageContent', context: ctx });
-    } else {
-      await refreshMessages();
-    }
   };
 
   optimisticUpdateMessageError = async (
@@ -211,15 +179,31 @@ export class MessageOptimisticUpdateActionImpl {
     error: ChatMessageError | null,
     context?: OptimisticUpdateContext,
   ): Promise<void> => {
-    this.#get().internal_dispatchMessage({ id, type: 'updateMessage', value: { error } }, context);
-    const ctx = this.#get().internal_getConversationContext(context);
-    const result = await messageService.updateMessage(id, { error }, ctx);
-    if (result?.success && result.messages) {
-      this.#get().replaceMessages(result.messages, { context: ctx });
-    } else {
-      await this.#get().refreshMessages();
-    }
+    await this.#updateMessageById(id, { error }, context);
   };
+
+  async #updateMessageById(
+    id: string,
+    value: Partial<UIChatMessage> & Parameters<typeof messageService.updateMessage>[1],
+    context?: OptimisticUpdateContext,
+  ) {
+    const { internal_dispatchMessage, internal_getConversationContext } = this.#get();
+    const ctx = internal_getConversationContext(context);
+    const key = messageMapKey(ctx);
+    internal_dispatchMessage({ id, type: 'updateMessage', value }, context);
+    const expected = this.#get().dbMessagesMap[key]?.find((message) => message.id === id);
+    const result = await messageService.updateMessage(id, value, ctx, {
+      returnUpdatedMessage: true,
+    });
+    if (!result?.success) throw new Error('Message update was not committed');
+
+    if (result.message && messageMapKey(internal_getConversationContext(context)) === key) {
+      internal_dispatchMessage(
+        { expected, type: 'acknowledgeMessage', value: result.message },
+        context,
+      );
+    }
+  }
 
   optimisticUpdateMessageMetadata = async (
     id: string,
@@ -244,9 +228,15 @@ export class MessageOptimisticUpdateActionImpl {
     id: string,
     value: Partial<MessagePluginItem>,
     context?: OptimisticUpdateContext,
+    options?: { returnUpdatedMessage?: boolean },
   ): Promise<void> => {
-    const { internal_dispatchMessage, replaceMessages } = this.#get();
-    const toolMessage = dbMessageSelectors.getDbMessageById(id)(this.#get());
+    const { internal_dispatchMessage, internal_getConversationContext, replaceMessages } =
+      this.#get();
+    const ctx = internal_getConversationContext(context);
+    const key = messageMapKey(ctx);
+    const current = this.#get().dbMessagesMap[key] ?? [];
+    const toolMessage = current.find((message) => message.id === id);
+    const parent = current.find((message) => message.id === toolMessage?.parentId);
 
     internal_dispatchMessage({ id, type: 'updateMessagePlugin', value }, context);
 
@@ -262,11 +252,42 @@ export class MessageOptimisticUpdateActionImpl {
       );
     }
 
-    const ctx = this.#get().internal_getConversationContext(context);
-    const result = await messageService.updateMessagePlugin(id, value, ctx);
-
-    if (result?.success && result.messages) {
-      replaceMessages(result.messages, { context: ctx });
+    const committed = this.#get().dbMessagesMap[key] ?? [];
+    try {
+      const result = options
+        ? await messageService.updateMessagePlugin(id, value, ctx, options)
+        : await messageService.updateMessagePlugin(id, value, ctx);
+      if (!result?.success) throw new Error('Tool approval was not committed');
+      if (options?.returnUpdatedMessage) {
+        const confirmed = result.message ?? result.messages?.find((message) => message.id === id);
+        if (confirmed && messageMapKey(internal_getConversationContext(context)) === key) {
+          internal_dispatchMessage(
+            {
+              expected: committed.find((message) => message.id === id),
+              type: 'acknowledgeMessage',
+              value: confirmed,
+            },
+            context,
+          );
+        }
+      } else if (result.messages) {
+        replaceMessages(result.messages, { context: ctx });
+      }
+    } catch (error) {
+      if (messageMapKey(internal_getConversationContext(context)) === key) {
+        for (const previous of [toolMessage, parent]) {
+          if (!previous) continue;
+          internal_dispatchMessage(
+            {
+              expected: committed.find((message) => message.id === previous.id),
+              type: 'acknowledgeMessage',
+              value: previous,
+            },
+            context,
+          );
+        }
+      }
+      throw error;
     }
   };
 

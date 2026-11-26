@@ -4,12 +4,13 @@ import type { Message, MessageGroupMetadata } from '../types';
 import type { BranchResolver } from './BranchResolver';
 import type { MessageCollector } from './MessageCollector';
 import type { MessageTransformer } from './MessageTransformer';
+import { runTraversal, type Traversal } from './traversal';
 
 /**
  * FlatListBuilder - Builds flat message list following the active path
  *
  * Handles:
- * 1. Recursive traversal following active branches
+ * 1. Depth-first traversal following active branches
  * 2. Creating virtual messages for Compare and AssistantGroup
  * 3. Processing different message types with priority
  */
@@ -28,6 +29,10 @@ export class FlatListBuilder {
    * Only includes messages in the active path
    */
   flatten(messages: Message[]): Message[] {
+    return this.project(messages).flatList;
+  }
+
+  project(messages: Message[]) {
     const flatList: Message[] = [];
     const processedIds = new Set<string>();
 
@@ -44,20 +49,20 @@ export class FlatListBuilder {
     }
 
     // Build the active path by traversing from root
-    this.buildFlatListRecursive(rootParentId, flatList, processedIds, messages);
+    runTraversal(this.buildFlatListRecursive(rootParentId, flatList, processedIds, messages));
 
-    return flatList;
+    return { flatList, messageIds: processedIds };
   }
 
   /**
-   * Recursively build flatList following the active path
+   * Build the flat list following the active path
    */
-  private buildFlatListRecursive(
+  private *buildFlatListRecursive(
     parentId: string | null,
     flatList: Message[],
     processedIds: Set<string>,
     allMessages: Message[],
-  ): void {
+  ): Traversal {
     const children = this.childrenMap.get(parentId) ?? [];
 
     // Pre-loop check: AgentCouncil mode on parent (tool message with multiple assistant children)
@@ -78,7 +83,7 @@ export class FlatListBuilder {
         // The last member's children should be processed next
         const lastMemberId = children.at(-1);
         if (lastMemberId) {
-          this.buildFlatListRecursive(lastMemberId, flatList, processedIds, allMessages);
+          yield this.buildFlatListRecursive(lastMemberId, flatList, processedIds, allMessages);
         }
         return;
       }
@@ -121,11 +126,21 @@ export class FlatListBuilder {
                   nonTaskChild.tools &&
                   nonTaskChild.tools.length > 0
                 ) {
-                  this.processAssistantGroup(nonTaskChild, flatList, processedIds, allMessages);
+                  yield this.processAssistantGroup(
+                    nonTaskChild,
+                    flatList,
+                    processedIds,
+                    allMessages,
+                  );
                 } else {
                   flatList.push(nonTaskChild);
                   processedIds.add(nonTaskChildId);
-                  this.buildFlatListRecursive(nonTaskChildId, flatList, processedIds, allMessages);
+                  yield this.buildFlatListRecursive(
+                    nonTaskChildId,
+                    flatList,
+                    processedIds,
+                    allMessages,
+                  );
                 }
               }
             }
@@ -144,7 +159,12 @@ export class FlatListBuilder {
                     taskGrandchild.tools &&
                     taskGrandchild.tools.length > 0
                   ) {
-                    this.processAssistantGroup(taskGrandchild, flatList, processedIds, allMessages);
+                    yield this.processAssistantGroup(
+                      taskGrandchild,
+                      flatList,
+                      processedIds,
+                      allMessages,
+                    );
                   } else if (
                     // Check if it's a supervisor message without tools (content-only)
                     taskGrandchild.role === 'assistant' &&
@@ -154,7 +174,7 @@ export class FlatListBuilder {
                     const supervisorMessage = this.createSupervisorContentMessage(taskGrandchild);
                     flatList.push(supervisorMessage);
                     processedIds.add(taskGrandchildId);
-                    this.buildFlatListRecursive(
+                    yield this.buildFlatListRecursive(
                       taskGrandchildId,
                       flatList,
                       processedIds,
@@ -163,7 +183,7 @@ export class FlatListBuilder {
                   } else {
                     flatList.push(taskGrandchild);
                     processedIds.add(taskGrandchildId);
-                    this.buildFlatListRecursive(
+                    yield this.buildFlatListRecursive(
                       taskGrandchildId,
                       flatList,
                       processedIds,
@@ -200,7 +220,7 @@ export class FlatListBuilder {
 
         // Continue with active column's children (if any)
         if ((compareMessage as any).activeColumnId) {
-          this.buildFlatListRecursive(
+          yield this.buildFlatListRecursive(
             (compareMessage as any).activeColumnId,
             flatList,
             processedIds,
@@ -262,7 +282,7 @@ export class FlatListBuilder {
           processedIds.add(completion.id);
         }
 
-        this.continueAfterAssistantGroup(
+        yield this.continueAfterAssistantGroup(
           assistantChain,
           allToolMessages,
           flatList,
@@ -284,12 +304,18 @@ export class FlatListBuilder {
         processedIds.add(message.id);
 
         // Continue with children
-        this.buildFlatListRecursive(message.id, flatList, processedIds, allMessages);
+        yield this.buildFlatListRecursive(message.id, flatList, processedIds, allMessages);
+        continue;
+      }
+
+      const childMessages = this.childrenMap.get(message.id);
+      if (!childMessages?.length) {
+        flatList.push(message);
+        processedIds.add(message.id);
         continue;
       }
 
       // Priority 3a: Compare mode from user message metadata
-      const childMessages = this.childrenMap.get(message.id) ?? [];
       // Non-tool children only are branch candidates (dual-form reader invariant: tool children are inline, not branches):
       // a tool child is inline data of its assistant, never a sibling branch.
       const nonToolChildMessages = childMessages.filter(
@@ -311,7 +337,7 @@ export class FlatListBuilder {
 
         // Continue with active column's children (if any)
         if ((compareMessage as any).activeColumnId) {
-          this.buildFlatListRecursive(
+          yield this.buildFlatListRecursive(
             (compareMessage as any).activeColumnId,
             flatList,
             processedIds,
@@ -398,7 +424,7 @@ export class FlatListBuilder {
             assistantChain.forEach((m) => processedIds.add(m.id));
             allToolMessages.forEach((m) => processedIds.add(m.id));
 
-            this.continueAfterAssistantGroup(
+            yield this.continueAfterAssistantGroup(
               assistantChain,
               allToolMessages,
               flatList,
@@ -416,7 +442,7 @@ export class FlatListBuilder {
             processedIds.add(activeBranchId);
 
             // Continue with active branch's children
-            this.buildFlatListRecursive(activeBranchId, flatList, processedIds, allMessages);
+            yield this.buildFlatListRecursive(activeBranchId, flatList, processedIds, allMessages);
           }
         }
         continue;
@@ -458,7 +484,7 @@ export class FlatListBuilder {
           processedIds.add(activeBranchId);
 
           // Continue with active branch's children
-          this.buildFlatListRecursive(activeBranchId, flatList, processedIds, allMessages);
+          yield this.buildFlatListRecursive(activeBranchId, flatList, processedIds, allMessages);
         }
         continue;
       }
@@ -468,7 +494,7 @@ export class FlatListBuilder {
       processedIds.add(message.id);
 
       // Continue with children
-      this.buildFlatListRecursive(message.id, flatList, processedIds, allMessages);
+      yield this.buildFlatListRecursive(message.id, flatList, processedIds, allMessages);
     }
   }
 
@@ -476,12 +502,12 @@ export class FlatListBuilder {
    * Process an assistant message with tools into an AssistantGroup
    * Extracted to avoid code duplication in task children handling
    */
-  private processAssistantGroup(
+  private *processAssistantGroup(
     message: Message,
     flatList: Message[],
     processedIds: Set<string>,
     allMessages: Message[],
-  ): void {
+  ): Traversal {
     // Collect the entire assistant group chain
     const assistantChain: Message[] = [];
     const allToolMessages: Message[] = [];
@@ -505,7 +531,7 @@ export class FlatListBuilder {
     assistantChain.forEach((m) => processedIds.add(m.id));
     allToolMessages.forEach((m) => processedIds.add(m.id));
 
-    this.continueAfterAssistantGroup(
+    yield this.continueAfterAssistantGroup(
       assistantChain,
       allToolMessages,
       flatList,
@@ -514,13 +540,13 @@ export class FlatListBuilder {
     );
   }
 
-  private continueAfterAssistantGroup(
+  private *continueAfterAssistantGroup(
     assistantChain: Message[],
     allToolMessages: Message[],
     flatList: Message[],
     processedIds: Set<string>,
     allMessages: Message[],
-  ): void {
+  ): Traversal {
     const lastAssistant = assistantChain.at(-1);
     const parentIds = [
       ...(lastAssistant ? [lastAssistant.id] : []),
@@ -532,11 +558,16 @@ export class FlatListBuilder {
       if (!nextContinuation) return;
 
       if (this.shouldDrainParentContinuations(nextContinuation.parentId, processedIds)) {
-        this.buildFlatListRecursive(nextContinuation.parentId, flatList, processedIds, allMessages);
+        yield this.buildFlatListRecursive(
+          nextContinuation.parentId,
+          flatList,
+          processedIds,
+          allMessages,
+        );
         continue;
       }
 
-      this.buildFlatListRecursiveForChild(
+      yield this.buildFlatListRecursiveForChild(
         nextContinuation.parentId,
         nextContinuation.child.id,
         flatList,
@@ -546,18 +577,18 @@ export class FlatListBuilder {
     }
   }
 
-  private buildFlatListRecursiveForChild(
+  private *buildFlatListRecursiveForChild(
     parentId: string,
     childId: string,
     flatList: Message[],
     processedIds: Set<string>,
     allMessages: Message[],
-  ): void {
+  ): Traversal {
     const childIds = this.childrenMap.get(parentId) ?? [];
     this.childrenMap.set(parentId, [childId]);
 
     try {
-      this.buildFlatListRecursive(parentId, flatList, processedIds, allMessages);
+      yield this.buildFlatListRecursive(parentId, flatList, processedIds, allMessages);
     } finally {
       this.childrenMap.set(parentId, childIds);
     }

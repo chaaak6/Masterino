@@ -397,60 +397,65 @@ export const messageCRUDSlice: StateCreator<
 
   // ===== Update Content ===== //
   updateMessageContent: async (id, content, extra) => {
-    const { internal_dispatchMessage, replaceMessages, context } = get();
+    const { internal_dispatchMessage, context } = get();
+    const value = {
+      content,
+      editorData: extra?.editorData,
+      imageList: extra?.imageList,
+      metadata: extra?.metadata,
+      model: extra?.model,
+      provider: extra?.provider,
+      reasoning: extra?.reasoning,
+      search: extra?.search,
+      tools: extra?.tools,
+    };
+    const previous = dataSelectors.getDbMessageById(id)(get());
+    internal_dispatchMessage({ id, type: 'updateMessage', value });
+    const expected = dataSelectors.getDbMessageById(id)(get());
+    const acknowledge = (message: typeof previous) => {
+      if (message) {
+        get().internal_dispatchMessage({ expected, type: 'acknowledgeMessage', value: message });
+      }
+    };
 
-    // Optimistic update
-    if (extra?.tools) {
-      internal_dispatchMessage({
-        id,
-        type: 'updateMessage',
-        value: { tools: extra.tools },
+    let result: Awaited<ReturnType<typeof messageService.updateMessage>>;
+    try {
+      result = await messageService.updateMessage(id, value, context, {
+        returnUpdatedMessage: true,
       });
-    } else {
-      internal_dispatchMessage({
-        id,
-        type: 'updateMessage',
-        value: { content, editorData: extra?.editorData },
-      });
+    } catch (error) {
+      // A lost response can hide a successful write. Reconcile just this row,
+      // including when the edited message belongs to an older loaded page.
+      const saved = await messageService.getMessageById(id).catch(() => null);
+      acknowledge(saved ?? previous);
+      if (
+        saved?.content === content &&
+        (value.editorData === undefined || isEqual(saved.editorData, value.editorData))
+      ) {
+        return;
+      }
+      throw error;
     }
-
-    // Persist to database
-    const result = await messageService.updateMessage(
-      id,
-      {
-        content,
-        editorData: extra?.editorData,
-        imageList: extra?.imageList,
-        metadata: extra?.metadata,
-        model: extra?.model,
-        provider: extra?.provider,
-        reasoning: extra?.reasoning,
-        search: extra?.search,
-        tools: extra?.tools,
-      },
-      context,
-    );
-
-    if (result?.success && result.messages) {
-      replaceMessages(result.messages);
+    if (!result?.success) {
+      acknowledge(previous);
+      throw new Error('Message update was not committed');
     }
+    acknowledge(result.message);
   },
 
   updateMessageError: async (id, error) => {
-    const { internal_dispatchMessage, replaceMessages, context } = get();
-
-    // Optimistic update
-    internal_dispatchMessage({
-      id,
-      type: 'updateMessage',
-      value: { error },
+    const { internal_dispatchMessage, context } = get();
+    internal_dispatchMessage({ id, type: 'updateMessage', value: { error } });
+    const expected = dataSelectors.getDbMessageById(id)(get());
+    const result = await messageService.updateMessage(id, { error }, context, {
+      returnUpdatedMessage: true,
     });
-
-    // Persist to database
-    const result = await messageService.updateMessage(id, { error }, context);
-
-    if (result?.success && result.messages) {
-      replaceMessages(result.messages);
+    if (result?.success && result.message) {
+      get().internal_dispatchMessage({
+        expected,
+        type: 'acknowledgeMessage',
+        value: result.message,
+      });
     }
   },
 

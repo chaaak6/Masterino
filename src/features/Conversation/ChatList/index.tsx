@@ -1,7 +1,10 @@
 'use client';
 
+import type { ChatToolPayloadWithResult } from '@lobechat/types';
+import { cssVar } from 'antd-style';
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useActiveWorkspaceId } from '@/business/client/hooks/useActiveWorkspaceId';
 import { useFetchAgentDocuments } from '@/hooks/useFetchAgentDocuments';
@@ -25,6 +28,7 @@ import AgentSignalReceiptList from './components/AgentSignalReceiptList';
 import RefreshingHint from './components/RefreshingHint';
 import VirtualizedList from './components/VirtualizedList';
 import { useAgentSignalReceipts } from './hooks/useAgentSignalReceipts';
+import { useMessageHistory } from './hooks/useMessageHistory';
 
 export interface ChatListProps {
   /**
@@ -57,6 +61,7 @@ export interface ChatListProps {
    * Custom item renderer. If not provided, uses default ChatItem.
    */
   itemContent?: (index: number, id: string) => ReactNode;
+  paginateHistory?: boolean;
   /**
    * Force showing welcome component even when messages exist
    */
@@ -79,8 +84,10 @@ const ChatList = memo<ChatListProps>(
     headerSlot,
     welcome,
     itemContent,
+    paginateHistory,
     showWelcome,
   }) => {
+    const { t } = useTranslation(['common', 'chat', 'topic']);
     // Fetch messages (SWR key is null when skipFetch is true)
     const context = useConversationStore((s) => s.context);
     const activeWorkspaceId = useActiveWorkspaceId();
@@ -107,9 +114,36 @@ const ChatList = memo<ChatListProps>(
       enableMemory === true &&
       userMemoryConsent &&
       agentMemoryEnabled !== false;
-    const messagesSWR = useFetchMessages(context, { revalidateOnFocus: !isStreaming, skipFetch });
+    const paginate = !!paginateHistory && !skipFetch && !!context.topicId && !context.threadId;
+    const messagesSWR = useFetchMessages(context, {
+      revalidateOnFocus: !isStreaming,
+      skipFetch: skipFetch || paginate,
+    });
+    const history = useMessageHistory(context, paginate);
     const displayMessages = useConversationStore(dataSelectors.displayMessages);
     const displayMessageIds = useConversationStore(dataSelectors.displayMessageIds);
+    const rawMessages = useConversationStore(dataSelectors.dbMessages);
+    const compressionMarkers = useMemo(() => {
+      if (!paginate) return new Set<string>();
+      const boundaries = new Set(
+        rawMessages.filter((row) => row.compressionBoundary).map(({ id }) => id),
+      );
+      return new Set(
+        displayMessages.flatMap((row) =>
+          boundaries.has(row.id) ||
+          (!!row.lastMessageId && boundaries.has(row.lastMessageId)) ||
+          [row, ...(row.children ?? [])].some(
+            (block) =>
+              boundaries.has(block.id) ||
+              block.tools?.some((tool: ChatToolPayloadWithResult) =>
+                boundaries.has(tool.result_msg_id ?? tool.result?.id ?? ''),
+              ),
+          )
+            ? [row.id]
+            : [],
+        ),
+      );
+    }, [displayMessages, paginate, rawMessages]);
     const latestMessageId = displayMessageIds.at(-1);
 
     // Skip fetching notebook and memories for share pages (they require authentication)
@@ -153,21 +187,46 @@ const ChatList = memo<ChatListProps>(
           ) : undefined;
 
         return (
-          <MessageItem
-            defaultWorkflowExpandLevel={defaultWorkflowExpandLevel}
-            footerRender={receiptRender}
-            id={id}
-            index={index}
-            isLatestItem={isLatestItem}
-          />
+          <>
+            <MessageItem
+              defaultWorkflowExpandLevel={defaultWorkflowExpandLevel}
+              footerRender={receiptRender}
+              id={id}
+              index={index}
+              isLatestItem={isLatestItem}
+            />
+            {compressionMarkers.has(id) && (
+              <div
+                aria-label={t('compression.marker', { ns: 'chat' })}
+                role="separator"
+                style={{
+                  color: cssVar.colorTextDescription,
+                  fontSize: 12,
+                  paddingBlock: 6,
+                  textAlign: 'center',
+                }}
+              >
+                {t('compression.marker', { ns: 'chat' })}
+              </div>
+            )}
+          </>
         );
       },
-      [displayMessageIds.length, defaultWorkflowExpandLevel, receiptsByAnchor],
+      [
+        compressionMarkers,
+        displayMessageIds.length,
+        defaultWorkflowExpandLevel,
+        receiptsByAnchor,
+        t,
+      ],
     );
     const messagesInit = useConversationStore(dataSelectors.messagesInit);
     // ConversationArea can render store-backed cached messages before SWR has local data.
     const showRefreshingHint =
-      messagesInit && displayMessageIds.length > 0 && messagesSWR.isValidating && !isStreaming;
+      messagesInit &&
+      displayMessageIds.length > 0 &&
+      (paginate ? history.isValidating : messagesSWR.isValidating) &&
+      !isStreaming;
 
     const mergedFooterSlot = useMemo(() => {
       if (!showRefreshingHint && !footerSlot) return;
@@ -185,6 +244,18 @@ const ChatList = memo<ChatListProps>(
     const isNewConversation = !context.topicId;
 
     if (!messagesInit && !isNewConversation) {
+      if (paginate && history.loadError) {
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              void history.reload();
+            }}
+          >
+            {t('retry')}
+          </button>
+        );
+      }
       return <SkeletonList />;
     }
 
@@ -209,8 +280,25 @@ const ChatList = memo<ChatListProps>(
         <VirtualizedList
           dataSource={displayMessageIds}
           footerSlot={mergedFooterSlot}
-          headerSlot={headerSlot}
           itemContent={itemContent ?? defaultItemContent}
+          headerSlot={
+            paginate && (history.loadError || history.hasOlder) ? (
+              <>
+                {headerSlot}
+                <button
+                  type="button"
+                  onClick={() => {
+                    void (history.loadError ? history.retry() : history.loadOlder());
+                  }}
+                >
+                  {history.loadError ? t('retry') : t('loadMore', { ns: 'topic' })}
+                </button>
+              </>
+            ) : (
+              headerSlot
+            )
+          }
+          onReachTop={paginate ? history.loadOlder : undefined}
         />
       </MessageActionProvider>
     );

@@ -80,7 +80,7 @@ interface ClientCompressionTransactionInput {
   abortController?: AbortController;
   candidateIds: readonly string[];
   compressionModel: { model: string; provider: string };
-  createGroup: () => Promise<{ messageGroupId: string }>;
+  createGroup: () => Promise<{ messageGroupId: string; messagesToSummarize?: UIChatMessage[] }>;
   failGroup: (messageGroupId: string) => Promise<unknown>;
   finalizeGroup: (
     messageGroupId: string,
@@ -136,6 +136,7 @@ export const runClientContextCompressionTransaction = async (
   try {
     const group = await input.createGroup();
     groupId = group.messageGroupId;
+    const sourceById = new Map(group.messagesToSummarize?.map((message) => [message.id, message]));
     let finalSummary = '';
     const hierarchy = await compressContextHierarchically<
       UIChatMessage,
@@ -182,7 +183,8 @@ export const runClientContextCompressionTransaction = async (
       measureRequest: (request) =>
         countContextTokens({ messages: (request.messages ?? []) as UIChatMessage[] }).adjustedTotal,
       messages: input.sourceMessages,
-      renderMessage: renderClientMessageForCompression,
+      renderMessage: (message) =>
+        renderClientMessageForCompression(sourceById.get(message.id) ?? message),
       summarize: (request) =>
         summarizeClientCompressionRequest({
           abortController: input.abortController,
