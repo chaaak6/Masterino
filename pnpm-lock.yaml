@@ -2538,6 +2538,9 @@ importers:
       '@lobechat/utils':
         specifier: workspace:*
         version: link:../utils
+      '@trpc/server':
+        specifier: ^11.8.1
+        version: 11.18.0(typescript@6.0.3)
       dayjs:
         specifier: '*'
         version: 1.11.21

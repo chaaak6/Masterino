@@ -52,9 +52,18 @@ const currentTopicLength = (s: ChatStoreState): number => currentTopicsWithoutCr
 const currentTopicCount = (s: ChatStoreState): number => currentTopicData(s)?.total || 0;
 
 const getTopicById =
-  (id: string) =>
-  (s: ChatStoreState): ChatTopic | undefined =>
-    currentTopics(s)?.find((topic) => topic.id === id); // Don't filter here, need to access all topics by ID
+  (id: string, groupId?: string | null) =>
+  (s: ChatStoreState): ChatTopic | undefined => {
+    if (!groupId) return currentTopics(s)?.find((topic) => topic.id === id);
+
+    const groupTopic = s.topicDataMap[topicMapKey({ groupId })]?.items.find(
+      (topic) => topic.id === id,
+    );
+    return (
+      groupTopic ??
+      (s.activeGroupId === groupId ? currentTopics(s)?.find((topic) => topic.id === id) : undefined)
+    );
+  };
 
 /**
  * Get topics by specific agentId (for AgentBuilder scenarios where agentId differs from activeAgentId)

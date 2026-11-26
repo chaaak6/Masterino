@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { type LobeChatDatabase } from '@lobechat/database';
-import { agents, chatGroups, sessions, topics } from '@lobechat/database/schemas';
+import {
+  agents,
+  chatGroups,
+  chatGroupsAgents,
+  messages,
+  sessions,
+  topics,
+} from '@lobechat/database/schemas';
 import { getTestDB } from '@lobechat/database/test-utils';
 import { TRPCError } from '@trpc/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -38,6 +45,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
   let testAgentId: string;
   let testGroupId: string;
   let testTopicId: string;
+  let parentMessageId: string;
 
   beforeEach(async () => {
     serverDB = await getTestDB();
@@ -82,6 +90,23 @@ describe('aiAgentRouter.execSubAgentTask', () => {
       })
       .returning();
     testTopicId = topic.id;
+    await serverDB.insert(chatGroupsAgents).values({
+      agentId: testAgentId,
+      chatGroupId: testGroupId,
+      enabled: true,
+      userId,
+    });
+    const [parent] = (await serverDB
+      .insert(messages)
+      .values({
+        agentId: testAgentId,
+        groupId: testGroupId,
+        role: 'task',
+        topicId: testTopicId,
+        userId,
+      })
+      .returning({ id: messages.id })) as { id: string }[];
+    parentMessageId = parent.id;
 
     // Reset mock
     mockExecGroupSubAgentTask.mockReset();
@@ -98,6 +123,19 @@ describe('aiAgentRouter.execSubAgentTask', () => {
   });
 
   describe('successful execution', () => {
+    it('resolves group ownership from the topic when the caller omits groupId', async () => {
+      const caller = aiAgentRouter.createCaller(createTestContext());
+      await caller.execSubAgentTask({
+        agentId: testAgentId,
+        instruction: 'Test instruction',
+        parentMessageId,
+        topicId: testTopicId,
+      });
+      expect(mockExecGroupSubAgentTask).toHaveBeenCalledWith(
+        expect.objectContaining({ groupId: testGroupId }),
+      );
+    });
+
     it('should call service method with correct parameters', async () => {
       mockExecGroupSubAgentTask.mockResolvedValue({
         assistantMessageId: 'assistant-msg-1',
@@ -112,7 +150,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
         agentId: testAgentId,
         groupId: testGroupId,
         instruction: 'Test instruction',
-        parentMessageId: 'parent-msg-1',
+        parentMessageId,
         topicId: testTopicId,
       });
 
@@ -120,7 +158,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
         agentId: testAgentId,
         groupId: testGroupId,
         instruction: 'Test instruction',
-        parentMessageId: 'parent-msg-1',
+        parentMessageId,
         timeout: undefined,
         topicId: testTopicId,
       });
@@ -140,7 +178,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
         agentId: testAgentId,
         groupId: testGroupId,
         instruction: 'Test instruction',
-        parentMessageId: 'parent-msg-1',
+        parentMessageId,
         topicId: testTopicId,
       });
 
@@ -166,7 +204,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
         agentId: testAgentId,
         groupId: testGroupId,
         instruction: 'Test instruction',
-        parentMessageId: 'parent-msg-1',
+        parentMessageId,
         timeout: 60000,
         topicId: testTopicId,
       });
@@ -188,7 +226,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
           agentId: undefined,
           groupId: testGroupId,
           instruction: 'Test instruction',
-          parentMessageId: 'parent-msg-1',
+          parentMessageId,
           topicId: testTopicId,
         } as any),
       ).rejects.toThrow();
@@ -202,7 +240,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
           agentId: testAgentId,
           groupId: testGroupId,
           instruction: undefined,
-          parentMessageId: 'parent-msg-1',
+          parentMessageId,
           topicId: testTopicId,
         } as any),
       ).rejects.toThrow();
@@ -216,7 +254,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
           agentId: testAgentId,
           groupId: testGroupId,
           instruction: 'Test instruction',
-          parentMessageId: 'parent-msg-1',
+          parentMessageId,
           topicId: undefined,
         } as any),
       ).rejects.toThrow();
@@ -252,7 +290,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
           agentId: testAgentId,
           groupId: testGroupId,
           instruction: 'Test instruction',
-          parentMessageId: 'parent-msg-1',
+          parentMessageId,
           topicId: testTopicId,
         }),
       ).rejects.toThrow('Agent not found');
@@ -268,7 +306,7 @@ describe('aiAgentRouter.execSubAgentTask', () => {
           agentId: testAgentId,
           groupId: testGroupId,
           instruction: 'Test instruction',
-          parentMessageId: 'parent-msg-1',
+          parentMessageId,
           topicId: testTopicId,
         }),
       ).rejects.toThrow('Failed to execute sub-agent task: Database connection failed');

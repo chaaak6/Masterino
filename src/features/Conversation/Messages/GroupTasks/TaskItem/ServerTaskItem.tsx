@@ -9,7 +9,7 @@ import { memo, useMemo, useState } from 'react';
 import { useAgentGroupStore } from '@/store/agentGroup';
 import { agentGroupSelectors } from '@/store/agentGroup/selectors';
 
-import { TaskContent } from '../../Tasks/shared';
+import { resolveTaskDetail, TaskContent } from '../../Tasks/shared';
 import { type TaskMetrics } from './TaskTitle';
 import TaskTitle from './TaskTitle';
 
@@ -18,7 +18,8 @@ interface ServerTaskItemProps {
 }
 
 const ServerTaskItem = memo<ServerTaskItemProps>(({ item }) => {
-  const { id, agentId, metadata, taskDetail, tasks } = item;
+  const { id, agentId, metadata, tasks } = item;
+  const taskDetail = resolveTaskDetail(item);
   const [expanded, setExpanded] = useState(false);
 
   const title = taskDetail?.title || metadata?.taskTitle;

@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { TRPCClientError } from '@trpc/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { INBOX_SESSION_ID } from '@/const/session';
@@ -52,6 +53,20 @@ afterEach(() => {
 });
 
 describe('createSidebarUISlice', () => {
+  it('refreshes the sidebar when the group has already been deleted', async () => {
+    const error = Object.assign(new TRPCClientError('Chat group not found'), {
+      data: { code: 'NOT_FOUND' },
+    });
+    const deleteGroup = vi.spyOn(chatGroupService, 'deleteGroup').mockRejectedValueOnce(error);
+    const state = useHomeStore.getState();
+    const refresh = vi.spyOn(state, 'refreshAgentList').mockResolvedValueOnce(undefined);
+
+    await expect(state.removeAgentGroup('deleted-group')).resolves.toBeUndefined();
+
+    expect(deleteGroup).toHaveBeenCalledWith('deleted-group');
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
   // ========== Agent Operations ==========
   describe('pinAgent', () => {
     it('should pin an agent and refresh agent list', async () => {

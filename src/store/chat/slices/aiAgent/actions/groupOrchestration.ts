@@ -1,12 +1,14 @@
 import { type AgentState, type ExecutorResult } from '@lobechat/agent-runtime';
 import { GroupOrchestrationRuntime, GroupOrchestrationSupervisor } from '@lobechat/agent-runtime';
 import { type TaskStatusResult } from '@lobechat/types';
+import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import debug from 'debug';
 import { type SWRResponse } from 'swr';
 
 import { useClientDataSWR } from '@/libs/swr';
 import { aiAgentService } from '@/services/aiAgent';
 import { createGroupOrchestrationExecutors } from '@/store/chat/agents/GroupOrchestration';
+import { dbMessageSelectors } from '@/store/chat/slices/message/selectors';
 import { type ChatStore } from '@/store/chat/store';
 import { type GroupOrchestrationCallbacks } from '@/store/tool/slices/builtin/types';
 import { type StoreSetter } from '@/store/types';
@@ -24,13 +26,22 @@ const SWR_USE_POLLING_TASK_STATUS = 'SWR_USE_POLLING_TASK_STATUS';
 // Polling interval for task status (5 seconds)
 const POLLING_INTERVAL = 5000;
 
+interface GroupToolRunContext {
+  executionContext?: ExecutionContext;
+  groupId: string;
+  preferLocal: boolean;
+  topicId?: string;
+}
+
 export interface GroupOrchestrationParams {
+  executionContext?: ExecutionContext;
   groupId: string;
   /**
    * Initial result to start the orchestration
    * This is the first ExecutorResult that will be passed to Supervisor.decide()
    */
   initialResult: ExecutorResult;
+  preferLocal?: boolean;
   supervisorAgentId: string;
   topicId?: string;
 }
@@ -48,18 +59,19 @@ export class GroupOrchestrationActionImpl {
     this.#get = get;
   }
 
-  getGroupOrchestrationCallbacks = (): GroupOrchestrationCallbacks => {
+  getGroupOrchestrationCallbacks = (context?: GroupToolRunContext): GroupOrchestrationCallbacks => {
     return {
-      triggerSpeak: this.#get().triggerSpeak,
-      triggerBroadcast: this.#get().triggerBroadcast,
-      triggerDelegate: this.#get().triggerDelegate,
-      triggerExecuteTask: this.#get().triggerExecuteTask,
-      triggerExecuteTasks: this.#get().triggerExecuteTasks,
+      triggerSpeak: (params) => this.#get().triggerSpeak(params, context),
+      triggerBroadcast: (params) => this.#get().triggerBroadcast(params, context),
+      triggerDelegate: (params) => this.#get().triggerDelegate(params, context),
+      triggerExecuteTask: (params) => this.#get().triggerExecuteTask(params, context),
+      triggerExecuteTasks: (params) => this.#get().triggerExecuteTasks(params, context),
     };
   };
 
   triggerSpeak = async (
     params: Parameters<GroupOrchestrationCallbacks['triggerSpeak']>[0],
+    context?: GroupToolRunContext,
   ): Promise<void> => {
     const { supervisorAgentId, agentId, instruction, skipCallSupervisor } = params;
     log(
@@ -70,7 +82,7 @@ export class GroupOrchestrationActionImpl {
       skipCallSupervisor,
     );
 
-    const groupId = this.#get().activeGroupId;
+    const groupId = context ? context.groupId : this.#get().activeGroupId;
     if (!groupId) {
       log('[triggerSpeak] No active group, skipping');
       return;
@@ -79,7 +91,9 @@ export class GroupOrchestrationActionImpl {
     await this.#get().internal_execGroupOrchestration({
       groupId,
       supervisorAgentId,
-      topicId: this.#get().activeTopicId,
+      topicId: context ? context.topicId : this.#get().activeTopicId,
+      executionContext: context?.executionContext,
+      preferLocal: context?.preferLocal,
       initialResult: {
         type: 'supervisor_decided',
         payload: {
@@ -93,6 +107,7 @@ export class GroupOrchestrationActionImpl {
 
   triggerBroadcast = async (
     params: Parameters<GroupOrchestrationCallbacks['triggerBroadcast']>[0],
+    context?: GroupToolRunContext,
   ): Promise<void> => {
     const { supervisorAgentId, agentIds, instruction, skipCallSupervisor, toolMessageId } = params;
     log(
@@ -104,7 +119,7 @@ export class GroupOrchestrationActionImpl {
       toolMessageId,
     );
 
-    const groupId = this.#get().activeGroupId;
+    const groupId = context ? context.groupId : this.#get().activeGroupId;
     if (!groupId) {
       log('[triggerBroadcast] No active group, skipping');
       return;
@@ -113,7 +128,9 @@ export class GroupOrchestrationActionImpl {
     await this.#get().internal_execGroupOrchestration({
       groupId,
       supervisorAgentId,
-      topicId: this.#get().activeTopicId,
+      topicId: context ? context.topicId : this.#get().activeTopicId,
+      executionContext: context?.executionContext,
+      preferLocal: context?.preferLocal,
       initialResult: {
         type: 'supervisor_decided',
         payload: {
@@ -127,6 +144,7 @@ export class GroupOrchestrationActionImpl {
 
   triggerDelegate = async (
     params: Parameters<GroupOrchestrationCallbacks['triggerDelegate']>[0],
+    context?: GroupToolRunContext,
   ): Promise<void> => {
     const { supervisorAgentId, agentId, reason } = params;
     log(
@@ -136,7 +154,7 @@ export class GroupOrchestrationActionImpl {
       reason,
     );
 
-    const groupId = this.#get().activeGroupId;
+    const groupId = context ? context.groupId : this.#get().activeGroupId;
     if (!groupId) {
       log('[triggerDelegate] No active group, skipping');
       return;
@@ -145,7 +163,9 @@ export class GroupOrchestrationActionImpl {
     await this.#get().internal_execGroupOrchestration({
       groupId,
       supervisorAgentId,
-      topicId: this.#get().activeTopicId,
+      topicId: context ? context.topicId : this.#get().activeTopicId,
+      executionContext: context?.executionContext,
+      preferLocal: context?.preferLocal,
       initialResult: {
         type: 'supervisor_decided',
         payload: {
@@ -159,12 +179,14 @@ export class GroupOrchestrationActionImpl {
 
   triggerExecuteTask = async (
     params: Parameters<GroupOrchestrationCallbacks['triggerExecuteTask']>[0],
+    context?: GroupToolRunContext,
   ): Promise<void> => {
     const {
       supervisorAgentId,
       agentId,
       instruction,
       timeout,
+      title,
       toolMessageId,
       skipCallSupervisor,
       runInClient,
@@ -180,7 +202,7 @@ export class GroupOrchestrationActionImpl {
       runInClient,
     );
 
-    const groupId = this.#get().activeGroupId;
+    const groupId = context ? context.groupId : this.#get().activeGroupId;
     if (!groupId) {
       log('[triggerExecuteTask] No active group, skipping');
       return;
@@ -189,12 +211,21 @@ export class GroupOrchestrationActionImpl {
     await this.#get().internal_execGroupOrchestration({
       groupId,
       supervisorAgentId,
-      topicId: this.#get().activeTopicId,
+      topicId: context ? context.topicId : this.#get().activeTopicId,
+      executionContext: context?.executionContext,
+      preferLocal: context?.preferLocal,
       initialResult: {
         type: 'supervisor_decided',
         payload: {
           decision: 'execute_task',
-          params: { agentId, instruction, runInClient, timeout, toolMessageId },
+          params: {
+            agentId,
+            instruction,
+            runInClient: context?.preferLocal ?? runInClient,
+            timeout,
+            title,
+            toolMessageId,
+          },
           skipCallSupervisor: skipCallSupervisor ?? false,
         },
       },
@@ -203,6 +234,7 @@ export class GroupOrchestrationActionImpl {
 
   triggerExecuteTasks = async (
     params: Parameters<GroupOrchestrationCallbacks['triggerExecuteTasks']>[0],
+    context?: GroupToolRunContext,
   ): Promise<void> => {
     const { supervisorAgentId, tasks, toolMessageId, skipCallSupervisor } = params;
     log(
@@ -213,7 +245,7 @@ export class GroupOrchestrationActionImpl {
       skipCallSupervisor,
     );
 
-    const groupId = this.#get().activeGroupId;
+    const groupId = context ? context.groupId : this.#get().activeGroupId;
     if (!groupId) {
       log('[triggerExecuteTasks] No active group, skipping');
       return;
@@ -222,7 +254,9 @@ export class GroupOrchestrationActionImpl {
     await this.#get().internal_execGroupOrchestration({
       groupId,
       supervisorAgentId,
-      topicId: this.#get().activeTopicId,
+      topicId: context ? context.topicId : this.#get().activeTopicId,
+      executionContext: context?.executionContext,
+      preferLocal: context?.preferLocal,
       initialResult: {
         type: 'supervisor_decided',
         payload: {
@@ -251,6 +285,7 @@ export class GroupOrchestrationActionImpl {
       type: 'execAgentRuntime',
       context: { groupId, topicId, agentId: supervisorAgentId, scope: 'group' },
       label: `Group Orchestration (${initialResult.type})`,
+      metadata: { executionContext: params.executionContext },
     });
 
     log('[internal_execGroupOrchestration] Created operation: %s', operationId);
@@ -274,6 +309,7 @@ export class GroupOrchestrationActionImpl {
       get: this.#get,
       messageContext: { agentId: supervisorAgentId, groupId, scope: 'group', topicId },
       orchestrationOperationId: operationId,
+      preferLocal: params.preferLocal,
       supervisorAgentId: groupConfig.supervisorAgentId,
     });
 
@@ -323,7 +359,37 @@ export class GroupOrchestrationActionImpl {
         state.status,
       );
 
+      const toolMessageId =
+        currentResult.type === 'supervisor_decided' && currentResult.payload.params.toolMessageId;
       const output = await runtime.step(state, currentResult);
+      const result = output.result;
+      const taskResults =
+        result?.type === 'task_completed'
+          ? [result.payload]
+          : result?.type === 'tasks_completed'
+            ? result.payload.results
+            : [];
+      if (typeof toolMessageId === 'string' && taskResults.some(({ success }) => !success)) {
+        const report = taskResults
+          .map(({ agentId, error, result, status, success }) => {
+            if (success) return `Agent ${agentId}: ${result || 'Task completed'}`;
+            if (status === 'cancelled') return `Agent ${agentId}: Cancelled`;
+            if (status === 'timed_out') return `Agent ${agentId}: Timed out`;
+            return `Agent ${agentId}: ${error ?? 'Task failed'}`;
+          })
+          .join('\n');
+        const dispatch = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get())?.content;
+        // Failed dispatches may have no task card. Preserve the dispatch and
+        // include every outcome so the supervisor can summarize partial results.
+        await this.#get()
+          .optimisticUpdateMessageContent(
+            toolMessageId,
+            [dispatch, `Member task results:\n${report}`].filter(Boolean).join('\n\n'),
+            undefined,
+            { operationId },
+          )
+          .catch((error) => log('Unable to persist member task report: %O', error));
+      }
 
       log(
         '[internal_execGroupOrchestration] Step %d completed, events: %d, newStatus=%s, nextResult=%s',

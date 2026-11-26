@@ -6,7 +6,7 @@ import { memo, useMemo, useState } from 'react';
 import { type UIChatMessage } from '@/types/index';
 import { ThreadStatus } from '@/types/index';
 
-import { TaskContent } from '../shared';
+import { resolveTaskDetail, TaskContent } from '../shared';
 import { type TaskMetrics } from './TaskTitle';
 import TaskTitle from './TaskTitle';
 
@@ -15,7 +15,8 @@ interface ServerTaskItemProps {
 }
 
 const ServerTaskItem = memo<ServerTaskItemProps>(({ item }) => {
-  const { id, metadata, taskDetail, tasks } = item;
+  const { id, metadata, tasks } = item;
+  const taskDetail = resolveTaskDetail(item);
   const [expanded, setExpanded] = useState(false);
 
   const title = taskDetail?.title || metadata?.taskTitle;

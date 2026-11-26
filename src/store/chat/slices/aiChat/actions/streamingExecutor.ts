@@ -64,6 +64,7 @@ import { scanOperationWorkspace } from '@/services/operationWorkspaceScan';
 import { aiModelSelectors } from '@/store/aiInfra/selectors';
 import { getAiInfraStoreState } from '@/store/aiInfra/store';
 import { createAgentExecutors } from '@/store/chat/agents/createAgentExecutors';
+import { getLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
 import { emitClientAgentSignalSourceEvent } from '@/store/chat/slices/aiChat/actions/agentSignalBridge';
 import { type ChatStore } from '@/store/chat/store';
 import { notifyDesktopHumanApprovalRequired } from '@/store/chat/utils/desktopNotification';
@@ -86,6 +87,23 @@ import { buildRunLifecycle } from './runLifecycle/buildRunLifecycle';
 import type { RunScope } from './runLifecycle/types';
 
 const log = debug('lobe-store:streaming-executor');
+
+const getClientInterventionConfig = (frozenMode?: ExecutionContext['approvalMode']) => {
+  const user = getUserStoreState();
+  const currentMode = toolInterventionSelectors.approvalMode(user);
+  // A setting change may tighten a paused operation. It must not silently
+  // grant the resumed turn more authority than it originally had.
+  const approvalMode =
+    currentMode === 'manual' || frozenMode === 'manual'
+      ? 'manual'
+      : currentMode === 'allow-list' || frozenMode === 'allow-list'
+        ? 'allow-list'
+        : 'auto-run';
+  return {
+    allowList: toolInterventionSelectors.allowList(user),
+    approvalMode,
+  } satisfies AgentState['userInterventionConfig'];
+};
 
 const dynamicInterventionAudits = {
   pathScopeAudit: createPathScopeAudit({
@@ -219,6 +237,7 @@ export class StreamingExecutorActionImpl {
     agentId: paramAgentId,
     deviceLocalMcpManifests,
     disableTools,
+    frozenExecutionContext,
     prepared,
     topicId: paramTopicId,
     threadId,
@@ -234,6 +253,7 @@ export class StreamingExecutorActionImpl {
     parentMessageId: string;
     agentId?: string;
     deviceLocalMcpManifests?: ToolManifest[];
+    frozenExecutionContext?: ExecutionContext;
     prepared?: { agentConfig: ResolvedAgentConfig; executionContext: ExecutionContext };
     disableTools?: boolean;
     topicId?: string | null;
@@ -364,6 +384,7 @@ export class StreamingExecutorActionImpl {
     );
 
     const executionContext =
+      frozenExecutionContext ??
       prepared?.executionContext ??
       this.resolveAgentExecutionContext({
         agentConfigData,
@@ -422,11 +443,7 @@ export class StreamingExecutorActionImpl {
     );
 
     // Get user intervention config
-    const userStore = getUserStoreState();
-    const userInterventionConfig = {
-      approvalMode: toolInterventionSelectors.approvalMode(userStore),
-      allowList: toolInterventionSelectors.allowList(userStore),
-    };
+    const userInterventionConfig = getClientInterventionConfig(executionContext.approvalMode);
 
     // Build modelRuntimeConfig for compression and other runtime features
     const compressionModelId =
@@ -484,6 +501,7 @@ export class StreamingExecutorActionImpl {
             );
     const state = {
       ...stateBase,
+      ...(executionContext.approvalMode && { userInterventionConfig }),
       metadata: {
         ...stateBase.metadata,
         executionContext,
@@ -632,15 +650,30 @@ export class StreamingExecutorActionImpl {
     workingModel?: WorkingModel;
     /** Cwd captured before persistence/runtime dispatch for this operation. */
     workingDirectory?: string;
-  }): Promise<{ cost?: Cost; model?: string; provider?: string; usage?: Usage } | void> => {
+  }): Promise<{
+    cost?: Cost;
+    error?: string;
+    model?: string;
+    provider?: string;
+    status?: AgentState['status'];
+    taskMessages?: UIChatMessage[];
+    usage?: Usage;
+  } | void> => {
     const {
       disableTools,
       messages: originalMessages,
       parentMessageId,
       parentMessageType,
       context,
-      isSubAgent,
     } = params;
+    const localTask = getLocalTaskApproval(context);
+    const taskResume =
+      localTask &&
+      params.parentOperationId &&
+      this.#get().operations[params.parentOperationId]?.parentOperationId === localTask.operationId
+        ? localTask
+        : undefined;
+    const isSubAgent = params.isSubAgent || Boolean(taskResume);
 
     // Extract values from context
     const { agentId, topicId, threadId, subAgentId, groupId, scope } = context;
@@ -743,6 +776,7 @@ export class StreamingExecutorActionImpl {
     });
 
     try {
+      taskResume?.resume();
       if (shouldAssociateParentMessage) {
         this.#get().associateMessageWithOperation(parentMessageId, operationId);
       }
@@ -830,6 +864,7 @@ export class StreamingExecutorActionImpl {
         deviceLocalMcpManifests,
         disableTools,
         ...(prepared && { prepared }),
+        ...(frozenExecutionContext && { frozenExecutionContext }),
         topicId,
         threadId: threadId ?? undefined,
         initialState: params.initialState,
@@ -894,12 +929,13 @@ export class StreamingExecutorActionImpl {
         topicGrants: Object.values(projectWorkspaceState.grantsByTopicDevice).flat(),
         topicId: topicId ?? undefined,
       });
-      // Freeze the user's approval choice with the operation and carry it to
-      // the final device boundary. Without this, tool approval was automatic
-      // while filesystem scope checks still behaved as manual approval.
+      const userInterventionConfig = getClientInterventionConfig(
+        frozenExecutionContext.approvalMode,
+      );
+      // The runtime and device dispatch share the same approval policy.
       frozenExecutionContext = {
         ...frozenExecutionContext,
-        approvalMode: toolInterventionSelectors.approvalMode(getUserStoreState()),
+        approvalMode: userInterventionConfig.approvalMode,
       };
       // Agent state reconstruction may already have resolved the workspace authority.
       // Always publish that frozen value to the new runtime operation because builtin
@@ -947,8 +983,10 @@ export class StreamingExecutorActionImpl {
 
       const directUserMessageId =
         params.directUserMessageId ?? (parentMessageType === 'user' ? parentMessageId : undefined);
+      // A form response can contain arbitrary text. Only a direct request to
+      // the agent can grant path access, while task resumes reuse explicit grants.
       const directMessage =
-        !params.isSubAgent && directUserMessageId
+        !isSubAgent && directUserMessageId
           ? originalMessages.find((item) => item.id === directUserMessageId && item.role === 'user')
           : undefined;
       if (
@@ -1071,7 +1109,7 @@ export class StreamingExecutorActionImpl {
         operationId,
       });
 
-      let state = initialAgentState;
+      let state: AgentState = { ...initialAgentState, userInterventionConfig };
       let nextContext = initialAgentContext;
 
       log('[executeClientAgent] Agent runtime loop start, initial phase: %s', nextContext.phase);
@@ -1289,14 +1327,45 @@ export class StreamingExecutorActionImpl {
         runtimeType: 'client' as const,
       };
 
+      // Keep the member result from the runtime boundary before releasing the
+      // operation, which can re-enable SWR reads on the completed thread.
+      const initialMemberTask = localTask && params.parentOperationId === localTask.operationId;
+      const taskMessages =
+        state.status === 'done' && (taskResume || initialMemberTask)
+          ? this.#get().dbMessagesMap[messageKey]
+          : undefined;
+      const error = state.error as unknown;
+      const errorMessage =
+        state.interruption?.reason ??
+        (typeof error === 'string'
+          ? error
+          : error &&
+              typeof error === 'object' &&
+              'message' in error &&
+              typeof error.message === 'string'
+            ? error.message
+            : undefined);
       const { requeued } = await runLifecycle.completeRun(completeEvent);
+      const result = {
+        cost: state.cost,
+        ...(errorMessage && { error: errorMessage }),
+        model,
+        provider: provider ?? undefined,
+        status: state.status,
+        ...(taskMessages && { taskMessages }),
+        usage: state.usage,
+      };
+      // A resumed member segment reports here. The initial member segment
+      // returns its result to the spawning executor, which reports it once.
+      // Queued user input is a separate turn from the assigned task.
+      taskResume?.report(result);
       // A queued follow-up sendMessage was scheduled — skip the post-run notification.
-      if (requeued) return;
+      if (requeued) return initialMemberTask ? result : undefined;
 
       await runLifecycle.afterRunComplete(completeEvent);
 
       // Return usage and cost data for caller to use
-      return { cost: state.cost, model, provider: provider ?? undefined, usage: state.usage };
+      return result;
     } catch (error) {
       await runLifecycle.onRunError({
         context,
@@ -1305,6 +1374,10 @@ export class StreamingExecutorActionImpl {
         runId: operationId,
         runScope,
         runtimeType: 'client',
+      });
+      taskResume?.report({
+        ...(error instanceof Error && { error: error.message }),
+        status: 'error',
       });
       throw error;
     }

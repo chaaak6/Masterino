@@ -410,7 +410,7 @@ export class GroupAgentBuilderExecutionRuntime {
       const agentDisplay = agentName ? `${agentName} (ID: ${args.agentId})` : args.agentId;
 
       // Check if this is the supervisor agent (cannot be removed)
-      if (group.supervisorAgentId === args.agentId) {
+      if (agent.isSupervisor || group.supervisorAgentId === args.agentId) {
         return {
           content: `Cannot remove supervisor agent ${agentDisplay} from the group`,
           state: {
@@ -424,20 +424,25 @@ export class GroupAgentBuilderExecutionRuntime {
       }
 
       // Remove the agent from the group via service
-      await chatGroupService.removeAgentsFromGroup(groupId, [args.agentId]);
+      const { removedFromGroup } = await chatGroupService.removeAgentsFromGroup(groupId, [
+        args.agentId,
+      ]);
+      const removed = removedFromGroup > 0;
 
       // Refresh the group detail in the store
       await state.refreshGroupDetail(groupId);
 
       return {
-        content: `Successfully removed agent ${agentDisplay} from the group`,
+        content: removed
+          ? `Successfully removed agent ${agentDisplay} from the group`
+          : `No membership was removed for agent ${agentDisplay}`,
         state: {
           agentAvatar,
           agentId: args.agentId,
           agentName,
-          success: true,
+          success: removed,
         } as RemoveAgentState,
-        success: true,
+        success: removed,
       };
     } catch (error) {
       return this.handleError(error, 'Failed to remove agent');

@@ -62,9 +62,8 @@ export class ToolActionImpl {
     // chaining it would (in Gateway mode) kick off a halting
     // `decision='rejected'` resume op before our own
     // `decision='rejected_continue'` call below, racing two resume ops on
-    // the same tool_call_id. In client mode it would also duplicate the
-    // reject bookkeeping since `chatStore.rejectAndContinueToolCalling`
-    // already calls `chatStore.rejectToolCalling` internally.
+    // the same tool_call_id. In client mode it would halt the member
+    // that reject-and-continue is about to resume.
     if (hooks.onToolRejected) {
       const shouldProceed = await hooks.onToolRejected(toolMessageId, reason);
       if (shouldProceed === false) return;
@@ -72,8 +71,7 @@ export class ToolActionImpl {
 
     // Delegate to ChatStore for rejection + continuation. In Gateway mode
     // this fires a single `decision='rejected_continue'` resume op; in
-    // client mode it persists the rejection via an internal
-    // `chatStore.rejectToolCalling` call before resuming the local runtime.
+    // client mode it persists the rejection before resuming the local runtime.
     const chatStore = useChatStore.getState();
     await chatStore.rejectAndContinueToolCalling(toolMessageId, reason, context);
   };

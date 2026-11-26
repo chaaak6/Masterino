@@ -153,26 +153,52 @@ describe('agent-group command', () => {
   });
 
   describe('remove-agents', () => {
-    it('should remove agents from group', async () => {
-      mockTrpcClient.group.removeAgentsFromGroup.mutate.mockResolvedValue({});
-
-      const program = createProgram();
-      await program.parseAsync([
-        'node',
-        'test',
-        'agent-group',
-        'remove-agents',
-        'g1',
-        '--agent-ids',
-        'a1',
-        '--yes',
-      ]);
-
-      expect(mockTrpcClient.group.removeAgentsFromGroup.mutate).toHaveBeenCalledWith({
-        agentIds: ['a1'],
-        deleteVirtualAgents: true,
-        groupId: 'g1',
-      });
+    it('reports that nothing was unlinked when the group has no matching members', async () => {
+      mockTrpcClient.group.removeAgentsFromGroup.mutate.mockResolvedValue({ removedFromGroup: 0 });
+      const originalExitCode = process.exitCode;
+      try {
+        await createProgram().parseAsync([
+          'node',
+          'test',
+          'agent-group',
+          'remove-agents',
+          'g1',
+          '--agent-ids',
+          'unknown',
+          '--yes',
+        ]);
+        expect(process.exitCode).toBe(1);
+        expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Removed 0'));
+      } finally {
+        process.exitCode = originalExitCode;
+      }
     });
+
+    it.each([{ flags: [] }, { flags: ['--keep-virtual'] }])(
+      'unlinks agents with flags $flags',
+      async ({ flags }) => {
+        mockTrpcClient.group.removeAgentsFromGroup.mutate.mockResolvedValue({
+          removedFromGroup: 1,
+        });
+
+        const program = createProgram();
+        await program.parseAsync([
+          'node',
+          'test',
+          'agent-group',
+          'remove-agents',
+          'g1',
+          '--agent-ids',
+          'a1',
+          '--yes',
+          ...flags,
+        ]);
+
+        expect(mockTrpcClient.group.removeAgentsFromGroup.mutate).toHaveBeenCalledWith({
+          agentIds: ['a1'],
+          groupId: 'g1',
+        });
+      },
+    );
   });
 });

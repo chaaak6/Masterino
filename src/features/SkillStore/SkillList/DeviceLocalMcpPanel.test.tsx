@@ -1,6 +1,7 @@
 import { deviceLocalMcpErrors, type DeviceLocalMcpServer } from '@lobechat/electron-client-ipc';
 import { MotionProvider } from '@lobehub/ui';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { m } from 'motion/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
@@ -31,8 +32,9 @@ vi.mock('react-i18next', () => ({
 }));
 
 const selectManagement = async (key: string) => {
-  fireEvent.click(await screen.findByRole('button', { name: 'deviceLocalMcp.manage' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: `deviceLocalMcp.${key}` }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'deviceLocalMcp.manage' }));
+  await user.click(await screen.findByRole('menuitem', { name: `deviceLocalMcp.${key}` }));
 };
 
 it('blocks chat setup save after create permission is withdrawn', async () => {

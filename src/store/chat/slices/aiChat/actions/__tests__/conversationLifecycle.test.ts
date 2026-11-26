@@ -14,6 +14,7 @@ import { agentSelectors } from '@/store/agent/selectors';
 import * as agentGroupStore from '@/store/agentGroup';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { buildDraftConversationKey, useProjectWorkspaceStore } from '@/store/projectWorkspace';
 import { getSessionStoreState } from '@/store/session';
 import * as toolStoreModule from '@/store/tool';
@@ -27,7 +28,7 @@ import { resetTestEnvironment, setupMockSelectors, spyOnMessageService } from '.
 vi.mock('zustand/traditional');
 
 vi.mock('@/components/AntdStaticMethods', () => ({
-  message: { info: vi.fn() },
+  message: { error: vi.fn(), info: vi.fn() },
 }));
 
 const executeHeterogeneousAgentMock = vi.hoisted(() => vi.fn());
@@ -135,8 +136,8 @@ const mockClientMessagePersistence = () =>
     userMessageId: TEST_IDS.USER_MESSAGE_ID,
   } as any);
 
-const seedFormalLocalWorkspace = (agentId: string = TEST_IDS.SESSION_ID) => {
-  const draftKey = buildDraftConversationKey({ agentId });
+const seedFormalLocalWorkspace = (agentId: string = TEST_IDS.SESSION_ID, groupId?: string) => {
+  const draftKey = buildDraftConversationKey({ agentId, groupId });
   useProjectWorkspaceStore.setState({
     draftByConversationKey: {
       [draftKey]: {
@@ -1129,65 +1130,68 @@ describe('ConversationLifecycle actions', () => {
         );
       });
 
-      it('should not persist the requested model for heterogeneous agents before the CLI reports it', async () => {
-        mockConstEnv.isDesktop = true;
-        setupMockSelectors({
-          agentConfig: {
-            agencyConfig: {
-              heterogeneousProvider: { command: 'codex', type: 'codex' },
+      it.each([undefined, 'heterogeneous-group'])(
+        'uses the configured heterogeneous runtime and persists its provider for group %s',
+        async (groupId) => {
+          mockConstEnv.isDesktop = true;
+          setupMockSelectors({
+            agentConfig: {
+              agencyConfig: {
+                heterogeneousProvider: { command: 'codex', type: 'codex' },
+              },
+              model: 'claude-sonnet-4-6',
             },
-            model: 'claude-sonnet-4-6',
-          },
-        });
-        seedFormalLocalWorkspace();
-
-        const { result } = renderHook(() => useChatStore());
-
-        const sendMessageInServerSpy = vi
-          .spyOn(aiChatService, 'sendMessageInServer')
-          .mockResolvedValue({
-            assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
-            messages: [
-              createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
-              createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
-            ],
-            topicId: TEST_IDS.TOPIC_ID,
-            topics: [],
-            userMessageId: TEST_IDS.USER_MESSAGE_ID,
-          } as any);
-
-        executeHeterogeneousAgentMock.mockResolvedValue(undefined);
-
-        await act(async () => {
-          await result.current.sendMessage({
-            message: TEST_CONTENT.USER_MESSAGE,
-            context: createTestContext(),
           });
-        });
+          seedFormalLocalWorkspace(TEST_IDS.SESSION_ID, groupId);
 
-        expect(sendMessageInServerSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            newTopic: expect.objectContaining({
-              executionIntent: {
-                platform: 'desktop',
-                target: 'local',
-                targetDeviceId: 'device-local',
-                workspaceId: 'workspace-project',
+          const { result } = renderHook(() => useChatStore());
+
+          const sendMessageInServerSpy = vi
+            .spyOn(aiChatService, 'sendMessageInServer')
+            .mockResolvedValue({
+              assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+              messages: [
+                createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
+                createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
+              ],
+              topicId: TEST_IDS.TOPIC_ID,
+              topics: [],
+              userMessageId: TEST_IDS.USER_MESSAGE_ID,
+            } as any);
+
+          executeHeterogeneousAgentMock.mockResolvedValue(undefined);
+
+          await act(async () => {
+            await result.current.sendMessage({
+              message: TEST_CONTENT.USER_MESSAGE,
+              context: { ...createTestContext(), groupId },
+            });
+          });
+
+          expect(sendMessageInServerSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              newTopic: expect.objectContaining({
+                executionIntent: {
+                  platform: 'desktop',
+                  target: 'local',
+                  targetDeviceId: 'device-local',
+                  workspaceId: 'workspace-project',
+                },
+              }),
+              newAssistantMessage: {
+                provider: 'codex',
               },
             }),
-            newAssistantMessage: {
-              provider: 'codex',
-            },
-          }),
-          expect.any(AbortController),
-        );
-        expect(executeHeterogeneousAgentMock).toHaveBeenCalledWith(
-          expect.any(Function),
-          expect.objectContaining({
-            workingDirectory: '/Users/me/project',
-          }),
-        );
-      });
+            expect.any(AbortController),
+          );
+          expect(executeHeterogeneousAgentMock).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.objectContaining({
+              workingDirectory: '/Users/me/project',
+            }),
+          );
+        },
+      );
 
       it('runs an old-server draft from its explicit legacy cwd and persists the compatibility mirror', async () => {
         mockConstEnv.isDesktop = true;
@@ -1326,6 +1330,65 @@ describe('ConversationLifecycle actions', () => {
             workingDirectory: '/Users/me/existing-project',
           }),
         );
+      });
+
+      it('reports a device verification failure before sending a desktop group message', async () => {
+        mockConstEnv.isDesktop = true;
+        mockGatewayConnectionService.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
+        const sendMessageInServer = mockClientMessagePersistence();
+        const onSendReady = vi.fn(() => true);
+
+        await expect(
+          useChatStore.getState().sendMessage({
+            context: { ...createTestContext(), groupId: 'group-1', topicId: undefined },
+            message: TEST_CONTENT.USER_MESSAGE,
+            onSendReady,
+          }),
+        ).resolves.toBeUndefined();
+
+        expect(antdMessage.error).toHaveBeenCalledWith(
+          new DesktopDeviceIdentityUnavailableError().message,
+        );
+        expect(sendMessageInServer).not.toHaveBeenCalled();
+        expect(onSendReady).not.toHaveBeenCalled();
+      });
+
+      it('uses the gateway for a desktop group topic bound to a different device', async () => {
+        mockConstEnv.isDesktop = true;
+        useProjectWorkspaceStore.setState({
+          topicStatesById: {
+            [TEST_IDS.TOPIC_ID]: {
+              snapshot: {
+                boundDeviceId: 'other-desktop',
+                target: 'local',
+                targetCapturedAt: '2026-09-04T00:00:00.000Z',
+                version: 1,
+              },
+            },
+          },
+        });
+        const executeGatewayAgent = vi.fn().mockResolvedValue({
+          assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+          operationId: 'gateway-op',
+          userMessageId: TEST_IDS.USER_MESSAGE_ID,
+        });
+        const sendMessageInServer = mockClientMessagePersistence();
+        useChatStore.setState({ executeGatewayAgent });
+
+        await useChatStore.getState().sendMessage({
+          context: { ...createTestContext(), groupId: 'remote-group', topicId: TEST_IDS.TOPIC_ID },
+          message: TEST_CONTENT.USER_MESSAGE,
+        });
+
+        expect(executeGatewayAgent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            context: expect.objectContaining({
+              groupId: 'remote-group',
+              topicId: TEST_IDS.TOPIC_ID,
+            }),
+          }),
+        );
+        expect(sendMessageInServer).not.toHaveBeenCalled();
       });
 
       it('routes managed workspace env through the server/device transport, never direct IPC', async () => {

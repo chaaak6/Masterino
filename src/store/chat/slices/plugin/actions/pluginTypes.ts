@@ -1,3 +1,6 @@
+import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
+import { GroupManagementIdentifier } from '@lobechat/builtin-tool-group-management';
+import { isDesktop } from '@lobechat/const';
 import {
   type BuiltinToolResult,
   type ChatToolPayload,
@@ -179,6 +182,7 @@ export class PluginTypesActionImpl {
       const topicId = operation?.context?.topicId ?? rootRuntimeOperationContext?.topicId;
       const executionContext: ExecutionContext | undefined =
         rootRuntimeOperation?.metadata?.executionContext;
+      const target = executionContext?.plan?.target;
       const operationSkills = rootRuntimeOperation?.metadata?.operationSkills;
       const isSubAgent =
         operation?.context?.isSubAgent ?? rootRuntimeOperationContext?.isSubAgent ?? false;
@@ -201,8 +205,23 @@ export class PluginTypesActionImpl {
         groupId = getChatGroupStoreState().activeGroupId;
       }
 
-      // Get group orchestration callbacks if available (for group management tools)
-      const groupOrchestration = this.#get().getGroupOrchestrationCallbacks?.();
+      const groupTopicId =
+        topicId ??
+        (groupId
+          ? (dbMessageSelectors.getDbMessageById(id)(this.#get())?.topicId ??
+            (this.#get().activeGroupId === groupId ? this.#get().activeTopicId : undefined))
+          : undefined);
+      const groupOrchestration =
+        groupId &&
+        (payload.identifier === GroupManagementIdentifier ||
+          payload.identifier === AgentManagementIdentifier)
+          ? this.#get().getGroupOrchestrationCallbacks({
+              executionContext,
+              groupId,
+              preferLocal: isDesktop && (target === undefined || target === 'local'),
+              topicId: groupTopicId ?? undefined,
+            })
+          : undefined;
 
       // Sub-agent runner injected for sub-agent-spawning tools (lobe-agent.callSubAgent).
       // Runs the sub-agent in an isolated thread using the current client runtime

@@ -36,7 +36,7 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
 }));
 
 interface ErrorStateProps {
-  taskDetail: TaskDetail;
+  taskDetail: Omit<TaskDetail, 'threadId'>;
 }
 
 /**

@@ -4,7 +4,6 @@ import { type LobeAgentConfig } from '@lobechat/types';
 import { cleanObject, merge } from '@lobechat/utils';
 import { type PartialDeep } from 'type-fest';
 
-import { AgentModel } from '@/database/models/agent';
 import { ChatGroupModel } from '@/database/models/chatGroup';
 import { type UserModel } from '@/database/models/user';
 import { AgentGroupRepository } from '@/database/repositories/agentGroup';
@@ -20,12 +19,10 @@ type DefaultAgentConfig = Awaited<ReturnType<UserModel['getUserSettingsDefaultAg
  * Handles agent config merging for group members.
  */
 export class AgentGroupService {
-  private readonly agentModel: AgentModel;
   private readonly chatGroupModel: ChatGroupModel;
   private readonly agentGroupRepo: AgentGroupRepository;
 
   constructor(db: LobeChatDatabase, userId: string, workspaceId?: string) {
-    this.agentModel = new AgentModel(db, userId, workspaceId);
     this.chatGroupModel = new ChatGroupModel(db, userId, workspaceId);
     this.agentGroupRepo = new AgentGroupRepository(db, userId, workspaceId);
   }
@@ -45,37 +42,10 @@ export class AgentGroupService {
   }
 
   /**
-   * Delete a group and its associated virtual agents.
-   *
-   * This method:
-   * 1. Gets all agents in the group to identify virtual ones
-   * 2. Deletes the group (CASCADE will delete chatGroupsAgents entries)
-   * 3. Deletes all virtual agents that were members of this group
-   *
-   * @param groupId - The group ID to delete
-   * @returns The deleted group and list of deleted virtual agent IDs
+   * Delete the entire group, including its topics and group-owned virtual agents.
    */
-  async deleteGroup(groupId: string) {
-    // 1. Get all agents in the group to identify virtual ones
-    const groupAgents = await this.chatGroupModel.getGroupAgents(groupId);
-    const agentIds = groupAgents.map((ga) => ga.agentId);
-
-    // 2. Check which agents are virtual
-    const { virtualAgents } = await this.agentGroupRepo.checkAgentsBeforeRemoval(groupId, agentIds);
-    const virtualAgentIds = virtualAgents.map((a) => a.id);
-
-    // 3. Delete the group (CASCADE will delete chatGroupsAgents entries)
-    const deletedGroup = await this.chatGroupModel.delete(groupId);
-
-    // 4. Delete virtual agents
-    if (virtualAgentIds.length > 0) {
-      await this.agentModel.batchDelete(virtualAgentIds);
-    }
-
-    return {
-      deletedVirtualAgentIds: virtualAgentIds,
-      group: deletedGroup,
-    };
+  deleteGroup(groupId: string) {
+    return this.agentGroupRepo.deleteGroup(groupId);
   }
 
   /**

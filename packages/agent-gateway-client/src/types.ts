@@ -302,6 +302,7 @@ export interface AgentStreamClientEvents {
   disconnected: () => void;
   error: (error: Error) => void;
   reconnecting: (delay: number) => void;
+  recovery_exhausted: () => void;
   session_complete: () => void;
   status_changed: (status: ConnectionStatus) => void;
 }

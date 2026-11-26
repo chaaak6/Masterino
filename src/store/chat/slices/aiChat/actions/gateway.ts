@@ -4,8 +4,13 @@ import {
   type AgentStreamEvent,
   type ConnectionStatus,
 } from '@lobechat/agent-gateway-client';
+import { LOADING_FLAT } from '@lobechat/const';
 import type { ConversationContext, ExecAgentResult, MessageMetadata } from '@lobechat/types';
+import { TRPCClientError } from '@trpc/client';
+import isEqual from 'fast-deep-equal';
+import { t } from 'i18next';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import { SameOriginAgentStreamClient } from '@/services/agentRuntime/SameOriginAgentStreamClient';
 import {
   aiAgentService,
@@ -17,8 +22,10 @@ import { topicService } from '@/services/topic';
 import { getAgentStoreState } from '@/store/agent';
 import { chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { consumePendingTopicRepos, getPendingTopicRepos } from '@/store/chat/pendingTopicRepos';
-import { topicSelectors } from '@/store/chat/selectors';
+import { dbMessageSelectors, operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import type { ChatStore } from '@/store/chat/store';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import {
   getProjectWorkspaceStoreState,
   resolvePendingTopicExecutionIntent,
@@ -30,6 +37,12 @@ import { settingsSelectors, toolInterventionSelectors } from '@/store/user/selec
 import { createGatewayEventHandler } from './gatewayEventHandler';
 
 type Setter = StoreSetter<ChatStore>;
+
+const getTerminalTokenRefreshErrorCode = (error: unknown) => {
+  if (!(error instanceof TRPCClientError)) return;
+  const code = error.data?.code;
+  if (code === 'NOT_FOUND' || code === 'FORBIDDEN' || code === 'UNAUTHORIZED') return code;
+};
 
 // ─── Types ───
 
@@ -61,7 +74,7 @@ export interface ConnectGatewayParams {
   /**
    * Called when the session completes (agent_runtime_end or session_complete)
    */
-  onSessionComplete?: (error?: Error) => void;
+  onSessionComplete?: (error?: Error, info?: { serverMayBeRunning: true }) => void;
   /**
    * The operation ID returned by execAgent
    */
@@ -114,6 +127,8 @@ export class GatewayActionImpl {
     const client = gatewayUrl
       ? this.createClient({ gatewayUrl, operationId, resumeOnConnect, token })
       : new SameOriginAgentStreamClient(operationId, topicId);
+    const isCurrentConnection = () =>
+      this.#get().gatewayConnections[operationId]?.client === client;
 
     // Track connection in store
     this.#set(
@@ -127,17 +142,20 @@ export class GatewayActionImpl {
       'connectToGateway',
     );
 
-    // Wire up status changes
+    // Connection attempts are still recovering until they authenticate.
+    let recovering = false;
     client.on('status_changed', (status) => {
+      if (!isCurrentConnection()) return;
+      if (status === 'reconnecting') recovering = true;
+      else if (status === 'connected' || status === 'disconnected') recovering = false;
       this.#get().updateOperationMetadata(localOperationId, {
-        streamRecovery:
-          status === 'reconnecting'
-            ? {
-                attempt: 0,
-                maxAttempts: 0,
-                offline: typeof navigator !== 'undefined' && !navigator.onLine,
-              }
-            : undefined,
+        streamRecovery: recovering
+          ? {
+              attempt: 0,
+              maxAttempts: 0,
+              offline: typeof navigator !== 'undefined' && !navigator.onLine,
+            }
+          : undefined,
       });
       this.#set(
         (state) => {
@@ -159,20 +177,26 @@ export class GatewayActionImpl {
     let sessionCompleted = false;
     let pendingEvents: Promise<void> = Promise.resolve();
     let processingError: Error | undefined;
-    const fireSessionComplete = (error?: Error) => {
+    const fireSessionComplete = (error?: Error, serverMayBeRunning = false) => {
       if (sessionCompleted) return;
       sessionCompleted = true;
       // Drain queued chunks and the terminal snapshot before clearing the root loading state.
-      void pendingEvents.then(() => onSessionComplete?.(error ?? processingError));
+      void pendingEvents.then(() => {
+        const failure = error ?? processingError;
+        if (serverMayBeRunning) onSessionComplete?.(failure, { serverMayBeRunning: true });
+        else if (failure) onSessionComplete?.(failure);
+        else onSessionComplete?.();
+      });
     };
 
     // Forward agent events to caller, and track terminal events
     client.on('agent_event', (event) => {
+      if (!isCurrentConnection()) return;
       if (event.type === 'agent_runtime_end' || event.type === 'error') {
         receivedTerminalEvent = true;
       }
-      pendingEvents = Promise.all([pendingEvents, Promise.resolve(onEvent?.(event))])
-        .then(() => {})
+      pendingEvents = pendingEvents
+        .then(() => onEvent?.(event))
         .catch((error) => {
           processingError =
             error instanceof Error ? error : new Error('Unable to reconcile streamed messages');
@@ -182,19 +206,36 @@ export class GatewayActionImpl {
 
     // Handle session completion
     client.on('session_complete', () => {
+      if (!isCurrentConnection()) return;
       this.internal_cleanupGatewayConnection(operationId);
       fireSessionComplete();
     });
 
-    // Handle disconnection — only fire session complete if a terminal agent event
-    // was received (agent_runtime_end / error). Explicit disconnect() and other
-    // non-terminal disconnects should NOT trigger onSessionComplete.
-    // (auth_failed is handled separately below — it's also session-terminal.)
+    const onConnectionLost = () => {
+      if (!isCurrentConnection()) return;
+      this.disconnectFromGateway(operationId);
+      fireSessionComplete(
+        new Error(
+          t('streamRecoveryExpired', {
+            ns: 'error',
+            defaultValue:
+              'Connection interrupted. The server task may still be running. Reopen this topic to recover saved results.',
+          }),
+        ),
+        true,
+      );
+    };
+
+    client.on('recovery_exhausted', onConnectionLost);
     client.on('disconnected', () => {
-      this.internal_cleanupGatewayConnection(operationId);
-      if (receivedTerminalEvent) {
-        fireSessionComplete();
+      // Explicit teardown removes the connection before disconnecting the client.
+      if (!isCurrentConnection()) return;
+      if (!receivedTerminalEvent) {
+        onConnectionLost();
+        return;
       }
+      this.internal_cleanupGatewayConnection(operationId);
+      fireSessionComplete();
     });
 
     // Handle auth failures — server-side terminal: the op no longer exists on
@@ -204,29 +245,29 @@ export class GatewayActionImpl {
     // never gets cleared either, so each revisit re-triggers the same broken
     // reconnect.
     client.on('auth_failed', (reason) => {
+      if (!isCurrentConnection()) return;
       console.error(`[Gateway] Auth failed for operation ${operationId}: ${reason}`);
       this.internal_cleanupGatewayConnection(operationId);
       fireSessionComplete(new Error(`Agent connection unavailable: ${reason}`));
     });
 
-    // Handle expired-but-recoverable auth: the JWT is past `exp` but the op
-    // is still alive on the server. Refresh the token, hand it to the client,
-    // and reconnect. If the refresh itself fails (refresh API down, server
-    // refused refresh, etc.), fall back to terminal — leaving the op
-    // `running` would freeze the input. The server keeps the ws open after
-    // `auth_expired` to give the client a chance to recover, so we must
-    // explicitly `disconnect()` before completing — otherwise heartbeat and
-    // autoReconnect would keep running past the local op's lifetime.
+    // An expired JWT can be refreshed while the operation is still running.
+    // A transport failure leaves saved results recoverable on the next visit.
     client.on('auth_expired', async () => {
       try {
         const { token: fresh } = await aiAgentService.refreshGatewayToken(topicId);
+        if (!isCurrentConnection()) return;
         client.updateToken(fresh);
         await client.reconnect();
       } catch (error) {
+        if (!isCurrentConnection()) return;
         console.error(`[Gateway] Token refresh failed for operation ${operationId}:`, error);
-        client.disconnect();
-        this.internal_cleanupGatewayConnection(operationId);
-        fireSessionComplete();
+        if (getTerminalTokenRefreshErrorCode(error)) {
+          this.disconnectFromGateway(operationId);
+          fireSessionComplete(new Error('Agent connection unavailable'));
+          return;
+        }
+        onConnectionLost();
       }
     });
 
@@ -240,8 +281,8 @@ export class GatewayActionImpl {
     const conn = this.#get().gatewayConnections[operationId];
     if (!conn) return;
 
-    conn.client.disconnect();
     this.internal_cleanupGatewayConnection(operationId);
+    conn.client.disconnect();
   };
 
   /**
@@ -382,8 +423,11 @@ export class GatewayActionImpl {
       isNewTopic: isCreateNewTopic,
       topicId: context.topicId,
       topicMetadata: context.topicId
-        ? topicSelectors.getTopicById(context.topicId)(this.#get())?.metadata
+        ? topicSelectors.getTopicById(context.topicId, context.groupId)(this.#get())?.metadata
         : undefined,
+    }).catch((error) => {
+      if (error instanceof DesktopDeviceIdentityUnavailableError) antdMessage.error(error.message);
+      throw error;
     });
 
     const result = await aiAgentService.execAgentTask(
@@ -557,7 +601,7 @@ export class GatewayActionImpl {
       localOperationId: gatewayOpId,
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
-      onSessionComplete: (error) => {
+      onSessionComplete: (error, info) => {
         if (error)
           this.#get().failOperation(gatewayOpId, {
             message: error.message,
@@ -566,17 +610,22 @@ export class GatewayActionImpl {
         else this.#get().completeOperation(gatewayOpId);
         if (result.topicId) {
           this.#get().internal_updateTopicLoading(result.topicId, false);
-          void this.#get().updateTopicStatus?.({
-            agentId: execContext.agentId,
-            groupId: execContext.groupId,
-            status: 'active',
-            topicId: result.topicId,
-          });
-          // Clear running operation from topic metadata (best-effort from frontend;
-          // if browser was closed, reconnect logic will handle stale entries)
-          topicService
-            .updateTopicMetadata(result.topicId, { runningOperation: null })
-            .catch(() => {});
+          if (info?.serverMayBeRunning && error && this.#get().activeTopicId === result.topicId) {
+            antdMessage.warning(error.message);
+          }
+          if (!info?.serverMayBeRunning) {
+            void this.#get().updateTopicStatus?.({
+              agentId: execContext.agentId,
+              groupId: execContext.groupId,
+              status: 'active',
+              topicId: result.topicId,
+            });
+            // Clear running operation from topic metadata (best-effort from frontend;
+            // if browser was closed, reconnect logic will handle stale entries)
+            topicService
+              .updateTopicMetadata(result.topicId, { runningOperation: null })
+              .catch(() => {});
+          }
         }
         onComplete?.();
       },
@@ -594,13 +643,55 @@ export class GatewayActionImpl {
    * and establishes a new WebSocket connection with event replay.
    */
   reconnectToGatewayOperation = async (params: {
+    agentId?: string;
     assistantMessageId: string;
+    groupId?: string;
     operationId: string;
     scope?: string;
     threadId?: string | null;
     topicId: string;
   }): Promise<void> => {
     const { assistantMessageId, operationId, topicId, scope, threadId } = params;
+    const resolveConversation = (state: ChatStore) => {
+      const assistantMessage =
+        dbMessageSelectors.getDbMessageById(assistantMessageId)(state) ??
+        Object.values(state.messagesMap)
+          .flat()
+          .find(({ id }) => id === assistantMessageId);
+      const groupId = params.groupId ?? assistantMessage?.groupId;
+      const resolvedThreadId = threadId ?? assistantMessage?.threadId ?? undefined;
+      const context: ConversationContext = {
+        agentId: assistantMessage?.agentId ?? params.agentId ?? state.activeAgentId,
+        groupId,
+        scope: (scope ??
+          (resolvedThreadId
+            ? 'thread'
+            : groupId
+              ? 'group'
+              : 'main')) as ConversationContext['scope'],
+        threadId: resolvedThreadId,
+        topicId,
+      };
+      return { assistantMessage, context };
+    };
+    const isReconnectStale = (state: ChatStore, context: ConversationContext) => {
+      const existingStatus = state.gatewayConnections[operationId]?.status;
+      if (existingStatus && existingStatus !== 'disconnected') return true;
+      const topicOpId = topicSelectors.getTopicById(topicId, context.groupId)(state)?.metadata
+        ?.runningOperation?.operationId;
+      if (topicOpId && topicOpId !== operationId) return true;
+      // A new send owns the conversation as soon as it starts its gateway runtime.
+      // The topic may be open in a drawer or still missing from the list cache.
+      return operationSelectors
+        .getOperationsByContext(context)(state)
+        .some(
+          (op) =>
+            op.type === 'execServerAgentRuntime' &&
+            (op.status === 'running' || op.status === 'paused') &&
+            op.metadata.serverOperationId &&
+            op.metadata.serverOperationId !== operationId,
+        );
+    };
 
     const agentGatewayUrl =
       window.global_serverConfigStore?.getState()?.serverConfig?.agentGatewayUrl;
@@ -613,44 +704,99 @@ export class GatewayActionImpl {
     // Any status other than 'disconnected' means the gateway action already owns this
     // connection (connecting / authenticating / reconnecting / connected). Skip to avoid
     // overwriting the fresh non-resume connect with resumeOnConnect:true.
-    const existingStatus = this.#get().gatewayConnections[operationId]?.status;
-    if (existingStatus && existingStatus !== 'disconnected') return;
+    const initialState = this.#get();
+    if (isReconnectStale(initialState, resolveConversation(initialState).context)) return;
 
-    // Skip reconnect if the topic already has a newer running operation. This
-    // happens when executeGatewayAgent was called (creating a new op) while this
-    // stale reconnect was still queued — connecting to the old op would produce
-    // duplicate streaming events alongside the new connection.
-    const topicCurrentOpId = topicSelectors.getTopicById(topicId)(this.#get())?.metadata
-      ?.runningOperation?.operationId;
-    if (topicCurrentOpId && topicCurrentOpId !== operationId) return;
+    // Get a fresh JWT token (original expired after 5 min).
+    let token = '';
+    if (agentGatewayUrl) {
+      try {
+        ({ token } = await aiAgentService.refreshGatewayToken(topicId));
+      } catch (error) {
+        const code = getTerminalTokenRefreshErrorCode(error);
+        if (!code) throw error;
+        const currentState = this.#get();
+        const { context } = resolveConversation(currentState);
+        if (isReconnectStale(currentState, context)) return;
 
-    // Get a fresh JWT token (original expired after 5 min)
-    const { token } = agentGatewayUrl
-      ? await aiAgentService.refreshGatewayToken(topicId)
-      : { token: '' };
+        // NOT_FOUND also means a completed run cleared its server pointer
+        // before this reconnect. Refresh its saved messages before showing feedback.
+        const messageKey = messageMapKey(context);
+        const messagesBeforeFetch = currentState.dbMessagesMap[messageKey];
+        let savedMessages =
+          code === 'NOT_FOUND'
+            ? await messageService.getMessages(context).catch(() => undefined)
+            : undefined;
+        if (savedMessages?.length === 0) savedMessages = undefined;
+        const state = this.#get();
+        if (isReconnectStale(state, context)) return;
+
+        const currentMessages = state.dbMessagesMap[messageKey];
+        if (savedMessages && currentMessages !== messagesBeforeFetch) {
+          // Keep local changes and accept a rehydrated copy of the same assistant.
+          const previousAssistant = messagesBeforeFetch?.find(
+            ({ id }) => id === assistantMessageId,
+          );
+          const currentAssistant = currentMessages?.find(({ id }) => id === assistantMessageId);
+          const savedAssistant = savedMessages.find(({ id }) => id === assistantMessageId);
+          savedMessages =
+            savedAssistant && currentAssistant && isEqual(currentAssistant, previousAssistant)
+              ? currentMessages?.map((message) =>
+                  message === currentAssistant ? savedAssistant : message,
+                )
+              : undefined;
+        }
+        const messages = savedMessages ?? currentMessages;
+        const assistant = messages?.find(({ id }) => id === assistantMessageId);
+        const notice = t('streamRecoveryExpired', { ns: 'error' });
+        const hasSavedOutput =
+          (assistant?.content && assistant.content !== LOADING_FLAT) || assistant?.tools?.length;
+        if (messages && assistant && !assistant.error && !hasSavedOutput) {
+          state.replaceMessages(
+            messages.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, error: { message: notice, type: 'AgentRuntimeError' } }
+                : message,
+            ),
+            { context },
+          );
+        } else {
+          if (savedMessages) state.replaceMessages(savedMessages, { context });
+          if (!savedMessages && !assistant?.error && state.activeTopicId === topicId) {
+            antdMessage.warning(notice);
+          }
+        }
+
+        const topic = topicSelectors.getTopicById(topicId, context.groupId)(state);
+        if (topic?.metadata?.runningOperation?.operationId === operationId) {
+          state.internal_dispatchTopic({
+            agentId: context.agentId,
+            groupId: context.groupId,
+            id: topicId,
+            type: 'updateTopic',
+            value: { metadata: { ...topic.metadata, runningOperation: null } },
+          });
+          await state.updateTopicStatus?.({
+            agentId: context.agentId,
+            groupId: context.groupId,
+            status: 'active',
+            topicId,
+          });
+        }
+        return;
+      }
+    }
 
     // Re-check after the async token refresh: a newer executeGatewayAgent call may have
     // taken over for this topic while we were waiting. If so, bail to avoid a duplicate stream.
     // (disconnectFromGateway on the stale op is a no-op here because we haven't connected yet.)
-    const topicOpIdAfterRefresh = topicSelectors.getTopicById(topicId)(this.#get())?.metadata
-      ?.runningOperation?.operationId;
-    if (topicOpIdAfterRefresh && topicOpIdAfterRefresh !== operationId) return;
-
-    const agentId = this.#get().activeAgentId;
-    const context = {
-      agentId,
-      scope: (scope ?? 'main') as ConversationContext['scope'],
-      threadId: threadId ?? null,
-      topicId,
-    };
+    const state = this.#get();
+    const { assistantMessage, context } = resolveConversation(state);
+    if (isReconnectStale(state, context)) return;
 
     // Anchor the operation to the run's real start: the assistant message was
     // created when the run began. Defaulting to Date.now() here would reset
     // elapsed-time displays (OpStatusTray) to zero on every page refresh.
-    const assistantMessage = Object.values(this.#get().messagesMap)
-      .flat()
-      .find((m) => m.id === assistantMessageId);
-
     // `createdAt` is typed as a number but, after a DB rehydrate, it can arrive
     // as a Date / ISO string (the message service casts rows `as unknown` without
     // converting). Normalize to epoch ms here so the elapsed-time math stays a
@@ -694,7 +840,7 @@ export class GatewayActionImpl {
       localOperationId: gatewayOpId,
       gatewayUrl: agentGatewayUrl,
       onEvent: eventHandler,
-      onSessionComplete: (error) => {
+      onSessionComplete: (error, info) => {
         if (error)
           this.#get().failOperation(gatewayOpId, {
             message: error.message,
@@ -702,8 +848,13 @@ export class GatewayActionImpl {
           });
         else this.#get().completeOperation(gatewayOpId);
         this.#get().internal_updateTopicLoading(topicId, false);
+        if (info?.serverMayBeRunning) {
+          if (error && this.#get().activeTopicId === topicId) antdMessage.warning(error.message);
+          return;
+        }
         void this.#get().updateTopicStatus?.({
           agentId: context.agentId,
+          groupId: context.groupId,
           status: 'active',
           topicId,
         });

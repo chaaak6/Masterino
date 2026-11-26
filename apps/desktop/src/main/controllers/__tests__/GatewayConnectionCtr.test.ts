@@ -3,9 +3,8 @@ import type { execSync as ExecSyncType } from 'node:child_process';
 import type * as LocalFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as pythonRuntime from '@/modules/pythonRuntime';
-
 import type { App } from '@/core/App';
+import * as pythonRuntime from '@/modules/pythonRuntime';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import ImessageBridgeService from '@/services/imessageBridgeSrv';
 
@@ -1480,6 +1479,132 @@ describe('GatewayConnectionCtr', () => {
   });
 
   describe('getDeviceInfo', () => {
+    it('returns the signed-in device identity before the gateway connects', async () => {
+      const userId = 'signed-in-user';
+      const payload = Buffer.from(JSON.stringify({ sub: userId })).toString('base64url');
+      vi.mocked(mockRemoteServerConfigCtr.getAccessToken).mockResolvedValue(
+        `header.${payload}.sig`,
+      );
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      mockStoreGet.mockImplementation((key: string) => {
+        if (key === 'gatewayDeviceId') return 'stored-connection-id';
+      });
+      const resolveIdentity = vi.spyOn(mockGatewayConnectionSrv, 'resolveDeviceIdentity');
+      ctr.afterAppReady();
+
+      const info = await ctr.getDeviceInfo();
+
+      expect(resolveIdentity).toHaveBeenCalledWith(userId);
+      expect(info.deviceId).toBe(mockGatewayConnectionSrv.getDeviceId());
+      expect(info.identityVerified).toBe(true);
+      expect(MockGatewayClient.lastInstance).toBeNull();
+    });
+
+    it('only reports an opaque credential as verified while it matches the authenticated socket', async () => {
+      const getAccessToken = vi.mocked(mockRemoteServerConfigCtr.getAccessToken);
+      getAccessToken.mockResolvedValue('opaque-token-first-account');
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      mockStoreGet.mockImplementation((key: string) => {
+        if (key === 'gatewayDeviceId') return 'stored-connection-id';
+      });
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+
+      MockGatewayClient.nextConnectResult = { success: true, userId: 'first-user' };
+      await ctr.connect();
+      MockGatewayClient.lastInstance!.simulateConnected('first-user');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: MockGatewayClient.lastOptions.deviceId,
+        identityVerified: true,
+      });
+      MockGatewayClient.lastInstance!.simulateStatusChanged('reconnecting');
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: MockGatewayClient.lastOptions.deviceId,
+        identityVerified: true,
+      });
+
+      getAccessToken.mockResolvedValue('opaque-token-second-account');
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: 'stored-connection-id',
+        identityVerified: false,
+      });
+    });
+
+    it('keeps the live socket identity until the new sign-in reconnects', async () => {
+      const tokenFor = (sub: string) =>
+        `header.${Buffer.from(JSON.stringify({ sub })).toString('base64url')}.sig`;
+      const getAccessToken = vi.mocked(mockRemoteServerConfigCtr.getAccessToken);
+      getAccessToken.mockResolvedValue(tokenFor('first-user'));
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      mockStoreGet.mockImplementation((key: string) => {
+        if (key === 'gatewayDeviceId') return 'stored-connection-id';
+      });
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+      await ctr.connect();
+      const oldClient = MockGatewayClient.lastInstance!;
+      oldClient.simulateConnected('first-user');
+      await vi.advanceTimersByTimeAsync(0);
+
+      getAccessToken.mockResolvedValue(tokenFor('second-user'));
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: 'stored-connection-id',
+        identityVerified: false,
+      });
+      expect(mockGatewayConnectionSrv.getDeviceId()).toBe(oldClient.currentDeviceId);
+
+      await ctr.connect();
+      expect(oldClient.disconnect).toHaveBeenCalledOnce();
+      expect(MockGatewayClient.lastOptions.userId).toBe('second-user');
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: MockGatewayClient.lastOptions.deviceId,
+        identityVerified: true,
+      });
+    });
+
+    it('does not reuse an authenticated subject when the opaque credential changes before retry', async () => {
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      vi.mocked(mockRemoteServerConfigCtr.getAccessToken)
+        .mockResolvedValueOnce('opaque-token-first-account')
+        .mockResolvedValue('opaque-token-second-account');
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+
+      MockGatewayClient.nextConnectResult = { success: true, userId: 'first-user' };
+      await ctr.connect();
+
+      expect(MockGatewayClient.lastOptions.token).toBe('opaque-token-second-account');
+      expect(MockGatewayClient.lastOptions.userId).toBeUndefined();
+    });
+
+    it('does not report success when another connection replaces an opaque-token retry', async () => {
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+
+      const firstAuth = Promise.withResolvers<{ success: true; userId: string }>();
+      MockGatewayClient.nextConnectResult = firstAuth.promise;
+      const firstConnection = ctr.connect();
+      await vi.advanceTimersByTimeAsync(0);
+      const oldClient = MockGatewayClient.lastInstance!;
+      const finishOldDisconnect = Promise.withResolvers<void>();
+      oldClient.disconnect.mockImplementationOnce(() => finishOldDisconnect.promise);
+      firstAuth.resolve({ success: true, userId: 'first-user' });
+      await vi.advanceTimersByTimeAsync(0);
+
+      await ctr.disconnect();
+      await expect(ctr.connect()).resolves.toMatchObject({ success: true });
+      finishOldDisconnect.resolve();
+
+      await expect(firstConnection).resolves.toMatchObject({
+        error: 'Gateway connection attempt was superseded',
+        success: false,
+      });
+      expect(MockGatewayClient.lastInstance).not.toBe(oldClient);
+    });
+
     it('should return device information', async () => {
       mockStoreGet.mockImplementation((key: string) => {
         if (key === 'gatewayEnabled') return true;
@@ -1494,6 +1619,7 @@ describe('GatewayConnectionCtr', () => {
         description: '',
         deviceId: 'my-device',
         hostname: 'mock-hostname',
+        identityVerified: false,
         name: 'mock-hostname',
         platform: process.platform,
       });

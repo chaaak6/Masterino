@@ -240,10 +240,13 @@ const findLastBlockId = (block: AssistantContentBlock | undefined): string | und
 
 /**
  * Recursively finds the last message ID in a message tree
- * Priority: children > tools > compressedGroup.lastMessageId > self
+ * Resolves virtual task and compression groups to persisted messages.
  */
 const findLastMessageIdRecursive = (node: UIChatMessage | undefined): string | undefined => {
   if (!node) return undefined;
+
+  // Batch task wrappers exist only in the display list.
+  if (node.role === 'groupTasks' || node.role === 'tasks') return node.tasks?.at(-1)?.id;
 
   // Priority 1: Dive into children recursively
   if (node.children && node.children.length > 0) {

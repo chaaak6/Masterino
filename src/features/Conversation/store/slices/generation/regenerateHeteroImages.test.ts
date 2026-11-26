@@ -18,7 +18,7 @@ vi.mock('@/store/chat/slices/aiChat/actions/heterogeneousAgentExecutor', () => (
 }));
 
 vi.mock('@/store/chat/slices/aiChat/actions/agentDispatcher', () => ({
-  selectRuntimeType: () => 'hetero',
+  selectConversationRuntime: async () => 'hetero',
 }));
 
 vi.mock('@/store/chat/slices/aiChat/actions/heteroResume', () => ({

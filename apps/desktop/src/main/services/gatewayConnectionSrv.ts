@@ -32,6 +32,12 @@ import { ServiceModule } from './index';
 
 const logger = createLogger('services:GatewayConnectionSrv');
 
+const supersededConnection = {
+  error: 'Gateway connection attempt was superseded',
+  success: false,
+  superseded: true,
+} as const;
+
 // This is an implementation claim from the packaged Electron main process,
 // not a copy of the server manifest. Bump an entry only when the matching
 // controller path and local-file-shell implementation ship in this app.
@@ -153,6 +159,8 @@ export default class GatewayConnectionService extends ServiceModule {
   private authRecoveryPromise: Promise<void> | null = null;
 
   private identitySource: IdentitySource | null = null;
+  private identityUserId: string | null = null;
+  private authenticatedGatewayIdentity?: { client: GatewayClient; token: string; userId: string };
 
   private tokenProvider: (() => Promise<string | null>) | null = null;
   private serverUrlProvider: (() => Promise<string | null | undefined>) | null = null;
@@ -254,10 +262,14 @@ export default class GatewayConnectionService extends ServiceModule {
    * when the machine id is unavailable. Caches the result for this session.
    */
   resolveDeviceIdentity(userId: string): { deviceId: string; identitySource: IdentitySource } {
+    if (this.identityUserId === userId && this.deviceId && this.identitySource) {
+      return { deviceId: this.deviceId, identitySource: this.identitySource };
+    }
     const fallbackId = this.app.storeManager.get('gatewayDeviceId') as string | undefined;
     const identity = deriveDeviceId(userId, { fallbackId });
     this.deviceId = identity.deviceId;
     this.identitySource = identity.identitySource;
+    this.identityUserId = userId;
     return identity;
   }
 
@@ -297,11 +309,25 @@ export default class GatewayConnectionService extends ServiceModule {
     };
   }
 
-  getDeviceInfo() {
+  async getDeviceInfo() {
+    // Routing needs the same user-scoped identity even before the socket connects.
+    // The provider reads the local credential store and does not refresh the token.
+    const token = await this.tokenProvider?.();
+    const identity = this.authenticatedGatewayIdentity;
+    const socketUserId = identity?.client === this.client ? identity?.userId : undefined;
+    const gatewayUserId = identity?.token === token ? socketUserId : undefined;
+    const userId = token && (this.extractUserIdFromToken(token) ?? gatewayUserId);
+    const verifiedUserId = socketUserId && socketUserId !== userId ? undefined : userId;
+    if (verifiedUserId && this.identityUserId !== verifiedUserId) {
+      this.resolveDeviceIdentity(verifiedUserId);
+    }
+
     return {
       description: this.getDeviceDescription(),
-      deviceId: this.getDeviceId(),
+      deviceId:
+        !verifiedUserId && this.identityUserId ? this.getConnectionId() : this.getDeviceId(),
       hostname: os.hostname(),
+      identityVerified: Boolean(verifiedUserId),
       name: this.getDeviceName(),
       platform: process.platform,
     };
@@ -329,7 +355,16 @@ export default class GatewayConnectionService extends ServiceModule {
 
   async connect(): Promise<{ error?: string; success: boolean }> {
     if (this.status === 'connected' || this.status === 'connecting') {
-      return { success: true };
+      const identity = this.authenticatedGatewayIdentity;
+      if (!identity) return { success: true };
+      const token = await this.tokenProvider?.();
+      if (
+        token === identity.token ||
+        (token && this.extractUserIdFromToken(token) === identity.userId)
+      ) {
+        return { success: true };
+      }
+      // A fresh sign-in can replace credentials while the old socket is live.
     }
     this.authRefreshAttempted = false;
     this.setConnectionError(undefined);
@@ -337,6 +372,7 @@ export default class GatewayConnectionService extends ServiceModule {
   }
 
   async disconnect(): Promise<{ success: boolean }> {
+    this.authenticatedGatewayIdentity = undefined;
     if (this.client) {
       await this.client.disconnect();
       this.client = null;
@@ -347,12 +383,13 @@ export default class GatewayConnectionService extends ServiceModule {
     return { success: true };
   }
 
-  private async doConnect(
-    verifiedUserId?: string,
-    identityRetry = false,
-  ): Promise<{ error?: string; success: boolean }> {
+  private async doConnect(verifiedIdentity?: {
+    token: string;
+    userId: string;
+  }): Promise<{ error?: string; success: boolean; superseded?: true }> {
     if (this.app.isQuiting) return { success: false, error: 'Application is shutting down' };
     // Clean up any existing client
+    this.authenticatedGatewayIdentity = undefined;
     if (this.client) {
       await this.client.disconnect();
       this.client = null;
@@ -383,7 +420,8 @@ export default class GatewayConnectionService extends ServiceModule {
     }
 
     const gatewayUrl = this.getGatewayUrl();
-    const userId = verifiedUserId || this.extractUserIdFromToken(token);
+    const verifiedUserId = verifiedIdentity?.token === token ? verifiedIdentity.userId : undefined;
+    const userId = this.extractUserIdFromToken(token) ?? verifiedUserId;
     logger.info(
       `Connecting to device gateway: ${gatewayUrl}, identityAvailable: ${Boolean(userId)}`,
     );
@@ -394,6 +432,7 @@ export default class GatewayConnectionService extends ServiceModule {
       this.resolveDeviceIdentity(userId);
     }
 
+    const connectionId = this.getConnectionId();
     const client = new GatewayClient({
       capabilities: {
         executionContextValidation: true,
@@ -402,8 +441,8 @@ export default class GatewayConnectionService extends ServiceModule {
         },
       },
       channel: isDev ? 'desktop-dev' : 'desktop',
-      connectionId: this.getConnectionId(),
-      deviceId: this.getDeviceId(),
+      connectionId,
+      deviceId: userId ? this.getDeviceId() : connectionId,
       gatewayUrl,
       logger,
       serverUrl,
@@ -420,14 +459,16 @@ export default class GatewayConnectionService extends ServiceModule {
       if (initialConnectPending) return;
       void this.handleReauthenticatedClient(
         client,
+        token,
         reauthenticatedUserId,
         expectedAuthenticatedUserId,
-        identityRetry,
+        Boolean(verifiedUserId),
       );
     });
 
     const result = await client.connect();
     initialConnectPending = false;
+    if (this.client !== client) return supersededConnection;
     if ('code' in result) {
       this.setConnectionError({
         code: result.code,
@@ -448,14 +489,16 @@ export default class GatewayConnectionService extends ServiceModule {
     // A legacy token may not be locally decodable even though the gateway can
     // verify it. Reconnect once with the verified identity so deviceId remains
     // stable and the live socket matches the registered device row.
-    if (!userId && authenticatedUserId && !identityRetry) {
+    if (!userId && authenticatedUserId) {
       await client.disconnect();
-      if (this.client === client) this.client = null;
-      return this.doConnect(authenticatedUserId, true);
+      if (this.client !== client) return supersededConnection;
+      this.client = null;
+      return this.doConnect({ token, userId: authenticatedUserId });
     }
 
     if (authenticatedUserId) {
       const identity = this.resolveDeviceIdentity(authenticatedUserId);
+      this.authenticatedGatewayIdentity = { client, token, userId: authenticatedUserId };
       await this.deviceRegistrar?.({
         deviceId: identity.deviceId,
         hostname: os.hostname(),
@@ -474,6 +517,7 @@ export default class GatewayConnectionService extends ServiceModule {
 
   private async handleReauthenticatedClient(
     client: GatewayClient,
+    token: string,
     authenticatedUserId: string | undefined,
     expectedUserId: string | undefined,
     identityRetry: boolean,
@@ -497,10 +541,11 @@ export default class GatewayConnectionService extends ServiceModule {
         this.failConnection('AUTH_FAILED', 'Authenticated device identity changed', false);
         return;
       }
-      await this.doConnect(authenticatedUserId, true);
+      await this.doConnect({ token, userId: authenticatedUserId });
       return;
     }
 
+    this.authenticatedGatewayIdentity = { client, token, userId: authenticatedUserId };
     await this.deviceRegistrar?.({
       deviceId: identity.deviceId,
       hostname: os.hostname(),
@@ -559,6 +604,8 @@ export default class GatewayConnectionService extends ServiceModule {
     });
 
     client.on('auth_expired', () => {
+      if (client !== this.client) return;
+      this.authenticatedGatewayIdentity = undefined;
       logger.warn('Received auth_expired, will reconnect with refreshed token');
       this.handleAuthExpired();
     });
@@ -575,6 +622,7 @@ export default class GatewayConnectionService extends ServiceModule {
 
   private recoverAuthentication(client: GatewayClient, reason: string) {
     if (client !== this.client || this.authRecoveryPromise) return;
+    this.authenticatedGatewayIdentity = undefined;
 
     this.authRecoveryPromise = (async () => {
       if (this.authRefreshAttempted || !this.tokenRefresher) {
@@ -591,7 +639,7 @@ export default class GatewayConnectionService extends ServiceModule {
       }
       if (!this.app.storeManager.get('gatewayEnabled')) return;
       const reconnectResult = await this.doConnect();
-      if (!reconnectResult.success) {
+      if (!reconnectResult.success && !reconnectResult.superseded) {
         this.failConnection('AUTH_REQUIRED', reconnectResult.error || reason, false);
       }
     })().finally(() => {

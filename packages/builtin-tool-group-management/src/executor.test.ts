@@ -284,7 +284,7 @@ describe('GroupManagementExecutor', () => {
       const ctx = createMockContext();
 
       const result = await groupManagementExecutor.executeAgentTask(
-        { agentId: 'agent-1', instruction: 'Do something', title: 'Test Task' },
+        { agentId: 'agent-1', instruction: 'Do something', runInClient: true, title: 'Test Task' },
         ctx,
       );
 
@@ -336,6 +336,7 @@ describe('GroupManagementExecutor', () => {
         instruction: 'Do something',
         supervisorAgentId: 'supervisor-agent',
         timeout: 30000,
+        title: 'Test Task',
         toolMessageId: 'test-message-id',
       });
     });

@@ -1,9 +1,15 @@
 import type { AgentStreamEvent } from '@lobechat/agent-gateway-client';
+import { LOADING_FLAT } from '@lobechat/const';
 import { RequestTrigger } from '@lobechat/types';
+import { TRPCClientError } from '@trpc/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import type * as ConstVersion from '@/const/version';
 import { aiAgentService } from '@/services/aiAgent';
+import { messageService } from '@/services/message';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { buildDraftConversationKey } from '@/store/projectWorkspace/draftKey';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace/store';
 
@@ -28,6 +34,10 @@ vi.mock('@/services/topic', () => ({
   topicService: {
     updateTopicMetadata: vi.fn().mockResolvedValue(undefined),
   },
+}));
+
+vi.mock('@/components/AntdStaticMethods', () => ({
+  message: { error: vi.fn(), warning: vi.fn() },
 }));
 
 const mockUserDefaultConfig = vi.hoisted(() => ({
@@ -292,7 +302,7 @@ describe('GatewayActionImpl', () => {
       expect(state.gatewayConnections['op-1'].status).toBe('connected');
     });
 
-    it('should forward agent events to onEvent callback', () => {
+    it('should forward agent events to onEvent callback', async () => {
       const { action, mockClient } = createTestAction();
       const events: AgentStreamEvent[] = [];
 
@@ -315,8 +325,46 @@ describe('GatewayActionImpl', () => {
       };
       mockClient.emitEvent('agent_event', testEvent);
 
+      await Promise.resolve();
       expect(events).toHaveLength(1);
       expect(events[0]).toEqual(testEvent);
+    });
+
+    it('applies replayed events in order before finishing the conversation', async () => {
+      const { action, mockClient } = createTestAction();
+      const applied: number[] = [];
+      let release!: () => void;
+      const firstWrite = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const completed = vi.fn();
+      action.connectToGateway({
+        gatewayUrl: 'https://gateway.test.com',
+        onEvent: async (event) => {
+          if (event.stepIndex === 1) await firstWrite;
+          applied.push(event.stepIndex);
+        },
+        onSessionComplete: completed,
+        operationId: 'op-1',
+        token: 'test-token',
+        topicId: TEST_TOPIC_ID,
+      });
+      const chunk: AgentStreamEvent = {
+        data: { content: 'hello' },
+        operationId: 'op-1',
+        stepIndex: 1,
+        timestamp: Date.now(),
+        type: 'stream_chunk',
+      };
+      mockClient.emitEvent('agent_event', chunk);
+      mockClient.emitEvent('agent_event', { ...chunk, stepIndex: 2 });
+      mockClient.emitEvent('session_complete');
+      await Promise.resolve();
+      expect(applied).toEqual([]);
+      expect(completed).not.toHaveBeenCalled();
+      release();
+      await vi.waitFor(() => expect(completed).toHaveBeenCalledOnce());
+      expect(applied).toEqual([1, 2]);
     });
 
     it('should cleanup on session_complete', async () => {
@@ -335,6 +383,24 @@ describe('GatewayActionImpl', () => {
       expect(state.gatewayConnections['op-1']).toBeUndefined();
       await Promise.resolve();
       expect(onComplete).toHaveBeenCalledOnce();
+    });
+
+    it('reports a lost subscription without pretending the server run ended', async () => {
+      const { action, mockClient, state } = createTestAction();
+      const onComplete = vi.fn();
+
+      action.connectToGateway({
+        gatewayUrl: 'https://gateway.test.com',
+        onSessionComplete: onComplete,
+        operationId: 'op-1',
+        token: 'test-token',
+        topicId: TEST_TOPIC_ID,
+      });
+      mockClient.emitEvent('disconnected');
+      await Promise.resolve();
+
+      expect(state.gatewayConnections['op-1']).toBeUndefined();
+      expect(onComplete).toHaveBeenCalledWith(expect.any(Error), { serverMayBeRunning: true });
     });
 
     it('should cleanup on disconnected', () => {
@@ -439,12 +505,19 @@ describe('GatewayActionImpl', () => {
         expect(onSessionComplete).not.toHaveBeenCalled();
       });
 
-      it('should fire onSessionComplete when token refresh itself throws', async () => {
+      it.each([
+        ['transport failure', new Error('refresh API down'), true],
+        [
+          'missing operation',
+          Object.assign(new TRPCClientError('No running operation'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+          false,
+        ],
+      ] as const)('settles a token refresh %s', async (_label, error, recoverable) => {
         const { action, mockClient } = createTestAction();
         const onSessionComplete = vi.fn();
-        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
-          new Error('refresh API down'),
-        );
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(error);
 
         action.connectToGateway({
           gatewayUrl: 'https://gateway.test.com',
@@ -463,7 +536,51 @@ describe('GatewayActionImpl', () => {
         expect(mockClient.reconnect).not.toHaveBeenCalled();
         expect(mockClient.disconnect).toHaveBeenCalled();
         await vi.waitFor(() => expect(onSessionComplete).toHaveBeenCalledOnce());
+        if (recoverable) {
+          expect(onSessionComplete).toHaveBeenCalledWith(expect.any(Error), {
+            serverMayBeRunning: true,
+          });
+        } else {
+          expect(onSessionComplete).toHaveBeenCalledWith(expect.any(Error));
+        }
       });
+
+      it.each(['success', 'failure'])(
+        'ignores token refresh %s after replacing the connection',
+        async (outcome) => {
+          const { action, mockClient, state } = createTestAction();
+          const replacement = createMockClient();
+          const onSessionComplete = vi.fn();
+          let settleRefresh!: () => void;
+          vi.mocked(aiAgentService.refreshGatewayToken).mockReturnValueOnce(
+            new Promise((resolve, reject) => {
+              settleRefresh = () =>
+                outcome === 'success'
+                  ? resolve({ token: 'fresh-token' })
+                  : reject(new Error('refresh API down'));
+            }),
+          );
+          const options = {
+            gatewayUrl: 'https://gateway.test.com',
+            operationId: 'op-1',
+            token: 'old-token',
+            topicId: TEST_TOPIC_ID,
+          };
+          action.connectToGateway({ ...options, onSessionComplete });
+          mockClient.emitEvent('auth_expired');
+
+          action.createClient = () => replacement;
+          action.connectToGateway(options);
+          settleRefresh();
+          await Promise.resolve();
+          await Promise.resolve();
+
+          expect(state.gatewayConnections['op-1']?.client).toBe(replacement);
+          expect(replacement.disconnect).not.toHaveBeenCalled();
+          expect(mockClient.reconnect).not.toHaveBeenCalled();
+          expect(onSessionComplete).not.toHaveBeenCalled();
+        },
+      );
     });
 
     it('should disconnect existing connection before creating new one', () => {
@@ -490,7 +607,11 @@ describe('GatewayActionImpl', () => {
       });
 
       expect(firstMock.disconnect).toHaveBeenCalled();
+      firstMock.emitEvent('auth_failed', 'old connection');
+      firstMock.emitEvent('session_complete');
+      firstMock.emitEvent('recovery_exhausted');
       expect(state.gatewayConnections['op-1'].client).toBe(secondMock);
+      expect(secondMock.disconnect).not.toHaveBeenCalled();
     });
   });
 
@@ -560,7 +681,13 @@ describe('GatewayActionImpl', () => {
   describe('executeGatewayAgent', () => {
     function createExecuteTestAction() {
       const mockClient = createMockClient();
-      const state: Record<string, any> = { gatewayConnections: {}, topicDataMap: {} };
+      const state: Record<string, any> = {
+        connectToGateway: vi.fn(),
+        failOperation: vi.fn(),
+        gatewayConnections: {},
+        internal_dispatchMessage: vi.fn(),
+        topicDataMap: {},
+      };
       const set = vi.fn((updater: any) => {
         if (typeof updater === 'function') {
           Object.assign(state, updater(state));
@@ -572,7 +699,6 @@ describe('GatewayActionImpl', () => {
       const get = vi.fn(() => ({
         ...state,
         associateMessageWithOperation: vi.fn(),
-        connectToGateway: vi.fn(),
         internal_dispatchTopic: vi.fn(),
         internal_updateTopicLoading: vi.fn(),
         onOperationCancel: vi.fn(),
@@ -599,6 +725,57 @@ describe('GatewayActionImpl', () => {
 
     afterEach(() => {
       delete (globalThis as any).window;
+    });
+
+    it('warns about a lost subscription without putting an error on the server reply', async () => {
+      const { action, state } = createExecuteTestAction();
+      state.activeTopicId = 'topic-1';
+      vi.mocked(aiAgentService.execAgentTask).mockResolvedValue({
+        agentId: 'agent-1',
+        assistantMessageId: 'ast-1',
+        autoStarted: true,
+        createdAt: new Date().toISOString(),
+        message: 'ok',
+        operationId: 'server-op-1',
+        status: 'created',
+        success: true,
+        timestamp: new Date().toISOString(),
+        token: 'test-token',
+        topicId: 'topic-1',
+        userMessageId: 'usr-1',
+      });
+      await action.executeGatewayAgent({
+        context: { agentId: 'agent-1', scope: 'main', topicId: 'topic-1' },
+        message: 'Start',
+      });
+      const [{ onSessionComplete }] = state.connectToGateway.mock.calls[0] as [
+        Parameters<GatewayActionImpl['connectToGateway']>[0],
+      ];
+      onSessionComplete?.(new Error('Connection interrupted'), { serverMayBeRunning: true });
+
+      expect(state.failOperation).toHaveBeenCalledWith('gw-op-1', expect.anything());
+      expect(state.internal_dispatchMessage).not.toHaveBeenCalled();
+      expect(antdMessage.warning).toHaveBeenCalledWith('Connection interrupted');
+    });
+
+    it('reports a device verification failure before starting a gateway run', async () => {
+      mockEnv.isDesktop = true;
+      mockGateway.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
+      const { action } = createExecuteTestAction();
+      try {
+        await expect(
+          action.executeGatewayAgent({
+            context: { agentId: 'agent-1', groupId: 'group-1', scope: 'group' },
+            message: 'Start',
+          }),
+        ).rejects.toBeInstanceOf(DesktopDeviceIdentityUnavailableError);
+        expect(antdMessage.error).toHaveBeenCalledWith(
+          new DesktopDeviceIdentityUnavailableError().message,
+        );
+        expect(aiAgentService.execAgentTask).not.toHaveBeenCalled();
+      } finally {
+        mockEnv.isDesktop = false;
+      }
     });
 
     it('should forward parentMessageId to execAgentTask for regeneration', async () => {
@@ -1163,7 +1340,11 @@ describe('GatewayActionImpl', () => {
       const state: Record<string, any> = {
         activeAgentId: 'agent-1',
         gatewayConnections: {},
+        dbMessagesMap: {},
         messagesMap: { 'agent-1_topic-1': assistantMessage ? [assistantMessage] : [] },
+        operations: {},
+        operationsByContext: {},
+        replaceMessages: vi.fn(),
         // getTopicById reads here; an empty map yields no running op so the
         // reconnect guards fall through to startOperation.
         topicDataMap: {},
@@ -1194,11 +1375,242 @@ describe('GatewayActionImpl', () => {
       const action = new GatewayActionImpl(set as any, get, undefined);
       action.createClient = vi.fn(() => mockClient);
 
-      return { action, startOperation };
+      return { action, startOperation, state };
     }
 
     afterEach(() => {
       delete (globalThis as any).window;
+    });
+
+    it('skips a stale group reconnect when a new run starts during token refresh and the topic list is empty', async () => {
+      const { action, startOperation, state } = createReconnectTestAction({ id: 'ast-1' });
+      const context = {
+        agentId: 'agent-1',
+        groupId: 'group-1',
+        scope: 'group' as const,
+        topicId: 'topic-1',
+      };
+      vi.mocked(aiAgentService.refreshGatewayToken).mockImplementationOnce(async () => {
+        state.operationsByContext[messageMapKey(context)] = ['new-local-op'];
+        state.operations['new-local-op'] = {
+          context,
+          metadata: { serverOperationId: 'new-server-op' },
+          status: 'running',
+          type: 'execServerAgentRuntime',
+        };
+        return { token: 'fresh-token' };
+      });
+
+      await action.reconnectToGatewayOperation({
+        ...context,
+        assistantMessageId: 'ast-1',
+        operationId: 'old-server-op',
+      });
+
+      expect(startOperation).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { content: 'Saved final result', showError: false },
+      { content: LOADING_FLAT, showError: true },
+    ])(
+      'reloads saved content when the run is unavailable: $content',
+      async ({ content, showError }) => {
+        const { action, startOperation, state } = createReconnectTestAction({ id: 'ast-1' });
+        state.activeTopicId = 'topic-1';
+        const context = {
+          agentId: 'agent-1',
+          groupId: 'group-1',
+          scope: 'group' as const,
+          topicId: 'topic-1',
+        };
+        const savedMessage = {
+          content,
+          createdAt: 0,
+          id: 'ast-1',
+          role: 'assistant' as const,
+          updatedAt: 0,
+        };
+        vi.mocked(messageService.getMessages).mockResolvedValueOnce([savedMessage]);
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+          Object.assign(new TRPCClientError('No running operation found on this topic'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+        );
+        await action.reconnectToGatewayOperation({
+          ...context,
+          assistantMessageId: 'ast-1',
+          operationId: 'server-op-1',
+        });
+
+        expect(startOperation).not.toHaveBeenCalled();
+        const expected = showError
+          ? { ...savedMessage, error: expect.objectContaining({ type: 'AgentRuntimeError' }) }
+          : savedMessage;
+        expect(state.replaceMessages).toHaveBeenCalledWith([expected], { context });
+        expect(antdMessage.warning).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['empty result', 'network error'])(
+      'shows recovery feedback on the cached placeholder when recovery returns %s',
+      async (outcome) => {
+        const { action, state } = createReconnectTestAction({ id: 'ast-1' });
+        const context = {
+          agentId: 'agent-1',
+          groupId: 'group-1',
+          scope: 'group' as const,
+          topicId: 'topic-1',
+        };
+        state.activeTopicId = context.topicId;
+        state.dbMessagesMap[messageMapKey(context)] = [{ content: LOADING_FLAT, id: 'ast-1' }];
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+          Object.assign(new TRPCClientError('Old operation ended'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+        );
+        if (outcome === 'empty result')
+          vi.mocked(messageService.getMessages).mockResolvedValueOnce([]);
+        else
+          vi.mocked(messageService.getMessages).mockRejectedValueOnce(
+            new Error('Network unavailable'),
+          );
+
+        await action.reconnectToGatewayOperation({
+          ...context,
+          assistantMessageId: 'ast-1',
+          operationId: 'old-server-op',
+        });
+
+        expect(state.replaceMessages).toHaveBeenCalledWith(
+          [
+            {
+              content: LOADING_FLAT,
+              error: expect.objectContaining({ type: 'AgentRuntimeError' }),
+              id: 'ast-1',
+            },
+          ],
+          { context },
+        );
+        expect(antdMessage.warning).not.toHaveBeenCalled();
+      },
+    );
+
+    it('reloads a completed thread in the saved assistant context', async () => {
+      const context = {
+        agentId: 'original-agent',
+        groupId: 'group-1',
+        scope: 'thread' as const,
+        threadId: 'member-thread',
+        topicId: 'topic-1',
+      };
+      const loading = {
+        ...context,
+        content: LOADING_FLAT,
+        createdAt: 0,
+        id: 'ast-1',
+        role: 'assistant' as const,
+        updatedAt: 0,
+      };
+      const saved = { ...loading, content: 'Saved member result' };
+      const { action, state } = createReconnectTestAction(undefined);
+      state.dbMessagesMap[messageMapKey(context)] = [loading];
+      vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+        Object.assign(new TRPCClientError('Old operation ended'), { data: { code: 'NOT_FOUND' } }),
+      );
+      vi.mocked(messageService.getMessages).mockResolvedValueOnce([saved]);
+
+      await action.reconnectToGatewayOperation({
+        agentId: 'foreground-agent',
+        assistantMessageId: loading.id,
+        operationId: 'old-server-op',
+        topicId: context.topicId,
+      });
+
+      expect(messageService.getMessages).toHaveBeenCalledWith(context);
+      expect(state.replaceMessages).toHaveBeenCalledWith([saved], { context });
+    });
+
+    it.each([false, true])(
+      'merges a recovered reply into messages added during the fetch (rehydrated: %s)',
+      async (rehydrated) => {
+        const { action, state } = createReconnectTestAction({ id: 'ast-1' });
+        const context = {
+          agentId: 'agent-1',
+          groupId: 'group-1',
+          scope: 'group' as const,
+          topicId: 'topic-1',
+        };
+        const messageKey = messageMapKey(context);
+        const loading = {
+          content: LOADING_FLAT,
+          createdAt: 0,
+          id: 'ast-1',
+          role: 'assistant' as const,
+          updatedAt: 0,
+        };
+        const saved = { ...loading, content: 'Recovered result' };
+        const newMessage = { ...loading, content: 'New user message', id: 'user-2', role: 'user' };
+        state.dbMessagesMap[messageKey] = [loading];
+        vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+          Object.assign(new TRPCClientError('Old operation ended'), {
+            data: { code: 'NOT_FOUND' },
+          }),
+        );
+        vi.mocked(messageService.getMessages).mockImplementationOnce(async () => {
+          state.dbMessagesMap[messageKey] = [rehydrated ? { ...loading } : loading, newMessage];
+          return [saved];
+        });
+
+        await action.reconnectToGatewayOperation({
+          ...context,
+          assistantMessageId: loading.id,
+          operationId: 'old-server-op',
+        });
+
+        expect(state.replaceMessages).toHaveBeenCalledWith([saved, newMessage], { context });
+      },
+    );
+
+    it('reconnects a saved run to its own agent instead of the foreground agent', async () => {
+      const { action, startOperation } = createReconnectTestAction({
+        agentId: 'original-agent',
+        id: 'ast-1',
+      });
+      await action.reconnectToGatewayOperation({
+        assistantMessageId: 'ast-1',
+        operationId: 'server-op-1',
+        topicId: 'topic-1',
+      });
+      expect(startOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({ agentId: 'original-agent' }),
+        }),
+      );
+    });
+
+    it('keeps the local reply intact when token refresh is forbidden', async () => {
+      const { action, startOperation, state } = createReconnectTestAction({ id: 'ast-1' });
+      const context = {
+        agentId: 'agent-1',
+        groupId: 'group-1',
+        scope: 'group' as const,
+        topicId: 'topic-1',
+      };
+      state.activeTopicId = context.topicId;
+      state.dbMessagesMap[messageMapKey(context)] = [{ id: 'ast-1', content: 'Saved result' }];
+      vi.mocked(aiAgentService.refreshGatewayToken).mockRejectedValueOnce(
+        Object.assign(new TRPCClientError('Forbidden'), { data: { code: 'FORBIDDEN' } }),
+      );
+      await action.reconnectToGatewayOperation({
+        ...context,
+        assistantMessageId: 'ast-1',
+        operationId: 'server-op-1',
+      });
+
+      expect(state.replaceMessages).not.toHaveBeenCalled();
+      expect(startOperation).not.toHaveBeenCalled();
+      expect(antdMessage.warning).toHaveBeenCalledOnce();
     });
 
     // After a DB rehydrate (e.g. quit + relaunch), `createdAt` can arrive as an

@@ -89,9 +89,10 @@ const TaskMessage = memo<TaskMessageProps>(({ id, index, disableEditing }) => {
       {taskDetail?.clientMode ? (
         <ClientTaskDetail
           agentId={agentId !== 'supervisor' ? agentId : undefined}
+          content={content}
           groupId={groupId}
-          messageId={id}
           taskDetail={taskDetail}
+          topicId={item.topicId ?? undefined}
         />
       ) : (
         <TaskDetailPanel

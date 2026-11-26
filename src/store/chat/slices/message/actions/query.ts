@@ -6,6 +6,7 @@ import { type SWRResponse } from 'swr';
 import { mutate, useClientDataSWRWithSync } from '@/libs/swr';
 import { messageKeys } from '@/libs/swr/keys';
 import { messageService } from '@/services/message';
+import { operationSelectors } from '@/store/chat/selectors';
 import { type ChatStore } from '@/store/chat/store';
 import { type StoreSetter } from '@/store/types';
 
@@ -144,8 +145,15 @@ export class MessageQueryActionImpl {
         onData: (data) => {
           if (!data || !context.topicId) return;
 
-          // Use replaceMessages to store the fetched messages
-          this.#get().replaceMessages(data, { action: 'useFetchMessages', context });
+          const state = this.#get();
+          // A task may start or resume after the request was issued.
+          if (
+            context.scope === 'thread' &&
+            operationSelectors.hasRunningOperationByContext(context)(state)
+          )
+            return;
+
+          state.replaceMessages(data, { action: 'useFetchMessages', context });
         },
         ...(revalidateOnFocus !== undefined && { revalidateOnFocus }),
       },

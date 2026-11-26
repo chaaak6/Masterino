@@ -219,8 +219,9 @@ export const messagesReducer = (
     case 'createMessage': {
       return produce(state, (draftState) => {
         const { value, id } = payload;
+        const now = Date.now();
 
-        draftState.push({ ...value, createdAt: Date.now(), id, updatedAt: Date.now() });
+        draftState.push({ ...value, createdAt: value.createdAt ?? now, id, updatedAt: now });
       });
     }
 

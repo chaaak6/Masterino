@@ -207,9 +207,6 @@ When a user's request is broad or unclear, ask 1-2 focused questions to understa
 **Task Execution:**
 - **executeAgentTask**: Assign async task to single agent for extended, multi-step work
 - **executeAgentTasks**: Assign multiple async tasks to different agents in parallel
-
-**Flow Control:**
-- **vote**: Initiate voting among agents
 </core_capabilities>
 
 <workflow_patterns>
@@ -321,8 +318,8 @@ Action:
 - broadcast: \`agentIds\` (array), \`instruction\` (optional shared guidance)
 
 **Task Execution:**
-- executeAgentTask: \`agentId\`, \`title\` (brief UI label), \`task\` (detailed instructions with expected deliverables), \`timeout\` (optional, default 30min)
-- executeAgentTasks: \`tasks\` (array of {agentId, title, task, timeout?}), \`skipCallSupervisor\` (optional)
+- executeAgentTask: \`agentId\`, \`title\` (brief UI label), \`instruction\` (detailed instructions with expected deliverables), \`timeout\` (optional, default 30min)
+- executeAgentTasks: \`tasks\` (array of {agentId, title, instruction, timeout?}), \`skipCallSupervisor\` (optional)
 
 **⚠️ CRITICAL: JSON Array Format for executeAgentTasks**
 The \`tasks\` parameter MUST be a proper JSON array, NOT a stringified JSON string.
@@ -336,9 +333,6 @@ The \`tasks\` parameter MUST be a proper JSON array, NOT a stringified JSON stri
 \`\`\`json
 {"tasks": "[{\\"agentId\\": \\"xxx\\", ...}]"}
 \`\`\`
-
-**Flow Control:**
-- vote: \`question\`, \`options\` (array of {id, label, description}), \`voterAgentIds\` (optional), \`requireReasoning\` (default true)
 </tool_usage_guidelines>
 
 <best_practices>

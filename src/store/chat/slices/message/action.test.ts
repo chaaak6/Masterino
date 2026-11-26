@@ -1,7 +1,7 @@
 import { type UIChatMessage } from '@lobechat/types';
 import { TraceEventType } from '@lobechat/types';
 import * as lobeUIModules from '@lobehub/ui';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { type Mock } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -1081,6 +1081,53 @@ describe('chatMessage actions', () => {
         agentId: contextSessionId,
         topicId: contextTopicId,
       });
+    });
+  });
+
+  describe('useFetchMessages', () => {
+    it('keeps the live member transcript when a request started before the task resumed', async () => {
+      const context = {
+        agentId: 'worker',
+        groupId: 'group',
+        scope: 'thread' as const,
+        threadId: 'resumed-thread',
+        topicId: 'topic',
+      };
+      const saved: UIChatMessage = {
+        content: 'Earlier saved answer',
+        createdAt: 0,
+        id: 'member-assistant',
+        role: 'assistant',
+        updatedAt: 0,
+      };
+      const live = { ...saved, content: 'Latest live answer' };
+      let resolveMessages!: (messages: UIChatMessage[]) => void;
+      vi.mocked(messageService.getMessages).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveMessages = resolve;
+        }),
+      );
+      const store = useChatStore.getState();
+      const { result } = renderHook(() => store.useFetchMessages(context));
+      await waitFor(() => expect(messageService.getMessages).toHaveBeenCalledWith(context));
+
+      const { operationId } = store.startOperation({ context, type: 'execClientSubAgent' });
+      try {
+        store.replaceMessages([live], { context });
+        await act(async () => resolveMessages([saved]));
+        await waitFor(() => expect(result.current.data).toEqual([saved]));
+
+        expect(useChatStore.getState().dbMessagesMap[messageMapKey(context)]).toEqual([live]);
+      } finally {
+        store.completeOperation(operationId);
+      }
+
+      const completed = { ...saved, content: 'Saved final answer' };
+      vi.mocked(messageService.getMessages).mockResolvedValueOnce([completed]);
+      await act(async () => {
+        await result.current.mutate();
+      });
+      expect(useChatStore.getState().dbMessagesMap[messageMapKey(context)]).toEqual([completed]);
     });
   });
 

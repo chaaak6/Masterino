@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CHAT_GROUP_CHAT_CONFIG } from '@/const/settings';
+import * as dbAdapter from '@/database/core/db-adaptor';
 import * as AgentModelModule from '@/database/models/agent';
 import * as ChatGroupModelModule from '@/database/models/chatGroup';
 import * as UserModelModule from '@/database/models/user';
@@ -78,10 +79,12 @@ describe('agentGroupRouter', () => {
       () => chatGroupServiceMock as any,
     );
 
-    mockCtx = {
-      serverDB: {},
-      userId,
+    const serverDB = {
+      query: { workspaceMembers: { findFirst: vi.fn().mockResolvedValue({ role: 'editor' }) } },
+      transaction: vi.fn((execute) => execute(serverDB)),
     };
+    vi.spyOn(dbAdapter, 'getServerDB').mockResolvedValue(serverDB as never);
+    mockCtx = { userId };
   });
 
   describe('createGroup', () => {
@@ -348,11 +351,10 @@ describe('agentGroupRouter', () => {
       const caller = agentGroupRouter.createCaller(mockCtx);
       const result = await caller.removeAgentsFromGroup(mockInput);
 
-      expect(agentGroupRepoMock.removeAgentsFromGroup).toHaveBeenCalledWith(
-        'group-1',
-        ['agent-1', 'agent-2'],
-        undefined,
-      );
+      expect(agentGroupRepoMock.removeAgentsFromGroup).toHaveBeenCalledWith('group-1', [
+        'agent-1',
+        'agent-2',
+      ]);
       expect(result).toEqual(mockResult);
     });
   });
@@ -460,7 +462,7 @@ describe('agentGroupRouter', () => {
   });
 
   describe('edit lock', () => {
-    const wsCtx = () => ({ serverDB: {}, userId, workspaceId: 'ws-1' });
+    const wsCtx = () => ({ ...mockCtx, workspaceId: 'ws-1' });
 
     describe('updateGroup write guard', () => {
       it('rejects the update when another member holds the lock', async () => {
@@ -542,10 +544,18 @@ describe('agentGroupRouter', () => {
     });
 
     describe('getGroupLock', () => {
-      it('reports another member as the holder', async () => {
+      it('reports the holder to a workspace viewer without granting lock writes', async () => {
+        chatGroupModelMock.findById.mockResolvedValue({ id: 'group-1' });
+        const serverDB = await dbAdapter.getServerDB();
+        vi.mocked(serverDB.query.workspaceMembers.findFirst).mockResolvedValue({
+          role: 'viewer',
+        } as never);
         vi.spyOn(EditLockService.prototype, 'getActiveHolder').mockResolvedValue('other-user');
 
         const caller = agentGroupRouter.createCaller(wsCtx());
+        await expect(caller.acquireGroupLock({ id: 'group-1' })).rejects.toMatchObject({
+          code: 'FORBIDDEN',
+        });
         const result = await caller.getGroupLock({ id: 'group-1' });
 
         expect(result).toEqual({ expiresAt: null, holderId: 'other-user', lockedByOther: true });

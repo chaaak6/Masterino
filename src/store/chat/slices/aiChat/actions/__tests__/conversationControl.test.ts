@@ -4,21 +4,46 @@ import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
+import type * as ConstVersion from '@/const/version';
 import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgent';
+import { agentSelectors } from '@/store/agent/selectors';
+import { trackLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { initialState as projectWorkspaceInitialState } from '@/store/projectWorkspace/initialState';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace/store';
+import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { useChatStore } from '../../../../store';
 import { messageMapKey } from '../../../../utils/messageMapKey';
-import { createMockMessage, createMockResolvedAgentConfig, TEST_IDS } from './fixtures';
+import {
+  createMockAgentConfig,
+  createMockMessage,
+  createMockResolvedAgentConfig,
+  TEST_IDS,
+} from './fixtures';
 import { resetTestEnvironment } from './helpers';
 
 // Keep zustand mock as it's needed globally
 vi.mock('zustand/traditional');
 
+vi.mock('@/components/AntdStaticMethods', () => ({
+  message: { error: vi.fn() },
+}));
+
 const mockConstEnv = vi.hoisted(() => ({ isDesktop: false }));
 vi.mock('@lobechat/const', async (importOriginal) => {
   const actual = await importOriginal<typeof LobechatConstModule>();
+  return {
+    ...actual,
+    get isDesktop() {
+      return mockConstEnv.isDesktop;
+    },
+  };
+});
+
+vi.mock('@/const/version', async (importOriginal) => {
+  const actual = await importOriginal<typeof ConstVersion>();
   return {
     ...actual,
     get isDesktop() {
@@ -148,6 +173,108 @@ const setupPausedAuthorityResume = (kind: 'scratch' | 'device', mode: 'approve' 
 };
 
 describe('ConversationControl actions', () => {
+  it.each([new Error('Workspace lookup unavailable'), new DesktopDeviceIdentityUnavailableError()])(
+    'shows a %s without saving or consuming the pending approval',
+    async (error) => {
+      const context: ConversationContext = { agentId: 'agent', topicId: 'routing-failure' };
+      const toolMessage = createMockMessage({ id: 'routing-failure-tool', role: 'tool' });
+      useChatStore.setState({ dbMessagesMap: { [messageMapKey(context)]: [toolMessage] } });
+      const state = useChatStore.getState();
+      const saveDecision = vi.spyOn(state, 'optimisticUpdateMessagePlugin');
+      vi.spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent').mockRejectedValueOnce(
+        error,
+      );
+
+      await expect(
+        state.approveToolCalling(toolMessage.id, 'assistant-group', context),
+      ).resolves.toBeUndefined();
+      expect(antdMessage.error).toHaveBeenCalledOnce();
+      if (error instanceof DesktopDeviceIdentityUnavailableError) {
+        expect(antdMessage.error).toHaveBeenCalledWith(error.message);
+      }
+      expect(saveDecision).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['approve', 'submit', 'skip', 'cancel', 'reject', 'rejectAndContinue'] as const)(
+    'settles a local group task on %s even if persistence fails',
+    async (decision) => {
+      const context: ConversationContext = {
+        agentId: TEST_IDS.SESSION_ID,
+        groupId: 'group-task',
+        scope: 'thread',
+        threadId: 'member-thread',
+        topicId: TEST_IDS.TOPIC_ID,
+      };
+      const toolMessage = createMockMessage({ id: 'member-tool', role: 'tool' });
+      useChatStore.setState({ dbMessagesMap: { [messageMapKey(context)]: [toolMessage] } });
+      const state = useChatStore.getState();
+      vi.spyOn(state, 'optimisticUpdateMessagePlugin').mockRejectedValue(new Error('offline'));
+      const { abortController, operationId } = state.startOperation({
+        context,
+        type: 'execClientSubAgent',
+      });
+      const approval = trackLocalTaskApproval(context, operationId, abortController.signal, {
+        onTimeout: vi.fn(),
+        timeout: 30_000,
+      });
+      approval.report({ status: 'waiting_for_human' });
+      const resolveRoute = vi.spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent');
+
+      try {
+        const actions = {
+          approve: () => state.approveToolCalling(toolMessage.id, 'assistant-group', context),
+          cancel: () => state.cancelToolInteraction(toolMessage.id, context),
+          reject: () => state.rejectToolCalling(toolMessage.id, undefined, context),
+          rejectAndContinue: () =>
+            state.rejectAndContinueToolCalling(toolMessage.id, undefined, context),
+          skip: () => state.skipToolInteraction(toolMessage.id, undefined, context),
+          submit: () => state.submitToolInteraction(toolMessage.id, { answer: 'yes' }, context),
+        };
+        const stopsTask = decision === 'cancel' || decision === 'reject';
+        if (stopsTask) await expect(actions[decision]()).rejects.toThrow('offline');
+        else await actions[decision]();
+
+        expect(abortController.signal.aborted).toBe(stopsTask);
+        expect(resolveRoute).not.toHaveBeenCalled();
+        await expect(approval.result).resolves.toMatchObject({
+          ...(!stopsTask && { error: 'offline' }),
+          status: stopsTask ? 'interrupted' : 'error',
+        });
+      } finally {
+        approval.dispose();
+      }
+    },
+  );
+
+  it('cancels the waiting member even when its tool message has been unloaded', async () => {
+    const context: ConversationContext = {
+      agentId: TEST_IDS.SESSION_ID,
+      groupId: 'group-task',
+      scope: 'thread',
+      threadId: 'member-thread',
+      topicId: TEST_IDS.TOPIC_ID,
+    };
+    useChatStore.setState({ dbMessagesMap: {} });
+    const state = useChatStore.getState();
+    const { abortController, operationId } = state.startOperation({
+      context,
+      type: 'execClientSubAgent',
+    });
+    const approval = trackLocalTaskApproval(context, operationId, abortController.signal, {
+      onTimeout: vi.fn(),
+      timeout: 30_000,
+    });
+    approval.report({ status: 'waiting_for_human' });
+    try {
+      await state.cancelToolInteraction('unloaded-member-tool', context);
+      expect(abortController.signal.aborted).toBe(true);
+      await expect(approval.result).resolves.toMatchObject({ status: 'interrupted' });
+    } finally {
+      approval.dispose();
+    }
+  });
+
   describe('stopGenerateMessage', () => {
     it('should cancel running generateAI operations in current context', () => {
       const { result } = renderHook(() => useChatStore());
@@ -566,6 +693,49 @@ describe('ConversationControl actions', () => {
         expect(result.current.pausedExecutionContextByMessage[toolMessage.id]).toBeUndefined();
       },
     );
+
+    it('resumes an approved group tool with the original conversation history', async () => {
+      const { result } = renderHook(() => useChatStore());
+      const context: ConversationContext = {
+        agentId: 'supervisor',
+        groupId: 'group-under-test',
+        scope: 'group',
+        topicId: 'group-topic',
+      };
+      const key = messageMapKey(context);
+      const user = createMockMessage({ id: 'group-user', role: 'user' });
+      const tool = createMockMessage({
+        id: 'group-calculator',
+        plugin: {
+          apiName: 'calculate',
+          arguments: '{}',
+          identifier: 'calculator',
+          type: 'builtin',
+        },
+        role: 'tool',
+        tool_call_id: 'call-group-calculator',
+      });
+      act(() => {
+        useChatStore.setState({
+          activeGroupId: 'another-group',
+          dbMessagesMap: { [key]: [user, tool] },
+          messagesMap: { [key]: [user, tool] },
+        });
+      });
+      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+      vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
+        state: {} as any,
+        context: { phase: 'init' } as any,
+        agentConfig: createMockResolvedAgentConfig(),
+      });
+      const execute = vi.spyOn(result.current, 'executeClientAgent').mockResolvedValue(undefined);
+
+      await result.current.approveToolCalling(tool.id, 'assistant-group', context);
+
+      expect(execute).toHaveBeenCalledWith(
+        expect.objectContaining({ context, messages: expect.arrayContaining([user, tool]) }),
+      );
+    });
 
     it('continues an approved assistant turn with the model persisted on that turn', async () => {
       const { result } = renderHook(() => useChatStore());
@@ -1400,7 +1570,15 @@ describe('ConversationControl actions', () => {
 
       const agentId = 'server-agent';
       const topicId = 'server-topic';
-      const chatKey = messageMapKey({ agentId, topicId });
+      const context = {
+        agentId,
+        groupId: 'group-1',
+        scope: 'group_agent' as const,
+        subAgentId: 'member-1',
+        threadId: null,
+        topicId,
+      };
+      const chatKey = messageMapKey(context);
 
       const toolMessage = createMockMessage({
         id: 'tool-msg-1',
@@ -1417,7 +1595,7 @@ describe('ConversationControl actions', () => {
         });
 
         result.current.startOperation({
-          context: { agentId, topicId, threadId: null },
+          context,
           metadata: { serverOperationId: 'server-op-xyz' },
           type: 'execServerAgentRuntime',
         });
@@ -1438,11 +1616,18 @@ describe('ConversationControl actions', () => {
       const rejectToolCallingSpy = vi
         .spyOn(result.current, 'rejectToolCalling')
         .mockResolvedValue(undefined);
+      const startOperation = vi.spyOn(result.current, 'startOperation');
 
       await act(async () => {
-        await result.current.rejectAndContinueToolCalling('tool-msg-1', 'too risky');
+        await result.current.rejectAndContinueToolCalling('tool-msg-1', 'too risky', context);
       });
 
+      expect(startOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: { ...context, messageId: 'tool-msg-1' },
+          type: 'rejectToolCalling',
+        }),
+      );
       expect(executeGatewayAgentSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           message: '',
@@ -1463,6 +1648,63 @@ describe('ConversationControl actions', () => {
   });
 
   describe('submitToolInteraction', () => {
+    it.each([
+      { gatewayEnabled: true, target: undefined },
+      { gatewayEnabled: false, target: 'device' as const },
+    ])(
+      'resumes a legacy group through the server with gateway=$gatewayEnabled, target=$target',
+      async ({ gatewayEnabled, target }) => {
+        mockConstEnv.isDesktop = true;
+        const context: ConversationContext = {
+          agentId: TEST_IDS.SESSION_ID,
+          groupId: 'legacy-group',
+          scope: 'thread',
+          threadId: 'legacy-thread',
+          topicId: TEST_IDS.TOPIC_ID,
+        };
+        const tool = createMockMessage({ id: 'legacy-tool', role: 'tool' });
+        const messageMap = { [messageMapKey(context)]: [tool] };
+        useChatStore.setState({ dbMessagesMap: messageMap, messagesMap: messageMap });
+        const state = useChatStore.getState();
+        vi.spyOn(state, 'isGatewayModeEnabled').mockReturnValue(gatewayEnabled);
+        if (target) {
+          vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(() => ({
+            ...createMockAgentConfig(),
+            agencyConfig: { executionTargetByPlatform: { desktop: target } },
+          }));
+        }
+        vi.spyOn(state, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+        vi.spyOn(state, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+        const executeClientAgent = vi.spyOn(state, 'executeClientAgent');
+        const timestamp = '2026-11-26T08:00:00.000Z';
+        const executeGatewayAgent = vi.spyOn(state, 'executeGatewayAgent').mockResolvedValue({
+          agentId: TEST_IDS.SESSION_ID,
+          assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+          autoStarted: true,
+          createdAt: timestamp,
+          message: 'Started',
+          operationId: 'gateway-op',
+          status: 'running',
+          success: true,
+          timestamp,
+          topicId: TEST_IDS.TOPIC_ID,
+          userMessageId: TEST_IDS.USER_MESSAGE_ID,
+        });
+
+        await state.submitToolInteraction(tool.id, { answer: 'continue' }, context, {
+          createUserMessage: false,
+        });
+
+        expect(executeGatewayAgent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            context,
+            resumeInteraction: { parentMessageId: tool.id, phase: 'tool_result' },
+          }),
+        );
+        expect(executeClientAgent).not.toHaveBeenCalled();
+      },
+    );
+
     it('continues a submitted interaction with the model persisted on its assistant turn', async () => {
       mockConstEnv.isDesktop = true;
       const { result } = renderHook(() => useChatStore());
@@ -2503,7 +2745,7 @@ describe('ConversationControl actions', () => {
   // the code does NOW.
   // ===========================================================================
   describe('rejectAndContinueToolCalling client characterization (lifecycle refactor regression net)', () => {
-    it('runs rejectToolCalling (one op completes) then starts a NEW op and executes client agent with phase=user_input', async () => {
+    it('resolves routing once and persists the rejection before resuming the client', async () => {
       const { result } = renderHook(() => useChatStore());
 
       const agentId = 'client-agent';
@@ -2527,13 +2769,17 @@ describe('ConversationControl actions', () => {
         });
       });
 
-      // Client-mode (no Gateway resume): let the real rejectToolCalling chain
-      // run so we can observe the dual-op sequence. Only stub the persistence
-      // primitives and the runtime executor.
       vi.spyOn(result.current, 'isGatewayModeEnabled').mockReturnValue(false);
-      vi.spyOn(result.current, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
-      vi.spyOn(result.current, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
-      const rejectToolCallingSpy = vi.spyOn(result.current, 'rejectToolCalling');
+      const route = vi
+        .spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent')
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('Device check unavailable'));
+      const saveDecision = vi
+        .spyOn(result.current, 'optimisticUpdateMessagePlugin')
+        .mockResolvedValue(undefined);
+      const saveFeedback = vi
+        .spyOn(result.current, 'optimisticUpdateMessageContent')
+        .mockResolvedValue(undefined);
       vi.spyOn(result.current, 'internal_createAgentState').mockReturnValue({
         agentConfig: createMockResolvedAgentConfig(),
         context: { phase: 'init' } as any,
@@ -2547,11 +2793,15 @@ describe('ConversationControl actions', () => {
         await result.current.rejectAndContinueToolCalling('tool-msg-1', 'not safe');
       });
 
-      // 1) The halting reject runs first (it creates + completes its own op).
-      expect(rejectToolCallingSpy).toHaveBeenCalledWith('tool-msg-1', 'not safe', undefined);
-
-      // 2) Then a SECOND op is created and the client runtime continues with
-      //    phase overridden to 'user_input', resuming from the tool message.
+      expect(route).toHaveBeenCalledOnce();
+      expect(saveDecision).toHaveBeenCalledWith(
+        'tool-msg-1',
+        { intervention: { rejectedReason: 'not safe', status: 'rejected' } },
+        expect.objectContaining({ operationId: expect.any(String) }),
+      );
+      expect(saveFeedback.mock.invocationCallOrder[0]).toBeLessThan(
+        executeClientAgentSpy.mock.invocationCallOrder[0],
+      );
       expect(executeClientAgentSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           initialContext: expect.objectContaining({ phase: 'user_input' }),
@@ -2560,12 +2810,10 @@ describe('ConversationControl actions', () => {
         }),
       );
 
-      // Two 'rejectToolCalling' ops exist (the halting reject's own op + the
-      // continue op). Both reach 'completed' on the happy path.
       const rejectOps = Object.values(result.current.operations).filter(
         (op: any) => op.type === 'rejectToolCalling',
       );
-      expect(rejectOps).toHaveLength(2);
+      expect(rejectOps).toHaveLength(1);
       expect(rejectOps.every((op: any) => op.status === 'completed')).toBe(true);
     });
   });

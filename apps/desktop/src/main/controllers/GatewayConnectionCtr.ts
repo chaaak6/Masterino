@@ -301,6 +301,7 @@ export default class GatewayConnectionCtr extends ControllerModule {
     description: string;
     deviceId: string;
     hostname: string;
+    identityVerified: boolean;
     name: string;
     platform: string;
   }> {

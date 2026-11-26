@@ -21,6 +21,7 @@ import { topicService } from '@/services/topic';
 import { useAgentStore } from '@/store/agent';
 import { type ChatStore } from '@/store/chat';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { useGlobalStore } from '@/store/global';
 import {
   buildDraftConversationKey,
@@ -28,6 +29,7 @@ import {
   resolvePendingTopicExecutionIntent,
   type WorkspaceDraftIntent,
 } from '@/store/projectWorkspace';
+import { ProjectDeviceMismatchError } from '@/store/projectWorkspace/topicExecutionIntent';
 import { type StoreSetter } from '@/store/types';
 import { useUserStore } from '@/store/user';
 import { systemAgentSelectors, userGeneralSettingsSelectors } from '@/store/user/selectors';
@@ -193,7 +195,9 @@ export class ChatTopicActionImpl {
 
     if (hasTopic) await switchTopic(null, { resetFileSelection: true });
     else {
-      await saveToTopic();
+      const hadMessages = displayMessageSelectors.activeDisplayMessages(this.#get()).length > 0;
+      const savedTopicId = await saveToTopic();
+      if (hadMessages && !savedTopicId) return;
       await useAgentStore.getState().disableAllFiles();
       await refreshMessages();
     }
@@ -212,14 +216,15 @@ export class ChatTopicActionImpl {
     const messages = displayMessageSelectors.activeDisplayMessages(this.#get());
 
     this.#set({ creatingTopic: true }, false, n('creatingTopic/start'));
-    const topicId = await internal_createTopic({
-      title: t('defaultTitle', { ns: 'topic' }),
-      messages: messages.map((m) => m.id),
-      sessionId: sessionId || activeAgentId,
-    });
-    this.#set({ creatingTopic: false }, false, n('creatingTopic/end'));
-
-    return topicId;
+    try {
+      return await internal_createTopic({
+        title: t('defaultTitle', { ns: 'topic' }),
+        messages: messages.map((m) => m.id),
+        sessionId: sessionId || activeAgentId,
+      });
+    } finally {
+      this.#set({ creatingTopic: false }, false, n('creatingTopic/end'));
+    }
   };
 
   saveToTopic = async (sessionId?: string): Promise<string | undefined> => {
@@ -235,6 +240,7 @@ export class ChatTopicActionImpl {
       messages: messages.map((m) => m.id),
       sessionId: sessionId || activeAgentId,
     });
+    if (!topicId) return;
 
     this.#get().internal_updateTopicLoading(topicId, true);
     // 2. auto summary topic Title
@@ -1100,33 +1106,57 @@ export class ChatTopicActionImpl {
     this.#get().internal_updateTopicLoading(id, false);
   };
 
-  internal_createTopic = async (params: CreateTopicParams): Promise<string> => {
+  internal_createTopic = async (params: CreateTopicParams): Promise<string | undefined> => {
+    const { activeAgentId: agentId, activeGroupId } = this.#get();
+    const groupId = params.groupId ?? activeGroupId;
+    let pendingExecution;
+    if (!params.executionIntent) {
+      try {
+        pendingExecution = await resolvePendingTopicExecutionIntent({
+          agentId,
+          groupId,
+          isNewTopic: true,
+        });
+      } catch (error) {
+        if (error instanceof DesktopDeviceIdentityUnavailableError) {
+          message.error(error.message);
+        } else if (error instanceof ProjectDeviceMismatchError) {
+          message.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+        } else {
+          throw error;
+        }
+        return;
+      }
+    }
+
     const tmpId = Date.now().toString();
     this.#get().internal_dispatchTopic(
-      { type: 'addTopic', value: { ...params, id: tmpId } },
+      { agentId, groupId, type: 'addTopic', value: { ...params, id: tmpId } },
       'internal_createTopic',
     );
 
     this.#get().internal_updateTopicLoading(tmpId, true);
-    const pendingExecution = params.executionIntent
-      ? undefined
-      : await resolvePendingTopicExecutionIntent({
-          agentId: this.#get().activeAgentId,
-          groupId: params.groupId ?? this.#get().activeGroupId,
-          isNewTopic: true,
-        });
-    const topicId = await topicService.createTopic({
-      ...params,
-      executionIntent: params.executionIntent ?? pendingExecution?.intent,
-    });
+    let topicId: string;
+    try {
+      topicId = await topicService.createTopic({
+        ...params,
+        executionIntent: params.executionIntent ?? pendingExecution?.intent,
+      });
+    } catch (error) {
+      this.#get().internal_dispatchTopic({ agentId, groupId, id: tmpId, type: 'deleteTopic' });
+      throw error;
+    } finally {
+      this.#get().internal_updateTopicLoading(tmpId, false);
+    }
     if (pendingExecution?.draftKey) {
       getProjectWorkspaceStoreState().clearDraftIntent(pendingExecution.draftKey);
     }
-    this.#get().internal_updateTopicLoading(tmpId, false);
-
     this.#get().internal_updateTopicLoading(topicId, true);
-    await this.#get().refreshTopic();
-    this.#get().internal_updateTopicLoading(topicId, false);
+    try {
+      await this.#get().refreshTopic();
+    } finally {
+      this.#get().internal_updateTopicLoading(topicId, false);
+    }
 
     return topicId;
   };

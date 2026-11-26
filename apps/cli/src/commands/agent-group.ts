@@ -180,36 +180,35 @@ export function registerAgentGroupCommand(program: Command) {
 
   agentGroup
     .command('remove-agents <groupId>')
-    .description('Remove agents from a group')
+    .description('Unlink agents from a group and preserve their conversation history')
     .requiredOption('--agent-ids <ids>', 'Comma-separated agent IDs')
-    .option('--keep-virtual', 'Keep virtual agents instead of deleting them')
+    .option('--keep-virtual', 'Deprecated. Virtual agents are always preserved.')
     .option('--yes', 'Skip confirmation prompt')
-    .action(
-      async (
-        groupId: string,
-        options: { agentIds: string; keepVirtual?: boolean; yes?: boolean },
-      ) => {
-        const agentIds = options.agentIds.split(',').map((s) => s.trim());
+    .action(async (groupId: string, options: { agentIds: string; yes?: boolean }) => {
+      const agentIds = options.agentIds.split(',').map((s) => s.trim());
 
-        if (!options.yes) {
-          const confirmed = await confirm(
-            `Are you sure you want to remove ${agentIds.length} agent(s) from group?`,
-          );
-          if (!confirmed) {
-            console.log('Cancelled.');
-            return;
-          }
-        }
-
-        const client = await getTrpcClient();
-        await client.group.removeAgentsFromGroup.mutate({
-          agentIds,
-          deleteVirtualAgents: !options.keepVirtual,
-          groupId,
-        });
-        console.log(
-          `${pc.green('✓')} Removed ${agentIds.length} agent(s) from group ${pc.bold(groupId)}`,
+      if (!options.yes) {
+        const confirmed = await confirm(
+          `Are you sure you want to remove ${agentIds.length} agent(s) from group?`,
         );
-      },
-    );
+        if (!confirmed) {
+          console.log('Cancelled.');
+          return;
+        }
+      }
+
+      const client = await getTrpcClient();
+      const { removedFromGroup } = await client.group.removeAgentsFromGroup.mutate({
+        agentIds,
+        groupId,
+      });
+      if (removedFromGroup === 0) {
+        log.error(`None of the specified agents could be unlinked from group ${groupId}.`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(
+        `${pc.green('✓')} Removed ${removedFromGroup} agent(s) from group ${pc.bold(groupId)}`,
+      );
+    });
 }

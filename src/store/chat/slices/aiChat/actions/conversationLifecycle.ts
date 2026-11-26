@@ -44,7 +44,7 @@ import { type ProjectWorkspaceItem, projectWorkspaceService } from '@/services/p
 import { getAgentStoreState, useAgentStore } from '@/store/agent';
 import { agentSelectors, chatConfigByIdSelectors } from '@/store/agent/selectors';
 import { agentGroupByIdSelectors, getChatGroupStoreState } from '@/store/agentGroup';
-import { selectRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
+import { selectConversationRuntime } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import { resolveHeteroResume } from '@/store/chat/slices/aiChat/actions/heteroResume';
 import { dispatchNonHeteroSubAgent } from '@/store/chat/slices/aiChat/actions/nonHeteroSubAgentDispatcher';
 import { PortalViewType } from '@/store/chat/slices/portal/initialState';
@@ -59,6 +59,7 @@ import {
   getCompressionCandidateMessageIds,
   hasRunningCompressionOperation,
 } from '@/store/chat/utils/compression';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { useGlobalStore } from '@/store/global';
 import { systemStatusSelectors } from '@/store/global/selectors';
 import {
@@ -229,6 +230,7 @@ export class ConversationLifecycleActionImpl {
     messages: inputMessages,
     parentId: inputParentId,
     pageSelections,
+    onSendReady,
     onTopicCreated,
   }: SendMessageWithContextParams): Promise<SendMessageResult | undefined> => {
     let editorData = inputEditorData;
@@ -279,6 +281,7 @@ export class ConversationLifecycleActionImpl {
         compressContext.topicId &&
         !hasRunningCompressionOperation(Object.values(this.#get().operations), compressContext)
       ) {
+        if (onSendReady?.() === false) return;
         await this.executeCompression(compressContext, '');
       }
       return;
@@ -290,6 +293,7 @@ export class ConversationLifecycleActionImpl {
       const hasFile = files && files.length > 0;
       // If no message content besides the action tag and no files, just navigate to a new topic without sending
       if (!hasNonActionContent(editorData) && !hasFile) {
+        if (onSendReady?.() === false) return;
         await this.#get().switchTopic(null);
         return;
       }
@@ -402,6 +406,7 @@ export class ConversationLifecycleActionImpl {
       .find((op) => op && AI_RUNTIME_OPERATION_TYPES.includes(op.type) && op.status === 'running');
 
     if (runningAgentOp) {
+      if (onSendReady?.() === false) return;
       // Snapshot file previews so the tray can render thumbnails AND the
       // resumed sendMessage can rebuild imageList/videoList — by the time
       // we drain, chatUploadFileList has long been cleared.
@@ -434,6 +439,7 @@ export class ConversationLifecycleActionImpl {
     }
 
     if (onlyAddUserMessage) {
+      if (onSendReady?.() === false) return;
       await this.#get().addUserMessage({
         message,
         fileList: fileIdList,
@@ -485,19 +491,33 @@ export class ConversationLifecycleActionImpl {
     const topicWorkspaceState = context.topicId
       ? projectWorkspaceState.topicStatesById[context.topicId]
       : undefined;
-    const pendingExecution = await resolvePendingTopicExecutionIntent({
-      agentId,
-      groupId: context.groupId,
-      isNewTopic: !context.topicId,
-      topicId: context.topicId,
-      topicSnapshot: existingTopic?.metadata?.executionSnapshot ?? topicWorkspaceState?.snapshot,
-      topicMetadata: existingTopic?.metadata,
-    });
-    let runtimeType = selectRuntimeType({
+    let pendingExecution;
+    try {
+      pendingExecution = await resolvePendingTopicExecutionIntent({
+        agentId,
+        groupId: context.groupId,
+        isNewTopic: !context.topicId,
+        topicId: context.topicId,
+        topicSnapshot: existingTopic?.metadata?.executionSnapshot ?? topicWorkspaceState?.snapshot,
+        topicMetadata: existingTopic?.metadata,
+      });
+    } catch (error) {
+      if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
+      antdMessage.error(error.message);
+      return;
+    }
+    const executionTarget = pendingExecution?.intent.target;
+    let runtimeType = await selectConversationRuntime({
       boundDeviceId:
-        pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-      executionTarget: pendingExecution?.intent.target,
-      hasSelectedLocalMcp: selectedTools.some((tool) => isDeviceLocalMcpIdentifier(tool.identifier)),
+        pendingExecution?.intent.targetDeviceId ??
+        (isDesktop && context.groupId && executionTarget === 'local'
+          ? undefined
+          : agentConfig?.agencyConfig?.boundDeviceId),
+      executionTarget,
+      groupId: context.groupId,
+      hasSelectedLocalMcp: selectedTools.some((tool) =>
+        isDeviceLocalMcpIdentifier(tool.identifier),
+      ),
       heterogeneousProvider,
       isGatewayMode: this.#get().isGatewayModeEnabled(agentId),
       // Callers that need to pin the runtime (e.g. task topics that were
@@ -569,6 +589,8 @@ export class ConversationLifecycleActionImpl {
       );
       return;
     }
+
+    if (onSendReady?.() === false) return;
 
     // Use provided messages or query from store
     // For /newTopic from existing topic, start with empty message list (fresh topic)

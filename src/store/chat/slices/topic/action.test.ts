@@ -12,7 +12,9 @@ import { useAgentStore } from '@/store/agent';
 import { PortalViewType } from '@/store/chat/slices/portal/initialState';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { topicMapKey } from '@/store/chat/utils/topicMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { buildDraftConversationKey, useProjectWorkspaceStore } from '@/store/projectWorkspace';
+import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
 import { useSessionStore } from '@/store/session';
 import { type ChatTopic } from '@/types/topic';
 
@@ -343,6 +345,31 @@ describe('topic action', () => {
   });
 
   describe('startNewTopic', () => {
+    it('keeps unsaved messages when saving the previous topic fails', async () => {
+      const agentId = 'draft-owner';
+      const key = messageMapKey({ agentId });
+      const messages = [
+        { id: 'unsaved', content: 'Keep this message', role: 'user' },
+      ] as UIChatMessage[];
+      act(() => {
+        useChatStore.setState({
+          activeAgentId: agentId,
+          activeGroupId: undefined,
+          activeTopicId: undefined,
+          messagesMap: { [key]: messages },
+        });
+      });
+      const state = useChatStore.getState();
+      const save = vi.spyOn(state, 'saveToTopic').mockResolvedValueOnce(undefined);
+      const refresh = vi.spyOn(state, 'refreshMessages');
+      await act(async () => {
+        await state.startNewTopic();
+      });
+      expect(save).toHaveBeenCalledOnce();
+      expect(refresh).not.toHaveBeenCalled();
+      expect(useChatStore.getState().messagesMap[key]).toEqual(messages);
+    });
+
     it('replaces stale state with the explicit project selected by a sidebar entry', async () => {
       const { result } = renderHook(() => useChatStore());
       const draftKey = buildDraftConversationKey({ agentId: 'agent-1' });
@@ -1670,6 +1697,38 @@ describe('topic action', () => {
     });
   });
   describe('createTopic', () => {
+    it('clears the creation indicator and keeps the topic list intact when no desktop identity is available', async () => {
+      const groupId = 'group';
+      const agentId = 'supervisor';
+      const key = topicMapKey({ agentId, groupId });
+      const existing = [{ id: 'existing-topic', title: 'Existing' }] as ChatTopic[];
+      useChatStore.setState({
+        activeAgentId: agentId,
+        activeGroupId: groupId,
+        topicDataMap: {
+          [key]: { currentPage: 0, hasMore: false, items: existing, pageSize: 20, total: 1 },
+        },
+        topicLoadingIds: [],
+      });
+      const resolver = vi
+        .spyOn(topicExecutionIntent, 'resolvePendingTopicExecutionIntent')
+        .mockRejectedValueOnce(new DesktopDeviceIdentityUnavailableError());
+      const create = vi.spyOn(topicService, 'createTopic');
+      try {
+        await expect(useChatStore.getState().createTopic()).resolves.toBeUndefined();
+        expect(create).not.toHaveBeenCalled();
+        expect(useChatStore.getState()).toMatchObject({
+          creatingTopic: false,
+          topicDataMap: { [key]: { items: existing } },
+          topicLoadingIds: [],
+        });
+      } finally {
+        resolver.mockRestore();
+        create.mockRestore();
+        useChatStore.setState({ activeGroupId: undefined });
+      }
+    });
+
     it('should create a new topic and update the store', async () => {
       const { result } = renderHook(() => useChatStore());
       const activeAgentId = 'test-session-id';

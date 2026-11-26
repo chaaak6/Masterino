@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { INBOX_SESSION_ID } from '@/const/session';
 import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
+import * as dbAdapter from '@/database/core/db-adaptor';
 import { AgentModel } from '@/database/models/agent';
+import { ChatGroupModel } from '@/database/models/chatGroup';
 import { FileModel } from '@/database/models/file';
 import { KnowledgeBaseModel } from '@/database/models/knowledgeBase';
 import { SessionModel } from '@/database/models/session';
@@ -102,6 +104,23 @@ describe('agentRouter', () => {
       knowledgeBaseModel: knowledgeBaseModelMock,
       sessionModel: sessionModelMock,
     };
+  });
+
+  it('does not create a member for a missing group', async () => {
+    const serverDB = { transaction: vi.fn((execute) => execute(serverDB)) };
+    const getServerDB = vi.spyOn(dbAdapter, 'getServerDB').mockResolvedValue(serverDB as never);
+    const findGroup = vi.spyOn(ChatGroupModel.prototype, 'findById').mockResolvedValue(undefined);
+    try {
+      const caller = agentRouter.createCaller(mockCtx);
+      await expect(caller.createAgentOnly({ groupId: 'missing' })).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+      });
+      expect(serverDB.transaction).toHaveBeenCalledOnce();
+      expect(agentModelMock.create).not.toHaveBeenCalled();
+    } finally {
+      getServerDB.mockRestore();
+      findGroup.mockRestore();
+    }
   });
 
   describe('new agent default tools', () => {

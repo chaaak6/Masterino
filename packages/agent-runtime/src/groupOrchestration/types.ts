@@ -69,6 +69,7 @@ export interface SupervisorInstructionExecAsyncTask {
 export interface SupervisorInstructionExecClientAsyncTask {
   payload: {
     agentId: string;
+    createdAt?: number;
     instruction: string;
     timeout?: number;
     /** Task title (shown in UI, used as thread title) */
@@ -194,6 +195,7 @@ export interface ExecutorResultTaskCompleted {
     agentId: string;
     error?: string;
     result?: string;
+    status?: 'cancelled' | 'timed_out';
     /**
      * Whether the task completed successfully
      */
@@ -207,12 +209,7 @@ export interface ExecutorResultTaskCompleted {
  */
 export interface ExecutorResultTasksCompleted {
   payload: {
-    results: Array<{
-      agentId: string;
-      error?: string;
-      result?: string;
-      success: boolean;
-    }>;
+    results: ExecutorResultTaskCompleted['payload'][];
   };
   type: 'tasks_completed';
 }

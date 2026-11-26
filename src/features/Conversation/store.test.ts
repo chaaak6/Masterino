@@ -355,6 +355,25 @@ describe('ConversationStore', () => {
         expect(store.getState().inputMessage).toBe('draft during streaming');
       });
 
+      it('keeps the draft until the send is ready to start', async () => {
+        const sendMessage = vi.fn().mockResolvedValue(undefined);
+        vi.mocked(useChatStore.getState).mockReturnValue({
+          ...useChatStore.getState(),
+          sendMessage,
+        } as any);
+        const store = createStore({ context: { agentId: 'agent', topicId: 'topic' } });
+        store.getState().updateInputMessage('Draft to keep');
+        const onSendReady = vi.fn(() => true);
+
+        await store.getState().sendMessage({ message: 'Draft to keep', onSendReady });
+
+        expect(store.getState().inputMessage).toBe('Draft to keep');
+        expect(onSendReady).not.toHaveBeenCalled();
+        expect(sendMessage).toHaveBeenCalledWith(
+          expect.objectContaining({ onSendReady: expect.any(Function) }),
+        );
+      });
+
       it('should filter local-only messages before forwarding to ChatStore.sendMessage', async () => {
         const context: ConversationContext = {
           agentId: 'session-1',

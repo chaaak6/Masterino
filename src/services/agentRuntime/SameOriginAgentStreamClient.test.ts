@@ -22,14 +22,100 @@ describe('same-origin device agent stream', () => {
     const event = vi.fn();
     const complete = vi.fn();
     client.on('agent_event', event);
-    client.on('session_complete', complete);
+    client.on('recovery_exhausted', complete);
     client.connect();
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(fetchEventSource).toHaveBeenCalledTimes(3);
-    expect(event).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: 'error' }));
+    await vi.advanceTimersByTimeAsync(7000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(4);
+    expect(complete).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(23_000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(5);
+    expect(event).not.toHaveBeenCalled();
     expect(complete).toHaveBeenCalledOnce();
     client.disconnect();
   });
+  it('allows a slow initial connection to open outside the recovery window', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    const connected = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+    client.on('connected', connected);
+
+    client.connect();
+    await vi.advanceTimersByTimeAsync(31_000);
+    const options = vi.mocked(fetchEventSource).mock.calls[0][1];
+    expect(options.signal?.aborted).toBe(false);
+    await options.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+    expect(unavailable).not.toHaveBeenCalled();
+    expect(connected).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
+  it('releases a first request that never receives response headers', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+
+    client.connect();
+    await vi.advanceTimersByTimeAsync(44_000);
+    expect(unavailable).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(vi.mocked(fetchEventSource).mock.calls[0][1].signal?.aborted).toBe(true);
+    expect(unavailable).toHaveBeenCalledOnce();
+  });
+
+  it('keeps heartbeats alive and reconnects a silent stream from its last event', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(
+      (_url, options) =>
+        new Promise<void>((resolve) => {
+          options.signal?.addEventListener('abort', () => resolve(), { once: true });
+        }),
+    );
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+    client.connect();
+    const stream = vi.mocked(fetchEventSource).mock.calls[0][1];
+    await stream.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+    stream.onmessage!({
+      data: JSON.stringify({ operationId: 'op', type: 'stream_chunk' }),
+      event: '',
+      id: '100-1',
+    });
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(30_000);
+      stream.onmessage!({ data: '', event: '', id: '' });
+    }
+    expect(fetchEventSource).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(91_000);
+    expect(stream.signal?.aborted).toBe(true);
+    expect(fetchEventSource).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(fetchEventSource).mock.calls[1][0]).toContain('lastEventId=100-1');
+    expect(unavailable).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
+  it('aborts a stalled retry and releases the subscription at its deadline', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource)
+      .mockResolvedValueOnce(undefined)
+      .mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+
+    client.connect();
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(fetchEventSource).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(fetchEventSource).mock.calls[1][1].signal?.aborted).toBe(true);
+    expect(unavailable).toHaveBeenCalledOnce();
+  });
+
   it('recovers again after a healthy heartbeat-only connection outlives the old recovery window', async () => {
     vi.useFakeTimers();
     const closes: Array<() => void> = [];
@@ -39,7 +125,7 @@ describe('same-origin device agent stream', () => {
     });
     const client = new SameOriginAgentStreamClient('op', 'topic');
     const complete = vi.fn();
-    client.on('session_complete', complete);
+    client.on('recovery_exhausted', complete);
     client.connect();
     closes[0]();
     await vi.advanceTimersByTimeAsync(1000);
@@ -52,6 +138,50 @@ describe('same-origin device agent stream', () => {
     client.disconnect();
   });
 
+  it('allows a late recovery handshake to reach the first heartbeat', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource)
+      .mockResolvedValueOnce(undefined)
+      .mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const exhausted = vi.fn();
+    client.on('recovery_exhausted', exhausted);
+    client.connect();
+    await vi.advanceTimersByTimeAsync(25_000);
+    const attempt = vi.mocked(fetchEventSource).mock.calls[1][1];
+    await attempt.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(attempt.signal?.aborted).toBe(false);
+    expect(exhausted).not.toHaveBeenCalled();
+    attempt.onmessage!({ data: '', event: '', id: '' });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(exhausted).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
+  it('expires recovery when the next connection delivers headers and no heartbeat or events', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
+      await options.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+      options.onmessage!({ data: '', event: '', id: '' });
+      return new Promise<void>((resolve) => {
+        options.signal?.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const exhausted = vi.fn();
+    client.on('recovery_exhausted', exhausted);
+    client.connect();
+
+    await vi.advanceTimersByTimeAsync(91_000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(2);
+    expect(exhausted).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(44_000);
+    expect(vi.mocked(fetchEventSource).mock.calls[1][1].signal?.aborted).toBe(true);
+    expect(exhausted).toHaveBeenCalledOnce();
+  });
+
   it('bounds repeated immediate EOF even when headers and empty frames arrive', async () => {
     vi.useFakeTimers();
     vi.mocked(fetchEventSource).mockImplementation(async (_url, options) => {
@@ -60,10 +190,10 @@ describe('same-origin device agent stream', () => {
     });
     const client = new SameOriginAgentStreamClient('op', 'topic');
     const complete = vi.fn();
-    client.on('session_complete', complete);
+    client.on('recovery_exhausted', complete);
     client.connect();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(fetchEventSource).toHaveBeenCalledTimes(3);
+    expect(fetchEventSource).toHaveBeenCalledTimes(5);
     expect(complete).toHaveBeenCalledOnce();
     client.disconnect();
   });

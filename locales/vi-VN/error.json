@@ -46,6 +46,7 @@
   "contextBudget.title.SUMMARY_FAILED": "Tóm tắt ngữ cảnh thất bại",
   "contextBudget.title.TAIL_TOO_LARGE": "Tin nhắn mới nhất quá lớn so với cửa sổ ngữ cảnh",
   "contextBudget.toolResultPlaceholder": "[Đã xóa kết quả công cụ để giảm kích thước ngữ cảnh]",
+  "desktopDeviceIdentityUnavailable": "Không thể xác minh danh tính của thiết bị này. Vui lòng thử lại sau.",
   "error.backHome": "Quay về Trang chủ",
   "error.desc": "Hãy thử lại sau, hoặc quay về thế giới quen thuộc.",
   "error.retry": "Tải lại",

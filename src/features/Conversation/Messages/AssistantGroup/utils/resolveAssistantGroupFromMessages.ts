@@ -17,7 +17,9 @@ export function resolveAssistantGroupFromMessages(
     return { assistantId: '', blocks: [] };
   }
 
-  const assistantGroupMessage = messages.find((item) => item.role === 'assistantGroup');
+  const assistantGroupMessage = messages.find(
+    (item) => item.role === 'assistantGroup' && item.children?.length,
+  );
   const userMessage = messages.find((item) => item.role === 'user');
 
   if (assistantGroupMessage) {
@@ -37,6 +39,7 @@ export function resolveAssistantGroupFromMessages(
 
     if (assistantMessage.error) block.error = assistantMessage.error;
     if (assistantMessage.reasoning) block.reasoning = assistantMessage.reasoning;
+    if (assistantMessage.tools) block.tools = assistantMessage.tools;
 
     return {
       assistantId: assistantMessage.id ?? '',

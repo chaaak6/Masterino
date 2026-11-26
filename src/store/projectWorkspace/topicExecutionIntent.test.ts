@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as ConstVersion from '@/const/version';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
+import { useUserStore } from '@/store/user';
 
 import { buildDraftConversationKey } from './draftKey';
 import {
@@ -48,6 +50,7 @@ vi.mock('./store', () => ({
 }));
 
 describe('resolvePendingTopicExecutionIntent', () => {
+  const initialUser = useUserStore.getState().user;
   beforeEach(() => {
     mocks.agentConfig = undefined;
     mocks.getDeviceInfo.mockReset();
@@ -60,7 +63,10 @@ describe('resolvePendingTopicExecutionIntent', () => {
     };
   });
 
-  afterEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    useUserStore.setState({ user: initialUser });
+    vi.clearAllMocks();
+  });
 
   it('checks old links before sending and keeps lookup errors distinct from ownership errors', async () => {
     mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'mac' });
@@ -74,6 +80,69 @@ describe('resolvePendingTopicExecutionIntent', () => {
     await expect(checkDesktopProjectSend({ topicId: 'old-link', isNewTopic: false })).rejects.toBe(
       networkError,
     );
+  });
+
+  it('gates the group composer before clearing a draft when its bound device cannot be verified', async () => {
+    useUserStore.setState({ user: { id: 'group-topic-owner' } });
+    const topicId = 'bound-group-topic';
+    mocks.workspaceState.topicStatesById[topicId] = {
+      snapshot: {
+        boundDeviceId: 'owner',
+        target: 'local',
+        targetCapturedAt: '',
+        version: 1,
+      },
+    };
+    const draft = { groupId: 'group', isNewTopic: false, topicId };
+
+    mocks.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
+    await expect(checkDesktopProjectSend(draft)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+    mocks.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'owner' });
+    await expect(checkDesktopProjectSend(draft)).resolves.toBeUndefined();
+    mocks.getDeviceInfo.mockRejectedValueOnce(new Error('IPC temporarily unavailable'));
+    await expect(checkDesktopProjectSend(draft)).resolves.toBeUndefined();
+  });
+
+  it('keeps a new local group draft until the device identity is available', async () => {
+    const draft = { groupId: 'group', isNewTopic: true };
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'installation-id', identityVerified: false });
+    await expect(checkDesktopProjectSend(draft)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+    await expect(resolvePendingTopicExecutionIntent(draft)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'current-device', identityVerified: true });
+    await expect(resolvePendingTopicExecutionIntent(draft)).resolves.toMatchObject({
+      intent: { target: 'local', targetDeviceId: 'current-device' },
+    });
+  });
+
+  it('distinguishes unavailable desktop identity from foreign project ownership', async () => {
+    const input = { groupId: 'group', isNewTopic: false, topicId: 'bound-project' };
+    mocks.getTopicState.mockResolvedValue({
+      snapshot: {
+        boundDeviceId: 'owner',
+        target: 'local',
+        targetCapturedAt: '',
+        version: 1,
+        workspaceId: 'scratch-workspace',
+        workspaceKind: 'scratch',
+      },
+    });
+    mocks.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
+    await expect(checkDesktopProjectSend(input)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+    mocks.getDeviceInfo.mockRejectedValueOnce(new Error('IPC temporarily unavailable'));
+    await expect(checkDesktopProjectSend(input)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+    mocks.getDeviceInfo.mockResolvedValue({ deviceId: 'other-desktop' });
+    await expect(checkDesktopProjectSend(input)).rejects.toBeInstanceOf(ProjectDeviceMismatchError);
   });
 
   it('blocks a foreign scratch snapshot before sending and allows it on the owner device', async () => {

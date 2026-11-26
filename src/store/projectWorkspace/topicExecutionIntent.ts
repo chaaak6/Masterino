@@ -6,10 +6,13 @@ import type {
 import { isDesktop } from '@/const/version';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
 import { normalizeNewTopicIntent } from '@/helpers/workspacePlatform';
-import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
 import { projectWorkspaceService } from '@/services/projectWorkspace';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import {
+  DesktopDeviceIdentityUnavailableError,
+  resolveDesktopDeviceId,
+} from '@/store/electron/deviceIdentity';
 import type { ChatTopicMetadata } from '@/types/topic';
 
 import { buildDraftConversationKey } from './draftKey';
@@ -99,12 +102,13 @@ export const resolvePendingTopicExecutionIntent = async (params: {
   const isScratch =
     topicSnapshot?.workspaceKind === 'scratch' || metadata.workspaceKind === 'scratch';
   if (isDesktop && (projectId || isScratch) && (target === 'local' || target === 'device')) {
-    const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
+    const currentDeviceId = await resolveDesktopDeviceId();
+    if (!currentDeviceId) throw new DesktopDeviceIdentityUnavailableError();
     if (
       !isTopicVisibleOnDevice(
         { id: topicId ?? '', metadata },
         {
-          currentDeviceId: currentDeviceId ?? null,
+          currentDeviceId,
           topicStatesById: workspaceState.topicStatesById,
           workspacesById: workspaceState.workspacesById,
         },
@@ -118,12 +122,14 @@ export const resolvePendingTopicExecutionIntent = async (params: {
 
   targetDeviceId ??= params.topicMetadata?.boundDeviceId;
 
-  if (target === 'local' && isDesktop && !targetDeviceId) {
-    try {
-      targetDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
-    } catch {
-      // Keep the explicit local target. The server will freeze it as unrouted
-      // rather than guessing a different device or falling back to sandbox.
+  if (target === 'local' && isDesktop) {
+    // Freeze new local group topics to this device. Legacy unbound topics can
+    // still run on the current desktop without rewriting their saved target.
+    const needsIdentity = groupId && (isNewTopic || targetDeviceId);
+    if (needsIdentity || !targetDeviceId) {
+      const currentDeviceId = await resolveDesktopDeviceId();
+      if (needsIdentity && !currentDeviceId) throw new DesktopDeviceIdentityUnavailableError();
+      targetDeviceId ??= currentDeviceId;
     }
   }
 
@@ -152,7 +158,7 @@ export const checkDesktopProjectSend = async (
   if (params.topicId && !state.topicStatesById[params.topicId]) {
     // A direct URL may not have loaded the topic list yet. Do not swallow lookup failures.
     const topicState = await projectWorkspaceService.getTopicState(params.topicId);
-    const currentDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
+    const currentDeviceId = await resolveDesktopDeviceId();
     if (
       !isTopicVisibleOnDevice(
         { id: params.topicId, metadata: params.topicMetadata },
@@ -163,6 +169,7 @@ export const checkDesktopProjectSend = async (
         },
       )
     ) {
+      if (!currentDeviceId) throw new DesktopDeviceIdentityUnavailableError();
       throw new ProjectDeviceMismatchError('This project is unavailable on this device.');
     }
     // Do not partially hydrate the store here: sendMessage still loads workspace details/env.

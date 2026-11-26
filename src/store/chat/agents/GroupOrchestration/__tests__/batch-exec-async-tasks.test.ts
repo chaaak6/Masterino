@@ -4,14 +4,27 @@ import { nanoid } from '@lobechat/utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import { aiAgentService } from '@/services/aiAgent';
+import { messageService } from '@/services/message';
 import { type ChatStore } from '@/store/chat/store';
 
 import { createGroupOrchestrationExecutors } from '../createGroupOrchestrationExecutors';
+import { getLocalTaskApproval, trackLocalTaskApproval } from '../localTaskApproval';
 
 vi.mock('@/services/aiAgent', () => ({
   aiAgentService: {
+    createClientGroupAgentTaskThread: vi.fn(),
+    updateClientTaskThreadStatus: vi.fn(),
     execSubAgentTask: vi.fn(),
     getSubAgentTaskStatus: vi.fn(),
+  },
+}));
+
+vi.mock('@/services/message', () => ({
+  messageService: {
+    createMessage: vi.fn(async () => ({ id: `msg_${nanoid()}`, messages: [] })),
+    removeMessage: vi.fn().mockResolvedValue({ success: true }),
+    updateMessage: vi.fn().mockResolvedValue({ success: true }),
+    updateMessageMetadata: vi.fn().mockResolvedValue({ success: true }),
   },
 }));
 
@@ -114,6 +127,479 @@ const createInitialState = (overrides: Partial<AgentState> = {}): AgentState => 
 };
 
 describe('createGroupOrchestrationExecutors', () => {
+  it('pauses the execution budget while awaiting approval and totals usage across resumed runs', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const onTimeout = vi.fn(() => controller.abort());
+    const context = {
+      agentId: TEST_IDS.AGENT_1_ID,
+      groupId: TEST_IDS.GROUP_ID,
+      scope: 'thread' as const,
+      threadId: 'budget-test',
+      topicId: TEST_IDS.TOPIC_ID,
+    };
+    const approval = trackLocalTaskApproval(context, 'budget-op', controller.signal, {
+      onTimeout,
+      timeout: 1000,
+    });
+    const usage = createInitialState().usage;
+    const cost = createInitialState().cost;
+
+    try {
+      await vi.advanceTimersByTimeAsync(300);
+      approval.report({ cost: { ...cost, total: 1 }, status: 'waiting_for_human' });
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(onTimeout).not.toHaveBeenCalled();
+
+      const pending = getLocalTaskApproval(context)!;
+      pending.resume();
+      await vi.advanceTimersByTimeAsync(500);
+      pending.report({
+        cost: { ...cost, total: 2 },
+        status: 'waiting_for_human',
+        usage: {
+          ...usage,
+          llm: { apiCalls: 1, processingTimeMs: 100, tokens: { input: 6, output: 4, total: 10 } },
+        },
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(onTimeout).not.toHaveBeenCalled();
+
+      pending.resume();
+      await vi.advanceTimersByTimeAsync(199);
+      expect(onTimeout).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(onTimeout).toHaveBeenCalledOnce();
+      await expect(approval.result).resolves.toEqual({
+        duration: 100,
+        status: 'interrupted',
+        totalCost: 3,
+        totalInputTokens: 6,
+        totalOutputTokens: 4,
+        totalTokens: 10,
+      });
+      expect(getLocalTaskApproval(context)).toBeUndefined();
+    } finally {
+      approval.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['before dispatch', 'during placeholder creation', 'during thread creation'] as const)(
+    'does not start a local member model after cancellation %s',
+    async (phase) => {
+      const store = createMockStore({ completeOperation: vi.fn(), replaceMessages: vi.fn() });
+      const controller = store.operations[TEST_IDS.OPERATION_ID].abortController;
+      const placeholder = vi.mocked(messageService.createMessage).mockClear();
+      const createThread = vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockClear();
+      const updateThread = vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockClear();
+      if (phase === 'before dispatch') controller.abort('User cancelled');
+      placeholder.mockImplementationOnce(async () => {
+        if (phase === 'during placeholder creation') controller.abort('User cancelled');
+        return { id: 'cancelled-placeholder', messages: [] };
+      });
+      createThread.mockImplementationOnce(async () => {
+        if (phase === 'during thread creation') controller.abort('User cancelled');
+        return {
+          messages: [],
+          startedAt: '2026-11-16T08:00:00.000Z',
+          success: true,
+          threadId: 'cancelled-thread',
+          threadMessages: [],
+          userMessageId: 'local-user',
+        };
+      });
+      updateThread.mockResolvedValue({
+        status: ThreadStatus.Cancel,
+        success: true,
+        threadId: 'cancelled-thread',
+      });
+      const executors = createGroupOrchestrationExecutors({
+        get: () => store,
+        messageContext: {
+          agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+          groupId: TEST_IDS.GROUP_ID,
+          scope: 'group',
+          topicId: TEST_IDS.TOPIC_ID,
+        },
+        orchestrationOperationId: TEST_IDS.OPERATION_ID,
+        preferLocal: true,
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+      });
+      try {
+        const output = await executors.batch_exec_async_tasks!(
+          {
+            payload: {
+              tasks: [{ agentId: TEST_IDS.AGENT_1_ID, instruction: 'Return OK' }],
+              toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+            },
+            type: 'batch_exec_async_tasks',
+          },
+          createInitialState(),
+        );
+        expect(store.startOperation).not.toHaveBeenCalled();
+        expect(store.executeClientAgent).not.toHaveBeenCalled();
+        expect(output.result?.payload).toMatchObject({
+          results: [{ agentId: TEST_IDS.AGENT_1_ID, status: 'cancelled', success: false }],
+        });
+        if (phase === 'before dispatch') expect(placeholder).not.toHaveBeenCalled();
+        if (phase === 'during placeholder creation') {
+          expect(createThread).not.toHaveBeenCalled();
+          expect(messageService.removeMessage).toHaveBeenCalledWith('cancelled-placeholder');
+        }
+        if (phase === 'during thread creation') {
+          expect(updateThread).toHaveBeenCalledWith(
+            expect.objectContaining({
+              completionReason: 'interrupted',
+              threadId: 'cancelled-thread',
+            }),
+          );
+        }
+      } finally {
+        placeholder
+          .mockReset()
+          .mockImplementation(async () => ({ id: `msg_${nanoid()}`, messages: [] }));
+        createThread.mockReset();
+        updateThread.mockReset();
+      }
+    },
+  );
+
+  it('publishes a terminal task card after the local worker finishes', async () => {
+    vi.mocked(messageService.updateMessageMetadata).mockRejectedValueOnce(new Error('offline'));
+    const { usage } = createInitialState();
+    const store = createMockStore({
+      completeOperation: vi.fn(),
+      executeClientAgent: vi.fn().mockResolvedValue({
+        status: 'done',
+        usage: { ...usage, llm: { ...usage.llm, processingTimeMs: 180 } },
+      }),
+      replaceMessages: vi.fn(),
+    });
+    vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockResolvedValue({
+      messages: [],
+      startedAt: '2026-11-16T08:00:00.000Z',
+      success: true,
+      threadId: 'local-thread',
+      threadMessages: [],
+      userMessageId: 'local-user',
+    });
+    vi.mocked(aiAgentService.updateClientTaskThreadStatus)
+      .mockClear()
+      .mockRejectedValueOnce(new Error('response lost'))
+      .mockResolvedValue({
+        status: ThreadStatus.Completed,
+        success: true,
+        threadId: 'local-thread',
+      });
+    const executors = createGroupOrchestrationExecutors({
+      get: () => store,
+      messageContext: {
+        agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'group',
+        topicId: TEST_IDS.TOPIC_ID,
+      },
+      orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+      preferLocal: true,
+      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+    });
+    const output = await executors.batch_exec_async_tasks!(
+      {
+        payload: {
+          tasks: [{ agentId: TEST_IDS.AGENT_1_ID, instruction: 'Return OK', title: 'Local' }],
+          toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+        },
+        type: 'batch_exec_async_tasks',
+      },
+      createInitialState(),
+    );
+    expect(output.result?.payload).toMatchObject({ results: [{ success: true }] });
+    expect(aiAgentService.execSubAgentTask).not.toHaveBeenCalled();
+    expect(vi.mocked(aiAgentService.updateClientTaskThreadStatus).mock.calls).toEqual([
+      [expect.objectContaining({ completionReason: 'done' })],
+      [expect.objectContaining({ completionReason: 'done' })],
+    ]);
+    expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        value: expect.objectContaining({
+          taskDetail: expect.objectContaining({
+            clientMode: true,
+            duration: 180,
+            status: ThreadStatus.Completed,
+            threadId: 'local-thread',
+          }),
+        }),
+      }),
+      { operationId: TEST_IDS.OPERATION_ID },
+    );
+  });
+
+  it('persists a timed-out worker as failed with a visible summary', async () => {
+    vi.useFakeTimers();
+    const store = createMockStore({ replaceMessages: vi.fn() });
+    store.cancelOperation = vi.fn((id, reason) =>
+      store.operations[id].abortController.abort(reason),
+    );
+    store.executeClientAgent = vi.fn(({ parentOperationId }) => {
+      const signal = store.operations[parentOperationId!].abortController.signal;
+      return new Promise<{ status: 'interrupted' }>((resolve) => {
+        signal.addEventListener('abort', () => resolve({ status: 'interrupted' }), { once: true });
+      });
+    });
+    vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockResolvedValueOnce({
+      messages: [],
+      startedAt: new Date().toISOString(),
+      success: true,
+      threadId: 'timed-out-thread',
+      threadMessages: [],
+      userMessageId: 'local-user',
+    });
+    vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockResolvedValueOnce({
+      status: ThreadStatus.Failed,
+      success: true,
+      threadId: 'timed-out-thread',
+    });
+    const executors = createGroupOrchestrationExecutors({
+      get: () => store,
+      messageContext: {
+        agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'group',
+        topicId: TEST_IDS.TOPIC_ID,
+      },
+      orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+    });
+
+    try {
+      const task = executors.exec_client_async_task!(
+        {
+          payload: {
+            agentId: TEST_IDS.AGENT_1_ID,
+            instruction: 'Run',
+            timeout: 10,
+            toolMessageId: 'tool',
+          },
+          type: 'exec_client_async_task',
+        },
+        createInitialState(),
+      );
+      await vi.advanceTimersByTimeAsync(10);
+      expect((await task).result?.payload).toMatchObject({ status: 'timed_out', success: false });
+      expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          completionReason: 'error',
+          resultContent: 'Group task timed out',
+          threadId: 'timed-out-thread',
+        }),
+      );
+      expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          value: expect.objectContaining({
+            content: 'Group task timed out',
+            taskDetail: expect.objectContaining({ status: ThreadStatus.Failed }),
+          }),
+        }),
+        { operationId: TEST_IDS.OPERATION_ID },
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('runs the second local member while the first waits for tool approval', async () => {
+    vi.clearAllMocks();
+    const store = createMockStore({
+      completeOperation: vi.fn(),
+      executeClientAgent: vi.fn().mockImplementation(({ context }) =>
+        Promise.resolve({
+          status: context.agentId === TEST_IDS.AGENT_1_ID ? 'waiting_for_human' : 'done',
+        }),
+      ),
+      failOperation: vi.fn(),
+      replaceMessages: vi.fn(),
+    });
+    vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockImplementation(
+      async ({ subAgentId }) => ({
+        messages: [],
+        startedAt: '2026-11-16T08:00:00.000Z',
+        success: true,
+        threadId: subAgentId === TEST_IDS.AGENT_1_ID ? 'local-thread' : 'second-thread',
+        threadMessages: [],
+        userMessageId: 'local-user',
+      }),
+    );
+    vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockResolvedValue({
+      status: ThreadStatus.Completed,
+      success: true,
+      threadId: 'local-thread',
+    });
+    const executors = createGroupOrchestrationExecutors({
+      get: () => store,
+      messageContext: {
+        agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'group',
+        topicId: TEST_IDS.TOPIC_ID,
+      },
+      orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+      preferLocal: true,
+      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+    });
+    const task = executors.batch_exec_async_tasks!(
+      {
+        payload: {
+          tasks: [
+            { agentId: TEST_IDS.AGENT_1_ID, instruction: 'Ask a question', title: 'First' },
+            { agentId: TEST_IDS.AGENT_2_ID, instruction: 'Return OK', title: 'Second' },
+          ],
+          toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+        },
+        type: 'batch_exec_async_tasks',
+      },
+      createInitialState(),
+    );
+
+    try {
+      await vi.waitFor(
+        () => {
+          expect(store.internal_dispatchMessage).toHaveBeenCalledWith(
+            expect.objectContaining({
+              value: { taskDetail: expect.objectContaining({ status: ThreadStatus.InReview }) },
+            }),
+            { operationId: TEST_IDS.OPERATION_ID },
+          );
+        },
+        { timeout: 200 },
+      );
+      expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ completionReason: 'done', threadId: 'second-thread' }),
+      );
+      const [firstCard, secondCard] = vi.mocked(messageService.createMessage).mock.calls;
+      expect(firstCard[0].createdAt! + 1).toBe(secondCard[0].createdAt);
+
+      const wrongThread = getLocalTaskApproval({
+        agentId: TEST_IDS.AGENT_1_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'thread',
+        threadId: 'another-thread',
+        topicId: TEST_IDS.TOPIC_ID,
+      });
+      expect(wrongThread).toBeUndefined();
+      const approval = getLocalTaskApproval({
+        agentId: TEST_IDS.AGENT_1_ID,
+        groupId: TEST_IDS.GROUP_ID,
+        scope: 'thread',
+        threadId: 'local-thread',
+        topicId: TEST_IDS.TOPIC_ID,
+      });
+      expect(approval?.operationId).toBeDefined();
+      approval?.report({ status: 'waiting_for_human' });
+      expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ completionReason: 'done', threadId: 'second-thread' }),
+      );
+      approval?.report({
+        status: 'done',
+        taskMessages: [
+          {
+            content: 'Saved approval answer',
+            createdAt: 1,
+            id: 'member-answer',
+            role: 'assistant',
+            updatedAt: 1,
+          },
+          { content: '', createdAt: 2, id: 'empty-placeholder', role: 'assistant', updatedAt: 2 },
+        ],
+      });
+
+      expect((await task).result?.payload).toMatchObject({
+        results: [{ success: true }, { success: true }],
+      });
+      expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          completionReason: 'done',
+          resultContent: 'Saved approval answer',
+          threadId: 'local-thread',
+        }),
+      );
+    } finally {
+      const taskOperation = Object.values(store.operations).find(
+        (op) => op.type === 'execClientSubAgent',
+      );
+      taskOperation?.abortController.abort();
+      await task;
+    }
+  });
+
+  it.each([true, false])(
+    'reconciles the placeholder after thread creation fails (deleted=%s)',
+    async (deleted) => {
+      vi.clearAllMocks();
+      const store = createMockStore();
+      vi.mocked(messageService.removeMessage).mockResolvedValueOnce({ success: deleted });
+      vi.mocked(messageService.createMessage).mockResolvedValueOnce({
+        id: 'rejected-task',
+        messages: [],
+      });
+      vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockRejectedValueOnce(
+        new Error('Group member not found'),
+      );
+      const executors = createGroupOrchestrationExecutors({
+        get: () => store,
+        messageContext: {
+          agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+          groupId: TEST_IDS.GROUP_ID,
+          scope: 'group',
+          topicId: TEST_IDS.TOPIC_ID,
+        },
+        orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+      });
+      const output = await executors.exec_client_async_task!(
+        {
+          payload: {
+            agentId: TEST_IDS.AGENT_1_ID,
+            instruction: 'Return OK',
+            title: 'Rejected task',
+            toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+          },
+          type: 'exec_client_async_task',
+        },
+        createInitialState(),
+      );
+
+      expect(output.result?.payload).toMatchObject({
+        error: 'Group member not found',
+        success: false,
+      });
+      expect(messageService.removeMessage).toHaveBeenCalledWith('rejected-task');
+      const deleteAction = { id: 'rejected-task', type: 'deleteMessage' };
+      const operation = { operationId: TEST_IDS.OPERATION_ID };
+      if (deleted) {
+        expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(deleteAction, operation);
+      } else {
+        expect(store.internal_dispatchMessage).not.toHaveBeenCalledWith(deleteAction, operation);
+        expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+          {
+            id: 'rejected-task',
+            type: 'updateMessage',
+            value: {
+              content: 'Task failed: Group member not found',
+              error: { message: 'Task failed: Group member not found', type: 'AgentRuntimeError' },
+            },
+          },
+          operation,
+        );
+        expect(messageService.updateMessage).toHaveBeenCalledWith('rejected-task', {
+          content: 'Task failed: Group member not found',
+          error: { message: 'Task failed: Group member not found', type: 'AgentRuntimeError' },
+        });
+      }
+      expect(store.executeClientAgent).not.toHaveBeenCalled();
+    },
+  );
+
   describe('batch_exec_async_tasks executor', () => {
     beforeEach(() => {
       vi.clearAllMocks();
@@ -410,64 +896,74 @@ describe('createGroupOrchestrationExecutors', () => {
       });
     });
 
-    it('should handle execSubAgentTask failure', async () => {
-      const mockStore = createMockStore();
+    it.each(['rejected', 'failed'])(
+      'retains a failed task card when the dispatch is %s',
+      async (failure) => {
+        const mockStore = createMockStore();
+        vi.mocked(mockStore.optimisticCreateMessage).mockResolvedValueOnce({
+          id: 'failed-task-message',
+          messages: [],
+        });
 
-      vi.mocked(aiAgentService.execSubAgentTask)
-        .mockResolvedValueOnce(
-          createMockExecResult({
-            error: 'Backend error',
-            success: false,
-          }),
-        )
-        .mockResolvedValueOnce(createMockExecResult({ threadId: 'thread-2' }));
+        const dispatch = vi.mocked(aiAgentService.execSubAgentTask);
+        if (failure === 'rejected') dispatch.mockRejectedValueOnce(new Error('Backend error'));
+        else
+          dispatch.mockResolvedValueOnce(
+            createMockExecResult({ error: 'Backend error', success: false }),
+          );
+        dispatch.mockResolvedValueOnce(createMockExecResult({ threadId: 'thread-2' }));
 
-      vi.mocked(aiAgentService.getSubAgentTaskStatus).mockResolvedValue({
-        result: 'Task completed',
-        status: 'completed',
-      });
+        vi.mocked(aiAgentService.getSubAgentTaskStatus).mockResolvedValue({
+          result: 'Task completed',
+          status: 'completed',
+        });
 
-      const executors = createGroupOrchestrationExecutors({
-        get: () => mockStore,
-        messageContext: {
-          agentId: TEST_IDS.GROUP_ID,
-          groupId: TEST_IDS.GROUP_ID,
-          scope: 'group',
-          topicId: TEST_IDS.TOPIC_ID,
-        },
-        orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
-        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
-      });
-
-      const batchExecTasksExecutor = executors.batch_exec_async_tasks!;
-
-      const result = await batchExecTasksExecutor(
-        {
-          payload: {
-            tasks: [
-              { agentId: TEST_IDS.AGENT_1_ID, instruction: 'Task 1', title: 'Task 1 Title' },
-              { agentId: TEST_IDS.AGENT_2_ID, instruction: 'Task 2', title: 'Task 2 Title' },
-            ],
-            toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+        const executors = createGroupOrchestrationExecutors({
+          get: () => mockStore,
+          messageContext: {
+            agentId: TEST_IDS.GROUP_ID,
+            groupId: TEST_IDS.GROUP_ID,
+            scope: 'group',
+            topicId: TEST_IDS.TOPIC_ID,
           },
-          type: 'batch_exec_async_tasks',
-        },
-        createInitialState(),
-      );
+          orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+          supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        });
 
-      expect(result.result?.type).toBe('tasks_completed');
-      // First task should fail
-      expect((result.result?.payload as any).results[0]).toMatchObject({
-        agentId: TEST_IDS.AGENT_1_ID,
-        error: 'Backend error',
-        success: false,
-      });
-      // Second task should succeed
-      expect((result.result?.payload as any).results[1]).toMatchObject({
-        agentId: TEST_IDS.AGENT_2_ID,
-        success: true,
-      });
-    });
+        const batchExecTasksExecutor = executors.batch_exec_async_tasks!;
+
+        const result = await batchExecTasksExecutor(
+          {
+            payload: {
+              tasks: [
+                { agentId: TEST_IDS.AGENT_1_ID, instruction: 'Task 1', title: 'Task 1 Title' },
+                { agentId: TEST_IDS.AGENT_2_ID, instruction: 'Task 2', title: 'Task 2 Title' },
+              ],
+              toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+            },
+            type: 'batch_exec_async_tasks',
+          },
+          createInitialState(),
+        );
+
+        expect(result.result?.type).toBe('tasks_completed');
+        expect(messageService.updateMessage).toHaveBeenCalledWith('failed-task-message', {
+          content: 'Task creation failed: Backend error',
+          error: { message: 'Task creation failed: Backend error', type: 'AgentRuntimeError' },
+        });
+        // First task should fail
+        expect((result.result?.payload as any).results[0]).toMatchObject({
+          agentId: TEST_IDS.AGENT_1_ID,
+          error: 'Backend error',
+          success: false,
+        });
+        // Second task should succeed
+        expect((result.result?.payload as any).results[1]).toMatchObject({
+          agentId: TEST_IDS.AGENT_2_ID,
+          success: true,
+        });
+      },
+    );
 
     it('should handle task failure status', async () => {
       const mockStore = createMockStore();

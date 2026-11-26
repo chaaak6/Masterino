@@ -3,6 +3,7 @@ import { type LobeChatDatabase } from '@lobechat/database';
 import {
   agents,
   chatGroups,
+  chatGroupsAgents,
   messages,
   sessions,
   threads,
@@ -77,6 +78,12 @@ describe('createClientTaskThread Integration', () => {
       })
       .returning();
     testGroupId = group.id;
+    await serverDB.insert(chatGroupsAgents).values({
+      agentId: testAgentId,
+      chatGroupId: testGroupId,
+      enabled: true,
+      userId,
+    });
 
     // Create test topic
     const [topic] = await serverDB
@@ -190,8 +197,8 @@ describe('createClientTaskThread Integration', () => {
     });
   });
 
-  describe('single agent mode (without groupId)', () => {
-    it('should create Thread without groupId for single agent mode', async () => {
+  describe('group scope', () => {
+    it('derives the group from the topic when the client omits it', async () => {
       const caller = aiAgentRouter.createCaller(createTestContext());
 
       const result = await caller.createClientTaskThread({
@@ -204,12 +211,28 @@ describe('createClientTaskThread Integration', () => {
 
       expect(result.success).toBe(true);
 
-      // Verify Thread has no groupId
       const [thread] = await serverDB.select().from(threads).where(eq(threads.id, result.threadId));
 
       expect(thread.agentId).toBe(testAgentId);
-      expect(thread.groupId).toBeNull();
+      expect(thread.groupId).toBe(testGroupId);
       expect(thread.type).toBe(ThreadType.Isolation);
+    });
+
+    it('requires enabled group membership even when the request omits the group', async () => {
+      await serverDB
+        .update(chatGroupsAgents)
+        .set({ enabled: false })
+        .where(eq(chatGroupsAgents.agentId, testAgentId));
+      const caller = aiAgentRouter.createCaller(createTestContext());
+
+      await expect(
+        caller.createClientTaskThread({
+          agentId: testAgentId,
+          instruction: 'Do not start a thread',
+          parentMessageId,
+          topicId: testTopicId,
+        }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
     });
   });
 
@@ -300,6 +323,7 @@ describe('createClientTaskThread Integration', () => {
           userId,
           role: 'assistant',
           content: 'Second task message',
+          groupId: testGroupId,
           topicId: testTopicId,
           agentId: testAgentId,
         })
@@ -344,6 +368,26 @@ describe('createClientTaskThread Integration', () => {
   });
 
   describe('different agents', () => {
+    it('allows an enabled supervisor to run an isolated task from its own group message', async () => {
+      await serverDB
+        .update(chatGroupsAgents)
+        .set({ role: 'supervisor' })
+        .where(eq(chatGroupsAgents.agentId, testAgentId));
+      const caller = aiAgentRouter.createCaller(createTestContext());
+      const params = { instruction: 'Run locally', parentMessageId, topicId: testTopicId };
+
+      const result = await caller.createClientTaskThread({ ...params, agentId: testAgentId });
+      expect(result.success).toBe(true);
+      await expect(
+        caller.createClientGroupAgentTaskThread({
+          ...params,
+          groupId: testGroupId,
+          subAgentId: testAgentId,
+          title: 'Group delegation',
+        }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    });
+
     it('should create threads for different agents in the same topic', async () => {
       // Create second agent
       const [agent2] = await serverDB
@@ -356,6 +400,12 @@ describe('createClientTaskThread Integration', () => {
           systemRole: 'You are another assistant.',
         })
         .returning();
+      await serverDB.insert(chatGroupsAgents).values({
+        agentId: agent2.id,
+        chatGroupId: testGroupId,
+        enabled: true,
+        userId,
+      });
 
       const caller = aiAgentRouter.createCaller(createTestContext());
 

@@ -17,7 +17,7 @@ export interface TaskContentProps {
   isError: boolean;
   messages: UIChatMessage[] | undefined;
   status: ThreadStatus | undefined;
-  taskDetail: TaskDetail | undefined;
+  taskDetail: Omit<TaskDetail, 'threadId'> | undefined;
   threadId: string | undefined;
 }
 
@@ -32,6 +32,8 @@ const TaskContent = memo<TaskContentProps>(
 
     // No messages yet
     if (!messages || messages.length === 0) {
+      if (isError && taskDetail) return <ErrorState taskDetail={taskDetail} />;
+
       // Still processing: show full initializing state
       if (isProcessing) {
         return <InitializingState />;

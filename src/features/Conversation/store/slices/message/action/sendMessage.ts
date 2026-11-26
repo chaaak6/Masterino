@@ -32,10 +32,8 @@ export const sendMessage = (
       }
     }
 
-    // Keep ConversationStore in sync with the editor, which is cleared immediately on send.
-    // Do this before awaiting the full streaming lifecycle so drafts typed during generation
-    // are not overwritten when the request completes.
-    set({ inputMessage: '' });
+    const { onSendReady } = params;
+    if (!onSendReady) set({ inputMessage: '' });
 
     // Get global chat store
     const chatStore = useChatStore.getState();
@@ -53,6 +51,13 @@ export const sendMessage = (
       ...params,
       context,
       messages,
+      ...(onSendReady && {
+        onSendReady: () => {
+          if (!onSendReady()) return false;
+          set({ inputMessage: '' });
+          return true;
+        },
+      }),
       onTopicCreated: hooks.onTopicCreated,
     });
 

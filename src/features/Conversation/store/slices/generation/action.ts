@@ -1,11 +1,12 @@
 import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
-import { LOADING_FLAT } from '@lobechat/const';
+import { isDesktop, LOADING_FLAT } from '@lobechat/const';
 import { isDeviceLocalMcpIdentifier } from '@lobechat/electron-client-ipc';
 import type {
   ChatImageItem,
   ConversationContext,
   HeterogeneousProviderConfig,
   RuntimeSelectedTool,
+  UIChatMessage,
 } from '@lobechat/types';
 import { t } from 'i18next';
 import { type StateCreator } from 'zustand';
@@ -18,7 +19,7 @@ import { getAgentStoreState } from '@/store/agent';
 import { agentByIdSelectors, agentSelectors } from '@/store/agent/selectors';
 import { useChatStore } from '@/store/chat';
 import { topicSelectors } from '@/store/chat/selectors';
-import { selectRuntimeType } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
+import { selectConversationRuntime } from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import {
   parseMentionedAgentsFromEditorData,
   parseSelectedSkillsFromEditorData,
@@ -32,7 +33,9 @@ import {
   mergeAgentRuntimeInitialContexts,
   resolveActiveTopicDocumentInitialContext,
 } from '@/store/chat/utils/activeTopicDocumentContext';
+import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { getElectronStoreState } from '@/store/electron';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
 import {
   checkDesktopProjectSend,
@@ -86,16 +89,16 @@ const getFrozenTopicWorkspaceId = (
   return topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot?.workspaceId;
 };
 
-const getSelectedLocalMcpRoute = (
+const getGenerationRoute = (
   chatStore: ReturnType<typeof useChatStore.getState>,
-  topicId: string | undefined,
+  { groupId, topicId }: ConversationContext,
   selectedTools: RuntimeSelectedTool[] | undefined,
 ) => {
   const hasSelectedLocalMcp = selectedTools?.some(({ identifier }) =>
     isDeviceLocalMcpIdentifier(identifier),
   );
   const topicSnapshot =
-    hasSelectedLocalMcp && topicId
+    (groupId || hasSelectedLocalMcp) && topicId
       ? (getProjectWorkspaceStoreState().topicStatesById?.[topicId]?.snapshot ??
         (chatStore.topicDataMap
           ? topicSelectors.getTopicById(topicId)(chatStore)?.metadata?.executionSnapshot
@@ -201,6 +204,62 @@ const runHeterogeneousFromExistingMessage = async (
  *
  * Handles generation control (stop, cancel, regenerate, continue)
  */
+const checkRegenerationWorkspace = async (
+  context: ConversationContext,
+  chatStore: ReturnType<typeof useChatStore.getState>,
+) => {
+  if (!context.topicId) return true;
+  try {
+    await checkDesktopProjectSend({
+      agentId: context.agentId,
+      groupId: context.groupId,
+      isNewTopic: false,
+      topicId: context.topicId,
+      topicMetadata: chatStore.topicDataMap
+        ? topicSelectors.getTopicById(context.topicId)(chatStore)?.metadata
+        : undefined,
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof DesktopDeviceIdentityUnavailableError) {
+      antdMessage.error(error.message);
+    } else if (error instanceof ProjectDeviceMismatchError) {
+      antdMessage.error(t('workspaceRuntime.otherDeviceProject', { ns: 'chat' }));
+    } else {
+      antdMessage.error(t('unknownError', { ns: 'common' }));
+    }
+    return false;
+  }
+};
+
+const deleteReplacedMessage = async (
+  chatStore: ReturnType<typeof useChatStore.getState>,
+  context: ConversationContext,
+  message: UIChatMessage,
+  branchIndex: number,
+) => {
+  const { operationId } = chatStore.startOperation({
+    context: { ...context, messageId: message.id },
+    type: 'regenerate',
+  });
+  try {
+    await chatStore.deleteMessage(message.id, { operationId }, message);
+    if (message.role !== 'user' && message.parentId) {
+      // Removing the old reply shifts the newest branch one place to the left.
+      await chatStore.switchMessageBranch(message.parentId, Math.max(0, branchIndex - 1), {
+        operationId,
+      });
+    }
+    chatStore.completeOperation(operationId);
+  } catch (error) {
+    chatStore.failOperation(operationId, {
+      message: error instanceof Error ? error.message : String(error),
+      type: 'RegenerateError',
+    });
+    antdMessage.error(t('unknownError.title', { ns: 'error' }));
+  }
+};
+
 export interface GenerationAction {
   /**
    * Cancel a specific operation
@@ -258,7 +317,7 @@ export interface GenerationAction {
   /**
    * Regenerate a user message
    */
-  regenerateUserMessage: (messageId: string) => Promise<void>;
+  regenerateUserMessage: (messageId: string) => Promise<{ branchIndex: number } | void>;
 
   /**
    * Re-invoke a tool message
@@ -370,24 +429,37 @@ export const generationSlice: StateCreator<
     const previousUserMessage = displayMessages
       .slice(0, messageIndex + 1)
       .findLast((item) => item.role === 'user');
-    const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+    const { hasSelectedLocalMcp, topicSnapshot } = getGenerationRoute(
       chatStore,
-      topicId,
+      context,
       parseSelectedToolsFromEditorData(previousUserMessage?.editorData ?? undefined),
     );
-    const runtimeType = await routeDesktopWorkspaceRuntime(
-      selectRuntimeType({
-        boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-        executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
-        hasSelectedLocalMcp,
-        heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
-        isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
-      }),
-      {
-        topicId,
-        workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
-      },
-    );
+    const executionTarget = topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget;
+    let runtimeType;
+    try {
+      runtimeType = await routeDesktopWorkspaceRuntime(
+        await selectConversationRuntime({
+          boundDeviceId:
+            topicSnapshot?.boundDeviceId ??
+            (isDesktop && context.groupId && executionTarget === 'local'
+              ? undefined
+              : agentConfig?.agencyConfig?.boundDeviceId),
+          executionTarget,
+          groupId: context.groupId,
+          hasSelectedLocalMcp,
+          heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
+          isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
+        }),
+        {
+          topicId,
+          workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
+        },
+      );
+    } catch (error) {
+      if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
+      antdMessage.error(error.message);
+      return;
+    }
 
     // Hetero CLIs (CC / Codex) have no "continue a cut-off response" primitive
     // — each prompt is a fresh user turn from their perspective. Bail out
@@ -445,31 +517,18 @@ export const generationSlice: StateCreator<
 
   delAndRegenerateMessage: async (messageId: string) => {
     const { context, displayMessages } = get();
-    const chatStore = useChatStore.getState();
+    // Capture the original branch before retrying, since the replacement may hide it.
+    const original = displayMessages.find((message) => message.id === messageId);
+    if (!original?.parentId) return;
+    const replacement = await get().regenerateUserMessage(original.parentId);
+    if (!replacement) return;
 
-    // Find the assistant message and get parent user message ID before deletion
-    // This is needed because after deletion, we can't find the parent anymore
-    const currentMessage = displayMessages.find((c) => c.id === messageId);
-    if (!currentMessage) return;
-
-    const userId = currentMessage.parentId;
-    if (!userId) return;
-    const userMessage = displayMessages.find((item) => item.id === userId);
-    if (!userMessage || !validateMessageImages(userMessage)) return;
-
-    // Create operation to track context (use 'regenerate' type since this is a regenerate action)
-    const { operationId } = chatStore.startOperation({
-      context: { ...context, messageId },
-      type: 'regenerate',
-    });
-
-    // IMPORTANT: Delete first, then regenerate
-    // If we regenerate first, it switches to a new branch, causing the original
-    // message to no longer appear in displayMessages. Then deleteMessage cannot
-    // find the message and fails silently.
-    await chatStore.deleteMessage(messageId, { operationId });
-    await get().regenerateUserMessage(userId);
-    chatStore.completeOperation(operationId);
+    await deleteReplacedMessage(
+      useChatStore.getState(),
+      context,
+      original,
+      replacement.branchIndex,
+    );
   },
 
   delAndResendThreadMessage: async (messageId: string) => {
@@ -479,19 +538,10 @@ export const generationSlice: StateCreator<
       current?.role === 'user'
         ? current
         : displayMessages.find((item) => item.id === current?.parentId);
-    if (!userMessage || !validateMessageImages(userMessage)) return;
-    const chatStore = useChatStore.getState();
-
-    // Create operation to track context (use 'regenerate' type since resend is essentially regenerate)
-    const { operationId } = chatStore.startOperation({
-      context: { ...context, messageId },
-      type: 'regenerate',
-    });
-
-    // Resend then delete
-    await get().resendThreadMessage(userMessage.id);
-    await chatStore.deleteMessage(messageId, { operationId });
-    chatStore.completeOperation(operationId);
+    if (!current || !userMessage) return;
+    const replacement = await get().regenerateUserMessage(userMessage.id);
+    if (!replacement || current.role === 'user') return;
+    await deleteReplacedMessage(useChatStore.getState(), context, current, replacement.branchIndex);
   },
 
   openThreadCreator: (messageId: string) => {
@@ -534,26 +584,7 @@ export const generationSlice: StateCreator<
     const item = displayMessages[currentIndex];
     if (!item || !validateMessageImages(item)) return;
 
-    if (context.topicId) {
-      try {
-        await checkDesktopProjectSend({
-          agentId: context.agentId,
-          groupId: context.groupId,
-          isNewTopic: false,
-          topicId: context.topicId,
-          topicMetadata: chatStore.topicDataMap
-            ? topicSelectors.getTopicById(context.topicId)(chatStore)?.metadata
-            : undefined,
-        });
-      } catch (error) {
-        antdMessage.error(
-          error instanceof ProjectDeviceMismatchError
-            ? t('workspaceRuntime.otherDeviceProject', { ns: 'chat' })
-            : t('workspaceRuntime.picker.loadError', { ns: 'chat' }),
-        );
-        return;
-      }
-    }
+    if (!(await checkRegenerationWorkspace(context, chatStore))) return;
 
     const initialContext = mergeAgentRuntimeInitialContexts(
       await resolveActiveTopicDocumentInitialContext(context),
@@ -575,32 +606,27 @@ export const generationSlice: StateCreator<
       context: { ...context, messageId },
       type: 'regenerate',
     });
+    let restorePreviousBranch: (() => Promise<void>) | undefined;
 
     try {
-      // Calculate next branch index by counting children of this user message
-      // We need to count how many assistant messages have this user message as parent
-      const { dbMessages } = get();
-      const childrenCount = dbMessages.filter((m) => m.parentId === messageId).length;
-      // New branch index = current children count (since index is 0-based)
-      const nextBranchIndex = childrenCount;
-
-      // Switch to the new branch so the UI shows the incoming response immediately
-      await chatStore.switchMessageBranch(messageId, nextBranchIndex, {
-        operationId,
-      });
-
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
       const topicId = context.topicId ?? undefined;
-      const { hasSelectedLocalMcp, topicSnapshot } = getSelectedLocalMcpRoute(
+      const { hasSelectedLocalMcp, topicSnapshot } = getGenerationRoute(
         chatStore,
-        topicId,
+        context,
         initialContext?.initialContext?.selectedTools,
       );
+      const executionTarget = topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget;
       const runtimeType = await routeDesktopWorkspaceRuntime(
-        selectRuntimeType({
-          boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-          executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+        await selectConversationRuntime({
+          boundDeviceId:
+            topicSnapshot?.boundDeviceId ??
+            (isDesktop && context.groupId && executionTarget === 'local'
+              ? undefined
+              : agentConfig?.agencyConfig?.boundDeviceId),
+          executionTarget,
+          groupId: context.groupId,
           hasSelectedLocalMcp,
           heterogeneousProvider,
           isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
@@ -611,11 +637,45 @@ export const generationSlice: StateCreator<
         },
       );
 
+      // Calculate next branch index by counting children of this user message
+      // We need to count how many assistant messages have this user message as parent
+      const { dbMessages } = get();
+      const branches = dbMessages.filter((m) => m.parentId === messageId && m.role !== 'tool');
+      // New branch index = current children count (since index is 0-based)
+      const nextBranchIndex = branches.length;
+      if (branches.length) {
+        const visibleReply = displayMessages[currentIndex + 1];
+        const visibleBranchIndex = branches.findIndex(({ id }) => id === visibleReply?.id);
+        const previousBranchIndex =
+          item.metadata?.activeBranchIndex ??
+          visibleReply?.branch?.activeBranchIndex ??
+          (visibleBranchIndex >= 0
+            ? visibleBranchIndex
+            : Math.max(
+                0,
+                branches.findIndex(({ id }) =>
+                  dbMessages.some((message) => message.parentId === id),
+                ),
+              ));
+        restorePreviousBranch = async () => {
+          const currentMessages = useChatStore.getState().dbMessagesMap[messageMapKey(context)];
+          const selectedBranch = currentMessages?.find(({ id }) => id === messageId)?.metadata
+            ?.activeBranchIndex;
+          if (selectedBranch !== undefined && selectedBranch !== nextBranchIndex) return;
+          await chatStore.switchMessageBranch(messageId, previousBranchIndex, { operationId });
+        };
+      }
+
+      // Switch to the new branch so the UI shows the incoming response immediately
+      await chatStore.switchMessageBranch(messageId, nextBranchIndex, {
+        operationId,
+      });
+
       // ── Gateway mode: trigger server-side regeneration ──
       if (runtimeType === 'gateway') {
         // Keep the regenerate operation running until the gateway session completes,
         // so isMessageRegenerating stays true and duplicate clicks are blocked.
-        await chatStore.executeGatewayAgent({
+        const result = await chatStore.executeGatewayAgent({
           context,
           message: item.content,
           onComplete: () => {
@@ -627,7 +687,17 @@ export const generationSlice: StateCreator<
           parentMessageId: messageId,
         });
 
-        return;
+        if (!result.success) {
+          const restore = restorePreviousBranch;
+          restorePreviousBranch = undefined;
+          await restore?.();
+          chatStore.failOperation(operationId, {
+            message: result.error || result.message,
+            type: 'RegenerateError',
+          });
+          return;
+        }
+        return { branchIndex: nextBranchIndex };
       }
 
       // ── Hetero mode: re-run the local CLI against the original user prompt ──
@@ -650,12 +720,12 @@ export const generationSlice: StateCreator<
         });
         chatStore.completeOperation(operationId);
         if (hooks.onRegenerateComplete) hooks.onRegenerateComplete(messageId);
-        return;
+        return { branchIndex: nextBranchIndex };
       }
 
       // ── Client mode: run agent locally ──
       // Execute agent runtime with full context from ConversationStore
-      await chatStore.executeClientAgent({
+      const result = await chatStore.executeClientAgent({
         context,
         initialContext,
         messages: contextMessages,
@@ -664,17 +734,29 @@ export const generationSlice: StateCreator<
         parentOperationId: operationId,
       });
 
+      const replaceable = result?.status === 'done' || result?.status === 'waiting_for_human';
+      if (!replaceable) {
+        const restore = restorePreviousBranch;
+        restorePreviousBranch = undefined;
+        await restore?.();
+      }
       chatStore.completeOperation(operationId);
 
       // ===== Hook: onRegenerateComplete =====
       if (hooks.onRegenerateComplete) {
         hooks.onRegenerateComplete(messageId);
       }
+      if (replaceable) return { branchIndex: nextBranchIndex };
     } catch (error) {
+      await restorePreviousBranch?.().catch(() => {});
       chatStore.failOperation(operationId, {
         message: error instanceof Error ? error.message : String(error),
         type: 'RegenerateError',
       });
+      if (error instanceof DesktopDeviceIdentityUnavailableError) {
+        antdMessage.error(error.message);
+        return;
+      }
       throw error;
     }
   },

@@ -3,6 +3,7 @@ import { type LobeChatDatabase } from '@lobechat/database';
 import {
   agents,
   chatGroups,
+  chatGroupsAgents,
   messages,
   sessions,
   threads,
@@ -12,6 +13,8 @@ import { getTestDB } from '@lobechat/database/test-utils';
 import { ThreadStatus, ThreadType } from '@lobechat/types';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { MessageModel } from '@/database/models/message';
 
 import { aiAgentRouter } from '../../aiAgent';
 import { cleanupTestUser, createTestUser } from './setup';
@@ -89,6 +92,10 @@ describe('createClientGroupAgentTaskThread Integration', () => {
       })
       .returning();
     testGroupId = group.id;
+    await serverDB.insert(chatGroupsAgents).values([
+      { agentId: supervisorAgentId, chatGroupId: testGroupId, role: 'supervisor', userId },
+      { agentId: workerAgentId, chatGroupId: testGroupId, enabled: true, userId },
+    ]);
 
     // Create test topic
     const [topic] = await serverDB
@@ -126,6 +133,58 @@ describe('createClientGroupAgentTaskThread Integration', () => {
   const createTestContext = () => ({
     userId,
     jwtPayload: { userId },
+  });
+
+  it('does not start a task for a disabled group member', async () => {
+    await serverDB
+      .update(chatGroupsAgents)
+      .set({ enabled: false })
+      .where(eq(chatGroupsAgents.agentId, workerAgentId));
+    const caller = aiAgentRouter.createCaller(createTestContext());
+    await expect(
+      caller.createClientGroupAgentTaskThread({
+        groupId: testGroupId,
+        instruction: 'Return a test marker',
+        parentMessageId,
+        subAgentId: workerAgentId,
+        topicId: testTopicId,
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('reads the completed member result and thread status after reopening the topic', async () => {
+    const taskId = `task_${userId}`;
+    await serverDB.insert(messages).values({
+      agentId: workerAgentId,
+      content: '',
+      groupId: testGroupId,
+      id: taskId,
+      role: 'task',
+      topicId: testTopicId,
+      userId,
+    });
+    const caller = aiAgentRouter.createCaller(createTestContext());
+    const { threadId } = await caller.createClientGroupAgentTaskThread({
+      groupId: testGroupId,
+      instruction: 'Return a test marker',
+      parentMessageId: taskId,
+      subAgentId: workerAgentId,
+      topicId: testTopicId,
+    });
+    await caller.updateClientTaskThreadStatus({
+      completionReason: 'done',
+      resultContent: 'Saved member result',
+      threadId,
+    });
+
+    const reloaded = await new MessageModel(serverDB, userId).query({
+      groupId: testGroupId,
+      topicId: testTopicId,
+    });
+    expect(reloaded.find(({ id }) => id === taskId)).toMatchObject({
+      content: 'Saved member result',
+      taskDetail: { clientMode: true, status: ThreadStatus.Completed, threadId },
+    });
   });
 
   describe('basic functionality', () => {

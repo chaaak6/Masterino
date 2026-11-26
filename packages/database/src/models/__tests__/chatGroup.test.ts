@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { LobeChatDatabase } from '@/database/type';
 
 import { getTestDB } from '../../core/getTestDB';
+import { AgentGroupRepository } from '../../repositories/agentGroup';
 import type { NewChatGroup } from '../../schemas';
 import {
   agents as agentsTable,
@@ -453,6 +454,52 @@ describe('ChatGroupModel', () => {
     });
   });
 
+  it('lists only the members eligible to leave and preserves a departing virtual agent', async () => {
+    const repo = new AgentGroupRepository(serverDB, userId);
+    const { group, supervisorAgentId } = await repo.createGroupWithSupervisor({ title: 'Group' });
+    await serverDB.insert(agentsTable).values([
+      { id: 'group-worker', userId, virtual: true },
+      { id: 'unrelated-worker', userId, virtual: true },
+    ]);
+    await chatGroupModel.addAgentsToGroup(group.id, ['group-worker']);
+
+    const preview = await repo.checkAgentsBeforeRemoval(group.id, [
+      'group-worker',
+      'unrelated-worker',
+      supervisorAgentId,
+    ]);
+    expect(preview.virtualAgents.map((agent) => agent.id)).toEqual(['group-worker']);
+    const deletion = await repo.checkAgentsBeforeRemoval(
+      group.id,
+      ['group-worker', supervisorAgentId],
+      { includeSupervisor: true },
+    );
+    expect(deletion.virtualAgents.map((agent) => agent.id)).toEqual(
+      expect.arrayContaining(['group-worker', supervisorAgentId]),
+    );
+    const removed = await repo.removeAgentsFromGroup(group.id, ['group-worker']);
+    expect(removed).toEqual({ deletedVirtualAgentIds: [], removedFromGroup: 1 });
+    expect(await chatGroupModel.getGroupAgents(group.id)).toEqual([
+      expect.objectContaining({ agentId: supervisorAgentId }),
+    ]);
+    expect(
+      await serverDB.query.agents.findFirst({ where: eq(agentsTable.id, 'group-worker') }),
+    ).toMatchObject({ id: 'group-worker' });
+  });
+
+  it('only adds agents belonging to the group authorization scope', async () => {
+    const group = await chatGroupModel.create({ title: 'Personal' });
+    await serverDB.insert(agentsTable).values([
+      { id: 'personal-agent', userId },
+      { id: 'workspace-agent', userId, workspaceId },
+    ]);
+
+    await expect(
+      chatGroupModel.addAgentsToGroup(group.id, ['personal-agent', 'workspace-agent']),
+    ).rejects.toThrow('Agent not found');
+    expect(await chatGroupModel.getGroupAgents(group.id)).toEqual([]);
+  });
+
   describe('addAgentsToGroup', () => {
     it('should add multiple agents to group', async () => {
       // Create test data
@@ -518,6 +565,27 @@ describe('ChatGroupModel', () => {
       expect(groupAgents).toHaveLength(2);
     });
 
+    it('adds eligible agents when the request also includes an existing legacy member', async () => {
+      const group = await chatGroupModel.create({ title: 'Personal' });
+      await serverDB.insert(agentsTable).values([
+        { id: 'personal-agent', userId },
+        { id: 'legacy-workspace-agent', userId, workspaceId },
+      ]);
+      await serverDB.insert(chatGroupsAgents).values({
+        agentId: 'legacy-workspace-agent',
+        chatGroupId: group.id,
+        userId,
+      });
+
+      const result = await chatGroupModel.addAgentsToGroup(group.id, [
+        'legacy-workspace-agent',
+        'personal-agent',
+      ]);
+
+      expect(result.added.map((agent) => agent.agentId)).toEqual(['personal-agent']);
+      expect(result.existing).toEqual(['legacy-workspace-agent']);
+    });
+
     it('should return empty added array when all agents already exist', async () => {
       // Create test data
       await serverDB.transaction(async (trx) => {
@@ -549,7 +617,7 @@ describe('ChatGroupModel', () => {
     it('should throw error for non-existent group', async () => {
       await expect(
         chatGroupModel.addAgentsToGroup('non-existent-group', ['agent-1']),
-      ).rejects.toThrow('Group not found');
+      ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Group not found' });
     });
   });
 

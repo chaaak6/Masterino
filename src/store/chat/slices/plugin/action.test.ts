@@ -3,6 +3,7 @@ import { ToolNameResolver } from '@lobechat/context-engine';
 import type {
   BuiltinToolContext,
   ChatToolPayload,
+  ExecutionContext,
   MessageToolCall,
   ToolManifest,
   UIChatMessage,
@@ -11,10 +12,23 @@ import { act, renderHook } from '@testing-library/react';
 import { type Mock } from 'vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type * as ConstVersion from '@/const/version';
 import { messageService } from '@/services/message';
 import { useChatStore } from '@/store/chat/store';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 import { useToolStore } from '@/store/tool';
+
+const platform = vi.hoisted(() => ({ isDesktop: undefined as boolean | undefined }));
+
+vi.mock('@/const/version', async (importOriginal) => {
+  const actual = await importOriginal<typeof ConstVersion>();
+  return {
+    ...actual,
+    get isDesktop() {
+      return platform.isDesktop ?? actual.isDesktop;
+    },
+  };
+});
 
 vi.mock('@/utils/localStorage', () => {
   class AsyncLocalStorage<State> {
@@ -45,6 +59,7 @@ vi.mock('@/services/message', () => ({
 }));
 
 afterEach(() => {
+  platform.isDesktop = undefined;
   vi.clearAllMocks();
 });
 
@@ -169,6 +184,82 @@ describe('ChatPluginAction', () => {
   });
 
   describe('invokeBuiltinTool', () => {
+    it.each([
+      { identifier: 'lobe-agent-management', plan: undefined, preferLocal: true },
+      {
+        identifier: 'lobe-group-management',
+        plan: { kind: 'sandbox', target: 'sandbox' },
+        preferLocal: false,
+      },
+      {
+        identifier: 'lobe-group-management',
+        plan: { deviceId: 'remote', kind: 'device', target: 'device' },
+        preferLocal: false,
+      },
+    ] satisfies { identifier: string; plan?: ExecutionContext['plan']; preferLocal: boolean }[])(
+      'binds $identifier to the saved group topic and respects $plan',
+      async ({ identifier, plan, preferLocal }) => {
+        platform.isDesktop = true;
+        const executorModule = await import('@/store/tool/slices/builtin/executors');
+        vi.spyOn(executorModule, 'hasExecutor').mockReturnValue(true);
+        const invoke = vi
+          .spyOn(useToolStore.getState(), 'invokeBuiltinTool')
+          .mockResolvedValue({ success: true });
+        const { result } = renderHook(() => useChatStore());
+        const messageId = 'saved-group-tool';
+        const groupId = 'saved-group';
+        const topicId = 'saved-topic';
+        const callbacks = result.current.getGroupOrchestrationCallbacks();
+        const bind = vi
+          .spyOn(result.current, 'getGroupOrchestrationCallbacks')
+          .mockReturnValue(callbacks);
+
+        await act(async () => {
+          useChatStore.setState({
+            activeGroupId: 'other-group',
+            activeTopicId: 'other-topic',
+            dbMessagesMap: {
+              saved: [
+                {
+                  content: '',
+                  createdAt: 0,
+                  groupId,
+                  id: messageId,
+                  role: 'tool',
+                  topicId,
+                  updatedAt: 0,
+                },
+              ],
+            },
+          });
+          const { operationId } = result.current.startOperation({
+            context: { agentId: 'supervisor', groupId, scope: 'group' },
+            metadata: { executionContext: plan && { plan } },
+            type: 'execAgentRuntime',
+          });
+          result.current.associateMessageWithOperation(messageId, operationId);
+          await result.current.invokeBuiltinTool(messageId, {
+            apiName: 'callAgent',
+            arguments: '{}',
+            id: 'saved-group-call',
+            identifier,
+            type: 'builtin',
+          });
+        });
+
+        expect(bind).toHaveBeenCalledWith(
+          expect.objectContaining({ groupId, preferLocal, topicId }),
+        );
+        expect(invoke).toHaveBeenCalledWith(
+          identifier,
+          'callAgent',
+          {},
+          expect.objectContaining({ groupId, groupOrchestration: callbacks }),
+        );
+        bind.mockRestore();
+      },
+    );
+
     it('should invoke Tool Store executor with parsed arguments', async () => {
       const payload = {
         identifier: 'test-tool',

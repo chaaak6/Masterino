@@ -12,6 +12,8 @@ import type {
 
 const HEARTBEAT_INTERVAL = 30_000; // 30s
 const INITIAL_RECONNECT_DELAY = 1000; // 1s
+const INITIAL_CONNECTION_TIMEOUT = 45_000;
+const RECOVERY_TIMEOUT = 45_000;
 const MAX_RECONNECT_DELAY = 30_000; // 30s
 const MAX_MISSED_HEARTBEATS = 3;
 const RESUME_FLUSH_DELAY = 500; // 500ms debounce after last resume event
@@ -63,7 +65,11 @@ class TypedEmitter {
  */
 export class AgentStreamClient extends TypedEmitter {
   private ws: WebSocket | null = null;
+  private connectionTimer?: ReturnType<typeof setTimeout>;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private recoveryTimer?: ReturnType<typeof setTimeout>;
+  private recoveryExpired = false;
+  private authenticatedAt?: number;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = INITIAL_RECONNECT_DELAY;
   private missedHeartbeats = 0;
@@ -126,6 +132,7 @@ export class AgentStreamClient extends TypedEmitter {
     if (this._status === 'connected' || this._status === 'connecting') return;
     this.intentionalDisconnect = false;
     this.sessionEnded = false;
+    if (this.resumeOnConnect) this.startRecoveryTimer();
     this.doConnect();
   }
 
@@ -174,6 +181,7 @@ export class AgentStreamClient extends TypedEmitter {
     this.intentionalDisconnect = false;
     this.sessionEnded = false;
     this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    this.startRecoveryTimer();
     this.doConnect();
   }
 
@@ -193,12 +201,17 @@ export class AgentStreamClient extends TypedEmitter {
       ws.onerror = this.handleError;
 
       this.ws = ws;
+      // A fresh handshake gets its own deadline. The recovery budget starts
+      // only when that attempt fails, and also bounds any stalled retries.
+      if (!this.recoveryTimer) {
+        this.connectionTimer = setTimeout(() => {
+          this.closeWebSocket();
+          this.handleClose();
+        }, INITIAL_CONNECTION_TIMEOUT);
+      }
     } catch (error) {
       console.error('[AgentStreamClient] Failed to create WebSocket:', error);
-      this.setStatus('disconnected');
-      if (this.autoReconnect && !this.sessionEnded) {
-        this.scheduleReconnect();
-      }
+      this.handleClose();
     }
   }
 
@@ -217,7 +230,6 @@ export class AgentStreamClient extends TypedEmitter {
   // ─── WebSocket Event Handlers ───
 
   private handleOpen = (): void => {
-    this.reconnectDelay = INITIAL_RECONNECT_DELAY;
     this.setStatus('authenticating');
     this.sendMessage({ token: this.token, type: 'auth' });
   };
@@ -228,6 +240,8 @@ export class AgentStreamClient extends TypedEmitter {
 
       switch (message.type) {
         case 'auth_success': {
+          this.clearConnectionTimer();
+          this.authenticatedAt = Date.now();
           this.setStatus('connected');
           this.startHeartbeat();
 
@@ -275,11 +289,15 @@ export class AgentStreamClient extends TypedEmitter {
         }
 
         case 'heartbeat_ack': {
+          this.clearRecoveryTimer();
+          this.reconnectDelay = INITIAL_RECONNECT_DELAY;
           this.missedHeartbeats = 0;
           break;
         }
 
         case 'agent_event': {
+          this.clearRecoveryTimer();
+          this.reconnectDelay = INITIAL_RECONNECT_DELAY;
           const agentEvent: AgentStreamEvent = message.event;
           if (message.id) this.lastEventId = message.id;
 
@@ -308,6 +326,8 @@ export class AgentStreamClient extends TypedEmitter {
         }
 
         case 'resume_complete': {
+          this.clearRecoveryTimer();
+          this.reconnectDelay = INITIAL_RECONNECT_DELAY;
           // Authoritative status from the DO, sent right after resume replay
           // — this is the definitive end-of-replay marker, so
           // cancel the pending debounce flush and act on it immediately.
@@ -355,6 +375,7 @@ export class AgentStreamClient extends TypedEmitter {
   };
 
   private handleClose = (): void => {
+    this.clearConnectionTimer();
     this.stopHeartbeat();
     this.ws = null;
 
@@ -409,6 +430,21 @@ export class AgentStreamClient extends TypedEmitter {
 
   private scheduleReconnect(): void {
     this.clearReconnectTimer();
+    // A socket that remained authenticated for a heartbeat interval was not
+    // in a rapid reconnect loop. Its next close is a new interruption.
+    if (
+      this.authenticatedAt !== undefined &&
+      Date.now() - this.authenticatedAt >= HEARTBEAT_INTERVAL
+    ) {
+      this.clearRecoveryTimer();
+      this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    }
+    this.authenticatedAt = undefined;
+    if (this.recoveryExpired) {
+      this.expireRecovery();
+      return;
+    }
+    this.startRecoveryTimer();
 
     const delay = this.reconnectDelay;
     this.emit('reconnecting', delay);
@@ -420,6 +456,33 @@ export class AgentStreamClient extends TypedEmitter {
 
     // Exponential backoff: 1s → 2s → 4s → ... → 30s
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_RECONNECT_DELAY);
+  }
+
+  private startRecoveryTimer(): void {
+    this.recoveryTimer ??= setTimeout(() => {
+      this.recoveryExpired = true;
+      // An authenticated socket still has the heartbeat watchdog. A missed
+      // heartbeat is tolerated while the same socket is open, but a later
+      // close cannot grant an unproductive reconnect loop a fresh budget.
+      if (this._status !== 'connected') this.expireRecovery();
+    }, RECOVERY_TIMEOUT);
+  }
+
+  private expireRecovery(): void {
+    this.cleanup();
+    this.setStatus('disconnected');
+    this.emit('recovery_exhausted');
+  }
+
+  private clearConnectionTimer(): void {
+    clearTimeout(this.connectionTimer);
+    this.connectionTimer = undefined;
+  }
+
+  private clearRecoveryTimer(): void {
+    clearTimeout(this.recoveryTimer);
+    this.recoveryTimer = undefined;
+    this.recoveryExpired = false;
   }
 
   private clearReconnectTimer(): void {
@@ -509,7 +572,10 @@ export class AgentStreamClient extends TypedEmitter {
   }
 
   private cleanup(): void {
+    this.authenticatedAt = undefined;
+    this.clearConnectionTimer();
     this.stopHeartbeat();
+    this.clearRecoveryTimer();
     this.clearReconnectTimer();
     this.closeWebSocket();
     if (this.resumeFlushTimer) {

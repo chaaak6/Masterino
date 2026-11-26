@@ -1,3 +1,4 @@
+import { GroupOrchestrationRuntime } from '@lobechat/agent-runtime';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -57,6 +58,61 @@ describe('groupOrchestration actions', () => {
   });
 
   describe('internal_execGroupOrchestration', () => {
+    it('preserves dispatch and successful results alongside failures before resuming the supervisor', async () => {
+      const updateContent = vi.fn().mockResolvedValue(undefined);
+      const step = vi.spyOn(GroupOrchestrationRuntime.prototype, 'step');
+      step.mockImplementationOnce(async (state) => ({
+        events: [],
+        newState: state,
+        result: {
+          payload: {
+            results: [
+              { agentId: 'worker', error: 'Group member not found', success: false },
+              { agentId: 'other', result: 'successful output', success: true },
+              { agentId: 'cancelled', status: 'cancelled', success: false },
+            ],
+          },
+          type: 'tasks_completed',
+        },
+      }));
+      step.mockImplementationOnce(async (state) => {
+        expect(updateContent).toHaveBeenCalledWith(
+          'tool-message',
+          'Dispatched three members.\n\nMember task results:\n' +
+            'Agent worker: Group member not found\nAgent other: successful output\nAgent cancelled: Cancelled',
+          undefined,
+          { operationId: TEST_IDS.OPERATION_ID },
+        );
+        return { events: [], newState: { ...state, status: 'done' } };
+      });
+      useChatStore.setState({
+        dbMessagesMap: {
+          group: [
+            {
+              content: 'Dispatched three members.',
+              createdAt: 0,
+              id: 'tool-message',
+              role: 'tool',
+              updatedAt: 0,
+            },
+          ],
+        },
+        optimisticUpdateMessageContent: updateContent,
+      });
+
+      await useChatStore.getState().internal_execGroupOrchestration({
+        groupId: TEST_IDS.GROUP_ID,
+        initialResult: {
+          payload: { decision: 'execute_task', params: { toolMessageId: 'tool-message' } },
+          type: 'supervisor_decided',
+        },
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        topicId: TEST_IDS.TOPIC_ID,
+      });
+
+      expect(step).toHaveBeenCalledTimes(2);
+    });
+
     it('should create operation with scope: group in context', async () => {
       const { result } = renderHook(() => useChatStore());
 
@@ -121,6 +177,43 @@ describe('groupOrchestration actions', () => {
       expect(refreshInterval?.({ status: 'cancel' })).toBe(0);
     });
   });
+
+  it.each([
+    { preferLocal: true, runInClient: undefined, expected: true },
+    { preferLocal: true, runInClient: false, expected: true },
+    { preferLocal: false, runInClient: true, expected: false },
+  ])(
+    'keeps the original group and uses its runtime $preferLocal with a legacy flag of $runInClient',
+    async ({ preferLocal, runInClient, expected }) => {
+      const dispatch = vi.fn().mockResolvedValue({ status: 'done' });
+      useChatStore.setState({ internal_execGroupOrchestration: dispatch });
+      const callbacks = useChatStore.getState().getGroupOrchestrationCallbacks({
+        groupId: TEST_IDS.GROUP_ID,
+        topicId: TEST_IDS.TOPIC_ID,
+        preferLocal,
+      });
+      useChatStore.setState({ activeGroupId: 'other-group', activeTopicId: 'other-topic' });
+      await callbacks.triggerExecuteTask({
+        agentId: 'worker',
+        instruction: 'Return the calculation result',
+        runInClient,
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+        title: 'Calculation',
+        toolMessageId: 'tool-message',
+      });
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          groupId: TEST_IDS.GROUP_ID,
+          topicId: TEST_IDS.TOPIC_ID,
+          initialResult: expect.objectContaining({
+            payload: expect.objectContaining({
+              params: expect.objectContaining({ runInClient: expected, title: 'Calculation' }),
+            }),
+          }),
+        }),
+      );
+    },
+  );
 
   describe('triggerBroadcast', () => {
     it('should call internal_execGroupOrchestration with broadcast decision', async () => {

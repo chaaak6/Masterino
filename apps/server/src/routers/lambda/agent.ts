@@ -30,7 +30,6 @@ const agentProcedure = wsCompatProcedure.use(serverDatabase).use(async (opts) =>
     ctx: {
       agentModel: new AgentModel(ctx.serverDB, ctx.userId, wsId),
       agentService: new AgentService(ctx.serverDB, ctx.userId, wsId),
-      chatGroupModel: new ChatGroupModel(ctx.serverDB, ctx.userId, wsId),
       editLockService: new EditLockService(ctx.userId),
       fileModel: new FileModel(ctx.serverDB, ctx.userId, wsId),
       knowledgeBaseModel: new KnowledgeBaseModel(ctx.serverDB, ctx.userId, wsId),
@@ -145,13 +144,15 @@ export const agentRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertSafeAgentExecutionEnv(input.config);
-      // Create the agent entity only (no session)
-      const agent = await ctx.agentModel.create(input.config ?? {});
+      return ctx.serverDB.transaction(async (db) => {
+        const workspaceId = ctx.workspaceId ?? undefined;
+        const groups = new ChatGroupModel(db, ctx.userId, workspaceId);
+        if (!(await groups.findById(input.groupId))) throw new TRPCError({ code: 'NOT_FOUND' });
 
-      // Add the agent to the group
-      await ctx.chatGroupModel.addAgentToGroup(input.groupId, agent.id);
-
-      return { agentId: agent.id };
+        const agent = await new AgentModel(db, ctx.userId, workspaceId).create(input.config ?? {});
+        await groups.addAgentToGroup(input.groupId, agent.id);
+        return { agentId: agent.id };
+      });
     }),
 
   deleteAgentFile: agentProcedure

@@ -1,4 +1,4 @@
-import type { MessageAttachments, UploadFileItem } from '@lobechat/types';
+import type { MessageAttachments, UIChatMessage, UploadFileItem } from '@lobechat/types';
 import { TraceEventType } from '@lobechat/types';
 import { copyToClipboard } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
@@ -127,8 +127,13 @@ export class MessagePublicApiActionImpl {
     await this.#get().optimisticDeleteMessages(ids, context);
   };
 
-  deleteMessage = async (id: string, context?: OptimisticUpdateContext): Promise<void> => {
-    const message = displayMessageSelectors.getDisplayMessageById(id)(this.#get());
+  deleteMessage = async (
+    id: string,
+    context?: OptimisticUpdateContext,
+    originalMessage?: UIChatMessage,
+  ): Promise<void> => {
+    const message =
+      originalMessage ?? displayMessageSelectors.getDisplayMessageById(id)(this.#get());
     if (!message) return;
 
     let ids = [message.id];

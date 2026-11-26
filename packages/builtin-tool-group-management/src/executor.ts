@@ -126,7 +126,7 @@ class GroupManagementExecutor extends BaseExecutor<typeof GroupManagementApiName
     params: ExecuteTaskParams,
     ctx: BuiltinToolContext,
   ): Promise<BuiltinToolResult> => {
-    const { agentId, instruction, timeout, skipCallSupervisor, runInClient } = params;
+    const { agentId, instruction, timeout, title, skipCallSupervisor, runInClient } = params;
 
     // Register afterCompletion callback to trigger async task execution after AgentRuntime completes
     // This follows the same pattern as speak/broadcast - trigger mode, not blocking
@@ -139,6 +139,7 @@ class GroupManagementExecutor extends BaseExecutor<typeof GroupManagementApiName
           skipCallSupervisor,
           supervisorAgentId: ctx.agentId!,
           timeout,
+          title,
           toolMessageId: ctx.messageId,
         }),
       );
@@ -146,11 +147,10 @@ class GroupManagementExecutor extends BaseExecutor<typeof GroupManagementApiName
 
     // Returns stop: true to indicate the supervisor should stop and let the task execute
     return {
-      content: `Triggered async task for agent "${agentId}"${runInClient ? ' (client-side)' : ''}.`,
+      content: `Triggered async task for agent "${agentId}".`,
       state: {
         agentId,
         instruction,
-        runInClient,
         skipCallSupervisor,
         timeout,
         type: 'executeAgentTask',
@@ -260,7 +260,7 @@ class GroupManagementExecutor extends BaseExecutor<typeof GroupManagementApiName
     const optionLabels = params.options.map((o) => o.label).join(', ');
     return {
       content: `Voting not yet implemented for question: "${params.question}" with options: ${optionLabels}`,
-      success: true,
+      success: false,
     };
   };
 }
