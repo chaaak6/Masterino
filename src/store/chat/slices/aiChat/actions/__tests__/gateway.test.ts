@@ -1453,7 +1453,7 @@ describe('GatewayActionImpl', () => {
     );
 
     it.each(['empty result', 'network error'])(
-      'keeps existing messages when recovery returns %s',
+      'shows recovery feedback on the cached placeholder when recovery returns %s',
       async (outcome) => {
         const { action, state } = createReconnectTestAction({ id: 'ast-1' });
         const context = {
@@ -1482,8 +1482,17 @@ describe('GatewayActionImpl', () => {
           operationId: 'old-server-op',
         });
 
-        expect(state.replaceMessages).not.toHaveBeenCalled();
-        expect(antdMessage.warning).toHaveBeenCalledOnce();
+        expect(state.replaceMessages).toHaveBeenCalledWith(
+          [
+            {
+              content: LOADING_FLAT,
+              error: expect.objectContaining({ type: 'AgentRuntimeError' }),
+              id: 'ast-1',
+            },
+          ],
+          { context },
+        );
+        expect(antdMessage.warning).not.toHaveBeenCalled();
       },
     );
 

@@ -148,6 +148,8 @@ export interface SendMessageParams {
   metadata?: Record<string, any>;
 
   onlyAddUserMessage?: boolean;
+  /** Called before accepting the message. Returning false keeps the draft unsent. */
+  onSendReady?: () => boolean;
   /**
    * Page selections attached to the message (for Ask AI functionality)
    * These will be persisted to the database and injected via context-engine

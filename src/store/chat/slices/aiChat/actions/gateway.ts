@@ -751,14 +751,7 @@ export class GatewayActionImpl {
         const notice = t('streamRecoveryExpired', { ns: 'error' });
         const hasSavedOutput =
           (assistant?.content && assistant.content !== LOADING_FLAT) || assistant?.tools?.length;
-        const canConfirmMissingOutput = code !== 'NOT_FOUND' || !!savedMessages;
-        if (
-          canConfirmMissingOutput &&
-          messages &&
-          assistant &&
-          !assistant.error &&
-          !hasSavedOutput
-        ) {
+        if (messages && assistant && !assistant.error && !hasSavedOutput) {
           state.replaceMessages(
             messages.map((message) =>
               message.id === assistantMessageId

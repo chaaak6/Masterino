@@ -273,7 +273,7 @@ const ChatInput = memo<ChatInputProps>(
     const businessCostEstimateAlert = useBusinessChatInputCostEstimateAlert();
     const businessSendAreaPrefix = getBusinessChatInputSendAreaPrefix(sendAreaPrefix);
 
-    // Send handler - gets message, clears editor immediately, then sends
+    // Keep the editor intact until the send has passed device and runtime checks.
     const handleSend: SendButtonHandler = useCallback(
       async ({ clearContent, getMarkdownContent, getEditorData }) => {
         // Host surface is read-only (e.g. page locked) — block Enter too, not
@@ -332,27 +332,30 @@ const ChatInput = memo<ChatInputProps>(
           return;
         }
 
-        if (
-          !sameChatAttachmentDraft(fileStore, useFileStore.getState(), draftKey) ||
-          getMarkdownContent() !== message
-        ) {
+        const isDraftUnchanged = () =>
+          sameChatAttachmentDraft(fileStore, useFileStore.getState(), draftKey) &&
+          getMarkdownContent() === message;
+        if (!isDraftUnchanged()) {
           antdMessage.warning(t('attachments.draftChanged'));
           return;
         }
 
-        // Capture editor JSON state before clearing for rich text rendering
-        const editorData = getEditorData();
-
-        // Clear content immediately for responsive UX
-        clearContent();
-        fileStore.clearChatUploadFileList({ preserveAttachments: true }, draftKey);
-        fileStore.clearChatContextSelections(draftKey);
-
-        // Convert ChatContextContent to PageSelection for persistence
-        const pageSelections = toPageSelections(currentContextList);
-
-        // Fire and forget - send with captured message
-        await sendMessage({ editorData, files: currentFileList, message, pageSelections });
+        await sendMessage({
+          editorData: getEditorData(),
+          files: currentFileList,
+          message,
+          onSendReady: () => {
+            if (!isDraftUnchanged()) {
+              antdMessage.warning(t('attachments.draftChanged'));
+              return false;
+            }
+            clearContent();
+            fileStore.clearChatUploadFileList({ preserveAttachments: true }, draftKey);
+            fileStore.clearChatContextSelections(draftKey);
+            return true;
+          },
+          pageSelections: toPageSelections(currentContextList),
+        });
       },
       [context, draftKey, sendMessage, disableQueue, disableSend, isInputLoading, onBeforeSend, t],
     );

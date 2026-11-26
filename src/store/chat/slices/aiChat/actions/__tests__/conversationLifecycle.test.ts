@@ -1336,11 +1336,13 @@ describe('ConversationLifecycle actions', () => {
         mockConstEnv.isDesktop = true;
         mockGatewayConnectionService.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
         const sendMessageInServer = mockClientMessagePersistence();
+        const onSendReady = vi.fn(() => true);
 
         await expect(
           useChatStore.getState().sendMessage({
             context: { ...createTestContext(), groupId: 'group-1', topicId: undefined },
             message: TEST_CONTENT.USER_MESSAGE,
+            onSendReady,
           }),
         ).resolves.toBeUndefined();
 
@@ -1348,6 +1350,7 @@ describe('ConversationLifecycle actions', () => {
           new DesktopDeviceIdentityUnavailableError().message,
         );
         expect(sendMessageInServer).not.toHaveBeenCalled();
+        expect(onSendReady).not.toHaveBeenCalled();
       });
 
       it('uses the gateway for a desktop group topic bound to a different device', async () => {

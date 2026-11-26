@@ -230,6 +230,7 @@ export class ConversationLifecycleActionImpl {
     messages: inputMessages,
     parentId: inputParentId,
     pageSelections,
+    onSendReady,
     onTopicCreated,
   }: SendMessageWithContextParams): Promise<SendMessageResult | undefined> => {
     let editorData = inputEditorData;
@@ -280,6 +281,7 @@ export class ConversationLifecycleActionImpl {
         compressContext.topicId &&
         !hasRunningCompressionOperation(Object.values(this.#get().operations), compressContext)
       ) {
+        if (onSendReady?.() === false) return;
         await this.executeCompression(compressContext, '');
       }
       return;
@@ -291,6 +293,7 @@ export class ConversationLifecycleActionImpl {
       const hasFile = files && files.length > 0;
       // If no message content besides the action tag and no files, just navigate to a new topic without sending
       if (!hasNonActionContent(editorData) && !hasFile) {
+        if (onSendReady?.() === false) return;
         await this.#get().switchTopic(null);
         return;
       }
@@ -403,6 +406,7 @@ export class ConversationLifecycleActionImpl {
       .find((op) => op && AI_RUNTIME_OPERATION_TYPES.includes(op.type) && op.status === 'running');
 
     if (runningAgentOp) {
+      if (onSendReady?.() === false) return;
       // Snapshot file previews so the tray can render thumbnails AND the
       // resumed sendMessage can rebuild imageList/videoList — by the time
       // we drain, chatUploadFileList has long been cleared.
@@ -435,6 +439,7 @@ export class ConversationLifecycleActionImpl {
     }
 
     if (onlyAddUserMessage) {
+      if (onSendReady?.() === false) return;
       await this.#get().addUserMessage({
         message,
         fileList: fileIdList,
@@ -584,6 +589,8 @@ export class ConversationLifecycleActionImpl {
       );
       return;
     }
+
+    if (onSendReady?.() === false) return;
 
     // Use provided messages or query from store
     // For /newTopic from existing topic, start with empty message list (fresh topic)
