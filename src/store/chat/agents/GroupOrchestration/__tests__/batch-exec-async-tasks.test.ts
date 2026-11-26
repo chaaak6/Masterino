@@ -8,7 +8,7 @@ import { messageService } from '@/services/message';
 import { type ChatStore } from '@/store/chat/store';
 
 import { createGroupOrchestrationExecutors } from '../createGroupOrchestrationExecutors';
-import { getLocalTaskApproval } from '../localTaskApproval';
+import { getLocalTaskApproval, trackLocalTaskApproval } from '../localTaskApproval';
 
 vi.mock('@/services/aiAgent', () => ({
   aiAgentService: {
@@ -126,7 +126,65 @@ const createInitialState = (overrides: Partial<AgentState> = {}): AgentState => 
 };
 
 describe('createGroupOrchestrationExecutors', () => {
+  it('pauses the execution budget while awaiting approval and totals usage across resumed runs', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const onTimeout = vi.fn(() => controller.abort());
+    const context = {
+      agentId: TEST_IDS.AGENT_1_ID,
+      groupId: TEST_IDS.GROUP_ID,
+      scope: 'thread' as const,
+      threadId: 'budget-test',
+      topicId: TEST_IDS.TOPIC_ID,
+    };
+    const approval = trackLocalTaskApproval(context, 'budget-op', controller.signal, {
+      onTimeout,
+      timeout: 1000,
+    });
+    const usage = createInitialState().usage;
+    const cost = createInitialState().cost;
+
+    try {
+      await vi.advanceTimersByTimeAsync(300);
+      approval.report({ cost: { ...cost, total: 1 }, status: 'waiting_for_human' });
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(onTimeout).not.toHaveBeenCalled();
+
+      const pending = getLocalTaskApproval(context)!;
+      pending.resume();
+      await vi.advanceTimersByTimeAsync(500);
+      pending.report({
+        cost: { ...cost, total: 2 },
+        status: 'waiting_for_human',
+        usage: {
+          ...usage,
+          llm: { apiCalls: 1, processingTimeMs: 100, tokens: { input: 6, output: 4, total: 10 } },
+        },
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(onTimeout).not.toHaveBeenCalled();
+
+      pending.resume();
+      await vi.advanceTimersByTimeAsync(199);
+      expect(onTimeout).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(onTimeout).toHaveBeenCalledOnce();
+      await expect(approval.result).resolves.toEqual({
+        duration: 100,
+        status: 'interrupted',
+        totalCost: 3,
+        totalInputTokens: 6,
+        totalOutputTokens: 4,
+        totalTokens: 10,
+      });
+    } finally {
+      approval.dispose();
+      vi.useRealTimers();
+    }
+  });
+
   it('publishes a terminal task card after the local worker finishes', async () => {
+    vi.mocked(messageService.updateMessageMetadata).mockRejectedValueOnce(new Error('offline'));
     const store = createMockStore({ completeOperation: vi.fn(), replaceMessages: vi.fn() });
     vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockResolvedValue({
       messages: [],
@@ -247,6 +305,8 @@ describe('createGroupOrchestrationExecutors', () => {
       expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ completionReason: 'done', threadId: 'second-thread' }),
       );
+      const [firstCard, secondCard] = vi.mocked(messageService.createMessage).mock.calls;
+      expect(firstCard[0].createdAt! + 1).toBe(secondCard[0].createdAt);
 
       const wrongThread = getLocalTaskApproval({
         agentId: TEST_IDS.AGENT_1_ID,

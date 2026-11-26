@@ -153,26 +153,31 @@ describe('agent-group command', () => {
   });
 
   describe('remove-agents', () => {
-    it('should remove agents from group', async () => {
-      mockTrpcClient.group.removeAgentsFromGroup.mutate.mockResolvedValue({});
+    it.each([{ flags: [] }, { flags: ['--keep-virtual'] }])(
+      'unlinks agents with flags $flags',
+      async ({ flags }) => {
+        mockTrpcClient.group.removeAgentsFromGroup.mutate.mockResolvedValue({
+          removedFromGroup: 1,
+        });
 
-      const program = createProgram();
-      await program.parseAsync([
-        'node',
-        'test',
-        'agent-group',
-        'remove-agents',
-        'g1',
-        '--agent-ids',
-        'a1',
-        '--yes',
-      ]);
+        const program = createProgram();
+        await program.parseAsync([
+          'node',
+          'test',
+          'agent-group',
+          'remove-agents',
+          'g1',
+          '--agent-ids',
+          'a1',
+          '--yes',
+          ...flags,
+        ]);
 
-      expect(mockTrpcClient.group.removeAgentsFromGroup.mutate).toHaveBeenCalledWith({
-        agentIds: ['a1'],
-        deleteVirtualAgents: true,
-        groupId: 'g1',
-      });
-    });
+        expect(mockTrpcClient.group.removeAgentsFromGroup.mutate).toHaveBeenCalledWith({
+          agentIds: ['a1'],
+          groupId: 'g1',
+        });
+      },
+    );
   });
 });

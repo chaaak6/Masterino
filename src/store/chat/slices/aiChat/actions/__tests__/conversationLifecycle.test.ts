@@ -135,8 +135,8 @@ const mockClientMessagePersistence = () =>
     userMessageId: TEST_IDS.USER_MESSAGE_ID,
   } as any);
 
-const seedFormalLocalWorkspace = (agentId: string = TEST_IDS.SESSION_ID) => {
-  const draftKey = buildDraftConversationKey({ agentId });
+const seedFormalLocalWorkspace = (agentId: string = TEST_IDS.SESSION_ID, groupId?: string) => {
+  const draftKey = buildDraftConversationKey({ agentId, groupId });
   useProjectWorkspaceStore.setState({
     draftByConversationKey: {
       [draftKey]: {
@@ -1129,65 +1129,68 @@ describe('ConversationLifecycle actions', () => {
         );
       });
 
-      it('should not persist the requested model for heterogeneous agents before the CLI reports it', async () => {
-        mockConstEnv.isDesktop = true;
-        setupMockSelectors({
-          agentConfig: {
-            agencyConfig: {
-              heterogeneousProvider: { command: 'codex', type: 'codex' },
+      it.each([undefined, 'heterogeneous-group'])(
+        'uses the configured heterogeneous runtime and persists its provider for group %s',
+        async (groupId) => {
+          mockConstEnv.isDesktop = true;
+          setupMockSelectors({
+            agentConfig: {
+              agencyConfig: {
+                heterogeneousProvider: { command: 'codex', type: 'codex' },
+              },
+              model: 'claude-sonnet-4-6',
             },
-            model: 'claude-sonnet-4-6',
-          },
-        });
-        seedFormalLocalWorkspace();
-
-        const { result } = renderHook(() => useChatStore());
-
-        const sendMessageInServerSpy = vi
-          .spyOn(aiChatService, 'sendMessageInServer')
-          .mockResolvedValue({
-            assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
-            messages: [
-              createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
-              createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
-            ],
-            topicId: TEST_IDS.TOPIC_ID,
-            topics: [],
-            userMessageId: TEST_IDS.USER_MESSAGE_ID,
-          } as any);
-
-        executeHeterogeneousAgentMock.mockResolvedValue(undefined);
-
-        await act(async () => {
-          await result.current.sendMessage({
-            message: TEST_CONTENT.USER_MESSAGE,
-            context: createTestContext(),
           });
-        });
+          seedFormalLocalWorkspace(TEST_IDS.SESSION_ID, groupId);
 
-        expect(sendMessageInServerSpy).toHaveBeenCalledWith(
-          expect.objectContaining({
-            newTopic: expect.objectContaining({
-              executionIntent: {
-                platform: 'desktop',
-                target: 'local',
-                targetDeviceId: 'device-local',
-                workspaceId: 'workspace-project',
+          const { result } = renderHook(() => useChatStore());
+
+          const sendMessageInServerSpy = vi
+            .spyOn(aiChatService, 'sendMessageInServer')
+            .mockResolvedValue({
+              assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+              messages: [
+                createMockMessage({ id: TEST_IDS.USER_MESSAGE_ID, role: 'user' }),
+                createMockMessage({ id: TEST_IDS.ASSISTANT_MESSAGE_ID, role: 'assistant' }),
+              ],
+              topicId: TEST_IDS.TOPIC_ID,
+              topics: [],
+              userMessageId: TEST_IDS.USER_MESSAGE_ID,
+            } as any);
+
+          executeHeterogeneousAgentMock.mockResolvedValue(undefined);
+
+          await act(async () => {
+            await result.current.sendMessage({
+              message: TEST_CONTENT.USER_MESSAGE,
+              context: { ...createTestContext(), groupId },
+            });
+          });
+
+          expect(sendMessageInServerSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              newTopic: expect.objectContaining({
+                executionIntent: {
+                  platform: 'desktop',
+                  target: 'local',
+                  targetDeviceId: 'device-local',
+                  workspaceId: 'workspace-project',
+                },
+              }),
+              newAssistantMessage: {
+                provider: 'codex',
               },
             }),
-            newAssistantMessage: {
-              provider: 'codex',
-            },
-          }),
-          expect.any(AbortController),
-        );
-        expect(executeHeterogeneousAgentMock).toHaveBeenCalledWith(
-          expect.any(Function),
-          expect.objectContaining({
-            workingDirectory: '/Users/me/project',
-          }),
-        );
-      });
+            expect.any(AbortController),
+          );
+          expect(executeHeterogeneousAgentMock).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.objectContaining({
+              workingDirectory: '/Users/me/project',
+            }),
+          );
+        },
+      );
 
       it('runs an old-server draft from its explicit legacy cwd and persists the compatibility mirror', async () => {
         mockConstEnv.isDesktop = true;

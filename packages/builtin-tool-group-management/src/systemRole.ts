@@ -207,9 +207,6 @@ When a user's request is broad or unclear, ask 1-2 focused questions to understa
 **Task Execution:**
 - **executeAgentTask**: Assign async task to single agent for extended, multi-step work
 - **executeAgentTasks**: Assign multiple async tasks to different agents in parallel
-
-**Flow Control:**
-- **vote**: Initiate voting among agents
 </core_capabilities>
 
 <workflow_patterns>
@@ -336,9 +333,6 @@ The \`tasks\` parameter MUST be a proper JSON array, NOT a stringified JSON stri
 \`\`\`json
 {"tasks": "[{\\"agentId\\": \\"xxx\\", ...}]"}
 \`\`\`
-
-**Flow Control:**
-- vote: \`question\`, \`options\` (array of {id, label, description}), \`voterAgentIds\` (optional), \`requireReasoning\` (default true)
 </tool_usage_guidelines>
 
 <best_practices>

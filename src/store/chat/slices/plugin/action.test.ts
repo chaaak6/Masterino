@@ -168,6 +168,66 @@ describe('ChatPluginAction', () => {
   });
 
   describe('invokeBuiltinTool', () => {
+    it.each(['lobe-agent-management', 'lobe-group-management'])(
+      'binds %s to the saved group topic when the operation did not record it',
+      async (identifier) => {
+        const executorModule = await import('@/store/tool/slices/builtin/executors');
+        vi.spyOn(executorModule, 'hasExecutor').mockReturnValue(true);
+        const invoke = vi
+          .spyOn(useToolStore.getState(), 'invokeBuiltinTool')
+          .mockResolvedValue({ success: true });
+        const { result } = renderHook(() => useChatStore());
+        const messageId = 'saved-group-tool';
+        const groupId = 'saved-group';
+        const topicId = 'saved-topic';
+        const callbacks = result.current.getGroupOrchestrationCallbacks();
+        const bind = vi
+          .spyOn(result.current, 'getGroupOrchestrationCallbacks')
+          .mockReturnValue(callbacks);
+
+        await act(async () => {
+          useChatStore.setState({
+            activeGroupId: 'other-group',
+            activeTopicId: 'other-topic',
+            dbMessagesMap: {
+              saved: [
+                {
+                  content: '',
+                  createdAt: 0,
+                  groupId,
+                  id: messageId,
+                  role: 'tool',
+                  topicId,
+                  updatedAt: 0,
+                },
+              ],
+            },
+          });
+          const { operationId } = result.current.startOperation({
+            context: { agentId: 'supervisor', groupId, scope: 'group' },
+            type: 'execAgentRuntime',
+          });
+          result.current.associateMessageWithOperation(messageId, operationId);
+          await result.current.invokeBuiltinTool(messageId, {
+            apiName: 'callAgent',
+            arguments: '{}',
+            id: 'saved-group-call',
+            identifier,
+            type: 'builtin',
+          });
+        });
+
+        expect(bind).toHaveBeenCalledWith(expect.objectContaining({ groupId, topicId }));
+        expect(invoke).toHaveBeenCalledWith(
+          identifier,
+          'callAgent',
+          {},
+          expect.objectContaining({ groupId, groupOrchestration: callbacks }),
+        );
+        bind.mockRestore();
+      },
+    );
+
     it('should invoke Tool Store executor with parsed arguments', async () => {
       const payload = {
         identifier: 'test-tool',

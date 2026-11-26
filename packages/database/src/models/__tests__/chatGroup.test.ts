@@ -596,7 +596,7 @@ describe('ChatGroupModel', () => {
     it('should throw error for non-existent group', async () => {
       await expect(
         chatGroupModel.addAgentsToGroup('non-existent-group', ['agent-1']),
-      ).rejects.toThrow('Group not found');
+      ).rejects.toMatchObject({ code: 'NOT_FOUND', message: 'Group not found' });
     });
   });
 

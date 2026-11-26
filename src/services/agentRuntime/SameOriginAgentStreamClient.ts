@@ -16,7 +16,6 @@ export class SameOriginAgentStreamClient {
   private terminal = false;
   private retryDelay = 1000;
   private recoveryStartedAt?: number;
-  private failedConnections = 0;
 
   constructor(
     private readonly operationId: string,
@@ -47,7 +46,6 @@ export class SameOriginAgentStreamClient {
 
   private open(): void {
     if (this.stopped || this.terminal) return;
-    this.startRecoveryTimer();
     if (
       this.recoveryStartedAt !== undefined &&
       typeof navigator !== 'undefined' &&
@@ -64,7 +62,6 @@ export class SameOriginAgentStreamClient {
       // Headers alone do not prove recovery: bound repeated immediate EOF.
       if (openedAt !== undefined && Date.now() - openedAt >= 10_000) {
         this.recoveryStartedAt = undefined;
-        this.failedConnections = 0;
         this.retryDelay = 1000;
       }
     };
@@ -111,7 +108,6 @@ export class SameOriginAgentStreamClient {
         if (event.operationId !== this.operationId) throw new Error('Stream operation mismatch');
         if (message.id && message.id === this.cursor) return;
         this.recoveryStartedAt = undefined;
-        this.failedConnections = 0;
         this.retryDelay = 1000;
         this.emit('agent_event', event);
         this.cursor = message.id || event.id || this.cursor;
@@ -132,11 +128,7 @@ export class SameOriginAgentStreamClient {
         if (this.stopped || this.terminal || this.controller !== controller) return;
         resetIfHealthy();
         this.recoveryStartedAt ??= Date.now();
-        this.failedConnections += 1;
-        if (
-          this.failedConnections >= 3 ||
-          Date.now() - this.recoveryStartedAt >= RECOVERY_TIMEOUT
-        ) {
+        if (Date.now() - this.recoveryStartedAt >= RECOVERY_TIMEOUT) {
           this.expireRecovery();
           return;
         }
@@ -149,7 +141,8 @@ export class SameOriginAgentStreamClient {
   }
 
   private startRecoveryTimer(): void {
-    const elapsed = this.recoveryStartedAt === undefined ? 0 : Date.now() - this.recoveryStartedAt;
+    if (this.recoveryStartedAt === undefined) return;
+    const elapsed = Date.now() - this.recoveryStartedAt;
     this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), RECOVERY_TIMEOUT - elapsed);
   }
 
@@ -181,6 +174,7 @@ export class SameOriginAgentStreamClient {
     clearTimeout(this.retry);
     this.controller?.abort();
     this.stopped = false;
+    this.startRecoveryTimer();
     this.open();
   }
 

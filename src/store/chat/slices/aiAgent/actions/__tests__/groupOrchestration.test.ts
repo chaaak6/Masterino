@@ -58,27 +58,47 @@ describe('groupOrchestration actions', () => {
   });
 
   describe('internal_execGroupOrchestration', () => {
-    it('records failed dispatch in the tool result before resuming the supervisor', async () => {
+    it('preserves dispatch and successful results alongside failures before resuming the supervisor', async () => {
       const updateContent = vi.fn().mockResolvedValue(undefined);
       const step = vi.spyOn(GroupOrchestrationRuntime.prototype, 'step');
       step.mockImplementationOnce(async (state) => ({
         events: [],
         newState: state,
         result: {
-          payload: { agentId: 'worker', error: 'Group member not found', success: false },
-          type: 'task_completed',
+          payload: {
+            results: [
+              { agentId: 'worker', error: 'Group member not found', success: false },
+              { agentId: 'other', result: 'successful output', success: true },
+              { agentId: 'cancelled', status: 'cancelled', success: false },
+            ],
+          },
+          type: 'tasks_completed',
         },
       }));
       step.mockImplementationOnce(async (state) => {
         expect(updateContent).toHaveBeenCalledWith(
           'tool-message',
-          expect.stringContaining('Group member not found'),
+          'Dispatched three members.\n\nMember task results:\n' +
+            'Agent worker: Group member not found\nAgent other: successful output\nAgent cancelled: Cancelled',
           undefined,
           { operationId: TEST_IDS.OPERATION_ID },
         );
         return { events: [], newState: { ...state, status: 'done' } };
       });
-      useChatStore.setState({ optimisticUpdateMessageContent: updateContent });
+      useChatStore.setState({
+        dbMessagesMap: {
+          group: [
+            {
+              content: 'Dispatched three members.',
+              createdAt: 0,
+              id: 'tool-message',
+              role: 'tool',
+              updatedAt: 0,
+            },
+          ],
+        },
+        optimisticUpdateMessageContent: updateContent,
+      });
 
       await useChatStore.getState().internal_execGroupOrchestration({
         groupId: TEST_IDS.GROUP_ID,

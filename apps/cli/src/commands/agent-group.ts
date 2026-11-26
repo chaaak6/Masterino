@@ -182,6 +182,7 @@ export function registerAgentGroupCommand(program: Command) {
     .command('remove-agents <groupId>')
     .description('Unlink agents from a group and preserve their conversation history')
     .requiredOption('--agent-ids <ids>', 'Comma-separated agent IDs')
+    .option('--keep-virtual', 'Deprecated. Virtual agents are always preserved.')
     .option('--yes', 'Skip confirmation prompt')
     .action(async (groupId: string, options: { agentIds: string; yes?: boolean }) => {
       const agentIds = options.agentIds.split(',').map((s) => s.trim());

@@ -615,7 +615,7 @@ export const createGroupOrchestrationExecutors = (
       supervisorInstruction,
       state,
     ): Promise<GroupOrchestrationExecutorOutput> => {
-      const { agentId, instruction, timeout, title, toolMessageId } = (
+      const { agentId, createdAt, instruction, timeout, title, toolMessageId } = (
         supervisorInstruction as SupervisorInstructionExecClientAsyncTask
       ).payload;
 
@@ -640,6 +640,7 @@ export const createGroupOrchestrationExecutors = (
       const taskMessage = {
         agentId,
         content: '',
+        createdAt,
         groupId,
         metadata: { instruction, taskTitle: title },
         parentId: toolMessageId,
@@ -663,7 +664,7 @@ export const createGroupOrchestrationExecutors = (
       let localTaskId: string | undefined;
       let localThreadId: string | undefined;
       let approval: ReturnType<typeof trackLocalTaskApproval> | undefined;
-      let timer: ReturnType<typeof setTimeout> | undefined;
+      let timedOut = false;
       try {
         // Update only this card. A whole-group snapshot from one member can erase
         // another member's in-progress state or recently created card.
@@ -718,19 +719,20 @@ export const createGroupOrchestrationExecutors = (
         });
 
         localTaskId = taskOperationId;
-        approval = trackLocalTaskApproval(subContext, taskOperationId, abortController.signal);
-        const deadline = Math.min(Math.max(timeout ?? 1_800_000, 1), 2_147_483_647);
-        timer = setTimeout(
-          () => get().cancelOperation(taskOperationId, 'Group task timed out'),
-          deadline,
-        );
+        approval = trackLocalTaskApproval(subContext, taskOperationId, abortController.signal, {
+          onTimeout: () => {
+            timedOut = true;
+            get().cancelOperation(taskOperationId, 'Group task timed out');
+          },
+          timeout: Math.min(Math.max(timeout ?? 1_800_000, 1), 2_147_483_647),
+        });
 
         get().replaceMessages(threadMessages, { context: subContext });
 
         // 6. Execute using executeClientAgent (client-side with local tools access)
         log(`[${sessionLogId}] Starting client-side AgentRuntime execution`);
 
-        let runtimeResult = await get().executeClientAgent({
+        const runtimeResult = await get().executeClientAgent({
           context: subContext,
           messages: threadMessages,
           parentMessageId: userMessageId, // Use server-returned userMessageId
@@ -739,16 +741,16 @@ export const createGroupOrchestrationExecutors = (
           isSubAgent: true, // Disable lobe-agent tool to prevent nested sub-agents
         });
 
-        if (runtimeResult?.status === 'waiting_for_human') {
+        approval.report(runtimeResult || { status: 'done' });
+        if (runtimeResult?.status === 'waiting_for_human')
           publishTaskState({ status: ThreadStatus.InReview });
-          runtimeResult = await approval.result;
-        }
+        const { status, totalCost, totalTokens, ...messageMetrics } = await approval.result;
 
         const taskOperation = get().operations[taskOperationId];
         if (
           abortController.signal.aborted ||
           taskOperation?.status === 'failed' ||
-          (runtimeResult?.status && runtimeResult.status !== 'done')
+          (status && status !== 'done')
         ) {
           const reason = abortController.signal.reason;
           throw new Error(
@@ -768,39 +770,31 @@ export const createGroupOrchestrationExecutors = (
         // Count tool calls
         const totalToolCalls = subTaskMessages.filter((m) => m.role === 'tool').length;
 
-        // Get usage data from runtime result
-        const { usage, cost } = runtimeResult || {};
-
-        await messageService.updateMessageMetadata(taskMessageId, {
-          cost: cost?.total,
-          duration: usage?.llm?.processingTimeMs,
-          totalInputTokens: usage?.llm?.tokens?.input,
-          totalOutputTokens: usage?.llm?.tokens?.output,
-          totalTokens: usage?.llm?.tokens?.total,
-        });
-
         // 9. Update Thread status via API with metadata
         const saved = await aiAgentService.updateClientTaskThreadStatus({
           threadId,
           completionReason: 'done',
           resultContent,
           metadata: {
-            totalCost: cost?.total,
+            totalCost,
             totalMessages: subTaskMessages.length,
-            totalTokens: usage?.llm?.tokens?.total,
+            totalTokens,
             totalToolCalls,
           },
         });
 
         if (!saved.success) throw new Error('Unable to save local task completion');
+        await messageService
+          .updateMessageMetadata(taskMessageId, { ...messageMetrics, cost: totalCost, totalTokens })
+          .catch((failure) => log('Failed to save task usage: %O', failure));
         publishTaskState(
           {
             completedAt: new Date().toISOString(),
             duration: Date.now() - new Date(startedAt).getTime(),
             status: ThreadStatus.Completed,
-            totalCost: cost?.total,
+            totalCost,
             totalMessages: subTaskMessages.length,
-            totalTokens: usage?.llm?.tokens?.total,
+            totalTokens,
             totalToolCalls,
           },
           resultContent,
@@ -855,6 +849,11 @@ export const createGroupOrchestrationExecutors = (
             payload: {
               agentId,
               error: error instanceof Error ? error.message : 'Unknown error',
+              ...(timedOut
+                ? { status: 'timed_out' as const }
+                : cancelled
+                  ? { status: 'cancelled' as const }
+                  : {}),
               success: false,
             },
             type: 'task_completed',
@@ -862,7 +861,6 @@ export const createGroupOrchestrationExecutors = (
         };
       } finally {
         approval?.dispose();
-        clearTimeout(timer);
       }
     },
 
@@ -886,10 +884,14 @@ export const createGroupOrchestrationExecutors = (
         .payload;
 
       if (context.preferLocal) {
+        const createdAt = Date.now();
         const outputs = await Promise.all(
-          tasks.map((task) =>
+          tasks.map((task, index) =>
             executors.exec_client_async_task!(
-              { payload: { ...task, toolMessageId }, type: 'exec_client_async_task' },
+              {
+                payload: { ...task, createdAt: createdAt + index, toolMessageId },
+                type: 'exec_client_async_task',
+              },
               state,
             ),
           ),

@@ -5,6 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgent';
+import { trackLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
 import { initialState as projectWorkspaceInitialState } from '@/store/projectWorkspace/initialState';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace/store';
 
@@ -148,6 +149,38 @@ const setupPausedAuthorityResume = (kind: 'scratch' | 'device', mode: 'approve' 
 };
 
 describe('ConversationControl actions', () => {
+  it('settles the local group task when its pending interaction is cancelled', async () => {
+    const context: ConversationContext = {
+      agentId: TEST_IDS.SESSION_ID,
+      groupId: 'group-task',
+      scope: 'thread',
+      threadId: 'member-thread',
+      topicId: TEST_IDS.TOPIC_ID,
+    };
+    const toolMessage = createMockMessage({ id: 'member-tool', role: 'tool' });
+    useChatStore.setState({ dbMessagesMap: { [messageMapKey(context)]: [toolMessage] } });
+    const state = useChatStore.getState();
+    vi.spyOn(state, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+    vi.spyOn(state, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+    const { abortController, operationId } = state.startOperation({
+      context,
+      type: 'execClientSubAgent',
+    });
+    const approval = trackLocalTaskApproval(context, operationId, abortController.signal, {
+      onTimeout: vi.fn(),
+      timeout: 30_000,
+    });
+    approval.report({ status: 'waiting_for_human' });
+
+    try {
+      await state.cancelToolInteraction(toolMessage.id, context);
+      expect(abortController.signal.aborted).toBe(true);
+      await expect(approval.result).resolves.toMatchObject({ status: 'interrupted' });
+    } finally {
+      approval.dispose();
+    }
+  });
+
   describe('stopGenerateMessage', () => {
     it('should cancel running generateAI operations in current context', () => {
       const { result } = renderHook(() => useChatStore());

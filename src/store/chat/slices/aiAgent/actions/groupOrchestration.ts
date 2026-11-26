@@ -8,6 +8,7 @@ import { type SWRResponse } from 'swr';
 import { useClientDataSWR } from '@/libs/swr';
 import { aiAgentService } from '@/services/aiAgent';
 import { createGroupOrchestrationExecutors } from '@/store/chat/agents/GroupOrchestration';
+import { dbMessageSelectors } from '@/store/chat/slices/message/selectors';
 import { type ChatStore } from '@/store/chat/store';
 import { type GroupOrchestrationCallbacks } from '@/store/tool/slices/builtin/types';
 import { type StoreSetter } from '@/store/types';
@@ -366,16 +367,21 @@ export class GroupOrchestrationActionImpl {
           : result?.type === 'tasks_completed'
             ? result.payload.results
             : [];
-      const failures = taskResults.filter(({ success }) => !success);
-      if (typeof toolMessageId === 'string' && failures.length > 0) {
-        const report = failures
-          .map(({ agentId, error }) => `Agent ${agentId}: ${error ?? 'Task failed'}`)
+      if (typeof toolMessageId === 'string' && taskResults.some(({ success }) => !success)) {
+        const report = taskResults
+          .map(({ agentId, error, result, status, success }) => {
+            if (success) return `Agent ${agentId}: ${result || 'Task completed'}`;
+            if (status === 'cancelled') return `Agent ${agentId}: Cancelled`;
+            if (status === 'timed_out') return `Agent ${agentId}: Timed out`;
+            return `Agent ${agentId}: ${error ?? 'Task failed'}`;
+          })
           .join('\n');
-        // The initial tool response only records dispatch. Give the next
-        // supervisor turn the actual outcome when no result card was created.
+        const dispatch = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get())?.content;
+        // Failed dispatches may have no task card. Preserve the dispatch and
+        // include every outcome so the supervisor can summarize partial results.
         await this.#get().optimisticUpdateMessageContent(
           toolMessageId,
-          `Member task failures:\n${report}`,
+          [dispatch, `Member task results:\n${report}`].filter(Boolean).join('\n\n'),
           undefined,
           { operationId },
         );

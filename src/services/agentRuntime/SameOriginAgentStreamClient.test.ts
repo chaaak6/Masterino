@@ -24,10 +24,31 @@ describe('same-origin device agent stream', () => {
     client.on('agent_event', event);
     client.on('recovery_exhausted', complete);
     client.connect();
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(fetchEventSource).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(7000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(4);
+    expect(complete).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(23_000);
+    expect(fetchEventSource).toHaveBeenCalledTimes(5);
     expect(event).not.toHaveBeenCalled();
     expect(complete).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
+  it('allows a slow initial connection to open outside the recovery window', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    const connected = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+    client.on('connected', connected);
+
+    client.connect();
+    await vi.advanceTimersByTimeAsync(31_000);
+    const options = vi.mocked(fetchEventSource).mock.calls[0][1];
+    expect(options.signal?.aborted).toBe(false);
+    await options.onopen(new Response('', { headers: { 'Content-Type': 'text/event-stream' } }));
+    expect(unavailable).not.toHaveBeenCalled();
+    expect(connected).toHaveBeenCalledOnce();
     client.disconnect();
   });
   it('aborts a stalled retry and releases the subscription at its deadline', async () => {
@@ -80,7 +101,7 @@ describe('same-origin device agent stream', () => {
     client.on('recovery_exhausted', complete);
     client.connect();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(fetchEventSource).toHaveBeenCalledTimes(3);
+    expect(fetchEventSource).toHaveBeenCalledTimes(5);
     expect(complete).toHaveBeenCalledOnce();
     client.disconnect();
   });

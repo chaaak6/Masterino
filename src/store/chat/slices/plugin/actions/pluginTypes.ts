@@ -1,3 +1,5 @@
+import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
+import { GroupManagementIdentifier } from '@lobechat/builtin-tool-group-management';
 import { isDesktop } from '@lobechat/const';
 import {
   type BuiltinToolResult,
@@ -201,14 +203,21 @@ export class PluginTypesActionImpl {
         groupId = getChatGroupStoreState().activeGroupId;
       }
 
-      // Get group orchestration callbacks if available (for group management tools)
+      const groupTopicId =
+        topicId ??
+        (groupId
+          ? (dbMessageSelectors.getDbMessageById(id)(this.#get())?.topicId ??
+            (this.#get().activeGroupId === groupId ? this.#get().activeTopicId : undefined))
+          : undefined);
       const groupOrchestration =
-        groupId && topicId && payload.identifier === 'lobe-group-management'
+        groupId &&
+        (payload.identifier === GroupManagementIdentifier ||
+          payload.identifier === AgentManagementIdentifier)
           ? this.#get().getGroupOrchestrationCallbacks({
               executionContext,
               groupId,
               preferLocal: isDesktop,
-              topicId,
+              topicId: groupTopicId ?? undefined,
             })
           : undefined;
 

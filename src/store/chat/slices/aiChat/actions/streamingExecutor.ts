@@ -612,13 +612,13 @@ export class StreamingExecutorActionImpl {
       context,
     } = params;
     const localTask = getLocalTaskApproval(context);
-    const isSubAgent = params.isSubAgent || Boolean(localTask);
     const taskResume =
       localTask &&
       params.parentOperationId &&
       this.#get().operations[params.parentOperationId]?.parentOperationId === localTask.operationId
         ? localTask
         : undefined;
+    const isSubAgent = params.isSubAgent || Boolean(taskResume);
 
     // Extract values from context
     const { agentId, topicId, threadId, subAgentId, groupId, scope } = context;
@@ -721,6 +721,7 @@ export class StreamingExecutorActionImpl {
     });
 
     try {
+      taskResume?.resume();
       if (shouldAssociateParentMessage) {
         this.#get().associateMessageWithOperation(parentMessageId, operationId);
       }
@@ -890,7 +891,7 @@ export class StreamingExecutorActionImpl {
       const directUserMessageId =
         params.directUserMessageId ?? (parentMessageType === 'user' ? parentMessageId : undefined);
       const directMessage =
-        !params.isSubAgent && directUserMessageId
+        !isSubAgent && directUserMessageId
           ? originalMessages.find((item) => item.id === directUserMessageId && item.role === 'user')
           : undefined;
       if (

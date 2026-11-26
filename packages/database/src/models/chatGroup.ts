@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import type {
@@ -171,7 +172,8 @@ export class ChatGroupModel {
       .select({ id: agents.id })
       .from(agents)
       .where(and(inArray(agents.id, ids), this.agentOwnership()));
-    if (found.length !== ids.length) throw new Error('Agent not found in this scope');
+    if (found.length !== ids.length)
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Agent not found in this scope' });
   }
 
   async createWithAgents(
@@ -219,7 +221,8 @@ export class ChatGroupModel {
     agentId: string,
     options?: { order?: number; role?: string },
   ): Promise<NewChatGroupAgent> {
-    if (!(await this.findById(groupId))) throw new Error('Group not found');
+    if (!(await this.findById(groupId)))
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
     await this.assertAgentsInScope([agentId]);
     const params: NewChatGroupAgent = {
       agentId,
@@ -247,7 +250,7 @@ export class ChatGroupModel {
     agentIds: string[],
   ): Promise<{ added: NewChatGroupAgent[]; existing: string[] }> {
     const group = await this.findById(groupId);
-    if (!group) throw new Error('Group not found');
+    if (!group) throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
 
     agentIds = [...new Set(agentIds)];
     await this.assertAgentsInScope(agentIds);

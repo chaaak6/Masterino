@@ -505,6 +505,7 @@ export class ConversationLifecycleActionImpl {
         forceRuntime ??
         (isDesktop &&
         context.groupId &&
+        !heterogeneousProvider &&
         (!pendingExecution?.intent.target || pendingExecution.intent.target === 'local')
           ? 'client'
           : undefined),

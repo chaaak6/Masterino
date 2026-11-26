@@ -882,6 +882,9 @@ export class ConversationControlActionImpl {
     );
 
     completeOperation(operationId);
+    this.#get().clearPausedExecutionContext(toolMessageId);
+    const localTask = getLocalTaskApproval(effectiveContext);
+    if (localTask) this.#get().cancelOperation(localTask.operationId, 'User cancelled interaction');
   };
 
   /**
