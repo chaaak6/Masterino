@@ -744,7 +744,8 @@ export const createGroupOrchestrationExecutors = (
         approval.report(runtimeResult || { status: 'done' });
         if (runtimeResult?.status === 'waiting_for_human')
           publishTaskState({ status: ThreadStatus.InReview });
-        const { status, totalCost, totalTokens, ...messageMetrics } = await approval.result;
+        const { status, taskMessages, totalCost, totalTokens, ...messageMetrics } =
+          await approval.result;
 
         const taskOperation = get().operations[taskOperationId];
         if (
@@ -761,8 +762,10 @@ export const createGroupOrchestrationExecutors = (
 
         // 7. Get execution result from sub-task messages
         const subMessageKey = messageMapKey(subContext);
-        const subTaskMessages = get().dbMessagesMap[subMessageKey] || [];
-        const lastAssistant = subTaskMessages.findLast((m) => m.role === 'assistant');
+        const subTaskMessages = taskMessages ?? get().dbMessagesMap[subMessageKey] ?? [];
+        const lastAssistant = subTaskMessages.findLast(
+          (m) => m.role === 'assistant' && m.content?.trim(),
+        );
         const resultContent = lastAssistant?.content || 'Task completed';
 
         log(`[${sessionLogId}] Got result from sub-task: ${resultContent.length} chars`);

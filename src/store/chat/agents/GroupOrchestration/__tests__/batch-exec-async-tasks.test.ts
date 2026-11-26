@@ -328,13 +328,29 @@ describe('createGroupOrchestrationExecutors', () => {
       expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ completionReason: 'done', threadId: 'second-thread' }),
       );
-      approval?.report({ status: 'done' });
+      approval?.report({
+        status: 'done',
+        taskMessages: [
+          {
+            content: 'Saved approval answer',
+            createdAt: 1,
+            id: 'member-answer',
+            role: 'assistant',
+            updatedAt: 1,
+          },
+          { content: '', createdAt: 2, id: 'empty-placeholder', role: 'assistant', updatedAt: 2 },
+        ],
+      });
 
       expect((await task).result?.payload).toMatchObject({
         results: [{ success: true }, { success: true }],
       });
       expect(aiAgentService.updateClientTaskThreadStatus).toHaveBeenCalledWith(
-        expect.objectContaining({ completionReason: 'done', threadId: 'local-thread' }),
+        expect.objectContaining({
+          completionReason: 'done',
+          resultContent: 'Saved approval answer',
+          threadId: 'local-thread',
+        }),
       );
     } finally {
       const taskOperation = Object.values(store.operations).find(

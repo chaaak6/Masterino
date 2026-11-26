@@ -1,11 +1,12 @@
 import type { AgentState, Cost, Usage } from '@lobechat/agent-runtime';
-import type { ConversationContext } from '@lobechat/types';
+import type { ConversationContext, UIChatMessage } from '@lobechat/types';
 
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
 
 interface LocalTaskRun {
   cost?: Cost;
   status?: AgentState['status'];
+  taskMessages?: UIChatMessage[];
   usage?: Usage;
 }
 
@@ -15,6 +16,11 @@ interface LocalTaskMetrics {
   totalInputTokens?: number;
   totalOutputTokens?: number;
   totalTokens?: number;
+}
+
+interface LocalTaskResult extends LocalTaskMetrics {
+  status?: AgentState['status'];
+  taskMessages?: UIChatMessage[];
 }
 
 const approvals = new Map<
@@ -36,8 +42,8 @@ export const trackLocalTaskApproval = (
   { onTimeout, timeout }: { onTimeout: () => void; timeout: number },
 ) => {
   const key = messageMapKey(context);
-  let settle!: (result: LocalTaskMetrics & { status?: AgentState['status'] }) => void;
-  const result = new Promise<LocalTaskMetrics & { status?: AgentState['status'] }>((resolve) => {
+  let settle!: (result: LocalTaskResult) => void;
+  const result = new Promise<LocalTaskResult>((resolve) => {
     settle = resolve;
   });
   let remaining = timeout;
@@ -52,16 +58,16 @@ export const trackLocalTaskApproval = (
     startedAt = undefined;
     clearTimeout(timer);
   };
-  const finish = (status: AgentState['status'] | undefined) => {
+  const finish = (status: AgentState['status'] | undefined, taskMessages?: UIChatMessage[]) => {
     finished = true;
     pause();
-    settle({ ...metrics, status });
+    settle({ ...metrics, status, ...(taskMessages && { taskMessages }) });
   };
   const abort = () => finish('interrupted');
 
   const entry = {
     operationId,
-    report: ({ cost, status, usage }: LocalTaskRun) => {
+    report: ({ cost, status, taskMessages, usage }: LocalTaskRun) => {
       if (finished) return;
       pause();
       metrics.totalCost = addMetric(metrics.totalCost, cost?.total);
@@ -69,7 +75,7 @@ export const trackLocalTaskApproval = (
       metrics.totalInputTokens = addMetric(metrics.totalInputTokens, usage?.llm?.tokens?.input);
       metrics.totalOutputTokens = addMetric(metrics.totalOutputTokens, usage?.llm?.tokens?.output);
       metrics.totalTokens = addMetric(metrics.totalTokens, usage?.llm?.tokens?.total);
-      if (status !== 'waiting_for_human') finish(status);
+      if (status !== 'waiting_for_human') finish(status, taskMessages);
     },
     resume: () => {
       if (finished || startedAt !== undefined) return;

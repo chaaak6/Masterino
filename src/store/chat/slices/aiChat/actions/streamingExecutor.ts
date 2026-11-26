@@ -602,6 +602,7 @@ export class StreamingExecutorActionImpl {
     model?: string;
     provider?: string;
     status?: AgentState['status'];
+    taskMessages?: UIChatMessage[];
     usage?: Usage;
   } | void> => {
     const {
@@ -1224,12 +1225,20 @@ export class StreamingExecutorActionImpl {
         runtimeType: 'client' as const,
       };
 
+      // Keep the member result from the runtime boundary before releasing the
+      // operation, which can re-enable SWR reads on the completed thread.
+      const taskMessages =
+        state.status === 'done' &&
+        (taskResume || (localTask && params.parentOperationId === localTask.operationId))
+          ? this.#get().dbMessagesMap[messageKey]
+          : undefined;
       const { requeued } = await runLifecycle.completeRun(completeEvent);
       const result = {
         cost: state.cost,
         model,
         provider: provider ?? undefined,
         status: state.status,
+        ...(taskMessages && { taskMessages }),
         usage: state.usage,
       };
       taskResume?.report(result);

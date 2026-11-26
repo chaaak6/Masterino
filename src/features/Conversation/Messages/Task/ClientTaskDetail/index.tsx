@@ -55,11 +55,13 @@ const ClientTaskDetail = memo<ClientTaskDetailProps>(
       [threadId, threadContext],
     );
 
-    const isStreamingHere = useChatStore(
-      operationSelectors.isAgentRuntimeRunningByContext(threadContext),
+    // The owning task remains active while its individual runtime segments
+    // pause and resume. Only readers without that owner need a fresh fetch.
+    const hasLocalOwner = useChatStore(
+      operationSelectors.hasRunningOperationByContext(threadContext),
     );
     const { isLoading } = useFetchMessages(threadContext, {
-      skipFetch: !threadId || isStreamingHere,
+      skipFetch: !threadId || hasLocalOwner,
     });
 
     // Get thread messages from store using selector
