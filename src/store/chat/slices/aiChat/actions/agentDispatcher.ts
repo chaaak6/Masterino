@@ -3,8 +3,10 @@ import { isRemoteHeterogeneousType } from '@lobechat/heterogeneous-agents';
 import { type DeviceExecutionTarget, type HeterogeneousProviderConfig } from '@lobechat/types';
 
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
-import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
-import { getElectronStoreState } from '@/store/electron';
+import {
+  DesktopDeviceIdentityUnavailableError,
+  resolveDesktopDeviceId,
+} from '@/store/electron/deviceIdentity';
 
 /**
  * Which agent runtime should handle an operation.
@@ -151,9 +153,10 @@ export const selectConversationRuntime = async (
     executionTarget === 'local'
   ) {
     if (!boundDeviceId) return 'client';
-    const currentDevice = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
-    const deviceId = currentDevice?.deviceId ?? getElectronStoreState().gatewayDeviceInfo?.deviceId;
-    if (!deviceId) throw new Error('Unable to verify this desktop’s device identity');
+    const deviceId = await resolveDesktopDeviceId();
+    if (!deviceId) {
+      throw new DesktopDeviceIdentityUnavailableError();
+    }
     return deviceId === boundDeviceId ? 'client' : 'gateway';
   }
 

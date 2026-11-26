@@ -1312,9 +1312,9 @@ export class StreamingExecutorActionImpl {
 
       // Keep the member result from the runtime boundary before releasing the
       // operation, which can re-enable SWR reads on the completed thread.
+      const initialMemberTask = localTask && params.parentOperationId === localTask.operationId;
       const taskMessages =
-        state.status === 'done' &&
-        (taskResume || (localTask && params.parentOperationId === localTask.operationId))
+        state.status === 'done' && (taskResume || initialMemberTask)
           ? this.#get().dbMessagesMap[messageKey]
           : undefined;
       const { requeued } = await runLifecycle.completeRun(completeEvent);
@@ -1330,7 +1330,7 @@ export class StreamingExecutorActionImpl {
       // the completed member run even when the conversation has queued input.
       taskResume?.report(result);
       // A queued follow-up sendMessage was scheduled — skip the post-run notification.
-      if (requeued) return;
+      if (requeued) return initialMemberTask ? result : undefined;
 
       await runLifecycle.afterRunComplete(completeEvent);
 

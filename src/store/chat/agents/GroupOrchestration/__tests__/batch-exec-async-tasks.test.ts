@@ -23,6 +23,7 @@ vi.mock('@/services/message', () => ({
   messageService: {
     createMessage: vi.fn(async () => ({ id: `msg_${nanoid()}`, messages: [] })),
     removeMessage: vi.fn().mockResolvedValue({ success: true }),
+    updateMessage: vi.fn().mockResolvedValue({ success: true }),
     updateMessageMetadata: vi.fn().mockResolvedValue({ success: true }),
   },
 }));
@@ -443,51 +444,69 @@ describe('createGroupOrchestrationExecutors', () => {
     }
   });
 
-  it('deletes the placeholder when the server rejects a local thread', async () => {
-    vi.clearAllMocks();
-    const store = createMockStore();
-    vi.mocked(messageService.createMessage).mockResolvedValueOnce({
-      id: 'rejected-task',
-      messages: [],
-    });
-    vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockRejectedValueOnce(
-      new Error('Group member not found'),
-    );
-    const executors = createGroupOrchestrationExecutors({
-      get: () => store,
-      messageContext: {
-        agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
-        groupId: TEST_IDS.GROUP_ID,
-        scope: 'group',
-        topicId: TEST_IDS.TOPIC_ID,
-      },
-      orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
-      supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
-    });
-    const output = await executors.exec_client_async_task!(
-      {
-        payload: {
-          agentId: TEST_IDS.AGENT_1_ID,
-          instruction: 'Return OK',
-          title: 'Rejected task',
-          toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+  it.each([true, false])(
+    'reconciles the placeholder after thread creation fails (deleted=%s)',
+    async (deleted) => {
+      vi.clearAllMocks();
+      const store = createMockStore();
+      vi.mocked(messageService.removeMessage).mockResolvedValueOnce({ success: deleted });
+      vi.mocked(messageService.createMessage).mockResolvedValueOnce({
+        id: 'rejected-task',
+        messages: [],
+      });
+      vi.mocked(aiAgentService.createClientGroupAgentTaskThread).mockRejectedValueOnce(
+        new Error('Group member not found'),
+      );
+      const executors = createGroupOrchestrationExecutors({
+        get: () => store,
+        messageContext: {
+          agentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+          groupId: TEST_IDS.GROUP_ID,
+          scope: 'group',
+          topicId: TEST_IDS.TOPIC_ID,
         },
-        type: 'exec_client_async_task',
-      },
-      createInitialState(),
-    );
+        orchestrationOperationId: TEST_IDS.ORCHESTRATION_OPERATION_ID,
+        supervisorAgentId: TEST_IDS.SUPERVISOR_AGENT_ID,
+      });
+      const output = await executors.exec_client_async_task!(
+        {
+          payload: {
+            agentId: TEST_IDS.AGENT_1_ID,
+            instruction: 'Return OK',
+            title: 'Rejected task',
+            toolMessageId: TEST_IDS.TOOL_MESSAGE_ID,
+          },
+          type: 'exec_client_async_task',
+        },
+        createInitialState(),
+      );
 
-    expect(output.result?.payload).toMatchObject({
-      error: 'Group member not found',
-      success: false,
-    });
-    expect(messageService.removeMessage).toHaveBeenCalledWith('rejected-task');
-    expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
-      { id: 'rejected-task', type: 'deleteMessage' },
-      { operationId: TEST_IDS.OPERATION_ID },
-    );
-    expect(store.executeClientAgent).not.toHaveBeenCalled();
-  });
+      expect(output.result?.payload).toMatchObject({
+        error: 'Group member not found',
+        success: false,
+      });
+      expect(messageService.removeMessage).toHaveBeenCalledWith('rejected-task');
+      const deleteAction = { id: 'rejected-task', type: 'deleteMessage' };
+      const operation = { operationId: TEST_IDS.OPERATION_ID };
+      if (deleted) {
+        expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(deleteAction, operation);
+      } else {
+        expect(store.internal_dispatchMessage).not.toHaveBeenCalledWith(deleteAction, operation);
+        expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+          {
+            id: 'rejected-task',
+            type: 'updateMessage',
+            value: { content: 'Task failed: Group member not found' },
+          },
+          operation,
+        );
+        expect(messageService.updateMessage).toHaveBeenCalledWith('rejected-task', {
+          content: 'Task failed: Group member not found',
+        });
+      }
+      expect(store.executeClientAgent).not.toHaveBeenCalled();
+    },
+  );
 
   describe('batch_exec_async_tasks executor', () => {
     beforeEach(() => {

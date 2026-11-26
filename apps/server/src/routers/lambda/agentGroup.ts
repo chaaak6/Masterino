@@ -480,10 +480,13 @@ export const agentGroupRouter = router({
       return result;
     }),
 
-  getGroupLock: agentGroupProcedureWrite
+  getGroupLock: agentGroupProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       if (!ctx.workspaceId) return { expiresAt: null, holderId: null, lockedByOther: false };
+      if (!(await ctx.chatGroupModel.findById(input.id)))
+        throw new TRPCError({ code: 'NOT_FOUND' });
+
       const holder = await ctx.editLockService.getActiveHolder('chatGroup', input.id);
       return {
         expiresAt: null,

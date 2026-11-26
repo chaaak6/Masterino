@@ -544,10 +544,18 @@ describe('agentGroupRouter', () => {
     });
 
     describe('getGroupLock', () => {
-      it('reports another member as the holder', async () => {
+      it('reports the holder to a workspace viewer without granting lock writes', async () => {
+        chatGroupModelMock.findById.mockResolvedValue({ id: 'group-1' });
+        const serverDB = await dbAdapter.getServerDB();
+        vi.mocked(serverDB.query.workspaceMembers.findFirst).mockResolvedValue({
+          role: 'viewer',
+        } as never);
         vi.spyOn(EditLockService.prototype, 'getActiveHolder').mockResolvedValue('other-user');
 
         const caller = agentGroupRouter.createCaller(wsCtx());
+        await expect(caller.acquireGroupLock({ id: 'group-1' })).rejects.toMatchObject({
+          code: 'FORBIDDEN',
+        });
         const result = await caller.getGroupLock({ id: 'group-1' });
 
         expect(result).toEqual({ expiresAt: null, holderId: 'other-user', lockedByOther: true });

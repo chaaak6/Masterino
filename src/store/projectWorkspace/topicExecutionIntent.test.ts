@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as ConstVersion from '@/const/version';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 
 import { buildDraftConversationKey } from './draftKey';
 import {
@@ -74,6 +75,26 @@ describe('resolvePendingTopicExecutionIntent', () => {
     await expect(checkDesktopProjectSend({ topicId: 'old-link', isNewTopic: false })).rejects.toBe(
       networkError,
     );
+  });
+
+  it('gates the group composer before clearing a draft when its bound device cannot be verified', async () => {
+    const topicId = 'bound-group-topic';
+    mocks.workspaceState.topicStatesById[topicId] = {
+      snapshot: {
+        boundDeviceId: 'owner',
+        target: 'local',
+        targetCapturedAt: '',
+        version: 1,
+      },
+    };
+    const draft = { groupId: 'group', isNewTopic: false, topicId };
+
+    mocks.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'unknown' });
+    await expect(checkDesktopProjectSend(draft)).rejects.toBeInstanceOf(
+      DesktopDeviceIdentityUnavailableError,
+    );
+    mocks.getDeviceInfo.mockResolvedValueOnce({ deviceId: 'owner' });
+    await expect(checkDesktopProjectSend(draft)).resolves.toBeUndefined();
   });
 
   it('blocks a foreign scratch snapshot before sending and allows it on the owner device', async () => {

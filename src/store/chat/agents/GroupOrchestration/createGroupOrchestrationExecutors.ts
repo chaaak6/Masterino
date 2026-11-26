@@ -1,4 +1,5 @@
 import {
+  type ExecutorResultTaskCompleted,
   type GroupOrchestrationEvent,
   type GroupOrchestrationExecutor,
   type GroupOrchestrationExecutorOutput,
@@ -479,7 +480,12 @@ export const createGroupOrchestrationExecutors = (
               events: [] as GroupOrchestrationEvent[],
               newState: { ...state, status: 'done' },
               result: {
-                payload: { agentId, error: 'Operation cancelled', success: false },
+                payload: {
+                  agentId,
+                  error: 'Operation cancelled',
+                  status: 'cancelled',
+                  success: false,
+                },
                 type: 'task_completed',
               },
             };
@@ -552,7 +558,12 @@ export const createGroupOrchestrationExecutors = (
               events: [] as GroupOrchestrationEvent[],
               newState: state,
               result: {
-                payload: { agentId, error: 'Task was cancelled', success: false },
+                payload: {
+                  agentId,
+                  error: 'Task was cancelled',
+                  status: 'cancelled',
+                  success: false,
+                },
                 type: 'task_completed',
               },
             };
@@ -576,7 +587,12 @@ export const createGroupOrchestrationExecutors = (
           events: [] as GroupOrchestrationEvent[],
           newState: state,
           result: {
-            payload: { agentId, error: `Task timeout after ${maxWait}ms`, success: false },
+            payload: {
+              agentId,
+              error: `Task timeout after ${maxWait}ms`,
+              status: 'timed_out',
+              success: false,
+            },
             type: 'task_completed',
           },
         };
@@ -837,13 +853,23 @@ export const createGroupOrchestrationExecutors = (
           resultContent,
         );
         if (taskMessageId && !localThreadId) {
-          get().internal_dispatchMessage(
-            { id: taskMessageId, type: 'deleteMessage' },
-            messageOperation,
-          );
-          await messageService
-            .removeMessage(taskMessageId)
-            .catch((failure) => log('Failed to remove task placeholder: %O', failure));
+          const deleted = await messageService.removeMessage(taskMessageId).catch((failure) => {
+            log('Failed to remove task placeholder: %O', failure);
+          });
+          if (deleted?.success) {
+            get().internal_dispatchMessage(
+              { id: taskMessageId, type: 'deleteMessage' },
+              messageOperation,
+            );
+          } else {
+            get().internal_dispatchMessage(
+              { id: taskMessageId, type: 'updateMessage', value: { content: resultContent } },
+              messageOperation,
+            );
+            await messageService
+              .updateMessage(taskMessageId, { content: resultContent })
+              .catch((updateError) => log('Failed to save task creation error: %O', updateError));
+          }
         }
         if (localThreadId) {
           await aiAgentService
@@ -946,6 +972,7 @@ export const createGroupOrchestrationExecutors = (
       interface TaskTracker {
         agentId: string;
         error?: string;
+        failureStatus?: ExecutorResultTaskCompleted['payload']['status'];
         instruction: string;
         result?: string;
         status: 'pending' | 'running' | 'completed' | 'failed';
@@ -1058,6 +1085,7 @@ export const createGroupOrchestrationExecutors = (
                   agentId: t.agentId,
                   error: t.status === 'running' ? 'Operation cancelled' : t.error,
                   result: t.result,
+                  status: t.status === 'running' ? ('cancelled' as const) : t.failureStatus,
                   success: t.status === 'completed',
                 })),
               },
@@ -1127,6 +1155,7 @@ export const createGroupOrchestrationExecutors = (
                 case 'cancel': {
                   tracker.status = 'failed';
                   tracker.error = 'Task was cancelled';
+                  tracker.failureStatus = 'cancelled';
                   log(`[${taskLogId}] Task was cancelled`);
                   await get().optimisticUpdateMessageContent(
                     tracker.taskMessageId,
@@ -1144,6 +1173,7 @@ export const createGroupOrchestrationExecutors = (
               if (tracker.status === 'running' && Date.now() - startTime > tracker.timeout) {
                 tracker.status = 'failed';
                 tracker.error = `Task timeout after ${tracker.timeout}ms`;
+                tracker.failureStatus = 'timed_out';
                 log(`[${taskLogId}] Task timeout`);
                 await get().optimisticUpdateMessageContent(
                   tracker.taskMessageId,
@@ -1167,6 +1197,7 @@ export const createGroupOrchestrationExecutors = (
         if (tracker.status === 'running' && tracker.taskMessageId) {
           tracker.status = 'failed';
           tracker.error = `Task timeout after ${tracker.timeout}ms`;
+          tracker.failureStatus = 'timed_out';
           await get().optimisticUpdateMessageContent(
             tracker.taskMessageId,
             `Task timeout after ${tracker.timeout}ms`,
@@ -1187,6 +1218,7 @@ export const createGroupOrchestrationExecutors = (
               agentId: t.agentId,
               error: t.error,
               result: t.result,
+              status: t.failureStatus,
               success: t.status === 'completed',
             })),
           },

@@ -33,6 +33,7 @@ import {
   resolveActiveTopicDocumentInitialContext,
 } from '@/store/chat/utils/activeTopicDocumentContext';
 import { getElectronStoreState } from '@/store/electron';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
 import {
   checkDesktopProjectSend,
@@ -375,20 +376,32 @@ export const generationSlice: StateCreator<
       context,
       parseSelectedToolsFromEditorData(previousUserMessage?.editorData ?? undefined),
     );
-    const runtimeType = await routeDesktopWorkspaceRuntime(
-      await selectConversationRuntime({
-        boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-        executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
-        groupId: context.groupId,
-        hasSelectedLocalMcp,
-        heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
-        isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
-      }),
-      {
-        topicId,
-        workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
-      },
-    );
+    const executionTarget = topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget;
+    let runtimeType;
+    try {
+      runtimeType = await routeDesktopWorkspaceRuntime(
+        await selectConversationRuntime({
+          boundDeviceId:
+            topicSnapshot?.boundDeviceId ??
+            (context.groupId && executionTarget === 'local'
+              ? undefined
+              : agentConfig?.agencyConfig?.boundDeviceId),
+          executionTarget,
+          groupId: context.groupId,
+          hasSelectedLocalMcp,
+          heterogeneousProvider: agentConfig?.agencyConfig?.heterogeneousProvider,
+          isGatewayMode: chatStore.isGatewayModeEnabled(context.agentId),
+        }),
+        {
+          topicId,
+          workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
+        },
+      );
+    } catch (error) {
+      if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
+      antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+      return;
+    }
 
     // Hetero CLIs (CC / Codex) have no "continue a cut-off response" primitive
     // — each prompt is a fresh user turn from their perspective. Bail out
@@ -598,10 +611,15 @@ export const generationSlice: StateCreator<
         context,
         initialContext?.initialContext?.selectedTools,
       );
+      const executionTarget = topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget;
       const runtimeType = await routeDesktopWorkspaceRuntime(
         await selectConversationRuntime({
-          boundDeviceId: topicSnapshot?.boundDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-          executionTarget: topicSnapshot?.target ?? agentConfig?.agencyConfig?.executionTarget,
+          boundDeviceId:
+            topicSnapshot?.boundDeviceId ??
+            (context.groupId && executionTarget === 'local'
+              ? undefined
+              : agentConfig?.agencyConfig?.boundDeviceId),
+          executionTarget,
           groupId: context.groupId,
           hasSelectedLocalMcp,
           heterogeneousProvider,

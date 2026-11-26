@@ -4,14 +4,21 @@ import type { ExecutionContext } from '@lobechat/types/src/executionContext';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as ConstVersion from '@/const/version';
 import { heterogeneousAgentService } from '@/services/electron/heterogeneousAgent';
+import { agentSelectors } from '@/store/agent/selectors';
 import { trackLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
 import { initialState as projectWorkspaceInitialState } from '@/store/projectWorkspace/initialState';
 import { useProjectWorkspaceStore } from '@/store/projectWorkspace/store';
 
 import { useChatStore } from '../../../../store';
 import { messageMapKey } from '../../../../utils/messageMapKey';
-import { createMockMessage, createMockResolvedAgentConfig, TEST_IDS } from './fixtures';
+import {
+  createMockAgentConfig,
+  createMockMessage,
+  createMockResolvedAgentConfig,
+  TEST_IDS,
+} from './fixtures';
 import { resetTestEnvironment } from './helpers';
 
 // Keep zustand mock as it's needed globally
@@ -20,6 +27,16 @@ vi.mock('zustand/traditional');
 const mockConstEnv = vi.hoisted(() => ({ isDesktop: false }));
 vi.mock('@lobechat/const', async (importOriginal) => {
   const actual = await importOriginal<typeof LobechatConstModule>();
+  return {
+    ...actual,
+    get isDesktop() {
+      return mockConstEnv.isDesktop;
+    },
+  };
+});
+
+vi.mock('@/const/version', async (importOriginal) => {
+  const actual = await importOriginal<typeof ConstVersion>();
   return {
     ...actual,
     get isDesktop() {
@@ -149,7 +166,7 @@ const setupPausedAuthorityResume = (kind: 'scratch' | 'device', mode: 'approve' 
 };
 
 describe('ConversationControl actions', () => {
-  it.each(['cancel', 'reject'])(
+  it.each(['approve', 'submit', 'skip', 'cancel', 'reject'] as const)(
     'settles a local group task on %s even if persistence fails',
     async (decision) => {
       const context: ConversationContext = {
@@ -174,13 +191,21 @@ describe('ConversationControl actions', () => {
       approval.report({ status: 'waiting_for_human' });
 
       try {
-        const stop =
-          decision === 'cancel'
-            ? state.cancelToolInteraction(toolMessage.id, context)
-            : state.rejectToolCalling(toolMessage.id, undefined, context);
-        await expect(stop).rejects.toThrow('offline');
-        expect(abortController.signal.aborted).toBe(true);
-        await expect(approval.result).resolves.toMatchObject({ status: 'interrupted' });
+        const actions = {
+          approve: () => state.approveToolCalling(toolMessage.id, 'assistant-group', context),
+          cancel: () => state.cancelToolInteraction(toolMessage.id, context),
+          reject: () => state.rejectToolCalling(toolMessage.id, undefined, context),
+          skip: () => state.skipToolInteraction(toolMessage.id, undefined, context),
+          submit: () => state.submitToolInteraction(toolMessage.id, { answer: 'yes' }, context),
+        };
+        const stopsTask = decision === 'cancel' || decision === 'reject';
+        if (stopsTask) await expect(actions[decision]()).rejects.toThrow('offline');
+        else await actions[decision]();
+
+        expect(abortController.signal.aborted).toBe(stopsTask);
+        await expect(approval.result).resolves.toMatchObject({
+          status: stopsTask ? 'interrupted' : 'error',
+        });
       } finally {
         approval.dispose();
       }
@@ -1545,50 +1570,62 @@ describe('ConversationControl actions', () => {
   });
 
   describe('submitToolInteraction', () => {
-    it('resumes an older Gateway group turn through the server on desktop', async () => {
-      mockConstEnv.isDesktop = true;
-      const context: ConversationContext = {
-        agentId: TEST_IDS.SESSION_ID,
-        groupId: 'legacy-group',
-        scope: 'thread',
-        threadId: 'legacy-thread',
-        topicId: TEST_IDS.TOPIC_ID,
-      };
-      const tool = createMockMessage({ id: 'legacy-tool', role: 'tool' });
-      const messageMap = { [messageMapKey(context)]: [tool] };
-      useChatStore.setState({ dbMessagesMap: messageMap, messagesMap: messageMap });
-      const state = useChatStore.getState();
-      vi.spyOn(state, 'isGatewayModeEnabled').mockReturnValue(true);
-      vi.spyOn(state, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
-      vi.spyOn(state, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
-      const executeClientAgent = vi.spyOn(state, 'executeClientAgent');
-      const timestamp = '2026-11-26T08:00:00.000Z';
-      const executeGatewayAgent = vi.spyOn(state, 'executeGatewayAgent').mockResolvedValue({
-        agentId: TEST_IDS.SESSION_ID,
-        assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
-        autoStarted: true,
-        createdAt: timestamp,
-        message: 'Started',
-        operationId: 'gateway-op',
-        status: 'running',
-        success: true,
-        timestamp,
-        topicId: TEST_IDS.TOPIC_ID,
-        userMessageId: TEST_IDS.USER_MESSAGE_ID,
-      });
+    it.each([
+      { gatewayEnabled: true, target: undefined },
+      { gatewayEnabled: false, target: 'device' as const },
+    ])(
+      'resumes a legacy group through the server with gateway=$gatewayEnabled, target=$target',
+      async ({ gatewayEnabled, target }) => {
+        mockConstEnv.isDesktop = true;
+        const context: ConversationContext = {
+          agentId: TEST_IDS.SESSION_ID,
+          groupId: 'legacy-group',
+          scope: 'thread',
+          threadId: 'legacy-thread',
+          topicId: TEST_IDS.TOPIC_ID,
+        };
+        const tool = createMockMessage({ id: 'legacy-tool', role: 'tool' });
+        const messageMap = { [messageMapKey(context)]: [tool] };
+        useChatStore.setState({ dbMessagesMap: messageMap, messagesMap: messageMap });
+        const state = useChatStore.getState();
+        vi.spyOn(state, 'isGatewayModeEnabled').mockReturnValue(gatewayEnabled);
+        if (target) {
+          vi.spyOn(agentSelectors, 'getAgentConfigById').mockReturnValue(() => ({
+            ...createMockAgentConfig(),
+            agencyConfig: { executionTargetByPlatform: { desktop: target } },
+          }));
+        }
+        vi.spyOn(state, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
+        vi.spyOn(state, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
+        const executeClientAgent = vi.spyOn(state, 'executeClientAgent');
+        const timestamp = '2026-11-26T08:00:00.000Z';
+        const executeGatewayAgent = vi.spyOn(state, 'executeGatewayAgent').mockResolvedValue({
+          agentId: TEST_IDS.SESSION_ID,
+          assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+          autoStarted: true,
+          createdAt: timestamp,
+          message: 'Started',
+          operationId: 'gateway-op',
+          status: 'running',
+          success: true,
+          timestamp,
+          topicId: TEST_IDS.TOPIC_ID,
+          userMessageId: TEST_IDS.USER_MESSAGE_ID,
+        });
 
-      await state.submitToolInteraction(tool.id, { answer: 'continue' }, context, {
-        createUserMessage: false,
-      });
+        await state.submitToolInteraction(tool.id, { answer: 'continue' }, context, {
+          createUserMessage: false,
+        });
 
-      expect(executeGatewayAgent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context,
-          resumeInteraction: { parentMessageId: tool.id, phase: 'tool_result' },
-        }),
-      );
-      expect(executeClientAgent).not.toHaveBeenCalled();
-    });
+        expect(executeGatewayAgent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            context,
+            resumeInteraction: { parentMessageId: tool.id, phase: 'tool_result' },
+          }),
+        );
+        expect(executeClientAgent).not.toHaveBeenCalled();
+      },
+    );
 
     it('continues a submitted interaction with the model persisted on its assistant turn', async () => {
       mockConstEnv.isDesktop = true;

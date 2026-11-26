@@ -97,12 +97,18 @@ export class ConversationControlActionImpl {
     // group turn was created on this desktop. Older gateway turns lack a snapshot.
     const hasSelectedLocalMcp = !!toolIdentifier && isDeviceLocalMcpToolIdentifier(toolIdentifier);
     const executionTarget =
-      context.groupId && !topicSnapshot && !hasSelectedLocalMcp
+      context.groupId &&
+      !topicSnapshot &&
+      !hasSelectedLocalMcp &&
+      pendingExecution?.intent.target === 'local'
         ? agentConfig?.agencyConfig?.executionTarget
         : (pendingExecution?.intent.target ?? agentConfig?.agencyConfig?.executionTarget);
     const runtime = await selectConversationRuntime({
       boundDeviceId:
-        pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
+        pendingExecution?.intent.targetDeviceId ??
+        (context.groupId && executionTarget === 'local'
+          ? undefined
+          : agentConfig?.agencyConfig?.boundDeviceId),
       executionTarget,
       groupId: context.groupId,
       hasSelectedLocalMcp,
@@ -287,17 +293,21 @@ export class ConversationControlActionImpl {
     };
 
     const { agentId, topicId, threadId } = effectiveContext;
+    const localTask = getLocalTaskApproval(effectiveContext);
 
     // 1. Get tool message and verify it exists
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
-    if (!toolMessage) return;
+    if (!toolMessage) {
+      localTask?.report({ status: 'error' });
+      this.#get().clearPausedExecutionContext(toolMessageId);
+      return;
+    }
     const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
     // Create an operation to carry the context for optimistic updates
     // This ensures optimistic updates use the correct agentId/topicId
-    const localTask = getLocalTaskApproval(effectiveContext);
     const { operationId } = startOperation({
       type: 'approveToolCalling',
       ...(localTask && { parentOperationId: localTask.operationId }),
@@ -320,21 +330,9 @@ export class ConversationControlActionImpl {
       );
       const refreshedToolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
       const approvedToolCall = refreshedToolMessage?.plugin ?? toolMessage.plugin;
-      if (!approvedToolCall) {
-        this.#get().failOperation(operationId, {
-          message: 'Approved tool message is missing its tool payload',
-          type: 'approveToolCalling',
-        });
-        return;
-      }
+      if (!approvedToolCall) throw new Error('Approved tool message is missing its tool payload');
       const toolCallId = refreshedToolMessage?.tool_call_id ?? toolMessage.tool_call_id;
-      if (!toolCallId) {
-        this.#get().failOperation(operationId, {
-          message: 'Approved tool message is missing its tool call id',
-          type: 'approveToolCalling',
-        });
-        return;
-      }
+      if (!toolCallId) throw new Error('Approved tool message is missing its tool call id');
       const approvedToolCallPayload: ChatToolPayload = {
         ...approvedToolCall,
         id: toolCallId,
@@ -453,6 +451,10 @@ export class ConversationControlActionImpl {
     } catch (error) {
       const err = error as Error;
       console.error('[approveToolCalling] Approval lifecycle failed:', err);
+      if (localTask) {
+        this.#get().clearPausedExecutionContext(toolMessageId);
+        localTask.report({ status: 'error' });
+      }
       this.#get().failOperation(operationId, {
         type: 'approveToolCalling',
         message: err.message || 'Unknown error',
@@ -479,14 +481,18 @@ export class ConversationControlActionImpl {
     };
 
     const { agentId, topicId, threadId } = effectiveContext;
+    const localTask = getLocalTaskApproval(effectiveContext);
 
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
-    if (!toolMessage) return;
+    if (!toolMessage) {
+      localTask?.report({ status: 'error' });
+      this.#get().clearPausedExecutionContext(toolMessageId);
+      return;
+    }
     const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
-    const localTask = getLocalTaskApproval(effectiveContext);
     const { operationId } = startOperation({
       type: 'submitToolInteraction',
       ...(localTask && { parentOperationId: localTask.operationId }),
@@ -502,202 +508,109 @@ export class ConversationControlActionImpl {
     const optimisticContext: OptimisticUpdateContext = { operationId };
     const shouldCreateUserMessage = options?.createUserMessage !== false;
 
-    // 1. Mark intervention as approved and set tool result to user's response
-    await this.#get().optimisticUpdateMessagePlugin(
-      toolMessageId,
-      { intervention: { status: 'approved' } },
-      optimisticContext,
-    );
-
-    const toolContent = options?.toolResultContent ?? `User submitted: ${JSON.stringify(response)}`;
-    await this.#get().optimisticUpdateMessageContent(
-      toolMessageId,
-      toolContent,
-      undefined,
-      optimisticContext,
-    );
-
-    if (options?.pluginState) {
-      await this.#get().optimisticUpdatePluginState(
+    try {
+      await this.#get().optimisticUpdateMessagePlugin(
         toolMessageId,
-        options.pluginState,
+        { intervention: { status: 'approved' } },
         optimisticContext,
       );
-    }
-
-    const chatKey = messageMapKey(effectiveContext);
-
-    // 2a. Tool-result-only path: skip the synthetic user message and resume from the
-    // tool message. Used by interventions whose UI handles its own side effect (e.g.
-    // the agent marketplace picker forks agents directly) — the LLM should see the
-    // tool result, not a fake user turn.
-    if (!shouldCreateUserMessage) {
-      const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
-      const requestMetadata = this.#getResumeContextFromMessageChain(
+      const toolContent =
+        options?.toolResultContent ?? `User submitted: ${JSON.stringify(response)}`;
+      await this.#get().optimisticUpdateMessageContent(
         toolMessageId,
-        currentMessages,
-      ).requestMetadata;
-
-      if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
-        const pausedOpIds = this.#getRunningServerOps(effectiveContext).map((op) => op.id);
-        try {
-          await this.#get().executeGatewayAgent({
-            context: effectiveContext,
-            message: '',
-            metadata: requestMetadata,
-            parentMessageId: toolMessageId,
-            resumeInteraction: {
-              parentMessageId: toolMessageId,
-              phase: 'tool_result',
-            },
-          });
-          this.#completeOpsById(pausedOpIds);
-          this.#get().clearPausedExecutionContext(toolMessageId);
-          completeOperation(operationId);
-        } catch (error) {
-          const err = error as Error;
-          console.error('[submitToolInteraction][server] Gateway resume failed:', err);
-          this.#get().failOperation(operationId, {
-            type: 'submitToolInteraction',
-            message: err.message || 'Unknown error',
-          });
-        }
-        return;
+        toolContent,
+        undefined,
+        optimisticContext,
+      );
+      if (options?.pluginState) {
+        await this.#get().optimisticUpdatePluginState(
+          toolMessageId,
+          options.pluginState,
+          optimisticContext,
+        );
       }
 
-      const { state, context: initialContext } = this.#get().internal_createAgentState({
-        messages: currentMessages,
-        parentMessageId: toolMessageId,
-        agentId,
-        topicId,
-        threadId: threadId ?? undefined,
-        operationId,
-        workingModel,
-      });
+      let parentMessageId = toolMessageId;
+      if (shouldCreateUserMessage) {
+        const userMessage = await this.#get().optimisticCreateMessage(
+          {
+            agentId: agentId!,
+            content: Object.values(response).join(', '),
+            groupId: toolMessage.groupId ?? undefined,
+            ...(resumeContext.requestMetadata && { metadata: resumeContext.requestMetadata }),
+            role: 'user',
+            threadId: threadId ?? undefined,
+            topicId: topicId ?? undefined,
+          },
+          optimisticContext,
+        );
+        if (!userMessage) throw new Error('Failed to create user message');
+        parentMessageId = userMessage.id;
+      }
 
-      // Resume directly from `tool_result` phase rather than `human_approved_tool`.
-      // The intervention UI already wrote the final tool result content via
-      // `optimisticUpdateMessageContent`; routing through `human_approved_tool`
-      // would re-execute the builtin tool on the server and overwrite our
-      // content with the server-side placeholder (e.g. the marketplace picker
-      // would clobber the picked-templates result with "picker is now visible").
-      const agentRuntimeContext: AgentRuntimeContext = {
-        ...initialContext,
-        phase: 'tool_result',
-        payload: {
-          parentMessageId: toolMessageId,
-        },
-      };
+      const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(
+        messageMapKey(effectiveContext),
+      )(this.#get());
+      const requestMetadata = shouldCreateUserMessage
+        ? resumeContext.requestMetadata
+        : this.#getResumeContextFromMessageChain(toolMessageId, currentMessages).requestMetadata;
 
-      try {
-        await executeClientAgent({
-          context: effectiveContext,
+      if (
+        await this.#shouldUseGatewayResume(
+          effectiveContext,
           executionContext,
-          messages: currentMessages,
-          parentMessageId: toolMessageId,
-          parentMessageType: 'tool',
-          initialState: state,
-          initialContext: agentRuntimeContext,
-          metadata: requestMetadata,
-          parentOperationId: operationId,
-          workingModel,
-        });
-        this.#get().clearPausedExecutionContext(toolMessageId);
-        completeOperation(operationId);
-      } catch (error) {
-        const err = error as Error;
-        console.error('[submitToolInteraction] Error executing agent runtime:', err);
-        this.#get().failOperation(operationId, {
-          type: 'submitToolInteraction',
-          message: err.message || 'Unknown error',
-        });
-      }
-      return;
-    }
-
-    // 2b. Default path: create a user message summarizing the response, resume from user
-    const requestMetadata = resumeContext.requestMetadata;
-    const userMessageContent = Object.values(response).join(', ');
-    const groupId = toolMessage.groupId;
-    const userMsg = await this.#get().optimisticCreateMessage(
-      {
-        agentId: agentId!,
-        content: userMessageContent,
-        groupId: groupId ?? undefined,
-        ...(requestMetadata && { metadata: requestMetadata }),
-        role: 'user',
-        threadId: threadId ?? undefined,
-        topicId: topicId ?? undefined,
-      },
-      optimisticContext,
-    );
-
-    if (!userMsg) {
-      this.#get().failOperation(operationId, {
-        type: 'submitToolInteraction',
-        message: 'Failed to create user message',
-      });
-      return;
-    }
-
-    if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
-      const pausedOpIds = this.#getRunningServerOps(effectiveContext).map((op) => op.id);
-      try {
+          toolMessage.plugin?.identifier,
+        )
+      ) {
+        const pausedOpIds = this.#getRunningServerOps(effectiveContext).map((op) => op.id);
         await this.#get().executeGatewayAgent({
           context: effectiveContext,
           message: '',
           metadata: requestMetadata,
-          parentMessageId: userMsg.id,
+          parentMessageId,
           resumeInteraction: {
-            parentMessageId: userMsg.id,
-            phase: 'user_input',
+            parentMessageId,
+            phase: shouldCreateUserMessage ? 'user_input' : 'tool_result',
           },
         });
         this.#completeOpsById(pausedOpIds);
-        this.#get().clearPausedExecutionContext(toolMessageId);
-        completeOperation(operationId);
-      } catch (error) {
-        const err = error as Error;
-        console.error('[submitToolInteraction][server] Gateway resume failed:', err);
-        this.#get().failOperation(operationId, {
-          type: 'submitToolInteraction',
-          message: err.message || 'Unknown error',
+      } else {
+        const { state, context: initialContext } = this.#get().internal_createAgentState({
+          messages: currentMessages,
+          parentMessageId,
+          agentId,
+          topicId,
+          threadId: threadId ?? undefined,
+          operationId,
+          workingModel,
+        });
+
+        // The tool-result path has already stored the form output. Resume
+        // from that result so the runtime does not execute the tool again.
+        await executeClientAgent({
+          context: effectiveContext,
+          executionContext,
+          messages: currentMessages,
+          parentMessageId,
+          parentMessageType: shouldCreateUserMessage ? 'user' : 'tool',
+          initialState: state,
+          initialContext: shouldCreateUserMessage
+            ? initialContext
+            : { ...initialContext, phase: 'tool_result', payload: { parentMessageId } },
+          metadata: requestMetadata,
+          parentOperationId: operationId,
+          workingModel,
         });
       }
-      return;
-    }
-
-    // 3. Resume agent from user message (not tool re-execution)
-    const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
-
-    const { state, context: initialContext } = this.#get().internal_createAgentState({
-      messages: currentMessages,
-      parentMessageId: userMsg.id,
-      agentId,
-      topicId,
-      threadId: threadId ?? undefined,
-      operationId,
-      workingModel,
-    });
-
-    try {
-      await executeClientAgent({
-        context: effectiveContext,
-        executionContext,
-        messages: currentMessages,
-        parentMessageId: userMsg.id,
-        parentMessageType: 'user',
-        initialState: state,
-        initialContext,
-        metadata: requestMetadata,
-        parentOperationId: operationId,
-        workingModel,
-      });
       this.#get().clearPausedExecutionContext(toolMessageId);
       completeOperation(operationId);
     } catch (error) {
       const err = error as Error;
-      console.error('[submitToolInteraction] Error executing agent runtime:', err);
+      console.error('[submitToolInteraction] Unable to resume the interaction:', err);
+      if (localTask) {
+        this.#get().clearPausedExecutionContext(toolMessageId);
+        localTask.report({ status: 'error' });
+      }
       this.#get().failOperation(operationId, {
         type: 'submitToolInteraction',
         message: err.message || 'Unknown error',
@@ -719,14 +632,18 @@ export class ConversationControlActionImpl {
     };
 
     const { agentId, topicId, threadId } = effectiveContext;
+    const localTask = getLocalTaskApproval(effectiveContext);
 
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
-    if (!toolMessage) return;
+    if (!toolMessage) {
+      localTask?.report({ status: 'error' });
+      this.#get().clearPausedExecutionContext(toolMessageId);
+      return;
+    }
     const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
     const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
-    const localTask = getLocalTaskApproval(effectiveContext);
     const { operationId } = startOperation({
       type: 'skipToolInteraction',
       ...(localTask && { parentOperationId: localTask.operationId }),
@@ -741,88 +658,82 @@ export class ConversationControlActionImpl {
 
     const optimisticContext: OptimisticUpdateContext = { operationId };
 
-    // 1. Mark intervention as rejected (skipped) with reason
-    await this.#get().optimisticUpdateMessagePlugin(
-      toolMessageId,
-      { intervention: { rejectedReason: reason, status: 'rejected' } },
-      optimisticContext,
-    );
-
-    const toolContent = reason ? `User skipped: ${reason}` : 'User skipped this question.';
-    await this.#get().optimisticUpdateMessageContent(
-      toolMessageId,
-      toolContent,
-      undefined,
-      optimisticContext,
-    );
-
-    // 2. Create a user message indicating the skip
-    const chatKey = messageMapKey(effectiveContext);
-    const requestMetadata = resumeContext.requestMetadata;
-    const userMessageContent = reason ? `I'll skip this. ${reason}` : "I'll skip this.";
-    const groupId = toolMessage.groupId;
-    const userMsg = await this.#get().optimisticCreateMessage(
-      {
-        agentId: agentId!,
-        content: userMessageContent,
-        groupId: groupId ?? undefined,
-        ...(requestMetadata && { metadata: requestMetadata }),
-        role: 'user',
-        threadId: threadId ?? undefined,
-        topicId: topicId ?? undefined,
-      },
-      optimisticContext,
-    );
-
-    if (!userMsg) {
-      this.#get().failOperation(operationId, {
-        type: 'skipToolInteraction',
-        message: 'Failed to create user message',
-      });
-      return;
-    }
-
-    if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
-      const pausedOpIds = this.#getRunningServerOps(effectiveContext).map((op) => op.id);
-      try {
-        await this.#get().executeGatewayAgent({
-          context: effectiveContext,
-          message: '',
-          metadata: requestMetadata,
-          parentMessageId: userMsg.id,
-          resumeInteraction: {
-            parentMessageId: userMsg.id,
-            phase: 'user_input',
-          },
-        });
-        this.#completeOpsById(pausedOpIds);
-        this.#get().clearPausedExecutionContext(toolMessageId);
-        completeOperation(operationId);
-      } catch (error) {
-        const err = error as Error;
-        console.error('[skipToolInteraction][server] Gateway resume failed:', err);
-        this.#get().failOperation(operationId, {
-          type: 'skipToolInteraction',
-          message: err.message || 'Unknown error',
-        });
-      }
-      return;
-    }
-
-    // 3. Resume agent from user message
-    const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
-
-    const { state, context: initialContext } = this.#get().internal_createAgentState({
-      messages: currentMessages,
-      parentMessageId: userMsg.id,
-      agentId,
-      topicId,
-      threadId: threadId ?? undefined,
-      operationId,
-      workingModel,
-    });
-
     try {
+      // 1. Mark intervention as rejected (skipped) with reason
+      await this.#get().optimisticUpdateMessagePlugin(
+        toolMessageId,
+        { intervention: { rejectedReason: reason, status: 'rejected' } },
+        optimisticContext,
+      );
+
+      const toolContent = reason ? `User skipped: ${reason}` : 'User skipped this question.';
+      await this.#get().optimisticUpdateMessageContent(
+        toolMessageId,
+        toolContent,
+        undefined,
+        optimisticContext,
+      );
+
+      // 2. Create a user message indicating the skip
+      const chatKey = messageMapKey(effectiveContext);
+      const requestMetadata = resumeContext.requestMetadata;
+      const userMessageContent = reason ? `I'll skip this. ${reason}` : "I'll skip this.";
+      const groupId = toolMessage.groupId;
+      const userMsg = await this.#get().optimisticCreateMessage(
+        {
+          agentId: agentId!,
+          content: userMessageContent,
+          groupId: groupId ?? undefined,
+          ...(requestMetadata && { metadata: requestMetadata }),
+          role: 'user',
+          threadId: threadId ?? undefined,
+          topicId: topicId ?? undefined,
+        },
+        optimisticContext,
+      );
+
+      if (!userMsg) throw new Error('Failed to create user message');
+
+      if (await this.#shouldUseGatewayResume(effectiveContext, executionContext)) {
+        const pausedOpIds = this.#getRunningServerOps(effectiveContext).map((op) => op.id);
+        try {
+          await this.#get().executeGatewayAgent({
+            context: effectiveContext,
+            message: '',
+            metadata: requestMetadata,
+            parentMessageId: userMsg.id,
+            resumeInteraction: {
+              parentMessageId: userMsg.id,
+              phase: 'user_input',
+            },
+          });
+          this.#completeOpsById(pausedOpIds);
+          this.#get().clearPausedExecutionContext(toolMessageId);
+          completeOperation(operationId);
+        } catch (error) {
+          const err = error as Error;
+          console.error('[skipToolInteraction][server] Gateway resume failed:', err);
+          this.#get().failOperation(operationId, {
+            type: 'skipToolInteraction',
+            message: err.message || 'Unknown error',
+          });
+        }
+        return;
+      }
+
+      // 3. Resume agent from user message
+      const currentMessages = displayMessageSelectors.getDisplayMessagesByKey(chatKey)(this.#get());
+
+      const { state, context: initialContext } = this.#get().internal_createAgentState({
+        messages: currentMessages,
+        parentMessageId: userMsg.id,
+        agentId,
+        topicId,
+        threadId: threadId ?? undefined,
+        operationId,
+        workingModel,
+      });
+
       await executeClientAgent({
         context: effectiveContext,
         executionContext,
@@ -839,7 +750,11 @@ export class ConversationControlActionImpl {
       completeOperation(operationId);
     } catch (error) {
       const err = error as Error;
-      console.error('[skipToolInteraction] Error executing agent runtime:', err);
+      console.error('[skipToolInteraction] Unable to resume the interaction:', err);
+      if (localTask) {
+        this.#get().clearPausedExecutionContext(toolMessageId);
+        localTask.report({ status: 'error' });
+      }
       this.#get().failOperation(operationId, {
         type: 'skipToolInteraction',
         message: err.message || 'Unknown error',

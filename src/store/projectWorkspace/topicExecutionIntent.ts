@@ -10,6 +10,10 @@ import { gatewayConnectionService } from '@/services/electron/gatewayConnection'
 import { projectWorkspaceService } from '@/services/projectWorkspace';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
+import {
+  DesktopDeviceIdentityUnavailableError,
+  resolveDesktopDeviceId,
+} from '@/store/electron/deviceIdentity';
 import type { ChatTopicMetadata } from '@/types/topic';
 
 import { buildDraftConversationKey } from './draftKey';
@@ -119,12 +123,8 @@ export const resolvePendingTopicExecutionIntent = async (params: {
   targetDeviceId ??= params.topicMetadata?.boundDeviceId;
 
   if (target === 'local' && isDesktop && !targetDeviceId) {
-    try {
-      targetDeviceId = (await gatewayConnectionService.getDeviceInfo())?.deviceId;
-    } catch {
-      // Keep the explicit local target. The server will freeze it as unrouted
-      // rather than guessing a different device or falling back to sandbox.
-    }
+    // Without a verified device the local target stays unrouted.
+    targetDeviceId = await resolveDesktopDeviceId();
   }
 
   return {
@@ -168,5 +168,13 @@ export const checkDesktopProjectSend = async (
     // Do not partially hydrate the store here: sendMessage still loads workspace details/env.
     params = { ...params, topicSnapshot: params.topicSnapshot ?? topicState?.snapshot };
   }
-  await resolvePendingTopicExecutionIntent(params);
+  const execution = (await resolvePendingTopicExecutionIntent(params))?.intent;
+  if (
+    params.groupId &&
+    execution?.target === 'local' &&
+    execution.targetDeviceId &&
+    !(await resolveDesktopDeviceId())
+  ) {
+    throw new DesktopDeviceIdentityUnavailableError();
+  }
 };

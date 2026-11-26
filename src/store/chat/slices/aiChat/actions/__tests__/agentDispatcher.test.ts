@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { gatewayConnectionService } from '@/services/electron/gatewayConnection';
-import { useElectronStore } from '@/store/electron';
 
 import { selectConversationRuntime, selectRuntimeType } from '../agentDispatcher';
 
@@ -246,20 +245,19 @@ describe('selectConversationRuntime', () => {
   });
 
   it('uses verified local device identity through a transient IPC error', async () => {
-    const previous = useElectronStore.getState().gatewayDeviceInfo;
-    const lookup = vi
-      .spyOn(gatewayConnectionService, 'getDeviceInfo')
-      .mockRejectedValue(new Error('IPC unavailable'));
+    const device = {
+      description: '',
+      deviceId: 'this-device',
+      hostname: 'desktop',
+      name: 'Desktop',
+      platform: 'darwin',
+    };
+    const lookup = vi.spyOn(gatewayConnectionService, 'getDeviceInfo');
     try {
-      useElectronStore.setState({
-        gatewayDeviceInfo: {
-          description: '',
-          deviceId: 'this-device',
-          hostname: 'desktop',
-          name: 'Desktop',
-          platform: 'darwin',
-        },
-      });
+      lookup.mockResolvedValueOnce(device).mockRejectedValue(new Error('IPC unavailable'));
+      await expect(
+        selectConversationRuntime({ ...local, boundDeviceId: 'this-device' }, opts),
+      ).resolves.toBe('client');
       await expect(
         selectConversationRuntime({ ...local, boundDeviceId: 'this-device' }, opts),
       ).resolves.toBe('client');
@@ -267,13 +265,12 @@ describe('selectConversationRuntime', () => {
         selectConversationRuntime({ ...local, boundDeviceId: 'other-device' }, opts),
       ).resolves.toBe('gateway');
 
-      useElectronStore.setState({ gatewayDeviceInfo: undefined });
+      lookup.mockResolvedValueOnce({ ...device, deviceId: 'unknown' });
       await expect(
         selectConversationRuntime({ ...local, boundDeviceId: 'this-device' }, opts),
       ).rejects.toThrow('Unable to verify');
     } finally {
       lookup.mockRestore();
-      useElectronStore.setState({ gatewayDeviceInfo: previous });
     }
   });
 });

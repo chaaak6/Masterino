@@ -493,10 +493,14 @@ export class ConversationLifecycleActionImpl {
       topicSnapshot: existingTopic?.metadata?.executionSnapshot ?? topicWorkspaceState?.snapshot,
       topicMetadata: existingTopic?.metadata,
     });
+    const executionTarget = pendingExecution?.intent.target;
     let runtimeType = await selectConversationRuntime({
       boundDeviceId:
-        pendingExecution?.intent.targetDeviceId ?? agentConfig?.agencyConfig?.boundDeviceId,
-      executionTarget: pendingExecution?.intent.target,
+        pendingExecution?.intent.targetDeviceId ??
+        (context.groupId && executionTarget === 'local'
+          ? undefined
+          : agentConfig?.agencyConfig?.boundDeviceId),
+      executionTarget,
       groupId: context.groupId,
       hasSelectedLocalMcp: selectedTools.some((tool) =>
         isDeviceLocalMcpIdentifier(tool.identifier),

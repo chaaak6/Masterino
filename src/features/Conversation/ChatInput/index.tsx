@@ -321,8 +321,13 @@ const ChatInput = memo<ChatInputProps>(
               : undefined,
           });
         } catch (error) {
-          if (!(error instanceof ProjectDeviceMismatchError)) throw error;
-          antdMessage.error(t('workspaceRuntime.otherDeviceProject'));
+          antdMessage.error(
+            t(
+              error instanceof ProjectDeviceMismatchError
+                ? 'workspaceRuntime.otherDeviceProject'
+                : 'workspaceRuntime.picker.loadError',
+            ),
+          );
           return;
         }
 
