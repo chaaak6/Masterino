@@ -1562,9 +1562,19 @@ describe('ConversationControl actions', () => {
       vi.spyOn(state, 'optimisticUpdateMessagePlugin').mockResolvedValue(undefined);
       vi.spyOn(state, 'optimisticUpdateMessageContent').mockResolvedValue(undefined);
       const executeClientAgent = vi.spyOn(state, 'executeClientAgent');
+      const timestamp = '2026-11-26T08:00:00.000Z';
       const executeGatewayAgent = vi.spyOn(state, 'executeGatewayAgent').mockResolvedValue({
+        agentId: TEST_IDS.SESSION_ID,
         assistantMessageId: TEST_IDS.ASSISTANT_MESSAGE_ID,
+        autoStarted: true,
+        createdAt: timestamp,
+        message: 'Started',
         operationId: 'gateway-op',
+        status: 'running',
+        success: true,
+        timestamp,
+        topicId: TEST_IDS.TOPIC_ID,
+        userMessageId: TEST_IDS.USER_MESSAGE_ID,
       });
 
       await state.submitToolInteraction(tool.id, { answer: 'continue' }, context, {
