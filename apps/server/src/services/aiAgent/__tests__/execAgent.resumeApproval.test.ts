@@ -223,7 +223,7 @@ describe('AiAgentService.execAgent - resumeApproval', () => {
       },
     });
     mockUpdateMessagePlugin.mockResolvedValue(undefined);
-    mockUpdateToolMessage.mockResolvedValue(undefined);
+    mockUpdateToolMessage.mockResolvedValue({ success: true });
     mockDeviceProxy.isConfigured = false;
     mockDeviceProxy.queryDeviceList.mockResolvedValue([]);
     mockDeviceProxy.queryDeviceSystemInfo.mockResolvedValue(undefined);
@@ -425,10 +425,9 @@ describe('AiAgentService.execAgent - resumeApproval', () => {
 
       expect(mockUpdateToolMessage).toHaveBeenCalledWith('tool-msg-1', {
         content: `User reject this tool calling ${expectedSuffix}`,
-      });
-      expect(mockUpdateMessagePlugin).toHaveBeenCalledWith('tool-msg-1', {
         intervention: { rejectedReason: rejectionReason, status: 'rejected' },
       });
+      expect(mockUpdateMessagePlugin).not.toHaveBeenCalled();
 
       expect(mockCreateOperation).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -541,6 +540,7 @@ describe('AiAgentService.execAgent - resumeApproval', () => {
 
     expect(mockUpdateToolMessage).toHaveBeenCalledWith('tool-msg-1', {
       content: 'User reject this tool calling without reason',
+      intervention: { rejectedReason: undefined, status: 'rejected' },
     });
   });
 

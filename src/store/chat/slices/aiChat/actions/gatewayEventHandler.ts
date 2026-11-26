@@ -350,6 +350,8 @@ export const createGatewayEventHandler = (
     processingChain = processingChain.then(runUnlessCancelled, runUnlessCancelled);
   };
 
+  const appliedEventKeys = new Set<string>();
+
   return (event: AgentStreamEvent) => {
     if (terminalState || get().operations[operationId]?.status === 'cancelled')
       return processingChain;
@@ -360,6 +362,15 @@ export const createGatewayEventHandler = (
     // mid-stream until the terminal fetch corrects it. The local executor drops
     // them before forwarding; the gateway path doesn't. (DB is unaffected.)
     if ((event.data as { subagent?: unknown } | undefined)?.subagent) return;
+
+    const sourceEventKey = (event.data as { sourceEventKey?: string } | undefined)?.sourceEventKey;
+    if (sourceEventKey) {
+      if (appliedEventKeys.has(sourceEventKey)) return processingChain;
+      appliedEventKeys.add(sourceEventKey);
+      if (appliedEventKeys.size > 2000) {
+        appliedEventKeys.delete(appliedEventKeys.values().next().value!);
+      }
+    }
 
     if (event.type === 'agent_runtime_end' || event.type === 'error') {
       terminalState = event.type === 'error' ? 'error' : 'completed';

@@ -44,7 +44,7 @@ const findLastBlockId = (block: AssistantContentBlock | undefined): string | und
   // Check tools for result message ID
   if (block.tools && block.tools.length > 0) {
     const lastTool = block.tools.at(-1);
-    return lastTool?.result_msg_id;
+    return lastTool?.result_msg_id ?? block.id;
   }
 
   // Return block ID
@@ -67,7 +67,7 @@ const findLastMessageIdRecursive = (node: UIChatMessage | undefined): string | u
   // Priority 2: Check tools for result message ID
   if (node.tools && node.tools.length > 0) {
     const lastTool = node.tools.at(-1);
-    return lastTool?.result_msg_id;
+    return lastTool?.result_msg_id ?? node.id;
   }
 
   // Priority 3: Return self ID

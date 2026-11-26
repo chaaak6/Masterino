@@ -318,7 +318,6 @@ export class ConversationControlActionImpl {
     const toolMessage = dbMessageSelectors.getDbMessageById(toolMessageId)(this.#get());
     if (!toolMessage) return;
     const resumeContext = this.#getResumeContextFromMessageChain(toolMessageId);
-    const { workingModel } = resumeContext;
     const executionContext = this.#get().pausedExecutionContextByMessage[toolMessageId];
 
     // Create an operation to carry the context for optimistic updates
@@ -420,10 +419,8 @@ export class ConversationControlActionImpl {
         ...(usesPagedHistory ? ([{ returnUpdatedMessage: true }] as const) : []),
       );
       const currentMessages = this.#buildResumeMessages(effectiveContext, history, [toolMessageId]);
-      const currentRequestMetadata = this.#getResumeContextFromMessageChain(
-        toolMessageId,
-        currentMessages,
-      ).requestMetadata;
+      const { requestMetadata: currentRequestMetadata, workingModel } =
+        this.#getResumeContextFromMessageChain(toolMessageId, currentMessages);
       // 4. Create agent state and context with user intervention config
       const { state, context: initialContext } = this.#get().internal_createAgentState({
         messages: currentMessages,

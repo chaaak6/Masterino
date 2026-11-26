@@ -246,11 +246,14 @@ export class HeterogeneousPersistenceHandler {
         state.lastStepIndex = Math.max(state.lastStepIndex, event.stepIndex);
       }
       const assistantId = state.processedKeys.get(key);
-      persistedEvents.push(
-        assistantId
-          ? { ...event, data: { ...event.data, assistantMessage: { id: assistantId } } }
-          : event,
-      );
+      persistedEvents.push({
+        ...event,
+        data: {
+          ...event.data,
+          ...(assistantId && { assistantMessage: { id: assistantId } }),
+          sourceEventKey: key,
+        },
+      });
     }
 
     // Flush accumulated content after every batch so a subsequent replica

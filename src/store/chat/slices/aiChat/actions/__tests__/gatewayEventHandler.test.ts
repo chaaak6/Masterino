@@ -1171,6 +1171,33 @@ describe('createGatewayEventHandler', () => {
       expect(messageService.getMessages).not.toHaveBeenCalled();
     });
 
+    it('keeps streamed content when a persisted heterogeneous batch is retried', async () => {
+      const store = createMockStore();
+      const handler = createHandler(store);
+      const start = { assistantMessage: { id: 'msg-new' }, sourceEventKey: 'start' };
+      const firstChunk = { chunkType: 'text', content: 'First', sourceEventKey: 'first' };
+      handler(makeEvent('stream_start', start));
+      handler(makeEvent('stream_chunk', firstChunk));
+      await flush();
+
+      handler(makeEvent('stream_start', start));
+      handler(makeEvent('stream_chunk', firstChunk));
+      handler(
+        makeEvent('stream_chunk', {
+          chunkType: 'text',
+          content: ' second',
+          sourceEventKey: 'second',
+        }),
+      );
+      await flush();
+
+      expect(store.associateMessageWithOperation).toHaveBeenCalledTimes(1);
+      expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: 'msg-new', value: { content: 'First second' } }),
+        { operationId: 'op-1' },
+      );
+    });
+
     it('should still fetch from DB on stream_start when assistantMessage id is absent (hetero CLI)', async () => {
       // Hetero CLI adapters (Claude Code / Codex) never set
       // `assistantMessage.id` on stream_start, so the DB read is still

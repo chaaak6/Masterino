@@ -334,6 +334,10 @@ export const messageRouter = router({
     )
     .query(({ input, ctx }) => ctx.messageService.queryHistoryPage(input)),
 
+  getMessageById: messageProcedure
+    .input(z.object({ id: z.string().min(1).max(255) }))
+    .query(({ input, ctx }) => ctx.messageService.getMessageById(input.id)),
+
   getMessages: publicProcedure
     .use(cloudWorkspaceAuth)
     .use(serverDatabase)

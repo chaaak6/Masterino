@@ -18,6 +18,8 @@ import { MessageGroupType } from '@lobechat/types';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MessageModel } from '@/database/models/message';
+
 import { MessageService } from '../index';
 
 // Mock FileService to avoid S3 environment variable requirements
@@ -95,6 +97,33 @@ describe('MessageService Integration Tests', () => {
       success: true,
     });
     expect(result.messages).toBeUndefined();
+  });
+
+  it('reconciles one owned row and rolls back rejection content when its tool plugin is missing', async () => {
+    const id = 'rejection-atomic-tool';
+    const content = 'Read pending';
+    await serverDB.insert(messages).values({ content, id, role: 'tool', userId });
+    const model = new MessageModel(serverDB, userId);
+    const service = new MessageService(serverDB, userId);
+    const intervention = { status: 'rejected' as const };
+
+    await expect(
+      model.updateToolMessage(id, { content: 'User rejected', intervention }),
+    ).resolves.toEqual({ success: false });
+    await expect(service.getMessageById(id)).resolves.toMatchObject({ content, id });
+    await expect(new MessageService(serverDB, otherUserId).getMessageById(id)).resolves.toBeNull();
+
+    await serverDB
+      .insert(messagePlugins)
+      .values({ id, intervention: { status: 'pending' }, userId });
+    await expect(
+      model.updateToolMessage(id, { content: 'User rejected', intervention }),
+    ).resolves.toEqual({ success: true });
+    await expect(service.getMessageById(id)).resolves.toMatchObject({
+      content: 'User rejected',
+      id,
+      pluginIntervention: intervention,
+    });
   });
 
   it('pages the newest 50 rows first and keeps the cursor usable after anchor deletion', async () => {

@@ -1671,6 +1671,7 @@ export class AiAgentService {
         ...message,
         content: rejectionContent ?? message.content,
         plugin: { ...message.plugin, intervention: approvalIntervention },
+        pluginIntervention: approvalIntervention,
       };
     };
     let historyMessagesCache: UIChatMessage[] | undefined;
@@ -3418,13 +3419,15 @@ export class AiAgentService {
             resumeApproval.parentMessageId,
             {
               content: rejectionContent,
+              intervention: approvalIntervention,
             },
           );
-          if (updated?.success === false) throw new Error('Tool rejection was not committed');
+          if (!updated.success) throw new Error('Tool rejection was not committed');
+        } else {
+          await this.messageModel.updateMessagePlugin(resumeApproval.parentMessageId, {
+            intervention: approvalIntervention,
+          });
         }
-        await this.messageModel.updateMessagePlugin(resumeApproval.parentMessageId, {
-          intervention: approvalIntervention,
-        });
       }
       const result = await this.agentRuntimeService.createOperation({
         activeDeviceId,

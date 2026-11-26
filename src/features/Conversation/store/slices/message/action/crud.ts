@@ -412,23 +412,35 @@ export const messageCRUDSlice: StateCreator<
     const previous = dataSelectors.getDbMessageById(id)(get());
     internal_dispatchMessage({ id, type: 'updateMessage', value });
     const expected = dataSelectors.getDbMessageById(id)(get());
+    const acknowledge = (message: typeof previous) => {
+      if (message) {
+        get().internal_dispatchMessage({ expected, type: 'acknowledgeMessage', value: message });
+      }
+    };
+
+    let result: Awaited<ReturnType<typeof messageService.updateMessage>>;
     try {
-      const result = await messageService.updateMessage(id, value, context, {
+      result = await messageService.updateMessage(id, value, context, {
         returnUpdatedMessage: true,
       });
-      if (!result?.success) throw new Error('Message update was not committed');
-      if (result.message) {
-        get().internal_dispatchMessage({
-          expected,
-          type: 'acknowledgeMessage',
-          value: result.message,
-        });
-      }
     } catch (error) {
-      if (previous)
-        get().internal_dispatchMessage({ expected, type: 'acknowledgeMessage', value: previous });
+      // A lost response can hide a successful write. Reconcile just this row,
+      // including when the edited message belongs to an older loaded page.
+      const saved = await messageService.getMessageById(id).catch(() => null);
+      acknowledge(saved ?? previous);
+      if (
+        saved?.content === content &&
+        (value.editorData === undefined || isEqual(saved.editorData, value.editorData))
+      ) {
+        return;
+      }
       throw error;
     }
+    if (!result?.success) {
+      acknowledge(previous);
+      throw new Error('Message update was not committed');
+    }
+    acknowledge(result.message);
   },
 
   updateMessageError: async (id, error) => {

@@ -3414,12 +3414,13 @@ export class MessageModel {
     id: string,
     params: {
       content?: string;
+      intervention?: MessagePluginItem['intervention'];
       metadata?: Record<string, any>;
       pluginError?: any;
       pluginState?: Record<string, any>;
     },
   ): Promise<{ success: boolean }> => {
-    const { content, metadata, pluginState, pluginError } = params;
+    const { content, intervention, metadata, pluginState, pluginError } = params;
 
     try {
       await this.db.transaction(async (trx) => {
@@ -3449,13 +3450,16 @@ export class MessageModel {
         }
 
         // Update messagePlugins table (pluginState, pluginError)
-        if (pluginState !== undefined || pluginError !== undefined) {
+        if (intervention !== undefined || pluginState !== undefined || pluginError !== undefined) {
           const pluginItem = await trx.query.messagePlugins.findFirst({
             where: and(eq(messagePlugins.id, id), this.pluginsOwnership()),
           });
 
+          if (intervention !== undefined && !pluginItem) throw new Error('Plugin not found');
           if (pluginItem) {
-            const pluginUpdateData: Record<string, any> = {};
+            const pluginUpdateData: Pick<MessagePluginItem, 'error' | 'intervention' | 'state'> =
+              {};
+            if (intervention !== undefined) pluginUpdateData.intervention = intervention;
 
             if (pluginState !== undefined) {
               pluginUpdateData.state = merge(pluginItem.state || {}, pluginState);

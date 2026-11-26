@@ -54,6 +54,8 @@ export class MessageService {
     return lambdaClient.message.commitToolResult.mutate(input, options);
   };
 
+  getMessageById = (id: string) => lambdaClient.message.getMessageById.query({ id });
+
   getMessages = async (params: MessageQueryContext): Promise<UIChatMessage[]> => {
     const data = await lambdaClient.message.getMessages.query(params);
 

@@ -298,8 +298,13 @@ export class MessageService {
     return this.queryWithSuccess(options);
   }
 
-  private async queryUpdatedMessage(id: string): Promise<UpdateMessageResult> {
+  async getMessageById(id: string): Promise<UIChatMessage | null> {
     const [message] = await this.messageModel.queryByIds([id], this.getQueryOptions());
+    return message ?? null;
+  }
+
+  private async queryUpdatedMessage(id: string): Promise<UpdateMessageResult> {
+    const message = await this.getMessageById(id);
     return message ? { message, success: true } : { success: false };
   }
 
