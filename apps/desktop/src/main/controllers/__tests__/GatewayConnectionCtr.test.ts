@@ -3,9 +3,8 @@ import type { execSync as ExecSyncType } from 'node:child_process';
 import type * as LocalFileShell from '@lobechat/local-file-shell';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as pythonRuntime from '@/modules/pythonRuntime';
-
 import type { App } from '@/core/App';
+import * as pythonRuntime from '@/modules/pythonRuntime';
 import GatewayConnectionService from '@/services/gatewayConnectionSrv';
 import ImessageBridgeService from '@/services/imessageBridgeSrv';
 
@@ -1499,6 +1498,48 @@ describe('GatewayConnectionCtr', () => {
       expect(info.deviceId).toBe(mockGatewayConnectionSrv.getDeviceId());
       expect(info.identityVerified).toBe(true);
       expect(MockGatewayClient.lastInstance).toBeNull();
+    });
+
+    it('only reports an opaque credential as verified while it matches the authenticated socket', async () => {
+      const getAccessToken = vi.mocked(mockRemoteServerConfigCtr.getAccessToken);
+      getAccessToken.mockResolvedValue('opaque-token-first-account');
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      mockStoreGet.mockImplementation((key: string) => {
+        if (key === 'gatewayDeviceId') return 'stored-connection-id';
+      });
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+
+      MockGatewayClient.nextConnectResult = { success: true, userId: 'first-user' };
+      await ctr.connect();
+      MockGatewayClient.lastInstance!.simulateConnected('first-user');
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: MockGatewayClient.lastOptions.deviceId,
+        identityVerified: true,
+      });
+
+      getAccessToken.mockResolvedValue('opaque-token-second-account');
+      expect(await ctr.getDeviceInfo()).toMatchObject({
+        deviceId: 'stored-connection-id',
+        identityVerified: false,
+      });
+    });
+
+    it('does not reuse an authenticated subject when the opaque credential changes before retry', async () => {
+      vi.mocked(mockRemoteServerConfigCtr.isRemoteServerConfigured).mockResolvedValue(false);
+      vi.mocked(mockRemoteServerConfigCtr.getAccessToken)
+        .mockResolvedValueOnce('opaque-token-first-account')
+        .mockResolvedValue('opaque-token-second-account');
+      ctr.afterAppReady();
+      await vi.advanceTimersByTimeAsync(0);
+
+      MockGatewayClient.nextConnectResult = { success: true, userId: 'first-user' };
+      await ctr.connect();
+
+      expect(MockGatewayClient.lastOptions.token).toBe('opaque-token-second-account');
+      expect(MockGatewayClient.lastOptions.userId).toBeUndefined();
     });
 
     it('should return device information', async () => {

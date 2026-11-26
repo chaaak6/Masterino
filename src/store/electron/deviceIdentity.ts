@@ -12,8 +12,14 @@ export class DesktopDeviceIdentityUnavailableError extends Error {
 let verifiedDevice: { deviceId: string; userId?: string } | undefined;
 
 export const resolveDesktopDeviceId = async () => {
-  const userId = useUserStore.getState().user?.id;
-  const device = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
+  let userId = useUserStore.getState().user?.id;
+  let device = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
+  const currentUserId = useUserStore.getState().user?.id;
+  // User hydration can finish while IPC is running. Read the device for the hydrated account.
+  if (!userId && currentUserId) {
+    userId = currentUserId;
+    device = await gatewayConnectionService.getDeviceInfo().catch(() => undefined);
+  }
   if (useUserStore.getState().user?.id !== userId) return;
   if (!device) return verifiedDevice?.userId === userId ? verifiedDevice?.deviceId : undefined;
   if (!device.deviceId || device.deviceId === 'unknown' || device.identityVerified === false) {

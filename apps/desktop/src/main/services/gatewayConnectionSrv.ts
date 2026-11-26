@@ -154,6 +154,7 @@ export default class GatewayConnectionService extends ServiceModule {
 
   private identitySource: IdentitySource | null = null;
   private identityUserId: string | null = null;
+  private authenticatedGatewayIdentity?: { client: GatewayClient; token: string; userId: string };
 
   private tokenProvider: (() => Promise<string | null>) | null = null;
   private serverUrlProvider: (() => Promise<string | null | undefined>) | null = null;
@@ -306,16 +307,22 @@ export default class GatewayConnectionService extends ServiceModule {
     // Routing needs the same user-scoped identity even before the socket connects.
     // The provider reads the local credential store and does not refresh the token.
     const token = await this.tokenProvider?.();
-    const userId = token && this.extractUserIdFromToken(token);
+    const identity = this.authenticatedGatewayIdentity;
+    const gatewayUserId =
+      identity &&
+      identity.token === token &&
+      identity.client === this.client &&
+      this.status === 'connected'
+        ? identity.userId
+        : undefined;
+    const userId = token && (this.extractUserIdFromToken(token) ?? gatewayUserId);
     if (userId && this.identityUserId !== userId) this.resolveDeviceIdentity(userId);
 
     return {
       description: this.getDeviceDescription(),
-      deviceId: this.getDeviceId(),
+      deviceId: !userId && this.identityUserId ? this.getConnectionId() : this.getDeviceId(),
       hostname: os.hostname(),
-      identityVerified: Boolean(
-        token && this.identityUserId && (userId || this.status === 'connected'),
-      ),
+      identityVerified: Boolean(userId),
       name: this.getDeviceName(),
       platform: process.platform,
     };
@@ -351,6 +358,7 @@ export default class GatewayConnectionService extends ServiceModule {
   }
 
   async disconnect(): Promise<{ success: boolean }> {
+    this.authenticatedGatewayIdentity = undefined;
     if (this.client) {
       await this.client.disconnect();
       this.client = null;
@@ -361,12 +369,13 @@ export default class GatewayConnectionService extends ServiceModule {
     return { success: true };
   }
 
-  private async doConnect(
-    verifiedUserId?: string,
-    identityRetry = false,
-  ): Promise<{ error?: string; success: boolean }> {
+  private async doConnect(verifiedIdentity?: {
+    token: string;
+    userId: string;
+  }): Promise<{ error?: string; success: boolean }> {
     if (this.app.isQuiting) return { success: false, error: 'Application is shutting down' };
     // Clean up any existing client
+    this.authenticatedGatewayIdentity = undefined;
     if (this.client) {
       await this.client.disconnect();
       this.client = null;
@@ -397,7 +406,8 @@ export default class GatewayConnectionService extends ServiceModule {
     }
 
     const gatewayUrl = this.getGatewayUrl();
-    const userId = verifiedUserId || this.extractUserIdFromToken(token);
+    const verifiedUserId = verifiedIdentity?.token === token ? verifiedIdentity.userId : undefined;
+    const userId = this.extractUserIdFromToken(token) ?? verifiedUserId;
     logger.info(
       `Connecting to device gateway: ${gatewayUrl}, identityAvailable: ${Boolean(userId)}`,
     );
@@ -408,6 +418,7 @@ export default class GatewayConnectionService extends ServiceModule {
       this.resolveDeviceIdentity(userId);
     }
 
+    const connectionId = this.getConnectionId();
     const client = new GatewayClient({
       capabilities: {
         executionContextValidation: true,
@@ -416,8 +427,8 @@ export default class GatewayConnectionService extends ServiceModule {
         },
       },
       channel: isDev ? 'desktop-dev' : 'desktop',
-      connectionId: this.getConnectionId(),
-      deviceId: this.getDeviceId(),
+      connectionId,
+      deviceId: userId ? this.getDeviceId() : connectionId,
       gatewayUrl,
       logger,
       serverUrl,
@@ -434,9 +445,10 @@ export default class GatewayConnectionService extends ServiceModule {
       if (initialConnectPending) return;
       void this.handleReauthenticatedClient(
         client,
+        token,
         reauthenticatedUserId,
         expectedAuthenticatedUserId,
-        identityRetry,
+        Boolean(verifiedUserId),
       );
     });
 
@@ -462,14 +474,17 @@ export default class GatewayConnectionService extends ServiceModule {
     // A legacy token may not be locally decodable even though the gateway can
     // verify it. Reconnect once with the verified identity so deviceId remains
     // stable and the live socket matches the registered device row.
-    if (!userId && authenticatedUserId && !identityRetry) {
+    if (!userId && authenticatedUserId && this.client === client) {
       await client.disconnect();
-      if (this.client === client) this.client = null;
-      return this.doConnect(authenticatedUserId, true);
+      if (this.client === client) {
+        this.client = null;
+        return this.doConnect({ token, userId: authenticatedUserId });
+      }
     }
 
-    if (authenticatedUserId) {
+    if (authenticatedUserId && this.client === client) {
       const identity = this.resolveDeviceIdentity(authenticatedUserId);
+      this.authenticatedGatewayIdentity = { client, token, userId: authenticatedUserId };
       await this.deviceRegistrar?.({
         deviceId: identity.deviceId,
         hostname: os.hostname(),
@@ -488,6 +503,7 @@ export default class GatewayConnectionService extends ServiceModule {
 
   private async handleReauthenticatedClient(
     client: GatewayClient,
+    token: string,
     authenticatedUserId: string | undefined,
     expectedUserId: string | undefined,
     identityRetry: boolean,
@@ -511,10 +527,11 @@ export default class GatewayConnectionService extends ServiceModule {
         this.failConnection('AUTH_FAILED', 'Authenticated device identity changed', false);
         return;
       }
-      await this.doConnect(authenticatedUserId, true);
+      await this.doConnect({ token, userId: authenticatedUserId });
       return;
     }
 
+    this.authenticatedGatewayIdentity = { client, token, userId: authenticatedUserId };
     await this.deviceRegistrar?.({
       deviceId: identity.deviceId,
       hostname: os.hostname(),
