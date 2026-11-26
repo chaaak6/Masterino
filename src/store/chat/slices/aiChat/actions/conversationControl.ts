@@ -10,7 +10,9 @@ import {
   type WorkingModel,
 } from '@lobechat/types';
 import type { ExecutionContext } from '@lobechat/types/src/executionContext';
+import { t } from 'i18next';
 
+import { message as antdMessage } from '@/components/AntdStaticMethods';
 import { getAgentStoreState } from '@/store/agent';
 import { agentSelectors } from '@/store/agent/selectors';
 import { getLocalTaskApproval } from '@/store/chat/agents/GroupOrchestration/localTaskApproval';
@@ -19,6 +21,7 @@ import { routeDesktopWorkspaceRuntime } from '@/store/chat/slices/aiChat/actions
 import { operationSelectors } from '@/store/chat/slices/operation/selectors';
 import { AI_RUNTIME_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
 import { type ChatStore } from '@/store/chat/store';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { getProjectWorkspaceStoreState } from '@/store/projectWorkspace';
 import { resolvePendingTopicExecutionIntent } from '@/store/projectWorkspace/topicExecutionIntent';
 import { type StoreSetter } from '@/store/types';
@@ -116,6 +119,20 @@ export class ConversationControlActionImpl {
       isGatewayMode: this.#get().isGatewayModeEnabled(context.agentId),
     });
     return (await routeDesktopWorkspaceRuntime(runtime, { topicId, workspaceId })) === 'gateway';
+  };
+
+  #resolveRejectionRoute = async (
+    context: ConversationContext,
+    executionContext: ExecutionContext | undefined,
+    toolIdentifier: string | undefined,
+  ): Promise<boolean | undefined> => {
+    try {
+      return await this.#shouldUseGatewayResume(context, executionContext, toolIdentifier);
+    } catch (error) {
+      if (!(error instanceof DesktopDeviceIdentityUnavailableError)) throw error;
+      antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+      return undefined;
+    }
   };
 
   /**
@@ -1050,6 +1067,12 @@ export class ConversationControlActionImpl {
       return;
     }
     const executionContext = this.#get().pausedExecutionContextByMessage[messageId];
+    const useGateway = await this.#resolveRejectionRoute(
+      effectiveContext,
+      executionContext,
+      toolMessage.plugin?.identifier,
+    );
+    if (useGateway === undefined) return;
 
     // Create an operation to carry the context for optimistic updates
     const { operationId } = startOperation({
@@ -1103,14 +1126,7 @@ export class ConversationControlActionImpl {
     // `rejected_continue` share the same code path (both surface the
     // rejection to the LLM as user feedback), so a separate `rejected`
     // decision adds complexity without behavioural difference.
-    if (
-      !localTask &&
-      (await this.#shouldUseGatewayResume(
-        effectiveContext,
-        executionContext,
-        toolMessage.plugin?.identifier,
-      ))
-    ) {
+    if (useGateway) {
       const toolCallId = toolMessage.tool_call_id;
       if (!toolCallId) {
         console.warn(
@@ -1167,13 +1183,13 @@ export class ConversationControlActionImpl {
     // the LLM loop with the rejection content surfaced as user feedback.
     // Skip the client-mode `rejectToolCalling` chain below — that would fire
     // a duplicate halting `reject` before this continue signal.
-    if (
-      await this.#shouldUseGatewayResume(
-        effectiveContext,
-        executionContext,
-        toolMessage.plugin?.identifier,
-      )
-    ) {
+    const useGateway = await this.#resolveRejectionRoute(
+      effectiveContext,
+      executionContext,
+      toolMessage.plugin?.identifier,
+    );
+    if (useGateway === undefined) return;
+    if (useGateway) {
       const requestMetadata = this.#getResumeContextFromMessageChain(messageId).requestMetadata;
       const toolCallId = toolMessage.tool_call_id;
       if (!toolCallId) {

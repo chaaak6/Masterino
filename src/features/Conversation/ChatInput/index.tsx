@@ -22,6 +22,7 @@ import { useChatStore } from '@/store/chat';
 import { operationSelectors, topicSelectors } from '@/store/chat/selectors';
 import { selectCurrentTurnTodosFromMessages } from '@/store/chat/slices/message/selectors/dbMessage';
 import { messageMapKey } from '@/store/chat/utils/messageMapKey';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 import { sameChatAttachmentDraft, toPageSelections } from '@/store/file/slices/chat/drafts';
 import {
@@ -321,13 +322,13 @@ const ChatInput = memo<ChatInputProps>(
               : undefined,
           });
         } catch (error) {
-          antdMessage.error(
-            t(
-              error instanceof ProjectDeviceMismatchError
-                ? 'workspaceRuntime.otherDeviceProject'
-                : 'workspaceRuntime.picker.loadError',
-            ),
-          );
+          if (error instanceof ProjectDeviceMismatchError) {
+            antdMessage.error(t('workspaceRuntime.otherDeviceProject'));
+          } else if (error instanceof DesktopDeviceIdentityUnavailableError) {
+            antdMessage.error(t('workspaceRuntime.picker.loadError'));
+          } else {
+            throw error;
+          }
           return;
         }
 

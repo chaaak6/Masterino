@@ -350,6 +350,8 @@ export interface MessageMetadata {
    * Used by callAgent tool (sub_agent) and group orchestration (group modes)
    */
   subAgentId?: string;
+  /** The task row exists, but dispatch failed before it received a thread. */
+  taskCreationFailed?: boolean;
   taskTitle?: string;
   // message content is multimodal, display content in the streaming, won't save to db
   tempDisplayContent?: string;

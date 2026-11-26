@@ -3,6 +3,7 @@ import { fetchEventSource } from '@lobechat/utils/client';
 
 import { aiAgentService } from '@/services/aiAgent';
 
+const INITIAL_CONNECTION_TIMEOUT = 45_000;
 const RECOVERY_TIMEOUT = 30_000;
 
 /** Server executes tools through Device Gateway; this channel only receives events. */
@@ -10,6 +11,7 @@ export class SameOriginAgentStreamClient {
   private listeners = new Map<keyof AgentStreamClientEvents, Set<(...args: never[]) => void>>();
   private controller?: AbortController;
   private retry?: ReturnType<typeof setTimeout>;
+  private initialConnectionTimer?: ReturnType<typeof setTimeout>;
   private recoveryTimer?: ReturnType<typeof setTimeout>;
   private cursor = '0';
   private stopped = true;
@@ -41,6 +43,10 @@ export class SameOriginAgentStreamClient {
   connect(): void {
     if (!this.stopped) return;
     this.stopped = false;
+    this.initialConnectionTimer = setTimeout(
+      () => this.expireRecovery(),
+      INITIAL_CONNECTION_TIMEOUT,
+    );
     this.open();
   }
 
@@ -75,6 +81,7 @@ export class SameOriginAgentStreamClient {
       credentials: 'same-origin',
       onopen: async (response) => {
         if (this.stopped || this.terminal || this.controller !== controller) return;
+        this.clearInitialConnectionTimer();
         if ([400, 401, 403, 404].includes(response.status)) {
           this.stopped = true;
           this.clearRecoveryTimer();
@@ -126,6 +133,7 @@ export class SameOriginAgentStreamClient {
       })
       .finally(() => {
         if (this.stopped || this.terminal || this.controller !== controller) return;
+        this.clearInitialConnectionTimer();
         resetIfHealthy();
         this.recoveryStartedAt ??= Date.now();
         if (Date.now() - this.recoveryStartedAt >= RECOVERY_TIMEOUT) {
@@ -146,6 +154,11 @@ export class SameOriginAgentStreamClient {
     this.recoveryTimer ??= setTimeout(() => this.expireRecovery(), RECOVERY_TIMEOUT - elapsed);
   }
 
+  private clearInitialConnectionTimer(): void {
+    clearTimeout(this.initialConnectionTimer);
+    this.initialConnectionTimer = undefined;
+  }
+
   private clearRecoveryTimer(): void {
     clearTimeout(this.recoveryTimer);
     this.recoveryTimer = undefined;
@@ -153,6 +166,7 @@ export class SameOriginAgentStreamClient {
 
   private expireRecovery(): void {
     this.terminal = true;
+    this.clearInitialConnectionTimer();
     this.clearRecoveryTimer();
     clearTimeout(this.retry);
     this.controller?.abort();
@@ -162,6 +176,7 @@ export class SameOriginAgentStreamClient {
 
   disconnect(): void {
     this.stopped = true;
+    this.clearInitialConnectionTimer();
     this.clearRecoveryTimer();
     clearTimeout(this.retry);
     this.controller?.abort();

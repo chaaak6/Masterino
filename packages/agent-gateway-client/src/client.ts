@@ -228,7 +228,6 @@ export class AgentStreamClient extends TypedEmitter {
   // ─── WebSocket Event Handlers ───
 
   private handleOpen = (): void => {
-    this.reconnectDelay = INITIAL_RECONNECT_DELAY;
     this.setStatus('authenticating');
     this.sendMessage({ token: this.token, type: 'auth' });
   };
@@ -240,7 +239,6 @@ export class AgentStreamClient extends TypedEmitter {
       switch (message.type) {
         case 'auth_success': {
           this.clearConnectionTimer();
-          this.clearRecoveryTimer();
           this.setStatus('connected');
           this.startHeartbeat();
 
@@ -288,11 +286,15 @@ export class AgentStreamClient extends TypedEmitter {
         }
 
         case 'heartbeat_ack': {
+          this.clearRecoveryTimer();
+          this.reconnectDelay = INITIAL_RECONNECT_DELAY;
           this.missedHeartbeats = 0;
           break;
         }
 
         case 'agent_event': {
+          this.clearRecoveryTimer();
+          this.reconnectDelay = INITIAL_RECONNECT_DELAY;
           const agentEvent: AgentStreamEvent = message.event;
           if (message.id) this.lastEventId = message.id;
 
@@ -321,6 +323,8 @@ export class AgentStreamClient extends TypedEmitter {
         }
 
         case 'resume_complete': {
+          this.clearRecoveryTimer();
+          this.reconnectDelay = INITIAL_RECONNECT_DELAY;
           // Authoritative status from the DO, sent right after resume replay
           // — this is the definitive end-of-replay marker, so
           // cancel the pending debounce flush and act on it immediately.

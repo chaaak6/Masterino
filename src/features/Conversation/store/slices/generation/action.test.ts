@@ -9,6 +9,7 @@ import { agentSelectors } from '@/store/agent/selectors';
 import * as agentDispatcher from '@/store/chat/slices/aiChat/actions/agentDispatcher';
 import * as heterogeneousAgentExecutor from '@/store/chat/slices/aiChat/actions/heterogeneousAgentExecutor';
 import { INPUT_LOADING_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
+import { DesktopDeviceIdentityUnavailableError } from '@/store/electron/deviceIdentity';
 import * as topicExecutionIntent from '@/store/projectWorkspace/topicExecutionIntent';
 
 import { type ConversationContext, type ConversationHooks } from '../../../types';
@@ -767,6 +768,33 @@ describe('Generation Actions', () => {
         expect(mockSwitchMessageBranch).not.toHaveBeenCalled();
       } finally {
         check.mockRestore();
+      }
+    });
+
+    it('keeps the current branch when route selection cannot verify the desktop', async () => {
+      const { useChatStore } = await import('@/store/chat');
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        ...useChatStore.getState(),
+        failOperation: mockFailOperation,
+      });
+      const route = vi
+        .spyOn(agentDispatcher, 'selectConversationRuntime')
+        .mockRejectedValueOnce(new DesktopDeviceIdentityUnavailableError());
+      try {
+        const store = createStore({
+          context: { agentId: 'session-1', groupId: 'group-1', topicId: 'topic-1' },
+        });
+        store.setState({
+          displayMessages: [{ content: 'Hello', id: 'msg-1', role: 'user' }],
+        } as any);
+
+        await expect(store.getState().regenerateUserMessage('msg-1')).resolves.toBeUndefined();
+        expect(route).toHaveBeenCalledOnce();
+        expect(antdMessage.error).toHaveBeenCalledOnce();
+        expect(mockSwitchMessageBranch).not.toHaveBeenCalled();
+        expect(mockExecuteClientAgent).not.toHaveBeenCalled();
+      } finally {
+        route.mockRestore();
       }
     });
 

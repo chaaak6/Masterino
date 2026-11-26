@@ -203,11 +203,14 @@ describe('createGroupOrchestrationExecutors', () => {
       threadMessages: [],
       userMessageId: 'local-user',
     });
-    vi.mocked(aiAgentService.updateClientTaskThreadStatus).mockResolvedValue({
-      status: ThreadStatus.Completed,
-      success: true,
-      threadId: 'local-thread',
-    });
+    vi.mocked(aiAgentService.updateClientTaskThreadStatus)
+      .mockClear()
+      .mockRejectedValueOnce(new Error('response lost'))
+      .mockResolvedValue({
+        status: ThreadStatus.Completed,
+        success: true,
+        threadId: 'local-thread',
+      });
     const executors = createGroupOrchestrationExecutors({
       get: () => store,
       messageContext: {
@@ -232,6 +235,10 @@ describe('createGroupOrchestrationExecutors', () => {
     );
     expect(output.result?.payload).toMatchObject({ results: [{ success: true }] });
     expect(aiAgentService.execSubAgentTask).not.toHaveBeenCalled();
+    expect(vi.mocked(aiAgentService.updateClientTaskThreadStatus).mock.calls).toEqual([
+      [expect.objectContaining({ completionReason: 'done' })],
+      [expect.objectContaining({ completionReason: 'done' })],
+    ]);
     expect(store.internal_dispatchMessage).toHaveBeenLastCalledWith(
       expect.objectContaining({
         value: expect.objectContaining({
@@ -496,12 +503,16 @@ describe('createGroupOrchestrationExecutors', () => {
           {
             id: 'rejected-task',
             type: 'updateMessage',
-            value: { content: 'Task failed: Group member not found' },
+            value: {
+              content: 'Task failed: Group member not found',
+              metadata: expect.objectContaining({ taskCreationFailed: true }),
+            },
           },
           operation,
         );
         expect(messageService.updateMessage).toHaveBeenCalledWith('rejected-task', {
           content: 'Task failed: Group member not found',
+          metadata: expect.objectContaining({ taskCreationFailed: true }),
         });
       }
       expect(store.executeClientAgent).not.toHaveBeenCalled();

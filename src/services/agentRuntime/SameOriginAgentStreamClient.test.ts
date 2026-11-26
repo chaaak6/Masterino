@@ -51,6 +51,22 @@ describe('same-origin device agent stream', () => {
     expect(connected).toHaveBeenCalledOnce();
     client.disconnect();
   });
+  it('releases a first request that never receives response headers', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchEventSource).mockImplementation(() => new Promise<void>(() => {}));
+    const client = new SameOriginAgentStreamClient('op', 'topic');
+    const unavailable = vi.fn();
+    client.on('recovery_exhausted', unavailable);
+
+    client.connect();
+    await vi.advanceTimersByTimeAsync(44_000);
+    expect(unavailable).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(vi.mocked(fetchEventSource).mock.calls[0][1].signal?.aborted).toBe(true);
+    expect(unavailable).toHaveBeenCalledOnce();
+  });
+
   it('aborts a stalled retry and releases the subscription at its deadline', async () => {
     vi.useFakeTimers();
     vi.mocked(fetchEventSource)

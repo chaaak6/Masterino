@@ -19,7 +19,8 @@ const ServerTaskItem = memo<ServerTaskItemProps>(({ item }) => {
   const [expanded, setExpanded] = useState(false);
 
   const title = taskDetail?.title || metadata?.taskTitle;
-  const threadlessError = !taskDetail && content ? { message: content } : undefined;
+  const threadlessError =
+    !taskDetail && metadata?.taskCreationFailed ? { message: content } : undefined;
   const status = taskDetail?.status ?? (threadlessError ? ThreadStatus.Failed : undefined);
   const threadId = taskDetail?.threadId;
 

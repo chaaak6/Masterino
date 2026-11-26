@@ -495,6 +495,25 @@ describe('AgentStreamClient', () => {
       expect(client.connectionStatus).toBe('disconnected');
     });
 
+    it('bounds repeated reconnects that authenticate and immediately close without replay', async () => {
+      const client = createClient();
+      const unavailable = vi.fn();
+      client.on('recovery_exhausted', unavailable);
+      const initial = await connectAndAuth(client);
+      initial.simulateClose();
+
+      for (const delay of [1001, 2000, 4000, 8000, 16_000]) {
+        await vi.advanceTimersByTimeAsync(delay);
+        const ws = getLatestWs();
+        ws.simulateMessage({ type: 'auth_success' });
+        ws.simulateClose();
+      }
+
+      await vi.advanceTimersByTimeAsync(14_000);
+      expect(unavailable).toHaveBeenCalledOnce();
+      expect(client.connectionStatus).toBe('disconnected');
+    });
+
     it('releases an interrupted subscription when reconnect never authenticates', async () => {
       const client = createClient();
       const unavailable = vi.fn();
@@ -529,34 +548,22 @@ describe('AgentStreamClient', () => {
       expect(client.connectionStatus).toBe('disconnected');
     });
 
-    it('should use exponential backoff', async () => {
+    it('backs off until a retry delivers stream traffic, then resets the delay', async () => {
       const client = createClient();
       const delays: number[] = [];
-      client.on('reconnecting', (d) => delays.push(d));
+      client.on('reconnecting', (delay) => delays.push(delay));
 
-      const ws = await connectAndAuth(client);
-
-      // First disconnect → triggers reconnect with 1s delay
-      ws.simulateClose();
-      expect(delays[0]).toBe(1000);
-
-      // Advance past reconnect delay → new WS created, onopen fires + resets delay,
-      // but we close before auth succeeds → triggers reconnect again with 1s (reset by onopen)
-      await vi.advanceTimersByTimeAsync(1000);
-      await vi.advanceTimersByTimeAsync(1);
+      const initial = await connectAndAuth(client);
+      initial.simulateClose();
+      await vi.advanceTimersByTimeAsync(1001);
       getLatestWs().simulateClose();
+      await vi.advanceTimersByTimeAsync(2001);
+      const recovered = getLatestWs();
+      recovered.simulateMessage({ type: 'auth_success' });
+      recovered.simulateMessage({ type: 'heartbeat_ack' });
+      recovered.simulateClose();
 
-      // Third reconnect: previous close scheduled another with 1s,
-      // advance past it, onopen fires, close again to see 2s
-      await vi.advanceTimersByTimeAsync(delays[1]);
-      await vi.advanceTimersByTimeAsync(1);
-      getLatestWs().simulateClose();
-
-      // Verify escalating pattern: 1s, 1s (reset by open), 1s (reset by open)
-      // This is correct: onopen resets delay, so each connect cycle restarts at 1s
-      // The backoff only accumulates when connection *fails to open*
-      expect(delays[0]).toBe(1000);
-      expect(delays[1]).toBe(1000); // Reset by successful WebSocket open
+      expect(delays).toEqual([1000, 2000, 1000]);
     });
 
     it('should not reconnect when autoReconnect is false', async () => {

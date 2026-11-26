@@ -789,10 +789,9 @@ export const createGroupOrchestrationExecutors = (
         // Count tool calls
         const totalToolCalls = subTaskMessages.filter((m) => m.role === 'tool').length;
 
-        // 9. Update Thread status via API with metadata
-        const saved = await aiAgentService.updateClientTaskThreadStatus({
+        const completion = {
           threadId,
-          completionReason: 'done',
+          completionReason: 'done' as const,
           resultContent,
           metadata: {
             totalCost,
@@ -800,9 +799,17 @@ export const createGroupOrchestrationExecutors = (
             totalTokens,
             totalToolCalls,
           },
-        });
-
-        if (!saved.success) throw new Error('Unable to save local task completion');
+        };
+        // Retrying the same completion is safe if the first response was lost.
+        // Saving a successful result must never replace it with a failed run.
+        const saveCompletion = async () =>
+          aiAgentService.updateClientTaskThreadStatus(completion).catch((failure) => {
+            log('Unable to save local task completion: %O', failure);
+          });
+        const saved = await saveCompletion();
+        if (!saved?.success && !(await saveCompletion())?.success) {
+          log('Local task result was completed but not acknowledged: %s', threadId);
+        }
         await messageService
           .updateMessageMetadata(taskMessageId, { ...messageMetrics, cost: totalCost, totalTokens })
           .catch((failure) => log('Failed to save task usage: %O', failure));
@@ -862,12 +869,16 @@ export const createGroupOrchestrationExecutors = (
               messageOperation,
             );
           } else {
+            const value = {
+              content: resultContent,
+              metadata: { ...taskMessage.metadata, taskCreationFailed: true },
+            };
             get().internal_dispatchMessage(
-              { id: taskMessageId, type: 'updateMessage', value: { content: resultContent } },
+              { id: taskMessageId, type: 'updateMessage', value },
               messageOperation,
             );
             await messageService
-              .updateMessage(taskMessageId, { content: resultContent })
+              .updateMessage(taskMessageId, value)
               .catch((updateError) => log('Failed to save task creation error: %O', updateError));
           }
         }

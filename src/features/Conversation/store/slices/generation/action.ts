@@ -591,18 +591,6 @@ export const generationSlice: StateCreator<
     });
 
     try {
-      // Calculate next branch index by counting children of this user message
-      // We need to count how many assistant messages have this user message as parent
-      const { dbMessages } = get();
-      const childrenCount = dbMessages.filter((m) => m.parentId === messageId).length;
-      // New branch index = current children count (since index is 0-based)
-      const nextBranchIndex = childrenCount;
-
-      // Switch to the new branch so the UI shows the incoming response immediately
-      await chatStore.switchMessageBranch(messageId, nextBranchIndex, {
-        operationId,
-      });
-
       const agentConfig = agentSelectors.getAgentConfigById(context.agentId)(getAgentStoreState());
       const heterogeneousProvider = agentConfig?.agencyConfig?.heterogeneousProvider;
       const topicId = context.topicId ?? undefined;
@@ -630,6 +618,18 @@ export const generationSlice: StateCreator<
           workspaceId: getFrozenTopicWorkspaceId(context, chatStore),
         },
       );
+
+      // Calculate next branch index by counting children of this user message
+      // We need to count how many assistant messages have this user message as parent
+      const { dbMessages } = get();
+      const childrenCount = dbMessages.filter((m) => m.parentId === messageId).length;
+      // New branch index = current children count (since index is 0-based)
+      const nextBranchIndex = childrenCount;
+
+      // Switch to the new branch so the UI shows the incoming response immediately
+      await chatStore.switchMessageBranch(messageId, nextBranchIndex, {
+        operationId,
+      });
 
       // ── Gateway mode: trigger server-side regeneration ──
       if (runtimeType === 'gateway') {
@@ -695,6 +695,10 @@ export const generationSlice: StateCreator<
         message: error instanceof Error ? error.message : String(error),
         type: 'RegenerateError',
       });
+      if (error instanceof DesktopDeviceIdentityUnavailableError) {
+        antdMessage.error(t('workspaceRuntime.picker.loadError', { ns: 'chat' }));
+        return;
+      }
       throw error;
     }
   },
