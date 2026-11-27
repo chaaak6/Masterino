@@ -470,6 +470,30 @@ describe('LocalFileCtr', () => {
       });
     });
 
+    it('requires workspace verification before returning scoped preview content', async () => {
+      mockLocalFileProtocolManager.readPreviewFile.mockResolvedValue({
+        buffer: Buffer.from('image-bytes'),
+        contentType: 'image/png',
+        realPath: '/workspace/image.png',
+      });
+
+      const result = await localFileCtr.getLocalFilePreview({
+        accept: 'image',
+        path: '/workspace/image.png',
+        workingDirectory: '/workspace',
+        workspaceOnly: true,
+      });
+
+      expect(mockLocalFileProtocolManager.readPreviewFile).toHaveBeenCalledWith({
+        accept: 'image',
+        allowExternalFile: undefined,
+        filePath: '/workspace/image.png',
+        workspaceOnly: true,
+        workspaceRoot: '/workspace',
+      });
+      expect(result).toMatchObject({ success: true, workspaceScoped: true });
+    });
+
     it('should forward user-approved external preview reads', async () => {
       mockLocalFileProtocolManager.readPreviewFile.mockResolvedValue({
         buffer: Buffer.from('<h1>Demo</h1>'),

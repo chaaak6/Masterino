@@ -704,6 +704,7 @@ export default class LocalFileCtr extends ControllerModule {
         allowExternalFile,
         filePath,
         workspaceRoot: workingDirectory,
+        ...(workspaceOnly ? { workspaceOnly } : {}),
       });
 
       if (!preview) {
