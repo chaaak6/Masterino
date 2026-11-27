@@ -1,19 +1,8 @@
 import { isDesktop } from '@lobechat/const';
-import type { MarkdownProps } from '@lobehub/ui';
-import {
-  ActionIcon,
-  Center,
-  Empty,
-  Flexbox,
-  Icon,
-  Image,
-  Markdown,
-  Segmented,
-  Text,
-} from '@lobehub/ui';
+import { ActionIcon, Center, Empty, Flexbox, Icon, Image, Segmented, Text } from '@lobehub/ui';
 import { createStaticStyles, cssVar } from 'antd-style';
 import { CodeIcon, EyeIcon, RefreshCwIcon } from 'lucide-react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import CodeEditorPane from '@/components/CodeEditorPane';
@@ -25,6 +14,7 @@ import { type LocalFilePreview, projectFileService } from '@/services/projectFil
 import { useChatStore } from '@/store/chat';
 import { chatPortalSelectors } from '@/store/chat/selectors';
 import { createLocalFileTabId } from '@/store/chat/slices/portal/helpers';
+import type { OpenLocalFileEntry } from '@/store/chat/slices/portal/initialState';
 import {
   parseSkillMarkdownFrontmatter,
   parseSkillMarkdownFrontmatterFields,
@@ -33,7 +23,8 @@ import {
 } from '@/utils/skillMarkdown';
 
 import { extensionToLanguage, getFileExtension } from './Body.helpers';
-import MarkdownImage from './MarkdownImage';
+import WorkspaceMarkdown from './WorkspaceMarkdown';
+import WorkspaceVideo from './WorkspaceVideo';
 
 interface ImagePreviewProps {
   blob: Blob;
@@ -138,6 +129,7 @@ interface TextPreviewPaneProps {
   deviceId?: string;
   ext: string;
   filePath: string;
+  markdownNavigation?: OpenLocalFileEntry['markdownNavigation'];
   onReload?: () => Promise<unknown> | void;
   onSaved?: (savedContent: string) => void;
   readOnly?: boolean;
@@ -153,6 +145,7 @@ const TextPreviewPane = memo<TextPreviewPaneProps>(
     deviceId,
     ext,
     filePath,
+    markdownNavigation,
     onReload,
     onSaved,
     readOnly = false,
@@ -174,6 +167,10 @@ const TextPreviewPane = memo<TextPreviewPaneProps>(
     );
     const buffer = useChatStore(chatPortalSelectors.localFileBuffer(tabId));
     const setLocalFileBuffer = useChatStore((s) => s.setLocalFileBuffer);
+    const openLocalFile = useChatStore((s) => s.openLocalFile);
+    const clearLocalFileMarkdownNavigation = useChatStore(
+      (s) => s.clearLocalFileMarkdownNavigation,
+    );
     const saveLocalFile = useChatStore((s) => s.saveLocalFile);
 
     const editingValue = readOnly ? content : (buffer ?? content);
@@ -231,29 +228,34 @@ const TextPreviewPane = memo<TextPreviewPaneProps>(
     const previewTitle = isMarkdown
       ? (frontmatterFields.name ?? '')
       : (filePath.split('/').at(-1) ?? filePath);
-    const markdownComponents = useMemo(
-      () =>
-        ({
-          img: (props) => (
-            <MarkdownImage
-              {...props}
-              deviceId={deviceId}
-              markdownFilePath={filePath}
-              workingDirectory={workingDirectory}
-            />
-          ),
-        }) satisfies MarkdownProps['components'],
-      [deviceId, filePath, workingDirectory],
+    const handleOpenMarkdownFile = useCallback<
+      ComponentProps<typeof WorkspaceMarkdown>['onOpenFile']
+    >(
+      ({ fragment, ...target }) => {
+        openLocalFile({ ...target, markdownFragment: fragment, workspaceOnly: true });
+      },
+      [openLocalFile],
     );
 
     const [modeByScope, setModeByScope] = useState<Record<string, TextPreviewMode>>({});
-    const modeScopeKey = `${activeTopicId ?? NO_TOPIC_KEY}:${filePath}`;
-    const mode = canRender ? (modeByScope[modeScopeKey] ?? 'render') : 'raw';
+    const modeScopeKey = `${activeTopicId ?? NO_TOPIC_KEY}:${tabId}`;
+    const mode = canRender
+      ? isMarkdown && markdownNavigation
+        ? 'render'
+        : (modeByScope[modeScopeKey] ?? 'render')
+      : 'raw';
     const setMode = useCallback(
       (next: TextPreviewMode) => {
         setModeByScope((prev) => ({ ...prev, [modeScopeKey]: next }));
       },
       [modeScopeKey],
+    );
+    const handleNavigation = useCallback(
+      (requestId: string) => {
+        setMode('render');
+        clearLocalFileMarkdownNavigation(tabId, requestId);
+      },
+      [clearLocalFileMarkdownNavigation, setMode, tabId],
     );
     const showHtmlPreview = isHtml && mode === 'render';
     const [htmlPreviewRevision, setHtmlPreviewRevision] = useState(0);
@@ -312,12 +314,16 @@ const TextPreviewPane = memo<TextPreviewPaneProps>(
           {isMarkdown && mode === 'render' ? (
             <>
               <SkillFrontmatterPreviewCard metadata={frontmatterMetadata} />
-              <Markdown
-                components={markdownComponents}
-                style={{ paddingBlock: 8, paddingInline: 12 }}
-              >
-                {body}
-              </Markdown>
+              <WorkspaceMarkdown
+                content={body}
+                deviceId={deviceId}
+                filePath={filePath}
+                key={tabId}
+                navigation={markdownNavigation}
+                workingDirectory={workingDirectory}
+                onNavigationHandled={handleNavigation}
+                onOpenFile={handleOpenMarkdownFile}
+              />
             </>
           ) : showHtmlPreview ? (
             <InlineHtmlPreview content={editingValue} key={`${filePath}:${htmlPreviewRevision}`} />
@@ -343,97 +349,115 @@ TextPreviewPane.displayName = 'TextPreviewPane';
 
 interface ActiveFileViewProps {
   activeTopicId?: string | null;
-  allowExternalFilePreview?: boolean;
-  deviceId?: string;
-  filePath: string;
-  workingDirectory: string;
+  file: OpenLocalFileEntry;
 }
 
-const ActiveFileView = memo<ActiveFileViewProps>(
-  ({ activeTopicId, allowExternalFilePreview, deviceId, filePath, workingDirectory }) => {
-    const { t } = useTranslation('chat');
+const ActiveFileView = memo<ActiveFileViewProps>(({ activeTopicId, file }) => {
+  const {
+    allowExternalFilePreview,
+    deviceId,
+    filePath,
+    markdownNavigation,
+    workingDirectory,
+    workspaceOnly,
+  } = file;
+  const { t } = useTranslation('chat');
 
-    const filename = filePath.split('/').at(-1) ?? '';
-    const enabled = Boolean(workingDirectory) && (!!deviceId || isDesktop);
-    const {
-      data: preview,
-      error,
-      isLoading,
-      isValidating,
-      mutate,
-    } = useClientDataSWR<LocalFilePreview>(
-      enabled
-        ? localFileKeys.preview({
-            allowExternalFile: allowExternalFilePreview,
-            deviceId,
-            filePath,
-            workingDirectory,
-          })
-        : null,
-      () =>
-        projectFileService.getLocalFilePreview({
+  const filename = filePath.split(/[\\/]/).at(-1) ?? '';
+  const enabled = Boolean(workingDirectory) && (!!deviceId || isDesktop);
+  const {
+    data: preview,
+    error,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useClientDataSWR<LocalFilePreview>(
+    enabled
+      ? localFileKeys.preview({
           allowExternalFile: allowExternalFilePreview,
           deviceId,
-          path: filePath,
+          filePath,
           workingDirectory,
-        }),
-      { revalidateOnFocus: false },
-    );
+          ...(workspaceOnly ? { workspaceOnly } : {}),
+        })
+      : null,
+    () =>
+      projectFileService.getLocalFilePreview({
+        allowExternalFile: allowExternalFilePreview,
+        deviceId,
+        path: filePath,
+        workingDirectory,
+        ...(workspaceOnly ? { workspaceOnly } : {}),
+      }),
+    { revalidateOnFocus: false },
+  );
 
-    const handleSavedContent = useCallback(
-      (saved: string) => {
-        mutate((prev) => (prev && prev.type === 'text' ? { ...prev, content: saved } : prev), {
-          revalidate: false,
-        });
-      },
-      [mutate],
-    );
+  const handleSavedContent = useCallback(
+    (saved: string) => {
+      mutate((prev) => (prev && prev.type === 'text' ? { ...prev, content: saved } : prev), {
+        revalidate: false,
+      });
+    },
+    [mutate],
+  );
 
-    const handleReload = useCallback(() => mutate(), [mutate]);
+  const handleReload = useCallback(() => mutate(), [mutate]);
 
-    if (isLoading) return <Loading />;
+  if (isLoading) return <Loading />;
 
-    if (error || !preview) {
-      return (
-        <Center height={'100%'} width={'100%'}>
-          <Empty description={t('workingPanel.localFile.error')} />
-        </Center>
-      );
-    }
-
-    if (preview.type === 'image') {
-      return <ImagePreview blob={preview.blob} filename={filename} />;
-    }
-
-    if (preview.type !== 'text') {
-      return (
-        <Center height={'100%'} width={'100%'}>
-          <Empty description={t('workingPanel.localFile.binary')} />
-        </Center>
-      );
-    }
-
-    const ext = getFileExtension(filename);
-
+  if (error || !preview) {
     return (
-      <TextPreviewPane
-        activeTopicId={activeTopicId}
-        content={preview.content}
-        contentType={preview.contentType}
-        deviceId={deviceId}
-        ext={ext}
+      <Center height={'100%'} width={'100%'}>
+        <Empty description={t('workingPanel.localFile.error')} />
+      </Center>
+    );
+  }
+
+  if (preview.type === 'image') {
+    return <ImagePreview blob={preview.blob} filename={filename} />;
+  }
+
+  if (preview.type === 'video') {
+    return (
+      <WorkspaceVideo
         filePath={filePath}
-        // Remote files are now editable: saveLocalFile routes the write to the
-        // device over RPC (writeProjectFile) just as local files go through IPC.
-        readOnly={false}
-        reloading={isValidating}
+        filename={filename}
+        key={file.id}
+        playable={isDesktop && !deviceId && preview.contentType === 'video/mp4'}
         workingDirectory={workingDirectory}
-        onReload={handleReload}
-        onSaved={handleSavedContent}
       />
     );
-  },
-);
+  }
+
+  if (preview.type !== 'text') {
+    return (
+      <Center height={'100%'} width={'100%'}>
+        <Empty description={t('workingPanel.localFile.binary')} />
+      </Center>
+    );
+  }
+
+  const ext = getFileExtension(filename);
+
+  return (
+    <TextPreviewPane
+      activeTopicId={activeTopicId}
+      content={preview.content}
+      contentType={preview.contentType}
+      deviceId={deviceId}
+      ext={ext}
+      filePath={filePath}
+      markdownNavigation={markdownNavigation}
+      // Remote files are now editable: saveLocalFile routes the write to the
+      // device over RPC (writeProjectFile) just as local files go through IPC.
+      readOnly={false}
+      reloading={isValidating}
+      workingDirectory={workingDirectory}
+      onReload={handleReload}
+      onSaved={handleSavedContent}
+    />
+  );
+});
 
 ActiveFileView.displayName = 'ActiveFileView';
 
@@ -456,13 +480,7 @@ const Body = memo(() => {
 
   return (
     <Flexbox flex={1} height={'100%'} style={{ minHeight: 0, overflow: 'hidden' }}>
-      <ActiveFileView
-        activeTopicId={activeTopicId}
-        allowExternalFilePreview={activeFile.allowExternalFilePreview}
-        deviceId={activeFile.deviceId}
-        filePath={activeFile.filePath}
-        workingDirectory={activeFile.workingDirectory}
-      />
+      <ActiveFileView activeTopicId={activeTopicId} file={activeFile} />
     </Flexbox>
   );
 });

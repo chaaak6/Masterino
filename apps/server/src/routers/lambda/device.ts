@@ -359,6 +359,7 @@ export const deviceRouter = router({
       z.object({
         accept: z.enum(['image']).optional(),
         path: z.string(),
+        workspaceOnly: z.boolean().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -368,6 +369,7 @@ export const deviceRouter = router({
         path: input.path,
         userId: ctx.userId,
         workingDirectory: input.workingDirectory,
+        workspaceOnly: input.workspaceOnly,
       });
     }),
 

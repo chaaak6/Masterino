@@ -31,11 +31,14 @@ export interface OpenLocalFileParams {
   allowExternalFilePreview?: boolean;
   deviceId?: string;
   filePath: string;
+  markdownFragment?: string;
   workingDirectory: string;
+  workspaceOnly?: boolean;
 }
 
-export interface OpenLocalFileEntry extends OpenLocalFileParams {
+export interface OpenLocalFileEntry extends Omit<OpenLocalFileParams, 'markdownFragment'> {
   id: string;
+  markdownNavigation?: { fragment: string; id: string };
 }
 
 export type PortalViewData =

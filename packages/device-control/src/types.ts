@@ -126,6 +126,7 @@ export interface LocalFilePreviewUrlParams {
   accept?: LocalFilePreviewAccept;
   path: string;
   workingDirectory: string;
+  workspaceOnly?: boolean;
 }
 
 export interface LocalFilePreviewText {
@@ -154,6 +155,7 @@ export interface LocalFilePreviewResult {
   error?: string;
   preview?: LocalFilePreview;
   success: boolean;
+  workspaceScoped?: true;
 }
 
 // ─── Project file index ───

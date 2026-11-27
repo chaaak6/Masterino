@@ -176,6 +176,10 @@ class LocalFileService {
     return ensureElectronIpc().localSystem.resolveRealPath(params);
   }
 
+  async openWorkspaceMp4(params: { path: string; workingDirectory: string }) {
+    return ensureElectronIpc().localSystem.openWorkspaceMp4(params);
+  }
+
   async getLocalFilePreviewUrl(
     params: LocalFilePreviewUrlParams,
   ): Promise<LocalFilePreviewUrlResult> {

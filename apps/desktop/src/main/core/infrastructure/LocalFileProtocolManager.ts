@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, realpath, stat } from 'node:fs/promises';
+import { open, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { app, protocol } from 'electron';
@@ -31,7 +31,8 @@ const normalizeAbsolutePath = (filePath: string): string | null => {
 const isPathWithinRoot = (targetPath: string, rootPath: string): boolean => {
   const relative = path.relative(rootPath, targetPath);
   return (
-    relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
+    relative === '' ||
+    (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
   );
 };
 
@@ -231,11 +232,13 @@ export class LocalFileProtocolManager {
     accept,
     allowExternalFile,
     filePath,
+    workspaceOnly,
     workspaceRoot,
   }: {
     accept?: PreviewFileAccept;
     allowExternalFile?: boolean;
     filePath: string;
+    workspaceOnly?: boolean;
     workspaceRoot: string;
   }): Promise<string | null> {
     const normalizedFilePath = normalizeAbsolutePath(filePath);
@@ -247,10 +250,16 @@ export class LocalFileProtocolManager {
             accept,
             allowExternalFile,
             filePath,
+            workspaceOnly,
             workspaceRoot,
           })
         )?.realPath
-      : await this.resolveApprovedPreviewPath({ allowExternalFile, filePath, workspaceRoot });
+      : await this.resolveApprovedPreviewPath({
+          allowExternalFile,
+          filePath,
+          workspaceOnly,
+          workspaceRoot,
+        });
     if (!realFilePath) return null;
 
     this.cleanupExpiredTokens();
@@ -268,17 +277,20 @@ export class LocalFileProtocolManager {
     accept,
     allowExternalFile,
     filePath,
+    workspaceOnly,
     workspaceRoot,
   }: {
     accept?: PreviewFileAccept;
     allowExternalFile?: boolean;
     filePath: string;
+    workspaceOnly?: boolean;
     workspaceRoot: string;
   }): Promise<PreviewFileReadResult | null> {
     const realFilePath = await this.resolveApprovedPreviewPath({
       allowExternalFile,
       filePath,
       persistExternalApproval: false,
+      workspaceOnly,
       workspaceRoot,
     });
     if (!realFilePath) return null;
@@ -290,7 +302,7 @@ export class LocalFileProtocolManager {
     const contentType = resolveLocalFileMimeType(realFilePath, buffer);
     if (!isAcceptedPreviewContentType(contentType, accept)) return null;
 
-    if (allowExternalFile) {
+    if (allowExternalFile && !workspaceOnly) {
       this.grantExternalPreviewApproval(realFilePath);
     }
 
@@ -299,6 +311,28 @@ export class LocalFileProtocolManager {
       contentType,
       realPath: realFilePath,
     };
+  }
+
+  async resolveWorkspaceMp4Path(filePath: string, workspaceRoot: string): Promise<string | null> {
+    const realPath = await this.resolveApprovedPreviewPath({
+      filePath,
+      workspaceOnly: true,
+      workspaceRoot,
+    });
+    if (!realPath || path.extname(realPath).toLowerCase() !== '.mp4') return null;
+
+    const media = await open(realPath, 'r');
+    try {
+      if (!(await media.stat()).isFile()) return null;
+
+      const header = Buffer.alloc(12);
+      const { bytesRead } = await media.read(header, 0, header.length, 0);
+      return bytesRead === header.length && header.toString('ascii', 4, 8) === 'ftyp'
+        ? realPath
+        : null;
+    } finally {
+      await media.close();
+    }
   }
 
   /**
@@ -344,11 +378,13 @@ export class LocalFileProtocolManager {
     allowExternalFile,
     filePath,
     persistExternalApproval = true,
+    workspaceOnly,
     workspaceRoot,
   }: {
     allowExternalFile?: boolean;
     filePath: string;
     persistExternalApproval?: boolean;
+    workspaceOnly?: boolean;
     workspaceRoot: string;
   }): Promise<string | null> {
     const normalizedFilePath = normalizeAbsolutePath(filePath);
@@ -372,6 +408,8 @@ export class LocalFileProtocolManager {
     ) {
       return normalizedRealFilePath;
     }
+
+    if (workspaceOnly) return null;
 
     if (this.hasExternalPreviewApproval(normalizedRealFilePath)) return normalizedRealFilePath;
 

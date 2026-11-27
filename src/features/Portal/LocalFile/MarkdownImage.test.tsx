@@ -122,6 +122,7 @@ describe('MarkdownImage', () => {
         deviceId: 'device-1',
         filePath: '/repo/.records/assets/screenshot.png',
         workingDirectory: '/repo',
+        workspaceOnly: true,
       }),
       expect.any(Function),
       { revalidateOnFocus: false },
@@ -142,5 +143,35 @@ describe('MarkdownImage', () => {
 
     expect(screen.queryByTestId('lobe-image')).not.toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'local' })).toBeInTheDocument();
+  });
+
+  it('identifies a relative image that failed to load', () => {
+    mockUseClientDataSWR.mockReturnValue({ error: new Error('not found') });
+
+    render(
+      <MarkdownImage
+        alt="Workspace diagram"
+        markdownFilePath="/repo/report.md"
+        src="assets/missing.svg"
+        workingDirectory="/repo"
+      />,
+    );
+
+    expect(screen.getByText('Workspace diagram')).toBeVisible();
+  });
+
+  it('shows the file name when a failed image has no alt text', () => {
+    mockUseClientDataSWR.mockReturnValue({ error: new Error('not found') });
+
+    render(
+      <MarkdownImage
+        alt=""
+        markdownFilePath="/repo/report.md"
+        src="assets/missing.svg"
+        workingDirectory="/repo"
+      />,
+    );
+
+    expect(screen.getByText('missing.svg')).toBeVisible();
   });
 });

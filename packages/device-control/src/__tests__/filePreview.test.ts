@@ -13,6 +13,7 @@ beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'dc-preview-'));
   outside = await mkdtemp(path.join(tmpdir(), 'dc-outside-'));
   await writeFile(path.join(root, 'note.txt'), 'hello preview\n');
+  await writeFile(path.join(root, 'guide.markdown'), '# Guide');
   await writeFile(path.join(root, 'pic.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]));
   await writeFile(path.join(outside, 'secret.txt'), 'do not read\n');
 });
@@ -29,6 +30,19 @@ describe('defaultGetLocalFilePreview', () => {
     });
     expect(result.success).toBe(true);
     expect(result.preview).toMatchObject({ content: 'hello preview\n', type: 'text' });
+  });
+
+  it('previews a Markdown document with the long extension', async () => {
+    const result = await defaultGetLocalFilePreview({
+      path: path.join(root, 'guide.markdown'),
+      workingDirectory: root,
+    });
+
+    expect(result.preview).toEqual({
+      content: '# Guide',
+      contentType: 'text/markdown',
+      type: 'text',
+    });
   });
 
   it('reads an image file as base64', async () => {

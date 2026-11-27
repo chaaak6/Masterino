@@ -288,6 +288,30 @@ describe('LocalFileProtocolManager', () => {
     expect(neighborUrl).toBeNull();
   });
 
+  it('checks real workspace scope even for a previously approved external file', async () => {
+    const manager = new LocalFileProtocolManager();
+    const workspaceRoot = '/workspace';
+    const external = '/another/asset.png';
+    await manager.approveWorkspaceRoot(workspaceRoot);
+    await manager.createPreviewUrl({ allowExternalFile: true, filePath: external, workspaceRoot });
+    mockRealpath.mockImplementation(async (file: string) =>
+      file === '/workspace/linked.png' ? external : file,
+    );
+
+    await expect(
+      manager.createPreviewUrl({
+        accept: 'image',
+        filePath: '/workspace/linked.png',
+        workspaceOnly: true,
+        workspaceRoot,
+      }),
+    ).resolves.toBeNull();
+    expect(mockReadFile).not.toHaveBeenCalled();
+    await expect(
+      manager.createPreviewUrl({ filePath: external, workspaceRoot }),
+    ).resolves.toContain('token=');
+  });
+
   it('can approve a project root derived from an already approved nested scope', async () => {
     const manager = new LocalFileProtocolManager();
     await manager.approveWorkspaceRoot('/Users/alice/project/packages/app');

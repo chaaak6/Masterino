@@ -135,6 +135,7 @@ export interface LocalFilePreviewUrlParams {
   allowExternalFile?: boolean;
   path: string;
   workingDirectory: string;
+  workspaceOnly?: boolean;
 }
 
 export interface LocalFilePreviewUrlResult {
@@ -169,6 +170,7 @@ export interface LocalFilePreviewResult {
   error?: string;
   preview?: LocalFilePreview;
   success: boolean;
+  workspaceScoped?: true;
 }
 
 export interface LocalReadFileResult {

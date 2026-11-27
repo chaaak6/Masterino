@@ -471,7 +471,9 @@ export class ChatPortalActionImpl {
     allowExternalFilePreview,
     deviceId,
     filePath,
+    markdownFragment,
     workingDirectory,
+    workspaceOnly,
   }: OpenLocalFileParams): void => {
     const { activeLocalFileIdsByScope, openLocalFiles } = this.#get();
     const id = createLocalFileTabId({ deviceId, filePath, workingDirectory });
@@ -481,7 +483,11 @@ export class ChatPortalActionImpl {
       ...(deviceId ? { deviceId } : {}),
       filePath,
       id,
+      ...(markdownFragment
+        ? { markdownNavigation: { fragment: markdownFragment, id: crypto.randomUUID() } }
+        : {}),
       workingDirectory,
+      ...(workspaceOnly ? { workspaceOnly } : {}),
     };
     const scopeKey = getLocalFileActivationScopeKey(this.#get(), nextFile);
     const nextFiles = exists
@@ -502,6 +508,22 @@ export class ChatPortalActionImpl {
       'openLocalFile',
     );
     this.#get().pushPortalView({ type: PortalViewType.LocalFile });
+  };
+
+  clearLocalFileMarkdownNavigation = (tabId: string, requestId: string): void => {
+    const { openLocalFiles } = this.#get();
+    const file = openLocalFiles.find((entry) => getLocalFileTabId(entry) === tabId);
+    if (file?.markdownNavigation?.id !== requestId) return;
+
+    this.#set(
+      {
+        openLocalFiles: openLocalFiles.map((entry) =>
+          entry === file ? { ...entry, markdownNavigation: undefined } : entry,
+        ),
+      },
+      false,
+      'clearLocalFileMarkdownNavigation',
+    );
   };
 
   setActiveLocalFile = (id: string): void => {
