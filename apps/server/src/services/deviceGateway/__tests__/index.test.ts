@@ -874,6 +874,28 @@ describe('DeviceGateway', () => {
       );
     });
 
+    it('rejects a successful payload from a device that did not verify workspace scope', async () => {
+      configure();
+      mockClient.invokeRpc.mockResolvedValue({
+        data: { preview: { content: 'sample', type: 'text' }, success: true },
+        success: true,
+      });
+      const proxy = new DeviceGateway();
+      const params = {
+        deviceId: 'dev-1',
+        path: '/proj/guide.md',
+        userId: 'user-1',
+        workingDirectory: '/proj',
+        workspaceOnly: true,
+      };
+
+      await expect(proxy.getLocalFilePreview(params)).resolves.toMatchObject({ success: false });
+      expect(mockClient.invokeRpc).toHaveBeenCalledWith(expect.anything(), {
+        method: 'getLocalFilePreview',
+        params: expect.objectContaining({ workspaceOnly: true }),
+      });
+    });
+
     it('returns an error result when the rpc reports failure', async () => {
       configure();
       mockClient.invokeRpc.mockResolvedValue({ error: 'offline', success: false });

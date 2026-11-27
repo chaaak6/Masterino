@@ -15,6 +15,7 @@ const EXT_TO_LANG: Record<string, string> = {
   jsx: 'jsx',
   kt: 'kotlin',
   lua: 'lua',
+  markdown: 'markdown',
   md: 'markdown',
   mdx: 'mdx',
   php: 'php',
@@ -113,12 +114,14 @@ const normalizeSlashPath = (
 export const resolveMarkdownRelativeAssetPath = ({
   markdownFilePath,
   src,
+  workingDirectory,
 }: {
   markdownFilePath: string;
   src?: string;
+  workingDirectory?: string;
 }): string | undefined => {
   const assetPath = src ? splitAssetPath(src) : '';
-  if (!assetPath || URL_LIKE_PREFIX.test(assetPath)) return;
+  if (!assetPath || URL_LIKE_PREFIX.test(toSlashPath(assetPath))) return;
 
   const slashMarkdownPath = toSlashPath(markdownFilePath);
   const isUncPath = slashMarkdownPath.startsWith('//');
@@ -126,12 +129,25 @@ export const resolveMarkdownRelativeAssetPath = ({
   const baseDirectory =
     lastSeparatorIndex > 0 ? slashMarkdownPath.slice(0, lastSeparatorIndex) : '';
   const assetSegments = assetPath.split(/[\\/]+/).map(decodePathSegment);
+  if (assetSegments.some((segment) => /[\\/\p{Cc}]/u.test(segment))) return;
   const basePath =
     slashMarkdownPath.startsWith('/') && lastSeparatorIndex === 0 ? '/' : baseDirectory;
   const resolvedPath = normalizeSlashPath(
     basePath ? [basePath, ...assetSegments].join('/') : assetSegments.join('/'),
     { preserveLeadingDoubleSlash: isUncPath },
   );
+
+  if (workingDirectory) {
+    const slashRoot = toSlashPath(workingDirectory);
+    const isWindows = /^[a-z]:\//i.test(slashRoot) || slashRoot.startsWith('//');
+    if (isWindows && assetSegments.some((segment) => segment.includes(':'))) return;
+
+    const root = normalizeSlashPath(slashRoot, { preserveLeadingDoubleSlash: isWindows });
+    const path = isWindows ? resolvedPath.toLowerCase() : resolvedPath;
+    const normalizedRoot = isWindows ? root.toLowerCase() : root;
+    const prefix = normalizedRoot.endsWith('/') ? normalizedRoot : normalizedRoot + '/';
+    if (!path.startsWith(prefix)) return;
+  }
 
   return fromSlashPath(resolvedPath, markdownFilePath);
 };

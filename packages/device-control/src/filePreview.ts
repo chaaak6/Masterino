@@ -31,6 +31,7 @@ const EXT_MIME: Record<string, string> = {
   json: 'application/json',
   jsx: 'text/javascript',
   log: 'text/plain',
+  markdown: 'text/markdown',
   md: 'text/markdown',
   mdx: 'text/mdx',
   mjs: 'application/javascript',
@@ -94,7 +95,7 @@ const safeRealpath = async (target: string): Promise<string> => {
 export const defaultGetLocalFilePreview = async (
   params: LocalFilePreviewUrlParams,
 ): Promise<LocalFilePreviewResult> => {
-  const { accept, path: filePath, workingDirectory } = params;
+  const { accept, path: filePath, workingDirectory, workspaceOnly } = params;
 
   try {
     if (!workingDirectory) {
@@ -119,7 +120,11 @@ export const defaultGetLocalFilePreview = async (
     }
 
     const buffer = await readFile(realFile);
-    return { preview: serializePreviewFile(buffer, contentType), success: true };
+    return {
+      preview: serializePreviewFile(buffer, contentType),
+      success: true,
+      ...(workspaceOnly ? { workspaceScoped: true } : {}),
+    };
   } catch (error) {
     return { error: (error as Error).message, success: false };
   }

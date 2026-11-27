@@ -82,6 +82,10 @@ vi.mock('./MarkdownImage', () => ({
   default: () => null,
 }));
 
+vi.mock('./WorkspaceVideo', () => ({
+  default: () => null,
+}));
+
 const mockClearPortalStack = vi.hoisted(() => vi.fn());
 const mockChatState = vi.hoisted(() => ({
   current: {} as Record<PropertyKey, unknown>,

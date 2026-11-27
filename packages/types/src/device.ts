@@ -365,6 +365,7 @@ export interface DeviceLocalFilePreviewResult {
   error?: string;
   preview?: DeviceLocalFilePreview;
   success: boolean;
+  workspaceScoped?: true;
 }
 
 /** One file/folder to move within a directory on a remote device. Mirrors `MoveLocalFileParams`. */

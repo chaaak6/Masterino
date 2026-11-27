@@ -422,6 +422,30 @@ export default class LocalFileCtr extends ControllerModule {
   }
 
   @IpcMethod()
+  async openWorkspaceMp4({
+    path: filePath,
+    workingDirectory,
+  }: {
+    path: string;
+    workingDirectory: string;
+  }): Promise<{ error?: string; success: boolean }> {
+    try {
+      const approvedPath = await this.app.localFileProtocolManager.resolveWorkspaceMp4Path(
+        filePath,
+        workingDirectory,
+      );
+      if (!approvedPath) return { error: 'Workspace MP4 is unavailable', success: false };
+
+      const error = await shell.openPath(approvedPath);
+      if (error) return { error, success: false };
+      return { success: true };
+    } catch (error) {
+      logger.warn('Could not open workspace MP4:', error);
+      return { error: 'Workspace MP4 is unavailable', success: false };
+    }
+  }
+
+  @IpcMethod()
   async handleOpenLocalFolder({ path: targetPath, isDirectory }: OpenLocalFolderParams): Promise<{
     error?: string;
     success: boolean;
@@ -644,6 +668,7 @@ export default class LocalFileCtr extends ControllerModule {
     allowExternalFile,
     path: filePath,
     workingDirectory,
+    workspaceOnly,
   }: LocalFilePreviewUrlParams): Promise<LocalFilePreviewUrlResult> {
     try {
       const url = await this.app.localFileProtocolManager.createPreviewUrl({
@@ -651,6 +676,7 @@ export default class LocalFileCtr extends ControllerModule {
         allowExternalFile,
         filePath,
         workspaceRoot: workingDirectory,
+        ...(workspaceOnly ? { workspaceOnly } : {}),
       });
 
       if (!url) {
@@ -670,6 +696,7 @@ export default class LocalFileCtr extends ControllerModule {
     allowExternalFile,
     path: filePath,
     workingDirectory,
+    workspaceOnly,
   }: LocalFilePreviewUrlParams): Promise<LocalFilePreviewResult> {
     try {
       const preview = await this.app.localFileProtocolManager.readPreviewFile({
@@ -677,6 +704,7 @@ export default class LocalFileCtr extends ControllerModule {
         allowExternalFile,
         filePath,
         workspaceRoot: workingDirectory,
+        ...(workspaceOnly ? { workspaceOnly } : {}),
       });
 
       if (!preview) {
@@ -686,6 +714,7 @@ export default class LocalFileCtr extends ControllerModule {
       return {
         preview: serializePreviewFile(preview),
         success: true,
+        ...(workspaceOnly ? { workspaceScoped: true } : {}),
       };
     } catch (error) {
       logger.error('Failed to read local file preview:', error);

@@ -707,8 +707,17 @@ export class DeviceGateway {
     timeout?: number;
     userId: string;
     workingDirectory: string;
+    workspaceOnly?: boolean;
   }): Promise<DeviceLocalFilePreviewResult> {
-    const { accept, userId, deviceId, path, workingDirectory, timeout = 30_000 } = params;
+    const {
+      accept,
+      userId,
+      deviceId,
+      path,
+      workingDirectory,
+      workspaceOnly,
+      timeout = 30_000,
+    } = params;
     const client = this.getClient();
     if (!client) return { error: 'Device gateway not configured', success: false };
 
@@ -717,13 +726,17 @@ export class DeviceGateway {
         { deviceId, timeout, userId },
         {
           method: 'getLocalFilePreview',
-          params: { accept, path, workingDirectory },
+          params: { accept, path, workingDirectory, ...(workspaceOnly ? { workspaceOnly } : {}) },
         },
       );
 
       if (!result.success || !result.data) {
         log('getLocalFilePreview: failed for deviceId=%s — %s', deviceId, result.error);
         return { error: result.error || 'Failed to load local file preview', success: false };
+      }
+
+      if (workspaceOnly && result.data.success && !result.data.workspaceScoped) {
+        return { error: 'Device did not verify the workspace preview', success: false };
       }
 
       return result.data;

@@ -38,6 +38,7 @@ interface LocalFilePreviewKeyParams {
   deviceId?: string;
   filePath: string;
   workingDirectory: string;
+  workspaceOnly?: boolean;
 }
 
 // ---- message ------------------------------------------------------------
@@ -659,13 +660,14 @@ export const localFileKeys = {
       deviceId,
       filePath,
       workingDirectory,
+      workspaceOnly,
     }: LocalFilePreviewKeyParams) => [
       'localFile:preview',
       deviceId ?? 'local',
       filePath,
       workingDirectory,
       accept ?? 'any',
-      allowExternalFile ? 'external' : 'workspace',
+      workspaceOnly ? 'workspace-only' : allowExternalFile ? 'external' : 'workspace',
     ],
   ),
   projectIndex: def('localFile:projectIndex', (deviceId: string | undefined, dirPath: string) => [

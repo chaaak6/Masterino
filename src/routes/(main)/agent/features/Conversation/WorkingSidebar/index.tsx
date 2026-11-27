@@ -10,7 +10,7 @@ import { useRepoType } from '@/features/ChatInput/ControlBar/useRepoType';
 import RightPanel from '@/features/RightPanel';
 import { resolveTargetDeviceId } from '@/helpers/agentWorkingDirectory';
 import { resolveExecutionTarget } from '@/helpers/executionTarget';
-import { useEffectiveWorkingDirectory } from '@/hooks/useEffectiveWorkingDirectory';
+import { useEffectiveWorkspace } from '@/hooks/useEffectiveWorkspace';
 import { useAgentStore } from '@/store/agent';
 import {
   agentByIdSelectors,
@@ -88,11 +88,14 @@ const AgentWorkingSidebar = memo(() => {
     activeAgentId ? chatConfigByIdSelectors.isLocalSystemEnabledById(activeAgentId)(s) : false,
   );
   const isHetero = useAgentStore(agentSelectors.isCurrentAgentHeterogeneous);
-  // Unified precedence (topic > per-device choice > legacy > device default), so
-  // the sidebar resolves the same directory the runtime bar / git status do.
-  // The old `topicCwd || legacy agentCwd` pattern missed `workingDirByDevice`,
-  // landing on the home fallback for device-bound agents and hiding Review.
-  const workingDirectory = useEffectiveWorkingDirectory(activeAgentId);
+  const workspace = useEffectiveWorkspace(activeAgentId);
+  const workingDirectory = workspace.cwd;
+  const usesLocalFiles = isDesktop && workspace.target === 'local';
+  const usesDeviceFiles =
+    workspace.target === 'device' || (!isDesktop && workspace.target === 'local');
+  const filesDeviceId = usesDeviceFiles ? workspace.targetDeviceId : undefined;
+  const filesAvailable =
+    !!workingDirectory && (!!filesDeviceId || (usesLocalFiles && isLocalSystemEnabled));
   // Effective target device for git ops — bound device for remote agents, this
   // machine otherwise. Resolved the same way WorkingDirectoryPicker / GitStatus do.
   const agencyConfig = useAgentStore((s) =>
@@ -106,16 +109,11 @@ const AgentWorkingSidebar = memo(() => {
     isHetero,
   });
 
-  // Running against a bound device (remote, or this machine as a device): file
-  // tree + git reads go over RPC, so both Review and Files are reachable even
-  // when runtimeMode isn't `local`.
+  // Git review and resources can use the agent's configured device.
   const isDeviceMode = effectiveTarget === 'device' && !!agencyConfig?.boundDeviceId;
   // `targetDeviceId` also identifies the local desktop for per-device working
-  // directory state. Files/Review only need a deviceId when routing through a
-  // remote device RPC; local "This device" must keep Electron IPC + file-open
-  // actions enabled.
+  // directory state. File browsing uses the active conversation's workspace above.
   const remoteDeviceId = isDeviceMode ? agencyConfig.boundDeviceId : undefined;
-  const filesAvailable = (isLocalSystemEnabled || isDeviceMode) && !!workingDirectory;
   const reviewAvailable =
     (isLocalSystemEnabled || isDeviceMode) && !!workingDirectory && !!repoType;
   const paramsAvailable = !isHetero;
@@ -197,7 +195,7 @@ const AgentWorkingSidebar = memo(() => {
           )}
           {filesAvailable && (
             <Flexbox className={activeTab === 'files' ? styles.pane : styles.paneHidden}>
-              <Files deviceId={remoteDeviceId} workingDirectory={workingDirectory} />
+              <Files deviceId={filesDeviceId} workingDirectory={workingDirectory} />
             </Flexbox>
           )}
           <Flexbox

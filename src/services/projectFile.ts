@@ -72,10 +72,15 @@ class ProjectFileService {
         deviceId,
         path: params.path,
         workingDirectory: params.workingDirectory,
+        workspaceOnly: params.workspaceOnly,
       });
 
       if (!result.success || !result.preview) {
         throw new Error(result.error || 'Missing local file preview');
+      }
+
+      if (params.workspaceOnly && !result.workspaceScoped) {
+        throw new Error('Device did not verify the workspace preview');
       }
 
       if (params.accept === 'image' && result.preview.type !== 'image') {

@@ -98,6 +98,7 @@ const mockLocalFileProtocolManager = {
   approveProjectRootFromScope: vi.fn(),
   createPreviewUrl: vi.fn(),
   readPreviewFile: vi.fn(),
+  resolveWorkspaceMp4Path: vi.fn(),
 };
 
 // Mock makeSureDirExist
@@ -206,6 +207,33 @@ describe('LocalFileCtr', () => {
       expect(result).toEqual({ success: true });
       expect(mockShell.openPath).toHaveBeenCalledWith(path.join(os.homedir(), 'git/work/file.txt'));
     });
+  });
+
+  it('opens an approved workspace MP4 in the system player', async () => {
+    mockLocalFileProtocolManager.resolveWorkspaceMp4Path.mockResolvedValue(
+      '/real/project/demo.mp4',
+    );
+    vi.mocked(mockShell.openPath).mockResolvedValue('');
+
+    await expect(
+      localFileCtr.openWorkspaceMp4({
+        path: '/project/demo.mp4',
+        workingDirectory: '/project',
+      }),
+    ).resolves.toEqual({ success: true });
+    expect(mockShell.openPath).toHaveBeenCalledWith('/real/project/demo.mp4');
+  });
+
+  it('does not invoke the system player for a rejected media path', async () => {
+    mockLocalFileProtocolManager.resolveWorkspaceMp4Path.mockResolvedValue(null);
+
+    await expect(
+      localFileCtr.openWorkspaceMp4({
+        path: '/project/linked.mp4',
+        workingDirectory: '/project',
+      }),
+    ).resolves.toMatchObject({ success: false });
+    expect(mockShell.openPath).not.toHaveBeenCalled();
   });
 
   it.each(['', '  ', '/tmp/a\u0000b'])(
@@ -440,6 +468,30 @@ describe('LocalFileCtr', () => {
         },
         success: true,
       });
+    });
+
+    it('requires workspace verification before returning scoped preview content', async () => {
+      mockLocalFileProtocolManager.readPreviewFile.mockResolvedValue({
+        buffer: Buffer.from('image-bytes'),
+        contentType: 'image/png',
+        realPath: '/workspace/image.png',
+      });
+
+      const result = await localFileCtr.getLocalFilePreview({
+        accept: 'image',
+        path: '/workspace/image.png',
+        workingDirectory: '/workspace',
+        workspaceOnly: true,
+      });
+
+      expect(mockLocalFileProtocolManager.readPreviewFile).toHaveBeenCalledWith({
+        accept: 'image',
+        allowExternalFile: undefined,
+        filePath: '/workspace/image.png',
+        workspaceOnly: true,
+        workspaceRoot: '/workspace',
+      });
+      expect(result).toMatchObject({ success: true, workspaceScoped: true });
     });
 
     it('should forward user-approved external preview reads', async () => {
