@@ -1,3 +1,4 @@
+import type { MarkdownProps } from '@lobehub/ui';
 import GithubSlugger from 'github-slugger';
 import type { Element, ElementContent, Root } from 'hast';
 import rehypeRaw from 'rehype-raw';
@@ -54,4 +55,4 @@ export const workspaceMarkdownPlugins = [
   rehypeRaw,
   [rehypeSanitize, schema],
   prepareDocument,
-] satisfies NonNullable<import('@lobehub/ui').MarkdownProps['rehypePluginsAhead']>;
+] satisfies NonNullable<MarkdownProps['rehypePluginsAhead']>;

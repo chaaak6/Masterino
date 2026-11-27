@@ -105,6 +105,7 @@ const MarkdownImage = memo<MarkdownImageProps>(
         <span
           aria-label={alt}
           role={alt ? 'img' : undefined}
+          title={title ?? markdownSrc}
           style={{
             background: cssVar.colorFillQuaternary,
             borderRadius: 6,
@@ -112,7 +113,6 @@ const MarkdownImage = memo<MarkdownImageProps>(
             minHeight: 120,
             width: 'min(100%, 320px)',
           }}
-          title={title ?? markdownSrc}
         />
       );
     }

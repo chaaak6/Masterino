@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { localFileService } from '@/services/electron/localFileService';
 
 interface WorkspaceVideoProps {
-  filePath: string;
   filename: string;
+  filePath: string;
   playable: boolean;
   workingDirectory: string;
 }
