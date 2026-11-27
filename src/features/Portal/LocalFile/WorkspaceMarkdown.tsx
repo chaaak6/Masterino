@@ -33,7 +33,7 @@ interface WorkspaceMarkdownProps {
   workingDirectory: string;
 }
 
-const LinkedImage = createContext(false);
+const InlineImage = createContext(false);
 
 const decodeFragment = (fragment: string) => {
   try {
@@ -97,7 +97,7 @@ const WorkspaceMarkdown = memo<WorkspaceMarkdownProps>(
                 rel="noreferrer"
                 target={/^https?:/i.test(href) ? '_blank' : undefined}
               >
-                <LinkedImage value={true}>{children}</LinkedImage>
+                <InlineImage value={true}>{children}</InlineImage>
               </a>
             );
           }
@@ -130,8 +130,25 @@ const WorkspaceMarkdown = memo<WorkspaceMarkdownProps>(
                 }
               }}
             >
-              <LinkedImage value={true}>{children}</LinkedImage>
+              <InlineImage value={true}>{children}</InlineImage>
             </a>
+          );
+        },
+        p: function WorkspaceParagraph({ children, node: paragraph, ...props }) {
+          const onlyChild = paragraph?.children.length === 1 && paragraph.children[0];
+          if (
+            onlyChild &&
+            onlyChild.type === 'element' &&
+            /^(img|video)$/.test(onlyChild.tagName)
+          ) {
+            return <>{children}</>;
+          }
+
+          // Image preview wraps standalone images in a div. Mixed paragraphs use inline images.
+          return (
+            <p {...props}>
+              <InlineImage value={true}>{children}</InlineImage>
+            </p>
           );
         },
         img: function WorkspaceImage(props: ComponentProps<'img'> & { node?: unknown }) {
@@ -139,7 +156,7 @@ const WorkspaceMarkdown = memo<WorkspaceMarkdownProps>(
             <MarkdownImage
               {...props}
               deviceId={deviceId}
-              linked={use(LinkedImage)}
+              inline={use(InlineImage)}
               markdownFilePath={filePath}
               workingDirectory={workingDirectory}
             />

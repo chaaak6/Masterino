@@ -56,7 +56,7 @@ describe('Workspace Markdown preview', () => {
       [
         '<img src="assets/banner.svg" alt="HTML banner" width="100%" />',
         '<a href="assets/demo.mp4"><img src="assets/demo.gif" alt="Watch demo" /></a>',
-        '![Markdown banner](assets/banner.svg)',
+        '![Markdown banner](assets/banner.svg) and [![Inline demo](assets/demo.gif)](assets/demo.mp4)',
       ].join('\n\n'),
       open,
     );

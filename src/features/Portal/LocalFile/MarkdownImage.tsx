@@ -12,7 +12,7 @@ import { resolveMarkdownRelativeAssetPath } from './Body.helpers';
 
 interface MarkdownImageProps extends ComponentProps<'img'> {
   deviceId?: string;
-  linked?: boolean;
+  inline?: boolean;
   markdownFilePath: string;
   node?: unknown;
   workingDirectory: string;
@@ -33,7 +33,7 @@ const MarkdownImage = memo<MarkdownImageProps>(
     className,
     deviceId,
     height,
-    linked,
+    inline,
     markdownFilePath,
     src,
     style,
@@ -126,7 +126,7 @@ const MarkdownImage = memo<MarkdownImageProps>(
       ...style,
     };
     const handleError = () => setFailedSrc(imageSrc);
-    if (linked) {
+    if (inline) {
       return (
         <img
           alt={alt}
