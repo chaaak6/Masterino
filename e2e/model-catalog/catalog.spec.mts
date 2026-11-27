@@ -12,6 +12,50 @@ test.beforeAll(async ({ request }) => {
   await request.post(`${backend}/bdd/reset`);
 });
 
+test('retires an upstream model in both manual and silent refresh, then restores it', async ({
+  browser,
+  page,
+  request,
+}) => {
+  const client = await browser.newPage();
+  await client.clock.install();
+  await client.goto('http://127.0.0.1:19329/refresh-harness.html');
+  await client.clock.runFor(1001);
+  const modelOption = client.getByRole('button', { name: 'bdd-vision', exact: true });
+  await expect(modelOption).toBeVisible();
+  const sync = () => request.post(`${backend}/bdd/manual-sync`).then((response) => response.json());
+  expect(await sync()).toEqual({
+    models: ['bdd-chat', 'bdd-vision'],
+    persisted: ['bdd-chat', 'bdd-vision'],
+  });
+
+  await page.goto('http://127.0.0.1:19328/models');
+  const row = page.getByRole('row').filter({ hasText: 'bdd-vision' });
+  await row.getByRole('button', { name: '下架', exact: true }).click();
+  const retire = page.getByRole('dialog', { name: '下架模型' });
+  await retire.getByRole('textbox', { name: '变更原因' }).fill('验证手动与静默刷新');
+  await retire.getByRole('button', { name: '确认下架' }).click();
+  await expect(row).toContainText('已下架');
+  await expect(row).toContainText('已发现');
+  expect(await sync()).toEqual({ models: ['bdd-chat'], persisted: ['bdd-chat'] });
+  await client.clock.runFor(30 * 60_000);
+  await expect(modelOption).toHaveCount(0);
+  await expect(client.getByRole('button', { name: 'bdd-chat', exact: true })).toBeVisible();
+
+  await row.getByRole('button', { name: '恢复同步', exact: true }).click();
+  const restore = page.getByRole('dialog', { name: '恢复模型同步' });
+  await restore.getByRole('textbox', { name: '变更原因' }).fill('验证恢复同步');
+  await restore.getByRole('button', { name: '确认恢复同步' }).click();
+  await expect(row.getByRole('button', { name: '下架', exact: true })).toBeVisible();
+  expect(await sync()).toEqual({
+    models: ['bdd-chat', 'bdd-vision'],
+    persisted: ['bdd-chat', 'bdd-vision'],
+  });
+  await client.clock.runFor(30 * 60_000);
+  await expect(modelOption).toBeVisible();
+  await client.close();
+});
+
 test('Given a discovered model, When an administrator maintains/publishes/rolls back it, Then clients see only published content', async ({
   page,
 }) => {

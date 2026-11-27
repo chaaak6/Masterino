@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { mergeModelCatalogEntry } from '@lobechat/business-model-bank';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { defaultCatalogSettings, ModelCatalogRepository } from '../modelCatalog/repository';
 import { NewApiService } from './index';
 
 const mocks = vi.hoisted(() => ({
@@ -98,6 +99,16 @@ describe('NewApiService', () => {
     delete process.env.AIHUB_BRIDGE_TOKEN;
     delete process.env.AIHUB_BRIDGE_URL;
     vi.unstubAllGlobals();
+    vi.spyOn(ModelCatalogRepository.prototype, 'settings').mockResolvedValue(
+      defaultCatalogSettings,
+    );
+    vi.spyOn(ModelCatalogRepository.prototype, 'settingsForSync').mockResolvedValue(
+      defaultCatalogSettings,
+    );
+  });
+  afterEach(() => {
+    vi.mocked(ModelCatalogRepository.prototype.settings).mockRestore();
+    vi.mocked(ModelCatalogRepository.prototype.settingsForSync).mockRestore();
   });
 
   it('reads subscriptions for the current binding without provisioning or model writes', async () => {
@@ -108,16 +119,14 @@ describe('NewApiService', () => {
     });
     process.env.AIHUB_BRIDGE_URL = 'http://bridge.internal';
     process.env.AIHUB_BRIDGE_TOKEN = 'bridge-secret';
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            success: true,
-            data: { billingPreference: 'subscription_first', subscriptions: [] },
-          }),
-        ),
-      );
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { billingPreference: 'subscription_first', subscriptions: [] },
+        }),
+      ),
+    );
     vi.stubGlobal('fetch', fetchImpl);
     const service = new NewApiService({
       db: {} as any,
@@ -1278,8 +1287,20 @@ describe('NewApiService', () => {
     expect(client.listModels).toHaveBeenCalledTimes(2);
   });
 
-  it('filters out models listed in AIHUB_HIDDEN_MODELS during sync', async () => {
+  it('excludes environment and retired models on manual sync, and includes restored models', async () => {
     process.env.AIHUB_HIDDEN_MODELS = 'glm-5.1,gpt-3.5-turbo';
+    vi.mocked(ModelCatalogRepository.prototype.settings).mockResolvedValue({
+      ...defaultCatalogSettings,
+      availability: [
+        {
+          modelId: 'deepseek-chat',
+          retired: true,
+          updatedAt: '2026-11-27T00:00:00Z',
+          updatedBy: 'admin',
+          version: 1,
+        },
+      ],
+    });
     mocks.findUserById.mockResolvedValue({
       email: 'neo@example.com',
       id: 'current-user',
@@ -1326,15 +1347,11 @@ describe('NewApiService', () => {
 
     const synced = await service.syncModels();
 
-    expect(synced.models.map((model: any) => model.id)).toEqual(['glm-5.2', 'deepseek-chat']);
+    expect(synced.models.map((model: any) => model.id)).toEqual(['glm-5.2']);
     expect(synced.defaultModel).toBe('glm-5.2');
-    expect(mocks.batchUpdateAiModels).toHaveBeenCalledWith(
-      'newapi',
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'glm-5.2' }),
-        expect.objectContaining({ id: 'deepseek-chat' }),
-      ]),
-    );
+    expect(mocks.batchUpdateAiModels).toHaveBeenCalledWith('newapi', [
+      expect.objectContaining({ id: 'glm-5.2' }),
+    ]);
     expect(mocks.batchUpdateAiModels).not.toHaveBeenCalledWith(
       'newapi',
       expect.arrayContaining([expect.objectContaining({ id: 'glm-5.1' })]),
@@ -1343,6 +1360,11 @@ describe('NewApiService', () => {
       'newapi',
       expect.arrayContaining([expect.objectContaining({ id: 'gpt-3.5-turbo' })]),
     );
+    vi.mocked(ModelCatalogRepository.prototype.settings).mockResolvedValue(defaultCatalogSettings);
+    expect((await service.syncModels()).models.map((model) => model.id)).toEqual([
+      'glm-5.2',
+      'deepseek-chat',
+    ]);
   });
 
   it('uses one classifier for bridge ids and HTTP metadata without widening permissions', async () => {

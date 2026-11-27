@@ -1,3 +1,4 @@
+import { getAihubHiddenModelIds } from '@lobechat/business-const';
 import { ManagedModelDescriptionSchema } from '@lobechat/types';
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
@@ -36,9 +37,18 @@ export const modelCatalogRouter = router({
       createEffectiveModelCatalog(ctx.serverDB, ctx.userId).read(input?.knownRevision),
     ),
   list: manage.query(async ({ ctx }) => ({
+    environmentExcludedIds: getAihubHiddenModelIds(),
     records: await ctx.catalog.list(),
     settings: await ctx.catalog.settings(),
   })),
+  setAvailability: manage
+    .input(
+      versionInput.extend({
+        expectedVersion: z.number().int().nonnegative(),
+        retired: z.boolean(),
+      }),
+    )
+    .mutation(({ ctx, input }) => ctx.catalog.setAvailability(ctx.actorId, input)),
   pricing: manage.input(z.object({ modelId })).query(async ({ input }) => {
     const baseUrl = process.env.AIHUB_PROXY_URL;
     if (!baseUrl)

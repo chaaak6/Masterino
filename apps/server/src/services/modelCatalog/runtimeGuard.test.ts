@@ -13,7 +13,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it('shares a short settings read while checking Aihub access before every call', async () => {
+it('checks current model availability and Aihub access before every call', async () => {
   vi.stubEnv('AIHUB_PROXY_URL', 'http://localhost:19327');
   vi.stubEnv('KEY_VAULTS_SECRET', 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
   const settings = vi.spyOn(ModelCatalogRepository.prototype, 'settings').mockResolvedValue({
@@ -30,6 +30,37 @@ it('shares a short settings read while checking Aihub access before every call',
   await (guarded as any).chat({ model: 'model-a' });
   await (guarded as any).chat({ model: 'model-a' });
 
-  expect(settings).toHaveBeenCalledTimes(1);
+  expect(settings).toHaveBeenCalledTimes(2);
   expect(access).toHaveBeenCalledTimes(2);
+});
+
+it('rejects a retired model even when published descriptions are disabled', async () => {
+  vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false');
+  vi.spyOn(ModelCatalogRepository.prototype, 'settings').mockResolvedValue({
+    availability: [
+      {
+        modelId: 'model-a',
+        retired: true,
+        updatedAt: '2026-11-27T00:00:00Z',
+        updatedBy: 'admin',
+        version: 1,
+      },
+    ],
+    enabled: false,
+    generation: 'test',
+    silentRefreshEnabled: false,
+  });
+  const chat = vi.fn(async () => ({ ok: true }));
+  const guarded = withCurrentModelAccess(
+    { chat } as unknown as ModelRuntime,
+    {} as LobeChatDatabase,
+    'user',
+    'newapi',
+  );
+  await expect((guarded as any).chat({ model: 'model-a' })).rejects.toMatchObject({
+    code: 'FORBIDDEN',
+  });
+  expect(chat).not.toHaveBeenCalled();
+  await (guarded as any).chat({ model: 'model-b' });
+  expect(chat).toHaveBeenCalledTimes(1);
 });

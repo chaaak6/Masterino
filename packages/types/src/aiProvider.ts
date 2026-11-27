@@ -392,6 +392,7 @@ export interface AiProviderRuntimeConfig {
 }
 
 export interface AiProviderRuntimeState {
+  aihubAvailabilityVersion?: number;
   enabledAiModels: EnabledAiModel[];
   enabledAiProviders: EnabledProvider[];
   enabledChatAiProviders: EnabledProvider[];

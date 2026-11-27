@@ -8,6 +8,7 @@ import { Pool } from 'pg';
 import * as schemaExports from '../../packages/database/src/schemas';
 import { getServerDB } from '../../packages/database/src/core/db-adaptor';
 import { withCurrentModelAccess } from '../../apps/server/src/services/modelCatalog/runtimeGuard';
+import { NewApiService } from '../../apps/server/src/services/newApi';
 import { publicProcedure, router } from '../../packages/trpc/src/lambda';
 import { modelCatalogRouter } from '../../apps/server/src/routers/lambda/modelCatalog';
 
@@ -19,6 +20,7 @@ for (const table of [
   schema.enterpriseAuditLogs,
   schema.newApiBindings,
   schema.aiModels,
+  schema.aiProviders,
   schema.users,
   schema.roles,
   schema.permissions,
@@ -32,6 +34,9 @@ for (const table of [
     const type = column.enumValues ? 'text' : raw;
     return `"${column.name}" ${type}${column.primary ? ' PRIMARY KEY' : ''}`;
   });
+  for (const primary of config.primaryKeys) {
+    fields.push(`PRIMARY KEY (${primary.columns.map((column) => `"${column.name}"`).join(',')})`);
+  }
   await pool.query(`CREATE TABLE IF NOT EXISTS "${config.name}" (${fields.join(',')})`);
 }
 await pool.query(
@@ -56,6 +61,7 @@ const initialModels = process.env.CATALOG_DEMO_MODEL_IDS?.split(',').filter(Bool
 let accessible = initialModels;
 let bridgeOffline = false;
 let empty = false;
+process.env.AIHUB_DATA_SOURCE = 'bridge';
 const calls: { path: string; method: string }[] = [];
 const api = router({
   modelCatalog: modelCatalogRouter,
@@ -119,6 +125,23 @@ const server = createServer(async (req, res) => {
         { code: error.code, message: error.message },
         error.code === 'FORBIDDEN' ? 403 : 503,
       );
+    }
+  }
+  if (url.pathname === '/bdd/manual-sync' && req.method === 'POST') {
+    try {
+      const { models } = await new NewApiService({
+        db: await getServerDB(),
+        userId: 'bdd-user',
+      }).syncBoundModels();
+      const persisted = await pool.query(
+        "SELECT id FROM ai_models WHERE user_id = 'bdd-user' AND provider_id = 'newapi' ORDER BY id",
+      );
+      return send(res, {
+        models: models.map((model) => model.id),
+        persisted: persisted.rows.map((row) => row.id),
+      });
+    } catch (error: any) {
+      return send(res, { error: error.message }, 500);
     }
   }
   if (url.pathname === '/bdd/state') {

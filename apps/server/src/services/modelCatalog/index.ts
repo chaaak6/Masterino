@@ -15,6 +15,7 @@ import type { LobeChatDatabase } from '@/database/type';
 import { NewApiService } from '@/server/services/newApi';
 import { resolveAihubDisplayPricing } from '@/server/services/newApi/pricing';
 
+import { filterAihubModels, getExcludedAihubModelIds } from './availability';
 import { projectPublishedDescription } from './projection';
 import { ModelCatalogRepository } from './repository';
 
@@ -34,7 +35,7 @@ const snapshotScope = (identity: string) => identity.split(':').slice(0, 3).join
 export interface CatalogReadDependencies {
   identity: () => Promise<string>;
   now?: () => number;
-  readModels: () => Promise<AiProviderModelListItem[]>;
+  readModels: (settings: ModelCatalogSettings) => Promise<AiProviderModelListItem[]>;
   records: () => Promise<ManagedModelRecord[]>;
   settings: () => Promise<ModelCatalogSettings>;
 }
@@ -80,7 +81,7 @@ export class EffectiveModelCatalog {
           pending = (async () => {
             const [records, models] = await Promise.all([
               this.deps.records(),
-              this.deps.readModels(),
+              this.deps.readModels(settings),
             ]);
             const byId = new Map(records.map((record) => [record.modelId, record]));
             const projected = models.filter(isAiModelVisible).map((model) => {
@@ -126,9 +127,20 @@ export class EffectiveModelCatalog {
         inFlight.delete(key);
       }
     }
-    const revision = stale ? `${snapshot.revision}:stale` : snapshot.revision;
+    // The previous snapshot can predate a retirement, including when an upstream read failed.
+    const currentSettings = await this.deps.settings();
+    const availabilityVersion = currentSettings.availabilityVersion ?? 0;
+    const permitted = filterAihubModels(snapshot.models, currentSettings);
+    const fingerprint =
+      permitted.length === snapshot.models.length
+        ? snapshot.revision
+        : createHash('sha256')
+            .update(JSON.stringify(stableContent(permitted)))
+            .digest('hex');
+    const revision = availabilityVersion ? `${fingerprint}:${availabilityVersion}` : fingerprint;
+    const effectiveRevision = stale ? `${revision}:stale` : revision;
     const models = stale
-      ? snapshot.models.map((model) =>
+      ? permitted.map((model) =>
           model.settings?.aihubPricing
             ? {
                 ...model,
@@ -143,10 +155,16 @@ export class EffectiveModelCatalog {
               }
             : model,
         )
-      : snapshot.models;
-    return knownRevision === revision
-      ? { status: 'unchanged', revision, stale }
-      : { status: 'changed', revision, models, stale };
+      : permitted;
+    return knownRevision === effectiveRevision
+      ? { status: 'unchanged', revision: effectiveRevision, stale }
+      : {
+          status: 'changed',
+          ...(availabilityVersion ? { availabilityVersion } : {}),
+          revision: effectiveRevision,
+          models,
+          stale,
+        };
   }
 }
 
@@ -160,7 +178,8 @@ export const createEffectiveModelCatalog = (db: LobeChatDatabase, userId: string
         publishedCache = { generation, records: await repository.list() };
       return publishedCache.records;
     },
-    readModels: () => new NewApiService({ db, userId }).readAuthorizedModelSnapshot(),
+    readModels: (settings) =>
+      new NewApiService({ db, userId }).readAuthorizedModelSnapshot(settings),
     identity: async () => {
       const [binding, preferences] = await Promise.all([
         new NewApiBindingModel(db, userId).find(),
@@ -194,16 +213,20 @@ export const applyPublishedModelDescriptions = async <
 >(
   db: LobeChatDatabase,
   models: T[],
+  settings: ModelCatalogSettings,
 ): Promise<T[]> => {
-  if (process.env.MASTERINO_MODEL_CATALOG_ENABLED === 'false') return models;
+  const excluded = getExcludedAihubModelIds(settings);
+  const permitted = models.filter(
+    (model) => model.providerId !== 'newapi' || !excluded.has(model.id),
+  );
+  if (process.env.MASTERINO_MODEL_CATALOG_ENABLED === 'false' || !settings.enabled)
+    return permitted;
   const repository = new ModelCatalogRepository(db);
-  const settings = await repository.settings();
-  if (!settings.enabled) return models;
   if (publishedCache?.generation !== settings.generation)
     publishedCache = { generation: settings.generation, records: await repository.list() };
   const byId = new Map(publishedCache.records.map((record) => [record.modelId, record]));
   let changed = false;
-  const projected = models.map((model) => {
+  const projected = permitted.map((model) => {
     if (model.providerId !== 'newapi') return model;
     const next = projectPublishedDescription(
       model as unknown as AiProviderModelListItem,
@@ -212,5 +235,5 @@ export const applyPublishedModelDescriptions = async <
     if (next !== model) changed = true;
     return next;
   });
-  return changed ? projected : models;
+  return changed ? projected : permitted;
 };

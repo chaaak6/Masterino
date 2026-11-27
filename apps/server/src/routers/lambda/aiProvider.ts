@@ -13,6 +13,7 @@ import { getServerGlobalConfig } from '@/server/globalConfig';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
 import { applyPublishedModelDescriptions } from '@/server/services/modelCatalog';
+import { ModelCatalogRepository } from '@/server/services/modelCatalog/repository';
 import { resolveAihubDisplayPricing } from '@/server/services/newApi/pricing';
 import { type AiProviderDetailItem, type AiProviderRuntimeState } from '@/types/aiProvider';
 import {
@@ -136,16 +137,16 @@ export const aiProviderRouter = router({
       const state = await ctx.aiInfraRepos.getAiProviderRuntimeState(
         KeyVaultsGateKeeper.getUserKeyVaults,
       );
-      const publishedModels = await applyPublishedModelDescriptions(
+      const catalogSettings = await new ModelCatalogRepository(ctx.serverDB).settings();
+      const models = await applyPublishedModelDescriptions(
         ctx.serverDB,
         state.enabledAiModels,
+        catalogSettings,
       );
-      if (publishedModels !== state.enabledAiModels) {
-        state.enabledAiModels = publishedModels;
-      }
       return {
         ...state,
-        enabledAiModels: state.enabledAiModels.map((model) =>
+        aihubAvailabilityVersion: catalogSettings.availabilityVersion ?? 0,
+        enabledAiModels: models.map((model) =>
           !model.settings?.aihubPricing
             ? model
             : {

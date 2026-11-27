@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 
 import { checkAuth } from '@/app/(backend)/middleware/auth';
 import { initModelRuntimeFromDB } from '@/server/modules/ModelRuntime';
+import { filterAihubModels } from '@/server/services/modelCatalog/availability';
+import { ModelCatalogRepository } from '@/server/services/modelCatalog/repository';
 import { createErrorResponse } from '@/utils/errorResponse';
 
 import { resolveValidWorkspaceIdFromRequest } from '../../_utils/workspace';
@@ -30,7 +32,11 @@ export const GET = checkAuth(async (req, { params, userId, serverDB }) => {
       allowEnvironmentFallback: false,
     });
 
-    const list = await agentRuntime.models();
+    const models = await agentRuntime.models();
+    const list =
+      provider === 'newapi' && models
+        ? filterAihubModels(models, await new ModelCatalogRepository(serverDB).settings())
+        : models;
 
     return NextResponse.json(list);
   } catch (e) {
