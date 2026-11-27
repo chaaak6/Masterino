@@ -15,4 +15,5 @@ export const ORG_NAME = '小宗狮';
 
 // Desktop builds run without access to server env vars; the hidden-models
 // deny-list is a server-side sync filter, so the stub is always permissive.
+export const getAihubHiddenModelIds = (): string[] => [];
 export const isAihubModelHidden = (_modelId: string): boolean => false;

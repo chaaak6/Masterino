@@ -1,8 +1,13 @@
 import { ModelProvider } from 'model-bank';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import * as dbAdaptor from '@/database/core/db-adaptor';
 import { AiModelModel } from '@/database/models/aiModel';
 import { AiInfraRepos } from '@/database/repositories/aiInfra';
+import {
+  defaultCatalogSettings,
+  ModelCatalogRepository,
+} from '@/server/services/modelCatalog/repository';
 
 import { aiModelRouter } from '../aiModel';
 
@@ -24,8 +29,21 @@ vi.mock('@/server/modules/KeyVaultsEncrypt', () => ({
 }));
 
 describe('aiModelRouter', () => {
-  beforeEach(() => vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false'));
-  afterEach(() => vi.unstubAllEnvs());
+  beforeEach(() => {
+    vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false');
+    vi.stubEnv('AIHUB_HIDDEN_MODELS', 'retired-model');
+    vi.spyOn(ModelCatalogRepository.prototype, 'settings').mockResolvedValue(
+      defaultCatalogSettings,
+    );
+    vi.spyOn(ModelCatalogRepository.prototype, 'settingsForSync').mockResolvedValue(
+      defaultCatalogSettings,
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.mocked(ModelCatalogRepository.prototype.settings).mockRestore();
+    vi.mocked(ModelCatalogRepository.prototype.settingsForSync).mockRestore();
+  });
 
   const mockCtx = {
     userId: 'test-user',
@@ -163,7 +181,7 @@ describe('aiModelRouter', () => {
       { id: 'model-1', name: 'Model 1' },
       { id: 'model-2', name: 'Model 2' },
     ];
-    const mockGetList = vi.fn().mockResolvedValue(mockModelList);
+    const mockGetList = vi.fn().mockResolvedValue([...mockModelList, { id: 'retired-model' }]);
     vi.mocked(AiInfraRepos).mockImplementation(
       () =>
         ({
@@ -178,8 +196,7 @@ describe('aiModelRouter', () => {
     expect(result).toEqual(mockModelList);
     expect(mockGetList).toHaveBeenCalledWith(newApiProvider, {
       enabled: undefined,
-      limit: undefined,
-      offset: undefined,
+      type: undefined,
     });
   });
 
@@ -273,6 +290,9 @@ describe('aiModelRouter', () => {
   });
 
   it('should batch update ai models', async () => {
+    const db = vi.spyOn(dbAdaptor, 'getServerDB').mockResolvedValue({
+      transaction: async (run: (db: unknown) => unknown) => run({}),
+    } as never);
     const mockBatchUpdate = vi.fn().mockResolvedValue([]);
     vi.mocked(AiModelModel).mockImplementation(
       () =>
@@ -283,10 +303,14 @@ describe('aiModelRouter', () => {
 
     const caller = aiModelRouter.createCaller(mockCtx);
 
-    await caller.batchUpdateAiModels({
-      id: newApiProvider,
-      models: [{ id: 'model-1' }, { id: 'model-2' }],
-    });
+    try {
+      await caller.batchUpdateAiModels({
+        id: newApiProvider,
+        models: [{ id: 'model-1' }, { id: 'model-2' }, { id: 'retired-model' }],
+      });
+    } finally {
+      db.mockRestore();
+    }
 
     expect(mockBatchUpdate).toHaveBeenCalledWith(newApiProvider, [
       { id: 'model-1' },

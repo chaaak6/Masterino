@@ -85,6 +85,48 @@ describe.skipIf(!url)('catalog publication against isolated PostgreSQL', () => {
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
   });
+  it('versions and audits availability independently of a model description', async () => {
+    const input = {
+      modelId: 'discovered-only',
+      expectedVersion: 0,
+      retired: true,
+      reason: 'Retired',
+    };
+    const before = await repository.settings();
+    const edits = await Promise.allSettled([
+      repository.setAvailability('admin', input),
+      repository.setAvailability('other-admin', input),
+    ]);
+    expect(edits.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(edits.find((result) => result.status === 'rejected')).toMatchObject({
+      reason: { code: 'CONFLICT' },
+    });
+    const retired = await repository.settings();
+    expect(retired.generation).not.toBe(before.generation);
+    expect(retired.availability).toEqual([
+      expect.objectContaining({ modelId: input.modelId, retired: true, version: 1 }),
+    ]);
+    await expect(
+      repository.setAvailability('admin', {
+        ...input,
+        expectedVersion: 1,
+        retired: false,
+        reason: 'Restored',
+      }),
+    ).resolves.toMatchObject({ retired: false, version: 2 });
+    expect((await repository.settings()).availabilityVersion).toBe(
+      (before.availabilityVersion ?? 0) + 2,
+    );
+    expect(await repository.history(input.modelId)).toEqual([]);
+    const audit = await pool.query(
+      'SELECT action FROM enterprise_audit_logs WHERE target_id = $1 ORDER BY created_at',
+      [input.modelId],
+    );
+    expect(audit.rows.map((row) => row.action)).toEqual([
+      'model_catalog.retire',
+      'model_catalog.restore',
+    ]);
+  });
   it('Given a failed rollback, Then neither publication nor generation advances', async () => {
     const before = await repository.settings();
     const row = (await repository.list()).find((r) => r.modelId === 'bdd-chat')!;

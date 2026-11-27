@@ -22,7 +22,9 @@ import {
   applyPublishedModelDescriptions,
   createEffectiveModelCatalog,
 } from '@/server/services/modelCatalog';
+import { filterAihubModels } from '@/server/services/modelCatalog/availability';
 import { matchesEmbeddingKind } from '@/server/services/modelCatalog/projection';
+import { ModelCatalogRepository } from '@/server/services/modelCatalog/repository';
 import { type ProviderConfig } from '@/types/user/settings';
 
 const AI_MODEL_UNIQUE_CONSTRAINT = 'ai_models_id_provider_id_user_id_pk';
@@ -104,7 +106,12 @@ export const aiModelRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       assertNewApiProvider(input.id);
-      return ctx.aiModelModel.batchUpdateAiModels(input.id, input.models);
+      const catalog = new ModelCatalogRepository(ctx.serverDB);
+      return ctx.serverDB.transaction(async (db) => {
+        const settings = await catalog.settingsForSync(db);
+        const models = filterAihubModels(input.models, settings);
+        return new AiModelModel(db, ctx.userId).batchUpdateAiModels(input.id, models);
+      });
     }),
 
   clearModelsByProvider: aiModelProcedure
@@ -164,13 +171,16 @@ export const aiModelRouter = router({
         undefined,
         false,
       );
-      if (snapshot.status === 'disabled')
-        return ctx.aiInfraRepos.getAiProviderModelList(input.id, {
+      const offset = input.offset ?? 0;
+      const end = input.limit === undefined ? undefined : offset + input.limit;
+      if (snapshot.status === 'disabled') {
+        const fallback = await ctx.aiInfraRepos.getAiProviderModelList(input.id, {
           enabled: input.enabled,
-          limit: input.limit,
-          offset: input.offset,
           type: input.type,
         });
+        const settings = await new ModelCatalogRepository(ctx.serverDB).settings();
+        return filterAihubModels(fallback, settings).slice(offset, end);
+      }
       const models =
         snapshot.status === 'changed'
           ? (snapshot.models as unknown as AiProviderModelListItem[])
@@ -180,6 +190,7 @@ export const aiModelRouter = router({
                 ...model,
                 providerId: input.id,
               })),
+              await new ModelCatalogRepository(ctx.serverDB).settings(),
             );
       const filtered = models.filter(
         (model) =>
@@ -187,8 +198,7 @@ export const aiModelRouter = router({
           (!input.type ||
             (input.type === 'embedding' ? matchesEmbeddingKind(model) : model.type === input.type)),
       );
-      const offset = input.offset ?? 0;
-      return filtered.slice(offset, input.limit === undefined ? undefined : offset + input.limit);
+      return filtered.slice(offset, end);
     }),
 
   removeAiModel: aiModelProcedure

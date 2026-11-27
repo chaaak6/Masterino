@@ -1,6 +1,7 @@
 import { trpc } from '@admin/lib/trpc';
 import {
   createEmptyModelDescription,
+  type ManagedModelAvailability,
   type ManagedModelRecord,
   type ManagedModelRevision,
 } from '@lobechat/types';
@@ -12,7 +13,13 @@ import { useState } from 'react';
 
 import ModelCatalogEditor, { capabilityLabels } from './ModelCatalogEditor';
 
-type Row = { modelId: string; record?: ManagedModelRecord; discovered: boolean };
+type Row = {
+  availability?: ManagedModelAvailability;
+  discovered: boolean;
+  environmentExcluded: boolean;
+  modelId: string;
+  record?: ManagedModelRecord;
+};
 const needsMoreInformation = (record?: ManagedModelRecord) => {
   const value = record?.published;
   return (
@@ -33,6 +40,7 @@ export default function ModelCatalogPage() {
   const [editing, setEditing] = useState<Row>();
   const [preview, setPreview] = useState<Row>();
   const [publishing, setPublishing] = useState<{ row: Row; revision?: string }>();
+  const [changingAvailability, setChangingAvailability] = useState<Row>();
   const [historyId, setHistoryId] = useState('');
   const [reason, setReason] = useState('');
   const utils = trpc.useUtils();
@@ -74,8 +82,33 @@ export default function ModelCatalogPage() {
     },
   });
   const settings = trpc.modelCatalog.updateSettings.useMutation({ onError, onSuccess: refresh });
+  const availabilityMutation = trpc.modelCatalog.setAvailability.useMutation({
+    onError: async (error) => {
+      onError(error);
+      if (error.data?.code === 'CONFLICT') {
+        setChangingAvailability(undefined);
+        await refresh();
+      }
+    },
+    onSuccess: async ({ retired }) => {
+      setChangingAvailability(undefined);
+      await refresh();
+      toast.success(retired ? '模型已下架' : '已恢复同步');
+    },
+  });
   const records = new Map(list.data?.records.map((record) => [record.modelId, record]));
-  const ids = [...new Set([...records.keys(), ...(discover.data ?? [])])].sort();
+  const availability = new Map(
+    list.data?.settings.availability?.map((entry) => [entry.modelId, entry]),
+  );
+  const environmentExcluded = new Set(list.data?.environmentExcludedIds);
+  const ids = [
+    ...new Set([
+      ...records.keys(),
+      ...(discover.data ?? []),
+      ...availability.keys(),
+      ...environmentExcluded,
+    ]),
+  ].sort();
   const rows: Row[] = ids
     .filter((id) => {
       const record = records.get(id);
@@ -87,9 +120,11 @@ export default function ModelCatalogPage() {
       );
     })
     .map((modelId) => ({
+      availability: availability.get(modelId),
       modelId,
       record: records.get(modelId),
       discovered: discover.data?.includes(modelId) ?? false,
+      environmentExcluded: environmentExcluded.has(modelId),
     }));
   const description = preview?.record?.draft;
   return (
@@ -218,6 +253,13 @@ export default function ModelCatalogPage() {
                       row.discovered ? '已发现' : discover.error ? '未知' : '本次未发现',
                   },
                   {
+                    title: 'Masterino 状态',
+                    render: (_, row) => {
+                      if (row.environmentExcluded) return <Tag>环境配置排除</Tag>;
+                      return row.availability?.retired ? <Tag color="red">已下架</Tag> : '未下架';
+                    },
+                  },
+                  {
                     title: '上下文',
                     render: (_, row) =>
                       row.record?.published?.contextWindowTokens?.toLocaleString() ?? '待确认',
@@ -255,6 +297,23 @@ export default function ModelCatalogPage() {
                           onClick={() => setHistoryId(row.modelId)}
                         >
                           历史
+                        </Button>
+                        <Button
+                          disabled={
+                            !list.data || (row.environmentExcluded && row.availability?.retired)
+                          }
+                          size="small"
+                          title={
+                            row.environmentExcluded && row.availability?.retired
+                              ? '移除环境配置中的排除项后可恢复同步'
+                              : undefined
+                          }
+                          onClick={() => {
+                            setReason('');
+                            setChangingAvailability(row);
+                          }}
+                        >
+                          {row.availability?.retired ? '恢复同步' : '下架'}
                         </Button>
                       </Space>
                     ),
@@ -385,6 +444,42 @@ export default function ModelCatalogPage() {
           </Modal>
           <Modal
             cancelText="取消"
+            confirmLoading={availabilityMutation.isPending}
+            okButtonProps={{ disabled: !reason.trim() }}
+            okText={changingAvailability?.availability?.retired ? '确认恢复同步' : '确认下架'}
+            open={!!changingAvailability}
+            title={changingAvailability?.availability?.retired ? '恢复模型同步' : '下架模型'}
+            onCancel={() => setChangingAvailability(undefined)}
+            onOk={() => {
+              if (!changingAvailability) return;
+              availabilityMutation.mutate({
+                expectedVersion: changingAvailability.availability?.version ?? 0,
+                modelId: changingAvailability.modelId,
+                reason: reason.trim(),
+                retired: !changingAvailability.availability?.retired,
+              });
+            }}
+          >
+            {changingAvailability && (
+              <>
+                <Typography.Paragraph>
+                  <Typography.Text code>{changingAvailability.modelId}</Typography.Text>
+                  {changingAvailability.availability?.retired
+                    ? ' 将在刷新时对有 Aihub 调用权限的用户恢复。'
+                    : ' 将从 Masterino 的模型同步和可用列表中移除。'}
+                </Typography.Paragraph>
+                <Input.TextArea
+                  aria-label="变更原因"
+                  maxLength={2000}
+                  placeholder="填写变更原因"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                />
+              </>
+            )}
+          </Modal>
+          <Modal
+            cancelText="取消"
             confirmLoading={publish.isPending || rollback.isPending}
             okButtonProps={{ disabled: !reason.trim() }}
             okText={publishing?.revision ? '确认回滚' : '确认发布'}
@@ -452,6 +547,7 @@ export default function ModelCatalogPage() {
                             modelId: historyId,
                             record: records.get(historyId),
                             discovered: false,
+                            environmentExcluded: environmentExcluded.has(historyId),
                           },
                           revision: row.id,
                         });

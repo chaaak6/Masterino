@@ -5,6 +5,7 @@ import { ModelProvider } from 'model-bank';
 import type { LobeChatDatabase } from '@/database/type';
 import { NewApiService } from '@/server/services/newApi';
 
+import { getExcludedAihubModelIds } from './availability';
 import { ModelCatalogRepository } from './repository';
 
 const modelCallMethods = new Set([
@@ -15,21 +16,6 @@ const modelCallMethods = new Set([
   'createVideo',
   'textToSpeech',
 ]);
-const SETTINGS_TTL = 5_000;
-const settingsCache = new WeakMap<
-  LobeChatDatabase,
-  { expiresAt: number; enabled: Promise<boolean> }
->();
-const catalogEnabled = (db: LobeChatDatabase): Promise<boolean> => {
-  const now = Date.now();
-  const cached = settingsCache.get(db);
-  if (cached && cached.expiresAt > now) return cached.enabled;
-  const enabled = new ModelCatalogRepository(db).settings().then((settings) => settings.enabled);
-  settingsCache.set(db, { enabled, expiresAt: now + SETTINGS_TTL });
-  void enabled.catch(() => settingsCache.delete(db));
-  return enabled;
-};
-
 /** Specs can be frozen for an operation; authorization is checked at every new upstream call. */
 export const withCurrentModelAccess = (
   runtime: ModelRuntime,
@@ -38,15 +24,21 @@ export const withCurrentModelAccess = (
   provider: string,
   credential?: string,
 ): ModelRuntime => {
-  if (provider !== ModelProvider.NewAPI || process.env.MASTERINO_MODEL_CATALOG_ENABLED === 'false')
-    return runtime;
+  if (provider !== ModelProvider.NewAPI) return runtime;
   return new Proxy(runtime, {
     get(target, property) {
       const value = Reflect.get(target, property);
       if (typeof value !== 'function') return value;
       if (!modelCallMethods.has(String(property))) return value.bind(target);
       return async (payload: { model?: string }, ...args: unknown[]) => {
-        if ((await catalogEnabled(db)) && payload.model) {
+        if (!payload.model) return value.apply(target, [payload, ...args]);
+        const settings = await new ModelCatalogRepository(db).settings();
+        if (getExcludedAihubModelIds(settings).has(payload.model))
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '该 Aihub 模型已下架，请选择其他模型。',
+          });
+        if (process.env.MASTERINO_MODEL_CATALOG_ENABLED !== 'false' && settings.enabled) {
           if (!credential)
             throw new TRPCError({
               code: 'PRECONDITION_FAILED',

@@ -10,6 +10,7 @@ import {
   createEmptyModelDescription,
   ManagedModelDescriptionSchema,
   type ManagedModelRecord,
+  type ModelCatalogSettings,
 } from '@lobechat/types';
 import type { AiProviderModelListItem } from 'model-bank';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -36,7 +37,11 @@ const fixture = () => {
   const identity = randomUUID();
   const source = {
     identity: identity as string,
-    settings: { enabled: true, silentRefreshEnabled: true, generation: 'a' },
+    settings: {
+      enabled: true,
+      silentRefreshEnabled: true,
+      generation: 'a',
+    } as ModelCatalogSettings,
     records: [] as ManagedModelRecord[],
     models: [model('a')],
     now: 1000,
@@ -55,6 +60,30 @@ const fixture = () => {
 };
 afterEach(() => vi.unstubAllEnvs());
 describe('effective catalog business scenarios', () => {
+  it('excludes retired models from old snapshots when Aihub is temporarily unavailable', async () => {
+    const { source, service } = fixture();
+    source.models = [model('a'), model('b')];
+    const before = await service.read();
+    if (before.status !== 'changed') throw new Error('missing initial catalog');
+    source.settings = {
+      ...source.settings,
+      availability: [
+        {
+          modelId: 'a',
+          retired: true,
+          updatedAt: '2026-11-27T00:00:00Z',
+          updatedBy: 'admin',
+          version: 1,
+        },
+      ],
+      availabilityVersion: 1,
+      generation: 'retired-a',
+    };
+    vi.spyOn(source, 'readModels').mockRejectedValueOnce(new Error('Aihub unavailable'));
+    const response = await service.read(before.revision);
+    expect(response).toMatchObject({ availabilityVersion: 1, stale: true, status: 'changed' });
+    expect(response.status === 'changed' && response.models.map((item) => item.id)).toEqual(['b']);
+  });
   it('omits models hidden by user preference from the catalog', async () => {
     const { source, service } = fixture();
     source.models = [{ ...model('a'), visible: false }, model('b')];

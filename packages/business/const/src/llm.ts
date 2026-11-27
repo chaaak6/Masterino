@@ -25,10 +25,11 @@ export const DEFAULT_ONBOARDING_PROVIDER = 'newapi';
 //
 // Read lazily on each call (not captured at module load) so tests can flip the
 // env var between cases without re-importing the module.
-export const isAihubModelHidden = (modelId: string): boolean => {
-  const hidden = (process.env.AIHUB_HIDDEN_MODELS || '')
+export const getAihubHiddenModelIds = (): string[] =>
+  (process.env.AIHUB_HIDDEN_MODELS || '')
     .split(',')
     .map((id) => id.trim())
     .filter(Boolean);
-  return hidden.includes(modelId);
-};
+
+export const isAihubModelHidden = (modelId: string): boolean =>
+  getAihubHiddenModelIds().includes(modelId);

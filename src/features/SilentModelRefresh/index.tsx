@@ -22,7 +22,13 @@ const SilentModelRefresh = memo(() => {
       apply: (response, signal) =>
         useAiInfraStore
           .getState()
-          .applySilentModelCatalog(response.models, response.revision, userId, signal),
+          .applySilentModelCatalog(
+            response.models,
+            response.revision,
+            userId,
+            signal,
+            response.availabilityVersion,
+          ),
       clear: (refreshRuntime) => useAiInfraStore.getState().clearSilentModelCatalog(refreshRuntime),
     });
     controller.start();

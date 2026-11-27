@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL, isAihubModelHidden } from '@lobechat/business-const';
+import { DEFAULT_MODEL } from '@lobechat/business-const';
 import {
   filterAiProviderChatEligibleModels,
   getModelCatalogFromSettings,
@@ -10,6 +10,7 @@ import { detectModelProvider, processMultiProviderModelList } from '@lobechat/mo
 import type {
   AihubRebindResult,
   ChatModelCard,
+  ModelCatalogSettings,
   NewApiAccountSummary,
   NewApiBindingImportResult,
   NewApiBindingImportRow,
@@ -44,6 +45,8 @@ import {
 } from '@/database/schemas';
 import type { LobeChatDatabase } from '@/database/type';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
+import { getExcludedAihubModelIds } from '@/server/services/modelCatalog/availability';
+import { ModelCatalogRepository } from '@/server/services/modelCatalog/repository';
 
 import { NewApiBridgeClient, NewApiBridgeError } from './bridgeClient';
 import {
@@ -1120,13 +1123,17 @@ export class NewApiService {
     prepared: PreparedNewApiModel[],
     pricingContext?: AihubPricingContext,
   ) {
-    const reconcile = async (database: LobeChatDatabase) => {
+    const catalog = new ModelCatalogRepository(this.db);
+    const reconcile = async (database: LobeChatDatabase, settings: ModelCatalogSettings) => {
+      const excluded = getExcludedAihubModelIds(settings);
       const aiModelModel = new AiModelModel(database, this.userId);
       const existingModels = await aiModelModel.getModelListByProviderId(ModelProvider.NewAPI);
       const existingById = new Map(existingModels.map((model) => [model.id, model]));
-      const models = prepared.map((model) =>
-        materializeNewApiModel(model, existingById.get(model.raw.id), pricingContext),
-      );
+      const models = prepared
+        .filter((model) => !excluded.has(model.raw.id))
+        .map((model) =>
+          materializeNewApiModel(model, existingById.get(model.raw.id), pricingContext),
+        );
       const incomingIds = new Set(models.map((model) => model.id));
       const modelsToInsert: AiProviderModelListItem[] = [];
 
@@ -1154,12 +1161,15 @@ export class NewApiService {
     };
 
     if (typeof this.db.transaction === 'function') {
-      return this.db.transaction((transaction) => reconcile(transaction as LobeChatDatabase));
+      return this.db.transaction(async (transaction) => {
+        const database = transaction as LobeChatDatabase;
+        return reconcile(database, await catalog.settingsForSync(database));
+      });
     }
 
     // Minimal in-memory database doubles used by focused unit tests do not expose
     // transactions. Production databases always take the branch above.
-    return reconcile(this.db);
+    return reconcile(this.db, await catalog.settings());
   }
 
   private async syncModelsForBinding(binding: UsableNewApiBindingItem, key: string) {
@@ -1191,11 +1201,6 @@ export class NewApiService {
     if (!rawModels) {
       rawModels = await this.client.listModels(key);
     }
-
-    // Apply the AIHUB_HIDDEN_MODELS deny-list before persisting, so models that
-    // are still enabled in the Aihub abilities table but should no longer be
-    // offered are dropped on the next sync and disappear after refresh.
-    rawModels = rawModels.filter((model) => !isAihubModelHidden(model.id));
 
     const [prepared, pricingContext] = await Promise.all([
       prepareNewApiModels(rawModels),
@@ -1333,7 +1338,7 @@ export class NewApiService {
   }
 
   /** Independent read path: never provisions credentials or mutates user/provider models. */
-  async readAuthorizedModelSnapshot() {
+  async readAuthorizedModelSnapshot(settings: ModelCatalogSettings) {
     const binding = await this.getBindingOrThrow({ autoBind: false });
     if (!binding.managedTokenId)
       throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'No bound Aihub token' });
@@ -1349,7 +1354,8 @@ export class NewApiService {
       }),
       new AiModelModel(this.db, this.userId).getModelListByProviderId(ModelProvider.NewAPI),
     ]);
-    const ids = accessibleIds.filter((id) => !isAihubModelHidden(id));
+    const excluded = getExcludedAihubModelIds(settings);
+    const ids = accessibleIds.filter((id) => !excluded.has(id));
     if (!ids.length) return [];
     const token = await bridge.findManagedTokenById(binding.newApiUserId, binding.managedTokenId);
     if (!account || !token?.key || token.user_id !== binding.newApiUserId)
@@ -1384,7 +1390,7 @@ export class NewApiService {
       user_id: binding.newApiUserId,
       name: getManagedTokenName(),
     });
-    if (!ids.includes(modelId) || isAihubModelHidden(modelId))
+    if (!ids.includes(modelId))
       throw new TRPCError({
         code: 'FORBIDDEN',
         message: 'Aihub model is no longer available to this user',

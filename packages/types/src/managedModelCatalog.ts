@@ -74,14 +74,29 @@ export interface ManagedModelRevision {
   reason: string;
 }
 export interface ModelCatalogSettings {
+  availability?: ManagedModelAvailability[];
+  availabilityVersion?: number;
   enabled: boolean;
   generation: string;
   silentRefreshEnabled: boolean;
 }
+export interface ManagedModelAvailability {
+  modelId: string;
+  retired: boolean;
+  updatedAt: string;
+  updatedBy: string;
+  version: number;
+}
 export type SilentModelCatalogResponse =
   | { status: 'disabled' | 'unavailable' }
   | { status: 'unchanged'; revision: string; stale: boolean }
-  | { status: 'changed'; revision: string; stale: boolean; models: EnabledAiModel[] };
+  | {
+      status: 'changed';
+      availabilityVersion?: number;
+      revision: string;
+      stale: boolean;
+      models: EnabledAiModel[];
+    };
 
 export const createEmptyModelDescription = (modelId: string): ManagedModelDescription =>
   ManagedModelDescriptionSchema.parse({

@@ -329,6 +329,7 @@ export class AiProviderActionImpl {
     revision: string,
     userId: string,
     signal?: AbortSignal,
+    availabilityVersion = 0,
   ): Promise<boolean> => {
     const current = this.#get();
     const providers = current.enabledAiProviders ?? [];
@@ -338,10 +339,16 @@ export class AiProviderActionImpl {
       buildImageProviderModelLists(providers, enabled),
       buildVideoProviderModelLists(providers, enabled),
     ]);
-    if (signal?.aborted || useUserStore.getState().user?.id !== userId) return false;
+    if (
+      signal?.aborted ||
+      useUserStore.getState().user?.id !== userId ||
+      availabilityVersion < (this.#get().aihubAvailabilityVersion ?? 0)
+    )
+      return false;
     this.#set(
       {
-        silentModelCatalog: { models, revision, userId },
+        aihubAvailabilityVersion: availabilityVersion,
+        silentModelCatalog: { availabilityVersion, models, revision, userId },
         enabledAiModels: enabled,
         enabledChatModelList: chat,
         enabledImageModelList: image,
@@ -540,8 +547,14 @@ export class AiProviderActionImpl {
 
         if (isLogin) {
           const data = await aiProviderService.getAiProviderRuntimeState();
-          const overlay = this.#get().silentModelCatalog;
-          if (overlay && overlay.userId === useUserStore.getState().user?.id) {
+          const cached = this.#get().silentModelCatalog;
+          const overlay =
+            cached &&
+            cached.userId === useUserStore.getState().user?.id &&
+            cached.availabilityVersion >= (data.aihubAvailabilityVersion ?? 0)
+              ? cached
+              : undefined;
+          if (overlay) {
             data.enabledAiModels = mergeSilentCatalogModels(data.enabledAiModels, overlay.models);
             const forKind = (kind: string) =>
               data.enabledAiProviders.filter((provider) =>
@@ -564,6 +577,7 @@ export class AiProviderActionImpl {
 
           return {
             ...data,
+            aihubAvailabilityVersion: overlay?.availabilityVersion ?? data.aihubAvailabilityVersion,
             silentCatalogRevision: overlay?.revision,
             builtinAiModelList,
             enabledChatModelList,
@@ -625,10 +639,16 @@ export class AiProviderActionImpl {
       {
         onSuccess: (data) => {
           if (!data) return;
-          const overlay = this.#get().silentModelCatalog;
+          const current = this.#get();
+          const overlay = current.silentModelCatalog;
+          const supersedesOverlay =
+            overlay && (data.aihubAvailabilityVersion ?? 0) > overlay.availabilityVersion;
           if (
-            data.silentCatalogRevision !== overlay?.revision &&
-            (data.silentCatalogRevision || overlay)
+            isLogin &&
+            ((data.aihubAvailabilityVersion ?? 0) < (current.aihubAvailabilityVersion ?? 0) ||
+              (!supersedesOverlay &&
+                data.silentCatalogRevision !== overlay?.revision &&
+                (data.silentCatalogRevision || overlay)))
           ) {
             // A normal SWR read started before a newer silent snapshot was applied.
             this.#set({ aiProviderRuntimeConfig: data.runtimeConfig }, false, 'runtimeConfigOnly');
@@ -637,6 +657,7 @@ export class AiProviderActionImpl {
 
           this.#set(
             {
+              aihubAvailabilityVersion: data.aihubAvailabilityVersion,
               aiProviderRuntimeConfig: data.runtimeConfig,
               builtinAiModelList: data.builtinAiModelList,
               enabledAiModels: data.enabledAiModels,
@@ -645,6 +666,7 @@ export class AiProviderActionImpl {
               enabledImageModelList: data.enabledImageModelList || [],
               enabledVideoModelList: data.enabledVideoModelList || [],
               isInitAiProviderRuntimeState: true,
+              ...((supersedesOverlay || !isLogin) && { silentModelCatalog: undefined }),
             },
             false,
             'useFetchAiProviderRuntimeState',

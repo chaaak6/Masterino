@@ -11,6 +11,7 @@ import {
 export interface AIProviderState {
   activeAiProvider?: string;
   activeProviderModelList: any[];
+  aihubAvailabilityVersion?: number;
   aiProviderConfigUpdatingIds: string[];
   /**
    * Map of provider id to provider detail, used for caching provider details
@@ -29,7 +30,12 @@ export interface AIProviderState {
   initAiProviderList: boolean;
   isInitAiProviderRuntimeState: boolean;
   providerSearchKeyword: string;
-  silentModelCatalog?: { models: EnabledAiModel[]; revision: string; userId: string };
+  silentModelCatalog?: {
+    availabilityVersion: number;
+    models: EnabledAiModel[];
+    revision: string;
+    userId: string;
+  };
 }
 
 export const initialAIProviderState: AIProviderState = {

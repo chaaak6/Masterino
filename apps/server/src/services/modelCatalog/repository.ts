@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  ManagedModelAvailability,
   ManagedModelDescription,
   ManagedModelRecord,
   ManagedModelRevision,
@@ -34,6 +35,29 @@ export class ModelCatalogRepository {
       .where(and(eq(systemConfigs.key, configKey), eq(systemConfigs.scope, 'global')));
     return { ...defaultCatalogSettings, ...row?.value };
   }
+
+  async lockSettings(db: LobeChatDatabase, mode: 'share' | 'update') {
+    // Also serialize the first availability change with a concurrent sync.
+    const query = () =>
+      db
+        .select()
+        .from(systemConfigs)
+        .where(and(eq(systemConfigs.key, configKey), eq(systemConfigs.scope, 'global')))
+        .for(mode);
+    const [existing] = await query();
+    if (existing) return existing;
+    await db
+      .insert(systemConfigs)
+      .values({ key: configKey, scope: 'global', value: { ...defaultCatalogSettings } })
+      .onConflictDoNothing();
+    const [created] = await query();
+    return created;
+  }
+
+  async settingsForSync(db: LobeChatDatabase): Promise<ModelCatalogSettings> {
+    const row = await this.lockSettings(db, 'share');
+    return { ...defaultCatalogSettings, ...row.value };
+  }
   list = async (): Promise<ManagedModelRecord[]> =>
     this.db.select().from(managedModelCatalog).orderBy(managedModelCatalog.modelId);
   history = async (modelId: string): Promise<ManagedModelRevision[]> =>
@@ -62,24 +86,56 @@ export class ModelCatalogRepository {
   private async bump(
     db: LobeChatDatabase,
     actor: string,
-    patch: Partial<ModelCatalogSettings> = {},
+    patch:
+      | Partial<ModelCatalogSettings>
+      | ((settings: ModelCatalogSettings) => Partial<ModelCatalogSettings>) = {},
   ) {
-    // Lock one shared row so publication and switches never lose each other's changes.
-    await db
-      .insert(systemConfigs)
-      .values({ key: configKey, scope: 'global', value: { ...defaultCatalogSettings } })
-      .onConflictDoNothing();
-    const [row] = await db
-      .select()
-      .from(systemConfigs)
-      .where(and(eq(systemConfigs.key, configKey), eq(systemConfigs.scope, 'global')))
-      .for('update');
-    const value = { ...defaultCatalogSettings, ...row.value, ...patch, generation: randomUUID() };
+    const row = await this.lockSettings(db, 'update');
+    const settings = { ...defaultCatalogSettings, ...row.value };
+    const changes = typeof patch === 'function' ? patch(settings) : patch;
+    const value = { ...settings, ...changes, generation: randomUUID() };
     await db
       .update(systemConfigs)
       .set({ value, updatedBy: actor, updatedAt: new Date() })
       .where(eq(systemConfigs.id, row.id));
     return value;
+  }
+
+  async setAvailability(
+    actor: string,
+    input: { modelId: string; expectedVersion: number; retired: boolean; reason: string },
+  ): Promise<ManagedModelAvailability> {
+    const { modelId, expectedVersion, retired, reason } = input;
+    const entry = {
+      modelId,
+      retired,
+      updatedAt: new Date().toISOString(),
+      updatedBy: actor,
+      version: expectedVersion + 1,
+    };
+    return this.db.transaction(async (tx) => {
+      const db = tx as LobeChatDatabase;
+      await this.bump(db, actor, ({ availability = [], availabilityVersion = 0 }) => {
+        const existing = availability.find((item) => item.modelId === modelId);
+        if ((existing?.version ?? 0) !== expectedVersion)
+          throw new TRPCError({ code: 'CONFLICT', message: '模型状态已变化，请刷新后重试。' });
+        return {
+          availability: [...availability.filter((item) => item.modelId !== modelId), entry],
+          availabilityVersion: availabilityVersion + 1,
+        };
+      });
+      await this.audit(
+        db,
+        actor,
+        retired ? 'model_catalog.retire' : 'model_catalog.restore',
+        modelId,
+        {
+          reason,
+          version: entry.version,
+        },
+      );
+      return entry;
+    });
   }
   async updateSettings(
     actor: string,
