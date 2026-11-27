@@ -6,6 +6,10 @@ import { AiProviderModel } from '@/database/models/aiProvider';
 import { AiInfraRepos } from '@/database/repositories/aiInfra';
 import { getServerGlobalConfig } from '@/server/globalConfig';
 import { KeyVaultsGateKeeper } from '@/server/modules/KeyVaultsEncrypt';
+import {
+  defaultCatalogSettings,
+  ModelCatalogRepository,
+} from '@/server/services/modelCatalog/repository';
 import { type AiProviderDetailItem, type AiProviderRuntimeState } from '@/types/aiProvider';
 
 import { aiProviderRouter } from '../aiProvider';
@@ -49,6 +53,9 @@ describe('aiProviderRouter', () => {
   beforeEach(() => {
     vi.stubEnv('MASTERINO_MODEL_CATALOG_ENABLED', 'false');
     vi.clearAllMocks();
+    vi.spyOn(ModelCatalogRepository.prototype, 'settings').mockResolvedValue(
+      defaultCatalogSettings,
+    );
 
     vi.mocked(getServerGlobalConfig).mockReturnValue({
       aiProvider: {},
@@ -57,7 +64,10 @@ describe('aiProviderRouter', () => {
     vi.mocked(KeyVaultsGateKeeper.initWithEnvKey).mockResolvedValue(mockGateKeeper as any);
   });
 
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.mocked(ModelCatalogRepository.prototype.settings).mockRestore();
+  });
 
   const createMockContext = () => ({
     userId: mockUserId,
@@ -199,9 +209,37 @@ describe('aiProviderRouter', () => {
       const caller = aiProviderRouter.createCaller(createMockContext());
       const result = await caller.getAiProviderRuntimeState({});
 
-      expect(result).toEqual(mockRuntimeState);
+      expect(result).toEqual({ ...mockRuntimeState, aihubAvailabilityVersion: 0 });
       expect(mockGetProvider).not.toHaveBeenCalled();
       expect(mockGetState).toHaveBeenCalledWith(KeyVaultsGateKeeper.getUserKeyVaults);
+    });
+
+    it('drops a retired Aihub model from the initial runtime list even with descriptions disabled', async () => {
+      vi.mocked(ModelCatalogRepository.prototype.settings).mockResolvedValue({
+        ...defaultCatalogSettings,
+        availability: [
+          {
+            modelId: 'old-chat',
+            retired: true,
+            updatedAt: '2026-11-27T00:00:00Z',
+            updatedBy: 'admin',
+            version: 1,
+          },
+        ],
+        availabilityVersion: 1,
+      });
+      const retired = { id: 'old-chat', enabled: true, providerId: 'newapi', type: 'chat' };
+      const stillEnabled = { ...retired, id: 'new-chat' };
+      const otherProvider = { ...retired, providerId: 'custom' };
+      vi.mocked(AiInfraRepos).prototype.getAiProviderRuntimeState = vi.fn().mockResolvedValue({
+        ...mockRuntimeState,
+        enabledAiModels: [retired, stillEnabled, otherProvider],
+      });
+
+      const caller = aiProviderRouter.createCaller(createMockContext());
+      const result = await caller.getAiProviderRuntimeState({});
+      expect(result.aihubAvailabilityVersion).toBe(1);
+      expect(result.enabledAiModels).toEqual([stillEnabled, otherProvider]);
     });
   });
 
