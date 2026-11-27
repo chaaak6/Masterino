@@ -22,7 +22,7 @@ const vercelConfig = {
 };
 const nextConfig = defineConfig({
   ...(isVercel ? vercelConfig : {}),
-  ...(Number.isInteger(buildCpus) && buildCpus > 0 ? { experimental: { cpus: buildCpus } } : {}),
+  ...(Number.isInteger(buildCpus) && buildCpus > 0 ? { experimental: { cpus: buildCpus, turbopackMemoryLimit: 2 * 1024 * 1024 * 1024 } } : {}),
 });
 
 if (process.env.NODE_ENV === 'development' && process.env.MASTERINO_DEV_ENV === 'local') {

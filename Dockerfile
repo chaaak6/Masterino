@@ -59,7 +59,9 @@ FROM base AS builder
 ARG USE_CN_MIRROR
 
 # Node
-ENV NODE_OPTIONS="--max-old-space-size=8192"
+ENV NODE_OPTIONS="--max-old-space-size=4096" \
+    RAYON_NUM_THREADS="2" \
+    UV_THREADPOOL_SIZE="2"
 
 WORKDIR /app
 
