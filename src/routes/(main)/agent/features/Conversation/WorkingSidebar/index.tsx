@@ -90,10 +90,12 @@ const AgentWorkingSidebar = memo(() => {
   const isHetero = useAgentStore(agentSelectors.isCurrentAgentHeterogeneous);
   const workspace = useEffectiveWorkspace(activeAgentId);
   const workingDirectory = workspace.cwd;
-  const filesDeviceId = workspace.target === 'device' ? workspace.targetDeviceId : undefined;
+  const usesLocalFiles = isDesktop && workspace.target === 'local';
+  const usesDeviceFiles =
+    workspace.target === 'device' || (!isDesktop && workspace.target === 'local');
+  const filesDeviceId = usesDeviceFiles ? workspace.targetDeviceId : undefined;
   const filesAvailable =
-    !!workingDirectory &&
-    (!!filesDeviceId || (workspace.target === 'local' && isLocalSystemEnabled));
+    !!workingDirectory && (!!filesDeviceId || (usesLocalFiles && isLocalSystemEnabled));
   // Effective target device for git ops — bound device for remote agents, this
   // machine otherwise. Resolved the same way WorkingDirectoryPicker / GitStatus do.
   const agencyConfig = useAgentStore((s) =>
@@ -107,7 +109,6 @@ const AgentWorkingSidebar = memo(() => {
     isHetero,
   });
 
-  // Running against a bound device (remote, or this machine as a device): file
   // Git review and resources can use the agent's configured device.
   const isDeviceMode = effectiveTarget === 'device' && !!agencyConfig?.boundDeviceId;
   // `targetDeviceId` also identifies the local desktop for per-device working

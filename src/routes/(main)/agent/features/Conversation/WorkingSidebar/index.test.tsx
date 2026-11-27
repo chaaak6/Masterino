@@ -77,9 +77,22 @@ describe('Agent workspace file panel', () => {
     expect(screen.getByRole('status')).toHaveTextContent('local: /workspace/docs');
   });
 
+  it('routes a desktop-local topic through its bound device when viewed on the web', () => {
+    Object.assign(workspace, {
+      cwd: '/workspace/docs',
+      target: 'local',
+      targetDeviceId: 'desktop-device',
+    });
+    render(<WorkingSidebar />);
+    expect(screen.getByRole('button', { name: 'workingPanel.files.title' })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('desktop-device: /workspace/docs');
+  });
+
   it('does not display a file panel for an unrouted workspace', () => {
     Object.assign(workspace, { target: 'device', targetDeviceId: 'device-b' });
     render(<WorkingSidebar />);
-    expect(screen.queryByRole('button', { name: 'workingPanel.files.title' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'workingPanel.files.title' }),
+    ).not.toBeInTheDocument();
   });
 });
